@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "servosity-mcp",
   "display_name": "Servosity",
-  "version": "4.10.1",
+  "version": "0.1.0",
   "description": "Every Servosity backup and DR feature for MSP partners, plus a local fleet mirror, snapshot history, and cross-engine rollups the partner portal can't show.",
   "author": {
     "name": "Servosity Inc."

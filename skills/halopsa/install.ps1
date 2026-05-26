@@ -1,6 +1,6 @@
 # install.ps1 - install halopsa-cli and halopsa-mcp on Windows.
 #
-# Pulls prebuilt binaries from the latest GitHub Release of msp-skills.
+# Pulls prebuilt binaries from this skill's latest GitHub Release (halopsa-v*).
 # Both the CLI and the MCP server are installed in one shot.
 #
 # Env vars:
@@ -19,7 +19,13 @@ $Repo  = if ($env:MSP_SKILLS_REPO)  { $env:MSP_SKILLS_REPO }  else { "msp-skills
 $ReleaseBase = if ($env:MSP_SKILLS_RELEASE_BASE) {
   $env:MSP_SKILLS_RELEASE_BASE
 } else {
-  "https://github.com/$Owner/$Repo/releases/latest/download"
+  # Each skill is versioned/tagged independently (halopsa-vX.Y.Z, servosity-vX.Y.Z),
+  # so resolve THIS skill's latest release rather than the repo-wide /releases/latest/
+  # (GitHub allows only one "latest" per repo). The releases API returns newest-first.
+  $rels = Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repo/releases?per_page=100" -UseBasicParsing
+  $tag = ($rels | Where-Object { $_.tag_name -like "$Skill-v*" } | Select-Object -First 1).tag_name
+  if (-not $tag) { throw "No $Skill-v* release found in $Owner/$Repo. Has the first release been published?" }
+  "https://github.com/$Owner/$Repo/releases/download/$tag"
 }
 $InstallDir = if ($env:INSTALL_DIR) { $env:INSTALL_DIR } else { "$env:LOCALAPPDATA\Programs\msp-skills" }
 
