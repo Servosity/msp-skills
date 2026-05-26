@@ -1,0 +1,15 @@
+# Code owners for msp-skills. These owners are requested for review on PRs that
+# touch the matching paths. See:
+# https://docs.github.com/en/repositories/managing-your-repositories-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repo.
+*                       @Servosity
+
+# Release, CI, and catalog tooling - changes here affect every skill.
+/.github/                @Servosity
+/tools/                  @Servosity
+/catalog.json            @Servosity
+
+# Seed skills maintained by Servosity.
+/skills/halopsa/         @Servosity
+/skills/servosity/       @Servosity

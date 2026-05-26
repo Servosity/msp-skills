@@ -1,0 +1,179 @@
+# ===== macOS =====
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.TemporaryItems
+.apdisk
+
+# ===== Windows =====
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.stackdump
+
+# ===== Linux =====
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ===== Editors and IDEs =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*.bak
+*.tmp
+.\#*
+\#*\#
+.project
+.classpath
+.settings/
+nbproject/
+*.sublime-workspace
+*.sublime-project
+
+# ===== Go =====
+# Compiled binaries (we ship via Releases, never check into git)
+bin/
+build/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.out
+coverage.html
+# Skill CLI / MCP binaries (extensionless on macOS/Linux). Catches anything that
+# matches the *-cli or *-mcp convention so contributors cannot accidentally
+# commit a 20+ MB binary into a skill directory.
+skills/*/*-cli
+skills/*/*-mcp
+skills/*/*-cli-*
+skills/*/*-mcp-*
+# Locally-built binaries at a vendored Go module root (skills/<skill>/cli/).
+# The Go source under cli/ (including cmd/<name>-pp-cli/ dirs) IS tracked; only
+# build OUTPUTS are ignored. Paths are anchored to the module root so they never
+# match the cmd/ source directories. The Makefile emits to bin/ (already ignored).
+skills/halopsa/cli/halopsa-pp-cli
+skills/halopsa/cli/halopsa-pp-mcp
+skills/halopsa/cli/halopsa-cli
+skills/halopsa/cli/halopsa-mcp
+skills/servosity/cli/servosity-pp-cli
+skills/servosity/cli/servosity-pp-mcp
+skills/servosity/cli/servosity-cli
+skills/servosity/cli/servosity-mcp
+*.mcpb
+# Go workspace
+go.work
+go.work.sum
+# Vendor only if anyone runs `go mod vendor`
+vendor/
+
+# ===== Python (uv-based) =====
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+*.egg
+.eggs/
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# ===== Node (for catalog.yml workflow tooling) =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm/
+
+# ===== Local databases shipped with HaloPSA + Servosity =====
+# Both CLIs cache state in SQLite. We never commit a database file.
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+
+# ===== Secrets and config =====
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.pfx
+.netrc
+.aws/
+.config/gcloud/
+
+# ===== Logs =====
+*.log
+logs/
+log/
+*.log.*
+
+# ===== Caches and state =====
+.cache/
+.tmp/
+tmp/
+.printing-press.json
+.printing-press-*.json
+.manuscripts/
+dogfood-results.json
+workflow-verify-report.json
+tools-manifest.json
+spec.json
+
+# ===== Test artifacts =====
+*.lcov
+test-results/
+playwright-report/
+test-output/
+
+# ===== AI agent local state =====
+.claude/
+.codex/
+.cursor/
+.aider*
+
+# ===== Misc =====
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.iso
+*.dmg
+.history/

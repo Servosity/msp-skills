@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+      - "halopsa-v*.*.*"
+      - "servosity-v*.*.*"
+
+permissions:
+  contents: write
+
+env:
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  # The build matrix is COMPUTED from the repo (tools/skills.json + introspection
+  # of each skills/<slug>/cli/). Adding a skill needs no edit here.
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.gen.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Compute build matrix
+        id: gen
+        run: echo "matrix=$(python3 tools/release_matrix.py)" >> "$GITHUB_OUTPUT"
+
+  # Create the GitHub Release once, before the matrix build jobs upload to it.
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; reusing it."
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          fi
+
+  build:
+    needs: [prepare, create-release]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.skill.dir }}/go.mod
+
+      - name: Build and upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          GOOS: ${{ matrix.target.goos }}
+          GOARCH: ${{ matrix.target.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          skill="${{ matrix.skill.name }}"
+          # Skill-scoped tags (halopsa-v*, servosity-v*) build only the matching
+          # skill. A plain v*.*.* tag builds both. Asset names match exactly what
+          # skills/<skill>/install.sh and install.ps1 download.
+          case "$TAG" in
+            halopsa-*)   [ "$skill" = "halopsa" ]   || { echo "Tag $TAG: skipping $skill."; exit 0; } ;;
+            servosity-*) [ "$skill" = "servosity" ] || { echo "Tag $TAG: skipping $skill."; exit 0; } ;;
+          esac
+
+          ext=""
+          [ "$GOOS" = "windows" ] && ext=".exe"
+          suffix="${GOOS}-${GOARCH}${ext}"
+          cli="${{ matrix.skill.cli_bin }}-${suffix}"
+          mcp="${{ matrix.skill.mcp_bin }}-${suffix}"
+
+          # Derive the semver from the tag (v4.10.1 / halopsa-v4.10.1 -> 4.10.1)
+          # and stamp it into the CLI, matching the prior goreleaser config.
+          version="${TAG##*v}"
+
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          (
+            cd "${{ matrix.skill.dir }}"
+            go build -trimpath -ldflags "-s -w -X ${{ matrix.skill.module }}/internal/cli.version=${version}" -o "$GITHUB_WORKSPACE/dist/${cli}" "${{ matrix.skill.cli_cmd }}"
+            go build -trimpath -ldflags "-s -w" -o "$GITHUB_WORKSPACE/dist/${mcp}" "${{ matrix.skill.mcp_cmd }}"
+          )
+
+          cd "$GITHUB_WORKSPACE/dist"
+          for f in "$cli" "$mcp"; do
+            shasum -a 256 "$f" > "${f}.sha256"
+          done
+
+          # --clobber makes re-runs idempotent. Each matrix job uploads only its
+          # own four files, so concurrent jobs never collide on the same asset.
+          gh release upload "$TAG" "$cli" "$mcp" "${cli}.sha256" "${mcp}.sha256" --clobber

@@ -1,0 +1,85 @@
+# Contributing to msp-skills
+
+Thanks for considering a contribution. `msp-skills` is built so MSP owners and
+their teams can use AI agents (Claude Code, Codex, Claude Desktop, ChatGPT
+Desktop) to operate the systems their MSP runs. If your MSP uses a system not
+yet covered, a PR is the way to add it.
+
+We co-build new Skills and MCP servers live in the weekly Build Session at
+[compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+You can bring a vendor we have not covered and we will pair on it on Thursday.
+
+## License and sign-off
+
+This project is licensed under the [Apache License, Version 2.0](./LICENSE).
+By contributing, you agree your contribution is licensed under the same terms.
+
+We use the [Developer Certificate of Origin (DCO)](https://developercertificate.org)
+rather than a Contributor License Agreement. Every commit must be signed off:
+
+```
+git commit -s -m "your message"
+```
+
+The `-s` flag appends a `Signed-off-by:` line that asserts you have the right
+to submit the code under the project license. CI enforces this on every PR.
+
+## Trademark guidance for contributors
+
+When contributing a Skill or MCP for a third-party vendor's API:
+
+- Reference the vendor's name **descriptively** ("the HaloPSA API", "the
+  ConnectWise REST endpoint"). Do not use language that implies the vendor
+  endorses, sponsors, or partnered on the work.
+- Do not include vendor logos. Text references only.
+- Do not use words like "Official", "Certified", or "Partner" in the skill
+  name, description, or marketing copy.
+- Include the non-affiliation banner at the top of your skill's README
+  (template in [docs/contributing.md](./docs/contributing.md)).
+- "Servosity" and "Compounding Teams" are trademarks of Servosity Inc. Do not
+  use them in your skill name, fork branding, or marketing of derivative work.
+
+See [TRADEMARKS.md](./TRADEMARKS.md) for the full statement.
+
+## What a Skill PR must include
+
+Hard requirements (CI enforces; PR will not merge without these):
+
+- [ ] DCO sign-off on every commit (`git commit -s`).
+- [ ] `skills/<vendor>/SKILL.md` with frontmatter fields: `name`, `description`,
+      `allowed-tools`, `author`, `license`, `vendor`.
+- [ ] `skills/<vendor>/README.md` with the non-affiliation banner as the
+      first content after the H1.
+- [ ] `skills/<vendor>/install.sh` (macOS / Linux) and
+      `skills/<vendor>/install.ps1` (Windows). Markdown-only skills can omit
+      these but must say so in the README.
+- [ ] `skills/<vendor>/mcp-install.md` if the skill ships an MCP server.
+- [ ] `catalog.json` regenerated (CI does this; do not hand-edit).
+
+Optional but encouraged:
+
+- [ ] `skills/<vendor>/pain-point.md` - one paragraph on what MSP pain this
+      Skill or MCP closes, ideally citing a real Reddit thread, X post, or
+      community discussion.
+- [ ] `skills/<vendor>/governance.md` - which permissions the Skill needs and
+      why an MSP owner should be comfortable granting them.
+
+## Style and language
+
+- No em-dashes anywhere in committed files. Use ` - ` (hyphen with spaces), a
+  colon, or parentheses instead.
+- Use the words MSPs actually search for. Say "Claude Code Skill", "Skill",
+  "MCP server", "MCP". Avoid insider jargon like "agent-native CLI" in
+  user-facing copy.
+- Do not compare to or name competing distribution platforms in our READMEs or
+  docs. Describe what `msp-skills` is on its own terms; let our work stand on
+  its own.
+
+## Reporting bugs and asking questions
+
+- Bug? Open an issue with the skill name, your OS, your agent (Claude Code,
+  Codex, Claude Desktop, ChatGPT Desktop), and the exact error.
+- Feature request? Open an issue or bring it to the next Build Session.
+- Security concern? Email security@servosity.com rather than filing publicly.
+
+Thank you for helping make MSP work less painful and more compounding.

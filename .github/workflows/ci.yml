@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  guards:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so the DCO range check works on PRs
+
+      - name: Repo hygiene guards (placeholder, em-dash, personal paths)
+        run: bash tools/ci_guards.sh
+
+      - name: Skill contract (frontmatter + required files)
+        run: python3 tools/check_skill_contract.py
+
+      - name: Markdown local links
+        run: python3 tools/check_md_links.py
+
+      - name: DCO sign-off (PR commits)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: bash tools/check_dco.sh
+
+      - name: ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          mapfile -t scripts < <(git ls-files '*.sh')
+          if [ ${#scripts[@]} -gt 0 ]; then
+            shellcheck "${scripts[@]}"
+          fi
+
+      - name: Secret scan (gitleaks)
+        env:
+          GL_VERSION: "8.18.4"
+        run: |
+          set -euo pipefail
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${GL_VERSION}/gitleaks_${GL_VERSION}_linux_x64.tar.gz"
+          curl -fsSL "$url" -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks detect --no-git --source . --config .gitleaks.toml --redact --no-banner
+
+  # Skill build matrix is computed from the repo, so a new skill is built+vetted
+  # with no edit here (mirrors the release workflow).
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.gen.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Compute skill matrix
+        id: gen
+        run: echo "matrix=$(python3 tools/release_matrix.py --skills-only)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.skill.dir }}/go.mod
+
+      - name: Build and vet
+        run: |
+          cd ${{ matrix.skill.dir }}
+          go build ./...
+          go vet ./...

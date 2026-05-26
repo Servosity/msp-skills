@@ -1,0 +1,24 @@
+{
+  "owner": "Servosity",
+  "repo": "msp-skills",
+  "skills": {
+    "halopsa": {
+      "system": "HaloPSA, HaloITSM, HaloCRM",
+      "status": "beta",
+      "cli_binary": "halopsa-cli",
+      "mcp_binary": "halopsa-mcp",
+      "vendor": "HaloPSA",
+      "vendor_trademark_owner": "Halo Service Solutions Ltd.",
+      "first_party": false
+    },
+    "servosity": {
+      "system": "Servosity backup and DR",
+      "status": "beta",
+      "cli_binary": "servosity-cli",
+      "mcp_binary": "servosity-mcp",
+      "vendor": "Servosity",
+      "vendor_trademark_owner": "Servosity Inc.",
+      "first_party": true
+    }
+  }
+}

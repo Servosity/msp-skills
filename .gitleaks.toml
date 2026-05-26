@@ -1,0 +1,12 @@
+# gitleaks configuration for msp-skills.
+# Extends the default ruleset and allowlists only known synthetic test fixtures
+# in the vendored CLI source. Everything else in the tree is scanned normally.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Synthetic JWT fixtures in the vendored CLI tests (not credentials; built from repeated characters, see the test comments)."
+paths = [
+  '''skills/.*/cli/internal/cliutil/jwtshape_test\.go''',
+]

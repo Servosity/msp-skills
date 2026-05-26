@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "servosity-mcp",
+  "display_name": "Servosity",
+  "version": "4.10.1",
+  "description": "Every Servosity backup and DR feature for MSP partners, plus a local fleet mirror, snapshot history, and cross-engine rollups the partner portal can't show.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/servosity-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/servosity-mcp",
+      "args": [],
+      "env": {
+        "SERVOSITY_MSP_TOKEN": "${user_config.servosity_msp_token}"
+      }
+    }
+  },
+  "user_config": {
+    "servosity_msp_token": {
+      "type": "string",
+      "title": "SERVOSITY_MSP_TOKEN",
+      "description": "Sets SERVOSITY_MSP_TOKEN for the Servosity MCP server. Get your partner API token from the Servosity partner portal.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

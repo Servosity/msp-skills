@@ -1,0 +1,14 @@
+msp-skills
+Copyright 2026 Servosity Inc. and msp-skills contributors
+
+This product includes software developed by Servosity Inc.
+(https://www.servosity.com/).
+
+The CLIs and MCP servers distributed here are generated and built using the
+Printing Press toolchain by Matt Van Horn
+(https://github.com/mvanhorn/cli-printing-press), used here under its
+respective license.
+
+This product is not affiliated with, endorsed by, or sponsored by any of the
+third-party vendors whose APIs are wrapped by skills in this repository.
+See TRADEMARKS.md for the full vendor non-affiliation statement.

@@ -1,0 +1,40 @@
+name: Regenerate catalog
+
+on:
+  pull_request:
+    paths:
+      - "skills/**"
+      - "tools/build-catalog.py"
+      - ".github/workflows/catalog.yml"
+  push:
+    branches: [main]
+    paths:
+      - "skills/**"
+
+permissions:
+  contents: read
+
+jobs:
+  catalog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Regenerate catalog.json and README catalog table
+        run: |
+          python3 tools/build-catalog.py
+
+      - name: Check for drift
+        run: |
+          if ! git diff --exit-code catalog.json README.md; then
+            echo ""
+            echo "::error::catalog.json or the README catalog table is stale."
+            echo "::error::Run 'python3 tools/build-catalog.py' locally and commit the result."
+            exit 1
+          fi
