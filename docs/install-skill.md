@@ -16,7 +16,7 @@ The install scripts in each skill directory drop the binaries on your PATH. The 
 ### 1. Clone or download msp-skills
 
 ```bash
-git clone https://github.com/Servosity/msp-skills.git
+git clone https://github.com/servosity/msp-skills.git
 cd msp-skills
 ```
 

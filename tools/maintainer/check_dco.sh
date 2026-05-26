@@ -8,7 +8,7 @@
 # DCO: https://developercertificate.org - `git commit -s` appends the trailer.
 
 set -uo pipefail
-cd "$(dirname "$0")/.." || exit 1
+cd "$(dirname "$0")/../.." || exit 1
 
 if [ -n "${BASE:-}" ] && [ -n "${HEAD:-}" ]; then
   range="${BASE}..${HEAD}"

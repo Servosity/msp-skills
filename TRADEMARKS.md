@@ -13,16 +13,12 @@ names solely under nominative fair use to indicate API compatibility.
 
 ## Vendors referenced in this repository
 
-The skills currently shipped in this repository wrap APIs from the following
-vendors. Each is independent of `msp-skills` and Servosity Inc.
+The skills currently shipped wrap APIs from HaloPSA / HaloITSM / HaloCRM and Servosity
+(backup and DR). Each vendor is independent of `msp-skills` and Servosity Inc., and each
+product name and trademark is the property of its respective owner.
 
-| Vendor | Trademark holder |
-| --- | --- |
-| HaloPSA, HaloITSM, HaloCRM | Halo Service Solutions Ltd. |
-| Servosity | Servosity Inc. |
-
-This list grows as new skills land. The CI workflow `catalog.yml` regenerates
-it from each skill's `manifest.json` on every PR that touches `skills/`.
+This list grows as new skills land. The CI workflow `catalog.yml` regenerates the catalog
+from each skill's `manifest.json` on every PR that touches `skills/`.
 
 ## Servosity and Compounding Teams
 

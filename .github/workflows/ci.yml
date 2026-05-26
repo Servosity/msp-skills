@@ -18,20 +18,20 @@ jobs:
           fetch-depth: 0 # full history so the DCO range check works on PRs
 
       - name: Repo hygiene guards (placeholder, em-dash, personal paths)
-        run: bash tools/ci_guards.sh
+        run: bash tools/maintainer/ci_guards.sh
 
       - name: Skill contract (frontmatter + required files)
-        run: python3 tools/check_skill_contract.py
+        run: python3 tools/maintainer/check_skill_contract.py
 
       - name: Markdown local links
-        run: python3 tools/check_md_links.py
+        run: python3 tools/maintainer/check_md_links.py
 
       - name: DCO sign-off (PR commits)
         if: github.event_name == 'pull_request'
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
-        run: bash tools/check_dco.sh
+        run: bash tools/maintainer/check_dco.sh
 
       - name: ShellCheck
         run: |
@@ -63,7 +63,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Compute skill matrix
         id: gen
-        run: echo "matrix=$(python3 tools/release_matrix.py --skills-only)" >> "$GITHUB_OUTPUT"
+        run: echo "matrix=$(python3 tools/maintainer/release_matrix.py --skills-only)" >> "$GITHUB_OUTPUT"
 
   build:
     needs: prepare

@@ -14,7 +14,7 @@ env:
   GH_REPO: ${{ github.repository }}
 
 jobs:
-  # The build matrix is COMPUTED from the repo (tools/skills.json + introspection
+  # The build matrix is COMPUTED from the repo (tools/maintainer/skills.json + introspection
   # of each skills/<slug>/cli/). Adding a skill needs no edit here.
   prepare:
     runs-on: ubuntu-latest
@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Compute build matrix
         id: gen
-        run: echo "matrix=$(python3 tools/release_matrix.py)" >> "$GITHUB_OUTPUT"
+        run: echo "matrix=$(python3 tools/maintainer/release_matrix.py)" >> "$GITHUB_OUTPUT"
 
   # Create the GitHub Release once, before the matrix build jobs upload to it.
   create-release:

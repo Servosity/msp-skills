@@ -13,9 +13,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 SKILLS_DIR = ROOT / "skills"
-REGISTRY = ROOT / "tools" / "skills.json"
+REGISTRY = ROOT / "tools" / "maintainer" / "skills.json"
 
 # os/arch build targets. Raw binaries are uploaded with these suffixes; the
 # install scripts download exactly these names. Windows assets carry `.exe`.

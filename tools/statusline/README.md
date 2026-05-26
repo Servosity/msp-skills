@@ -8,7 +8,7 @@ Two-line status line for Claude Code that shows model, cwd, git branch, date/tim
 
 The canonical source for this statusline is its own repository:
 
-> **[github.com/Servosity/claude-code-statusline](https://github.com/Servosity/claude-code-statusline)** (MIT licensed, Python)
+> **[github.com/servosity/claude-code-statusline](https://github.com/servosity/claude-code-statusline)** (MIT licensed, Python)
 
 That repo is the source of truth. The Windows-fixing PRs are merged there. This directory does not vendor a copy; it ships install scripts that download the latest `statusline.py` from the canonical raw URL at install time, so you always get the freshest cross-platform version.
 
@@ -17,13 +17,13 @@ That repo is the source of truth. The Windows-fixing PRs are merged there. This 
 **macOS / Linux:**
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/tools/statusline/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/tools/statusline/install.sh)
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/tools/statusline/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/tools/statusline/install.ps1 | iex
 ```
 
 The installer:
@@ -56,4 +56,4 @@ The install script always pulls `main` from the canonical repo. To refresh your 
 
 ## Reporting bugs
 
-Bugs in the statusline itself belong in the canonical repo: [github.com/Servosity/claude-code-statusline/issues](https://github.com/Servosity/claude-code-statusline/issues). Bugs in this repo's installer belong here.
+Bugs in the statusline itself belong in the canonical repo: [github.com/servosity/claude-code-statusline/issues](https://github.com/servosity/claude-code-statusline/issues). Bugs in this repo's installer belong here.

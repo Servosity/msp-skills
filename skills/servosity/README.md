@@ -12,13 +12,13 @@ The CLI wraps the Servosity REST API surface available to authenticated MSP part
 **macOS / Linux:**
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.ps1 | iex
 ```
 
 The installer drops both `servosity-cli` and `servosity-mcp` into your user bin path. Claude Code and Codex will discover the Skill via `SKILL.md` in this directory.

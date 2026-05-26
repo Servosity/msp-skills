@@ -1,6 +1,6 @@
 ---
 name: servosity
-description: "Every Servosity backup and DR feature for MSP partners, plus a local fleet mirror, snapshot history, and cross-engine rollups the partner portal can't show. Trigger phrases: `what needs my attention across clients`, `which backups are stale`, `what changed in my fleet overnight`, `build a QBR for Acme`, `reconcile my Servosity bill`, `triage backup issues`, `use servosity`, `run servosity`."
+description: "Every Servosity backup and DR feature for MSP partners, plus a local fleet mirror, snapshot history, and cross-engine rollups the partner portal can't show. Trigger phrases: `what needs my attention across clients`, `which backups are stale`, `what changed in my fleet overnight`, `show a client's backup status`, `find backups failing across engines`, `triage backup issues`, `use servosity`, `run servosity`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Servosity"
@@ -21,11 +21,11 @@ This skill drives the `servosity-cli` binary. **You must verify the CLI is insta
 
 1. macOS / Linux:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.sh)
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
    ```
 2. Windows (PowerShell):
    ```powershell
-   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.ps1 | iex
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.ps1 | iex
    ```
 3. Verify: `servosity-cli --version`
 4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.

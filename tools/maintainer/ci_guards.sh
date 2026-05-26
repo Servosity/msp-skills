@@ -9,7 +9,7 @@
 # covers the whole tree.
 
 set -uo pipefail
-cd "$(dirname "$0")/.." || exit 1
+cd "$(dirname "$0")/../.." || exit 1
 
 fail=0
 note() { echo "  - $1"; }
@@ -30,7 +30,9 @@ if git ls-files | xargs grep -nI "$token" 2>/dev/null; then
 fi
 
 echo "==> 2. No em-dash in human-authored files"
-if human_files | xargs grep -nI $'—' 2>/dev/null; then
+# Build U+2014 at runtime so this guard never contains the literal it bans.
+emdash=$(printf '\342\200\224')
+if human_files | xargs grep -nI "$emdash" 2>/dev/null; then
   note "em-dash found; use ' - ', a colon, or parentheses (CONTRIBUTING style rule)"
   fail=1
 fi

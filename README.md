@@ -17,15 +17,15 @@ Outcomes, not endpoints. With the two skills available today:
 | Pre-empt SLA breaches before a hand-off | halopsa | `halopsa-cli sla breaching --within 24h` |
 | Find stale backups across every client | servosity | `servosity-cli stale-backups --days 7` |
 | Build a per-client situational-awareness card | halopsa | `halopsa-cli client card "Acme Corp"` |
-| Catch unbilled backup drift before you invoice | servosity | `servosity-cli bill --reconcile` |
-| Generate QBR backup evidence in seconds | servosity | `servosity-cli qbr 4421 --format pdf` |
+| Triage what needs attention across every client | servosity | `servosity-cli attention` |
+| Pull a client's full backup picture for a ticket | servosity | `servosity-cli company show 4421` |
 | See what changed across your fleet overnight | servosity | `servosity-cli drift --from yesterday --to now` |
 
 ## Pick your agent
 
 | Your agent | What you install | How |
 | --- | --- | --- |
-| Claude Code | Claude Code Skill (plus CLI binary) | `bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.sh)` |
+| Claude Code | Claude Code Skill (plus CLI binary) | `bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)` |
 | Codex CLI | Same as Claude Code | (same one-liner) |
 | Claude Desktop | MCP server (local binary) | see [skills/halopsa/mcp-install.md](./skills/halopsa/mcp-install.md) |
 | ChatGPT (Developer Mode, beta) | Remote MCP connector (not a local binary) | see the ChatGPT section in [mcp-install.md](./skills/halopsa/mcp-install.md) |
@@ -46,35 +46,56 @@ machine-readable form. Both skills are **beta**.
 
 ## Install in 30 seconds
 
+### Easiest: let your agent install it
+
+You do not have to run anything by hand. Point your AI agent (Claude Code or Codex) at this
+repo and let it do the setup - it reads the Skill, installs the binary, and walks you through
+authentication. Paste this into Claude Code or Codex:
+
+> Set up the Servosity skill from https://github.com/servosity/msp-skills - read
+> skills/servosity/SKILL.md, run its install steps, then run `servosity-cli doctor` to confirm
+> it works.
+
+Swap `servosity` for `halopsa` (and `servosity-cli doctor` for `halopsa-cli --version`) for the
+HaloPSA skill. You can also just give your agent the repo URL and say "install the HaloPSA skill."
+
+### Or run the installer yourself
+
 **HaloPSA on macOS / Linux:**
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)
 ```
 
 **HaloPSA on Windows (PowerShell):**
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.ps1 | iex
 ```
 
 **Servosity on macOS / Linux:**
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
 ```
 
 **Servosity on Windows (PowerShell):**
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.ps1 | iex
 ```
 
 Each install drops both the CLI and the MCP server, so you can use either path
 (Skill in Claude Code, MCP in Claude Desktop) from one install. Binaries are
-published to [GitHub Releases](https://github.com/Servosity/msp-skills/releases)
+published to [GitHub Releases](https://github.com/servosity/msp-skills/releases)
 and built from the source under each skill's `cli/` directory. For Claude Desktop
 or ChatGPT wire-up, read the per-skill `mcp-install.md`.
+
+## Optional: Claude Code statusline
+
+Not an MSP skill - a small developer convenience that shows model, working directory, git
+branch, and context-window usage in your Claude Code status line. Install steps and details
+are in [tools/statusline/README.md](./tools/statusline/README.md).
 
 ## Safety model
 
@@ -82,9 +103,8 @@ These skills hold privileged, multi-tenant access to systems that run MSP
 businesses, so safety is a first-class concern, not a footnote:
 
 - **You supply your own credentials at runtime.** Nothing is stored in this repo.
-- **Mutations plan by default.** The Servosity CLI runs `--dry-run` until you
-  drop it and pass `--confirm`; the HaloPSA skill prefers discovery and dry-run
-  before any write.
+- **Mutations plan by default.** Each skill's CLI runs in dry-run / discovery mode
+  and makes no change until you pass `--confirm`.
 - **Every skill ships a permission matrix.** Each skill's `governance.md` tags
   commands read / write / destructive and tells you how to scope an agent.
 
@@ -93,17 +113,16 @@ writes**; gate destructive and credential-touching operations behind a human. Se
 [skills/halopsa/governance.md](./skills/halopsa/governance.md) and
 [skills/servosity/governance.md](./skills/servosity/governance.md).
 
-## Validated in Build Sessions
+## Tested by MSPs in Build Sessions
 
-The bar for "this really works" is an MSP running a skill against their own
-production tenant, live. We capture those as closure receipts per skill (a
-`video.md` linking the Build Session walkthrough) as they happen. The current
-skills are beta and being validated now; receipts will be linked here and from
-each skill directory as they land.
+These skills are built and tested with real MSPs running them against their own production
+systems, live, in our free weekly Build Sessions. They are currently beta and being validated
+now. Join a session (see [below](#co-build-a-new-skill-or-mcp-with-us-live)) to watch one run
+against a real system, or bring your own to co-build.
 
-## Roadmap - bring your tenant
+## Roadmap
 
-We co-build the next skills live with the MSP who brings the system. The targets
+We co-build the next skills live with MSPs in the weekly Build Session. The targets
 the MSP community asks for most:
 
 - **M365 governance / Copilot data-exposure pre-check**
@@ -112,8 +131,7 @@ the MSP community asks for most:
 - **RMM ticket-to-doc** (resolution to IT Glue / Hudu)
 - **Datto RMM, Kaseya, Atera, Syncro**
 
-Want one of these built against your tenant? Bring it to a Build Session (below)
-or open an issue.
+Want one of these next? Bring the system to a Build Session (below) or open an issue.
 
 ## Co-build a new Skill or MCP with us live
 
@@ -154,9 +172,9 @@ systems, with the same context, every day.
 
 **What is a Claude Code Skill?**
 A Claude Code Skill is a markdown file (and usually a binary it drives) that tells
-Claude Code how to operate a specific tool or API. When you say "use halopsa",
-Claude Code loads the Skill, gets a command vocabulary plus an operating contract,
-and acts on your behalf in HaloPSA. Codex CLI uses the same Skill format.
+Claude Code how to operate a specific tool or API. When you say "use halopsa" (or any
+installed skill), Claude Code loads the Skill, gets a command vocabulary plus an operating
+contract, and acts on your behalf in that system. Codex CLI uses the same Skill format.
 
 **What is an MCP server?**
 MCP (Model Context Protocol) is the open standard that lets AI apps call tools on
@@ -170,17 +188,17 @@ A Skill is what skill-capable agents (Claude Code, Codex CLI) use. An MCP server
 is what AI apps (Claude Desktop, ChatGPT) use. Both packages here ship both, so
 you do not have to pick: install once, use either path.
 
-**How do I connect Claude Code to HaloPSA?**
-Run the macOS / Linux or Windows install one-liner above. Claude Code discovers
-the Skill via `SKILL.md` in `skills/halopsa/` and drives the `halopsa-cli` binary.
-Authenticate with your HaloPSA client ID and secret; full instructions in
-[skills/halopsa/README.md](./skills/halopsa/README.md).
+**How do I connect Claude Code to a system?**
+Install the skill for the system you want (let your agent do it, or run the one-liner above).
+Claude Code discovers the Skill via `SKILL.md` in `skills/<skill>/` and drives the
+`<skill>-cli` binary. Authenticate with that system's credentials; per-skill instructions are in
+[skills/halopsa/README.md](./skills/halopsa/README.md) and
+[skills/servosity/README.md](./skills/servosity/README.md).
 
-**How do I add the HaloPSA MCP to Claude Desktop?**
-The install one-liner drops `halopsa-mcp` on your PATH. Add the MCP config block
-to your `claude_desktop_config.json` as shown in
-[skills/halopsa/mcp-install.md](./skills/halopsa/mcp-install.md), and restart
-Claude Desktop.
+**How do I add a skill's MCP to Claude Desktop?**
+The install drops the skill's `<skill>-mcp` binary on your PATH. Add the MCP config block to
+your `claude_desktop_config.json` as shown in that skill's `mcp-install.md` (for example
+[skills/halopsa/mcp-install.md](./skills/halopsa/mcp-install.md)), and restart Claude Desktop.
 
 **Can I use these with ChatGPT?**
 Yes, but it is not the same as Claude Desktop. ChatGPT connects to remote MCP
@@ -190,9 +208,9 @@ MCP server in HTTP mode behind a secure tunnel and register it as a custom
 connector.
 
 **Is this free?**
-Yes. Apache-2.0 licensed. Free to use commercially, free to fork. Your MSP tool
-vendors may charge you for API access (HaloPSA, Servosity, etc.) but the Skills
-and MCP servers themselves are free.
+Yes. Apache-2.0 licensed - free to use commercially, free to fork. Servosity does not charge
+for API access or API calls to run the Servosity skill. Other PSA, RMM, and backup vendors set
+their own API-access terms, but the Skills and MCP servers in this repository are always free.
 
 **Can my team contribute a Skill or MCP for ConnectWise, Autotask, or NinjaOne?**
 Yes, please. See [CONTRIBUTING.md](./CONTRIBUTING.md). Bring the system to a Build

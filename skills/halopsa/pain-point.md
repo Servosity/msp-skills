@@ -33,6 +33,5 @@ dependency.
 
 ## Status
 
-Beta. Validated against the HaloPSA API surface; the closed-loop receipt (a named
-MSP running it live in their production tenant at a Build Session) is tracked
-separately and added to this skill as `video.md` once it exists.
+Beta. Validated against the HaloPSA API surface and being validated with MSPs running it
+live against their own production tenant in our weekly Build Sessions.

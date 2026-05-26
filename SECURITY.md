@@ -35,7 +35,7 @@ In scope:
 Out of scope (report to the upstream vendor instead):
 
 - vulnerabilities in HaloPSA, Servosity, or any other vendor's API or product,
-- the [canonical statusline repo](https://github.com/Servosity/claude-code-statusline)
+- the [canonical statusline repo](https://github.com/servosity/claude-code-statusline)
   (report there),
 - generator-level issues in the [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press)
   toolchain (report upstream; see `NOTICE`).

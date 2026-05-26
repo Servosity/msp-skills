@@ -14,13 +14,13 @@ The CLI wraps the full Halo REST API (952 endpoints across tickets, clients, ass
 **macOS / Linux:**
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.ps1 | iex
 ```
 
 The installer drops both `halopsa-cli` (the CLI) and `halopsa-mcp` (the MCP server) into your user bin path. Claude Code and Codex will discover the Skill via `SKILL.md` in this directory; the binary is what the Skill actually drives.

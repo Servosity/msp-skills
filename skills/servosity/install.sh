@@ -15,7 +15,7 @@ SKILL="servosity"
 CLI_BIN="servosity-cli"
 MCP_BIN="servosity-mcp"
 
-OWNER="${MSP_SKILLS_OWNER:-Servosity}"
+OWNER="${MSP_SKILLS_OWNER:-servosity}"
 REPO="${MSP_SKILLS_REPO:-msp-skills}"
 RELEASE_BASE="${MSP_SKILLS_RELEASE_BASE:-https://github.com/${OWNER}/${REPO}/releases/latest/download}"
 INSTALL_DIR="${INSTALL_DIR:-${HOME}/.local/bin}"

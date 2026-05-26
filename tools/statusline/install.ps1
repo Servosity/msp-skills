@@ -1,6 +1,6 @@
 # install.ps1 - install the canonical claude-code-statusline on Windows.
 #
-# Pulls statusline.py from github.com/Servosity/claude-code-statusline (MIT
+# Pulls statusline.py from github.com/servosity/claude-code-statusline (MIT
 # licensed; the Windows-fixing PRs that make this work are merged there) and
 # writes it to %USERPROFILE%\.claude\statusline.py.
 #
@@ -10,7 +10,7 @@
 
 $ErrorActionPreference = "Stop"
 
-$DefaultUrl = "https://raw.githubusercontent.com/Servosity/claude-code-statusline/main/statusline.py"
+$DefaultUrl = "https://raw.githubusercontent.com/servosity/claude-code-statusline/main/statusline.py"
 $SrcUrl = if ($env:STATUSLINE_RAW_URL) { $env:STATUSLINE_RAW_URL } else { $DefaultUrl }
 $DestDir = Join-Path $env:USERPROFILE ".claude"
 $Dest = Join-Path $DestDir "statusline.py"
@@ -53,4 +53,4 @@ Write-Host "  }"
 Write-Host "}"
 Write-Host ""
 Write-Host "Then restart Claude Code. For options and full docs, see:"
-Write-Host "  https://github.com/Servosity/claude-code-statusline"
+Write-Host "  https://github.com/servosity/claude-code-statusline"

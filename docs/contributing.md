@@ -66,7 +66,7 @@ The `name` field is the slug used by skill-capable agents to load this skill. Th
 Both `install.sh` and `install.ps1` should:
 
 1. Detect OS and architecture.
-2. Download BOTH the CLI binary and the MCP binary from `https://github.com/Servosity/msp-skills/releases/latest/download/...`.
+2. Download BOTH the CLI binary and the MCP binary from `https://github.com/servosity/msp-skills/releases/latest/download/...`.
 3. Write them to `~/.local/bin/` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills\` (Windows).
 4. Mark executable and clear macOS Gatekeeper quarantine if applicable.
 5. Support `DRY_RUN=1` and `MSP_SKILLS_RELEASE_BASE` env var overrides for testing.
@@ -75,10 +75,10 @@ Use `skills/halopsa/install.sh` and `skills/halopsa/install.ps1` as the template
 
 ## Catalog
 
-`catalog.json` is regenerated on every PR by `tools/build-catalog.py`. To add a new skill to the catalog:
+`catalog.json` is regenerated on every PR by `tools/maintainer/build-catalog.py`. To add a new skill to the catalog:
 
-1. Add an entry for your skill to the `SKILL_META` dict in `tools/build-catalog.py`. This is the only file you hand-edit; everything else is generated.
-2. Run `python3 tools/build-catalog.py` locally to regenerate `catalog.json` and the README catalog table.
+1. Add an entry for your skill to `tools/maintainer/skills.json`. This is the only file you hand-edit; everything else is generated.
+2. Run `python3 tools/maintainer/build-catalog.py` locally to regenerate `catalog.json` and the README catalog table.
 3. Commit the result. CI fails the PR if you skip this step.
 
 ## DCO sign-off
@@ -111,7 +111,7 @@ grep -rn '/Users/' .
 grep -rn '/home/' .
 
 # Catalog regeneration
-python3 tools/build-catalog.py
+python3 tools/maintainer/build-catalog.py
 git diff catalog.json README.md  # should be empty after regen
 
 # Install script dry-runs
@@ -119,3 +119,9 @@ DRY_RUN=1 bash skills/<vendor>/install.sh
 ```
 
 All of these should pass / return nothing before you open the PR.
+
+**On Windows:** run the commands above from WSL or Git Bash (they use `bash`, `grep`, and
+`python3`); use `python` if `python3` is not on your PATH. For the install dry-run in
+PowerShell, use `$env:DRY_RUN=1; .\skills\<vendor>\install.ps1`. CI runs every one of these
+checks on each PR regardless of your OS, so local verification is a convenience, not a
+requirement.

@@ -8,11 +8,11 @@
 # Best-effort gates (warn if the tool is absent locally; CI installs them):
 # shell linting, secret scanning, and workflow linting.
 #
-# Run locally:  bash tools/verify_all.sh
+# Run locally:  bash tools/maintainer/verify_all.sh
 # Exit code is non-zero if any hard gate fails.
 
 set -uo pipefail
-cd "$(dirname "$0")/.." || exit 1
+cd "$(dirname "$0")/../.." || exit 1
 
 hard_fail=0
 pass() { printf '  PASS  %s\n' "$1"; }
@@ -31,13 +31,13 @@ for mod in skills/*/cli; do
 done
 
 echo "== Repo gates =="
-if run python3 tools/check_skill_contract.py;  then pass "skill contract";      else fail "skill contract";      fi
-if run python3 tools/check_md_links.py;        then pass "markdown links";      else fail "markdown links";      fi
-if run python3 tools/check_release_contract.py; then pass "release contract";   else fail "release contract";    fi
-if run bash    tools/ci_guards.sh;             then pass "repo hygiene guards"; else fail "repo hygiene guards"; fi
+if run python3 tools/maintainer/check_skill_contract.py;  then pass "skill contract";      else fail "skill contract";      fi
+if run python3 tools/maintainer/check_md_links.py;        then pass "markdown links";      else fail "markdown links";      fi
+if run python3 tools/maintainer/check_release_contract.py; then pass "release contract";   else fail "release contract";    fi
+if run bash    tools/maintainer/ci_guards.sh;             then pass "repo hygiene guards"; else fail "repo hygiene guards"; fi
 
 echo "== Release matrix sanity =="
-if python3 tools/release_matrix.py | python3 -c 'import json,sys; m=json.load(sys.stdin); assert m["skill"] and m["target"]' 2>/tmp/va.out; then
+if python3 tools/maintainer/release_matrix.py | python3 -c 'import json,sys; m=json.load(sys.stdin); assert m["skill"] and m["target"]' 2>/tmp/va.out; then
   pass "release matrix is valid JSON with skills + targets"
 else
   cat /tmp/va.out; fail "release matrix"
@@ -45,7 +45,7 @@ fi
 
 echo "== Catalog idempotency =="
 cp catalog.json /tmp/cat.bak; cp README.md /tmp/readme.bak
-python3 tools/build-catalog.py >/dev/null 2>&1
+python3 tools/maintainer/build-catalog.py >/dev/null 2>&1
 if diff -q catalog.json /tmp/cat.bak >/dev/null && diff -q README.md /tmp/readme.bak >/dev/null; then
   pass "catalog + README already in sync (no drift)"
 else
@@ -55,7 +55,7 @@ fi
 echo "== Install scripts resolve cleanly (dry run) =="
 for sh in skills/*/install.sh; do
   out="$(DRY_RUN=1 bash "$sh" 2>&1 || true)"
-  if echo "$out" | grep -q 'github.com/Servosity/msp-skills' && ! echo "$out" | grep -qi 'PLACEHOLDER'; then
+  if echo "$out" | grep -q 'github.com/servosity/msp-skills' && ! echo "$out" | grep -qi 'PLACEHOLDER'; then
     pass "$(dirname "$sh" | xargs basename) install.sh URLs resolve"
   else
     echo "$out"; fail "$(dirname "$sh") install.sh URL"

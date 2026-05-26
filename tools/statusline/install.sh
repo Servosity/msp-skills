@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # install.sh - install the canonical claude-code-statusline.
 #
-# Pulls statusline.py from github.com/Servosity/claude-code-statusline (MIT
+# Pulls statusline.py from github.com/servosity/claude-code-statusline (MIT
 # licensed; Windows-fixing PRs already merged) and writes it to ~/.claude/.
 #
 # Env vars:
@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-DEFAULT_URL="https://raw.githubusercontent.com/Servosity/claude-code-statusline/main/statusline.py"
+DEFAULT_URL="https://raw.githubusercontent.com/servosity/claude-code-statusline/main/statusline.py"
 SRC_URL="${STATUSLINE_RAW_URL:-${DEFAULT_URL}}"
 DEST_DIR="${HOME}/.claude"
 DEST="${DEST_DIR}/statusline.py"
@@ -58,5 +58,5 @@ existing keys if the file exists):
 }
 
 Then restart Claude Code. For options and full docs, see:
-  https://github.com/Servosity/claude-code-statusline
+  https://github.com/servosity/claude-code-statusline
 EOF

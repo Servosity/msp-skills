@@ -34,6 +34,4 @@ intelligence:
 ## Status
 
 Already used inside Servosity's own backup/DR operations; published here for MSP
-partners. Beta for the public surface. The closed-loop receipt (an MSP partner
-running it live against their fleet) is tracked separately and added as
-`video.md` once it exists.
+partners. The public surface is in beta and being validated with MSPs in live Build Sessions.

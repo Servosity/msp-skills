@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - "skills/**"
-      - "tools/build-catalog.py"
+      - "tools/maintainer/build-catalog.py"
       - ".github/workflows/catalog.yml"
   push:
     branches: [main]
@@ -28,13 +28,13 @@ jobs:
 
       - name: Regenerate catalog.json and README catalog table
         run: |
-          python3 tools/build-catalog.py
+          python3 tools/maintainer/build-catalog.py
 
       - name: Check for drift
         run: |
           if ! git diff --exit-code catalog.json README.md; then
             echo ""
             echo "::error::catalog.json or the README catalog table is stale."
-            echo "::error::Run 'python3 tools/build-catalog.py' locally and commit the result."
+            echo "::error::Run 'python3 tools/maintainer/build-catalog.py' locally and commit the result."
             exit 1
           fi
