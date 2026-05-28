@@ -3,7 +3,7 @@
   "name": "servosity-mcp",
   "display_name": "Servosity",
   "version": "0.1.0",
-  "description": "Every Servosity backup and DR feature for MSP partners, plus a local fleet mirror, snapshot history, and cross-engine rollups the partner portal can't show.",
+  "description": "Add fleet-wide backup triage, stale-backup detection, and cross-engine analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local fleet mirror with snapshot history so the partner portal's per-page views become one query.",
   "author": {
     "name": "Servosity Inc."
   },

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-26",
+  "generated_at": "2026-05-28",
   "skills": [
     {
       "name": "halopsa",
@@ -16,7 +16,7 @@
       "first_party": false,
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)",
       "install_mcp_doc": "skills/halopsa/mcp-install.md",
-      "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return."
+      "description": "Add HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local SQLite mirror so cross-entity queries the live API can't return are fast and offline."
     },
     {
       "name": "servosity",
@@ -32,7 +32,7 @@
       "first_party": true,
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)",
       "install_mcp_doc": "skills/servosity/mcp-install.md",
-      "description": "Every Servosity backup and DR feature for MSP partners, plus a local fleet mirror, snapshot history, and cross-engine rollups the partner portal can't show."
+      "description": "Add fleet-wide backup triage, stale-backup detection, and cross-engine analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local fleet mirror with snapshot history so the partner portal's per-page views become one query."
     }
   ]
 }

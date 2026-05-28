@@ -1,0 +1,48 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "msp-skills",
+  "description": "Free Claude Code skills + MCP servers for HaloPSA tickets and Servosity backups. For MSP business owners — works with Claude, ChatGPT, Codex, Cursor, and any MCP-capable agent.",
+  "version": "0.1.0",
+  "owner": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "plugins": [
+    {
+      "name": "halopsa",
+      "source": "./skills/halopsa",
+      "description": "Add HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local SQLite mirror so cross-entity queries the live API can't return are fast and offline.",
+      "version": "0.1.0",
+      "category": "psa",
+      "tags": [
+        "halopsa",
+        "halo",
+        "psa",
+        "msp",
+        "ticket-automation",
+        "sla",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "servosity",
+      "source": "./skills/servosity",
+      "description": "Add fleet-wide backup triage, stale-backup detection, and cross-engine analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local fleet mirror with snapshot history so the partner portal's per-page views become one query.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "servosity",
+        "backup",
+        "bcdr",
+        "disaster-recovery",
+        "msp",
+        "fleet-monitoring",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    }
+  ]
+}

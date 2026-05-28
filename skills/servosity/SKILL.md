@@ -1,6 +1,6 @@
 ---
 name: servosity
-description: "Every Servosity backup and DR feature for MSP partners, plus a local fleet mirror, snapshot history, and cross-engine rollups the partner portal can't show. Trigger phrases: `what needs my attention across clients`, `which backups are stale`, `what changed in my fleet overnight`, `show a client's backup status`, `find backups failing across engines`, `triage backup issues`, `use servosity`, `run servosity`."
+description: "Use when the user asks what needs attention across their Servosity backup fleet, which backups are stale, what changed overnight, the full backup picture for one client, or any cross-client / cross-engine backup-and-DR question. Wraps the Servosity MSP-partner REST API plus a local fleet mirror with snapshot history and FTS5 search, so fleet-wide questions the partner portal scatters across pages become one local query — offline once cached. Trigger phrases: `what needs my attention across clients`, `which backups are stale`, `what changed in my fleet overnight`, `show a client's backup status`, `find backups failing across engines`, `triage backup issues`, `Servosity + ChatGPT`, `Servosity + Claude`, `use servosity`, `run servosity`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Servosity"

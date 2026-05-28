@@ -1,0 +1,97 @@
+name: 🛠 Request a Skill / MCP
+description: Ask us to build a Claude Code Skill + MCP server for your PSA, RMM, backup, security, or M365 tool
+title: "[Skill request] "
+labels: ["skill-request", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for telling us what to build. First time on GitHub? See the [90-second guide](../blob/main/docs/requesting-a-skill.md) — no code, no terminal.
+
+  - type: input
+    id: vendor
+    attributes:
+      label: System / vendor name
+      description: The product you want a Skill for.
+      placeholder: e.g. Autotask, NinjaOne, Datto BCDR, IT Glue, Hudu
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      description: What kind of system is it?
+      options:
+        - PSA (Professional Services Automation)
+        - RMM (Remote Monitoring & Management)
+        - Backup / DR / BCDR
+        - Security (EDR, MDR, email security)
+        - M365 / Google Workspace governance
+        - Documentation (IT Glue, Hudu, Confluence)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: One question you'd ask the AI
+      description: If this Skill existed, what's the FIRST cross-client or cross-engine question you'd ask?
+      placeholder: |
+        e.g. "Which of my clients have open Autotask tickets older than 30 days, grouped by contract type?"
+        or  "Show me every endpoint with a NinjaOne agent that hasn't checked in for 7 days."
+    validations:
+      required: true
+
+  - type: input
+    id: api_docs
+    attributes:
+      label: Link to the vendor's API docs (if you know it)
+      description: Helpful but not required. Type "I don't know" if you're not sure.
+      placeholder: https://docs.vendor.com/api  OR  "I don't know"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: msp_size
+    attributes:
+      label: MSP size
+      description: Helps us prioritize against demand.
+      options:
+        - 1-2 techs
+        - 3-10 techs
+        - 11-25 techs
+        - 26-50 techs
+        - 51+ techs
+        - I'm not an MSP, I'm researching for one
+    validations:
+      required: true
+
+  - type: dropdown
+    id: build_session
+    attributes:
+      label: Would you join a Build Session to co-build this live?
+      description: Build Sessions are free, weekly Thursdays. We co-build with the cohort using a volunteer MSP's real tenant.
+      options:
+        - "Yes — sign me up"
+        - "Maybe — depends on the date"
+        - "No — I'd rather wait for it to ship"
+    validations:
+      required: true
+
+  - type: textarea
+    id: anything_else
+    attributes:
+      label: Anything else?
+      description: Existing tools you use, related Skills, edge cases, etc. Optional.
+      placeholder: |
+        e.g. "We already use ConnectWise Manage but want to migrate to HaloPSA — this would help us evaluate."
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        **What happens next:** we comment within a few days — usually "already on the roadmap," "needs more votes (share with one MSP friend)," or "bring it to next Thursday's Build Session." [RSVP](https://compoundingteams.com/build-sessions).

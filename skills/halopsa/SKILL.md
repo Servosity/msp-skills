@@ -1,6 +1,6 @@
 ---
 name: halopsa
-description: "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return. Trigger phrases: `triage my Halo queue`, `check SLA breaches in HaloPSA`, `who's overloaded in Halo`, `client card for Acme`, `Halo contract burn-down`, `what changed in Halo since this morning`, `use halopsa`, `run halopsa`."
+description: "Use when the user asks to triage their HaloPSA queue, audit SLA breaches, build a per-client situational-awareness card, reconcile contract hours, check agent workload, or run any cross-client analytic question against HaloPSA, HaloITSM, or HaloCRM. Wraps the full HaloPSA REST API plus a local SQLite mirror so cross-entity queries the live API can't return in one shot are fast and offline. Trigger phrases: `triage my Halo queue`, `check SLA breaches in HaloPSA`, `who's overloaded in Halo`, `client card for Acme`, `Halo contract burn-down`, `what changed in Halo since this morning`, `HaloPSA + ChatGPT`, `HaloPSA + Claude`, `use halopsa`, `run halopsa`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "HaloPSA"
