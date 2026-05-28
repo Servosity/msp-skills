@@ -168,6 +168,10 @@ test-output/
 .codex/
 .cursor/
 .aider*
+# Vercel `skills` CLI installs third-party skills (e.g. marketingskills)
+# into .agents/ at the project root. Local-only dev tooling, never committed.
+.agents/
+skills-lock.json
 
 # ===== Misc =====
 *.zip
