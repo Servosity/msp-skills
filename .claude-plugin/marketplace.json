@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "msp-skills",
-  "description": "Free Claude Code skills + MCP servers for HaloPSA tickets and Servosity backups. For MSP business owners — works with Claude, ChatGPT, Codex, Cursor, and any MCP-capable agent.",
+  "description": "Free Claude Code skills + MCP servers for HaloPSA tickets and Servosity backups. For MSP business owners - works with Claude, ChatGPT, Codex, Cursor, and any MCP-capable agent.",
   "version": "0.1.0",
   "owner": {
     "name": "Servosity",

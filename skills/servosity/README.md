@@ -1,8 +1,8 @@
-# Servosity + AI — for Claude, ChatGPT, Codex, Cursor, and any agent that speaks MCP
+# Servosity + AI - for Claude, ChatGPT, Codex, Cursor, and any agent that speaks MCP
 
 > Published by Servosity Inc. for MSP partners. Servosity is a trademark of Servosity Inc. Apache-2.0 licensed.
 
-Add **fleet-wide backup triage, stale-backup-set detection, overnight drift, per-client situational awareness, and cross-engine analytics** to the AI you already use — **Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A local fleet mirror means your AI can answer cross-client questions the partner portal can't show on one screen — Friday-email-ready in seconds. Built for MSP partners. No code required.
+Add **fleet-wide backup triage, stale-backup-set detection, overnight drift, per-client situational awareness, and cross-engine analytics** to the AI you already use - **Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A local fleet mirror means your AI can answer cross-client questions the partner portal can't show on one screen - Friday-email-ready in seconds. Built for MSP partners. No code required.
 
 ## Works with your agent
 
@@ -10,35 +10,35 @@ The four agents MSP owners actually use:
 
 | Your AI agent | How to install the Servosity skill |
 | --- | --- |
-| **Claude Desktop** | Run installer, add the MCP block to `claude_desktop_config.json` (see "Add to Claude Desktop" below). |
-| **ChatGPT** (Plus, Pro, Team, Business, Enterprise, Education)¹ | Run installer, expose `servosity-mcp` over HTTPS, register as a Developer Mode connector. |
+| **Claude Desktop** | Run installer, then **Settings > Extensions** to register `servosity-mcp` (no JSON editing). |
+| **ChatGPT** (paid plans) | Run installer, expose `servosity-mcp` over HTTPS, register as a Developer Mode connector. |
 | **Claude Code** | Paste the install prompt below into the chat, or run the installer yourself. |
-| **Codex CLI** | Same as Claude Code — paste the prompt or run the installer. |
+| **Codex CLI** | Same as Claude Code - paste the prompt or run the installer. |
 
-¹ ChatGPT requires a paid plan (Free tier does not yet expose Developer Mode). The Servosity MCP server is stdio — to use it with ChatGPT, expose it over HTTPS via the `mcp-remote` bridge or your own endpoint. See [mcp-install.md](./mcp-install.md).
+For ChatGPT, the Servosity MCP server is stdio - to use it with ChatGPT you expose it over HTTPS via the `mcp-remote` bridge or your own endpoint. See [mcp-install.md](./mcp-install.md).
 
-> **Also works with** Cursor, Windsurf, Cline, Continue.dev, Zed, GitHub Copilot, and Gemini CLI — plus [Hermes](https://hermes-agent.nousresearch.com) via MCP and [OpenClaw](#install-for-openclaw) via the pre-wired frontmatter. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
+> **Also works with** Cursor, Windsurf, Cline, Continue.dev, Zed, GitHub Copilot, and Gemini CLI - plus [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw), both via MCP and the pre-wired skill frontmatter. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
 ## Install in 60 seconds
 
-### Path A — let your AI install it (recommended)
+### Path A - let your AI install it (recommended)
 
 Paste this into **Claude Code** or **Codex CLI**:
 
-> Set up the **Servosity** skill from https://github.com/servosity/msp-skills — read `skills/servosity/SKILL.md`, run its install steps, then run `servosity-cli doctor` to confirm. Walk me through authentication.
+> Set up the **Servosity** skill from https://github.com/servosity/msp-skills - read `skills/servosity/SKILL.md`, run its install steps, then run `servosity-cli doctor` to confirm. Walk me through authentication.
 
-### Path B — run the installer yourself
-
-**macOS / Linux:**
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
-```
+### Path B - run the installer yourself
 
 **Windows (PowerShell):**
 
 ```powershell
 iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.ps1 | iex
+```
+
+**macOS / Linux:**
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
 ```
 
 The installer drops both `servosity-cli` and `servosity-mcp` into your user bin path. Claude Code and Codex discover the Skill via `SKILL.md` in this directory.
@@ -83,15 +83,21 @@ Inside a Hermes chat session:
 /skills install servosity/msp-skills/skills/servosity --force
 ```
 
-Hermes [speaks MCP natively](https://hermes-agent.nousresearch.com), so it can also use the `servosity-mcp` server directly — same install path, same env vars.
+Hermes [speaks MCP natively](https://hermes-agent.nousresearch.com), so it can also use the `servosity-mcp` server directly - same install path, same env vars.
 
 ### Install for OpenClaw
 
-Tell your OpenClaw agent (copy this):
+[OpenClaw](https://docs.openclaw.ai) is GA. Install the skill directly from this repo:
 
-> Install the servosity skill from https://github.com/servosity/msp-skills/tree/main/skills/servosity. The skill defines how its required CLI (`servosity-cli`) can be installed via the `openclaw:` frontmatter block.
+```bash
+openclaw skills install git:Servosity/msp-skills/skills/servosity@main
+```
 
-OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped and will activate the moment OpenClaw launches.
+Or tell your OpenClaw agent (copy this):
+
+> Install the servosity skill from https://github.com/Servosity/msp-skills/tree/main/skills/servosity. The `metadata.openclaw` frontmatter declares the required CLI (`servosity-cli`) and env vars; run `openclaw doctor` if anything is missing.
+
+`openclaw` also speaks MCP natively (see `openclaw mcp set` in the [OpenClaw MCP docs](https://docs.openclaw.ai/cli/mcp)) so you can wire `servosity-mcp` as an MCP server alongside the skill.
 
 ### Authenticate
 
@@ -123,15 +129,15 @@ Full command reference: [guide.md](./guide.md). For the AI-agent operating contr
 
 ## What makes this different
 
-Most AI integrations for backup and DR vendors proxy each question into a live API call against the partner portal. That's fine for one client. It fails when you're asking *"which of my 47 clients have a backup set that hasn't succeeded in 7 days, sliced by engine?"* — the partner portal scatters that across per-client pages, three engine views, and an alert queue full of noise.
+Most AI integrations for backup and DR vendors proxy each question into a live API call against the partner portal. That's fine for one client. It fails when you're asking *"which of my 47 clients have a backup set that hasn't succeeded in 7 days, sliced by engine?"* - the partner portal scatters that across per-client pages, three engine views, and an alert queue full of noise.
 
-This skill syncs Servosity into a **local fleet mirror** with snapshot history and FTS5 search. Cross-engine, cross-client questions become one local query: instant, offline, and the AI sees the answer, not a context window full of paginated JSON. Compound commands like `attention`, `drift`, `stale-backups`, and `company show` join across companies, three backup engines, issues, contracts, and DR events — work a stateless API wrapper can't do.
+This skill syncs Servosity into a **local fleet mirror** with snapshot history and FTS5 search. Cross-engine, cross-client questions become one local query: instant, offline, and the AI sees the answer, not a context window full of paginated JSON. Compound commands like `attention`, `drift`, `stale-backups`, and `company show` join across companies, three backup engines, issues, contracts, and DR events - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
 Backup and DR is where "silent failure" hurts most. The pains MSP owners name:
 
-- **Silent backup failures discovered too late.** A backup that quietly stopped succeeding is invisible until a client needs a restore — the worst possible moment to find out.
+- **Silent backup failures discovered too late.** A backup that quietly stopped succeeding is invisible until a client needs a restore - the worst possible moment to find out.
 - **No fleet-wide view.** Each client's backup state lives in its own portal view; there is no single screen that says "across my whole book, here's what's stale, failing, or in-flight right now."
 - **Alert-queue noise buries the real failure.** Dozens of repeat and known-safe issues pile up per client; the one that matters hides in the pile.
 - **Per-client questions mean portal archaeology.** Answering "is this client OK?" means clicking through metadata, three backup engines, contracts, and issues by hand.
@@ -146,7 +152,7 @@ Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tie
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
-Yes — all of them speak MCP. Cross-tool install commands are in the matrix above and the deep-dive in [docs/which-agent.md](../../docs/which-agent.md). Tool-specific gotchas (Copilot uses `servers` not `mcpServers`, Cline's Windows `npx` issue, ChatGPT's tier + bridge) are documented there.
+Yes - all of them speak MCP. Cross-tool install commands are in the matrix above and the deep-dive in [docs/which-agent.md](../../docs/which-agent.md). Tool-specific gotchas (Copilot uses `servers` not `mcpServers`, Cline's Windows `npx` issue, ChatGPT's tier + bridge) are documented there.
 
 ### Do I need to be a Servosity MSP partner?
 
@@ -154,15 +160,15 @@ Yes. The Servosity API surface this skill wraps is the one available to **authen
 
 ### Will this replace my Servosity partner portal?
 
-No. The portal is still where you do administrative work, configure backups, and onboard clients. This skill makes the portal's **data** answerable by AI — so morning triage, Friday stale-backup reports, drift checks, and ad-hoc cross-client questions don't require portal archaeology. The portal is unchanged; you're adding a new way to ask the data questions.
+No. The portal is still where you do administrative work, configure backups, and onboard clients. This skill makes the portal's **data** answerable by AI - so morning triage, Friday stale-backup reports, drift checks, and ad-hoc cross-client questions don't require portal archaeology. The portal is unchanged; you're adding a new way to ask the data questions.
 
 ### Do I need to know how to code?
 
-No. The recommended install is to paste one sentence into Claude Code or Codex — your agent reads `SKILL.md` and does the install. The fallback is a one-line installer per OS (bash or PowerShell). Neither path requires writing code. You'll enter your Servosity partner token once.
+No. The recommended install is to paste one sentence into Claude Code or Codex - your agent reads `SKILL.md` and does the install. The fallback is a one-line installer per OS (bash or PowerShell). Neither path requires writing code. You'll enter your Servosity partner token once.
 
 ### Is my Servosity / client data safe?
 
-Your data stays on **your machine**. The CLI and MCP server are local binaries. The fleet mirror sits in a directory under your user account. The AI agent only sees what the CLI returns — typically a query result, not raw bulk data. The partner token is read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills. The token is scoped to **your reseller account only** (no cross-reseller access).
+Your data stays on **your machine**. The CLI and MCP server are local binaries. The fleet mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. The partner token is read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills. The token is scoped to **your reseller account only** (no cross-reseller access).
 
 ### Can I run this on Windows?
 
@@ -170,7 +176,7 @@ Yes. The PowerShell installer above is the Windows path. CLI and MCP binaries ar
 
 ### What does it cost?
 
-Free. Apache-2.0 licensed. Servosity does not charge for the API access required to run this skill — the partner-portal API is part of your existing partner agreement. You pay only for whichever AI agent you use (Claude, ChatGPT, Codex, etc.), billed by your AI provider.
+Free. Apache-2.0 licensed. Servosity does not charge for the API access required to run this skill - the partner-portal API is part of your existing partner agreement. You pay only for whichever AI agent you use (Claude, ChatGPT, Codex, etc.), billed by your AI provider.
 
 ## Safety model
 
@@ -192,6 +198,6 @@ Already used inside Servosity's own backup / DR operations; published here for M
 
 ---
 
-**Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible — works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
+**Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](https://docs.openclaw.ai), with `metadata.openclaw` frontmatter pre-wired so `openclaw skills install` works directly.
 
 Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-05-28._

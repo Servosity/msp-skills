@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for telling us what to build. First time on GitHub? See the [90-second guide](../blob/main/docs/requesting-a-skill.md) — no code, no terminal.
+        Thanks for telling us what to build. First time on GitHub? See the [90-second guide](../blob/main/docs/requesting-a-skill.md) - no code, no terminal.
 
   - type: input
     id: vendor
@@ -74,9 +74,9 @@ body:
       label: Would you join a Build Session to co-build this live?
       description: Build Sessions are free, weekly Thursdays. We co-build with the cohort using a volunteer MSP's real tenant.
       options:
-        - "Yes — sign me up"
-        - "Maybe — depends on the date"
-        - "No — I'd rather wait for it to ship"
+        - "Yes - sign me up"
+        - "Maybe - depends on the date"
+        - "No - I'd rather wait for it to ship"
     validations:
       required: true
 
@@ -86,7 +86,7 @@ body:
       label: Anything else?
       description: Existing tools you use, related Skills, edge cases, etc. Optional.
       placeholder: |
-        e.g. "We already use ConnectWise Manage but want to migrate to HaloPSA — this would help us evaluate."
+        e.g. "We already use ConnectWise Manage but want to migrate to HaloPSA - this would help us evaluate."
     validations:
       required: false
 
@@ -94,4 +94,4 @@ body:
     attributes:
       value: |
         ---
-        **What happens next:** we comment within a few days — usually "already on the roadmap," "needs more votes (share with one MSP friend)," or "bring it to next Thursday's Build Session." [RSVP](https://compoundingteams.com/build-sessions).
+        **What happens next:** we comment within a few days - usually "already on the roadmap," "needs more votes (share with one MSP friend)," or "bring it to next Thursday's Build Session." [RSVP](https://compoundingteams.com/build-sessions).
