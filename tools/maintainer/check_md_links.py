@@ -25,8 +25,28 @@ def md_files() -> list[Path]:
         parts = p.relative_to(ROOT).parts
         if ".git" in parts:
             continue
+        # Skip local-only third-party skill installs (`.agents/` is gitignored
+        # so this only matters when running locally). Same for `node_modules`.
+        if parts[0] in (".agents", "node_modules", "vendor"):
+            continue
         # Skip vendored, generated module trees.
         if "cli" in parts and parts[0] == "skills":
+            continue
+        # Skip the Jekyll-rendered landing site under docs/. Those pages use
+        # Jekyll permalinks like /integrations/claude-desktop/ that only
+        # resolve at render time, not as raw filesystem paths. The Jekyll
+        # build itself is the right gate for those.
+        # The repo-doc files in docs/ (which-agent.md, requesting-a-skill.md,
+        # install-skill.md, install-mcp.md, contributing.md) ARE checked because
+        # they live at docs/ top level and link with relative paths that resolve
+        # on the filesystem too. The Jekyll-specific tree is docs/_layouts,
+        # docs/_includes, docs/integrations, docs/skills, docs/guides, and
+        # docs/index.md / docs/llms.txt.
+        if parts[:1] == ("docs",) and len(parts) > 1 and parts[1] in (
+            "_layouts", "_includes", "integrations", "skills", "guides"
+        ):
+            continue
+        if parts == ("docs", "index.md"):
             continue
         out.append(p)
     return out
