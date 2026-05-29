@@ -71,7 +71,7 @@ Codex knows the command surface (it just read the SKILL.md), runs the right comm
 ## What's next
 
 - **Try a real workflow.** Bring your tenant + your hardest cross-client question to a free [Build Session](https://compoundingteams.com/build-sessions).
-- **Switching agents?** Same skills work in [Claude Code](/integrations/claude-code/), [Claude Desktop](/integrations/claude-desktop/), and [ChatGPT (Plus/Pro+)](/integrations/chatgpt/) - no reinstall.
+- **Switching agents?** Same skills work in [Claude Code](/integrations/claude-code/), [Claude Desktop](/integrations/claude-desktop/), [Claude Cowork](/integrations/cowork/), and [ChatGPT (Plus/Pro+)](/integrations/chatgpt/) - no reinstall.
 - **Want a different platform?** [Request a Skill →](/requesting-a-skill/).
 
 [← Back to main install](/#install-in-60-seconds)

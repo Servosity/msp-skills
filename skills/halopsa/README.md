@@ -6,42 +6,47 @@ Add **HaloPSA ticket triage, SLA-breach pre-emption, per-client situational awar
 
 ## Works with your agent
 
-The four agents MSP owners actually use:
+The five agents MSP owners actually use:
 
 | Your AI agent | How to install the HaloPSA skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `halopsa-mcp` (no JSON editing). |
 | **ChatGPT** (paid plans) | Run installer, expose `halopsa-mcp` over HTTPS, register as a Developer Mode connector. |
-| **Claude Code** | Paste the install prompt below into the chat, or run the installer yourself. |
-| **Codex CLI** | Same as Claude Code - paste the prompt or run the installer. |
+| **Claude Code** | Paste the install prompt below. |
+| **Codex CLI** | Paste the install prompt below. |
+| **Claude Cowork** | Paste the install prompt below. |
 
 For ChatGPT, the HaloPSA MCP server is stdio - to use it with ChatGPT you expose it over HTTPS via the `mcp-remote` bridge or your own endpoint. See [mcp-install.md](./mcp-install.md).
 
 > **Also works with** Cursor, Windsurf, Cline, Continue.dev, Zed, GitHub Copilot, and Gemini CLI - plus [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw), both via MCP and the pre-wired skill frontmatter. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
+> **Run more than one agent?** Install across all 51+ supported agents in one command: `npx skills add Servosity/msp-skills@latest` (requires Node.js, then run the per-skill installer for the CLI/MCP binaries). See [docs/which-agent.md](../../docs/which-agent.md#install-across-all-your-agents-at-once).
+
 ## Install in 60 seconds
 
-### Path A - let your AI install it (recommended)
+### Path A - paste one prompt into your AI agent (recommended)
 
-Paste this into **Claude Code** or **Codex CLI**:
+Copy this into **Claude Code**, **Codex CLI**, or **Claude Cowork**:
 
-> Set up the **HaloPSA** skill from https://github.com/servosity/msp-skills - read `skills/halopsa/SKILL.md`, run its install steps, then run `halopsa-cli --version` to confirm. Walk me through authentication.
+> Install the HaloPSA Skill and MCP server from Servosity/msp-skills in this agent workspace. If this workspace uses a POSIX shell (macOS, Linux, WSL, or Bash), run `bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.sh)`. If it uses Windows PowerShell, run `iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.ps1 | iex`. Then authenticate with `halopsa-cli auth login` (Configuration > Integrations > Halo PSA API in your tenant gives you the credentials) and run `halopsa-cli --help` to explore.
+
+The same prompt works in any agent that can run shell.
 
 ### Path B - run the installer yourself
 
 **Windows (PowerShell):**
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.ps1 | iex
 ```
 
 **macOS / Linux:**
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.sh)
 ```
 
-The installer drops both `halopsa-cli` (the CLI) and `halopsa-mcp` (the MCP server) into your user bin path. Claude Code and Codex discover the Skill via `SKILL.md` in this directory; the binary is what the Skill actually drives.
+The installer drops both `halopsa-cli` (the CLI) and `halopsa-mcp` (the MCP server) into your user bin path. Claude Code, Codex, and Cowork discover the Skill via `SKILL.md` in this directory; the binary is what the Skill actually drives.
 
 Verify:
 
@@ -49,26 +54,9 @@ Verify:
 halopsa-cli --version
 ```
 
-### Add to Claude Desktop
+### Add to Claude Desktop, Cursor, Windsurf, Cline, Continue, Gemini, or Copilot
 
-After running the installer above, add this block to your `claude_desktop_config.json` and restart Claude Desktop:
-
-```json
-{
-  "mcpServers": {
-    "halopsa": {
-      "command": "halopsa-mcp",
-      "env": {
-        "HALOPSA_TENANT": "<your-tenant>",
-        "HALOPSA_CLIENT_ID": "<your-client-id>",
-        "HALOPSA_CLIENT_SECRET": "<your-client-secret>"
-      }
-    }
-  }
-}
-```
-
-Full per-agent wire-up (Cursor, Windsurf, Cline, Continue, ChatGPT, Gemini, Copilot): [mcp-install.md](./mcp-install.md) and [docs/which-agent.md](../../docs/which-agent.md).
+After the installer runs, see **[mcp-install.md](./mcp-install.md)** and **[docs/which-agent.md](../../docs/which-agent.md)** for the per-agent wire-up. Claude Desktop's Settings > Extensions panel is the simplest path.
 
 <!-- pp-hermes-install-anchor -->
 ### Install for Hermes

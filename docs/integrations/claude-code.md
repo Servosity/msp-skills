@@ -75,7 +75,7 @@ The Skill path and MCP path coexist. Most users only need one (Skill is recommen
 ## What's next
 
 - **Try a real workflow.** Bring your tenant + your hardest cross-client question to a free [Build Session](https://compoundingteams.com/build-sessions).
-- **Switching agents?** Same skills work in [Claude Desktop](/integrations/claude-desktop/), [Codex CLI](/integrations/codex/), and [ChatGPT (Plus/Pro+)](/integrations/chatgpt/) - no reinstall needed.
+- **Switching agents?** Same skills work in [Claude Desktop](/integrations/claude-desktop/), [Codex CLI](/integrations/codex/), [Claude Cowork](/integrations/cowork/), and [ChatGPT (Plus/Pro+)](/integrations/chatgpt/) - no reinstall needed.
 - **Want a different platform?** [Request a Skill →](/requesting-a-skill/).
 
 [← Back to main install](/#install-in-60-seconds)

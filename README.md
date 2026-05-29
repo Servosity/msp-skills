@@ -12,16 +12,19 @@
 
 ## Works with your agent
 
-The four agents MSP owners actually use:
+The five agents MSP owners actually use:
 
 | Your AI agent | Why MSPs use it | How to install MSP Skills |
 | --- | --- | --- |
 | **Claude Desktop** (Mac/Windows app) | The most common MSP-owner choice - no terminal, just a chat window | Run installer, then Settings > Extensions to register the MCP server |
 | **ChatGPT** (paid plans) | The brand most MSPs already pay for; pair with Developer Mode | Run installer, expose MCP over HTTPS, register as a Developer Mode connector |
-| **Claude Code** (CLI) | For the technical-leaning MSP owner or your senior tech | Paste the install prompt into the chat, or run the installer yourself |
-| **Codex CLI** (OpenAI) | Same audience as Claude Code, OpenAI side | Paste the install prompt, or run the installer |
+| **Claude Code** (CLI) | For the technical-leaning MSP owner or your senior tech | Paste the install prompt below |
+| **Codex CLI** (OpenAI) | OpenAI's terminal agent for the same audience | Paste the install prompt below |
+| **Claude Cowork** (Anthropic, GA Mar 2026) | Desktop agent that runs shell on your behalf | Paste the install prompt below |
 
 > **Also works with** Cursor, Windsurf, Cline, Continue.dev, Zed, GitHub Copilot, and Gemini CLI. MSP Skills speaks the open MCP standard, so any current or future MCP-capable agent can use it. Full per-tool deep-dive: **[docs/which-agent.md](./docs/which-agent.md)**.
+
+> **Run more than one agent?** Install MSP Skills across all 51+ supported agents at once: `npx skills add Servosity/msp-skills@latest` (requires Node.js, then run the per-skill installer for the CLI/MCP binaries). Details in [docs/which-agent.md](./docs/which-agent.md#install-across-all-your-agents-at-once).
 
 ## What's in the box
 
@@ -52,13 +55,17 @@ You don't have to know JSON, regex, or what "stdio transport" means. Paste one s
 
 ## Install in 60 seconds
 
-### Path A - let your AI install it (recommended)
+### Path A - paste one prompt into your AI agent (recommended)
 
-Paste this into **Claude Code** or **Codex CLI**:
+Copy this into **Claude Code**, **Codex CLI**, or **Claude Cowork** to install the **HaloPSA** Skill + MCP server:
 
-> Set up the **HaloPSA** skill from https://github.com/servosity/msp-skills - read `skills/halopsa/SKILL.md`, run its install steps, then run `halopsa-cli --version` to confirm. Walk me through authentication.
+> Install the HaloPSA Skill and MCP server from Servosity/msp-skills in this agent workspace. If this workspace uses a POSIX shell (macOS, Linux, WSL, or Bash), run `bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.sh)`. If it uses Windows PowerShell, run `iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.ps1 | iex`. Then authenticate with `halopsa-cli auth login` (Configuration > Integrations > Halo PSA API in your tenant gives you the credentials) and run `halopsa-cli --help` to explore.
 
-Swap `halopsa` for `servosity` (and `halopsa-cli --version` for `servosity-cli doctor`) to install the Servosity skill. Your agent does the rest.
+And to install the **Servosity** skill, paste:
+
+> Install the Servosity Skill and MCP server from Servosity/msp-skills in this agent workspace. If this workspace uses a POSIX shell (macOS, Linux, WSL, or Bash), run `bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.sh)`. If it uses Windows PowerShell, run `iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.ps1 | iex`. Then authenticate with `SERVOSITY_MSP_TOKEN=<your-partner-token> servosity-cli doctor` and run `servosity-cli --help` to explore.
+
+The same prompt works in any agent that can run shell. If yours can't, use Path B below.
 
 ### Path B - run the installer yourself
 
