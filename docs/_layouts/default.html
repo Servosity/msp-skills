@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#7C3AED">
+  <title>{{ page.title | default: site.title }}</title>
+  <meta name="description" content="{{ page.description | default: site.description }}">
+  {% seo title=false description=false %}
+  {% include schema.html %}
+  <link rel="canonical" href="{{ page.url | replace:'index.html','' | absolute_url }}">
+  <link rel="alternate" type="application/llms+txt" href="/llms.txt">
+  <style>
+    :root {
+      --fg: #1a1a1a;
+      --muted: #555;
+      --bg: #fdfdfd;
+      --accent: #7C3AED;
+      --rule: #e5e5e5;
+      --code-bg: #f4f4f5;
+    }
+    html { box-sizing: border-box; }
+    *, *:before, *:after { box-sizing: inherit; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: var(--fg);
+      background: var(--bg);
+      line-height: 1.6;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 1.5rem;
+      font-size: 17px;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    h1, h2, h3 { line-height: 1.25; margin-top: 2.2rem; }
+    h1 { font-size: 2.1rem; margin-top: 0.5rem; }
+    h2 { font-size: 1.5rem; border-top: 1px solid var(--rule); padding-top: 1.5rem; }
+    h3 { font-size: 1.2rem; }
+    blockquote {
+      border-left: 4px solid var(--accent);
+      padding: 0.5rem 1rem;
+      margin: 1.5rem 0;
+      background: #faf7ff;
+      color: var(--fg);
+    }
+    code { background: var(--code-bg); padding: 0.15rem 0.35rem; border-radius: 4px; font-size: 0.92em; }
+    pre { background: var(--code-bg); padding: 1rem; overflow-x: auto; border-radius: 6px; }
+    pre code { background: none; padding: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    th, td { border-bottom: 1px solid var(--rule); padding: 0.5rem 0.7rem; text-align: left; vertical-align: top; }
+    th { font-weight: 600; background: #f9f9fb; }
+    .btn {
+      display: inline-block;
+      padding: 0.5rem 0.9rem;
+      border-radius: 6px;
+      border: 1px solid var(--rule);
+      margin-right: 0.5rem;
+      font-weight: 500;
+    }
+    .btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+    .btn-primary:hover { text-decoration: none; opacity: 0.92; }
+    nav.site-nav { padding: 0.5rem 0 1.5rem; border-bottom: 1px solid var(--rule); margin-bottom: 1rem; font-size: 0.95rem; }
+    nav.site-nav a { margin-right: 1rem; color: var(--muted); }
+    footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: 0.9rem; }
+    hr { border: none; border-top: 1px solid var(--rule); margin: 2rem 0; }
+  </style>
+</head>
+<body>
+  <nav class="site-nav">
+    <a href="/">Home</a>
+    <a href="/skills/halopsa/">HaloPSA</a>
+    <a href="/skills/servosity/">Servosity</a>
+    <a href="/which-agent/">Which Agent?</a>
+    <a href="/guides/first-time-setup/">First-time setup</a>
+    <a href="https://github.com/servosity/msp-skills">GitHub</a>
+    <a href="https://compoundingteams.com/build-sessions">Build Sessions</a>
+  </nav>
+
+  <main>
+    {{ content }}
+  </main>
+
+  <footer>
+    <p><strong>MSP Skills</strong> · Built by <a href="https://www.servosity.com">Servosity Inc.</a> · Maintained by Damien Stevens · Apache-2.0 · <a href="https://github.com/servosity/msp-skills">github.com/servosity/msp-skills</a></p>
+    <p>Methodology: <a href="https://compoundingteams.com">Compounding Teams</a> · <a href="/llms.txt">/llms.txt</a> for AI search engines.</p>
+  </footer>
+</body>
+</html>

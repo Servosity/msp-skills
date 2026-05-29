@@ -1,0 +1,64 @@
+{%- comment -%}
+JSON-LD structured data for AI search engines (Google AI Overviews, Perplexity,
+Claude Search, ChatGPT search). Two graph nodes per page: Organization for
+Servosity Inc., and either SoftwareApplication or FAQPage depending on the
+page's `type` front matter.
+{%- endcomment -%}
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://www.servosity.com/#organization",
+      "name": "Servosity Inc.",
+      "url": "https://www.servosity.com",
+      "sameAs": [
+        "https://github.com/servosity",
+        "https://compoundingteams.com"
+      ]
+    },
+    {%- if page.skill_name -%}
+    {
+      "@type": "SoftwareApplication",
+      "name": "{{ page.skill_name }}",
+      "description": {{ page.description | jsonify }},
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "macOS, Linux, Windows",
+      "softwareRequirements": "Model Context Protocol (MCP) compatible AI agent",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "license": "https://www.apache.org/licenses/LICENSE-2.0",
+      "publisher": { "@id": "https://www.servosity.com/#organization" },
+      "url": "{{ page.url | absolute_url }}",
+      "codeRepository": "https://github.com/servosity/msp-skills"
+    }
+    {%- elsif page.faqs -%}
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {%- for q in page.faqs -%}
+        {
+          "@type": "Question",
+          "name": {{ q.q | jsonify }},
+          "acceptedAnswer": { "@type": "Answer", "text": {{ q.a | jsonify }} }
+        }{%- unless forloop.last %},{% endunless -%}
+        {%- endfor -%}
+      ]
+    }
+    {%- else -%}
+    {
+      "@type": "WebPage",
+      "name": {{ page.title | default: site.title | jsonify }},
+      "description": {{ page.description | default: site.description | jsonify }},
+      "url": "{{ page.url | absolute_url }}",
+      "isPartOf": { "@id": "https://www.servosity.com/#organization" }
+    }
+    {%- endif -%}
+  ]
+}
+</script>
