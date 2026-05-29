@@ -19,6 +19,22 @@
       "description": "Add HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local SQLite mirror so cross-entity queries the live API can't return are fast and offline."
     },
     {
+      "name": "hubspot",
+      "system": "Add HubSpot CRM sales-funnel analytics, contact/deal enrichment, meeting property-history reporting, and HubSpot Agent CLI idiom compatibility to Claude \u2014 offline-first SQLite mirror, agent-native JSONL bulk ops, and a live local mutation audit log.",
+      "status": "beta",
+      "skill_path": "skills/hubspot",
+      "cli_binary": "hubspot-cli",
+      "mcp_binary": "hubspot-mcp",
+      "version": "4.19.0",
+      "license": "Apache-2.0",
+      "vendor": "HubSpot",
+      "vendor_trademark_owner": "HubSpot Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)",
+      "install_mcp_doc": "skills/hubspot/mcp-install.md",
+      "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has."
+    },
+    {
       "name": "servosity",
       "system": "Servosity backup and DR",
       "status": "beta",
