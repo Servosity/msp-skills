@@ -1,0 +1,43 @@
+title: "MSP Skills"
+description: "Free Claude Code skills + MCP servers for HaloPSA tickets and Servosity backups. Works with Claude, ChatGPT, Codex, Cursor. For MSP owners."
+url: "https://msp-skills.compoundingteams.com"
+baseurl: ""
+github_repo: "servosity/msp-skills"
+github_url: "https://github.com/servosity/msp-skills"
+
+# AEO surface
+author:
+  name: "Servosity"
+  url: "https://www.servosity.com"
+organization:
+  name: "Servosity Inc."
+  url: "https://www.servosity.com"
+  same_as:
+    - "https://github.com/servosity"
+    - "https://compoundingteams.com"
+
+# Jekyll
+permalink: pretty
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+plugins:
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Don't render these as Jekyll pages (they're repo docs surfaced via GitHub)
+exclude:
+  - README.md
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
+
+# Default front matter for new pages (saves repetition)
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+      image: /assets/social/og-1280x640.png
