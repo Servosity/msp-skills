@@ -72,16 +72,30 @@ def build_entry(skill_dir: Path) -> dict:
     }
 
 
+def status_badge(status: str) -> str:
+    """Map a skill's status to a shields.io badge URL.
+
+    'tested' / 'beta' (the launch state for halopsa + servosity, where MSPs
+    have run the skill against a real production tenant): green Tested badge.
+    Anything else ('untested', etc.) for a skill that shipped but has not
+    been driven against live data yet: yellow Untested badge. Feedback on
+    untested skills is the high-leverage signal we want from MSPs.
+    """
+    if status in ("tested", "beta"):
+        return "![Tested](https://img.shields.io/badge/Tested-by_MSPs-2E7D32)"
+    return "![Untested](https://img.shields.io/badge/Untested-feedback_welcome-EAB308)"
+
+
 def render_catalog_table(skills: list[dict]) -> str:
     rows = [
-        "| Skill | System | Install (Skill) | Install (MCP) |",
+        "| Skill | System | Status | Install |",
         "| --- | --- | --- | --- |",
     ]
     for s in skills:
         rows.append(
             f"| [{s['name']}](./skills/{s['name']}) | {s['system']} | "
-            f"`bash skills/{s['name']}/install.sh` | "
-            f"[mcp-install](./{s['install_mcp_doc']}) |"
+            f"{status_badge(s['status'])} | "
+            f"[Install](./skills/{s['name']}/README.md) |"
         )
     return "\n".join(rows)
 
