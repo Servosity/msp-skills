@@ -4,6 +4,7 @@ title: "Servosity + AI - for Claude, ChatGPT, Codex, Cursor, and any MCP agent"
 description: "Free Claude Code skill and MCP server for Servosity backups. Fleet-wide attention, stale-backup detection, overnight drift, per-client situational awareness, cross-engine analytics. Local fleet mirror - Friday-email-ready in seconds."
 permalink: /skills/servosity/
 skill_name: "Servosity MCP"
+image: /assets/social/servosity/wide-1200x630.png
 ---
 
 # Servosity + AI in 60 seconds

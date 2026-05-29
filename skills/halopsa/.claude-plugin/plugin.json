@@ -1,6 +1,7 @@
 {
   "name": "halopsa",
   "version": "0.1.0",
+  "vendor": "HaloPSA",
   "description": "Add HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local SQLite mirror so cross-entity queries the live HaloPSA API can't return in one shot are fast and offline. For MSP owners. No code required.",
   "author": {
     "name": "Servosity",
