@@ -1,0 +1,161 @@
+name: MCP Registry Publish
+
+# Triggers after the Release workflow completes successfully on a per-skill
+# tag. Bundles each skill's MCP binary into an .mcpb (zip), attaches it to the
+# release, computes its SHA-256, patches the corresponding server.json with the
+# hash + version + download URL, and publishes to the official MCP Registry
+# (registry.modelcontextprotocol.io). One publish fans out to PulseMCP, GitHub
+# MCP Registry, Glama, mcp.so, Smithery, and LobeHub within 1–7 days.
+#
+# Skipped automatically if the tag is not a per-skill release tag.
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+
+permissions:
+  contents: write   # upload .mcpb to the release
+  id-token: write   # GitHub OIDC for mcp-publisher auth
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'refs/tags/') == false }}
+    outputs:
+      skill: ${{ steps.parse.outputs.skill }}
+      version: ${{ steps.parse.outputs.version }}
+      tag: ${{ steps.parse.outputs.tag }}
+      proceed: ${{ steps.parse.outputs.proceed }}
+    steps:
+      - name: Parse triggering tag
+        id: parse
+        env:
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          tag="$HEAD_BRANCH"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          case "$tag" in
+            halopsa-v*)
+              echo "skill=halopsa" >> "$GITHUB_OUTPUT"
+              echo "version=${tag#halopsa-v}" >> "$GITHUB_OUTPUT"
+              echo "proceed=true" >> "$GITHUB_OUTPUT"
+              ;;
+            servosity-v*)
+              echo "skill=servosity" >> "$GITHUB_OUTPUT"
+              echo "version=${tag#servosity-v}" >> "$GITHUB_OUTPUT"
+              echo "proceed=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Tag '$tag' is not a per-skill release tag; skipping MCP publish."
+              echo "proceed=false" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+  publish:
+    needs: detect
+    if: needs.detect.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.detect.outputs.tag }}
+
+      - name: Set up jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Download MCP binaries from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.detect.outputs.tag }}
+          SKILL: ${{ needs.detect.outputs.skill }}
+        run: |
+          set -euo pipefail
+          mkdir -p mcpb-build
+          cd mcpb-build
+          # The release.yml workflow uploads platform-suffixed binaries like
+          # halopsa-mcp-darwin-arm64, halopsa-mcp-linux-amd64, etc. We bundle
+          # ALL platforms into one .mcpb so the registry-published artifact
+          # works on every platform Claude Desktop runs on.
+          for suffix in darwin-arm64 darwin-amd64 linux-arm64 linux-amd64 windows-amd64.exe; do
+            gh release download "$TAG" --pattern "${SKILL}-mcp-${suffix}" --dir . || true
+          done
+          ls -la
+
+      - name: Build MCPB bundle
+        env:
+          SKILL: ${{ needs.detect.outputs.skill }}
+          VERSION: ${{ needs.detect.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd mcpb-build
+          # MCPB is a zip with manifest.json + a bin/ directory of the binaries.
+          mkdir -p bundle/bin
+          cp ../skills/$SKILL/manifest.json bundle/manifest.json
+          for f in ${SKILL}-mcp-*; do
+            [ -f "$f" ] || continue
+            cp "$f" "bundle/bin/$f"
+          done
+          (cd bundle && zip -r "../${SKILL}-mcp.mcpb" .)
+          ls -la "${SKILL}-mcp.mcpb"
+
+      - name: Compute SHA-256
+        id: sha
+        env:
+          SKILL: ${{ needs.detect.outputs.skill }}
+        run: |
+          set -euo pipefail
+          cd mcpb-build
+          hash=$(openssl dgst -sha256 "${SKILL}-mcp.mcpb" | awk '{print $NF}')
+          echo "sha=$hash" >> "$GITHUB_OUTPUT"
+          echo "Computed SHA-256: $hash"
+
+      - name: Upload MCPB to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.detect.outputs.tag }}
+          SKILL: ${{ needs.detect.outputs.skill }}
+        run: |
+          set -euo pipefail
+          cd mcpb-build
+          gh release upload "$TAG" "${SKILL}-mcp.mcpb" --clobber
+
+      - name: Patch server.json with SHA + version + download URL
+        env:
+          SKILL: ${{ needs.detect.outputs.skill }}
+          VERSION: ${{ needs.detect.outputs.version }}
+          TAG: ${{ needs.detect.outputs.tag }}
+          SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          set -euo pipefail
+          src=skills/$SKILL/server.json
+          out=mcpb-build/server.json
+          download="https://github.com/${{ github.repository }}/releases/download/${TAG}/${SKILL}-mcp.mcpb"
+          jq \
+            --arg version "$VERSION" \
+            --arg sha "$SHA" \
+            --arg download "$download" \
+            '.version = $version | .packages[0].version = $version | .packages[0].fileSha256 = $sha | .packages[0].download = $download' \
+            "$src" > "$out"
+          echo "--- patched server.json ---"
+          cat "$out"
+
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          curl -fsSL https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher-linux-amd64 -o mcp-publisher
+          chmod +x mcp-publisher
+          ./mcp-publisher --version
+
+      - name: Authenticate with GitHub OIDC
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish to official MCP Registry
+        run: |
+          set -euo pipefail
+          cd mcpb-build
+          ../mcp-publisher publish --file server.json
+          echo "✓ Published to registry.modelcontextprotocol.io"
+          echo "Fan-out to PulseMCP, GitHub MCP Registry, Glama, mcp.so, Smithery, LobeHub takes 1–7 days."
