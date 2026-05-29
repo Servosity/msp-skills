@@ -8,7 +8,7 @@ Pick the row for your agent and follow that section. If you're not sure what you
 
 ## Quick lookup
 
-**The 4 MSP-owner primaries - lead here:**
+**The 5 MSP-owner primaries - lead here:**
 
 | AI agent | Supports MCP? | Config file or panel | Verified |
 | --- | --- | --- | --- |
@@ -16,6 +16,7 @@ Pick the row for your agent and follow that section. If you're not sure what you
 | [ChatGPT (Plus / Pro+)](#chatgpt-openai-plus-pro-team-business-enterprise-education) | Yes¹ | Settings → Connectors | 2026-05-28 |
 | [Claude Code](#claude-code-anthropic-cli) | Yes | `claude mcp add ...` | 2026-05-28 |
 | [Codex CLI](#codex-cli-openai) | Yes | `~/.codex/config.toml` | 2026-05-28 |
+| [Claude Cowork](#claude-cowork-anthropic-desktop-agent) | Yes | paste-prompt + Settings > Connectors | 2026-05-29 |
 
 **Long-tail and developer IDEs:**
 
@@ -36,6 +37,12 @@ Pick the row for your agent and follow that section. If you're not sure what you
 | --- | --- | --- | --- |
 | [Hermes](#hermes-nous-research) | Yes (via MCP) | `hermes skills install Servosity/msp-skills/skills/<name>` | 2026-05-29 (paper - install not yet end-to-end tested) |
 | [OpenClaw](#openclaw) | Yes (GA) | `openclaw skills install git:Servosity/msp-skills/skills/<name>@main` | 2026-05-29 (frontmatter spec match; subdir install path needs final dogfood) |
+
+**Or install across all 51+ supported agents at once:**
+
+| Tool | What it installs | Install path | Verified |
+| --- | --- | --- | --- |
+| [`npx skills`](#install-across-all-your-agents-at-once) | SKILL.md symlinks into every supported agent dir | `npx skills add Servosity/msp-skills` | 2026-05-29 (the [agentskills.io](https://agentskills.io) spec entry point; binary install is a separate step) |
 
 ¹ ChatGPT requires a paid plan (Plus, Pro, Team, Business, Enterprise, or Education). Free tier does not yet expose Developer Mode. ChatGPT connects only to **remote** MCP servers; local stdio binaries like MSP Skills need an HTTPS bridge (e.g. `mcp-remote`).
 ² Zed supports MCP Tools and Prompts today, not the full spec. Most MSP Skills functionality works; some advanced features may not.
@@ -95,9 +102,27 @@ For HTTP / remote: `claude mcp add --transport http <name> <url>`. Source: [code
 
 ---
 
+## Claude Cowork (Anthropic desktop agent)
+
+Anthropic's desktop agent, GA'd March 2026. Sits between Claude Desktop (chat UI, no shell) and Claude Code (terminal-native): Cowork runs shell on your behalf when you ask it to, and exposes a Settings > Customize > Connectors UI for MCP servers. Either path works for MSP Skills.
+
+**Skill path (recommended) - paste this into Cowork:**
+
+> Install the HaloPSA Skill and MCP server from Servosity/msp-skills in this agent workspace. If this workspace uses a POSIX shell (macOS, Linux, WSL, or Bash), run `bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.sh)`. If it uses Windows PowerShell, run `iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.ps1 | iex`. Then authenticate with `halopsa-cli auth login` and run `halopsa-cli --help` to explore.
+
+(Replace `halopsa` with `servosity` for the Servosity skill.)
+
+Cowork will detect your shell, run the installer, walk authentication, and confirm. No JSON editing, no Connector configuration, no terminal commands you type yourself.
+
+**MCP path (alternative):** Settings > Customize > Connectors > **+** > paste an MCP server URL. This is the canonical Cowork path for remote/HTTPS MCP servers (the Composio integration pattern). MSP Skills' binaries are local stdio, so use the Skill path above for them.
+
+Source: [Composio - HubSpot + Claude Cowork docs](https://composio.dev/toolkits/hubspot/framework/claude-cowork) shows the canonical Cowork install patterns.
+
+---
+
 ## Codex CLI (OpenAI)
 
-Skill-capable CLI like Claude Code. Reads the same `SKILL.md`. Also supports MCP.
+Skill-capable CLI like Claude Code and Cowork. Reads the same `SKILL.md`. Also supports MCP.
 
 **Skill path (recommended):** the install script registers the skill with Codex; invoke `use halopsa` or `use servosity`.
 
@@ -352,6 +377,42 @@ openclaw mcp set servosity '{"command":"servosity-mcp"}'
 See the [OpenClaw MCP CLI docs](https://docs.openclaw.ai/cli/mcp) for the canonical command shape.
 
 **Note on subdirectory install path.** OpenClaw's monorepo subdirectory `git:` syntax for `skills install` is documented in the ClawHub skill-format spec; if `git:Servosity/msp-skills/skills/halopsa@main` does not resolve in your build, fall back to cloning the repo locally and running `openclaw skills install ./msp-skills/skills/halopsa`. We are updating the dogfood receipt in the next release.
+
+---
+
+## Install across all your agents at once
+
+If you run more than one AI agent - Claude Code, Codex, Cursor, Cline, Continue.dev, OpenCode, Windsurf, or any of 51+ others - the `npx skills` CLI installs MSP Skills' SKILL.md files across all of them in one command. It's the canonical install tool for the open [Agent Skills spec](https://agentskills.io) that MSP Skills conforms to.
+
+```bash
+npx skills add Servosity/msp-skills@latest
+```
+
+This symlinks (or copies, if you prefer) `skills/halopsa/SKILL.md` and `skills/servosity/SKILL.md` into every supported agent's skill directory at once. `@latest` pulls the most recently released tag so you don't track a moving `main`. Requires Node.js (which `npx` ships with). After it runs, follow up with the per-skill installer to drop the CLI + MCP binaries on your PATH:
+
+```bash
+# macOS / Linux / WSL
+bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.sh)
+
+# Windows PowerShell
+iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.ps1 | iex
+```
+
+**Why this path is secondary.** Most MSP business owners don't run multiple AI agents and don't have Node.js installed by default. The paste-prompt path at the top of each per-skill README is the simpler primary recommendation. The `npx skills` path shines when:
+
+- You're a senior tech / engineer running 3+ different agents
+- You want spec-conformant SKILL.md registration as a one-shot operation
+- You're already working in the [agentskills.io](https://agentskills.io) ecosystem
+
+**Pin a specific version.** `@latest` follows the most recent release. To pin to an exact commit or tag instead:
+
+```bash
+npx skills add Servosity/msp-skills@<commit-sha-or-tag>
+```
+
+Each skill in this repo is tagged independently (`halopsa-v0.1.0`, `servosity-v0.1.0`, etc.) so per-skill version pinning requires the per-skill installer, not the cross-agent CLI.
 
 ---
 

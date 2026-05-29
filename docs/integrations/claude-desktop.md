@@ -93,6 +93,10 @@ Claude reads the available MCP tools and runs the right commands.
 
 **Authentication errors:** confirm you can run `halopsa-cli doctor` or `servosity-cli doctor` in a terminal first. If the CLI works, the MCP server will too with the same credentials.
 
+## Want shell-driven install instead of JSON editing?
+
+If you've moved (or want to move) onto **[Claude Cowork](/integrations/cowork/)** (Anthropic's desktop agent with shell execution, GA Mar 2026), you can skip the config-file editing entirely - paste one prompt and Cowork runs the installer for you.
+
 ## What's next
 
 - **Try a real workflow.** Bring your tenant + your hardest cross-client question to a free [Build Session](https://compoundingteams.com/build-sessions) - we'll work it live with the MSP cohort.
