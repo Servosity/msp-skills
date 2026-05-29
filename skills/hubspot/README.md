@@ -107,25 +107,36 @@ HUBSPOT_ACCESS_TOKEN=<value> hubspot-cli doctor
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `hubspot-cli ...` |
-
--->
+| Which meetings were *ever* in outcome "Scheduled" this month  -  even the ones that later flipped to No Show or Completed? | `hubspot-cli meetings status-report --status scheduled --month 2026-04` |
+| Who do I call today? (the daily nurture list) | `hubspot-cli nurture queue --owner me --top 20 --agent` |
+| Which contacts or deals have gone cold? | `hubspot-cli stale contacts --days 30 --owner me` |
+| What's my pipeline health right now? ($ at risk + oldest stuck deals) | `hubspot-cli pipeline-health default --idle-days 14` |
+| Are my reps overloaded? | `hubspot-cli owner-load --pipeline default` |
+| What's the cross-object timeline for this deal? (every call + email + meeting + note + task) | `hubspot-cli engagements of deal:1234567 --since 90d` |
+| What changed across the whole CRM since yesterday? | `hubspot-cli since 24h` |
+| What did I do with the CLI in the last hour? (local audit log) | `hubspot-cli history --since 1h` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most HubSpot integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most HubSpot integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "every deal that was at stage X *at some point* last quarter  -  across all 200 active accounts  -  with $ at risk weighted by stage probability and current rep load." The standard HubSpot search/filter API physically cannot answer the "was at stage X at some point" half of that question  -  only the property-history endpoint can  -  and chaining a join across deals, contacts, owners, engagements, and property snapshots through live REST is a 50-call dance the AI burns context on.
 
-This skill syncs HubSpot into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs HubSpot into a **local SQLite mirror** with full-text search **plus a property-history snapshot table** (the only HubSpot CLI/MCP that captures `propertiesWithHistory` into a queryable shape). Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `meetings status-report`, `pipeline-health`, and `engagements of` join across **deals × contacts × owners × engagements × per-property history snapshots**  -  work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+**The pain:** monthly customer reports. An MSP customer asks "how many meetings were Scheduled with us in April?"  -  but by report time, every one of those meetings has flipped to Completed or No Show. HubSpot's UI can't answer "was *ever* Scheduled"; the standard search/filter API can't either; the property-history endpoint can, but no public HubSpot CLI or MCP exposes it in a queryable shape. See the [HubSpot Community thread on V3 property-history](https://community.hubspot.com/t5/APIs-Integrations/Enable-retrieval-of-property-history-in-the-V3-APIs/m-p/496344) for the long-running operator request, and the property-history retention discussion on [r/hubspot](https://www.reddit.com/r/hubspot/) for the workflow-impact framing.
+
+This skill closes that gap with five commands an MSP owner can run from a single AI prompt:
+
+- `hubspot-cli sync --resources hubspot-meetings-crm --with-history hs_meeting_outcome,hs_meeting_title,hubspot_owner_id`  -  captures the property snapshots so the report has data
+- `hubspot-cli meetings status-report --status scheduled --month 2026-04 --csv`  -  the customer report itself, one command
+- `hubspot-cli meetings ever-had --property hs_meeting_outcome --value Scheduled --from 2026-04-01 --to 2026-04-30`  -  same data, ad-hoc query
+- `hubspot-cli pipeline-health default --idle-days 14`  -  the rest of the QBR: what's at risk this period
+- `hubspot-cli engagements of deal:<id> --since 90d`  -  full activity trail for any specific deal under discussion
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -147,12 +158,21 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### How is this different from HubSpot's own Agent CLI (announced May 2026)?
+
+HubSpot announced their own [Agent CLI](https://blog.hubspot.com/marketing/introducing-the-hubspot-agent-cli) on 2026-05-27  -  a stateless, live-API CLI for scheduled GTM automations (CRUD, JSONL, safety-gated bulk ops). This skill is a **stateful, offline-first companion**: it does what HubSpot's CLI doesn't  -  local SQLite mirror, full-text search, cross-object joins in one command, and the property-history wedge (`meetings ever-had`, `meetings status-report`) that HubSpot's CLI doesn't expose. Idiom-compatible where it matters (`--filter` grammar, JSONL stdin/out, dry-run → digest → confirm), so prompts written for HubSpot's CLI mostly port over.
+
+### Will this hit my HubSpot API rate limits?
+
+The whole point of the local mirror is to **stop hitting the API for read queries**. After the first `sync` (which respects HubSpot's pagination and the 50-object cap that fires when `--with-history` is set), every aggregate report runs against your local SQLite  -  zero API calls. Sync itself is gentle: pagination is built-in, you can scope with `--resources` and `--since 7d`, and the CLI emits sync-warning events when HubSpot throttles instead of swallowing them silently.
+
+### Do I need to be a HubSpot partner or pay for a specific tier?
+
+No partnership required. You need a HubSpot **Private App access token** (free to create from any portal at [app.hubspot.com/private-apps](https://app.hubspot.com/private-apps)) with read scopes for the objects you care about (contacts, deals, meetings, etc.). Property-history retention varies by tier  -  HubSpot keeps ~90 days on free/Starter and longer on paid tiers; the CLI captures whatever's in the response and accrues forward from your first `--with-history` sync.
+
+### Will this replace my HubSpot UI?
+
+No. The HubSpot UI is great for one record at a time, deal editing, drag-and-drop pipelines, and the things your reps live in daily. This skill is for the **aggregate questions** your reps and AI agent can't answer fast from the UI: "what changed across 200 deals this week," "who's at risk this quarter," "every meeting that was Scheduled in April even if it later flipped." Different surface, same data.
 
 ### What does it cost?
 
@@ -160,15 +180,13 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| **Read** | All reports, rollups, and search (`stale`, `pipeline-health`, `nurture queue`, `deals top`, `engagements of`, `meetings history`, `meetings ever-had`, `meetings status-report`, `since`, `notes signals`, `owner-load`, `nurture-mine`, `history`) | Allow |
+| **Write (routine)** | `contacts bulk-update` (CSV/JSONL with dry-run → digest → confirm gate), `crm post-…-batch-create/update/upsert` (88 total) | Allow with `--confirm`; log the plan first |
+| **Credential / security** | (none detected) | Human-in-the-loop only |
+| **Destructive** | `crm delete-…-archive`, `*-crm delete-…`, `hubspot-contacts-crm post-…-gdpr-delete` (24 total) | Human-in-the-loop only, explicit confirmation |
+| **Admin** | (none detected) | Operator-only, not for agents |
 
 The strongest control is the **scope you grant the HubSpot credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -180,4 +198,4 @@ Beta. Validated against the HubSpot API surface and being validated with MSPs ru
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-05-29._

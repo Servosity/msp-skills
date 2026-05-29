@@ -21,7 +21,7 @@
       "first_party": true
     },
     "hubspot": {
-      "system": "Add HubSpot CRM sales-funnel analytics, contact/deal enrichment, meeting property-history reporting, and HubSpot Agent CLI idiom compatibility to Claude \u2014 offline-first SQLite mirror, agent-native JSONL bulk ops, and a live local mutation audit log.",
+      "system": "Add HubSpot CRM sales-funnel analytics, contact/deal enrichment, meeting property-history reporting, and HubSpot Agent CLI idiom compatibility to Claude. Offline-first SQLite mirror, agent-native JSONL bulk ops, and a live local mutation audit log.",
       "status": "beta",
       "cli_binary": "hubspot-cli",
       "mcp_binary": "hubspot-mcp",

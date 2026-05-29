@@ -15,16 +15,25 @@ permalink: /
 
 ## Works with your agent
 
-The four agents MSP owners actually use:
+The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | Why MSPs use it | Install |
 | --- | --- | --- |
 | **Claude Desktop** | The most common MSP-owner choice - no terminal, just a chat window | [Setup →](/integrations/claude-desktop/) |
 | **ChatGPT** (Plus/Pro+) | The brand most MSPs already pay for; pair with Developer Mode | [Setup →](/integrations/chatgpt/) |
-| **Claude Code** (CLI) | For technical-leaning MSP owners or senior techs | [Setup →](/integrations/claude-code/) |
 | **Codex CLI** (OpenAI) | Same audience as Claude Code, OpenAI side | [Setup →](/integrations/codex/) |
+| **Claude Code** (CLI) | For technical-leaning MSP owners or senior techs | [Setup →](/integrations/claude-code/) |
+| **Claude Cowork** | Anthropic's desktop agent - paste a prompt, it installs itself | [Setup →](/integrations/cowork/) |
+| **GitHub Copilot** (VS Code) | The Microsoft surface that runs the local binary today, in Agent mode | [Setup →](/integrations/github-copilot/) |
 
-> **Also works with** Cursor, Windsurf, Cline, Continue.dev, Zed, GitHub Copilot, and Gemini CLI. Full per-tool deep-dive in [which agent →](/which-agent/).
+**Microsoft & Google paths** - big install base, but the honest remote / enterprise route:
+
+| Your AI agent | What it takes | Install |
+| --- | --- | --- |
+| **Microsoft 365 Copilot / Copilot Studio** | Remote only: host over HTTPS + Copilot Studio license + tenant admin | [Setup →](/integrations/microsoft-365-copilot/) |
+| **Google Gemini** | Gemini CLI: local. Gemini app: remote (HTTPS). | [Setup →](/integrations/gemini/) |
+
+> **Skill-native agents (secondary):** [Hermes →](/integrations/hermes/) and [OpenClaw →](/integrations/openclaw/) read the skill directly and speak MCP. **Also works with** Cursor, Windsurf, Cline, Continue.dev, and Zed. Full per-tool deep-dive in [which agent →](/which-agent/).
 
 ## What's in the box
 

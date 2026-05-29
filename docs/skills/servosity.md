@@ -10,7 +10,7 @@ skill_name: "Servosity MCP"
 
 > Published by Servosity Inc. for MSP partners. Servosity is a trademark of Servosity Inc. Apache-2.0 licensed.
 
-Add **fleet-wide backup triage, stale-backup-set detection, overnight drift, per-client situational awareness, and cross-engine analytics** to the AI you already use - **Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A **local fleet mirror** means your AI can answer cross-client questions the partner portal can't show on one screen - **Friday-email-ready in seconds**. Built for MSP partners. No code required.
+Add **fleet-wide backup triage, stale-backup-set detection, overnight drift, per-client situational awareness, and cross-engine analytics** to the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. A **local fleet mirror** means your AI can answer cross-client questions the partner portal can't show on one screen - **Friday-email-ready in seconds**. Built for MSP partners. No code required.
 
 [Install in 60s →](#install){: .btn .btn-primary} &nbsp; [View on GitHub →](https://github.com/servosity/msp-skills/tree/main/skills/servosity){: .btn}
 
@@ -52,9 +52,14 @@ Backup and DR is where "silent failure" hurts most:
 | --- | --- |
 | **Claude Desktop** | [Step-by-step →](/integrations/claude-desktop/) |
 | **ChatGPT** (Plus/Pro+) | [Step-by-step →](/integrations/chatgpt/) |
-| **Claude Code** | [Step-by-step →](/integrations/claude-code/) |
 | **Codex CLI** | [Step-by-step →](/integrations/codex/) |
-| Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](/which-agent/) |
+| **Claude Code** | [Step-by-step →](/integrations/claude-code/) |
+| **Claude Cowork** | [Step-by-step →](/integrations/cowork/) |
+| **GitHub Copilot** (VS Code) | [Step-by-step →](/integrations/github-copilot/) |
+| **Microsoft 365 Copilot / Copilot Studio** | [Step-by-step →](/integrations/microsoft-365-copilot/) (remote) |
+| **Google Gemini** | [Step-by-step →](/integrations/gemini/) |
+| **Hermes**, **OpenClaw** | [Hermes →](/integrations/hermes/) · [OpenClaw →](/integrations/openclaw/) |
+| Cursor, Windsurf, Cline, Continue, Zed | [Which agent? →](/which-agent/) |
 
 **Quickest path** (terminal):
 

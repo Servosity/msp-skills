@@ -10,7 +10,7 @@ skill_name: "HaloPSA MCP"
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the HaloPSA, HaloITSM, and HaloCRM APIs. Not affiliated with Halo Service Solutions Ltd. HaloPSA, HaloITSM, and HaloCRM are trademarks of Halo Service Solutions Ltd.
 
-Add **HaloPSA ticket triage, SLA-breach pre-emption, per-client situational awareness, and cross-client analytics** to the AI you already use - **Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A **local SQLite mirror** means your AI can answer cross-client questions the live HaloPSA API can't return in one shot - **no rate-limit hits during QBR prep**. Built for MSP owners. No code required.
+Add **HaloPSA ticket triage, SLA-breach pre-emption, per-client situational awareness, and cross-client analytics** to the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. A **local SQLite mirror** means your AI can answer cross-client questions the live HaloPSA API can't return in one shot - **no rate-limit hits during QBR prep**. Built for MSP owners. No code required.
 
 [Install in 60s →](#install){: .btn .btn-primary} &nbsp; [View on GitHub →](https://github.com/servosity/msp-skills/tree/main/skills/halopsa){: .btn}
 
@@ -54,9 +54,14 @@ Works in any of these agents - pick yours:
 | --- | --- |
 | **Claude Desktop** | [Step-by-step →](/integrations/claude-desktop/) |
 | **ChatGPT** (Plus/Pro+) | [Step-by-step →](/integrations/chatgpt/) |
-| **Claude Code** | [Step-by-step →](/integrations/claude-code/) |
 | **Codex CLI** | [Step-by-step →](/integrations/codex/) |
-| Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](/which-agent/) |
+| **Claude Code** | [Step-by-step →](/integrations/claude-code/) |
+| **Claude Cowork** | [Step-by-step →](/integrations/cowork/) |
+| **GitHub Copilot** (VS Code) | [Step-by-step →](/integrations/github-copilot/) |
+| **Microsoft 365 Copilot / Copilot Studio** | [Step-by-step →](/integrations/microsoft-365-copilot/) (remote) |
+| **Google Gemini** | [Step-by-step →](/integrations/gemini/) |
+| **Hermes**, **OpenClaw** | [Hermes →](/integrations/hermes/) · [OpenClaw →](/integrations/openclaw/) |
+| Cursor, Windsurf, Cline, Continue, Zed | [Which agent? →](/which-agent/) |
 
 **Quickest path** for everyone else (terminal):
 
