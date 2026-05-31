@@ -6,7 +6,7 @@
   "version": "0.1.0",
   "icons": [
     {
-      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/servosity/icon-512.png",
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/servosity/servosity-512x512.png",
       "mimeType": "image/png",
       "sizes": [
         "512x512"

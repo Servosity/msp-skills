@@ -34,6 +34,7 @@ echo "== Repo gates =="
 if run python3 tools/maintainer/check_skill_contract.py;  then pass "skill contract";      else fail "skill contract";      fi
 if run python3 tools/maintainer/check_md_links.py;        then pass "markdown links";      else fail "markdown links";      fi
 if run python3 tools/maintainer/check_release_contract.py; then pass "release contract";   else fail "release contract";    fi
+if run python3 tools/maintainer/check_social_assets.py;   then pass "social assets";       else fail "social assets";       fi
 if run bash    tools/maintainer/ci_guards.sh;             then pass "repo hygiene guards"; else fail "repo hygiene guards"; fi
 
 echo "== Release matrix sanity =="
