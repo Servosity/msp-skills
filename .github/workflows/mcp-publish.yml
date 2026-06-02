@@ -122,7 +122,7 @@ jobs:
           cd mcpb-build
           gh release upload "$TAG" "${SKILL}-mcp.mcpb" --clobber
 
-      - name: Patch server.json with SHA + version + download URL
+      - name: Patch server.json with SHA + version + identifier URL
         env:
           SKILL: ${{ needs.detect.outputs.skill }}
           VERSION: ${{ needs.detect.outputs.version }}
@@ -132,12 +132,15 @@ jobs:
           set -euo pipefail
           src=skills/$SKILL/server.json
           out=mcpb-build/server.json
-          download="https://github.com/${{ github.repository }}/releases/download/${TAG}/${SKILL}-mcp.mcpb"
+          # For registryType "mcpb" the registry reads the host from `identifier`,
+          # which MUST be the full .mcpb download URL (a bare name -> 400 "Host ''").
+          # There is no separate `download` field in the mcpb package schema.
+          identifier="https://github.com/${{ github.repository }}/releases/download/${TAG}/${SKILL}-mcp.mcpb"
           jq \
             --arg version "$VERSION" \
             --arg sha "$SHA" \
-            --arg download "$download" \
-            '.version = $version | .packages[0].version = $version | .packages[0].fileSha256 = $sha | .packages[0].download = $download' \
+            --arg identifier "$identifier" \
+            '.version = $version | .packages[0].version = $version | .packages[0].fileSha256 = $sha | .packages[0].identifier = $identifier | del(.packages[0].download)' \
             "$src" > "$out"
           echo "--- patched server.json ---"
           cat "$out"
