@@ -3,7 +3,7 @@
   "name": "io.github.servosity/servosity-mcp",
   "title": "Servosity MCP",
   "description": "Add fleet-wide backup triage, stale-backup detection, and cross-engine analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local fleet mirror with snapshot history so the partner portal's per-page views become one query. For MSP partners.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/servosity/servosity-512x512.png",
@@ -22,8 +22,8 @@
     {
       "registryType": "mcpb",
       "identifier": "servosity-mcp",
-      "version": "0.1.0",
-      "download": "https://github.com/servosity/msp-skills/releases/download/servosity-v0.1.0/servosity-mcp.mcpb",
+      "version": "0.1.1",
+      "download": "https://github.com/servosity/msp-skills/releases/download/servosity-v0.1.1/servosity-mcp.mcpb",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
