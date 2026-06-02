@@ -52,6 +52,20 @@ jobs:
           tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
           /tmp/gitleaks detect --no-git --source . --config .gitleaks.toml --redact --no-banner
 
+      - name: Plugin manifest validation (claude plugin validate --strict)
+        env:
+          CI: "true"
+        run: |
+          set -euo pipefail
+          npm install -g @anthropic-ai/claude-code
+          # Marketplace manifest + every per-skill plugin manifest. --strict
+          # fails on unknown fields (e.g. a stray `vendor`) and missing metadata.
+          claude plugin validate . --strict
+          for d in skills/*/; do
+            [ -f "${d}.claude-plugin/plugin.json" ] || continue
+            claude plugin validate "skills/$(basename "$d")" --strict
+          done
+
   # Skill build matrix is computed from the repo, so a new skill is built+vetted
   # with no edit here (mirrors the release workflow).
   prepare:

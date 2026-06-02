@@ -3,7 +3,7 @@
   "name": "io.github.servosity/halopsa-mcp",
   "title": "HaloPSA MCP",
   "description": "Add HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local SQLite mirror so cross-entity queries the live HaloPSA API can't return in one shot are fast and offline. For MSP owners.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/halopsa/halopsa-512x512.png",
@@ -22,8 +22,8 @@
     {
       "registryType": "mcpb",
       "identifier": "halopsa-mcp",
-      "version": "0.1.0",
-      "download": "https://github.com/servosity/msp-skills/releases/download/halopsa-mcp-v0.1.0/halopsa-mcp.mcpb",
+      "version": "0.1.1",
+      "download": "https://github.com/servosity/msp-skills/releases/download/halopsa-v0.1.1/halopsa-mcp.mcpb",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

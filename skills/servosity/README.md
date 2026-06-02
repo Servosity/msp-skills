@@ -24,6 +24,17 @@ For ChatGPT, the Servosity MCP server is stdio - to use it with ChatGPT you expo
 
 ## Install in 60 seconds
 
+### Fastest for Claude Desktop - one-click `.mcpb`
+
+[**Download Servosity MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/servosity-v0.1.1/servosity-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Servosity release on the [releases page](https://github.com/servosity/msp-skills/releases?q=servosity).)
+
+Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
+
+```
+/plugin marketplace add Servosity/msp-skills
+/plugin install servosity@msp-skills
+```
+
 ### Path A - paste one prompt into your AI agent (recommended)
 
 Copy this into **Claude Code**, **Codex CLI**, or **Claude Cowork**:
@@ -53,6 +64,24 @@ Verify:
 ```bash
 servosity-cli --version
 ```
+
+### Upgrade to the latest version
+
+The installer always fetches the current release - re-run it to upgrade:
+
+**macOS / Linux:**
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.sh)
+```
+
+**Windows (PowerShell):**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.ps1 | iex
+```
+
+Claude Desktop `.mcpb` users: download the latest `.mcpb` (top of this section) and re-select it in **Settings > Extensions**. Claude Code plugin users: `/plugin update servosity@msp-skills`.
 
 ### Add to Claude Desktop, Cursor, Windsurf, Cline, Continue, Gemini, or Copilot
 
