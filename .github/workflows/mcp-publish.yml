@@ -145,7 +145,11 @@ jobs:
       - name: Install mcp-publisher
         run: |
           set -euo pipefail
-          curl -fsSL https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher-linux-amd64 -o mcp-publisher
+          # Upstream ships a tarball (mcp-publisher_<os>_<arch>.tar.gz), not a bare
+          # binary. The old mcp-publisher-linux-amd64 URL 404'd, failing every
+          # registry publish (the .mcpb build + GH release still succeeded).
+          curl -fsSL https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz -o mcp-publisher.tar.gz
+          tar -xzf mcp-publisher.tar.gz mcp-publisher
           chmod +x mcp-publisher
           ./mcp-publisher --version
 
