@@ -4,6 +4,16 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.1] - 2026-06-02
+
+### Fixed
+- OAuth2 client-credentials tokens now send the `scope` parameter (defaulting to
+  `all`), fixing HTTP 401 on every authenticated HaloPSA API call (refs #7).
+
+### Changed
+- First marketplace-ready release: one-click `.mcpb` install, validated plugin
+  manifest, and registry metadata aligned for submission.
+
 ## [0.1.0] - 2026-05-26
 
 ### Added

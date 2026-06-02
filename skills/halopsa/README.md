@@ -26,7 +26,7 @@ For ChatGPT, the HaloPSA MCP server is stdio - to use it with ChatGPT you expose
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download HaloPSA MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/halopsa-v0.1.0/halopsa-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every HaloPSA release on the [releases page](https://github.com/servosity/msp-skills/releases?q=halopsa).)
+[**Download HaloPSA MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/halopsa-v0.1.1/halopsa-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every HaloPSA release on the [releases page](https://github.com/servosity/msp-skills/releases?q=halopsa).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

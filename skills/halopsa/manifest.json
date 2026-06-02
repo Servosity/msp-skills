@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "halopsa-mcp",
   "display_name": "Halo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Add HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local SQLite mirror so cross-entity queries the live API can't return are fast and offline.",
   "author": {
     "name": "Servosity Inc."
