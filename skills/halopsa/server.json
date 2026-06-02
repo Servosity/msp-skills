@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.servosity/halopsa-mcp",
+  "name": "io.github.Servosity/halopsa-mcp",
   "title": "HaloPSA MCP",
   "description": "HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics for any MCP agent.",
   "version": "0.1.1",

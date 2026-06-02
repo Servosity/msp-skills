@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.servosity/servosity-mcp",
+  "name": "io.github.Servosity/servosity-mcp",
   "title": "Servosity MCP",
   "description": "Fleet-wide backup triage, stale-backup detection, and cross-engine analytics for any MCP agent.",
   "version": "0.1.1",
