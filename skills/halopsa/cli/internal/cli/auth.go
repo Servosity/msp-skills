@@ -86,7 +86,7 @@ Credentials default to HALOPSA_CLIENT_ID (Client ID) and HALOPSA_CLIENT_SECRET (
 			if tokenURL == "" {
 				tokenURL = "https://{tenant}.{domain}/auth/token"
 			}
-			tok, err := mintClientCredentialsToken(http.DefaultClient, tokenURL, clientID, clientSecret)
+			tok, err := mintClientCredentialsToken(http.DefaultClient, tokenURL, clientID, clientSecret, cfg.HalopsaScope)
 			if err != nil {
 				return authErr(err)
 			}
@@ -124,12 +124,18 @@ type tokenResponse struct {
 }
 
 // mintClientCredentialsToken POSTs grant_type=client_credentials to the
-// token endpoint and returns the parsed token response.
-func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, clientSecret string) (*tokenResponse, error) {
+// token endpoint and returns the parsed token response. A non-empty scope is
+// sent as the OAuth2 scope parameter; HaloPSA rejects tokens minted without one
+// (HTTP 401 on every subsequent API call), so callers pass the resolved scope
+// (defaulting to "all" via config.Load).
+func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, clientSecret, scope string) (*tokenResponse, error) {
 	form := url.Values{
 		"grant_type":    {"client_credentials"},
 		"client_id":     {clientID},
 		"client_secret": {clientSecret},
+	}
+	if scope != "" {
+		form.Set("scope", scope)
 	}
 	req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {

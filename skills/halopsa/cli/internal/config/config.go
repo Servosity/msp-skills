@@ -112,6 +112,16 @@ func Load(configPath string) (*Config, error) {
 		cfg.AuthSource = "config"
 	}
 
+	// Apply the documented default OAuth2 scope. HaloPSA's client_credentials
+	// grant requires an explicit scope; a token minted without one is accepted
+	// at the token endpoint but then rejected with HTTP 401 on every API call.
+	// Defaulting to "all" matches the documented behavior and keeps auth working
+	// out of the box. Applied AFTER the AuthSource detection above so a defaulted
+	// scope never mislabels auth_source as "config".
+	if cfg.HalopsaScope == "" {
+		cfg.HalopsaScope = "all"
+	}
+
 	// Base URL override (used by printing-press verify to point at mock/test servers)
 	if v := os.Getenv("HALOPSA_BASE_URL"); v != "" {
 		cfg.BaseURL = v
