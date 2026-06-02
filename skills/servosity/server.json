@@ -23,7 +23,7 @@
       "registryType": "mcpb",
       "identifier": "servosity-mcp",
       "version": "0.1.0",
-      "download": "https://github.com/servosity/msp-skills/releases/download/servosity-mcp-v0.1.0/servosity-mcp.mcpb",
+      "download": "https://github.com/servosity/msp-skills/releases/download/servosity-v0.1.0/servosity-mcp.mcpb",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
