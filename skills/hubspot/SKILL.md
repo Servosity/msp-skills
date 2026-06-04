@@ -1,6 +1,6 @@
 ---
 name: hubspot
-description: "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting Trigger phrases: `find meetings ever scheduled`, `monthly meeting outcome report`, `hubspot stale leads`, `who do I call today hubspot`, `engagements timeline for this contact`, `use hubspot-cli`, `run hubspot`."
+description: "Use when the user says `find meetings ever scheduled`, `monthly meeting outcome report`, `hubspot stale leads`, `hubspot pipeline health`, `who do I call today hubspot`, `engagements timeline for this contact`, `use hubspot-cli`, or `run hubspot`. Manages HubSpot Sales Hub - contacts, companies, deals, tickets, engagements, pipelines, owners - plus offline cross-object queries, property-change-history reporting, and an agent-native data layer the live API can't compose in one call."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "HubSpot"
@@ -67,6 +67,7 @@ These capabilities aren't available in any other tool for this API.
 
   _Use this for forecast-vs-reality checks before a pipeline review._
 
+<!-- cli-claims:ignore -->
   ```bash
   hubspot-cli pipeline-health default --idle-days 14 --json
   ```
@@ -534,6 +535,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Pipeable**  -  JSON on stdout, errors on stderr
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
+<!-- cli-claims:ignore -->
   ```bash
   hubspot-cli batch post-crm-v3-objects-object-type-archive-archive mock-value --agent --select id,name,status
   ```

@@ -161,6 +161,7 @@ These capabilities aren't available in any other tool for this API.
 
   _Use this for forecast-vs-reality checks before a pipeline review._
 
+<!-- cli-claims:ignore -->
   ```bash
   hubspot-cli pipeline-health default --idle-days 14 --json
   ```
@@ -660,6 +661,7 @@ Manage objects search
 
 ## Output Formats
 
+<!-- cli-claims:ignore -->
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
 hubspot-cli batch post-crm-v3-objects-object-type-archive-archive mock-value
