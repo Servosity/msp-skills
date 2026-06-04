@@ -88,7 +88,7 @@
       "a": "It works against any portal that issues a Private App access token with the read scopes you grant. Which objects, properties, and history depth are available is governed by your HubSpot plan and the scopes on the token, not by this skill."
     }
   ],
-  "governance_summary": "The skill drives the hubspot-cli and hubspot-mcp binaries, authenticating only with HUBSPOT_ACCESS_TOKEN read from the environment - never written to disk, logged, or sent anywhere except the HubSpot API. Read commands (reports, rollups, search) are always safe and can change nothing; mutating commands plan with --dry-run by default and require an explicit confirm. The recommended agent policy is to allow read plus planned writes and to require a human for any write, destructive, or credential-touching command.",
+  "governance_summary": "The skill drives the hubspot-cli and hubspot-mcp binaries, authenticating only with HUBSPOT_ACCESS_TOKEN read from the environment - never written to disk, logged, or sent anywhere except the HubSpot API. Read commands (reports, rollups, search) are always safe and can change nothing. Writes are not gated by default: --dry-run is an opt-in flag (default off) that previews a request without sending, so raw create/update/delete commands send immediately on first run unless your agent passes --dry-run first. The one built-in mutation gate is on contacts bulk-update, and it only fires above 100 rows (smaller batches dispatch immediately with a one-line bypass warning). The recommended policy is an agent-level rule: require the agent to show the exact command and get human approval before any mutation, and require a human for any destructive or credential-touching command. The strongest control is the scope you grant the Private App token.",
   "safety_tiers": [
     {
       "tier": "Read",
@@ -97,8 +97,8 @@
     },
     {
       "tier": "Write (routine)",
-      "examples": "hubspot-cli contacts bulk-update (CSV/JSONL with pre-validation); hubspot-cli batch post-crm-v3-objects-object-type-create-create; hubspot-cli batch post-crm-v3-objects-object-type-update-update - preview first with --dry-run",
-      "policy": "Preview with --dry-run, then a reviewed write"
+      "examples": "hubspot-cli contacts bulk-update (digest+--confirm gate only above 100 rows; smaller batches send immediately with a bypass warning); hubspot-cli batch post-crm-v3-objects-object-type-create-create; hubspot-cli batch post-crm-v3-objects-object-type-update-update (raw writes send immediately - no --confirm flag)",
+      "policy": "Pass --dry-run first to preview; raw writes are NOT gated by default, so require agent-side approval before sending"
     },
     {
       "tier": "Destructive / config",

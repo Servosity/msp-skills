@@ -12,7 +12,7 @@ HubSpot announced their own [Agent CLI on 2026-05-27](https://blog.hubspot.com/m
 
 Five commands an MSP owner can run from a single AI prompt:
 
-1. **`hubspot-cli sync --resources hubspot-meetings-crm --with-history hs_meeting_outcome,hs_meeting_title,hubspot_owner_id`** - captures property snapshots into a local `hubspot_property_history` table during sync. Auto-handles HubSpot's 50-object-per-request cap when `propertiesWithHistory` is set.
+1. **`hubspot-cli sync --resources hubspot-meetings-crm --with-history hs_meeting_outcome,hs_meeting_title,hubspot_owner_id`** - captures property snapshots into a local `hubspot_property_history` table during sync. Sync is paged and rate-limit-aware; `--with-history` requests `propertiesWithHistory`, which HubSpot's batch-read API caps per request, and the CLI pages accordingly.
 2. **`hubspot-cli meetings status-report --status scheduled --month 2026-04 --csv > april.csv`** - the customer report itself: every meeting that was Scheduled at any point in April, with current outcome breakdown. One command replaces a Python pull + a HubSpot export + a manual cross-reference.
 3. **`hubspot-cli meetings ever-had --property hs_meeting_outcome --value Scheduled --from 2026-04-01 --to 2026-04-30 --json`** - the underlying query for ad-hoc investigation. Returns meeting ID + title + owner + first-hit timestamp + current outcome.
 4. **`hubspot-cli pipeline-health default --idle-days 14 --json`** - the rest of the QBR: per-stage rollup with weighted value (Closed Lost = 0, Closed Won = 1.0), $ at risk for idle deals, oldest stuck deal per stage. Read-only against the local mirror.

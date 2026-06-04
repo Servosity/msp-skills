@@ -25,7 +25,7 @@
       "skill_path": "skills/hubspot",
       "cli_binary": "hubspot-cli",
       "mcp_binary": "hubspot-mcp",
-      "version": "4.19.0",
+      "version": "0.1.0",
       "license": "Apache-2.0",
       "vendor": "HubSpot",
       "vendor_trademark_owner": "HubSpot, Inc.",

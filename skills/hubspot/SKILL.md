@@ -71,14 +71,14 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   hubspot-cli pipeline-health default --idle-days 14 --json
   ```
-- **`nurture queue`**  -  Ranked 'who to contact today' list scored by stale-days × deal amount × stage probability, with the rationale exposed as columns.
+- **`nurture queue`**  -  Ranked 'who to contact today' list scored by a weighted sum of stale-days, log(deal amount), and stage probability (`stale_days*1.0 + log(amount)*0.5 + (1-probability)*100`), with the rationale exposed as columns.
 
   _Reach for this in the nurture skill or any daily-touch-list loop where an agent needs a priority order with reasons attached._
 
   ```bash
   hubspot-cli nurture queue --owner me --top 20 --agent
   ```
-- **`deals top`**  -  Composite-ranked top-N deals by (signal × amount × stage-probability × inverse-days-since-contact) with the score breakdown exposed as columns.
+- **`deals top`**  -  Composite-ranked top-N deals by a weighted sum of signal, log(amount), stage probability, and recency (`signal_score*2 + log(amount)*1.5 + stage_probability*3 + recency_score*2`), with the score breakdown exposed as columns.
 
   _Pick this for sales-lead Monday reviews or when an agent needs the top opportunities ranked by signal-weighted score, not raw amount._
 

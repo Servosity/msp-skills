@@ -115,7 +115,7 @@ HUBSPOT_ACCESS_TOKEN=<value> hubspot-cli doctor
 | What's my pipeline health right now? ($ at risk + oldest stuck deals) | <!-- cli-claims:ignore -->`hubspot-cli pipeline-health default --idle-days 14` |
 | Are my reps overloaded? | `hubspot-cli owner-load --pipeline default` |
 | What's the cross-object timeline for this deal? (every call + email + meeting + note + task) | `hubspot-cli engagements of deal:1234567 --since 90d` |
-| What changed across the whole CRM since yesterday? | `hubspot-cli since 24h` |
+| What changed across contacts, deals, engagements, and companies since yesterday? | `hubspot-cli since 24h` |
 | What did I do with the CLI in the last hour? (local audit log) | `hubspot-cli history --since 1h` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
@@ -144,7 +144,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The HubSpot MCP server is local, so for ChatGPT you expose it via the `mcp-remote` bridge or your own HTTPS endpoint. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, on **paid ChatGPT plans** - ChatGPT's MCP connector support is in beta and plan-dependent, so check [OpenAI's current guidance](https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta) for which tiers expose it. ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The HubSpot MCP server is local, so for ChatGPT you expose it via the `mcp-remote` bridge or your own HTTPS endpoint. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -160,11 +160,11 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries. 
 
 ### How is this different from HubSpot's own Agent CLI (announced May 2026)?
 
-HubSpot announced their own [Agent CLI](https://blog.hubspot.com/marketing/introducing-the-hubspot-agent-cli) on 2026-05-27  -  a stateless, live-API CLI for scheduled GTM automations (CRUD, JSONL, safety-gated bulk ops). This skill is a **stateful, offline-first companion**: it does what HubSpot's CLI doesn't  -  local SQLite mirror, full-text search, cross-object joins in one command, and the property-history wedge (`meetings ever-had`, `meetings status-report`) that HubSpot's CLI doesn't expose. Idiom-compatible where it matters (`--filter` grammar, JSONL stdin/out, dry-run → digest → confirm), so prompts written for HubSpot's CLI mostly port over.
+HubSpot announced their own [Agent CLI](https://blog.hubspot.com/marketing/introducing-the-hubspot-agent-cli) on 2026-05-27  -  a stateless, live-API CLI for scheduled GTM automations (CRUD, JSONL, safety-gated bulk ops). This skill is a **stateful, offline-first companion**: it does what HubSpot's CLI doesn't  -  local SQLite mirror, full-text search, cross-object joins in one command, and the property-history wedge (`meetings ever-had`, `meetings status-report`) that HubSpot's CLI doesn't expose. Idiom-compatible where it matters (`--filter` grammar, JSONL stdin/out, and the `contacts bulk-update` dry-run → digest → confirm dance for large batches), so prompts written for HubSpot's CLI mostly port over.
 
 ### Will this hit my HubSpot API rate limits?
 
-The whole point of the local mirror is to **stop hitting the API for read queries**. After the first `sync` (which respects HubSpot's pagination and the 50-object cap that fires when `--with-history` is set), every aggregate report runs against your local SQLite  -  zero API calls. Sync itself is gentle: pagination is built-in, you can scope with `--resources` and `--since 7d`, and the CLI emits sync-warning events when HubSpot throttles instead of swallowing them silently.
+The whole point of the local mirror is to **stop hitting the API for read queries**. After the first `sync` (which is paged and rate-limit-aware - `--with-history` requests `propertiesWithHistory`, which per [HubSpot's batch-read API docs](https://developers.hubspot.com/docs/api/crm/understanding-the-crm) caps the records returned per request, so the CLI pages accordingly), every aggregate report runs against your local SQLite  -  zero API calls. Sync itself is gentle: pagination is built-in, you can scope with `--resources` and `--since 7d`, and the CLI emits sync-warning events when HubSpot throttles instead of swallowing them silently.
 
 ### Do I need to be a HubSpot partner or pay for a specific tier?
 
@@ -180,15 +180,17 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
+Read the honest version first: **writes are not gated by default.** `--dry-run` is an opt-in global flag ("Show request without sending", default off) - a raw create/update/delete command sends immediately on first run unless your agent passes `--dry-run` first. The one built-in mutation gate lives on `contacts bulk-update`, and it only fires **above 100 rows** (smaller batches dispatch immediately with a one-line bypass warning). So the real control is an **agent-level policy** you set, plus the scope you grant the token.
+
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | **Read** | All reports, rollups, and search (`stale`, `pipeline-health`, `nurture queue`, `deals top`, `engagements of`, `meetings history`, `meetings ever-had`, `meetings status-report`, `since`, `notes signals`, `owner-load`, `nurture-mine`, `history`) | Allow |
-| **Write (routine)** | `contacts bulk-update` (CSV/JSONL with dry-run → digest → confirm gate), `crm post-…-batch-create/update/upsert` (88 total) | Allow with `--confirm`; log the plan first |
+| **Write (routine)** | `contacts bulk-update` (digest + `--confirm` gate, but only above 100 rows - smaller batches send immediately), `crm post-…-batch-create/update/upsert` (88 total; these raw writes have no `--confirm` flag and send immediately) | Make the agent pass `--dry-run` to preview, then require human approval of the exact command before sending. Do not rely on a built-in gate for small batches. |
 | **Credential / security** | (none detected) | Human-in-the-loop only |
 | **Destructive** | `crm delete-…-archive`, `*-crm delete-…`, `hubspot-contacts-crm post-…-gdpr-delete` (24 total) | Human-in-the-loop only, explicit confirmation |
 | **Admin** | (none detected) | Operator-only, not for agents |
 
-The strongest control is the **scope you grant the HubSpot credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
+The strongest control is the **scope you grant the HubSpot credentials** - the CLI can only do what the credentials are permitted to do. A read/report workflow should use a read-only token. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 
