@@ -151,6 +151,9 @@ WHERE COALESCE(archived, 0) = 0
 					TopBuying: topBuy, TopLost: topLost,
 				})
 			}
+			if err := rows.Err(); err != nil {
+				return fmt.Errorf("iterating deal rows: %w", err)
+			}
 			sort.Slice(items, func(i, j int) bool { return items[i].Score > items[j].Score })
 			if topN > 0 && len(items) > topN {
 				items = items[:topN]

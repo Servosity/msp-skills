@@ -228,6 +228,9 @@ WHERE timestamp >= ?`
 		r.Source = nullStr(sourceCell)
 		out = append(out, r)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating history rows: %w", err)
+	}
 	return out, nil
 }
 

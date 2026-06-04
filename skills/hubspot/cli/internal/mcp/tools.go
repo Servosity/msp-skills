@@ -522,6 +522,9 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 		}
 		results = append(results, row)
 	}
+	if err := rows.Err(); err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("iterating rows: %v", err)), nil
+	}
 
 	data, _ := json.MarshalIndent(results, "", "  ")
 	return mcplib.NewToolResultText(string(data)), nil

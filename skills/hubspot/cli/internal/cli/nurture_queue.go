@@ -82,6 +82,11 @@ func newNovelNurtureQueueCmd(flags *rootFlags) *cobra.Command {
 				candidates = kept
 			}
 
+			stageProb, err := loadAllStageProbabilities(db)
+			if err != nil {
+				return err
+			}
+
 			type scored struct {
 				Rank      int     `json:"rank"`
 				ContactID string  `json:"contact_id"`
@@ -98,9 +103,14 @@ func newNovelNurtureQueueCmd(flags *rootFlags) *cobra.Command {
 				if amt < 1 {
 					amt = 1
 				}
-				// We don't have per-stage probability without a pipeline lookup;
-				// approximate by using 0.5 (mid-funnel) when stage is non-closed.
+				// Real per-stage probability from the synced pipeline
+				// metadata (same lookup as deals top); fall back to 0.5
+				// (mid-funnel) for contacts with no open deal or a stage
+				// missing from the local mirror.
 				probability := 0.5
+				if p, ok := stageProb[c.LatestDealStage]; ok {
+					probability = p
+				}
 				score := float64(c.DaysStale)*1.0 + math.Log(amt)*0.5 + (1.0-probability)*100.0
 				reason := fmt.Sprintf("%d days idle", c.DaysStale)
 				if c.TopDealAmount > 0 {

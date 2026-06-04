@@ -74,6 +74,9 @@ ORDER BY owner_name, stage`
 				r.OwnerName = nullStr(name)
 				items = append(items, r)
 			}
+			if err := rows.Err(); err != nil {
+				return fmt.Errorf("iterating owner load rows: %w", err)
+			}
 			if flags.asJSON {
 				return flags.printJSON(cmd, items)
 			}

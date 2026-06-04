@@ -40,7 +40,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | Skill | System | Status | Install |
 | --- | --- | --- | --- |
 | [halopsa](./skills/halopsa) | HaloPSA, HaloITSM, HaloCRM | ![Tested](https://img.shields.io/badge/Tested-by_MSPs-2E7D32) | [Install](./skills/halopsa/README.md) |
-| [hubspot](./skills/hubspot) | Add HubSpot CRM sales-funnel analytics, contact/deal enrichment, meeting property-history reporting, and HubSpot Agent CLI idiom compatibility to Claude. Offline-first SQLite mirror, agent-native JSONL bulk ops, and a live local mutation audit log. | ![Tested](https://img.shields.io/badge/Tested-by_MSPs-2E7D32) | [Install](./skills/hubspot/README.md) |
+| [hubspot](./skills/hubspot) | HubSpot CRM: contacts, companies, deals, tickets, engagements | ![Tested](https://img.shields.io/badge/Tested-by_MSPs-2E7D32) | [Install](./skills/hubspot/README.md) |
 | [servosity](./skills/servosity) | Servosity backup and DR | ![Tested](https://img.shields.io/badge/Tested-by_MSPs-2E7D32) | [Install](./skills/servosity/README.md) |
 <!-- catalog:end -->
 

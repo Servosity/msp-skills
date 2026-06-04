@@ -25,6 +25,29 @@
       "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.",
       "display_name": "HaloPSA"
     },
+    "hubspot": {
+      "system": "HubSpot CRM: contacts, companies, deals, tickets, engagements",
+      "status": "beta",
+      "cli_binary": "hubspot-cli",
+      "mcp_binary": "hubspot-mcp",
+      "vendor": "HubSpot",
+      "vendor_trademark_owner": "HubSpot, Inc.",
+      "first_party": false,
+      "category": "CRM",
+      "display_name": "HubSpot",
+      "tagline": "Pipeline health, stale deals, and owner workload for every client by asking.",
+      "cli_hash": "sha256:50cc2d03171acd1232def91fc8fa118aa68feff37236f83d5bb429c4ef0a41e7",
+      "template_version": 2,
+      "version": "4.19.0",
+      "cli_hash_at_release": null,
+      "has_video": false,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "servosity": {
       "system": "Servosity backup and DR",
       "status": "beta",

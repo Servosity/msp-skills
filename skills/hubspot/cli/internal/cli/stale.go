@@ -138,6 +138,9 @@ LIMIT ?`
 					break
 				}
 			}
+			if err := rows.Err(); err != nil {
+				return fmt.Errorf("iterating stale contact rows: %w", err)
+			}
 
 			if flags.asJSON {
 				return flags.printJSON(cmd, items)
@@ -266,6 +269,9 @@ LIMIT ?`
 				if limit > 0 && len(items) >= limit {
 					break
 				}
+			}
+			if err := rows.Err(); err != nil {
+				return fmt.Errorf("iterating stale deal rows: %w", err)
 			}
 			if flags.asJSON {
 				return flags.printJSON(cmd, items)

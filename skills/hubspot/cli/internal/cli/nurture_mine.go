@@ -146,6 +146,9 @@ LIMIT ?`
 			r.TopDealAmount = nullF(amt)
 			items = append(items, r)
 		}
+		if err := rows.Err(); err != nil {
+			return nil, source, fmt.Errorf("iterating nurture rows: %w", err)
+		}
 		return items, source, nil
 	}
 
@@ -184,6 +187,9 @@ LIMIT ?`
 		}
 		r.LastContacted = nullStr(lc)
 		items = append(items, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, source, fmt.Errorf("iterating nurture rows: %w", err)
 	}
 	return items, source, nil
 }

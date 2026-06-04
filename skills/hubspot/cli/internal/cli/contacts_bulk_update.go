@@ -145,7 +145,7 @@ Rows are identified by an 'id' or 'email' column (id wins when both present).`,
 					return err
 				}
 			} else {
-				rows, err = readCSVBulkRows(csvPath, mapSpec, propSchema, db)
+				rows, err = readCSVBulkRows(csvPath, mapSpec, propSchema, idProperty, db)
 				if err != nil {
 					return err
 				}
@@ -242,12 +242,17 @@ Rows are identified by an 'id' or 'email' column (id wins when both present).`,
 				"total":        len(rows),
 				"would_update": len(ok),
 				"updated":      updated,
+				"batch_errors": errCount,
 				"errors":       bad,
 			}
 			if flags.asJSON {
 				return flags.printJSON(cmd, report)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Updated %d contacts.\n", updated)
+			if errCount > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Updated %d contacts (%d rows rejected by the batch endpoint).\n", updated, errCount)
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "Updated %d contacts.\n", updated)
+			}
 			return nil
 		},
 	}
@@ -263,8 +268,9 @@ Rows are identified by an 'id' or 'email' column (id wins when both present).`,
 
 // readCSVBulkRows parses the existing CSV format into the canonical
 // bulkRow shape. Validation errors land on bulkRow.Errors; ID resolution
-// (email -> id via the local store) happens here too.
-func readCSVBulkRows(path, mapSpec string, propSchema map[string]propertyDef, db *store.Store) ([]bulkRow, error) {
+// (email -> id via the local store) happens here too. idProperty drives
+// which column carries the upsert key, mirroring the JSONL path.
+func readCSVBulkRows(path, mapSpec string, propSchema map[string]propertyDef, idProperty string, db *store.Store) ([]bulkRow, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("opening %s: %w", path, err)
@@ -295,6 +301,11 @@ func readCSVBulkRows(path, mapSpec string, propSchema map[string]propertyDef, db
 				continue
 			case "email":
 				r.Email = strings.TrimSpace(val)
+				// Under an email-keyed upsert the endpoint takes the email via
+				// idProperty.value, not properties — JSONL-path parity.
+				if strings.EqualFold(idProperty, "email") {
+					continue
+				}
 			}
 			prop := colMap[col]
 			if prop == "" {
@@ -319,15 +330,36 @@ func readCSVBulkRows(path, mapSpec string, propSchema map[string]propertyDef, db
 		if r.ID == "" && r.Email != "" {
 			if id, _ := lookupContactIDByEmail(db, r.Email); id != "" {
 				r.ID = id
-			} else {
+			} else if idProperty == "" {
+				// Update mode needs a HubSpot id; upsert mode keys on the
+				// property and may legitimately insert a fresh contact.
 				r.Errors = append(r.Errors, fmt.Sprintf("no contact found for email %q (sync first?)", r.Email))
 			}
 		}
-		if r.ID == "" {
+		if r.ID == "" && idProperty == "" {
 			r.Errors = append(r.Errors, "no id and no resolvable email column")
 		}
-		// For email-keyed upserts the IDPropertyValue is the email.
-		r.IDPropertyValue = r.Email
+		// Resolve IDPropertyValue per --id-property, mirroring the JSONL path.
+		switch strings.ToLower(idProperty) {
+		case "":
+			// Pure update mode: ID is the HubSpot contact id.
+		case "email":
+			r.IDPropertyValue = r.Email
+		default:
+			// Some other property: take the row's value for that column,
+			// fall back to the explicit id column.
+			if v, ok := r.Patch[idProperty]; ok && v != "" {
+				r.IDPropertyValue = v
+			} else if v, ok := r.Patch[strings.ToLower(idProperty)]; ok {
+				r.IDPropertyValue = v
+			}
+			if r.IDPropertyValue == "" {
+				r.IDPropertyValue = r.ID
+			}
+		}
+		if idProperty != "" && r.IDPropertyValue == "" {
+			r.Errors = append(r.Errors, fmt.Sprintf("missing required %q value for upsert mode", idProperty))
+		}
 		rows = append(rows, r)
 	}
 	return rows, nil
@@ -516,16 +548,39 @@ func dispatchBulk(ctx context.Context, c *client.Client, rows []bulkRow, idPrope
 			}
 			return updated, errored + len(chunk), fmt.Errorf("batch %s [%d..%d]: %w", endpoint, start, end, err)
 		}
-		// Best-effort per-row success emission when we're streaming
-		// JSONL. The batch endpoint returns {"results":[...],"errors":[...]}
-		// in a parallel order to inputs, but we don't strictly rely on
-		// that for correctness — agents care most about per-row receipts.
+		// The batch endpoint returns {"results":[...],"errors":[...]} with
+		// per-row errors carrying an index back into the chunk's inputs.
+		// Count those so `updated` reflects only rows that actually
+		// succeeded, on both the JSONL and plain-text paths.
+		errIdx := batchErrorIndex(resp, len(chunk))
 		if jw != nil {
-			emitBatchResults(jw, chunk, resp, idProperty)
+			emitBatchResults(jw, chunk, errIdx, resp, idProperty)
 		}
-		updated += len(chunk)
+		updated += len(chunk) - len(errIdx)
+		errored += len(errIdx)
 	}
 	return updated, errored, nil
+}
+
+// batchErrorIndex parses a batch endpoint response and returns the
+// within-chunk input index -> message map for per-row errors. Indexes
+// outside [0, chunkLen) are dropped rather than miscounted.
+func batchErrorIndex(resp json.RawMessage, chunkLen int) map[int]string {
+	var parsed struct {
+		Errors []struct {
+			Index   int    `json:"index"`
+			Status  int    `json:"status"`
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	_ = json.Unmarshal(resp, &parsed)
+	errIdx := map[int]string{}
+	for _, e := range parsed.Errors {
+		if e.Index >= 0 && e.Index < chunkLen {
+			errIdx[e.Index] = e.Message
+		}
+	}
+	return errIdx
 }
 
 // emitBatchResults parses a batch endpoint response and emits one
@@ -537,8 +592,8 @@ func dispatchBulk(ctx context.Context, c *client.Client, rows []bulkRow, idPrope
 //
 //  1. For each "result" item, try to correlate by index (results often
 //     match inputs[i] when no per-row errors).
-//  2. For each "error" item, surface its message on the row identified
-//     by error.index / error.idProperty value.
+//  2. For each "error" item (pre-parsed into errIdx), surface its message
+//     on the row identified by error.index.
 //  3. For rows we couldn't correlate in either bucket, emit OK with an
 //     empty data payload — they were not in the error list, so the
 //     batch accepted them.
@@ -546,23 +601,12 @@ func dispatchBulk(ctx context.Context, c *client.Client, rows []bulkRow, idPrope
 // The agent gets per-row receipts even when HubSpot's response shape
 // is partial; the worst case is "OK with empty data" instead of a
 // detailed echo.
-func emitBatchResults(jw *cliutil.JSONLWriter, chunk []bulkRow, resp json.RawMessage, idProperty string) {
+func emitBatchResults(jw *cliutil.JSONLWriter, chunk []bulkRow, errIdx map[int]string, resp json.RawMessage, idProperty string) {
 	var parsed struct {
 		Results []json.RawMessage `json:"results"`
-		Errors  []struct {
-			Index   int    `json:"index"`
-			Status  int    `json:"status"`
-			Message string `json:"message"`
-		} `json:"errors"`
 	}
 	_ = json.Unmarshal(resp, &parsed)
 
-	// Build an error-index lookup so we can mark only failed rows as
-	// errors and the rest as OK.
-	errIdx := map[int]string{}
-	for _, e := range parsed.Errors {
-		errIdx[e.Index] = e.Message
-	}
 	for i, r := range chunk {
 		if msg, bad := errIdx[i]; bad {
 			_ = jw.WriteError(r.ID, fmt.Errorf("%s", msg))
@@ -670,7 +714,7 @@ func loadContactsPropertySchema(db *store.Store) (map[string]propertyDef, error)
 		WHERE json_extract(data, '$.objectType') = 'contacts'
 		   OR json_extract(data, '$.objectType') = '0-1'`)
 	if err != nil {
-		return out, nil
+		return nil, fmt.Errorf("loading contacts property schema (run `hubspot-cli sync` first?): %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -694,6 +738,12 @@ func loadContactsPropertySchema(db *store.Store) (map[string]propertyDef, error)
 			def.Options = append(def.Options, o.Value)
 		}
 		out[p.Name] = def
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating property schema rows: %w", err)
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no contacts property schema in the local store; run `hubspot-cli sync` first")
 	}
 	return out, nil
 }

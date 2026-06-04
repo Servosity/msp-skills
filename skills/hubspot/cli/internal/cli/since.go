@@ -177,5 +177,8 @@ func scanItems(db *store.Store, ctx context.Context, q, kind, ownerID, cutoff st
 			UpdatedAt: nullStr(updated),
 		})
 	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("%s: iterating rows: %w", kind, err)
+	}
 	return nil
 }

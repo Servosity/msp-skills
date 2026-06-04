@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-02",
+  "generated_at": "2026-06-04",
   "skills": [
     {
       "name": "halopsa",
@@ -20,7 +20,7 @@
     },
     {
       "name": "hubspot",
-      "system": "Add HubSpot CRM sales-funnel analytics, contact/deal enrichment, meeting property-history reporting, and HubSpot Agent CLI idiom compatibility to Claude. Offline-first SQLite mirror, agent-native JSONL bulk ops, and a live local mutation audit log.",
+      "system": "HubSpot CRM: contacts, companies, deals, tickets, engagements",
       "status": "beta",
       "skill_path": "skills/hubspot",
       "cli_binary": "hubspot-cli",
@@ -28,7 +28,7 @@
       "version": "4.19.0",
       "license": "Apache-2.0",
       "vendor": "HubSpot",
-      "vendor_trademark_owner": "HubSpot Inc.",
+      "vendor_trademark_owner": "HubSpot, Inc.",
       "first_party": false,
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)",
       "install_mcp_doc": "skills/hubspot/mcp-install.md",

@@ -169,11 +169,11 @@ func TestMatch_EQ_CaseSensitive(t *testing.T) {
 }
 
 func TestMatch_ContainsToken_CaseInsensitive(t *testing.T) {
-	expr, _ := ParseFilters([]string{"email~SERVOSITY"})
-	if !expr.Match(map[string]string{"email": "dstevens@servosity.com"}) {
+	expr, _ := ParseFilters([]string{"email~EXAMPLE"})
+	if !expr.Match(map[string]string{"email": "user@example.com"}) {
 		t.Fatalf("CONTAINS_TOKEN should be case-insensitive (substring match)")
 	}
-	if !expr.Match(map[string]string{"email": "DSTEVENS@SERVOSITY.COM"}) {
+	if !expr.Match(map[string]string{"email": "USER@EXAMPLE.COM"}) {
 		t.Fatalf("CONTAINS_TOKEN should be case-insensitive on the value side too")
 	}
 	if expr.Match(map[string]string{"email": "x@gmail.com"}) {

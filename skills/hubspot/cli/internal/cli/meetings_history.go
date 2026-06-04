@@ -101,5 +101,8 @@ WHERE object_type = 'meetings' AND object_id = ?`
 		r.Source = nullStr(src)
 		out = append(out, r)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating property history rows: %w", err)
+	}
 	return out, nil
 }

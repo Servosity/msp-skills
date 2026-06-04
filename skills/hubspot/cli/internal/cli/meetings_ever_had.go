@@ -152,6 +152,9 @@ WHERE id = ?`, id).Scan(&title, &owner, &outcome, &raw)
 		}
 		out = append(out, row)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating property history rows: %w", err)
+	}
 	return out, nil
 }
 

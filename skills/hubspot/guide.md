@@ -6,7 +6,7 @@ HubSpot's own CLI (`hs`) only covers CMS  -  there has never been a sales/CRM CL
 
 Learn more at [HubSpot](https://developers.hubspot.com/docs/api).
 
-Created by [@dstevens](https://github.com/dstevens) (Damien Stevens).
+Created by [@DamienStevens](https://github.com/DamienStevens) (Damien Stevens).
 
 ## Install
 

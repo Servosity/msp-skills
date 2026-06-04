@@ -185,6 +185,10 @@ ORDER BY ts DESC`, info.Table)
 				Title: stripHTML(nullStr(title)), Outcome: nullStr(outcome),
 			})
 		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("iterating %s rows: %w", et, err)
+		}
 		rows.Close()
 	}
 	return items, nil

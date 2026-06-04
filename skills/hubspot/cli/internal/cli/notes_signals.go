@@ -100,6 +100,9 @@ WHERE COALESCE(n.archived, 0) = 0
 					TS: nullStr(ts), Body: text,
 				})
 			}
+			if err := rows.Err(); err != nil {
+				return fmt.Errorf("iterating note rows: %w", err)
+			}
 
 			type dealAgg struct {
 				DealID     string   `json:"deal_id"`
