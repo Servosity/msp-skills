@@ -1,0 +1,68 @@
+name: "✅ Report: it works"
+description: Tell us a Skill or MCP server ran against your real tenant. We badge it "live-verified" and thank you.
+title: "[Works] "
+labels: ["live-verified-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for closing the loop. When a real MSP runs a Skill against a real tenant and it works, that is the signal we badge as "live-verified". Tell us what you ran and a maintainer (or our automation) will flip the badge.
+
+  - type: dropdown
+    id: skill
+    attributes:
+      label: Which skill
+      description: The Skill / MCP server you ran.
+      options:
+        - halopsa
+        - servosity
+        - hubspot
+        - other / not listed
+    validations:
+      required: true
+
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Which AI agent did you use?
+      description: The AI client you ran it from.
+      options:
+        - Claude Desktop
+        - Claude Code
+        - ChatGPT
+        - Codex
+        - Copilot
+        - Gemini
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What did you ask / run?
+      description: The question you asked, or the command you ran.
+      placeholder: |
+        e.g. "Which clients have HaloPSA tickets breaching SLA in the next 4 hours?"
+        or  servosity devices stale --days 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: surprised
+    attributes:
+      label: Anything that surprised you?
+      description: Optional. Anything unexpected, delightful, or rough.
+      placeholder: |
+        e.g. "It found a stale backup we'd missed for two weeks."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: real_tenant
+    attributes:
+      label: Confirmation
+      description: We only badge skills run against real data.
+      options:
+        - label: I ran this against a real tenant (not a demo / sandbox).
+          required: true

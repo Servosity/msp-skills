@@ -6,7 +6,9 @@
 # markdown links, release contract, catalog idempotency, release matrix sanity,
 # install dry-run resolves cleanly.
 # Best-effort gates (warn if the tool is absent locally; CI installs them):
-# shell linting, secret scanning, and workflow linting.
+# shell linting, secret scanning, workflow linting, and plugin manifest
+# validation (`claude plugin validate --strict` for the marketplace + each skill;
+# hard-fails when the claude CLI is present).
 #
 # Run locally:  bash tools/maintainer/verify_all.sh
 # Exit code is non-zero if any hard gate fails.
@@ -30,11 +32,33 @@ for mod in skills/*/cli; do
   fi
 done
 
+echo "== CLI claims vs built binary =="
+# Builds each CLI and checks that every command/flag the docs claim exists in the
+# real binary surface. WARN mode for now: it prints findings but does not gate,
+# while the fleet calibrates. NOTE(calibration): drop --warn after fleet calibration.
+if run python3 tools/maintainer/check_cli_claims.py --warn; then pass "CLI claims (warn)"; else warn "CLI claims reported findings"; fi
+
 echo "== Repo gates =="
 if run python3 tools/maintainer/check_skill_contract.py;  then pass "skill contract";      else fail "skill contract";      fi
 if run python3 tools/maintainer/check_md_links.py;        then pass "markdown links";      else fail "markdown links";      fi
 if run python3 tools/maintainer/check_release_contract.py; then pass "release contract";   else fail "release contract";    fi
+if run python3 tools/maintainer/check_social_assets.py;   then pass "social assets";       else fail "social assets";       fi
+if run python3 tools/maintainer/check_no_todos.py;        then pass "no TODO markers";     else fail "no TODO markers";     fi
+if run python3 tools/maintainer/check_vocabulary.py;      then pass "vocabulary contract"; else fail "vocabulary contract"; fi
+if run python3 tools/maintainer/check_video_assets.py;    then pass "video assets";        else fail "video assets";        fi
 if run bash    tools/maintainer/ci_guards.sh;             then pass "repo hygiene guards"; else fail "repo hygiene guards"; fi
+
+echo "== Plugin manifest validation (claude plugin validate --strict) =="
+if command -v claude >/dev/null 2>&1; then
+  if run claude plugin validate . --strict; then pass "marketplace manifest"; else fail "marketplace manifest"; fi
+  for d in skills/*/; do
+    slug="$(basename "$d")"
+    [ -f "$d/.claude-plugin/plugin.json" ] || continue
+    if run claude plugin validate "skills/$slug" --strict; then pass "plugin $slug"; else fail "plugin $slug"; fi
+  done
+else
+  warn "claude CLI not installed - skipped plugin validate (install Claude Code to run it)"
+fi
 
 echo "== Release matrix sanity =="
 if python3 tools/maintainer/release_matrix.py | python3 -c 'import json,sys; m=json.load(sys.stdin); assert m["skill"] and m["target"]' 2>/tmp/va.out; then

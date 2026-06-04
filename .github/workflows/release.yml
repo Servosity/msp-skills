@@ -3,8 +3,11 @@ name: Release
 on:
   push:
     tags:
-      - "halopsa-v*.*.*"
-      - "servosity-v*.*.*"
+      # Generic per-skill release tag. A new skill needs no edit here: any tag
+      # shaped "<slug>-v<major>.<minor>.<patch>" fires this workflow. The build
+      # job derives the slug from the tag and skips gracefully if the slug is
+      # not in tools/maintainer/skills.json.
+      - "*-v*.*.*"
 
 permissions:
   contents: write
@@ -67,13 +70,24 @@ jobs:
         run: |
           set -euo pipefail
           skill="${{ matrix.skill.name }}"
-          # Each skill is tagged and released independently (halopsa-v*,
-          # servosity-v*); a tag builds only its matching skill. Asset names match
-          # exactly what skills/<skill>/install.sh and install.ps1 download.
-          case "$TAG" in
-            halopsa-*)   [ "$skill" = "halopsa" ]   || { echo "Tag $TAG: skipping $skill."; exit 0; } ;;
-            servosity-*) [ "$skill" = "servosity" ] || { echo "Tag $TAG: skipping $skill."; exit 0; } ;;
-          esac
+          # Each skill is tagged and released independently
+          # (<slug>-v<semver>); a tag builds only its matching skill. The slug
+          # is derived generically from the tag, so a new skill needs no edit
+          # here. Asset names match exactly what skills/<skill>/install.sh and
+          # install.ps1 download.
+          tag_skill="${TAG%-v*}"      # halopsa-v0.1.0 -> halopsa
+          version="${TAG##*-v}"       # halopsa-v0.1.0 -> 0.1.0
+
+          # Guard: the derived slug must exist in skills.json, else skip. This
+          # keeps an arbitrary "*-v*.*.*" tag from trying to build a nonexistent
+          # skill. The whole release run no-ops cleanly for an unknown slug.
+          if ! python3 -c "import json,sys; reg=json.load(open('tools/maintainer/skills.json')); sys.exit(0 if '$tag_skill' in reg.get('skills',{}) else 1)"; then
+            echo "Tag $TAG: derived slug '$tag_skill' is not in skills.json; skipping."
+            exit 0
+          fi
+
+          # This matrix row builds only the skill the tag names.
+          [ "$skill" = "$tag_skill" ] || { echo "Tag $TAG: skipping $skill (this tag releases $tag_skill)."; exit 0; }
 
           ext=""
           [ "$GOOS" = "windows" ] && ext=".exe"
@@ -81,10 +95,8 @@ jobs:
           cli="${{ matrix.skill.cli_bin }}-${suffix}"
           mcp="${{ matrix.skill.mcp_bin }}-${suffix}"
 
-          # Derive the semver from the tag (halopsa-v0.1.0 -> 0.1.0) and stamp it
-          # into the CLI, matching the prior goreleaser config.
-          version="${TAG##*v}"
-
+          # $version (derived above as ${TAG##*-v}) is stamped into the CLI,
+          # matching the prior goreleaser config.
           mkdir -p "$GITHUB_WORKSPACE/dist"
           (
             cd "${{ matrix.skill.dir }}"

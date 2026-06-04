@@ -28,6 +28,9 @@ jobs:
       tag: ${{ steps.parse.outputs.tag }}
       proceed: ${{ steps.parse.outputs.proceed }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Parse triggering tag
         id: parse
         env:
@@ -35,23 +38,36 @@ jobs:
         run: |
           set -euo pipefail
           tag="$HEAD_BRANCH"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          case "$tag" in
-            halopsa-v*)
-              echo "skill=halopsa" >> "$GITHUB_OUTPUT"
-              echo "version=${tag#halopsa-v}" >> "$GITHUB_OUTPUT"
-              echo "proceed=true" >> "$GITHUB_OUTPUT"
-              ;;
-            servosity-v*)
-              echo "skill=servosity" >> "$GITHUB_OUTPUT"
-              echo "version=${tag#servosity-v}" >> "$GITHUB_OUTPUT"
-              echo "proceed=true" >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              echo "Tag '$tag' is not a per-skill release tag; skipping MCP publish."
-              echo "proceed=false" >> "$GITHUB_OUTPUT"
-              ;;
-          esac
+          # Generic per-skill derivation: a new skill needs no edit here. The
+          # slug is everything before "-v"; the version is everything after it.
+          # We only proceed when the tag parses as "<slug>-v<semver>" AND the
+          # derived slug exists in tools/maintainer/skills.json.
+          skill="${tag%-v*}"      # halopsa-v0.1.0 -> halopsa
+          version="${tag##*-v}"   # halopsa-v0.1.0 -> 0.1.0
+
+          proceed=false
+          # The tag must actually contain "-v" (so slug/version both parsed) and
+          # the semver portion must look like N.N.N.
+          if [ "$tag" != "$skill" ] && printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            if python3 -c "import json,sys; reg=json.load(open('tools/maintainer/skills.json')); sys.exit(0 if '$skill' in reg.get('skills',{}) else 1)"; then
+              proceed=true
+            fi
+          fi
+
+          if [ "$proceed" = "true" ]; then
+            {
+              echo "tag=$tag"
+              echo "skill=$skill"
+              echo "version=$version"
+              echo "proceed=true"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "Tag '$tag' is not a known per-skill release tag (slug must be in skills.json and tag must be <slug>-v<semver>); skipping MCP publish."
+            {
+              echo "tag=$tag"
+              echo "proceed=false"
+            } >> "$GITHUB_OUTPUT"
+          fi
 
   publish:
     needs: detect
@@ -122,7 +138,7 @@ jobs:
           cd mcpb-build
           gh release upload "$TAG" "${SKILL}-mcp.mcpb" --clobber
 
-      - name: Patch server.json with SHA + version + download URL
+      - name: Patch server.json with SHA + version + identifier URL
         env:
           SKILL: ${{ needs.detect.outputs.skill }}
           VERSION: ${{ needs.detect.outputs.version }}
@@ -132,12 +148,15 @@ jobs:
           set -euo pipefail
           src=skills/$SKILL/server.json
           out=mcpb-build/server.json
-          download="https://github.com/${{ github.repository }}/releases/download/${TAG}/${SKILL}-mcp.mcpb"
+          # For registryType "mcpb" the registry reads the host from `identifier`,
+          # which MUST be the full .mcpb download URL (a bare name -> 400 "Host ''").
+          # There is no separate `download` field in the mcpb package schema.
+          identifier="https://github.com/${{ github.repository }}/releases/download/${TAG}/${SKILL}-mcp.mcpb"
           jq \
             --arg version "$VERSION" \
             --arg sha "$SHA" \
-            --arg download "$download" \
-            '.version = $version | .packages[0].version = $version | .packages[0].fileSha256 = $sha | .packages[0].download = $download' \
+            --arg identifier "$identifier" \
+            '.version = $version | .packages[0].version = $version | .packages[0].fileSha256 = $sha | .packages[0].identifier = $identifier | del(.packages[0].download)' \
             "$src" > "$out"
           echo "--- patched server.json ---"
           cat "$out"
@@ -145,7 +164,11 @@ jobs:
       - name: Install mcp-publisher
         run: |
           set -euo pipefail
-          curl -fsSL https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher-linux-amd64 -o mcp-publisher
+          # Upstream ships a tarball (mcp-publisher_<os>_<arch>.tar.gz), not a bare
+          # binary. The old mcp-publisher-linux-amd64 URL 404'd, failing every
+          # registry publish (the .mcpb build + GH release still succeeded).
+          curl -fsSL https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz -o mcp-publisher.tar.gz
+          tar -xzf mcp-publisher.tar.gz mcp-publisher
           chmod +x mcp-publisher
           ./mcp-publisher --version
 

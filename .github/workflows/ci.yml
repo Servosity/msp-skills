@@ -26,6 +26,15 @@ jobs:
       - name: Markdown local links
         run: python3 tools/maintainer/check_md_links.py
 
+      - name: No TODO / placeholder markers in skill prose
+        run: python3 tools/maintainer/check_no_todos.py
+
+      - name: Vocabulary contract (banned + required terms)
+        run: python3 tools/maintainer/check_vocabulary.py
+
+      - name: Video assets (skills that opt in via has_video)
+        run: python3 tools/maintainer/check_video_assets.py
+
       - name: DCO sign-off (PR commits)
         if: github.event_name == 'pull_request'
         env:
@@ -51,6 +60,20 @@ jobs:
           curl -fsSL "$url" -o /tmp/gitleaks.tar.gz
           tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
           /tmp/gitleaks detect --no-git --source . --config .gitleaks.toml --redact --no-banner
+
+      - name: Plugin manifest validation (claude plugin validate --strict)
+        env:
+          CI: "true"
+        run: |
+          set -euo pipefail
+          npm install -g @anthropic-ai/claude-code
+          # Marketplace manifest + every per-skill plugin manifest. --strict
+          # fails on unknown fields (e.g. a stray `vendor`) and missing metadata.
+          claude plugin validate . --strict
+          for d in skills/*/; do
+            [ -f "${d}.claude-plugin/plugin.json" ] || continue
+            claude plugin validate "skills/$(basename "$d")" --strict
+          done
 
   # Skill build matrix is computed from the repo, so a new skill is built+vetted
   # with no edit here (mirrors the release workflow).
@@ -85,3 +108,11 @@ jobs:
           cd ${{ matrix.skill.dir }}
           go build ./...
           go vet ./...
+
+      - name: CLI claims vs built binary (this skill)
+        # Runs here, in the per-skill matrix job, because verifying doc claims
+        # builds the real CLI and needs Go on PATH (already set up above). The
+        # --slug filter checks only this matrix row's skill. WARN mode for now
+        # while the fleet calibrates.
+        # NOTE(calibration): drop --warn after fleet calibration to make this gate.
+        run: python3 tools/maintainer/check_cli_claims.py --warn --slug ${{ matrix.skill.name }}

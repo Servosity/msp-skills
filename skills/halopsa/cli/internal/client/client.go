@@ -757,6 +757,11 @@ func (c *Client) mintClientCredentials(clientID, clientSecret string) error {
 		"client_id":     {clientID},
 		"client_secret": {clientSecret},
 	}
+	// HaloPSA rejects tokens minted without a scope (HTTP 401 on every API call).
+	// HalopsaScope defaults to "all" in config.Load; honor any narrower override.
+	if c.Config != nil && c.Config.HalopsaScope != "" {
+		form.Set("scope", c.Config.HalopsaScope)
+	}
 	req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return fmt.Errorf("building token request: %w", err)
@@ -815,6 +820,11 @@ func (c *Client) refreshAccessToken() error {
 	}
 	if c.Config.ClientSecret != "" {
 		params.Set("client_secret", c.Config.ClientSecret)
+	}
+	// Carry the scope on refresh too (RFC 6749 §6); must not exceed the scope
+	// granted at mint time. HalopsaScope defaults to "all" in config.Load.
+	if c.Config.HalopsaScope != "" {
+		params.Set("scope", c.Config.HalopsaScope)
 	}
 
 	resp, err := c.HTTPClient.PostForm(tokenURL, params)

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-29",
+  "generated_at": "2026-06-02",
   "skills": [
     {
       "name": "halopsa",
@@ -9,7 +9,7 @@
       "skill_path": "skills/halopsa",
       "cli_binary": "halopsa-cli",
       "mcp_binary": "halopsa-mcp",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license": "Apache-2.0",
       "vendor": "HaloPSA",
       "vendor_trademark_owner": "Halo Service Solutions Ltd.",
@@ -41,7 +41,7 @@
       "skill_path": "skills/servosity",
       "cli_binary": "servosity-cli",
       "mcp_binary": "servosity-mcp",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license": "Apache-2.0",
       "vendor": "Servosity",
       "vendor_trademark_owner": "Servosity Inc.",

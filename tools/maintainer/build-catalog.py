@@ -117,9 +117,23 @@ def main() -> int:
     skill_dirs = sorted(p for p in SKILLS_DIR.iterdir() if p.is_dir())
     skills = [build_entry(d) for d in skill_dirs]
 
+    # Preserve the existing generated_at when the substantive content is
+    # unchanged, so re-running build-catalog.py is a TRUE no-op. The CI drift
+    # gate (catalog.yml) compares the regenerated file byte-for-byte; a live
+    # `dt.date.today()` stamp made every PR fail on any day other than the one
+    # the catalog was last committed. Bump the date only when skills change.
+    generated_at = dt.date.today().isoformat()
+    if CATALOG.exists():
+        try:
+            prev = json.loads(CATALOG.read_text())
+            if prev.get("schema_version") == 1 and prev.get("skills") == skills:
+                generated_at = prev.get("generated_at", generated_at)
+        except Exception:
+            pass
+
     catalog = {
         "schema_version": 1,
-        "generated_at": dt.date.today().isoformat(),
+        "generated_at": generated_at,
         "skills": skills,
     }
     CATALOG.write_text(json.dumps(catalog, indent=2) + "\n")

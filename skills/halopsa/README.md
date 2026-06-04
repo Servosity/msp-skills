@@ -24,6 +24,17 @@ For ChatGPT, the HaloPSA MCP server is stdio - to use it with ChatGPT you expose
 
 ## Install in 60 seconds
 
+### Fastest for Claude Desktop - one-click `.mcpb`
+
+[**Download HaloPSA MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/halopsa-v0.1.1/halopsa-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every HaloPSA release on the [releases page](https://github.com/servosity/msp-skills/releases?q=halopsa).)
+
+Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
+
+```
+/plugin marketplace add Servosity/msp-skills
+/plugin install halopsa@msp-skills
+```
+
 ### Path A - paste one prompt into your AI agent (recommended)
 
 Copy this into **Claude Code**, **Codex CLI**, or **Claude Cowork**:
@@ -53,6 +64,24 @@ Verify:
 ```bash
 halopsa-cli --version
 ```
+
+### Upgrade to the latest version
+
+The installer always fetches the current release - re-run it to upgrade:
+
+**macOS / Linux:**
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.sh)
+```
+
+**Windows (PowerShell):**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.ps1 | iex
+```
+
+Claude Desktop `.mcpb` users: download the latest `.mcpb` (top of this section) and re-select it in **Settings > Extensions**. Claude Code plugin users: `/plugin update halopsa@msp-skills`.
 
 ### Add to Claude Desktop, Cursor, Windsurf, Cline, Continue, Gemini, or Copilot
 

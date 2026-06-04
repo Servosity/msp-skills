@@ -1,0 +1,16 @@
+{
+  "halopsa": {
+    "state": "up-to-date",
+    "version": "0.1.1",
+    "latest_tag": "halopsa-v0.1.1",
+    "current_hash": "sha256:3105a8c3d3ab9cad87740f06cefb8724ed5c929c67292446e6f21167422715c3",
+    "released_hash": "sha256:3105a8c3d3ab9cad87740f06cefb8724ed5c929c67292446e6f21167422715c3"
+  },
+  "servosity": {
+    "state": "up-to-date",
+    "version": "0.1.1",
+    "latest_tag": "servosity-v0.1.1",
+    "current_hash": "sha256:6e517d346514da0331be83a46c5414bccb8fbc411f0ad0baa921a8b8457074d3",
+    "released_hash": "sha256:6e517d346514da0331be83a46c5414bccb8fbc411f0ad0baa921a8b8457074d3"
+  }
+}
