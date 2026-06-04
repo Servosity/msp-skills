@@ -9,6 +9,7 @@
 # ASCII hyphens only (repo ci.yml bans em-dashes in committed files).
 
 halopsa:
+  vendor: "HaloPSA"
   accent_hex: "#D87757"
   example_command: "Which HaloPSA tickets breach SLA today?"
   response_lines:
@@ -17,6 +18,7 @@ halopsa:
   outcome_line: "Ask your PSA anything in plain English."
 
 servosity:
+  vendor: "Servosity"
   accent_hex: "#2F6FED"
   example_command: "Any backups silently failing this week?"
   response_lines:
