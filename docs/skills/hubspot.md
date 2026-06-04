@@ -15,8 +15,12 @@ faqs:
     a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
-  - q: "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the HubSpot portal)"
-    a: "TODO"
+  - q: "Will this hit my HubSpot API rate limits?"
+    a: "The local mirror exists so you stop hitting the API for reads. After the first sync (which respects HubSpot's pagination), every aggregate report runs against your local SQLite with zero API calls. You can scope sync with --resources and --since to keep it light, and the CLI surfaces sync warnings rather than swallowing them."
+  - q: "Do I need to be a HubSpot partner or a paid tier?"
+    a: "No partnership is required. You create a HubSpot Private App access token from your portal with read scopes for the objects you care about. Property-history retention varies by HubSpot plan, so the depth of historical reporting depends on your tier; the CLI captures whatever the API returns and accrues forward from your first --with-history sync."
+  - q: "Does it work with HubSpot's free CRM?"
+    a: "It works against any portal that issues a Private App access token with the read scopes you grant. Which objects, properties, and history depth are available is governed by your HubSpot plan and the scopes on the token, not by this skill."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/hubspot/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/hubspot/install.ps1 | iex"
@@ -33,7 +37,7 @@ howto:
 
 **Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
 
-TODO: <=70 words, MSP-owner language, leads with the outcome. What does HubSpot + your AI answer in one sentence that the portal cannot?
+MSPs run HubSpot as the sales CRM - pipeline, deals, quote-chasing. Ask your AI "which deals went cold," "what's my pipeline health," or "who do I call today," and get an answer the portal can't compose: cross-object rollups across deals, contacts, owners, and engagements, computed offline in one query instead of a dozen exports and saved views.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -41,37 +45,45 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does HubSpot 
 
 ## Instead of clicking through HubSpot, just ask
 
-**Instead of** TODO: the painful manual workflow (exporting reports, clicking through the portal)
-**just ask:** *"TODO: the natural-language question the MSP owner asks instead"*
-<sub>Your agent runs: <code>hubspot-cli TODO</code></sub>
+**Instead of** Filtering the deals board, eyeballing last-activity dates, and guessing which open deals have stalled
+**just ask:** *"Which of my open deals have gone cold with no activity in three weeks?"*
+<sub>Your agent runs: <code>hubspot-cli stale deals --days 21 --owner me</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>hubspot-cli TODO</code></sub>
+**Instead of** Building a saved view per stage, exporting, and summing $ and counts by hand for the pipeline review
+**just ask:** *"What's my pipeline health right now - count, dollars, and what's at risk per stage?"*
+<sub>Your agent runs: <code>hubspot-cli pipeline-health --idle-days 14</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>hubspot-cli TODO</code></sub>
+**Instead of** Pulling per-rep deal lists one at a time to see who is overloaded before the Monday sales meeting
+**just ask:** *"How are open deals spread across my reps by stage and dollar value?"*
+<sub>Your agent runs: <code>hubspot-cli owner-load --pipeline default</code></sub>
 
 
 ## What it does
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| TODO: question an MSP keeps asking | `hubspot-cli TODO` |
+| Which open deals have gone cold with no engagement in the last three weeks? | `hubspot-cli stale deals --days 21 --owner me` |
+| Which of my contacts haven't been touched in a month? | `hubspot-cli stale contacts --days 30 --owner me` |
+| What's my pipeline health right now - per-stage count, dollars, and what's at risk? | `hubspot-cli pipeline-health --idle-days 14` |
+| How is the open-deal load spread across my reps? | `hubspot-cli owner-load --pipeline default` |
+| Who should I call today, ranked by stale-days, deal size, and stage? | `hubspot-cli nurture queue --owner me --top 20` |
+| Which are my top deals by composite score (signal, amount, stage, recency)? | `hubspot-cli deals top --top 5 --owner me` |
+| What's the full activity trail for a specific deal - every call, email, meeting, note, and task? | `hubspot-cli engagements of deal:456 --since 90d` |
+| Which meetings were ever Scheduled in a given month, even after they flipped to Completed or No Show? | `hubspot-cli meetings status-report --status scheduled --month 2026-04` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/hubspot/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/hubspot/guide.md).
 
 ## What makes this one different
 
-TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most HubSpot integrations proxy each question into a live API call ...
+Most HubSpot integrations and MCP servers proxy each question into a live API call - fine for one record, but a stalls-across-200-accounts question becomes a multi-call dance the AI burns context on, and the standard search API physically cannot answer "was ever in stage X." This skill syncs HubSpot into a local SQLite mirror with full-text search plus a property-history snapshot table, so aggregate questions become one local join: instant, offline, and the AI sees the answer, not the raw data.
 
-TODO: one sentence vs HubSpot's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.
+It complements HubSpot's own AI and Agent CLI rather than replacing them: the portal stays best for one-record editing and drag-and-drop pipelines, while this skill answers the cross-object, cross-client, was-ever-in-state-X questions that live-API tools can't compose in a single query.
 
 ## The pain this closes
 
-- TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread
-- TODO: pain 2
+- Monthly customer reports lose data the moment a status changes: "how many meetings were Scheduled with this client in April?" can't be answered once those meetings flip to Completed or No Show, because the portal and the standard search API only filter on current values (HubSpot Community: "Enable retrieval of property history in the V3 APIs").
+- The property-history endpoint can answer "was ever in state X," but no public HubSpot CLI or MCP exposes it in a queryable shape - recurring r/hubspot threads ask for historical state for monthly reporting.
+- HubSpot's own Agent CLI (announced 2026-05-27) is stateless and live-API; its public skills repo has zero references to propertiesWithHistory, so the history-reporting gap stays open.
 
 ## Install
 
@@ -105,11 +117,11 @@ After install, authenticate once with your HubSpot credentials, then verify with
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | TODO: read commands | Allow |
-| Write (routine) | TODO | Preview with --dry-run, then a reviewed write |
-| Destructive / config | TODO | Human-in-the-loop only |
+| Read | hubspot-cli stale deals --days 21 --owner me; hubspot-cli pipeline-health --idle-days 14; hubspot-cli owner-load --pipeline default; hubspot-cli nurture queue --owner me --top 20; hubspot-cli engagements of deal:456 --since 90d; hubspot-cli since 24h | Allow |
+| Write (routine) | hubspot-cli contacts bulk-update (CSV/JSONL with pre-validation); hubspot-cli batch post-crm-v3-objects-object-type-create-create; hubspot-cli batch post-crm-v3-objects-object-type-update-update - preview first with --dry-run | Preview with --dry-run, then a reviewed write |
+| Destructive / config | hubspot-cli hubspot-deals-crm delete-v3-objects-0-3-deal-id-archive; hubspot-cli hubspot-contacts-crm delete-v3-objects-contacts-contact-id; hubspot-cli hubspot-contacts-crm post-v3-objects-contacts-gdpr-delete | Human-in-the-loop only |
 
-TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/hubspot/governance.md).
+The skill drives the hubspot-cli and hubspot-mcp binaries, authenticating only with HUBSPOT_ACCESS_TOKEN read from the environment - never written to disk, logged, or sent anywhere except the HubSpot API. Read commands (reports, rollups, search) are always safe and can change nothing; mutating commands plan with --dry-run by default and require an explicit confirm. The recommended agent policy is to allow read plus planned writes and to require a human for any write, destructive, or credential-touching command. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/hubspot/governance.md).
 
 ## Frequently asked questions
 
@@ -129,9 +141,17 @@ Your data stays on your machine. The CLI, MCP server, and the local mirror are a
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-### TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the HubSpot portal)
+### Will this hit my HubSpot API rate limits?
 
-TODO
+The local mirror exists so you stop hitting the API for reads. After the first sync (which respects HubSpot's pagination), every aggregate report runs against your local SQLite with zero API calls. You can scope sync with --resources and --since to keep it light, and the CLI surfaces sync warnings rather than swallowing them.
+
+### Do I need to be a HubSpot partner or a paid tier?
+
+No partnership is required. You create a HubSpot Private App access token from your portal with read scopes for the objects you care about. Property-history retention varies by HubSpot plan, so the depth of historical reporting depends on your tier; the CLI captures whatever the API returns and accrues forward from your first --with-history sync.
+
+### Does it work with HubSpot's free CRM?
+
+It works against any portal that issues a Private App access token with the read scopes you grant. Which objects, properties, and history depth are available is governed by your HubSpot plan and the scopes on the token, not by this skill.
 
 
 ## Status

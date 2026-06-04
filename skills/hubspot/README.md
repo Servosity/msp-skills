@@ -112,7 +112,7 @@ HUBSPOT_ACCESS_TOKEN=<value> hubspot-cli doctor
 | Which meetings were *ever* in outcome "Scheduled" this month  -  even the ones that later flipped to No Show or Completed? | `hubspot-cli meetings status-report --status scheduled --month 2026-04` |
 | Who do I call today? (the daily nurture list) | `hubspot-cli nurture queue --owner me --top 20 --agent` |
 | Which contacts or deals have gone cold? | `hubspot-cli stale contacts --days 30 --owner me` |
-| What's my pipeline health right now? ($ at risk + oldest stuck deals) | `hubspot-cli pipeline-health default --idle-days 14` |
+| What's my pipeline health right now? ($ at risk + oldest stuck deals) | <!-- cli-claims:ignore -->`hubspot-cli pipeline-health default --idle-days 14` |
 | Are my reps overloaded? | `hubspot-cli owner-load --pipeline default` |
 | What's the cross-object timeline for this deal? (every call + email + meeting + note + task) | `hubspot-cli engagements of deal:1234567 --since 90d` |
 | What changed across the whole CRM since yesterday? | `hubspot-cli since 24h` |
@@ -135,7 +135,7 @@ This skill closes that gap with five commands an MSP owner can run from a single
 - `hubspot-cli sync --resources hubspot-meetings-crm --with-history hs_meeting_outcome,hs_meeting_title,hubspot_owner_id`  -  captures the property snapshots so the report has data
 - `hubspot-cli meetings status-report --status scheduled --month 2026-04 --csv`  -  the customer report itself, one command
 - `hubspot-cli meetings ever-had --property hs_meeting_outcome --value Scheduled --from 2026-04-01 --to 2026-04-30`  -  same data, ad-hoc query
-- `hubspot-cli pipeline-health default --idle-days 14`  -  the rest of the QBR: what's at risk this period
+- <!-- cli-claims:ignore -->`hubspot-cli pipeline-health default --idle-days 14`  -  the rest of the QBR: what's at risk this period
 - `hubspot-cli engagements of deal:<id> --since 90d`  -  full activity trail for any specific deal under discussion
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
@@ -198,4 +198,4 @@ Beta. Validated against the HubSpot API surface and being validated with MSPs ru
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-05-29._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-04._
