@@ -54,6 +54,11 @@ Outcomes (question -> command your AI agent runs):
 
 Governance: Permission tiers: Read, Write (routine), Destructive / config.
 
+### Concierge (Meta)
+
+Page: https://msp-skills.compoundingteams.com/skills/msp-skills-concierge/
+Badge: Awaiting live verification
+
 ### Servosity (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/servosity/

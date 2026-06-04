@@ -58,7 +58,7 @@ def main() -> int:
     violations: list[str] = []
 
     for slug in sorted(registry.skills()):
-        skill_dir = SKILLS_DIR / slug
+        skill_dir = registry.skill_path(slug)
 
         # Banned-term scan.
         for fname in SCAN_FILES:

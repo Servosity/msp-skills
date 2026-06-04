@@ -33,6 +33,7 @@ The five agents MSP owners actually use:
 <!-- catalog:start -->
 | Skill | System | Status | Install |
 | --- | --- | --- | --- |
+| [msp-skills-concierge](./skills/_meta) | Connector recommendations + guided install for the msp-skills catalog | ![Tested](https://img.shields.io/badge/Tested-by_MSPs-2E7D32) | [Marketplace](./skills/_meta/README.md) |
 | [halopsa](./skills/halopsa) | HaloPSA, HaloITSM, HaloCRM | ![Tested](https://img.shields.io/badge/Tested-by_MSPs-2E7D32) | [Install](./skills/halopsa/README.md) |
 | [servosity](./skills/servosity) | Servosity backup and DR | ![Tested](https://img.shields.io/badge/Tested-by_MSPs-2E7D32) | [Install](./skills/servosity/README.md) |
 <!-- catalog:end -->

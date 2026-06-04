@@ -40,36 +40,68 @@ def install_url(skill: str, script: str) -> str:
     )
 
 
-def build_entry(skill_dir: Path) -> dict:
-    name = skill_dir.name
-    manifest_path = skill_dir / "manifest.json"
-    if not manifest_path.exists():
-        raise SystemExit(f"missing manifest.json for skill {name}")
-    manifest = json.loads(manifest_path.read_text())
+def _plugin_version(skill_dir: Path) -> str:
+    """Read the version from .claude-plugin/plugin.json (markdown-only fallback)."""
+    pj = skill_dir / ".claude-plugin" / "plugin.json"
+    if pj.exists():
+        try:
+            return json.loads(pj.read_text()).get("version", "0.0.0")
+        except (OSError, ValueError):
+            return "0.0.0"
+    return "0.0.0"
 
-    meta = SKILL_META.get(name)
+
+def build_entry(skill_dir: Path) -> dict:
+    dir_name = skill_dir.name
+    slug = registry.slug_for_dir(dir_name)
+
+    meta = SKILL_META.get(slug)
     if meta is None:
         raise SystemExit(
-            f"new skill '{name}' has no entry in tools/skills.json. "
-            "Add one before the catalog can be regenerated."
+            f"new skill '{slug}' (skills/{dir_name}) has no entry in "
+            "tools/skills.json. Add one before the catalog can be regenerated."
         )
 
-    return {
-        "name": name,
+    markdown_only = bool(meta.get("markdown_only"))
+
+    # markdown-only skills have no manifest.json or binaries; version comes from
+    # .claude-plugin/plugin.json and the binary fields are null. Binary skills
+    # keep their manifest.json as the version + description source of truth.
+    if markdown_only:
+        manifest = {}
+        version = _plugin_version(skill_dir)
+    else:
+        manifest_path = skill_dir / "manifest.json"
+        if not manifest_path.exists():
+            raise SystemExit(f"missing manifest.json for skill {slug}")
+        manifest = json.loads(manifest_path.read_text())
+        version = manifest.get("version", "0.0.0")
+
+    entry = {
+        "name": slug,
         "system": meta["system"],
         "status": meta["status"],
-        "skill_path": f"skills/{name}",
-        "cli_binary": meta["cli_binary"],
-        "mcp_binary": meta["mcp_binary"],
-        "version": manifest.get("version", "0.0.0"),
+        "skill_path": f"skills/{dir_name}",
+        "cli_binary": meta.get("cli_binary"),
+        "mcp_binary": meta.get("mcp_binary"),
+        "version": version,
         "license": manifest.get("license", "Apache-2.0"),
         "vendor": meta["vendor"],
         "vendor_trademark_owner": meta["vendor_trademark_owner"],
         "first_party": meta["first_party"],
-        "install_skill_one_liner": install_url(name, "install.sh"),
-        "install_mcp_doc": f"skills/{name}/mcp-install.md",
-        "description": manifest.get("description", ""),
+        "install_skill_one_liner": (
+            "" if markdown_only else install_url(dir_name, "install.sh")
+        ),
+        "install_mcp_doc": (
+            "" if markdown_only else f"skills/{dir_name}/mcp-install.md"
+        ),
+        "description": manifest.get("description", meta.get("tagline", "")),
     }
+    # Only stamp the flag when true so binary skills' catalog entries stay
+    # byte-identical (the CI drift gate compares the catalog exactly).
+    if markdown_only:
+        entry["markdown_only"] = True
+    return entry
 
 
 def status_badge(status: str) -> str:
@@ -92,10 +124,18 @@ def render_catalog_table(skills: list[dict]) -> str:
         "| --- | --- | --- | --- |",
     ]
     for s in skills:
+        # Links resolve to the on-disk directory (skill_path), which differs from
+        # the slug for a markdown-only skill (msp-skills-concierge -> skills/_meta).
+        path = s["skill_path"]
+        install = (
+            "Marketplace"
+            if s.get("markdown_only")
+            else "Install"
+        )
         rows.append(
-            f"| [{s['name']}](./skills/{s['name']}) | {s['system']} | "
+            f"| [{s['name']}](./{path}) | {s['system']} | "
             f"{status_badge(s['status'])} | "
-            f"[Install](./skills/{s['name']}/README.md) |"
+            f"[{install}](./{path}/README.md) |"
         )
     return "\n".join(rows)
 

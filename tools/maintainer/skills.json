@@ -2,6 +2,21 @@
   "owner": "servosity",
   "repo": "msp-skills",
   "skills": {
+    "msp-skills-concierge": {
+      "system": "Connector recommendations + guided install for the msp-skills catalog",
+      "status": "beta",
+      "vendor": "Servosity",
+      "vendor_trademark_owner": "Servosity Inc.",
+      "first_party": true,
+      "markdown_only": true,
+      "source_dir": "_meta",
+      "category": "Meta",
+      "display_name": "Concierge",
+      "tagline": "Tell it your stack - it recommends and installs the right connectors.",
+      "template_version": 2,
+      "has_video": false,
+      "live_verified": null
+    },
     "halopsa": {
       "system": "HaloPSA, HaloITSM, HaloCRM",
       "status": "beta",

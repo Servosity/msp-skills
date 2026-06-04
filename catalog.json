@@ -1,7 +1,24 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-02",
+  "generated_at": "2026-06-04",
   "skills": [
+    {
+      "name": "msp-skills-concierge",
+      "system": "Connector recommendations + guided install for the msp-skills catalog",
+      "status": "beta",
+      "skill_path": "skills/_meta",
+      "cli_binary": null,
+      "mcp_binary": null,
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Servosity",
+      "vendor_trademark_owner": "Servosity Inc.",
+      "first_party": true,
+      "install_skill_one_liner": "",
+      "install_mcp_doc": "",
+      "description": "Tell it your stack - it recommends and installs the right connectors.",
+      "markdown_only": true
+    },
     {
       "name": "halopsa",
       "system": "HaloPSA, HaloITSM, HaloCRM",

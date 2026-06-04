@@ -63,6 +63,14 @@ The four agents MSP owners actually use:
 
 New to the term? [What is an MCP server? →](/what-is-an-mcp-server/)
 
+## Let your AI pick for you
+
+Already have msp-skills installed? Let the concierge recommend the right connectors for your stack and install the ones you approve. Paste this into Claude Code or Codex:
+
+> You have msp-skills installed. Using everything you know about me and how I work, recommend which connectors I should install - and install the ones I approve.
+
+More in the [concierge README →](https://github.com/servosity/msp-skills/tree/main/skills/_meta).
+
 ## What makes this different
 
 ### Local mirror, not live calls

@@ -9,6 +9,24 @@
   },
   "plugins": [
     {
+      "name": "msp-skills-concierge",
+      "source": "./skills/_meta",
+      "description": "Tell it your MSP stack and it recommends the msp-skills connectors that fit, then installs only the ones you approve. Reads the live catalog, states an honest verification badge per connector, and reports install receipts. Markdown-only, no binary.",
+      "version": "0.1.0",
+      "category": "meta",
+      "tags": [
+        "msp-skills",
+        "concierge",
+        "connector-recommendations",
+        "guided-install",
+        "msp",
+        "catalog",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "halopsa",
       "source": "./skills/halopsa",
       "description": "Add HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local SQLite mirror so cross-entity queries the live API can't return are fast and offline.",

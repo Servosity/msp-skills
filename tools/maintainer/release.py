@@ -267,6 +267,15 @@ def main(argv: list[str]) -> int:
             print(f"release: skipping unknown slug '{slug}'", file=sys.stderr)
             continue
 
+        if registry.is_markdown_only(slug):
+            print(
+                f"release: refusing '{slug}' - it is markdown-only (no binary to "
+                "build or release). markdown-only skills ship via the marketplace "
+                "manifest only; there is no GitHub Release to cut.",
+                file=sys.stderr,
+            )
+            continue
+
         state = release_state.classify(slug, remote=False)["state"]
         current_version = release_state.manifest_version(slug)
         if state == "never-released":

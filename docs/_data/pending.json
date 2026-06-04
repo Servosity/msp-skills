@@ -6,6 +6,13 @@
     "current_hash": "sha256:c56723a048fe5d2a5b7f9167d4239f04af6efa23c6369a349885013fd8034712",
     "released_hash": "sha256:c56723a048fe5d2a5b7f9167d4239f04af6efa23c6369a349885013fd8034712"
   },
+  "msp-skills-concierge": {
+    "state": "markdown-only",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": null,
+    "released_hash": null
+  },
   "servosity": {
     "state": "up-to-date",
     "version": "0.1.1",

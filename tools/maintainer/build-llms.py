@@ -140,7 +140,7 @@ def parse_table(block: str) -> list[tuple[str, str]]:
 def load_page_data(slug: str, meta: dict, cat: dict) -> dict:
     """Return a dict with: name, tagline, category, badge, url, install,
     intro, outcomes [(q, cmd)], faqs [(q, a)], governance_summary."""
-    page_json = SKILLS_DIR / slug / "page.json"
+    page_json = registry.skill_path(slug) / "page.json"
     data: dict = {
         "slug": slug,
         "name": meta.get("display_name", slug.title()),

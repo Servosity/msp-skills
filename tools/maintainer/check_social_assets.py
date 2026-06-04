@@ -29,6 +29,9 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import registry  # noqa: E402  (local tools/ module)
+
 ROOT = Path(__file__).resolve().parent.parent.parent
 SKILLS_DIR = ROOT / "skills"
 SOCIAL_DIR = ROOT / "docs" / "assets" / "social"
@@ -77,9 +80,13 @@ def main() -> int:
         print("No skills found under skills/.")
         return 1
 
-    # Per-skill assets.
+    # Per-skill assets. The social-preview-generator keys output by the
+    # marketplace plugin name (= the registry slug), which differs from the
+    # on-disk directory for a markdown-only skill (skills/_meta ->
+    # docs/assets/social/msp-skills-concierge/). Map dir -> slug so the gate
+    # looks where the generator actually wrote the cards.
     for d in skill_dirs:
-        slug = d.name
+        slug = registry.slug_for_dir(d.name)
         skill_social = SOCIAL_DIR / slug
         check(errors, skill_social / f"{slug}-400x400.png", (400, 400))
         check(errors, skill_social / f"{slug}-512x512.png", (512, 512))

@@ -45,6 +45,42 @@ def skills() -> dict[str, dict]:
     return {slug: reg["skills"][slug] for slug in sorted(reg["skills"])}
 
 
+def is_markdown_only(slug: str) -> bool:
+    """True for a binary-less skill (a markdown-thin skill with no vendored cli/).
+
+    Keyed off the optional `"markdown_only": true` registry flag. Such skills have
+    nothing to compile or release, no install scripts, and no binary surface; the
+    build matrix, release queue, CLI-claims gate, and release-contract gate all
+    skip them, and the skill-contract gate relaxes the required-files set for them.
+    """
+    return bool(skills().get(slug, {}).get("markdown_only"))
+
+
+def source_dir(slug: str) -> str:
+    """The directory name under skills/ for this slug.
+
+    Defaults to the slug, but a registry entry may override it with `"source_dir"`
+    when the published slug differs from the on-disk directory (the concierge is
+    slug `msp-skills-concierge` living in skills/_meta)."""
+    return skills().get(slug, {}).get("source_dir", slug)
+
+
+def skill_path(slug: str) -> Path:
+    """Absolute path to skills/<dir> for this slug (honoring source_dir)."""
+    return SKILLS_DIR / source_dir(slug)
+
+
+def slug_for_dir(dirname: str) -> str:
+    """Reverse of source_dir: the registry slug owning the skills/<dirname> tree.
+
+    Falls back to dirname when no entry declares that source_dir (so an
+    unregistered directory still gets a slug to report)."""
+    for slug, meta in skills().items():
+        if meta.get("source_dir", slug) == dirname:
+            return slug
+    return dirname
+
+
 def module_path(slug: str) -> str:
     """Read the Go module path from skills/<slug>/cli/go.mod."""
     gomod = SKILLS_DIR / slug / "cli" / "go.mod"
