@@ -96,7 +96,12 @@ def build_entry(skill_dir: Path) -> dict:
             "" if markdown_only else f"skills/{dir_name}/mcp-install.md"
         ),
         "description": manifest.get("description", meta.get("tagline", "")),
+        "verification": _verification_state(meta, markdown_only),
     }
+    if meta.get("category"):
+        entry["category"] = meta["category"]
+    if meta.get("tagline"):
+        entry["tagline"] = meta["tagline"]
     # Only stamp the flag when true so binary skills' catalog entries stay
     # byte-identical (the CI drift gate compares the catalog exactly).
     if markdown_only:
@@ -104,18 +109,30 @@ def build_entry(skill_dir: Path) -> dict:
     return entry
 
 
-def status_badge(status: str) -> str:
-    """Map a skill's status to a shields.io badge URL.
+def _verification_state(meta: dict, markdown_only: bool) -> str:
+    """The honest badge state: 'live-verified' only when a real MSP confirmed
+    the skill against a live tenant (verify_live.py flipped it); 'awaiting'
+    otherwise; 'n/a' for markdown-only skills (no tenant to verify)."""
+    if markdown_only:
+        return "n/a"
+    lv = meta.get("live_verified") or {}
+    return "live-verified" if lv.get("status") == "live-verified" else "awaiting"
 
-    'tested' / 'beta' (the launch state for halopsa + servosity, where MSPs
-    have run the skill against a real production tenant): green Tested badge.
-    Anything else ('untested', etc.) for a skill that shipped but has not
-    been driven against live data yet: yellow Untested badge. Feedback on
-    untested skills is the high-leverage signal we want from MSPs.
+
+def status_badge(verification: str) -> str:
+    """Map a skill's VERIFICATION state to a shields.io badge URL.
+
+    'live-verified' (a real MSP confirmed it against a live tenant; flipped
+    only by verify_live.py with a date + source + evidence): green badge.
+    'awaiting' (passes every mechanical gate; not yet confirmed live): amber
+    badge framed as an invitation - the report is the high-leverage signal.
+    'n/a' (markdown-only, no tenant to verify): neutral badge.
     """
-    if status in ("tested", "beta"):
-        return "![Tested](https://img.shields.io/badge/Tested-by_MSPs-2E7D32)"
-    return "![Untested](https://img.shields.io/badge/Untested-feedback_welcome-EAB308)"
+    if verification == "live-verified":
+        return "![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32)"
+    if verification == "n/a":
+        return "![Meta](https://img.shields.io/badge/Meta-skill-6B7280)"
+    return "![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308)"
 
 
 def render_catalog_table(skills: list[dict]) -> str:
@@ -134,7 +151,7 @@ def render_catalog_table(skills: list[dict]) -> str:
         )
         rows.append(
             f"| [{s['name']}](./{path}) | {s['system']} | "
-            f"{status_badge(s['status'])} | "
+            f"{status_badge(s.get('verification', 'awaiting'))} | "
             f"[{install}](./{path}/README.md) |"
         )
     return "\n".join(rows)

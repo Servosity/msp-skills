@@ -88,7 +88,7 @@ SERVOSITY_MSP_TOKEN=<token> servosity-cli doctor
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | `attention`, `drift`, `stale-backups`, `backup-facts`, `find`, `company show`, `restore-queue list` | Allow |
-| Write (routine) | `triage`, `clear`, `stale-issues`, notes/comments | Allow with `--confirm`; log the plan first |
+| Write (routine) | `triage`, `clear`, `stale-issues`, notes/comments | Compound commands: review the PLAN, then `--confirm`. Raw CRUD: preview with `--dry-run`, approve, never blanket `--yes` |
 | Credential / security | credentials rotate/delete, MFA, agent-install-token, encryption-key update | Human-in-the-loop only |
 | Destructive | `companies delete`, `backups delete`, restic-prune, `users delete` | Human-in-the-loop only |
 | Admin (hidden) | `admin ...` | Operator-only, not for agents |
