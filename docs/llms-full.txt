@@ -1,0 +1,75 @@
+# MSP Skills - full corpus
+
+> Free MCP servers and Skills connecting MSP tools to the AI you already use. Built for MSP business owners. Apache-2.0, runs locally, no data leaves your network. This file is the expanded corpus; the short index is at https://msp-skills.compoundingteams.com/llms.txt
+
+## What an MCP server is (for MSPs)
+
+An MCP server is a small program that connects your AI to a real system - like your PSA, RMM, or backup tool - safely, with your own credentials, running on your own machine. It lets you ask your AI a plain-English question about that system ("which clients had backup failures last quarter?") and get a real answer back, instead of the AI guessing or sending you off to a dashboard.
+
+One thing, many names: what this site calls an MCP server is what ChatGPT calls an app or connector, Claude on the web calls a connector, Microsoft Copilot calls a connector, and Claude Code calls a Skill. Same standard underneath: the Model Context Protocol.
+
+## Why MSP owners use msp-skills
+
+### It answers questions your vendor's API can't
+
+Picture QBR prep: you want backup status across 90 days for 10 clients. Through a normal live API that is roughly 900 calls - paginated, rate-limited, and slow enough that you give up and pull a screenshot instead.
+
+### It joins systems, not just reads one
+
+A connector that only reads one tool answers one tool's questions. The MSP questions that actually matter span systems.
+
+### One quality bar, every connector
+
+Every connector passes the same mechanical verification before it ships:
+
+### It complements what your vendors ship
+
+Your PSA and backup vendors are adding AI, and that is good. Vendor-native AI is excellent for per-ticket work: rewriting a reply, summarizing one ticket, flagging sentiment. It lives inside one product and answers one product's questions.
+
+### Free, local, yours
+
+### The place to get MSP connectors
+
+The vision is simple: one install pattern, every MSP tool. HaloPSA and Servosity are live today; 30+ connectors are coming through a build pipeline, and we build the next ones live with real MSPs in free weekly Build Sessions. Bring the system you want covered and watch it built against a real tenant.
+
+## Connectors
+
+### HaloPSA (PSA)
+
+Page: https://msp-skills.compoundingteams.com/skills/halopsa/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)
+
+Add HaloPSA ticket triage, SLA-breach pre-emption, per-client situational awareness, and cross-client analytics to the AI you already use - Claude Code, Claude Desktop, ChatGPT (Plus/Pro+), Codex, Cursor, Windsurf, Cline, Continue, Gemini, or GitHub Copilot. Free, open source, runs on your laptop. A local SQLite mirror means your AI can answer cross-client questions the live HaloPSA API can't return in one shot - no rate-limit hits during QBR prep. Built for MSP owners. No code required.
+
+Outcomes (question -> command your AI agent runs):
+- What's about to breach SLA in the next 24 hours? -> halopsa-cli sla breaching --within 24h
+- What's the dispatcher view across all agents and teams? -> halopsa-cli triage --team Support
+- Who's overloaded right now? -> halopsa-cli agent workload
+- What's the whole story for this client, on one screen? -> halopsa-cli client card "Acme Corp"
+- How much contract time is left across every contract? -> halopsa-cli contracts burn
+- Which clients have stale tickets aging out? -> halopsa-cli tickets age-out
+- What changed in Halo since this morning? -> halopsa-cli tickets changed-since 9:00
+- Which KB article should the tech link to? -> halopsa-cli kbarticle suggest <ticket>
+
+Governance: Permission tiers: Read, Write (routine), Destructive / config.
+
+### Servosity (Backup/DR)
+
+Page: https://msp-skills.compoundingteams.com/skills/servosity/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
+
+Add fleet-wide backup triage, stale-backup-set detection, overnight drift, per-client situational awareness, and cross-engine analytics to the AI you already use - Claude Code, Claude Desktop, ChatGPT (Plus/Pro+), Codex, Cursor, Windsurf, Cline, Continue, Gemini, or GitHub Copilot. Free, open source, runs on your laptop. A local fleet mirror means your AI can answer cross-client questions the partner portal can't show on one screen - Friday-email-ready in seconds. Built for MSP partners. No code required.
+
+Outcomes (question -> command your AI agent runs):
+- What needs my attention across every client this morning? -> servosity-cli attention
+- Which backups went stale across all clients? -> servosity-cli stale-backups --days 7
+- What changed across my fleet overnight? -> servosity-cli drift --from yesterday --to now
+- What's the whole story for this client, on one screen? -> servosity-cli company show <id>
+- Search across companies, backups, and issues at once -> servosity-cli find "image manager"
+- Triage what's worth keeping in the alert queue -> servosity-cli triage
+- Clear known-safe alert noise so real failures show -> servosity-cli clear
+- List DR restores in flight -> servosity-cli restore-queue list
+
+Governance: Permission tiers: Read, Write (routine), Credential / security, Destructive, Admin (hidden).

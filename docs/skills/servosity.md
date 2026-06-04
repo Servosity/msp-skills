@@ -11,7 +11,11 @@ image: /assets/social/servosity/wide-1200x630.png
 
 > Published by Servosity Inc. for MSP partners. Servosity is a trademark of Servosity Inc. Apache-2.0 licensed.
 
+**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+
 Add **fleet-wide backup triage, stale-backup-set detection, overnight drift, per-client situational awareness, and cross-engine analytics** to the AI you already use - **Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A **local fleet mirror** means your AI can answer cross-client questions the partner portal can't show on one screen - **Friday-email-ready in seconds**. Built for MSP partners. No code required.
+
+New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)
 
 [Install in 60s →](#install){: .btn .btn-primary} &nbsp; [View on GitHub →](https://github.com/servosity/msp-skills/tree/main/skills/servosity){: .btn}
 
