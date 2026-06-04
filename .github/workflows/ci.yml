@@ -26,6 +26,15 @@ jobs:
       - name: Markdown local links
         run: python3 tools/maintainer/check_md_links.py
 
+      - name: No TODO / placeholder markers in skill prose
+        run: python3 tools/maintainer/check_no_todos.py
+
+      - name: Vocabulary contract (banned + required terms)
+        run: python3 tools/maintainer/check_vocabulary.py
+
+      - name: Video assets (skills that opt in via has_video)
+        run: python3 tools/maintainer/check_video_assets.py
+
       - name: DCO sign-off (PR commits)
         if: github.event_name == 'pull_request'
         env:
@@ -99,3 +108,11 @@ jobs:
           cd ${{ matrix.skill.dir }}
           go build ./...
           go vet ./...
+
+      - name: CLI claims vs built binary (this skill)
+        # Runs here, in the per-skill matrix job, because verifying doc claims
+        # builds the real CLI and needs Go on PATH (already set up above). The
+        # --slug filter checks only this matrix row's skill. WARN mode for now
+        # while the fleet calibrates.
+        # NOTE(calibration): drop --warn after fleet calibration to make this gate.
+        run: python3 tools/maintainer/check_cli_claims.py --warn --slug ${{ matrix.skill.name }}
