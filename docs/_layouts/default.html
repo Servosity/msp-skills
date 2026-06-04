@@ -65,6 +65,10 @@
     footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: 0.9rem; }
     hr { border: none; border-top: 1px solid var(--rule); margin: 2rem 0; }
   </style>
+  {% if site.goatcounter_code %}
+  <script data-goatcounter="https://{{ site.goatcounter_code }}.goatcounter.com/count"
+          async src="//gc.zgo.at/count.js"></script>
+  {% endif %}
 </head>
 <body>
   <nav class="site-nav">

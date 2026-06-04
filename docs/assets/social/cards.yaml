@@ -1,0 +1,25 @@
+# Per-vendor social-card content (2026-06-04 conversion spec).
+# Read by social-preview-generator's generate.py and make_background.py.
+# Schema per slug:
+#   accent_hex:       vendor-evoking accent (glow + terminal accent). Color only,
+#                     never the vendor's logo - trademark posture.
+#   example_command:  the terminal magic-moment prompt (vendor-specific, real)
+#   response_lines:   1-3 payoff lines rendered with a green check
+#   outcome_line:     the promise replacing "Claude Code skill + MCP server"
+# ASCII hyphens only (repo ci.yml bans em-dashes in committed files).
+
+halopsa:
+  accent_hex: "#D87757"
+  example_command: "Which HaloPSA tickets breach SLA today?"
+  response_lines:
+    - "3 at risk - worst #4812, 6h left"
+    - "Triage notes drafted"
+  outcome_line: "Ask your PSA anything in plain English."
+
+servosity:
+  accent_hex: "#2F6FED"
+  example_command: "Any backups silently failing this week?"
+  response_lines:
+    - "2 of 47 stale - Acme, since Tue"
+    - "Other 45 restore-verified"
+  outcome_line: "Know the fleet is safe before the client asks."

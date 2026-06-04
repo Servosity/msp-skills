@@ -1,0 +1,22 @@
+# Archives GitHub Traffic API data (views, uniques, referrers, clones) daily.
+# The Traffic API only keeps 14 days; this action snapshots it to the
+# github-repo-stats data branch so social-card A/B tests have a durable
+# referrer record. See docs/assets/social/MEASUREMENT.md.
+#
+# Requires repo secret GHRS_GITHUB_API_TOKEN: a token with push access to this
+# repo (the workflow-default GITHUB_TOKEN cannot read /traffic endpoints).
+name: repo-stats
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  archive-traffic:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Archive traffic stats
+        uses: jgehrcke/github-repo-stats@v1.4.2
+        with:
+          ghtoken: ${{ secrets.GHRS_GITHUB_API_TOKEN }}

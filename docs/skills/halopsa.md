@@ -1,7 +1,7 @@
 ---
 layout: default
-title: "HaloPSA + AI - for Claude, ChatGPT, Codex, Cursor, and any MCP agent"
-description: "Free Claude Code skill and MCP server for HaloPSA tickets. Triage queues, pre-empt SLA breaches, build per-client cards, run cross-client analytics. Local SQLite mirror so QBR-time questions don't hit rate limits. Built for MSP owners."
+title: "Ask HaloPSA anything in plain English - free Claude Code skill + MCP server"
+description: "Try: 'Which tickets breach SLA today?' Free Claude Code skill + MCP server for HaloPSA. Works with Claude, ChatGPT, Codex, Cursor. Runs on your machine - your data stays local. Built for MSP owners."
 permalink: /skills/halopsa/
 skill_name: "HaloPSA MCP"
 image: /assets/social/halopsa/wide-1200x630.png

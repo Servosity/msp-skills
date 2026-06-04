@@ -5,6 +5,10 @@ baseurl: ""
 github_repo: "servosity/msp-skills"
 github_url: "https://github.com/servosity/msp-skills"
 
+# Analytics (GoatCounter site code; empty = no tracking script rendered).
+# Fill after signup at goatcounter.com - see docs/assets/social/MEASUREMENT.md
+goatcounter_code: ""
+
 # AEO surface
 author:
   name: "Servosity"
