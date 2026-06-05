@@ -39,6 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cli_hash  # noqa: E402  (local tools/ module)
 import registry  # noqa: E402  (local tools/ module)
 import release_state  # noqa: E402  (local tools/ module)
+import repo_lock  # noqa: E402  (local tools/ module)
 
 ROOT = registry.ROOT
 SKILLS_DIR = registry.SKILLS_DIR
@@ -259,6 +260,32 @@ def parse_args(argv: list[str]) -> tuple[list[str], str, bool]:
 
 def main(argv: list[str]) -> int:
     slugs, bump, dry_run = parse_args(argv)
+
+    if dry_run:
+        # Read-only report: never blocked by (and never blocks) a real release.
+        return _run_batch(slugs, bump, dry_run=True)
+
+    # One release at a time, machine-wide: every invocation writes the two
+    # SHARED files (tools/maintainer/skills.json, .claude-plugin/
+    # marketplace.json), so even different-slug releases must serialize.
+    # The lock lives in the git common dir so worktree and main-checkout
+    # runs see the same lock (see repo_lock.py).
+    try:
+        repo_lock.acquire("release", holder_info={"slugs": slugs, "bump": bump})
+    except repo_lock.LockHeld as e:
+        print(f"release: {e}", file=sys.stderr)
+        print(
+            "release: another release is in flight. Wait for it to finish - "
+            "or, if you are certain it crashed, remove the lock file named "
+            "above and re-run.",
+            file=sys.stderr,
+        )
+        return 1
+
+    return _run_batch(slugs, bump, dry_run=False)
+
+
+def _run_batch(slugs: list[str], bump: str, dry_run: bool) -> int:
     known = set(registry.skills())
     tag_commands: list[str] = []
 

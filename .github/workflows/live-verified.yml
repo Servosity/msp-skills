@@ -17,6 +17,14 @@ permissions:
   contents: write
   issues: write
 
+# Same group as catalog.yml's main/tag writers: both workflows auto-commit to
+# main and would race each other (non-fast-forward) without serialization,
+# e.g. a badge flip landing while a release tag's catalog job is pushing.
+# cancel-in-progress false: a queued badge flip must still run.
+concurrency:
+  group: main-autocommit
+  cancel-in-progress: false
+
 jobs:
   flip:
     runs-on: ubuntu-latest
@@ -118,6 +126,7 @@ jobs:
         env:
           SLUG: ${{ steps.parse.outputs.slug }}
           ISSUE: ${{ github.event.issue.number }}
+          EVIDENCE: ${{ github.event.issue.html_url }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -125,10 +134,37 @@ jobs:
           git add tools/maintainer/skills.json catalog.json README.md docs/_data/pending.json 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "No changes to commit (already live-verified?)."
-          else
-            git commit -m "badge: $SLUG live-verified via #$ISSUE"
-            git push origin HEAD:main
+            exit 0
           fi
+          git commit -m "badge: $SLUG live-verified via #$ISSUE"
+          # Self-heal push loop: the concurrency group serializes the common
+          # case, but a peer commit (release_batch push, catalog bot) can land
+          # between our checkout and our push. The badge flip is recomputable,
+          # so the conflict path is recompute-on-top: reset to the new main,
+          # re-run verify_live (idempotent for an already-verified slug),
+          # regenerate, re-commit.
+          for attempt in 1 2 3 4 5; do
+            if git push origin HEAD:main; then
+              echo "pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt) - recompute on top of new main"
+            git fetch origin main
+            git reset --hard origin/main
+            python3 tools/maintainer/verify_live.py \
+              --slug "$SLUG" \
+              --source github \
+              --evidence "$EVIDENCE"
+            python3 tools/maintainer/build-catalog.py
+            git add tools/maintainer/skills.json catalog.json README.md docs/_data/pending.json 2>/dev/null || true
+            if git diff --cached --quiet; then
+              echo "now in sync after peer commit - nothing left to push"
+              exit 0
+            fi
+            git commit -m "badge: $SLUG live-verified via #$ISSUE"
+          done
+          echo "::error::could not push the badge flip after 5 attempts"
+          exit 1
 
       - name: Thank the reporter
         if: steps.parse.outputs.ok == 'true'

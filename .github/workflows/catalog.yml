@@ -23,6 +23,20 @@ on:
 permissions:
   contents: write
 
+# Serialize every run that auto-commits derived files to main - this workflow's
+# push/tag runs AND live-verified.yml share the 'main-autocommit' group, because
+# both push to main and would otherwise race (non-fast-forward) when e.g. two
+# release tags land seconds apart. PR runs get a per-PR group instead: they only
+# read (drift gate), and a global group would wrongly serialize unrelated PR
+# checks (GitHub keeps at most ONE pending run per group, replacing older queued
+# runs). cancel-in-progress stays false: each writer run regenerates from the
+# LATEST tree+tags (idempotent, not delta-based), so a queued run is still
+# useful, and the one-pending-run replacement is harmless for the same reason -
+# whichever queued run survives produces the correct end state.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('catalog-pr-{0}', github.event.pull_request.number) || 'main-autocommit' }}
+  cancel-in-progress: false
+
 jobs:
   catalog:
     runs-on: ubuntu-latest
@@ -73,4 +87,28 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add catalog.json README.md docs/llms.txt docs/llms-full.txt docs/_data/pending.json
           git commit -m "chore: regenerate derived files (catalog/llms/pending) [bot]"
-          git push origin main
+          # Push with a self-heal loop: the concurrency group serializes the
+          # common case, but a peer commit can still land between our checkout
+          # and our push (e.g. a release_batch push). Derived files are
+          # recomputable, so the conflict path is regenerate-on-top, never a
+          # textual merge.
+          for attempt in 1 2 3 4 5; do
+            if git push origin main; then
+              echo "pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt) - refetch and regenerate on top"
+            git fetch origin main
+            git reset --hard origin/main
+            python3 tools/maintainer/build-catalog.py
+            python3 tools/maintainer/build-llms.py
+            python3 tools/maintainer/release_state.py --json > docs/_data/pending.json
+            if git diff --quiet catalog.json README.md docs/llms.txt docs/llms-full.txt docs/_data/pending.json; then
+              echo "now in sync after peer commit - nothing left to push"
+              exit 0
+            fi
+            git add catalog.json README.md docs/llms.txt docs/llms-full.txt docs/_data/pending.json
+            git commit -m "chore: regenerate derived files (catalog/llms/pending) [bot]"
+          done
+          echo "::error::could not push derived files after 5 attempts"
+          exit 1
