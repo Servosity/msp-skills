@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "mspbots-pp-mcp",
+  "name": "mspbots-mcp",
   "display_name": "MSPbots",
   "version": "0.1.0",
   "description": "The first MSPbots tool anywhere \u2014 readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/mspbots-pp-mcp",
+    "entry_point": "bin/mspbots-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/mspbots-pp-mcp",
+      "command": "${__dirname}/bin/mspbots-mcp",
       "args": [],
       "env": {
         "MSPBOTS_API_KEY": "${user_config.mspbots_api_key}"

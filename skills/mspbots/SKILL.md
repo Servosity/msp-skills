@@ -1,6 +1,6 @@
 ---
 name: mspbots
-description: "The first MSPbots tool anywhere  -  readable filters, alias-named resources, full exports Trigger phrases: `pull the open tickets dataset from MSPbots`, `export MSPbots data to CSV`, `snapshot our MSPbots KPIs`, `is our ticket backlog up or down this week`, `what columns does this MSPbots dataset have`, `use mspbots`, `run mspbots-cli`."
+description: "Use when the user asks to pull MSPbots datasets or widgets, export MSPbots data to CSV or JSONL, snapshot KPIs and track week-over-week trends, diff what changed in a dataset, discover dataset columns, or wire MSPbots BI data into scripts and agents. The only tool we found for the MSPbots Public API (June 2026) - readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep. Trigger phrases: `pull the open tickets dataset from MSPbots`, `export MSPbots data to CSV`, `snapshot our MSPbots KPIs`, `is our ticket backlog up or down this week`, `what columns does this MSPbots dataset have`, `MSPbots + ChatGPT`, `MSPbots + Claude`, `use mspbots`, `run mspbots-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "MSPbots"
@@ -11,38 +11,32 @@ metadata:
     requires:
       bins:
         - mspbots-cli
-    install:
-      - kind: go
-        bins: [mspbots-cli]
-        module: github.com/mvanhorn/printing-press-library/library/monitoring/mspbots/cmd/mspbots-cli
 ---
 
-# MSPbots  -  Printing Press CLI
+# MSPbots Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `mspbots-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install mspbots --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mspbots/install.sh)
    ```
-2. Verify: `mspbots-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mspbots/install.ps1 | iex
+   ```
+3. Verify: `mspbots-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/monitoring/mspbots/cmd/mspbots-cli@latest
-```
-
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 MSPbots' Public API shares your BI datasets and widgets but ships with 19-digit IDs, a comma-encoded filter DSL, manual pagination, and no history. This CLI turns a shared API key into a usable data faucet: register aliases once, filter with readable predicates, export whole tables in one command, and snapshot KPIs into local SQLite for diffs and trends no MSPbots surface can show.
 
 ## When to Use This CLI
 
-Reach for this CLI whenever MSP business-intelligence data living in MSPbots needs to leave the dashboard: piping ticket/SLA/utilization rows into scripts, capturing scheduled KPI snapshots for week-over-week reporting, exporting full datasets to CSV for finance, or letting an AI agent answer service-desk questions from real data. It is the only programmatic MSPbots surface that exists.
+Reach for this CLI whenever MSP business-intelligence data living in MSPbots needs to leave the dashboard: piping ticket/SLA/utilization rows into scripts, capturing scheduled KPI snapshots for week-over-week reporting, exporting full datasets to CSV for finance, or letting an AI agent answer service-desk questions from real data. It is the only programmatic MSPbots surface we could find (June 2026).
 
 ## Anti-triggers
 
@@ -62,28 +56,28 @@ These capabilities aren't available in any other tool for this API.
   _Agents and scripts can address resources by stable, human-readable names instead of copy-pasted snowflake IDs._
 
   ```bash
-  mspbots-cli registry add open-tickets 1534956341424005122 --type dataset
+  mspbots-cli registry add open_tickets 1534956341424005122 --type dataset
   ```
 - **`snapshot`**  -  Capture point-in-time copies of any dataset or widget into local SQLite  -  the history MSPbots doesn't keep.
 
   _Run it on a schedule and every later question about "how has this changed" becomes answerable offline._
 
   ```bash
-  mspbots-cli snapshot open-tickets
+  mspbots-cli snapshot open_tickets
   ```
 - **`trend`**  -  Time-series and point-over-point deltas for any numeric column across stored snapshots.
 
   _Answers "is this KPI up or down since last week"  -  the question the live API structurally cannot answer._
 
   ```bash
-  mspbots-cli trend open-tickets --column "Open Count"
+  mspbots-cli trend open_tickets --column "Open Count"
   ```
 - **`diff`**  -  Row-level added/removed/changed comparison between two stored snapshots of the same resource.
 
   _Shows exactly which tickets entered or left a queue between two captures, not just the count._
 
   ```bash
-  mspbots-cli diff open-tickets
+  mspbots-cli diff open_tickets
   ```
 
 ### Agent-native plumbing
@@ -92,21 +86,21 @@ These capabilities aren't available in any other tool for this API.
   _Reach for this instead of hand-building query strings; it handles operator encoding, spaces in column names, and URL-escaping._
 
   ```bash
-  mspbots-cli pull open-tickets --where "Update Date >= 2026-05-29" --where "Status = Open" --json
+  mspbots-cli pull open_tickets --where "Update Date >= 2026-05-29" --where "Status = Open" --json
   ```
 - **`export`**  -  Dump an entire dataset or widget to CSV or JSONL, walking every page automatically.
 
   _One command replaces a babysat pagination loop when feeding spreadsheets or downstream pipelines._
 
   ```bash
-  mspbots-cli export open-tickets --format csv
+  mspbots-cli export open_tickets --format csv
   ```
 - **`describe`**  -  Sample live rows and infer the column names and types of a dataset or widget.
 
   _Run it before building --where filters so column names and types are known instead of guessed._
 
   ```bash
-  mspbots-cli describe open-tickets
+  mspbots-cli describe open_tickets
   ```
 
 ## Command Reference
@@ -135,15 +129,15 @@ mspbots-cli which "<capability in your own words>"
 ### Register and pull a shared dataset
 
 ```bash
-mspbots-cli registry add sla-queue 1534956341424005122 --type dataset
+mspbots-cli registry add sla_queue 1534956341424005122 --type dataset
 ```
 
-One-time alias setup; every later command addresses the resource as sla-queue.
+One-time alias setup; every later command addresses the resource as sla_queue.
 
 ### Filtered pull with readable predicates
 
 ```bash
-mspbots-cli pull sla-queue --where "Update Date >= 2026-05-01" --where "Status = Open" --json
+mspbots-cli pull sla_queue --where "Update Date >= 2026-05-01" --where "Status = Open" --json
 ```
 
 The CLI compiles readable operators into MSPbots' comma-encoded query DSL and URL-encodes spaced column names.
@@ -151,7 +145,7 @@ The CLI compiles readable operators into MSPbots' comma-encoded query DSL and UR
 ### Agent-shaped KPI read
 
 ```bash
-mspbots-cli pull sla-queue --agent --select row_count,rows
+mspbots-cli pull sla_queue --agent --select row_count,rows
 ```
 
 Returns only the row count and rows fields in agent-envelope JSON  -  bounded context for LLM consumption.
@@ -159,7 +153,7 @@ Returns only the row count and rows fields in agent-envelope JSON  -  bounded co
 ### Full CSV export for finance
 
 ```bash
-mspbots-cli export sla-queue --format csv
+mspbots-cli export sla_queue --format csv
 ```
 
 Walks every page via current/size automatically and streams one clean CSV.
@@ -167,7 +161,7 @@ Walks every page via current/size automatically and streams one clean CSV.
 ### Week-over-week KPI movement
 
 ```bash
-mspbots-cli trend sla-queue --column "Open Count"
+mspbots-cli trend sla_queue --column "Open Count"
 ```
 
 Aggregates the column across stored snapshots; pair with a scheduled `snapshot` to keep the series growing.
@@ -268,15 +262,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/monitoring/mspbots/cmd/mspbots-mcp@latest
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add mspbots-mcp -- mspbots-mcp
-   ```
-3. Verify: `claude mcp list`
+The installer above drops `mspbots-mcp` alongside the CLI. Register it:
+
+```bash
+claude mcp add mspbots-mcp -- mspbots-mcp
+```
+
+Verify: `claude mcp list`
 
 ## Direct Use
 

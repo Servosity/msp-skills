@@ -103,7 +103,7 @@
       "category": "Analytics",
       "display_name": "MSPbots",
       "tagline": "Pull datasets, snapshot KPIs, and track ticket backlog trends by asking.",
-      "cli_hash": "sha256:91abe5d0e5084bba740132e6e980edf2a6659e222158dcfbd37452545e63505d",
+      "cli_hash": "sha256:36cb545dfa6bf887732149523853d650b61ff338cbd39734b4f58f350f0de163",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

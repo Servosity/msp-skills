@@ -9,7 +9,7 @@ All notable changes to this skill are documented here. Format follows
 ### Added
 - Initial msp-skills release: `mspbots-cli` + `mspbots-mcp` covering the MSPbots
   Public API (dataset and widget reads) as typed subcommands and MCP tools - the
-  first published tool for this API anywhere.
+  first published tool we could find for this API (June 2026).
 - Local alias registry (`registry add` / `list` / `rm`): name a 19-digit resource
   ID once, use the alias in every other command - the discovery surface the API
   itself doesn't ship.

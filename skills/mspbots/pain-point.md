@@ -34,21 +34,21 @@ these rules the hard way.
 
 ## What this skill does about it
 
-- `mspbots-cli registry add open-tickets 1534956341424005122` - name a
+- `mspbots-cli registry add open_tickets 1534956341424005122` - name a
   resource once; every other command accepts the alias. The local registry is
   the discovery surface the API never shipped.
-- `mspbots-cli snapshot open-tickets` - capture a timestamped copy of any
+- `mspbots-cli snapshot open_tickets` - capture a timestamped copy of any
   dataset or widget into local SQLite. Schedule it (cron, agent loop) and
   history accrues.
-- `mspbots-cli trend open-tickets --agg count` - the week-over-week answer,
+- `mspbots-cli trend open_tickets --agg count` - the week-over-week answer,
   computed from stored snapshots, offline, zero API calls.
-- `mspbots-cli diff open-tickets` - row-level added/removed/changed between
+- `mspbots-cli diff open_tickets` - row-level added/removed/changed between
   any two snapshots of the same resource.
-- `mspbots-cli pull open-tickets --where "Update Date >= 2026-06-01"` -
+- `mspbots-cli pull open_tickets --where "Update Date >= 2026-06-01"` -
   readable predicates compiled into the comma-encoded wire DSL, correct the
   first time; `describe` infers the column names and types to filter on, since
   the API has no metadata endpoint either.
-- `mspbots-cli export open-tickets --format csv` - the full table,
+- `mspbots-cli export open_tickets --format csv` - the full table,
   auto-paginated, with an honest partial-dump flag when `--max-pages` is hit.
 
 ## Sources

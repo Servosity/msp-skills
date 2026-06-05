@@ -26,7 +26,7 @@ const (
 func main() {
 	s := server.NewMCPServer(
 		"Mspbots",
-		"1.0.0",
+		"0.1.0",
 		server.WithToolCapabilities(false),
 	)
 

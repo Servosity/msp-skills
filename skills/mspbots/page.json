@@ -2,54 +2,54 @@
   "outcome_intro": "MSPbots aggregates your PSA, RMM, and finance data into KPI dashboards - then keeps it there. Ask your AI \"is our ticket backlog up or down this week\" and get the answer the dashboard can't give: point-in-time snapshots, week-over-week deltas, row-level diffs, and full CSV exports - through readable aliases and filters instead of 19-digit resource IDs and a comma-encoded query DSL.",
   "instead_of_say": [
     {
-      "instead": "Screenshotting the open-tickets widget every Monday and hand-maintaining a week-over-week column in a spreadsheet, because the dashboard only shows now",
+      "instead": "Screenshotting the open_tickets widget every Monday and hand-maintaining a week-over-week column in a spreadsheet, because the dashboard only shows now",
       "say": "Is our ticket backlog up or down versus last week?",
-      "cli": "mspbots-cli trend open-tickets --agg count"
+      "cli": "mspbots-cli trend open_tickets --agg count"
     },
     {
       "instead": "Hand-encoding filters into URL query params - price=12.6,56.3 for a range, a trailing comma for on-or-after - one undocumented comma rule per operator",
       "say": "Pull the open tickets updated since June 1",
-      "cli": "mspbots-cli pull open-tickets --where \"Update Date >= 2026-06-01\""
+      "cli": "mspbots-cli pull open_tickets --where \"Update Date >= 2026-06-01\""
     },
     {
       "instead": "Paging a dataset 50 rows at a time and stitching the pages together by hand to get the full table into a spreadsheet",
       "say": "Export the whole tickets dataset to CSV for the QBR deck",
-      "cli": "mspbots-cli export open-tickets --format csv"
+      "cli": "mspbots-cli export open_tickets --format csv"
     }
   ],
   "pain_points": [
-    "The MSPbots Public API is two endpoints with no enumeration: per the official API documentation (the wiki.mspbots.ai Public API article, archived April 2024), resource IDs are 19-digit identifiers you copy out of Settings > Public API one at a time - no list endpoint, no metadata endpoint, and until this skill no published CLI, SDK, or MCP server for it anywhere.",
+    "The MSPbots Public API is two endpoints with no enumeration: per the official API documentation (the wiki.mspbots.ai Public API article, archived April 2024), resource IDs are 19-digit identifiers you copy out of Settings > Public API one at a time - no list endpoint, no metadata endpoint, and as of June 2026 no published CLI, SDK, or MCP server for it that we could find.",
     "The API and the dashboards both show now - there is no history endpoint. The week-over-week KPI column every ops manager wants (backlog trend, SLA drift) is hand-maintained in a spreadsheet from screenshots, and it dies the week someone forgets to update it.",
     "Filters are a comma-encoded DSL keyed by column name - price=12.6,56.3 is a range, a trailing comma means on-or-after - and the same official docs list rate limits with unspecified numbers and intermittent HTTP 502 responses on heavy widget fetches."
   ],
   "outcomes": [
     {
       "question": "Is our open-ticket backlog up or down versus last week?",
-      "command": "mspbots-cli trend open-tickets --agg count"
+      "command": "mspbots-cli trend open_tickets --agg count"
     },
     {
       "question": "What changed in open tickets since the last snapshot - rows added, removed, or edited?",
-      "command": "mspbots-cli diff open-tickets"
+      "command": "mspbots-cli diff open_tickets"
     },
     {
       "question": "Pull the open tickets updated since June 1",
-      "command": "mspbots-cli pull open-tickets --where \"Update Date >= 2026-06-01\""
+      "command": "mspbots-cli pull open_tickets --where \"Update Date >= 2026-06-01\""
     },
     {
       "question": "What columns does this dataset have, and what types?",
-      "command": "mspbots-cli describe open-tickets"
+      "command": "mspbots-cli describe open_tickets"
     },
     {
       "question": "Export the entire dataset to CSV for the QBR deck",
-      "command": "mspbots-cli export open-tickets --format csv"
+      "command": "mspbots-cli export open_tickets --format csv"
     },
     {
       "question": "Capture today's KPI snapshot (schedule it and history accrues)",
-      "command": "mspbots-cli snapshot open-tickets"
+      "command": "mspbots-cli snapshot open_tickets"
     },
     {
       "question": "Stop pasting 19-digit IDs - name the dataset once",
-      "command": "mspbots-cli registry add open-tickets 1534956341424005122"
+      "command": "mspbots-cli registry add open_tickets 1534956341424005122"
     },
     {
       "question": "Are my API key and resource bindings working?",
@@ -85,7 +85,7 @@
     },
     {
       "q": "Why do I register datasets before pulling them?",
-      "a": "The Public API has no list endpoint - it cannot tell you what is bound to your key. You copy each resource ID from Settings > Public API once, register it with mspbots-cli registry add open-tickets <resourceId>, and every other command accepts the alias from then on."
+      "a": "The Public API has no list endpoint - it cannot tell you what is bound to your key. You copy each resource ID from Settings > Public API once, register it with mspbots-cli registry add open_tickets <resourceId>, and every other command accepts the alias from then on."
     },
     {
       "q": "Will this hit MSPbots rate limits?",
@@ -100,12 +100,12 @@
   "safety_tiers": [
     {
       "tier": "Read (live API)",
-      "examples": "mspbots-cli pull open-tickets --where \"Status = Open\"; mspbots-cli export open-tickets --format csv; mspbots-cli describe open-tickets; mspbots-cli dataset <resourceId>; mspbots-cli widget <resourceId>; mspbots-cli doctor",
+      "examples": "mspbots-cli pull open_tickets --where \"Status = Open\"; mspbots-cli export open_tickets --format csv; mspbots-cli describe open_tickets; mspbots-cli dataset <resourceId>; mspbots-cli widget <resourceId>; mspbots-cli doctor",
       "policy": "Allow"
     },
     {
       "tier": "Local-only writes (never touch the tenant)",
-      "examples": "mspbots-cli registry add open-tickets <resourceId>; mspbots-cli snapshot open-tickets; mspbots-cli sync - all writes land in your local SQLite store; the API has no write endpoint",
+      "examples": "mspbots-cli registry add open_tickets <resourceId>; mspbots-cli snapshot open_tickets; mspbots-cli sync - all writes land in your local SQLite store; the API has no write endpoint",
       "policy": "Allow - safe to schedule"
     },
     {

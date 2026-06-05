@@ -20,7 +20,7 @@ faqs:
   - q: "Can this write to MSPbots?"
     a: "No. The MSPbots Public API is read-only - datasets and widgets out, nothing in. The only things this skill writes are local: alias registrations, snapshots, and the sync cache in your own SQLite store. No command can change anything in your MSPbots tenant."
   - q: "Why do I register datasets before pulling them?"
-    a: "The Public API has no list endpoint - it cannot tell you what is bound to your key. You copy each resource ID from Settings > Public API once, register it with mspbots-cli registry add open-tickets <resourceId>, and every other command accepts the alias from then on."
+    a: "The Public API has no list endpoint - it cannot tell you what is bound to your key. You copy each resource ID from Settings > Public API once, register it with mspbots-cli registry add open_tickets <resourceId>, and every other command accepts the alias from then on."
   - q: "Will this hit MSPbots rate limits?"
     a: "The API documents rate limits without publishing numbers. The CLI ships a --rate-limit throttle, export bounds its page-walking with --max-pages and reports when the cap was hit, and the history questions (trend, diff) run entirely against local snapshots - zero API calls after capture."
   - q: "Does it support widgets as well as datasets?"
@@ -49,17 +49,17 @@ MSPbots aggregates your PSA, RMM, and finance data into KPI dashboards - then ke
 
 ## Instead of clicking through MSPbots, just ask
 
-**Instead of** Screenshotting the open-tickets widget every Monday and hand-maintaining a week-over-week column in a spreadsheet, because the dashboard only shows now
+**Instead of** Screenshotting the open_tickets widget every Monday and hand-maintaining a week-over-week column in a spreadsheet, because the dashboard only shows now
 **just ask:** *"Is our ticket backlog up or down versus last week?"*
-<sub>Your agent runs: <code>mspbots-cli trend open-tickets --agg count</code></sub>
+<sub>Your agent runs: <code>mspbots-cli trend open_tickets --agg count</code></sub>
 
 **Instead of** Hand-encoding filters into URL query params - price=12.6,56.3 for a range, a trailing comma for on-or-after - one undocumented comma rule per operator
 **just ask:** *"Pull the open tickets updated since June 1"*
-<sub>Your agent runs: <code>mspbots-cli pull open-tickets --where "Update Date >= 2026-06-01"</code></sub>
+<sub>Your agent runs: <code>mspbots-cli pull open_tickets --where "Update Date >= 2026-06-01"</code></sub>
 
 **Instead of** Paging a dataset 50 rows at a time and stitching the pages together by hand to get the full table into a spreadsheet
 **just ask:** *"Export the whole tickets dataset to CSV for the QBR deck"*
-<sub>Your agent runs: <code>mspbots-cli export open-tickets --format csv</code></sub>
+<sub>Your agent runs: <code>mspbots-cli export open_tickets --format csv</code></sub>
 
 
 ## See it in 30 seconds
@@ -72,13 +72,13 @@ MSPbots aggregates your PSA, RMM, and finance data into KPI dashboards - then ke
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| Is our open-ticket backlog up or down versus last week? | `mspbots-cli trend open-tickets --agg count` |
-| What changed in open tickets since the last snapshot - rows added, removed, or edited? | `mspbots-cli diff open-tickets` |
-| Pull the open tickets updated since June 1 | `mspbots-cli pull open-tickets --where "Update Date >= 2026-06-01"` |
-| What columns does this dataset have, and what types? | `mspbots-cli describe open-tickets` |
-| Export the entire dataset to CSV for the QBR deck | `mspbots-cli export open-tickets --format csv` |
-| Capture today's KPI snapshot (schedule it and history accrues) | `mspbots-cli snapshot open-tickets` |
-| Stop pasting 19-digit IDs - name the dataset once | `mspbots-cli registry add open-tickets 1534956341424005122` |
+| Is our open-ticket backlog up or down versus last week? | `mspbots-cli trend open_tickets --agg count` |
+| What changed in open tickets since the last snapshot - rows added, removed, or edited? | `mspbots-cli diff open_tickets` |
+| Pull the open tickets updated since June 1 | `mspbots-cli pull open_tickets --where "Update Date >= 2026-06-01"` |
+| What columns does this dataset have, and what types? | `mspbots-cli describe open_tickets` |
+| Export the entire dataset to CSV for the QBR deck | `mspbots-cli export open_tickets --format csv` |
+| Capture today's KPI snapshot (schedule it and history accrues) | `mspbots-cli snapshot open_tickets` |
+| Stop pasting 19-digit IDs - name the dataset once | `mspbots-cli registry add open_tickets 1534956341424005122` |
 | Are my API key and resource bindings working? | `mspbots-cli doctor` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/mspbots/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/mspbots/guide.md).
@@ -91,7 +91,7 @@ MSPbots' own AI and bots act inside its dashboards and workflows. This skill com
 
 ## The pain this closes
 
-- The MSPbots Public API is two endpoints with no enumeration: per the official API documentation (the wiki.mspbots.ai Public API article, archived April 2024), resource IDs are 19-digit identifiers you copy out of Settings > Public API one at a time - no list endpoint, no metadata endpoint, and until this skill no published CLI, SDK, or MCP server for it anywhere.
+- The MSPbots Public API is two endpoints with no enumeration: per the official API documentation (the wiki.mspbots.ai Public API article, archived April 2024), resource IDs are 19-digit identifiers you copy out of Settings > Public API one at a time - no list endpoint, no metadata endpoint, and as of June 2026 no published CLI, SDK, or MCP server for it that we could find.
 - The API and the dashboards both show now - there is no history endpoint. The week-over-week KPI column every ops manager wants (backlog trend, SLA drift) is hand-maintained in a spreadsheet from screenshots, and it dies the week someone forgets to update it.
 - Filters are a comma-encoded DSL keyed by column name - price=12.6,56.3 is a range, a trailing comma means on-or-after - and the same official docs list rate limits with unspecified numbers and intermittent HTTP 502 responses on heavy widget fetches.
 
@@ -127,8 +127,8 @@ After install, authenticate once with your MSPbots credentials, then verify with
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read (live API) | mspbots-cli pull open-tickets --where "Status = Open"; mspbots-cli export open-tickets --format csv; mspbots-cli describe open-tickets; mspbots-cli dataset <resourceId>; mspbots-cli widget <resourceId>; mspbots-cli doctor | Allow |
-| Local-only writes (never touch the tenant) | mspbots-cli registry add open-tickets <resourceId>; mspbots-cli snapshot open-tickets; mspbots-cli sync - all writes land in your local SQLite store; the API has no write endpoint | Allow - safe to schedule |
+| Read (live API) | mspbots-cli pull open_tickets --where "Status = Open"; mspbots-cli export open_tickets --format csv; mspbots-cli describe open_tickets; mspbots-cli dataset <resourceId>; mspbots-cli widget <resourceId>; mspbots-cli doctor | Allow |
+| Local-only writes (never touch the tenant) | mspbots-cli registry add open_tickets <resourceId>; mspbots-cli snapshot open_tickets; mspbots-cli sync - all writes land in your local SQLite store; the API has no write endpoint | Allow - safe to schedule |
 | Credentials / local config | mspbots-cli auth set-token; mspbots-cli auth logout; mspbots-cli registry rm (removes a local alias) | Human-in-the-loop only |
 
 The skill drives the mspbots-cli and mspbots-mcp binaries, authenticating with an API key read from MSPBOTS_API_KEY or saved locally via auth set-token - never logged and never sent anywhere except the MSPbots API. The Public API is read-only, so no command can change anything in your MSPbots tenant; the only writes are local (alias registry, snapshot store, sync cache in your own SQLite file). The permission boundary is which datasets and widgets an admin binds to the key. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/mspbots/governance.md).
@@ -161,7 +161,7 @@ No. The MSPbots Public API is read-only - datasets and widgets out, nothing in. 
 
 ### Why do I register datasets before pulling them?
 
-The Public API has no list endpoint - it cannot tell you what is bound to your key. You copy each resource ID from Settings > Public API once, register it with mspbots-cli registry add open-tickets <resourceId>, and every other command accepts the alias from then on.
+The Public API has no list endpoint - it cannot tell you what is bound to your key. You copy each resource ID from Settings > Public API once, register it with mspbots-cli registry add open_tickets <resourceId>, and every other command accepts the alias from then on.
 
 ### Will this hit MSPbots rate limits?
 

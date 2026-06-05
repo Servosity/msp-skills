@@ -6,13 +6,13 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/mspbots/">
-    <img src="../../docs/assets/social/mspbots/wide-1200x630.png" alt="MSPbots - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/mspbots/animated-og.gif" alt="MSPbots demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/mspbots/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/mspbots/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-The first MSPbots tool anywhere  -  readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+The first MSPbots tool we could find anywhere (June 2026)  -  readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
@@ -147,20 +147,20 @@ MSPBOTS_API_KEY=<value> mspbots-cli doctor
 
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| Is our open-ticket backlog up or down versus last week? | `mspbots-cli trend open-tickets --agg count` |
-| What changed in open tickets since the last snapshot? | `mspbots-cli diff open-tickets` |
-| Pull the open tickets updated since June 1 | `mspbots-cli pull open-tickets --where "Update Date >= 2026-06-01"` |
-| What columns does this dataset have, and what types? | `mspbots-cli describe open-tickets` |
-| Export the entire dataset to CSV for the QBR deck | `mspbots-cli export open-tickets --format csv` |
-| Capture today's KPI snapshot (schedule it - history accrues) | `mspbots-cli snapshot open-tickets` |
-| Stop pasting 19-digit IDs - name the dataset once | `mspbots-cli registry add open-tickets 1534956341424005122` |
+| Is our open-ticket backlog up or down versus last week? | `mspbots-cli trend open_tickets --agg count` |
+| What changed in open tickets since the last snapshot? | `mspbots-cli diff open_tickets` |
+| Pull the open tickets updated since June 1 | `mspbots-cli pull open_tickets --where "Update Date >= 2026-06-01"` |
+| What columns does this dataset have, and what types? | `mspbots-cli describe open_tickets` |
+| Export the entire dataset to CSV for the QBR deck | `mspbots-cli export open_tickets --format csv` |
+| Capture today's KPI snapshot (schedule it - history accrues) | `mspbots-cli snapshot open_tickets` |
+| Stop pasting 19-digit IDs - name the dataset once | `mspbots-cli registry add open_tickets 1534956341424005122` |
 | Are my API key and resource bindings working? | `mspbots-cli doctor` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-There was no MSPbots tool to be different *from* - before this skill there was no published CLI, SDK, or MCP server for the MSPbots Public API anywhere. And a thin wrapper would inherit everything painful about that API: two endpoints, 19-digit resource IDs, comma-encoded filters, no list endpoint, no metadata, no history. It dies the moment you ask "is our backlog up or down versus last week" - the API only knows *now*.
+There was no MSPbots tool to be different *from* - as of June 2026 we could find no published CLI, SDK, or MCP server for the MSPbots Public API. And a thin wrapper would inherit everything painful about that API: two endpoints, 19-digit resource IDs, comma-encoded filters, no list endpoint, no metadata, no history. It dies the moment you ask "is our backlog up or down versus last week" - the API only knows *now*.
 
 This skill adds the missing layers locally. `registry add` gives resources names instead of snowflake IDs. `pull --where "Update Date >= 2026-06-01"` compiles readable predicates into the wire DSL. `export` walks every page automatically. And `snapshot` + `diff` + `trend` keep timestamped copies in a **local SQLite store** - the KPI history MSPbots itself doesn't keep, computed offline with zero API calls.
 
@@ -170,11 +170,11 @@ MSPbots' own Public API documentation (the wiki.mspbots.ai Public API article, a
 
 So the ops manager who lives in MSPbots dashboards keeps the week-over-week column by hand: screenshot the widget on Monday, paste the count into a spreadsheet, repeat. The trend dies the week someone forgets.
 
-- `mspbots-cli snapshot open-tickets` - capture a timestamped copy of any dataset or widget into local SQLite. Schedule it and history accrues.
-- `mspbots-cli trend open-tickets --agg count` - the week-over-week answer, computed from your snapshots, offline.
-- `mspbots-cli diff open-tickets` - row-level added/removed/changed between any two snapshots.
-- `mspbots-cli pull open-tickets --where "Update Date >= 2026-06-01"` - readable filters compiled into the comma-encoded DSL, correct the first time.
-- `mspbots-cli export open-tickets --format csv` - the full table, auto-paginated, with an honest partial-dump flag when a page cap is hit.
+- `mspbots-cli snapshot open_tickets` - capture a timestamped copy of any dataset or widget into local SQLite. Schedule it and history accrues.
+- `mspbots-cli trend open_tickets --agg count` - the week-over-week answer, computed from your snapshots, offline.
+- `mspbots-cli diff open_tickets` - row-level added/removed/changed between any two snapshots.
+- `mspbots-cli pull open_tickets --where "Update Date >= 2026-06-01"` - readable filters compiled into the comma-encoded DSL, correct the first time.
+- `mspbots-cli export open_tickets --format csv` - the full table, auto-paginated, with an honest partial-dump flag when a page cap is hit.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -206,7 +206,7 @@ An MSPbots API key: an admin creates it at **Settings > Public API** in the MSPb
 
 ### Why do I register datasets before pulling them?
 
-The Public API has no list endpoint - it cannot tell you what is bound to your key. You copy each resource ID from Settings > Public API once, register it with `mspbots-cli registry add open-tickets <resourceId>`, and every other command accepts the alias from then on.
+The Public API has no list endpoint - it cannot tell you what is bound to your key. You copy each resource ID from Settings > Public API once, register it with `mspbots-cli registry add open_tickets <resourceId>`, and every other command accepts the alias from then on.
 
 ### Will this hit MSPbots rate limits?
 

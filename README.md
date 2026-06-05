@@ -88,8 +88,8 @@ Outcomes, not hype - drawn from each of the 5 connectors' skill pages:
 | What's the dispatcher view across all agents and teams? | halopsa | `halopsa-cli triage --team Support --json` |
 | Which open deals have gone cold with no engagement in the last three weeks? | hubspot | `hubspot-cli stale deals --days 21 --owner me` |
 | Which of my contacts haven't been touched in a month? | hubspot | `hubspot-cli stale contacts --days 30 --owner me` |
-| Is our open-ticket backlog up or down versus last week? | mspbots | `mspbots-cli trend open-tickets --agg count` |
-| What changed in open tickets since the last snapshot - rows added, removed, or edited? | mspbots | `mspbots-cli diff open-tickets` |
+| Is our open-ticket backlog up or down versus last week? | mspbots | `mspbots-cli trend open_tickets --agg count` |
+| What changed in open tickets since the last snapshot - rows added, removed, or edited? | mspbots | `mspbots-cli diff open_tickets` |
 | What needs my attention across every client this morning? | servosity | `servosity-cli attention` |
 | Which backups went stale across all clients in the last week? | servosity | `servosity-cli stale-backups --days 7` |
 <!-- agent-can-do:end -->
