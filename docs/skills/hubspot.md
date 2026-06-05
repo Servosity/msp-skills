@@ -58,6 +58,12 @@ MSPs run HubSpot as the sales CRM - pipeline, deals, quote-chasing. Ask your AI 
 <sub>Your agent runs: <code>hubspot-cli owner-load --pipeline default</code></sub>
 
 
+## See it in 30 seconds
+
+<video controls preload="metadata" style="width:100%; max-width:960px; border-radius:12px;" poster="/assets/social/hubspot/wide-1200x630.png" src="/assets/video/hubspot/demo-30s.mp4">Your browser does not support the video tag. <a href="/assets/video/hubspot/demo-30s.mp4">Watch the 30-second demo</a>.</video>
+
+<sub>Demo data is simulated. Every command shown exists in the real CLI.</sub>
+
 ## What it does
 
 | Question your MSP keeps asking | Command your agent runs |
