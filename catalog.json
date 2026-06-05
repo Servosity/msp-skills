@@ -29,7 +29,7 @@
       "skill_path": "skills/connectwise-manage",
       "cli_binary": "connectwise-manage-cli",
       "mcp_binary": "connectwise-manage-mcp",
-      "version": "4.19.0",
+      "version": "0.1.0",
       "license": "Apache-2.0",
       "vendor": "ConnectWise Manage",
       "vendor_trademark_owner": "ConnectWise, LLC",
