@@ -5,7 +5,7 @@ description: "Every HubSpot Sales Hub feature, plus offline cross-object queries
 permalink: /skills/hubspot/
 skill_name: "HubSpot MCP"
 image: /assets/social/hubspot/wide-1200x630.png
-verification: awaiting
+verification: live-verified
 faqs:
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local HubSpot MCP server via a secure bridge. Step-by-step in the install guide."
@@ -35,7 +35,7 @@ howto:
 > Unofficial. Community-built Claude Code Skill and MCP server for the HubSpot
 > API. Not affiliated with, endorsed by, or sponsored by HubSpot, Inc..
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Live-verified** - confirmed by a real MSP against a live HubSpot tenant (2026-06-05).
 
 MSPs run HubSpot as the sales CRM - pipeline, deals, quote-chasing. Ask your AI "which deals went cold," "what's my pipeline health," or "who do I call today," and get an answer the portal can't compose: cross-object rollups across deals, contacts, owners, and engagements, computed offline in one query instead of a dozen exports and saved views.
 

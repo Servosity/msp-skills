@@ -7,8 +7,8 @@
 > 🛠 **Built live with MSPs.** Join a free weekly **Build Session** at **[compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions)** to watch a Skill built against a real MSP system - or bring your own.
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
-[![Skills](https://img.shields.io/badge/skills-2-green.svg)](./catalog.json)
-[![MCP](https://img.shields.io/badge/MCP-compatible-7C3AED.svg)](https://modelcontextprotocol.io)
+[![Skills](https://img.shields.io/badge/skills-3-green.svg)](./catalog.json)
+[![MCP](https://img.shields.io/badge/MCP-compatible-1f6feb.svg)](https://modelcontextprotocol.io)
 [![Agent Skills](https://img.shields.io/badge/Agent_Skills-spec-2E7D32.svg)](https://agentskills.io)
 ![Status](https://img.shields.io/badge/status-beta-yellow.svg)
 
@@ -34,12 +34,12 @@ The five agents MSP owners actually use:
 | Skill | System | Status | Install |
 | --- | --- | --- | --- |
 | [msp-skills-concierge](./skills/_meta) | Connector recommendations + guided install for the msp-skills catalog | ![Meta](https://img.shields.io/badge/Meta-skill-6B7280) | [Marketplace](./skills/_meta/README.md) |
-| [halopsa](./skills/halopsa) | HaloPSA, HaloITSM, HaloCRM | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/halopsa/README.md) |
-| [hubspot](./skills/hubspot) | HubSpot CRM: contacts, companies, deals, tickets, engagements | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/hubspot/README.md) |
+| [halopsa](./skills/halopsa) | HaloPSA, HaloITSM, HaloCRM | ![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32) | [Install](./skills/halopsa/README.md) |
+| [hubspot](./skills/hubspot) | HubSpot CRM: contacts, companies, deals, tickets, engagements | ![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32) | [Install](./skills/hubspot/README.md) |
 | [servosity](./skills/servosity) | Servosity backup and DR | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/servosity/README.md) |
 <!-- catalog:end -->
 
-> **About status badges.** `Tested` means at least one MSP has run this skill against a real production tenant and it worked. `Untested` (yellow) means the skill was generated, the gates passed, and we shipped it - but no MSP has driven it against live data yet. Untested skills may have rough edges; **feedback is valuable** - open an issue if something breaks.
+> **About the badges.** `Live-verified` (green) means a real MSP confirmed this skill against a live production tenant - the badge carries the date and source. `Awaiting live verification` (amber) means it passes every mechanical gate (build, command-surface-vs-docs claims check, install dry-run) but no one has reported a live run yet - **be the first**: run it against your tenant and [report that it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
 
 ## What makes this different
 
@@ -103,7 +103,7 @@ Each installer drops both the CLI and the MCP server, so you can use the Skill (
 
 ## What your agent can do
 
-Outcomes, not hype. Today, with the two skills available:
+Outcomes, not hype. With the skills available today:
 
 | Outcome | Skill | Command |
 | --- | --- | --- |

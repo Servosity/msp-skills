@@ -40,7 +40,7 @@ Page: https://msp-skills.compoundingteams.com/skills/halopsa/
 Badge: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)
 
-Add HaloPSA ticket triage, SLA-breach pre-emption, per-client situational awareness, and cross-client analytics to the AI you already use - Claude Code, Claude Desktop, ChatGPT (Plus/Pro+), Codex, Cursor, Windsurf, Cline, Continue, Gemini, or GitHub Copilot. Free, open source, runs on your laptop. A local SQLite mirror means your AI can answer cross-client questions the live HaloPSA API can't return in one shot - no rate-limit hits during QBR prep. Built for MSP owners. No code required.
+Live-verified - confirmed by a real MSP against a live HaloPSA tenant (2026-06-05).
 
 Outcomes (question -> command your AI agent runs):
 - What's about to breach SLA in the next 24 hours? -> halopsa-cli sla breaching --within 24h

@@ -202,9 +202,19 @@ def main() -> int:
         "<!-- catalog:end -->",
         render_catalog_table(skills),
     )
+    # The skills-count shield lives OUTSIDE the marker region; regenerate it
+    # here too so the count can never go stale again (it sat at 2 while the
+    # catalog grew). Count = connector skills (markdown-only meta excluded).
+    connector_count = sum(1 for s in skills if not s.get("markdown_only"))
+    new_readme = re.sub(
+        r"img\.shields\.io/badge/skills-\d+-green",
+        f"img.shields.io/badge/skills-{connector_count}-green",
+        new_readme,
+    )
     README.write_text(new_readme)
 
-    print(f"Regenerated catalog.json ({len(skills)} skills) and README catalog table.")
+    print(f"Regenerated catalog.json ({len(skills)} skills, "
+          f"{connector_count} connectors) and README catalog table + count badge.")
     return 0
 
 
