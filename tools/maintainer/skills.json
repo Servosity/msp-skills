@@ -2,6 +2,29 @@
   "owner": "servosity",
   "repo": "msp-skills",
   "skills": {
+    "connectwise-manage": {
+      "system": "ConnectWise PSA (Manage)",
+      "status": "beta",
+      "cli_binary": "connectwise-manage-cli",
+      "mcp_binary": "connectwise-manage-mcp",
+      "vendor": "ConnectWise Manage",
+      "vendor_trademark_owner": "ConnectWise, LLC",
+      "first_party": false,
+      "category": "PSA",
+      "display_name": "ConnectWise PSA (Manage)",
+      "tagline": "Triage boards, catch unbilled time, and prep QBRs by asking.",
+      "cli_hash": "sha256:f116088f98a762c88afee09ce823463d7529dd2261cb21d2b40d851218ec9575",
+      "template_version": 2,
+      "version": "4.19.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "halopsa": {
       "system": "HaloPSA, HaloITSM, HaloCRM",
       "status": "beta",
