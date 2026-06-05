@@ -2,6 +2,21 @@
   "owner": "servosity",
   "repo": "msp-skills",
   "skills": {
+    "msp-skills-concierge": {
+      "system": "Connector recommendations + guided install for the msp-skills catalog",
+      "status": "beta",
+      "vendor": "Servosity",
+      "vendor_trademark_owner": "Servosity Inc.",
+      "first_party": true,
+      "markdown_only": true,
+      "source_dir": "_meta",
+      "category": "Meta",
+      "display_name": "Concierge",
+      "tagline": "Tell it your stack - it recommends and installs the right connectors.",
+      "template_version": 2,
+      "has_video": false,
+      "live_verified": null
+    },
     "halopsa": {
       "system": "HaloPSA, HaloITSM, HaloCRM",
       "status": "beta",
@@ -9,7 +24,21 @@
       "mcp_binary": "halopsa-mcp",
       "vendor": "HaloPSA",
       "vendor_trademark_owner": "Halo Service Solutions Ltd.",
-      "first_party": false
+      "first_party": false,
+      "cli_hash": "sha256:c56723a048fe5d2a5b7f9167d4239f04af6efa23c6369a349885013fd8034712",
+      "template_version": 2,
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:c56723a048fe5d2a5b7f9167d4239f04af6efa23c6369a349885013fd8034712",
+      "has_video": false,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      },
+      "category": "PSA",
+      "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.",
+      "display_name": "HaloPSA"
     },
     "servosity": {
       "system": "Servosity backup and DR",
@@ -18,7 +47,21 @@
       "mcp_binary": "servosity-mcp",
       "vendor": "Servosity",
       "vendor_trademark_owner": "Servosity Inc.",
-      "first_party": true
+      "first_party": true,
+      "cli_hash": "sha256:65cc2e313e5042eb00375d298367e91d650dca2eadeaf87264086a731e9b8995",
+      "template_version": 2,
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:65cc2e313e5042eb00375d298367e91d650dca2eadeaf87264086a731e9b8995",
+      "has_video": false,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      },
+      "category": "Backup/DR",
+      "tagline": "Backup status, failures, and QBR-ready history for every client by asking.",
+      "display_name": "Servosity"
     }
   }
 }

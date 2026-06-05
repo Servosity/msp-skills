@@ -113,10 +113,20 @@ def main(argv: list[str]) -> int:
         if first_party
         else f"> Unofficial. Community-built skill for the {vendor} API. Not affiliated with,\n> endorsed by, or sponsored by the vendor."
     )
+    # NOTE: never CLAIM gating behavior as a default. In these binaries
+    # --dry-run is an OPT-IN flag (raw writes send immediately) and --confirm
+    # exists only where a specific command documents it (e.g. bulk operations
+    # above a digest threshold). State behavior honestly; make the gate an
+    # AGENT-LEVEL policy recommendation. (Adversarial-review finding, 2026-06-04.)
     safe_line = (
-        "- **Mutating commands plan by default.** They run `--dry-run` until you drop it and pass `--confirm`."
+        "- **`--dry-run` is opt-in - use it.** Mutating commands send immediately "
+        "unless you pass `--dry-run` first to preview the request without sending. "
+        "Make your agent's policy: preview, show the exact command, get approval, "
+        "then run the write."
         if dry
-        else "- **Prefer dry-run before writes.** Inspect `--help` and use `--dry-run` on unfamiliar mutating commands."
+        else "- **Preview before writes.** Inspect `--help` on any mutating command "
+        "and require your agent to show the exact command for approval before "
+        "running it."
     )
 
     out = f"""# {slug} skill - governance and safety model
@@ -137,7 +147,8 @@ never written to disk, never logged, never sent anywhere except the {vendor} API
 - **Read commands are always safe to run** (reports, rollups, search); they cannot
   change anything.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not
-  relax the confirm-before-mutate rule. See AGENTS.md.
+  add any write gating - the preview-then-approve policy above still applies. See
+  AGENTS.md.
 
 ## Permission tiers
 
@@ -147,7 +158,7 @@ require a human for anything below the line.
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
 | **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | {sample(tiers['write'])} | Allow with `--confirm`; log the plan first |
+| **Write (routine)** | Day-to-day mutations. | {sample(tiers['write'])} | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
 | **Credential / security** | Touches tokens, keys, MFA. | {sample(tiers['credential'])} | Human-in-the-loop only |
 | **Destructive** | Irreversible data or config loss. | {sample(tiers['destructive'])} | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | {sample(tiers['admin'])} | Operator-only, not for agents |
@@ -156,8 +167,9 @@ require a human for anything below the line.
 
 - **Scope the credential** to only what your workflow needs. A read/report workflow
   does not need a credential that can run the Destructive or Credential tiers.
-- **Keep autonomous agents to Read + planned writes.** Have a human run the
-  `--confirm` step for Write tier and above.
+- **Keep autonomous agents to Read + previewed writes.** Have a human approve the
+  actual write for Write tier and above - the gate lives in your agent's policy,
+  not in the binary's defaults.
 - **Never let an agent run Credential, Destructive, or Admin tier commands
   unattended.** Treat them like a production database drop: human, reviewed, logged.
 - **Rotate the credential if it is ever exposed** (for example after bridging the

@@ -1,0 +1,13 @@
+{
+  "banned": [
+    "agent-native CLI",
+    "capability pack",
+    "Smithery",
+    "Composio"
+  ],
+  "banned_note": "banned in public skill prose; competitor names per repo policy",
+  "required_readme": [
+    "Claude Code Skill",
+    "MCP server"
+  ]
+}

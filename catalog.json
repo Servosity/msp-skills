@@ -1,7 +1,27 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-02",
+  "generated_at": "2026-06-04",
   "skills": [
+    {
+      "name": "msp-skills-concierge",
+      "system": "Connector recommendations + guided install for the msp-skills catalog",
+      "status": "beta",
+      "skill_path": "skills/_meta",
+      "cli_binary": null,
+      "mcp_binary": null,
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Servosity",
+      "vendor_trademark_owner": "Servosity Inc.",
+      "first_party": true,
+      "install_skill_one_liner": "",
+      "install_mcp_doc": "",
+      "description": "Tell it your stack - it recommends and installs the right connectors.",
+      "verification": "n/a",
+      "category": "Meta",
+      "tagline": "Tell it your stack - it recommends and installs the right connectors.",
+      "markdown_only": true
+    },
     {
       "name": "halopsa",
       "system": "HaloPSA, HaloITSM, HaloCRM",
@@ -16,7 +36,10 @@
       "first_party": false,
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)",
       "install_mcp_doc": "skills/halopsa/mcp-install.md",
-      "description": "Add HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local SQLite mirror so cross-entity queries the live API can't return are fast and offline."
+      "description": "Add HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local SQLite mirror so cross-entity queries the live API can't return are fast and offline.",
+      "verification": "awaiting",
+      "category": "PSA",
+      "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking."
     },
     {
       "name": "servosity",
@@ -32,7 +55,10 @@
       "first_party": true,
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)",
       "install_mcp_doc": "skills/servosity/mcp-install.md",
-      "description": "Add fleet-wide backup triage, stale-backup detection, and cross-engine analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local fleet mirror with snapshot history so the partner portal's per-page views become one query."
+      "description": "Add fleet-wide backup triage, stale-backup detection, and cross-engine analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local fleet mirror with snapshot history so the partner portal's per-page views become one query.",
+      "verification": "awaiting",
+      "category": "Backup/DR",
+      "tagline": "Backup status, failures, and QBR-ready history for every client by asking."
     }
   ]
 }

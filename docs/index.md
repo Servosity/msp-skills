@@ -1,17 +1,45 @@
 ---
 layout: default
-title: "MSP Skills - HaloPSA and Servosity for the AI you already use"
-description: "Free Claude Code skills + MCP servers for HaloPSA tickets and Servosity backups. Works with Claude, ChatGPT, Codex, Cursor, and any AI tool that speaks MCP. Built for MSP owners. No code required."
+title: "MCP Servers for MSPs - Connect HaloPSA, Backup, RMM to Claude, ChatGPT, Copilot"
+description: "Free MCP servers and Skills that connect your PSA, RMM, backup, and more to the AI you already use - Claude, ChatGPT, Copilot, Codex. Local SQLite mirror, runs on your machine, no data leaves your network. Built for MSP owners. No code required."
 permalink: /
 ---
 
-# MSP Skills - HaloPSA and Servosity, for the AI you already use
+# Run your MSP tools by asking
 
-**MSP Skills** installs natural-language AI tools for **HaloPSA tickets** and **Servosity backups** directly into **Claude**, **ChatGPT**, **Codex**, **Cursor**, **Windsurf**, or any AI agent that speaks MCP. Free, open source, runs on your laptop. A local SQLite mirror lets your agent answer cross-client questions the live API can't return in one shot - no rate-limit hits, no per-tech SaaS fee, no data leaves your network. Built for MSP owners. No developer experience required.
+MCP servers and Skills that connect your PSA, RMM, backup, and more to the AI you already use.
 
-> 🛠 **Built live with MSPs.** Join a free weekly **Build Session** at **[compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions)** - watch a Skill built against a real MSP system, or bring your own.
+Ask your AI a plain-English question about your stack and get a real answer back - no exports, no dashboards, no developer experience required. Every connector is **free, open source, and runs on your own machine**: it keeps a local SQLite copy of your tool's data so cross-client questions the live API can't answer in one shot come back instantly, and **no data leaves your network**. HaloPSA and Servosity are live today; more PSA, RMM, backup, and M365 connectors are being built every week.
 
-[Install in 60 seconds →](#install-in-60-seconds){: .btn .btn-primary} &nbsp; [View on GitHub →](https://github.com/servosity/msp-skills){: .btn}
+{% include instead-of.html
+   instead="exporting three reports and pivoting them in Excel"
+   say="Which clients had backup-failure tickets last quarter?"
+   cli="halopsa-cli tickets search --tag backup-failure --since last-quarter" %}
+
+> 🛠 **Built live with MSPs.** Join a free weekly **Build Session** at **[compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions)** - watch a connector built against a real MSP system, or bring your own.
+
+[Why msp-skills? →](/why/){: .btn .btn-primary} &nbsp; [Install in 60 seconds →](#install-in-60-seconds){: .btn} &nbsp; [View on GitHub →](https://github.com/servosity/msp-skills){: .btn}
+
+{% include vocab-bridge.html %}
+
+## Why MSP owners use this
+
+<div class="why-cards">
+  <div class="why-card">
+    <h3>Answers your vendor's API can't</h3>
+    <p>A private, searchable copy of your data lives on your machine, so a 90-day, 10-client question is one instant local lookup - not hundreds of rate-limited API calls.</p>
+  </div>
+  <div class="why-card">
+    <h3>One quality bar, every connector</h3>
+    <p>Each one passes mechanical verification before it ships. The badge tells you whether a real MSP has confirmed it against a live tenant yet.</p>
+  </div>
+  <div class="why-card">
+    <h3>Free, local, yours</h3>
+    <p>Open source, Apache-2.0, runs on your own hardware. No per-tech fee, no SaaS lock-in, nothing to rip out.</p>
+  </div>
+</div>
+
+[Read the full why → ](/why/)
 
 ## Works with your agent
 
@@ -28,20 +56,30 @@ The four agents MSP owners actually use:
 
 ## What's in the box
 
-| Skill | What it does | Install |
+| Connector | What it does | Install |
 | --- | --- | --- |
 | [HaloPSA →](/skills/halopsa/) | Ticket triage, SLA-breach pre-emption, per-client situational awareness, cross-client analytics. Local SQLite mirror so QBR-time questions don't hit rate limits. | [/skills/halopsa →](/skills/halopsa/) |
 | [Servosity →](/skills/servosity/) | Fleet-wide backup triage, stale-backup detection, overnight drift, cross-engine analytics. Local fleet mirror - Friday-email-ready in seconds. | [/skills/servosity →](/skills/servosity/) |
+
+New to the term? [What is an MCP server? →](/what-is-an-mcp-server/)
+
+## Let your AI pick for you
+
+Already have msp-skills installed? Let the concierge recommend the right connectors for your stack and install the ones you approve. Paste this into Claude Code or Codex:
+
+> You have msp-skills installed. Using everything you know about me and how I work, recommend which connectors I should install - and install the ones I approve.
+
+More in the [concierge README →](https://github.com/servosity/msp-skills/tree/main/skills/_meta).
 
 ## What makes this different
 
 ### Local mirror, not live calls
 
-Most AI integrations for PSA and backup systems call the vendor's API on every question. That's fine for one ticket. It dies at QBR time, when you're asking *"how many backup-failure tickets across all 47 clients last quarter?"* - that's 47 paginated REST calls, rate-limit headaches, and a context window full of raw JSON the model has to re-read. MSP Skills syncs HaloPSA and Servosity into a local SQLite mirror with full-text search. Cross-client and cross-engine questions become one local query: instant, offline, and the AI sees the answer, not the raw data.
+Most MCP servers for PSA and backup systems proxy each question into a live API call. That's fine for one ticket. It dies at QBR time, when you're asking *"how many backup-failure tickets across all 47 clients last quarter?"* - that's 47 paginated REST calls, rate-limit headaches, and a context window full of raw JSON the model has to re-read. These connectors sync your tool into a local SQLite mirror with full-text search. Cross-client and cross-engine questions become one local query: instant, offline, and the AI sees the answer, not the raw data.
 
 ### Works with the AI you already use
 
-You don't have to switch agents. Same package, two interfaces: a **Claude Code / Codex Skill** for shell-style agents, and an **MCP server** for Claude Desktop, ChatGPT, Cursor, Windsurf, Cline, Continue.dev, Gemini, and Copilot. One install drops both binaries on your machine. Use one or both - your call. No vendor lock-in, no proprietary plugin format, no SaaS subscription that ties you to a single AI.
+You don't have to switch agents. Same package, two interfaces: a **Skill** for Claude Code / Codex, and an **MCP server** for Claude Desktop, ChatGPT, Cursor, Windsurf, Cline, Continue.dev, Gemini, and Copilot. One install drops both binaries on your machine. Use one or both - your call. No vendor lock-in, no proprietary plugin format, no SaaS subscription that ties you to a single AI.
 
 ### MSP owner first, not developer first
 
@@ -55,7 +93,7 @@ Paste this into **Claude Code** or **Codex CLI**:
 
 > Set up the **HaloPSA** skill from https://github.com/servosity/msp-skills - read `skills/halopsa/SKILL.md`, run its install steps, then run `halopsa-cli --version` to confirm. Walk me through authentication.
 
-Swap `halopsa` for `servosity` to install the Servosity skill.
+Swap `halopsa` for `servosity` to install the Servosity connector.
 
 ### Path B - run the installer yourself
 
@@ -73,17 +111,17 @@ iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hal
 
 Swap `halopsa` for `servosity` in either command. New to all this? See the [first-time setup guide →](/guides/first-time-setup/).
 
-> **Now what?** Once `halopsa-cli --version` or `servosity-cli doctor` returns clean, **bring your tenant + your hardest cross-client question to a free [Build Session](https://compoundingteams.com/build-sessions)** - we'll work it live with the MSP cohort and the same Skills you just installed.
+> **Now what?** Once `halopsa-cli --version` or `servosity-cli doctor` returns clean, **bring your tenant + your hardest cross-client question to a free [Build Session](https://compoundingteams.com/build-sessions)** - we'll work it live with the MSP cohort and the same connectors you just installed.
 
 ## Frequently asked questions
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local binaries directly. MSP Skills ships local binaries, so to use them with ChatGPT you run them on your machine and expose them via the `mcp-remote` bridge or your own HTTPS endpoint. Step-by-step: [ChatGPT integration →](/integrations/chatgpt/).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local binaries directly. These connectors ship local binaries, so to use them with ChatGPT you run them on your machine and expose them via the `mcp-remote` bridge or your own HTTPS endpoint. Step-by-step: [ChatGPT integration →](/integrations/chatgpt/).
 
 ### Does this work with Claude?
 
-Yes - **Claude Code**, **Claude Desktop**, and the **Claude.ai** web (via Claude Desktop's MCP). Claude Code reads the Skill directly; Claude Desktop loads MSP Skills as an MCP server you add to `claude_desktop_config.json`. Both paths are first-class. Most MSP owners start with Claude Desktop because it's a Mac/Windows app - no terminal.
+Yes - **Claude Code**, **Claude Desktop**, and the **Claude.ai** web (via Claude Desktop's MCP). Claude Code reads the Skill directly; Claude Desktop loads each connector as an MCP server you add to `claude_desktop_config.json`. Both paths are first-class. Most MSP owners start with Claude Desktop because it's a Mac/Windows app - no terminal.
 
 ### Do I need to know how to code?
 
@@ -91,15 +129,15 @@ No. The recommended install path is to paste one sentence into Claude Code or Co
 
 ### Is my HaloPSA or Servosity data safe? Does it leave my network?
 
-Your data stays on **your machine**. MSP Skills runs locally: the CLI and the MCP server are binaries on your laptop. The SQLite mirror sits in a local directory under your user account. The AI agent (Claude, ChatGPT, Codex) only sees what the CLI or MCP server returns - typically the result of a query, not raw bulk data. Credentials are read from your environment or your agent's config; they're never bundled into the repo or transmitted to MSP Skills servers (there are none).
+Your data stays on **your machine**. Each connector runs locally: the CLI and the MCP server are binaries on your laptop. The SQLite mirror sits in a local directory under your user account. The AI agent (Claude, ChatGPT, Codex) only sees what the CLI or MCP server returns - typically the result of a query, not raw bulk data. Credentials are read from your environment or your agent's config; they're never bundled into the repo or transmitted to our servers (there are none).
 
 ### Will this hit my HaloPSA API rate limits?
 
-Almost never. HaloPSA's rate limits aren't publicly documented and vary between cloud-hosted and self-hosted instances. MSP Skills syncs your HaloPSA data into a local SQLite mirror once, then incrementally; subsequent questions (triage, SLA breaches, client cards, cross-client analytics) run against the local mirror, not the live API. The big-batch QBR queries that get you 429'd with API-passthrough tools become a single SQL join here.
+Almost never. HaloPSA's rate limits aren't publicly documented and vary between cloud-hosted and self-hosted instances. The HaloPSA connector syncs your data into a local SQLite mirror once, then incrementally; subsequent questions (triage, SLA breaches, client cards, cross-client analytics) run against the local mirror, not the live API. The big-batch QBR queries that get you 429'd with API-passthrough tools become a single SQL join here.
 
-### How is this different from HaloPSA's built-in ChatGPT integration?
+### How is this different from my vendor's built-in AI?
 
-HaloPSA's built-in ChatGPT integration is great for ticket-by-ticket work - rewriting replies, summarizing one ticket, classifying sentiment. MSP Skills is the **MSP-owner-on-the-couch-with-Claude** layer: cross-client analytics, ad-hoc questions across thousands of tickets, multi-system queries that join HaloPSA with Servosity. The two complement each other; you don't have to choose.
+Vendor-native AI is great for ticket-by-ticket work - rewriting one reply, summarizing one ticket, classifying sentiment. These connectors are the **cross-client, cross-system layer**: analytics across thousands of tickets, ad-hoc questions, multi-system queries that join your PSA with your backup tool. The two complement each other; nothing gets ripped out. More in [why msp-skills →](/why/).
 
 ### Can I run this on Windows?
 
@@ -107,7 +145,7 @@ Yes. The PowerShell installer in "Install in 60 seconds" above is the same insta
 
 ### What does it cost?
 
-The Skills, the CLI binaries, and the MCP servers are **free**. Apache-2.0 licensed - free to use commercially, free to fork. Servosity does not charge for API access required to run the Servosity skill. Other PSA, RMM, and backup vendors set their own API-access terms. You pay only for whichever AI agent you use (Claude, ChatGPT, Codex, etc.), and those are billed by your AI provider, not by us.
+The Skills, the CLI binaries, and the MCP servers are **free**. Apache-2.0 licensed - free to use commercially, free to fork. Servosity does not charge for API access required to run the Servosity connector. Other PSA, RMM, and backup vendors set their own API-access terms. You pay only for whichever AI agent you use (Claude, ChatGPT, Codex, etc.), and those are billed by your AI provider, not by us.
 
 ### Can I try it on one client first?
 
@@ -115,11 +153,11 @@ Yes. Every command takes a client / company filter (e.g. `halopsa-cli client car
 
 ### What if my AI doesn't speak MCP?
 
-If your AI doesn't yet support MCP and isn't Claude Code / Codex CLI (which read SKILL.md directly), MSP Skills won't fit yet. The CLI binaries (`halopsa-cli`, `servosity-cli`) still work standalone in a shell - you can pipe their output into anything. As more AI tools add MCP (the protocol is moving fast in 2026), they'll work with MSP Skills automatically without anything changing on our side.
+If your AI doesn't yet support MCP and isn't Claude Code / Codex CLI (which read SKILL.md directly), these connectors won't fit yet. The CLI binaries (`halopsa-cli`, `servosity-cli`) still work standalone in a shell - you can pipe their output into anything. As more AI tools add MCP (the protocol is moving fast in 2026), they'll work automatically without anything changing on our side.
 
-## Tested by MSPs in Build Sessions
+## Built and verified in Build Sessions
 
-These skills are built and tested with real MSPs running them against their own production systems, live, in our free weekly Build Sessions. They are currently beta and being validated now. **[RSVP for the next one →](https://compoundingteams.com/build-sessions)**.
+Every connector passes mechanical verification before it ships, and we build the next ones live with real MSPs running them against their own production systems in our free weekly Build Sessions. **[RSVP for the next one →](https://compoundingteams.com/build-sessions)**.
 
 ## Don't see the system you need?
 

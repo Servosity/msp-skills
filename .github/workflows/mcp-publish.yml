@@ -28,6 +28,9 @@ jobs:
       tag: ${{ steps.parse.outputs.tag }}
       proceed: ${{ steps.parse.outputs.proceed }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Parse triggering tag
         id: parse
         env:
@@ -35,23 +38,36 @@ jobs:
         run: |
           set -euo pipefail
           tag="$HEAD_BRANCH"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          case "$tag" in
-            halopsa-v*)
-              echo "skill=halopsa" >> "$GITHUB_OUTPUT"
-              echo "version=${tag#halopsa-v}" >> "$GITHUB_OUTPUT"
-              echo "proceed=true" >> "$GITHUB_OUTPUT"
-              ;;
-            servosity-v*)
-              echo "skill=servosity" >> "$GITHUB_OUTPUT"
-              echo "version=${tag#servosity-v}" >> "$GITHUB_OUTPUT"
-              echo "proceed=true" >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              echo "Tag '$tag' is not a per-skill release tag; skipping MCP publish."
-              echo "proceed=false" >> "$GITHUB_OUTPUT"
-              ;;
-          esac
+          # Generic per-skill derivation: a new skill needs no edit here. The
+          # slug is everything before "-v"; the version is everything after it.
+          # We only proceed when the tag parses as "<slug>-v<semver>" AND the
+          # derived slug exists in tools/maintainer/skills.json.
+          skill="${tag%-v*}"      # halopsa-v0.1.0 -> halopsa
+          version="${tag##*-v}"   # halopsa-v0.1.0 -> 0.1.0
+
+          proceed=false
+          # The tag must actually contain "-v" (so slug/version both parsed) and
+          # the semver portion must look like N.N.N.
+          if [ "$tag" != "$skill" ] && printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            if python3 -c "import json,sys; reg=json.load(open('tools/maintainer/skills.json')); sys.exit(0 if '$skill' in reg.get('skills',{}) else 1)"; then
+              proceed=true
+            fi
+          fi
+
+          if [ "$proceed" = "true" ]; then
+            {
+              echo "tag=$tag"
+              echo "skill=$skill"
+              echo "version=$version"
+              echo "proceed=true"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "Tag '$tag' is not a known per-skill release tag (slug must be in skills.json and tag must be <slug>-v<semver>); skipping MCP publish."
+            {
+              echo "tag=$tag"
+              echo "proceed=false"
+            } >> "$GITHUB_OUTPUT"
+          fi
 
   publish:
     needs: detect

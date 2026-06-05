@@ -11,7 +11,11 @@ image: /assets/social/halopsa/wide-1200x630.png
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the HaloPSA, HaloITSM, and HaloCRM APIs. Not affiliated with Halo Service Solutions Ltd. HaloPSA, HaloITSM, and HaloCRM are trademarks of Halo Service Solutions Ltd.
 
+**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+
 Add **HaloPSA ticket triage, SLA-breach pre-emption, per-client situational awareness, and cross-client analytics** to the AI you already use - **Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A **local SQLite mirror** means your AI can answer cross-client questions the live HaloPSA API can't return in one shot - **no rate-limit hits during QBR prep**. Built for MSP owners. No code required.
+
+New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)
 
 [Install in 60s →](#install){: .btn .btn-primary} &nbsp; [View on GitHub →](https://github.com/servosity/msp-skills/tree/main/skills/halopsa){: .btn}
 

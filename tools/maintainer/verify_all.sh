@@ -32,11 +32,21 @@ for mod in skills/*/cli; do
   fi
 done
 
+echo "== CLI claims vs built binary =="
+# Builds each CLI and checks that every command/flag the docs claim exists in the
+# real binary surface. WARN mode for now: it prints findings but does not gate,
+# while the fleet calibrates. NOTE(calibration): drop --warn after fleet calibration.
+if run python3 tools/maintainer/check_cli_claims.py --warn; then pass "CLI claims (warn)"; else warn "CLI claims reported findings"; fi
+
 echo "== Repo gates =="
 if run python3 tools/maintainer/check_skill_contract.py;  then pass "skill contract";      else fail "skill contract";      fi
 if run python3 tools/maintainer/check_md_links.py;        then pass "markdown links";      else fail "markdown links";      fi
 if run python3 tools/maintainer/check_release_contract.py; then pass "release contract";   else fail "release contract";    fi
 if run python3 tools/maintainer/check_social_assets.py;   then pass "social assets";       else fail "social assets";       fi
+if run python3 tools/maintainer/check_no_todos.py;        then pass "no TODO markers";     else fail "no TODO markers";     fi
+if run python3 tools/maintainer/check_vocabulary.py;      then pass "vocabulary contract"; else fail "vocabulary contract"; fi
+if run python3 tools/maintainer/check_video_assets.py;    then pass "video assets";        else fail "video assets";        fi
+if run python3 tools/maintainer/check_aeo.py;             then pass "AEO answer-first";    else fail "AEO answer-first";    fi
 if run bash    tools/maintainer/ci_guards.sh;             then pass "repo hygiene guards"; else fail "repo hygiene guards"; fi
 
 echo "== Plugin manifest validation (claude plugin validate --strict) =="
@@ -65,6 +75,15 @@ if diff -q catalog.json /tmp/cat.bak >/dev/null && diff -q README.md /tmp/readme
   pass "catalog + README already in sync (no drift)"
 else
   fail "catalog/README drift - regenerated; re-run was not a no-op"
+fi
+
+echo "== llms.txt idempotency =="
+cp docs/llms.txt /tmp/llms.bak; cp docs/llms-full.txt /tmp/llmsfull.bak
+python3 tools/maintainer/build-llms.py >/dev/null 2>&1
+if diff -q docs/llms.txt /tmp/llms.bak >/dev/null && diff -q docs/llms-full.txt /tmp/llmsfull.bak >/dev/null; then
+  pass "llms.txt + llms-full.txt already in sync (no drift)"
+else
+  fail "llms drift - regenerated; re-run was not a no-op (run build-llms.py and commit)"
 fi
 
 echo "== Install scripts resolve cleanly (dry run) =="

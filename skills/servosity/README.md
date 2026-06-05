@@ -1,6 +1,6 @@
 # Servosity + AI - for Claude, ChatGPT, Codex, Cursor, and any agent that speaks MCP
 
-> Published by Servosity Inc. for MSP partners. Servosity is a trademark of Servosity Inc. Apache-2.0 licensed.
+> Published by Servosity Inc. for MSP partners. A first-party Claude Code Skill and MCP server for the Servosity backup and DR platform. Servosity is a trademark of Servosity Inc. Apache-2.0 licensed.
 
 Add **fleet-wide backup triage, stale-backup-set detection, overnight drift, per-client situational awareness, and cross-engine analytics** to the AI you already use - **Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A local fleet mirror means your AI can answer cross-client questions the partner portal can't show on one screen - Friday-email-ready in seconds. Built for MSP partners. No code required.
 
@@ -199,12 +199,12 @@ Free. Apache-2.0 licensed. Servosity does not charge for the API access required
 
 ## Safety model
 
-The skill authenticates with one partner token, scoped to **your reseller account only** (no cross-reseller access). Every mutating command plans by default: it runs `--dry-run` until you drop `--dry-run` and pass `--confirm`.
+The skill authenticates with one partner token, scoped to **your reseller account only** (no cross-reseller access). The compound write commands (`triage`, `clear`, `stale-issues`) plan by default: nothing mutates until you pass `--confirm`, and the global `--dry-run` flag keeps PLAN mode even then. Raw CRUD writes (notes, comments) prompt interactively, but `--yes`/`--agent` skip that prompt - so gate those at your agent's policy: preview with `--dry-run`, approve, then run.
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | `attention`, `drift`, `stale-backups`, `backup-facts`, `find`, `company show`, `restore-queue list` | Allow |
-| Write (routine) | `triage`, `clear`, `stale-issues`, notes/comments | Allow with `--confirm`; log the plan first |
+| Write (routine) | `triage`, `clear`, `stale-issues`, notes/comments | Compound commands: review the PLAN, then `--confirm`. Raw CRUD: preview with `--dry-run`, approve, never blanket `--yes` |
 | Credential / security | `credentials rotate/delete`, `current-user *-mfa-*`, `resellers agent-install-token`, `*-backups encryption-key update` | Human-in-the-loop only |
 | Destructive | `companies delete`, `backups delete`, `restic-backups restic-prune`, `users delete` | Human-in-the-loop only |
 | Admin (hidden) | `admin ...` | Operator-only, not for agents |

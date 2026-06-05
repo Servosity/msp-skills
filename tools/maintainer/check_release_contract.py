@@ -65,8 +65,13 @@ def main() -> int:
     errors: list[str] = []
     meta = registry.skills()
 
+    checked = 0
     for slug, m in meta.items():
-        d = SKILLS_DIR / slug
+        # markdown-only skills have no install scripts or binaries to cross-check.
+        if registry.is_markdown_only(slug):
+            continue
+        checked += 1
+        d = registry.skill_path(slug)
         sh = (d / "install.sh").read_text()
         ps = (d / "install.ps1").read_text()
 
@@ -101,7 +106,7 @@ def main() -> int:
             print(f"  - {e}")
         return 1
 
-    print(f"Release contract check passed for {len(meta)} skill(s): install scripts and release assets agree.")
+    print(f"Release contract check passed for {checked} skill(s): install scripts and release assets agree.")
     return 0
 
 

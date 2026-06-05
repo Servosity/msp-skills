@@ -5,11 +5,17 @@ on:
     paths:
       - "skills/**"
       - "tools/maintainer/build-catalog.py"
+      - "tools/maintainer/skills.json"
+      - "tools/maintainer/release_state.py"
+      - "tools/maintainer/check_marketplace_sync.py"
+      - ".claude-plugin/marketplace.json"
       - ".github/workflows/catalog.yml"
   push:
     branches: [main]
     paths:
       - "skills/**"
+      - "tools/maintainer/skills.json"
+      - ".claude-plugin/marketplace.json"
 
 permissions:
   contents: read
@@ -20,6 +26,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # release_state.py derives per-skill release state from git tags;
+          # a shallow tagless checkout would misreport version-pending and
+          # fail the pending.json drift check.
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -30,11 +42,22 @@ jobs:
         run: |
           python3 tools/maintainer/build-catalog.py
 
+      - name: Verify marketplace.json is in sync with skills.json
+        run: |
+          python3 tools/maintainer/check_marketplace_sync.py
+
+      - name: Regenerate docs/_data/pending.json (release state snapshot)
+        run: |
+          mkdir -p docs/_data
+          python3 tools/maintainer/release_state.py --json > docs/_data/pending.json
+
       - name: Check for drift
         run: |
-          if ! git diff --exit-code catalog.json README.md; then
+          if ! git diff --exit-code catalog.json README.md docs/_data/pending.json; then
             echo ""
-            echo "::error::catalog.json or the README catalog table is stale."
-            echo "::error::Run 'python3 tools/maintainer/build-catalog.py' locally and commit the result."
+            echo "::error::catalog.json, the README catalog table, or docs/_data/pending.json is stale."
+            echo "::error::Run 'python3 tools/maintainer/build-catalog.py' and"
+            echo "::error::'python3 tools/maintainer/release_state.py --json > docs/_data/pending.json'"
+            echo "::error::locally and commit the result."
             exit 1
           fi

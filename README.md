@@ -1,6 +1,8 @@
-# MSP Skills - HaloPSA and Servosity, for the AI you already use
+# Run your MSP tools by asking - MCP servers and Skills for the AI you already use
 
-**MSP Skills** installs natural-language AI tools for **HaloPSA tickets** and **Servosity backups** directly into **Claude**, **ChatGPT**, **Codex**, **Cursor**, **Windsurf**, or any AI agent that speaks MCP. Free, open source, runs on your laptop. A local SQLite mirror lets your agent answer cross-client questions the live API can't return in one shot - no rate-limit hits, no per-tech SaaS fee, no data leaves your network. Built for MSP owners. No developer experience required.
+**MSP Skills** connects your PSA, RMM, backup, and more to the AI you already use - **Claude**, **ChatGPT**, **Codex**, **Cursor**, **Windsurf**, or any agent that speaks MCP. Ask a plain-English question about your stack and get a real answer back. HaloPSA and Servosity are live today (more PSA, RMM, backup, and M365 connectors ship every week). Free, open source, runs on your laptop. A local SQLite mirror lets your agent answer cross-client questions the live API can't return in one shot - no rate-limit hits, no per-tech SaaS fee, no data leaves your network. Built for MSP owners. No developer experience required.
+
+> **New to the term?** What this repo calls an **MCP server** is what ChatGPT calls an *app* or *connector*, Claude on the web calls a *connector*, Microsoft Copilot calls a *connector*, and Claude Code calls a *Skill*. Same standard underneath: the [Model Context Protocol](https://modelcontextprotocol.io). Full plain-language answer: **[What is an MCP server?](https://msp-skills.compoundingteams.com/what-is-an-mcp-server/)**.
 
 > 🛠 **Built live with MSPs.** Join a free weekly **Build Session** at **[compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions)** to watch a Skill built against a real MSP system - or bring your own.
 
@@ -31,8 +33,9 @@ The five agents MSP owners actually use:
 <!-- catalog:start -->
 | Skill | System | Status | Install |
 | --- | --- | --- | --- |
-| [halopsa](./skills/halopsa) | HaloPSA, HaloITSM, HaloCRM | ![Tested](https://img.shields.io/badge/Tested-by_MSPs-2E7D32) | [Install](./skills/halopsa/README.md) |
-| [servosity](./skills/servosity) | Servosity backup and DR | ![Tested](https://img.shields.io/badge/Tested-by_MSPs-2E7D32) | [Install](./skills/servosity/README.md) |
+| [msp-skills-concierge](./skills/_meta) | Connector recommendations + guided install for the msp-skills catalog | ![Meta](https://img.shields.io/badge/Meta-skill-6B7280) | [Marketplace](./skills/_meta/README.md) |
+| [halopsa](./skills/halopsa) | HaloPSA, HaloITSM, HaloCRM | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/halopsa/README.md) |
+| [servosity](./skills/servosity) | Servosity backup and DR | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/servosity/README.md) |
 <!-- catalog:end -->
 
 > **About status badges.** `Tested` means at least one MSP has run this skill against a real production tenant and it worked. `Untested` (yellow) means the skill was generated, the gates passed, and we shipped it - but no MSP has driven it against live data yet. Untested skills may have rough edges; **feedback is valuable** - open an issue if something breaks.

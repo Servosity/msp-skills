@@ -1,0 +1,141 @@
+name: Live-verified badge from issue
+
+# When a maintainer labels an "it works" report with "confirmed-works", flip the
+# named skill to live-verified in the registry, regenerate the catalog, commit
+# to main, and thank the reporter. Docs-only: this never cuts a release.
+#
+# The trigger is the label event, NOT issue creation, so a human always
+# confirms the report before the badge flips. The issue must ALSO carry the
+# "live-verified-report" label (the it-works.yml form applies it automatically),
+# so an unrelated issue tagged "confirmed-works" cannot trip this workflow.
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  flip:
+    runs-on: ubuntu-latest
+    # Only run when the label just applied is "confirmed-works" AND the issue
+    # also has the "live-verified-report" label from the it-works form.
+    if: >-
+      github.event.label.name == 'confirmed-works' &&
+      contains(github.event.issue.labels.*.name, 'live-verified-report')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Parse skill slug from issue body
+        id: parse
+        env:
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: |
+          set -euo pipefail
+          # Read the slug from the issue body. GitHub renders the "Which skill"
+          # dropdown as a "### Which skill" heading followed by the value on the
+          # next non-empty line. We tolerate absence (older issues, manual
+          # reports) and emit ok=false so the next step comments + exits 0.
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os, re
+
+          event = json.load(open(os.environ["GITHUB_EVENT_PATH"]))
+          body = (event.get("issue") or {}).get("body") or ""
+
+          # Known slugs come from the registry; "hubspot" et al. only count once
+          # they are registered. verify_live.py is the final gate on unknown
+          # slugs, but we pre-check here so we can leave a helpful comment.
+          reg = json.load(open("tools/maintainer/skills.json"))
+          known = set(reg.get("skills", {}))
+
+          slug = ""
+          lines = body.splitlines()
+          for i, line in enumerate(lines):
+              if re.match(r"^#{1,6}\s*Which skill\s*$", line.strip(), re.IGNORECASE):
+                  # The value is the next non-empty, non-heading line.
+                  for nxt in lines[i + 1:]:
+                      val = nxt.strip()
+                      if val and not val.startswith("#"):
+                          slug = val
+                          break
+                  break
+
+          # Normalize: the form's "other / not listed" option is not a slug.
+          slug = slug.strip().lower()
+          if slug in ("other / not listed", "other", "not listed", ""):
+              slug = ""
+
+          ok = "true" if slug and slug in known else "false"
+          print(f"ok={ok}")
+          print(f"slug={slug}")
+          PY
+
+      - name: Comment that a maintainer must verify manually (parse failed)
+        if: steps.parse.outputs.ok != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ github.event.issue.number }}
+          SLUG: ${{ steps.parse.outputs.slug }}
+        run: |
+          set -euo pipefail
+          if [ -n "$SLUG" ]; then
+            note="the skill '$SLUG' from this report is not a registered skill yet"
+          else
+            note="we could not read the skill from this report"
+          fi
+          gh issue comment "$ISSUE" --body "Thanks for the report. Automation could not badge this automatically: $note. A maintainer will run \`python3 tools/maintainer/verify_live.py\` by hand. No action needed from you."
+          echo "Parse failed or unknown slug; commented and exiting cleanly."
+
+      - name: Flip the badge to live-verified
+        if: steps.parse.outputs.ok == 'true'
+        env:
+          SLUG: ${{ steps.parse.outputs.slug }}
+          EVIDENCE: ${{ github.event.issue.html_url }}
+        run: |
+          set -euo pipefail
+          python3 tools/maintainer/verify_live.py \
+            --slug "$SLUG" \
+            --source github \
+            --evidence "$EVIDENCE"
+
+      - name: Regenerate catalog
+        if: steps.parse.outputs.ok == 'true'
+        run: |
+          python3 tools/maintainer/build-catalog.py
+
+      - name: Commit and push
+        if: steps.parse.outputs.ok == 'true'
+        env:
+          SLUG: ${{ steps.parse.outputs.slug }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tools/maintainer/skills.json catalog.json README.md docs/_data/pending.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No changes to commit (already live-verified?)."
+          else
+            git commit -m "badge: $SLUG live-verified via #$ISSUE"
+            git push origin HEAD:main
+          fi
+
+      - name: Thank the reporter
+        if: steps.parse.outputs.ok == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SLUG: ${{ steps.parse.outputs.slug }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          gh issue comment "$ISSUE" --body "Thank you for closing the loop. **$SLUG** is now badged **live-verified**. See the updated skill page: https://msp-skills.compoundingteams.com/skills/$SLUG/"

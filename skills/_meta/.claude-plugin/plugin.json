@@ -1,0 +1,23 @@
+{
+  "name": "msp-skills-concierge",
+  "version": "0.1.0",
+  "description": "Tell it your MSP stack and it recommends the msp-skills connectors that fit, then installs only the ones you approve. Reads the live catalog, states an honest verification badge per connector, and reports install receipts. Markdown-only, no binary. For MSP owners.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/_meta",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "msp-skills",
+    "concierge",
+    "connector-recommendations",
+    "guided-install",
+    "msp",
+    "catalog",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

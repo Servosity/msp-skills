@@ -156,6 +156,10 @@ dogfood-results.json
 workflow-verify-report.json
 tools-manifest.json
 spec.json
+# Maintainer-tool advisory locks (release queue serialization). Run-local only.
+tools/maintainer/.locks/
+# Adversarial-review receipts per skill. Run-local, never committed.
+skills/*/.review/
 
 # ===== Test artifacts =====
 *.lcov
