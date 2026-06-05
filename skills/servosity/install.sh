@@ -30,8 +30,8 @@ fetch_stdout() {
   fi
 }
 
-# Each skill is versioned and tagged independently (halopsa-vX.Y.Z,
-# servosity-vX.Y.Z), so we resolve THIS skill's latest release rather than the
+# Each skill is versioned and tagged independently (servosity-vX.Y.Z), so we
+# resolve THIS skill's latest release rather than the
 # repo-wide /releases/latest/ (GitHub allows only one "latest" per repo). Query
 # the releases API, keep tags matching this skill's prefix, take the newest (the
 # API returns releases newest-first). MSP_SKILLS_RELEASE_BASE overrides this.
@@ -97,6 +97,7 @@ download() {
 download "${cli_url}" "${INSTALL_DIR}/${CLI_BIN}"
 download "${mcp_url}" "${INSTALL_DIR}/${MCP_BIN}"
 
+# Clear macOS Gatekeeper quarantine attribute (no-op on Linux).
 if [ "${os}" = "darwin" ]; then
   xattr -d com.apple.quarantine "${INSTALL_DIR}/${CLI_BIN}" 2>/dev/null || true
   xattr -d com.apple.quarantine "${INSTALL_DIR}/${MCP_BIN}" 2>/dev/null || true

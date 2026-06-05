@@ -19,7 +19,7 @@ $Repo  = if ($env:MSP_SKILLS_REPO)  { $env:MSP_SKILLS_REPO }  else { "msp-skills
 $ReleaseBase = if ($env:MSP_SKILLS_RELEASE_BASE) {
   $env:MSP_SKILLS_RELEASE_BASE
 } else {
-  # Each skill is versioned/tagged independently (halopsa-vX.Y.Z, servosity-vX.Y.Z),
+  # Each skill is versioned/tagged independently (halopsa-vX.Y.Z),
   # so resolve THIS skill's latest release rather than the repo-wide /releases/latest/
   # (GitHub allows only one "latest" per repo). The releases API returns newest-first.
   $rels = Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repo/releases?per_page=100" -UseBasicParsing

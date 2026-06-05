@@ -1,0 +1,111 @@
+{
+  "first_party": true,
+  "outcome_intro": "MSPs run Servosity as the backup and DR platform - M365, DR Server, and DR Desktop protection across a whole book of clients. Ask your AI \"what needs my attention this morning,\" \"which backups went stale,\" or \"what changed overnight,\" and get an answer the partner portal can't show on one screen: cross-engine, cross-client rollups computed against a local fleet mirror in one query instead of clicking through per-client pages, three backup engine views, and an alert queue full of noise.",
+  "instead_of_say": [
+    {
+      "instead": "Clicking through every client's portal view to find the backup sets that quietly stopped succeeding before a client needs a restore",
+      "say": "Which backups went stale across all my clients in the last week?",
+      "cli": "servosity-cli stale-backups --days 7"
+    },
+    {
+      "instead": "Opening Monday with a blank slate and no idea which clients got worse or recovered over the weekend",
+      "say": "What changed across my fleet overnight - what got worse, what recovered?",
+      "cli": "servosity-cli drift --from yesterday --to now"
+    },
+    {
+      "instead": "Doing portal archaeology across metadata, three backup engines, contracts, and issues to answer \"is this client OK?\"",
+      "say": "Give me the whole story for this client on one screen.",
+      "cli": "servosity-cli company show 4421"
+    }
+  ],
+  "pain_points": [
+    "Silent backup failures discovered too late: a backup that quietly stopped succeeding is invisible until a client needs a restore - the worst possible moment to find out.",
+    "No fleet-wide view: each client's backup state lives in its own portal view; there is no single screen that says \"across my whole book, here is what is stale, failing, or in-flight right now.\"",
+    "Alert-queue noise buries the real failure: dozens of repeat and known-safe issues pile up per client, and the one that matters hides in the pile.",
+    "Per-client questions mean portal archaeology: answering \"is this client OK?\" means clicking through metadata, three backup engines, contracts, and issues by hand."
+  ],
+  "outcomes": [
+    {
+      "question": "What needs my attention across every client this morning?",
+      "command": "servosity-cli attention"
+    },
+    {
+      "question": "Which backups went stale across all clients in the last week?",
+      "command": "servosity-cli stale-backups --days 7"
+    },
+    {
+      "question": "What changed across my fleet overnight - what got worse and what recovered?",
+      "command": "servosity-cli drift --from yesterday --to now"
+    },
+    {
+      "question": "What's the whole story for this client, on one screen?",
+      "command": "servosity-cli company show 4421"
+    },
+    {
+      "question": "Where do I find that client, issue, or backup when I remember a phrase but not which one?",
+      "command": "servosity-cli find \"image manager\""
+    },
+    {
+      "question": "Which backup engine is failing where for a client running multiple engines?",
+      "command": "servosity-cli backup-facts --company 4421 --status fail"
+    },
+    {
+      "question": "What's worth keeping in the alert queue, and what known-safe noise can I clear?",
+      "command": "servosity-cli triage --company 4421"
+    },
+    {
+      "question": "Which DR restores are in flight across my whole book right now?",
+      "command": "servosity-cli restore-queue list"
+    }
+  ],
+  "different_vs_wrappers": "Most AI integrations for backup and DR vendors proxy each question into a live API call against the partner portal. That's fine for one client. It fails when you're asking \"which of my 47 clients have a backup set that hasn't succeeded in 7 days, sliced by engine?\" - the portal scatters that across per-client pages, three engine views, and an alert queue full of noise. This skill syncs Servosity into a local fleet mirror with snapshot history and full-text search, so cross-engine, cross-client questions become one local query: instant, offline, and the AI sees the answer, not a context window full of paginated JSON. Compound commands like attention, drift, stale-backups, and company show join across companies, backup engines, issues, contracts, and DR events - work a stateless API wrapper can't do.",
+  "different_vs_vendor": "Servosity publishes this skill itself, for MSP partners - it complements the partner portal rather than replacing it. The portal stays where you do administrative work, configure backups, and onboard clients; this skill makes the portal's data answerable by AI, so morning triage, Friday stale-backup reports, drift checks, and ad-hoc cross-client questions don't require portal archaeology. The token is scoped to your reseller account only - no cross-reseller access.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on Plus, Pro, Team, Business, Enterprise, and Education plans (the Free tier does not yet expose Developer Mode). ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Servosity MCP server via the mcp-remote bridge or your own HTTPS endpoint. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to be a Servosity MSP partner?",
+      "a": "Yes. The Servosity API surface this skill wraps is the one available to authenticated MSP partners, so you'll need a partner API token from the Servosity partner portal. The skill itself is free; the token is part of your Servosity partner agreement. Not a partner yet? Reach out via servosity.com."
+    },
+    {
+      "q": "Will this replace my Servosity partner portal?",
+      "a": "No. The portal is still where you do administrative work, configure backups, and onboard clients. This skill makes the portal's data answerable by AI, so morning triage, Friday stale-backup reports, drift checks, and ad-hoc cross-client questions don't require portal archaeology. The portal is unchanged; you're adding a new way to ask the data questions."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent reads SKILL.md and does the install, or run a one-line installer per OS. You enter your Servosity partner token once."
+    },
+    {
+      "q": "Is my Servosity and client data safe?",
+      "a": "Your data stays on your machine. The CLI and MCP server are local binaries, and the fleet mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. The partner token is read from your environment or your agent's config, never bundled into this repo or transmitted anywhere by MSP Skills, and it is scoped to your reseller account only."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. Servosity does not charge for the API access required to run this skill - the partner-portal API is part of your existing partner agreement. You pay only for whichever AI agent you use, billed by your AI provider."
+    },
+    {
+      "q": "Can I run this on Windows?",
+      "a": "Yes. There's a PowerShell installer for the Windows path, and the CLI and MCP binaries are native Windows builds."
+    }
+  ],
+  "governance_summary": "The skill drives the servosity-cli and servosity-mcp binaries, authenticating with a single SERVOSITY_MSP_TOKEN you generate in the partner portal - read only from the environment, never written to disk, logged, or sent anywhere except the Servosity API. Every call is scoped to your reseller account; there is no cross-reseller access. Read commands (attention, drift, stale-backups, backup-facts, find, company show, restore-queue list) are always safe and change nothing. Writes split into two classes with different gating. The compound write commands plan by default: triage runs in PLAN mode unless you pass --confirm, and clear and stale-issues default to --dry-run - a plan prints what would change and exits without mutating, and the global --dry-run flag keeps PLAN mode even if --confirm is passed. Raw CRUD writes (notes, comments) use an interactive prompt by default, but --yes (and --agent, which implies --yes) skips that prompt and --dry-run is opt-in, so gate those at your agent's policy: preview with --dry-run, show the exact command, get approval, then run. The recommended policy is to keep autonomous agents to Read plus planned writes and require a human for any Credential, Destructive, or Admin command. The strongest control is scoping the partner token to only the access your workflow needs.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "servosity-cli attention; servosity-cli drift --from yesterday --to now; servosity-cli stale-backups --days 7; servosity-cli backup-facts --company 4421 --status fail; servosity-cli find \"image manager\"; servosity-cli company show 4421; servosity-cli restore-queue list",
+      "policy": "Allow - these only read and cannot modify anything."
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "servosity-cli triage --company 4421 (plans by default; pass --confirm to mutate); servosity-cli clear \"ACME Corp\" --until \"6am tomorrow\" (defaults to --dry-run); servosity-cli stale-issues --mine (defaults to --dry-run); company-notes and issue-comments (interactive prompt by default, skippable with --yes/--agent)",
+      "policy": "Compound commands plan first - review the PLAN, then pass --confirm. Raw CRUD: preview with --dry-run, get agent-side approval, never blanket --yes."
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "servosity-cli companies delete; servosity-cli backups delete; servosity-cli backup-sets delete; servosity-cli dr-backups delete; servosity-cli users delete; credentials rotate/delete, MFA, agent-install-token, and encryption-key update (Credential / security)",
+      "policy": "Human-in-the-loop only, with an explicit out-of-band confirmation step. Never allow an autonomous agent to run these unattended."
+    }
+  ]
+}

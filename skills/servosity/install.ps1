@@ -19,7 +19,7 @@ $Repo  = if ($env:MSP_SKILLS_REPO)  { $env:MSP_SKILLS_REPO }  else { "msp-skills
 $ReleaseBase = if ($env:MSP_SKILLS_RELEASE_BASE) {
   $env:MSP_SKILLS_RELEASE_BASE
 } else {
-  # Each skill is versioned/tagged independently (halopsa-vX.Y.Z, servosity-vX.Y.Z),
+  # Each skill is versioned/tagged independently (servosity-vX.Y.Z),
   # so resolve THIS skill's latest release rather than the repo-wide /releases/latest/
   # (GitHub allows only one "latest" per repo). The releases API returns newest-first.
   $rels = Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repo/releases?per_page=100" -UseBasicParsing
@@ -29,6 +29,7 @@ $ReleaseBase = if ($env:MSP_SKILLS_RELEASE_BASE) {
 }
 $InstallDir = if ($env:INSTALL_DIR) { $env:INSTALL_DIR } else { "$env:LOCALAPPDATA\Programs\msp-skills" }
 
+# Detect arch.
 $arch = "amd64"
 if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { $arch = "arm64" }
 
@@ -57,6 +58,7 @@ function Get-File {
 Get-File -Url $cliUrl -Dest (Join-Path $InstallDir $CliBin)
 Get-File -Url $mcpUrl -Dest (Join-Path $InstallDir $McpBin)
 
+# Add to user PATH if not present.
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
 if ($userPath -notlike "*$InstallDir*") {
   $newPath = if ([string]::IsNullOrEmpty($userPath)) { $InstallDir } else { "$userPath;$InstallDir" }

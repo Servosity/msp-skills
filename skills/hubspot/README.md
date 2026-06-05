@@ -3,6 +3,15 @@
 > Unofficial. Community-built Claude Code Skill and MCP server for the HubSpot
 > API. Not affiliated with, endorsed by, or sponsored by HubSpot Inc..
 
+<!-- media:start -->
+<p align="center">
+  <a href="https://msp-skills.compoundingteams.com/skills/hubspot/">
+    <img src="../../docs/assets/video/hubspot/animated-og.gif" alt="HubSpot demo - animated preview" width="600">
+  </a>
+</p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/hubspot/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
+<!-- media:end -->
+
 Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent

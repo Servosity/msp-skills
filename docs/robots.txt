@@ -1,0 +1,8 @@
+# msp-skills.compoundingteams.com - everything is public and citable.
+# AI search and answer engines are explicitly welcome: being cited by
+# ChatGPT, Claude, Perplexity, Gemini, and Copilot is the point.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://msp-skills.compoundingteams.com/sitemap.xml

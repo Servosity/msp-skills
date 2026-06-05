@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # install.sh - install hubspot-cli and hubspot-mcp on macOS / Linux.
 #
-# Pulls prebuilt binaries from the latest GitHub Release of msp-skills.
+# Pulls prebuilt binaries from this skill's latest GitHub Release (hubspot-v*).
 # Both the CLI and the MCP server are installed in one shot.
 #
 # Env vars:
@@ -17,8 +17,37 @@ MCP_BIN="hubspot-mcp"
 
 OWNER="${MSP_SKILLS_OWNER:-servosity}"
 REPO="${MSP_SKILLS_REPO:-msp-skills}"
-RELEASE_BASE="${MSP_SKILLS_RELEASE_BASE:-https://github.com/${OWNER}/${REPO}/releases/latest/download}"
 INSTALL_DIR="${INSTALL_DIR:-${HOME}/.local/bin}"
+
+fetch_stdout() {
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$1"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO- "$1"
+  else
+    echo "Neither curl nor wget available; install one and retry." >&2
+    exit 1
+  fi
+}
+
+# Each skill is versioned and tagged independently (hubspot-vX.Y.Z), so we
+# resolve THIS skill's latest release rather than the
+# repo-wide /releases/latest/ (GitHub allows only one "latest" per repo). Query
+# the releases API, keep tags matching this skill's prefix, take the newest (the
+# API returns releases newest-first). MSP_SKILLS_RELEASE_BASE overrides this.
+if [ -n "${MSP_SKILLS_RELEASE_BASE:-}" ]; then
+  RELEASE_BASE="${MSP_SKILLS_RELEASE_BASE}"
+else
+  tag="$(fetch_stdout "https://api.github.com/repos/${OWNER}/${REPO}/releases?per_page=100" \
+    | grep '"tag_name"' \
+    | sed -E 's/.*"tag_name":[[:space:]]*"([^"]+)".*/\1/' \
+    | grep -m1 "^${SKILL}-v")" || true
+  if [ -z "${tag:-}" ]; then
+    echo "No ${SKILL}-v* release found in ${OWNER}/${REPO}. Has the first release been published?" >&2
+    exit 1
+  fi
+  RELEASE_BASE="https://github.com/${OWNER}/${REPO}/releases/download/${tag}"
+fi
 
 uname_s="$(uname -s)"
 uname_m="$(uname -m)"
@@ -93,5 +122,5 @@ echo "Verify:"
 echo "  ${CLI_BIN} --version"
 echo ""
 echo "Next:"
-echo "  Read skills/${SKILL}/README.md for first command + auth."
-echo "  For Claude Desktop or ChatGPT, read skills/${SKILL}/mcp-install.md."
+echo "  Read skills/hubspot/README.md for first command + auth."
+echo "  For Claude Desktop or ChatGPT Desktop, read skills/hubspot/mcp-install.md."

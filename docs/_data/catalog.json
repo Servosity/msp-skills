@@ -1,0 +1,67 @@
+{
+  "count": 4,
+  "connectors": [
+    {
+      "slug": "connectwise-manage",
+      "display_name": "ConnectWise PSA (Manage)",
+      "tagline": "Triage boards, catch unbilled time, and prep QBRs by asking.",
+      "category": "PSA",
+      "verification": "awaiting",
+      "url": "/skills/connectwise-manage/"
+    },
+    {
+      "slug": "halopsa",
+      "display_name": "HaloPSA",
+      "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.",
+      "category": "PSA",
+      "verification": "live-verified",
+      "url": "/skills/halopsa/"
+    },
+    {
+      "slug": "hubspot",
+      "display_name": "HubSpot",
+      "tagline": "Pipeline health, stale deals, and owner workload for every client by asking.",
+      "category": "CRM",
+      "verification": "live-verified",
+      "url": "/skills/hubspot/"
+    },
+    {
+      "slug": "servosity",
+      "display_name": "Servosity",
+      "tagline": "Backup status, failures, and QBR-ready history for every client by asking.",
+      "category": "Backup/DR",
+      "verification": "live-verified",
+      "url": "/skills/servosity/"
+    }
+  ],
+  "featured": [
+    {
+      "slug": "servosity",
+      "display_name": "Servosity",
+      "cli_binary": "servosity-cli",
+      "skill_dir": "servosity",
+      "install_auth_hint": "Then authenticate with `SERVOSITY_MSP_TOKEN=<your-partner-token> servosity-cli doctor`"
+    },
+    {
+      "slug": "connectwise-manage",
+      "display_name": "ConnectWise PSA (Manage)",
+      "cli_binary": "connectwise-manage-cli",
+      "skill_dir": "connectwise-manage",
+      "install_auth_hint": "Then authenticate per the README"
+    },
+    {
+      "slug": "hubspot",
+      "display_name": "HubSpot",
+      "cli_binary": "hubspot-cli",
+      "skill_dir": "hubspot",
+      "install_auth_hint": "Then authenticate per the README"
+    },
+    {
+      "slug": "halopsa",
+      "display_name": "HaloPSA",
+      "cli_binary": "halopsa-cli",
+      "skill_dir": "halopsa",
+      "install_auth_hint": "Then authenticate with `halopsa-cli auth login` (Configuration > Integrations > Halo PSA API in your tenant gives you the credentials)"
+    }
+  ]
+}

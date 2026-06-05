@@ -30,8 +30,8 @@ fetch_stdout() {
   fi
 }
 
-# Each skill is versioned and tagged independently (halopsa-vX.Y.Z,
-# servosity-vX.Y.Z), so we resolve THIS skill's latest release rather than the
+# Each skill is versioned and tagged independently (halopsa-vX.Y.Z), so we
+# resolve THIS skill's latest release rather than the
 # repo-wide /releases/latest/ (GitHub allows only one "latest" per repo). Query
 # the releases API, keep tags matching this skill's prefix, take the newest (the
 # API returns releases newest-first). MSP_SKILLS_RELEASE_BASE overrides this.

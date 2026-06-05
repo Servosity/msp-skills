@@ -47,6 +47,8 @@ if run python3 tools/maintainer/check_no_todos.py;        then pass "no TODO mar
 if run python3 tools/maintainer/check_vocabulary.py;      then pass "vocabulary contract"; else fail "vocabulary contract"; fi
 if run python3 tools/maintainer/check_video_assets.py;    then pass "video assets";        else fail "video assets";        fi
 if run python3 tools/maintainer/check_aeo.py;             then pass "AEO answer-first";    else fail "AEO answer-first";    fi
+if run python3 tools/maintainer/check_surface_coverage.py; then pass "surface coverage";   else fail "surface coverage";    fi
+if run python3 tools/maintainer/check_media_block.py;     then pass "README media block";  else fail "README media block";  fi
 if run bash    tools/maintainer/ci_guards.sh;             then pass "repo hygiene guards"; else fail "repo hygiene guards"; fi
 
 echo "== Plugin manifest validation (claude plugin validate --strict) =="
@@ -69,12 +71,21 @@ else
 fi
 
 echo "== Catalog idempotency =="
+# build-catalog.py regenerates ALL of these from skills.json: the machine
+# catalog, the README marker blocks, the Jekyll data file, and every per-skill
+# docs page. The gate must prove regeneration is a no-op for every one of them,
+# else a stale committed surface ships (the 2026-06-05 staleness class of bug).
 cp catalog.json /tmp/cat.bak; cp README.md /tmp/readme.bak
+cp docs/_data/catalog.json /tmp/docscat.bak
+rm -rf /tmp/docsskills.bak; cp -R docs/skills /tmp/docsskills.bak
 python3 tools/maintainer/build-catalog.py >/dev/null 2>&1
-if diff -q catalog.json /tmp/cat.bak >/dev/null && diff -q README.md /tmp/readme.bak >/dev/null; then
-  pass "catalog + README already in sync (no drift)"
+if diff -q catalog.json /tmp/cat.bak >/dev/null \
+   && diff -q README.md /tmp/readme.bak >/dev/null \
+   && diff -q docs/_data/catalog.json /tmp/docscat.bak >/dev/null \
+   && diff -r docs/skills /tmp/docsskills.bak >/dev/null; then
+  pass "catalog + README + docs/_data/catalog.json + docs/skills already in sync (no drift)"
 else
-  fail "catalog/README drift - regenerated; re-run was not a no-op"
+  fail "catalog/README/docs drift - regenerated; re-run was not a no-op"
 fi
 
 echo "== llms.txt idempotency =="

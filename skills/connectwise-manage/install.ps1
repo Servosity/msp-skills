@@ -1,6 +1,6 @@
 # install.ps1 - install connectwise-manage-cli and connectwise-manage-mcp on Windows.
 #
-# Pulls prebuilt binaries from the latest GitHub Release of msp-skills.
+# Pulls prebuilt binaries from this skill's latest GitHub Release (connectwise-manage-v*).
 # Both the CLI and the MCP server are installed in one shot.
 #
 # Env vars:
@@ -19,10 +19,17 @@ $Repo  = if ($env:MSP_SKILLS_REPO)  { $env:MSP_SKILLS_REPO }  else { "msp-skills
 $ReleaseBase = if ($env:MSP_SKILLS_RELEASE_BASE) {
   $env:MSP_SKILLS_RELEASE_BASE
 } else {
-  "https://github.com/$Owner/$Repo/releases/latest/download"
+  # Each skill is versioned/tagged independently (connectwise-manage-vX.Y.Z),
+  # so resolve THIS skill's latest release rather than the repo-wide /releases/latest/
+  # (GitHub allows only one "latest" per repo). The releases API returns newest-first.
+  $rels = Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repo/releases?per_page=100" -UseBasicParsing
+  $tag = ($rels | Where-Object { $_.tag_name -like "$Skill-v*" } | Select-Object -First 1).tag_name
+  if (-not $tag) { throw "No $Skill-v* release found in $Owner/$Repo. Has the first release been published?" }
+  "https://github.com/$Owner/$Repo/releases/download/$tag"
 }
 $InstallDir = if ($env:INSTALL_DIR) { $env:INSTALL_DIR } else { "$env:LOCALAPPDATA\Programs\msp-skills" }
 
+# Detect arch.
 $arch = "amd64"
 if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { $arch = "arm64" }
 
@@ -51,6 +58,7 @@ function Get-File {
 Get-File -Url $cliUrl -Dest (Join-Path $InstallDir $CliBin)
 Get-File -Url $mcpUrl -Dest (Join-Path $InstallDir $McpBin)
 
+# Add to user PATH if not present.
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
 if ($userPath -notlike "*$InstallDir*") {
   $newPath = if ([string]::IsNullOrEmpty($userPath)) { $InstallDir } else { "$userPath;$InstallDir" }
@@ -69,4 +77,4 @@ Write-Host "  connectwise-manage-cli --version"
 Write-Host ""
 Write-Host "Next:"
 Write-Host "  Read skills\connectwise-manage\README.md for first command + auth."
-Write-Host "  For Claude Desktop or ChatGPT, read skills\connectwise-manage\mcp-install.md."
+Write-Host "  For Claude Desktop or ChatGPT Desktop, read skills\connectwise-manage\mcp-install.md."
