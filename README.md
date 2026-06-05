@@ -1,16 +1,20 @@
 # Run your MSP tools by asking - MCP servers and Skills for the AI you already use
 
-**MSP Skills** connects your PSA, RMM, backup, and more to the AI you already use - **Claude**, **ChatGPT**, **Codex**, **Cursor**, **Windsurf**, or any agent that speaks MCP. Ask a plain-English question about your stack and get a real answer back. HaloPSA and Servosity are live today (more PSA, RMM, backup, and M365 connectors ship every week). Free, open source, runs on your laptop. A local SQLite mirror lets your agent answer cross-client questions the live API can't return in one shot - no rate-limit hits, no per-tech SaaS fee, no data leaves your network. Built for MSP owners. No developer experience required.
+**MSP Skills** connects your PSA, RMM, backup, and more to the AI you already use - **Claude**, **ChatGPT**, **Codex**, **Cursor**, **Windsurf**, or any agent that speaks MCP. Ask a plain-English question about your stack and get a real answer back. HaloPSA, HubSpot, and Servosity are live today (more PSA, RMM, backup, and M365 connectors ship every week). Free, open source, runs on your laptop. A local SQLite mirror lets your agent answer cross-client questions the live API can't return in one shot - no rate-limit hits, no per-tech SaaS fee, no data leaves your network. Built for MSP owners. No developer experience required.
 
 > **New to the term?** What this repo calls an **MCP server** is what ChatGPT calls an *app* or *connector*, Claude on the web calls a *connector*, Microsoft Copilot calls a *connector*, and Claude Code calls a *Skill*. Same standard underneath: the [Model Context Protocol](https://modelcontextprotocol.io). Full plain-language answer: **[What is an MCP server?](https://msp-skills.compoundingteams.com/what-is-an-mcp-server/)**.
 
 > 🛠 **Built live with MSPs.** Join a free weekly **Build Session** at **[compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions)** to watch a Skill built against a real MSP system - or bring your own.
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
-[![Skills](https://img.shields.io/badge/skills-3-green.svg)](./catalog.json)
+[![Skills](https://img.shields.io/badge/skills-4-green.svg)](./catalog.json)
 [![MCP](https://img.shields.io/badge/MCP-compatible-1f6feb.svg)](https://modelcontextprotocol.io)
 [![Agent Skills](https://img.shields.io/badge/Agent_Skills-spec-2E7D32.svg)](https://agentskills.io)
 ![Status](https://img.shields.io/badge/status-beta-yellow.svg)
+
+[![Watch: Run your MSP tools by asking - 14-second demo](./docs/assets/social/og-1280x640.png)](https://msp-skills.compoundingteams.com/)
+
+<p align="center"><a href="https://msp-skills.compoundingteams.com/">▶ Watch the 14-second demo</a> - every skill page has its own 30-second walkthrough (<a href="https://msp-skills.compoundingteams.com/skills/hubspot/">example</a>). Demo data is simulated; every command shown exists in the real CLI.</p>
 
 ## Works with your agent
 
@@ -34,6 +38,7 @@ The five agents MSP owners actually use:
 | Skill | System | Status | Install |
 | --- | --- | --- | --- |
 | [msp-skills-concierge](./skills/_meta) | Connector recommendations + guided install for the msp-skills catalog | ![Meta](https://img.shields.io/badge/Meta-skill-6B7280) | [Marketplace](./skills/_meta/README.md) |
+| [connectwise-manage](./skills/connectwise-manage) | ConnectWise PSA (Manage) | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/connectwise-manage/README.md) |
 | [halopsa](./skills/halopsa) | HaloPSA, HaloITSM, HaloCRM | ![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32) | [Install](./skills/halopsa/README.md) |
 | [hubspot](./skills/hubspot) | HubSpot CRM: contacts, companies, deals, tickets, engagements | ![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32) | [Install](./skills/hubspot/README.md) |
 | [servosity](./skills/servosity) | Servosity backup and DR | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/servosity/README.md) |
@@ -103,7 +108,7 @@ Each installer drops both the CLI and the MCP server, so you can use the Skill (
 
 ## What your agent can do
 
-Outcomes, not hype. With the skills available today:
+Outcomes, not hype. Today, with the two skills available:
 
 | Outcome | Skill | Command |
 | --- | --- | --- |

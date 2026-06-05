@@ -23,6 +23,25 @@
       "markdown_only": true
     },
     {
+      "name": "connectwise-manage",
+      "system": "ConnectWise PSA (Manage)",
+      "status": "beta",
+      "skill_path": "skills/connectwise-manage",
+      "cli_binary": "connectwise-manage-cli",
+      "mcp_binary": "connectwise-manage-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "ConnectWise Manage",
+      "vendor_trademark_owner": "ConnectWise, LLC",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-manage/install.sh)",
+      "install_mcp_doc": "skills/connectwise-manage/mcp-install.md",
+      "description": "Every ConnectWise PSA workflow from the terminal  -  with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.",
+      "verification": "awaiting",
+      "category": "PSA",
+      "tagline": "Triage boards, catch unbilled time, and prep QBRs by asking."
+    },
+    {
       "name": "halopsa",
       "system": "HaloPSA, HaloITSM, HaloCRM",
       "status": "beta",

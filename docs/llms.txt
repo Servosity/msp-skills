@@ -6,6 +6,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 
 ## Connectors
 
+- ConnectWise PSA (Manage) (PSA) - Triage boards, catch unbilled time, and prep QBRs by asking.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/connectwise-manage/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-manage/install.sh)
 - HaloPSA (PSA) - Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/halopsa/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)

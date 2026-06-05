@@ -1,4 +1,11 @@
 {
+  "connectwise-manage": {
+    "state": "up-to-date",
+    "version": "0.1.0",
+    "latest_tag": "connectwise-manage-v0.1.0",
+    "current_hash": "sha256:f116088f98a762c88afee09ce823463d7529dd2261cb21d2b40d851218ec9575",
+    "released_hash": "sha256:f116088f98a762c88afee09ce823463d7529dd2261cb21d2b40d851218ec9575"
+  },
   "halopsa": {
     "state": "up-to-date",
     "version": "0.1.1",
