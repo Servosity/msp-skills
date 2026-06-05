@@ -26,6 +26,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # release_state.py derives per-skill release state from git tags;
+          # a shallow tagless checkout would misreport version-pending and
+          # fail the pending.json drift check.
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
