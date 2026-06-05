@@ -8,6 +8,17 @@ the release pipeline can never drift from what is actually vendored.
 Usage:
     python3 tools/release_matrix.py              # full {skill, target} matrix (release.yml)
     python3 tools/release_matrix.py --skills-only # {skill} only (ci.yml build+vet)
+    python3 tools/release_matrix.py --tag <tag>  # only the skill the tag names
+                                                 # (release.yml: one tag = one skill,
+                                                 # not N no-op matrix rows)
+    python3 tools/release_matrix.py --skills-only --changed-only <base-ref>
+                                                 # only skills with changes under
+                                                 # skills/<slug>/ since merge-base
+                                                 # with <base-ref> (ci.yml PRs).
+                                                 # Falls back to the FULL matrix if
+                                                 # build machinery changed or git
+                                                 # diff fails (fail open, never
+                                                 # silently skip a needed build).
 
 Each skill entry carries everything the build step needs:
     name, dir, module, cli_cmd, mcp_cmd, cli_bin, mcp_bin
@@ -18,6 +29,7 @@ cmd paths are introspected, so they are correct whether the source is stripped
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -46,9 +58,74 @@ def skill_entries() -> list[dict]:
     return entries
 
 
+# Changes to these paths can alter WHICH skills need building or HOW they are
+# built/verified - when one of them changes, scoping is unsafe and we fall back
+# to the full matrix.
+MACHINERY = (
+    ".github/workflows/",
+    "tools/maintainer/release_matrix.py",
+    "tools/maintainer/registry.py",
+    "tools/maintainer/check_cli_claims.py",
+    "tools/maintainer/cli_hash.py",
+)
+
+
+def changed_slugs(base_ref: str, entries: list[dict]) -> list[dict] | None:
+    """Filter entries to skills changed since merge-base with base_ref.
+
+    Returns None to mean "use the full matrix" (machinery changed, or git
+    failed - fail open). The filter is skills/<slug>/** (not just cli/**):
+    the ci.yml matrix job also runs check_cli_claims, which validates the
+    skill's DOCS against the built binary, so a docs-only edit to a skill
+    still needs that skill's row. Non-skill changes produce an empty matrix.
+    """
+    try:
+        mb = subprocess.run(
+            ["git", "merge-base", base_ref, "HEAD"],
+            capture_output=True, text=True, check=True, timeout=30,
+        ).stdout.strip()
+        diff = subprocess.run(
+            ["git", "diff", "--name-only", mb, "HEAD"],
+            capture_output=True, text=True, check=True, timeout=60,
+        ).stdout
+    except (subprocess.SubprocessError, OSError) as e:
+        print(f"release_matrix: --changed-only diff failed ({e}); "
+              "falling back to FULL matrix", file=sys.stderr)
+        return None
+    files = [f for f in diff.splitlines() if f.strip()]
+    for f in files:
+        if any(f == m or f.startswith(m) for m in MACHINERY):
+            print(f"release_matrix: machinery changed ({f}); FULL matrix",
+                  file=sys.stderr)
+            return None
+    touched = {f.split("/", 2)[1] for f in files
+               if f.startswith("skills/") and f.count("/") >= 2}
+    return [e for e in entries if e["name"] in touched]
+
+
 def main(argv: list[str]) -> int:
     skills_only = "--skills-only" in argv
-    matrix: dict = {"skill": skill_entries()}
+    tag = ""
+    base_ref = ""
+    if "--tag" in argv:
+        tag = argv[argv.index("--tag") + 1]
+    if "--changed-only" in argv:
+        base_ref = argv[argv.index("--changed-only") + 1]
+
+    entries = skill_entries()
+
+    if tag:
+        # <slug>-v<semver> -> <slug>; unknown slug -> empty matrix (the
+        # workflow's `any` guard turns that into "no build jobs at all").
+        slug = tag.rsplit("-v", 1)[0]
+        entries = [e for e in entries if e["name"] == slug]
+
+    if base_ref:
+        filtered = changed_slugs(base_ref, entries)
+        if filtered is not None:
+            entries = filtered
+
+    matrix: dict = {"skill": entries}
     if not skills_only:
         matrix["target"] = registry.TARGETS
     print(json.dumps(matrix))
