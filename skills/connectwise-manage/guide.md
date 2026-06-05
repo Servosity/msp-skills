@@ -1,103 +1,15 @@
-# ConnectWise PSA CLI
+# ConnectWise Manage Claude Code Skill and MCP Server - command reference
 
-**Every ConnectWise PSA workflow from the terminal  -  with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.**
+> Unofficial. Community-built Claude Code Skill and MCP server for the ConnectWise
+> Manage API. Not affiliated with, endorsed by, or sponsored by ConnectWise, LLC.
+> ConnectWise, ConnectWise Manage, and ConnectWise PSA are trademarks of
+> ConnectWise, LLC.
 
-A spec-generated CLI over the ConnectWise Manage REST API covering tickets, time, companies, contacts, agreements, configurations, projects, opportunities, and members. It syncs the high-gravity entities into a local SQLite store so you get instant full-text search and cross-table views the PSA never surfaces in one place  -  `unbilled` reconciles tickets against logged time, `account` assembles a full company 360, `board`/`stale`/`workload` give a dispatcher's queue at a glance. Every command speaks `--json`/`--select` and the whole tree is exposed as an MCP server for AI-driven triage.
+**Every ConnectWise PSA workflow from the terminal - with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.**
 
-## Install
+A spec-generated CLI over the ConnectWise Manage REST API covering tickets, time, companies, contacts, agreements, configurations, projects, opportunities, and members. It syncs the high-gravity entities into a local SQLite store so you get instant full-text search and cross-table views the PSA never surfaces in one place - `unbilled` reconciles tickets against logged time, `account` assembles a full company 360, `board`/`stale`/`workload` give a dispatcher's queue at a glance. Every command speaks `--json`/`--select` and the whole tree is exposed as an MCP server for AI-driven triage.
 
-The recommended path installs both the `connectwise-manage-cli` binary and the `pp-connectwise-manage` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
-
-```bash
-npx -y @mvanhorn/printing-press-library install connectwise-manage
-```
-
-For CLI only (no skill):
-
-```bash
-npx -y @mvanhorn/printing-press-library install connectwise-manage --cli-only
-```
-
-For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
-
-```bash
-npx -y @mvanhorn/printing-press-library install connectwise-manage --skill-only
-```
-
-To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
-
-```bash
-npx -y @mvanhorn/printing-press-library install connectwise-manage --agent claude-code
-npx -y @mvanhorn/printing-press-library install connectwise-manage --agent claude-code --agent codex
-```
-
-### Without Node
-
-The generated install path is category-agnostic until this CLI is published. If `npx` is not available before publish, install Node or use the category-specific Go fallback from the public-library entry after publish.
-
-### Pre-built binary
-
-Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/connectwise-manage-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
-
-<!-- pp-hermes-install-anchor -->
-## Install for Hermes
-
-From the Hermes CLI:
-
-```bash
-hermes skills install mvanhorn/printing-press-library/cli-skills/pp-connectwise-manage --force
-```
-
-Inside a Hermes chat session:
-
-```bash
-/skills install mvanhorn/printing-press-library/cli-skills/pp-connectwise-manage --force
-```
-
-## Install for OpenClaw
-
-Tell your OpenClaw agent (copy this):
-
-```
-Install the pp-connectwise-manage skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-connectwise-manage. The skill defines how its required CLI can be installed.
-```
-
-## Use with Claude Desktop
-
-This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
-
-To install:
-
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/connectwise-manage-current).
-2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `CW_CLIENT_ID` when Claude Desktop prompts you.
-
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
-
-<details>
-<summary>Manual JSON config (advanced)</summary>
-
-If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
-
-
-Install the MCP binary from this CLI's published public-library entry or pre-built release.
-
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "connectwise-manage": {
-      "command": "connectwise-manage-mcp",
-      "env": {
-        "CW_CLIENT_ID": "<your-key>"
-      }
-    }
-  }
-}
-```
-
-</details>
+For the short install path see [README.md](./README.md). This file is the command reference.
 
 ## Authentication
 
@@ -151,7 +63,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Dispatcher views
-- **`board`**  -  A grouped board view: tickets by status with age, owner, priority, and an SLA flag, joined to the tech who owns each.
+- **`board`**  -  A grouped board view: open tickets by status with age, owner, and priority, joined to the tech who owns each.
 
   _Reach for this for the morning queue sweep instead of reloading the web board view._
 

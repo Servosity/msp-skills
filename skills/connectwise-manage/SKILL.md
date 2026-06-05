@@ -1,6 +1,6 @@
 ---
 name: connectwise-manage
-description: "ConnectWise PSA (Manage) from the terminal  -  tickets, time, companies, contacts, agreements, configurations, plus a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage). Trigger phrases: `list connectwise tickets`, `triage the help desk board`, `find unbilled time in connectwise`, `connectwise account 360 for a client`, `log time on a connectwise ticket`, `use connectwise-manage`, `run connectwise-manage-cli`."
+description: "Use when the user asks to triage a ConnectWise board, find unbilled time before an invoice run, check agreement burn against block hours, pull a client account 360, log time on a ticket, find stale tickets, balance tech workload, or run any cross-entity question against ConnectWise PSA (Manage). Wraps the full Manage REST API plus a local SQLite mirror and a typed conditions query builder. Trigger phrases: `list connectwise tickets`, `triage the help desk board`, `find unbilled time in connectwise`, `connectwise account 360 for a client`, `agreement burn for Acme`, `log time on a connectwise ticket`, `ConnectWise + ChatGPT`, `ConnectWise + Claude`, `use connectwise-manage`, `run connectwise-manage-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "ConnectWise Manage"
@@ -13,20 +13,22 @@ metadata:
         - connectwise-manage-cli
 ---
 
-# ConnectWise PSA  -  Printing Press CLI
+# ConnectWise Manage Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `connectwise-manage-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install connectwise-manage --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-manage/install.sh)
    ```
-2. Verify: `connectwise-manage-cli --version`
-3. Ensure `$GOPATH/bin` (or `$HOME/go/bin`) is on `$PATH`.
-
-If the `npx` install fails before this CLI has a public-library category, install Node or use the category-specific Go fallback after publish.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-manage/install.ps1 | iex
+   ```
+3. Verify: `connectwise-manage-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
 If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
@@ -64,7 +66,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Dispatcher views
-- **`board`**  -  A grouped board view: tickets by status with age, owner, priority, and an SLA flag, joined to the tech who owns each.
+- **`board`**  -  A grouped board view: open tickets by status with age, owner, and priority, joined to the tech who owns each.
 
   _Reach for this for the morning queue sweep instead of reloading the web board view._
 

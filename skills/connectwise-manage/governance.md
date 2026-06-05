@@ -8,8 +8,12 @@
 ## What it authenticates as
 
 The skill drives the `connectwise-manage-cli` binary (and `connectwise-manage-mcp`),
-authenticating with `CW_CLIENT_ID`. Credentials are read from the environment only -
-never written to disk, never logged, never sent anywhere except the ConnectWise Manage API.
+authenticating as a ConnectWise **API Member**: `CW_COMPANY_ID` + `CW_PUBLIC_KEY` +
+`CW_PRIVATE_KEY` (the composite Basic credential) plus `CW_CLIENT_ID` (the developer-portal
+clientId header), with `CW_SITE` selecting your region or on-prem host. Credentials are
+read from the environment only - never written to disk by the skill, never logged, never
+sent anywhere except your ConnectWise Manage instance. The API Member's **security role**
+is the real permission boundary - the CLI can only do what that role allows.
 
 ## Default-safe behavior
 
