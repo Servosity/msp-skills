@@ -86,6 +86,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "mspbots",
+      "source": "./skills/mspbots",
+      "description": "The first MSPbots tool anywhere  -  readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
+      "version": "4.22.0",
+      "category": "analytics",
+      "tags": [
+        "mspbots",
+        "analytics",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

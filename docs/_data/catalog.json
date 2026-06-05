@@ -1,5 +1,5 @@
 {
-  "count": 4,
+  "count": 5,
   "connectors": [
     {
       "slug": "connectwise-manage",
@@ -24,6 +24,14 @@
       "category": "CRM",
       "verification": "live-verified",
       "url": "/skills/hubspot/"
+    },
+    {
+      "slug": "mspbots",
+      "display_name": "MSPbots",
+      "tagline": "Pull datasets, snapshot KPIs, and track ticket backlog trends by asking.",
+      "category": "Analytics",
+      "verification": "awaiting",
+      "url": "/skills/mspbots/"
     },
     {
       "slug": "servosity",
