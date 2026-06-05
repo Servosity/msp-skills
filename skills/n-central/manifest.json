@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "n-central-pp-mcp",
+  "display_name": "N-central",
+  "version": "4.22.0",
+  "description": "Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, issue-triage rollups, and a JWT-expiry guardian no other N-central tool has.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/n-central-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/n-central-pp-mcp",
+      "args": [],
+      "env": {
+        "NCENTRAL_JWT": "${user_config.ncentral_jwt}"
+      }
+    }
+  },
+  "user_config": {
+    "ncentral_jwt": {
+      "type": "string",
+      "title": "NCENTRAL_JWT",
+      "description": "Sets NCENTRAL_JWT for the N-central MCP server.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}
