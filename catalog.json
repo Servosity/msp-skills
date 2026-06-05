@@ -56,7 +56,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)",
       "install_mcp_doc": "skills/halopsa/mcp-install.md",
       "description": "Add HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local SQLite mirror so cross-entity queries the live API can't return are fast and offline.",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "PSA",
       "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking."
     },
@@ -75,7 +75,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)",
       "install_mcp_doc": "skills/hubspot/mcp-install.md",
       "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "CRM",
       "tagline": "Pipeline health, stale deals, and owner workload for every client by asking."
     },

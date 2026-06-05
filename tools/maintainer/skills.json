@@ -39,10 +39,10 @@
       "cli_hash_at_release": "sha256:c56723a048fe5d2a5b7f9167d4239f04af6efa23c6369a349885013fd8034712",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
+        "status": "live-verified",
+        "date": "2026-06-05",
+        "source": "self",
+        "evidence": "Damien: verified live (2026-06-05)"
       },
       "category": "PSA",
       "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.",
@@ -65,10 +65,10 @@
       "cli_hash_at_release": "sha256:50cc2d03171acd1232def91fc8fa118aa68feff37236f83d5bb429c4ef0a41e7",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
+        "status": "live-verified",
+        "date": "2026-06-05",
+        "source": "self",
+        "evidence": "Damien: verified live against the Servosity HubSpot portal (2026-06-05)"
       }
     },
     "msp-skills-concierge": {
