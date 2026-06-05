@@ -125,36 +125,54 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 
 ### Authenticate
 
-Set the credentials the CLI needs (from your ConnectWise Manage portal):
+Set the credentials the CLI needs - an **API Member** with public/private keys from your Manage instance (System > Members > API Members) plus a **clientId** from the [ConnectWise developer portal](https://developer.connectwise.com):
 
 ```bash
-CW_CLIENT_ID=<value> connectwise-manage-cli doctor
+export CW_COMPANY_ID=<your company id>
+export CW_PUBLIC_KEY=<api member public key>
+export CW_PRIVATE_KEY=<api member private key>
+export CW_CLIENT_ID=<clientid from developer.connectwise.com>
+export CW_SITE=<region host, e.g. api-na.myconnectwise.net, or your on-prem host>
+connectwise-manage-cli doctor
 ```
 
-`doctor` confirms the credentials work before you run anything that touches data.
+`doctor` confirms the credentials work before you run anything that touches data. The API Member's security role is the permission boundary - scope it to what you want the AI to reach.
 
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `connectwise-manage-cli ...` |
+| Which tickets did we touch this week that have zero time logged? | `connectwise-manage-cli unbilled --since 7d` |
+| Which clients are about to blow through their block-hours agreement? | `connectwise-manage-cli agreement-burn --period 30d` |
+| What does the Help Desk board look like right now - age, owner, priority? | `connectwise-manage-cli board "Help Desk"` |
+| Which open tickets has nobody touched in five days? | `connectwise-manage-cli stale --days 5` |
+| Who has bandwidth for the next ticket? | `connectwise-manage-cli workload` |
+| Which tickets are sitting unassigned? | `connectwise-manage-cli board "Help Desk" --unassigned` |
+| Everything about one client - contacts, agreements, configurations, open tickets? | `connectwise-manage-cli account AcmeCorp` |
+| Write me a valid conditions filter for the API | `connectwise-manage-cli condition build --field board/name --op = --value "Help Desk"` |
 
--->
+Beyond the views: the full ConnectWise PSA REST surface (service, time, company, finance, project, sales, procurement, system) is exposed as typed subcommands - `service get-tickets`, `time post-entries`, `company get-companies` and hundreds more - every one also available as an MCP tool.
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most ConnectWise Manage integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most ConnectWise Manage integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "which tickets did we close across every client this month with no time logged against them" - and every live call has to thread the strict conditions syntax, where one wrong quote returns silently empty results.
 
-This skill syncs ConnectWise Manage into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs ConnectWise Manage into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `unbilled`, `account`, and `agreement-burn` join across tickets, time entries, companies, contacts, agreements, and configurations - work a stateless API wrapper can't do. And when you do need a live filtered query, `condition build` assembles a validated conditions expression so the API call is right the first time.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+Unlogged time is direct revenue leakage. MSP consultancy Bering McKinley prices the cost plainly - "lost billable hours, lower profitability, bad decision-making caused by incomplete data, and unhappy clients" - and third-party reviews call time entry the most consistently reported ConnectWise pain point in the MSP community. Techs close tickets without entering time, and nobody notices until the invoice run, because Manage has no single view that joins closed tickets to their logged hours. The same export-to-Excel reflex shows up for agreement burn and client-360 questions: the data is in the PSA, but composing it across entities means portal screen after portal screen or a paid BI add-on.
+
+What this skill does about it:
+
+- `connectwise-manage-cli unbilled --since 7d` - tickets you touched or closed this week with zero (or under-threshold) hours logged. Run it before every billing cutoff.
+- `connectwise-manage-cli agreement-burn --period 30d` - hours consumed vs allotment per agreement, with an over-limit flag. Spot the unprofitable client before they blow the block.
+- `connectwise-manage-cli stale --days 5` - open tickets rotting with no update, oldest first. The daily board-hygiene pass.
+- `connectwise-manage-cli workload` - open count and oldest age per tech, so the next ticket goes to whoever is lightest.
+- `connectwise-manage-cli account AcmeCorp` - the five-screen client picture in one card.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -176,12 +194,21 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Will this hit my ConnectWise API rate limits?
+
+The local mirror exists so reads stop hitting the API. After the first sync, the cross-entity views (`unbilled`, `account`, `agreement-burn`, `board`, `stale`, `workload`) run against local SQLite with zero API calls. Live calls respect a `--rate-limit` throttle, and sync is incremental - it only fetches what changed since the last checkpoint.
+
+### Is this for ConnectWise PSA or ConnectWise Manage?
+
+Same product - ConnectWise renamed Manage to ConnectWise PSA. This skill targets the Manage REST API (`v4_6_release/apis/3.0`), which is the API both names refer to. It does **not** cover ConnectWise Automate - that's a separate product with a separate API.
+
+### Does it work with on-premises ConnectWise Manage?
+
+Yes. `CW_SITE` accepts your own server's hostname as well as the cloud region hosts; the CLI builds the standard `v4_6_release/apis/3.0` base URL either way.
+
+### Will this replace my ConnectWise portal?
+
+No - and it isn't trying to. The portal stays best for in-app workflows like drag-and-drop dispatch and invoice editing. This skill brings the PSA's data to whichever AI agent you already use, and answers the cross-entity questions no single portal screen composes.
 
 ### What does it cost?
 
@@ -189,15 +216,14 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
+| Read | `unbilled`, `account`, `agreement-burn`, `board`, `stale`, `workload`, `search`, any `get-*` | Allow |
+| Write (routine) | `time post-entries`, `service post-tickets`, `service patch-tickets-by-id`, `company patch-companies-by-id` | Preview with `--dry-run` (opt-in, not a default), then a reviewed write |
+| Destructive | `service delete-tickets-by-id`, `company delete-companies-by-id`, `company delete-configurations-bulk` | Human-in-the-loop only |
+| Credential / security | `system post-members-by-member-identifier-tokens`, `company post-contacts-request-password` | Human-in-the-loop only |
 
--->
+Writes are **not gated in the binary by default** - `--dry-run` previews a request without sending, but it's a flag your agent must pass. Put the gate in your agent's policy: preview, show the exact command, get approval, then run.
 
 The strongest control is the **scope you grant the ConnectWise Manage credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -209,4 +235,4 @@ Beta. Validated against the ConnectWise Manage API surface and being validated w
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-05._
