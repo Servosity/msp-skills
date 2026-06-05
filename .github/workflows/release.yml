@@ -17,17 +17,29 @@ env:
 
 jobs:
   # The build matrix is COMPUTED from the repo (tools/maintainer/skills.json + introspection
-  # of each skills/<slug>/cli/). Adding a skill needs no edit here.
+  # of each skills/<slug>/cli/). Adding a skill needs no edit here. The matrix
+  # is scoped to THE SKILL THE TAG NAMES (one tag = one skill x 6 targets) -
+  # unscoped, every tag would spawn a no-op matrix job per skill x platform,
+  # which at fleet scale is hundreds of wasted checkouts per release. An
+  # unknown slug yields an empty matrix and the build job skips entirely; the
+  # per-row tag_skill guard below stays as second-layer defense.
   prepare:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.gen.outputs.matrix }}
+      any: ${{ steps.gen.outputs.any }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Compute build matrix
         id: gen
-        run: echo "matrix=$(python3 tools/maintainer/release_matrix.py)" >> "$GITHUB_OUTPUT"
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          matrix="$(python3 tools/maintainer/release_matrix.py --tag "$TAG")"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "any=$(printf '%s' "$matrix" | python3 -c 'import json,sys; print(str(len(json.load(sys.stdin)["skill"])>0).lower())')" >> "$GITHUB_OUTPUT"
 
   # Create the GitHub Release once, before the matrix build jobs upload to it.
   create-release:
@@ -47,6 +59,7 @@ jobs:
 
   build:
     needs: [prepare, create-release]
+    if: needs.prepare.outputs.any == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
