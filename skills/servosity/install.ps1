@@ -19,16 +19,23 @@ $Repo  = if ($env:MSP_SKILLS_REPO)  { $env:MSP_SKILLS_REPO }  else { "msp-skills
 $ReleaseBase = if ($env:MSP_SKILLS_RELEASE_BASE) {
   $env:MSP_SKILLS_RELEASE_BASE
 } else {
-  # Each skill is versioned/tagged independently (halopsa-vX.Y.Z, servosity-vX.Y.Z),
+  # Each skill is versioned/tagged independently (servosity-vX.Y.Z),
   # so resolve THIS skill's latest release rather than the repo-wide /releases/latest/
   # (GitHub allows only one "latest" per repo). The releases API returns newest-first.
-  $rels = Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repo/releases?per_page=100" -UseBasicParsing
-  $tag = ($rels | Where-Object { $_.tag_name -like "$Skill-v*" } | Select-Object -First 1).tag_name
+  # Paginate: with many skills releasing independently, this skill's newest
+  # tag can sit beyond the first 100 repo releases.
+  $tag = $null
+  for ($page = 1; $page -le 5 -and -not $tag; $page++) {
+    $rels = Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repo/releases?per_page=100&page=$page" -UseBasicParsing
+    if (-not $rels) { break }
+    $tag = ($rels | Where-Object { $_.tag_name -like "$Skill-v*" } | Select-Object -First 1).tag_name
+  }
   if (-not $tag) { throw "No $Skill-v* release found in $Owner/$Repo. Has the first release been published?" }
   "https://github.com/$Owner/$Repo/releases/download/$tag"
 }
 $InstallDir = if ($env:INSTALL_DIR) { $env:INSTALL_DIR } else { "$env:LOCALAPPDATA\Programs\msp-skills" }
 
+# Detect arch.
 $arch = "amd64"
 if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { $arch = "arm64" }
 
@@ -57,6 +64,7 @@ function Get-File {
 Get-File -Url $cliUrl -Dest (Join-Path $InstallDir $CliBin)
 Get-File -Url $mcpUrl -Dest (Join-Path $InstallDir $McpBin)
 
+# Add to user PATH if not present.
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
 if ($userPath -notlike "*$InstallDir*") {
   $newPath = if ([string]::IsNullOrEmpty($userPath)) { $InstallDir } else { "$userPath;$InstallDir" }
@@ -74,5 +82,5 @@ Write-Host "Verify (in a new terminal):"
 Write-Host "  servosity-cli --version"
 Write-Host ""
 Write-Host "Next:"
-Write-Host "  Read skills\servosity\README.md for first command + auth."
-Write-Host "  For Claude Desktop or ChatGPT Desktop, read skills\servosity\mcp-install.md."
+Write-Host "  First command + auth: https://github.com/$Owner/$Repo/tree/main/skills/servosity#readme"
+Write-Host "  Claude Desktop / ChatGPT wire-up: https://github.com/$Owner/$Repo/blob/main/skills/servosity/mcp-install.md"

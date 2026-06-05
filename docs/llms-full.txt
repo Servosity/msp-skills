@@ -40,15 +40,17 @@ Page: https://msp-skills.compoundingteams.com/skills/connectwise-manage/
 Badge: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-manage/install.sh)
 
+MSPs run ConnectWise PSA (Manage) as the system of record - tickets, time, agreements, billing. Ask your AI "what's rotting on the board," "which closed tickets have no time logged," or "how burned is that block-hours agreement," and get answers the portal can't compose: cross-entity joins across tickets, time, agreements, and configurations, computed offline from a local mirror in one query instead of five portal screens and an Excel export.
+
 Outcomes (question -> command your AI agent runs):
-- 
-- 
-- 
-- 
-- 
-- 
-- 
-- 
+- Which tickets did we touch this week that have zero time logged against them? -> connectwise-manage-cli unbilled --since 7d
+- Which clients are about to blow through their block-hours agreement? -> connectwise-manage-cli agreement-burn --period 30d
+- What does the Help Desk board look like right now - age, owner, priority? -> connectwise-manage-cli board "Help Desk"
+- Which open tickets has nobody touched in five days? -> connectwise-manage-cli stale --days 5
+- Who has bandwidth for the next ticket? -> connectwise-manage-cli workload
+- Which tickets are sitting unassigned on the board? -> connectwise-manage-cli board "Help Desk" --unassigned
+- Everything we know about one client - contacts, agreements, configurations, open tickets? -> connectwise-manage-cli account AcmeCorp
+- Write me a valid conditions filter for open Help Desk tickets -> connectwise-manage-cli condition build --field board/name --op = --value "Help Desk" --field closedFlag --op = --value false
 
 FAQ:
 Q: Does this work with ChatGPT?
@@ -76,19 +78,35 @@ Page: https://msp-skills.compoundingteams.com/skills/halopsa/
 Badge: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)
 
-Live-verified - confirmed by a real MSP against a live HaloPSA tenant (2026-06-05).
+MSPs run HaloPSA as the service desk - tickets, SLAs, contracts, and the queue that never stops. Ask your AI "what's about to breach SLA," "who's overloaded," or "what's the whole story for this client," and get an answer the portal can't compose in one shot: cross-entity rollups across tickets, clients, contracts, time, and assets, joined offline in one query instead of clicking through five tabs. A local SQLite mirror means QBR-time questions don't hit rate limits.
 
 Outcomes (question -> command your AI agent runs):
-- What's about to breach SLA in the next 24 hours? -> halopsa-cli sla breaching --within 24h
-- What's the dispatcher view across all agents and teams? -> halopsa-cli triage --team Support
-- Who's overloaded right now? -> halopsa-cli agent workload
-- What's the whole story for this client, on one screen? -> halopsa-cli client card "Acme Corp"
-- How much contract time is left across every contract? -> halopsa-cli contracts burn
-- Which clients have stale tickets aging out? -> halopsa-cli tickets age-out
-- What changed in Halo since this morning? -> halopsa-cli tickets changed-since 9:00
-- Which KB article should the tech link to? -> halopsa-cli kbarticle suggest <ticket>
+- What's about to breach SLA in the next 24 hours? -> halopsa-cli sla breaching --within 24h --team Support --json
+- What's the dispatcher view across all agents and teams? -> halopsa-cli triage --team Support --json
+- Who's overloaded right now? -> halopsa-cli agent workload --team Support --json
+- What's the whole story for this client, on one screen? -> halopsa-cli client card "Acme Corp" --json
+- How much contract time is left, and who's tracking over their bank? -> halopsa-cli contracts burn --client "Acme Corp" --month current --json
+- Which clients have stale tickets aging out that I should close? -> halopsa-cli tickets age-out --status "Awaiting Customer" --stale-days 14 --action-note "Auto-closing per policy" --apply
+- What changed in Halo since this morning while I was in a meeting? -> halopsa-cli tickets changed-since 09:00 --mine --json
+- Which KB article should the tech link to for this ticket? -> halopsa-cli kbarticle suggest --ticket 12345 --limit 5
 
-Governance: Permission tiers: Read, Write (routine), Destructive / config.
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on Plus, Pro, Team, Business, Enterprise, and Education plans (the Free tier does not yet expose Developer Mode). ChatGPT connects to remote MCP servers over HTTPS, not local stdio binaries, so you expose the local HaloPSA MCP server via the mcp-remote bridge or your own HTTPS endpoint. Step-by-step in mcp-install.md.
+Q: Do I need to know how to code?
+A: No. The recommended install is to paste one sentence into Claude Code or Codex and your agent reads SKILL.md and does the install. The fallback is a one-line installer per OS (bash or PowerShell). You enter your HaloPSA API credentials once.
+Q: Is my HaloPSA data safe?
+A: Your data stays on your machine. The CLI and MCP server are local binaries and the SQLite mirror sits under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment, never bundled into this repo or transmitted anywhere by MSP Skills.
+Q: Will this hit my HaloPSA API rate limits?
+A: Almost never. HaloPSA's rate limits aren't publicly documented and vary between cloud-hosted and self-hosted instances. The skill syncs once with sync --full, then incrementally; subsequent triage, SLA, client-card, and cross-client queries run against the local mirror, not the live API. The big-batch queries that get you 429'd with API-passthrough tools become one SQL join here.
+Q: How is this different from HaloPSA's built-in ChatGPT integration?
+A: HaloPSA's built-in integration is great for single-ticket work - rewriting replies, summarizing one ticket, sentiment-flagging. This skill is the cross-client analytics and MSP-owner-on-the-couch layer: questions across thousands of tickets, multi-system queries that join HaloPSA with other tools, and ad-hoc reports HaloPSA's UI doesn't surface. The two complement; you don't pick one.
+Q: Can I run this on Windows?
+A: Yes. The PowerShell installer is the Windows path, and the CLI and MCP binaries are native Windows builds. Cline users on Windows may need a small npx workaround documented in docs/which-agent.md.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use (Claude, ChatGPT, Codex, and so on), billed by your AI provider, not by us.
+
+Governance: The skill drives the halopsa-cli and halopsa-mcp binaries, authenticating to your own HaloPSA tenant with an OAuth2 client-credentials application you create at Configuration > Integrations > Halo PSA API. Credentials (HALOPSA_CLIENT_ID, HALOPSA_CLIENT_SECRET, HALOPSA_TENANT) are read from the environment only - never written to disk, never logged, never sent anywhere except your Halo endpoint. Read commands (triage, sla breaching, client card, contracts burn, and the other cross-entity views) read and aggregate; they cannot change Halo state. Writes are not gated by a built-in confirmation: --dry-run is an opt-in flag (default off) that previews a request without sending, and --yes is reserved for explicit confirmation of destructive actions, so a raw create or delete sends on first run unless your agent passes --dry-run first. The recommended policy is an agent-level rule: keep autonomous agents to read plus previewed writes, and require a human for anything destructive or configuration-touching. The strongest control is the scope you grant the OAuth application in your Halo tenant - because Halo enforces that scope server-side, the CLI can only do what the application is permitted to do, so a read/report workflow simply should not be granted write or delete permissions.
 
 ### HubSpot (CRM)
 
@@ -96,15 +114,17 @@ Page: https://msp-skills.compoundingteams.com/skills/hubspot/
 Badge: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)
 
+MSPs run HubSpot as the sales CRM - pipeline, deals, quote-chasing. Ask your AI "which deals went cold," "what's my pipeline health," or "who do I call today," and get an answer the portal can't compose: cross-object rollups across deals, contacts, owners, and engagements, computed offline in one query instead of a dozen exports and saved views.
+
 Outcomes (question -> command your AI agent runs):
-- 
-- 
-- 
-- 
-- 
-- 
-- 
-- 
+- Which open deals have gone cold with no engagement in the last three weeks? -> hubspot-cli stale deals --days 21 --owner me
+- Which of my contacts haven't been touched in a month? -> hubspot-cli stale contacts --days 30 --owner me
+- What's my pipeline health right now - per-stage count, dollars, and what's at risk? -> hubspot-cli pipeline-health --idle-days 14
+- How is the open-deal load spread across my reps? -> hubspot-cli owner-load --pipeline default
+- Who should I call today, ranked by stale-days, deal size, and stage? -> hubspot-cli nurture queue --owner me --top 20
+- Which are my top deals by composite score (signal, amount, stage, recency)? -> hubspot-cli deals top --top 5 --owner me
+- What's the full activity trail for a specific deal - every call, email, meeting, note, and task? -> hubspot-cli engagements of deal:456 --since 90d
+- Which meetings were ever Scheduled in a given month, even after they flipped to Completed or No Show? -> hubspot-cli meetings status-report --status scheduled --month 2026-04
 
 FAQ:
 Q: Does this work with ChatGPT?
@@ -135,16 +155,32 @@ Page: https://msp-skills.compoundingteams.com/skills/servosity/
 Badge: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
 
-Add fleet-wide backup triage, stale-backup-set detection, overnight drift, per-client situational awareness, and cross-engine analytics to the AI you already use - Claude Code, Claude Desktop, ChatGPT (Plus/Pro+), Codex, Cursor, Windsurf, Cline, Continue, Gemini, or GitHub Copilot. Free, open source, runs on your laptop. A local fleet mirror means your AI can answer cross-client questions the partner portal can't show on one screen - Friday-email-ready in seconds. Built for MSP partners. No code required.
+MSPs run Servosity as the backup and DR platform - M365, DR Server, and DR Desktop protection across a whole book of clients. Ask your AI "what needs my attention this morning," "which backups went stale," or "what changed overnight," and get an answer the partner portal can't show on one screen: cross-engine, cross-client rollups computed against a local fleet mirror in one query instead of clicking through per-client pages, three backup engine views, and an alert queue full of noise.
 
 Outcomes (question -> command your AI agent runs):
 - What needs my attention across every client this morning? -> servosity-cli attention
-- Which backups went stale across all clients? -> servosity-cli stale-backups --days 7
-- What changed across my fleet overnight? -> servosity-cli drift --from yesterday --to now
-- What's the whole story for this client, on one screen? -> servosity-cli company show <id>
-- Search across companies, backups, and issues at once -> servosity-cli find "image manager"
-- Triage what's worth keeping in the alert queue -> servosity-cli triage
-- Clear known-safe alert noise so real failures show -> servosity-cli clear
-- List DR restores in flight -> servosity-cli restore-queue list
+- Which backups went stale across all clients in the last week? -> servosity-cli stale-backups --days 7
+- What changed across my fleet overnight - what got worse and what recovered? -> servosity-cli drift --from yesterday --to now
+- What's the whole story for this client, on one screen? -> servosity-cli company show 4421
+- Where do I find that client, issue, or backup when I remember a phrase but not which one? -> servosity-cli find "image manager"
+- Which backup engine is failing where for a client running multiple engines? -> servosity-cli backup-facts --company 4421 --status fail
+- What's worth keeping in the alert queue, and what known-safe noise can I clear? -> servosity-cli triage --company 4421
+- Which DR restores are in flight across my whole book right now? -> servosity-cli restore-queue list
 
-Governance: Permission tiers: Read, Write (routine), Credential / security, Destructive, Admin (hidden).
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on Plus, Pro, Team, Business, Enterprise, and Education plans (the Free tier does not yet expose Developer Mode). ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Servosity MCP server via the mcp-remote bridge or your own HTTPS endpoint. Step-by-step in the install guide.
+Q: Do I need to be a Servosity MSP partner?
+A: Yes. The Servosity API surface this skill wraps is the one available to authenticated MSP partners, so you'll need a partner API token from the Servosity partner portal. The skill itself is free; the token is part of your Servosity partner agreement. Not a partner yet? Reach out via servosity.com.
+Q: Will this replace my Servosity partner portal?
+A: No. The portal is still where you do administrative work, configure backups, and onboard clients. This skill makes the portal's data answerable by AI, so morning triage, Friday stale-backup reports, drift checks, and ad-hoc cross-client questions don't require portal archaeology. The portal is unchanged; you're adding a new way to ask the data questions.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent reads SKILL.md and does the install, or run a one-line installer per OS. You enter your Servosity partner token once.
+Q: Is my Servosity and client data safe?
+A: Your data stays on your machine. The CLI and MCP server are local binaries, and the fleet mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. The partner token is read from your environment or your agent's config, never bundled into this repo or transmitted anywhere by MSP Skills, and it is scoped to your reseller account only.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. Servosity does not charge for the API access required to run this skill - the partner-portal API is part of your existing partner agreement. You pay only for whichever AI agent you use, billed by your AI provider.
+Q: Can I run this on Windows?
+A: Yes. There's a PowerShell installer for the Windows path, and the CLI and MCP binaries are native Windows builds.
+
+Governance: The skill drives the servosity-cli and servosity-mcp binaries, authenticating with a single SERVOSITY_MSP_TOKEN you generate in the partner portal - read only from the environment, never written to disk, logged, or sent anywhere except the Servosity API. Every call is scoped to your reseller account; there is no cross-reseller access. Read commands (attention, drift, stale-backups, backup-facts, find, company show, restore-queue list) are always safe and change nothing. Writes split into two classes with different gating. The compound write commands plan by default: triage runs in PLAN mode unless you pass --confirm, and clear and stale-issues default to --dry-run - a plan prints what would change and exits without mutating, and the global --dry-run flag keeps PLAN mode even if --confirm is passed. Raw CRUD writes (notes, comments) use an interactive prompt by default, but --yes (and --agent, which implies --yes) skips that prompt and --dry-run is opt-in, so gate those at your agent's policy: preview with --dry-run, show the exact command, get approval, then run. The recommended policy is to keep autonomous agents to Read plus planned writes and require a human for any Credential, Destructive, or Admin command. The strongest control is scoping the partner token to only the access your workflow needs.

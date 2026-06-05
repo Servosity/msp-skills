@@ -156,8 +156,15 @@ def load_page_data(slug: str, meta: dict, cat: dict) -> dict:
     }
     if page_json.exists():
         pj = json.loads(page_json.read_text())
-        data["intro"] = pj.get("intro", data["intro"])
-        data["outcomes"] = [(o.get("q", ""), o.get("cmd", "")) for o in pj.get("outcomes", [])]
+        # page.json's real keys are outcome_intro / question / command (the
+        # schema render_docs_page.py consumes). The old q/cmd/intro reads
+        # silently returned empty strings and the fallback parser papered
+        # over it - keep the schema in exactly one shape.
+        data["intro"] = pj.get("outcome_intro", data["intro"])
+        data["outcomes"] = [
+            (o.get("question", ""), o.get("command", ""))
+            for o in pj.get("outcomes", [])
+        ]
         data["faqs"] = [(f.get("q", ""), f.get("a", "")) for f in pj.get("faqs", [])]
         data["governance_summary"] = pj.get("governance_summary", "")
         return data

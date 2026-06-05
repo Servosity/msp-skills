@@ -1,7 +1,7 @@
 {
   "name": "halopsa",
   "version": "0.1.1",
-  "description": "Add HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local SQLite mirror so cross-entity queries the live HaloPSA API can't return in one shot are fast and offline. For MSP owners. No code required.",
+  "description": "Add HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local SQLite mirror so cross-entity queries the live API can't return are fast and offline.",
   "author": {
     "name": "Servosity",
     "url": "https://www.servosity.com"
@@ -11,13 +11,8 @@
   "license": "Apache-2.0",
   "keywords": [
     "halopsa",
-    "halo",
     "psa",
     "msp",
-    "ticket-triage",
-    "sla-breach",
-    "client-card",
-    "contracts-burn",
     "mcp",
     "claude-code",
     "claude-mcp"

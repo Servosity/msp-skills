@@ -1,7 +1,7 @@
 {
   "name": "servosity",
   "version": "0.1.1",
-  "description": "Add fleet-wide backup triage, stale-backup detection, and cross-engine analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local fleet mirror with snapshot history so the partner portal's per-page views become one query. For MSP partners.",
+  "description": "Add fleet-wide backup triage, stale-backup detection, and cross-engine analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local fleet mirror with snapshot history so the partner portal's per-page views become one query.",
   "author": {
     "name": "Servosity",
     "url": "https://www.servosity.com"
@@ -11,13 +11,8 @@
   "license": "Apache-2.0",
   "keywords": [
     "servosity",
-    "backup",
-    "bcdr",
-    "disaster-recovery",
+    "backup-dr",
     "msp",
-    "fleet-monitoring",
-    "stale-backup",
-    "cross-engine",
     "mcp",
     "claude-code",
     "claude-mcp"

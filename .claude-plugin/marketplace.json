@@ -31,10 +31,11 @@
       "source": "./skills/connectwise-manage",
       "description": "Every ConnectWise PSA workflow from the terminal  -  with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.",
       "version": "0.1.0",
-      "category": "msp",
+      "category": "psa",
       "tags": [
         "connectwise-manage",
         "connectwise manage",
+        "psa",
         "msp",
         "mcp",
         "claude-code",
@@ -49,11 +50,8 @@
       "category": "psa",
       "tags": [
         "halopsa",
-        "halo",
         "psa",
         "msp",
-        "ticket-automation",
-        "sla",
         "mcp",
         "claude-code",
         "claude-mcp"
@@ -64,10 +62,10 @@
       "source": "./skills/hubspot",
       "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
       "version": "0.1.0",
-      "category": "msp",
+      "category": "crm",
       "tags": [
         "hubspot",
-        "hubspot",
+        "crm",
         "msp",
         "mcp",
         "claude-code",
@@ -82,11 +80,8 @@
       "category": "backup-dr",
       "tags": [
         "servosity",
-        "backup",
-        "bcdr",
-        "disaster-recovery",
+        "backup-dr",
         "msp",
-        "fleet-monitoring",
         "mcp",
         "claude-code",
         "claude-mcp"

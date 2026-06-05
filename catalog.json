@@ -94,7 +94,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)",
       "install_mcp_doc": "skills/servosity/mcp-install.md",
       "description": "Add fleet-wide backup triage, stale-backup detection, and cross-engine analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local fleet mirror with snapshot history so the partner portal's per-page views become one query.",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "Backup/DR",
       "tagline": "Backup status, failures, and QBR-ready history for every client by asking."
     }

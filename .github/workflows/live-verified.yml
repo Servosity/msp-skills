@@ -133,7 +133,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tools/maintainer/skills.json catalog.json README.md docs/_data/pending.json 2>/dev/null || true
+          git add tools/maintainer/skills.json catalog.json README.md docs/_data/catalog.json docs/skills/ docs/_data/pending.json 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "No changes to commit (already live-verified?)."
             exit 0
@@ -164,7 +164,7 @@ jobs:
               --evidence "$EVIDENCE" \
               || echo "verify_live returned non-zero (already verified?) - continuing to diff check"
             python3 tools/maintainer/build-catalog.py
-            git add tools/maintainer/skills.json catalog.json README.md docs/_data/pending.json 2>/dev/null || true
+            git add tools/maintainer/skills.json catalog.json README.md docs/_data/catalog.json docs/skills/ docs/_data/pending.json 2>/dev/null || true
             if git diff --cached --quiet; then
               echo "now in sync after peer commit - nothing left to push"
               exit 0

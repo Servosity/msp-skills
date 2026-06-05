@@ -1,7 +1,7 @@
 ---
 layout: default
-title: "MCP Servers for MSPs - Connect HaloPSA, Backup, RMM to Claude, ChatGPT, Copilot"
-description: "Free MCP servers and Skills that connect your PSA, RMM, backup, and more to the AI you already use - Claude, ChatGPT, Copilot, Codex. Local SQLite mirror, runs on your machine, no data leaves your network. Built for MSP owners. No code required."
+title: "MCP Servers for MSPs - Connect ConnectWise, HaloPSA, HubSpot, Backup to Claude, ChatGPT, Copilot"
+description: "Free MCP servers and Skills that connect ConnectWise PSA, HaloPSA, HubSpot, and Servosity backup to the AI you already use - Claude, ChatGPT, Copilot, Codex. Local SQLite mirror, no data leaves your network. Built for MSP owners. No code required."
 permalink: /
 ---
 
@@ -9,7 +9,7 @@ permalink: /
 
 MCP servers and Skills that connect your PSA, RMM, backup, and more to the AI you already use.
 
-Ask your AI a plain-English question about your stack and get a real answer back - no exports, no dashboards, no developer experience required. Every connector is **free, open source, and runs on your own machine**: it keeps a local SQLite copy of your tool's data so cross-client questions the live API can't answer in one shot come back instantly, and **no data leaves your network**. HaloPSA and Servosity are live today; more PSA, RMM, backup, and M365 connectors are being built every week.
+Ask your AI a plain-English question about your stack and get a real answer back - no exports, no dashboards, no developer experience required. Every connector is **free, open source, and runs on your own machine**: it keeps a local SQLite copy of your tool's data so cross-client questions the live API can't answer in one shot come back instantly, and **no data leaves your network**. {{ site.data.catalog.count }} connectors are live today - {% for c in site.data.catalog.connectors %}{% if forloop.last and forloop.length > 1 %}and {% endif %}{{ c.display_name }}{% unless forloop.last %}, {% endunless %}{% endfor %} - and more PSA, RMM, backup, and M365 connectors ship every week.
 
 {% include instead-of.html
    instead="exporting three reports and pivoting them in Excel"
@@ -68,10 +68,7 @@ The six agents MSP owners actually use (self-serve, works today):
 
 ## What's in the box
 
-| Connector | What it does | Install |
-| --- | --- | --- |
-| [HaloPSA →](/skills/halopsa/) | Ticket triage, SLA-breach pre-emption, per-client situational awareness, cross-client analytics. Local SQLite mirror so QBR-time questions don't hit rate limits. | [/skills/halopsa →](/skills/halopsa/) |
-| [Servosity →](/skills/servosity/) | Fleet-wide backup triage, stale-backup detection, overnight drift, cross-engine analytics. Local fleet mirror - Friday-email-ready in seconds. | [/skills/servosity →](/skills/servosity/) |
+{% include skill-table.html %}
 
 New to the term? [What is an MCP server? →](/what-is-an-mcp-server/)
 
@@ -95,35 +92,13 @@ You don't have to switch agents. Same package, two interfaces: a **Skill** for C
 
 ### MSP owner first, not developer first
 
-You don't have to know JSON, regex, or what "stdio transport" means. Paste one sentence into Claude Code or Codex and your agent reads the Skill, installs the binary, and walks you through authentication. The CLIs **plan by default** - mutations show you what they would do before they do it. Every command has a tier (read / write / destructive) and a recommended agent policy. The hard stuff is hidden; the safety bar is high.
+You don't have to know JSON, regex, or what "stdio transport" means. Paste one sentence into Claude Code or Codex and your agent reads the Skill, installs the binary, and walks you through authentication. Every command has a tier (read / write / destructive) and a recommended agent policy in each skill's `governance.md` - reads are always safe, and the recommended agent rule is to preview writes with `--dry-run` and require your approval before any mutation. The hard stuff is hidden; the safety bar is high.
 
 ## Install in 60 seconds
 
-### Path A - let your AI install it (recommended)
+{% include install-examples.html %}
 
-Paste this into **Claude Code** or **Codex CLI**:
-
-> Set up the **HaloPSA** skill from https://github.com/servosity/msp-skills - read `skills/halopsa/SKILL.md`, run its install steps, then run `halopsa-cli --version` to confirm. Walk me through authentication.
-
-Swap `halopsa` for `servosity` to install the Servosity connector.
-
-### Path B - run the installer yourself
-
-**HaloPSA on macOS / Linux:**
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)
-```
-
-**HaloPSA on Windows (PowerShell):**
-
-```powershell
-iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.ps1 | iex
-```
-
-Swap `halopsa` for `servosity` in either command. New to all this? See the [first-time setup guide →](/guides/first-time-setup/).
-
-> **Now what?** Once `halopsa-cli --version` or `servosity-cli doctor` returns clean, **bring your tenant + your hardest cross-client question to a free [Build Session](https://compoundingteams.com/build-sessions)** - we'll work it live with the MSP cohort and the same connectors you just installed.
+> **Now what?** Once your connector's `--version` (or `doctor`) returns clean, **bring your tenant + your hardest cross-client question to a free [Build Session](https://compoundingteams.com/build-sessions)** - we'll work it live with the MSP cohort and the same connectors you just installed.
 
 ## Frequently asked questions
 
@@ -139,13 +114,13 @@ Yes - **Claude Code**, **Claude Desktop**, and the **Claude.ai** web (via Claude
 
 No. The recommended install path is to paste one sentence into Claude Code or Codex - your agent reads `SKILL.md` and does the install. The fallback is a one-line installer per OS (bash or PowerShell). Neither path requires writing code, editing JSON in a text editor, or installing Node, Python, Docker, or a database. You will need to enter API credentials your PSA or backup tool gives you.
 
-### Is my HaloPSA or Servosity data safe? Does it leave my network?
+### Is my PSA, CRM, or backup data safe? Does it leave my network?
 
 Your data stays on **your machine**. Each connector runs locally: the CLI and the MCP server are binaries on your laptop. The SQLite mirror sits in a local directory under your user account. The AI agent (Claude, ChatGPT, Codex) only sees what the CLI or MCP server returns - typically the result of a query, not raw bulk data. Credentials are read from your environment or your agent's config; they're never bundled into the repo or transmitted to our servers (there are none).
 
-### Will this hit my HaloPSA API rate limits?
+### Will this hit my vendor's API rate limits?
 
-Almost never. HaloPSA's rate limits aren't publicly documented and vary between cloud-hosted and self-hosted instances. The HaloPSA connector syncs your data into a local SQLite mirror once, then incrementally; subsequent questions (triage, SLA breaches, client cards, cross-client analytics) run against the local mirror, not the live API. The big-batch QBR queries that get you 429'd with API-passthrough tools become a single SQL join here.
+Almost never. Each connector syncs your data into a local SQLite mirror once, then incrementally; subsequent questions (triage, SLA breaches, client cards, cross-client analytics) run against the local mirror, not the live API. The big-batch QBR queries that get you 429'd with API-passthrough tools become a single SQL join here.
 
 ### How is this different from my vendor's built-in AI?
 
@@ -161,11 +136,11 @@ The Skills, the CLI binaries, and the MCP servers are **free**. Apache-2.0 licen
 
 ### Can I try it on one client first?
 
-Yes. Every command takes a client / company filter (e.g. `halopsa-cli client card "Acme Corp"`, `servosity-cli company show 4421`). Read-tier commands plan nothing and change nothing; you can try them against your live system safely. Write-tier commands run `--dry-run` until you pass `--confirm`. The safe starting move is a read-only triage against one client, see the output, then widen scope.
+Yes. Every command takes a client / company filter (e.g. `halopsa-cli client card "Acme Corp"`, `servosity-cli company show 4421`). Read-tier commands change nothing; you can try them against your live system safely. For writes, each skill's `governance.md` tags every command read / write / destructive with a recommended agent policy - the safe agent rule is to preview with `--dry-run` and require your approval before any mutation. The safe starting move is a read-only triage against one client, see the output, then widen scope.
 
 ### What if my AI doesn't speak MCP?
 
-If your AI doesn't yet support MCP and isn't Claude Code / Codex CLI (which read SKILL.md directly), these connectors won't fit yet. The CLI binaries (`halopsa-cli`, `servosity-cli`) still work standalone in a shell - you can pipe their output into anything. As more AI tools add MCP (the protocol is moving fast in 2026), they'll work automatically without anything changing on our side.
+If your AI doesn't yet support MCP and isn't Claude Code / Codex CLI (which read SKILL.md directly), these connectors won't fit yet. Every connector's CLI binary still works standalone in a shell - you can pipe its output into anything. As more AI tools add MCP (the protocol is moving fast in 2026), they'll work automatically without anything changing on our side.
 
 ## Built and verified in Build Sessions
 

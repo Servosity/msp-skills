@@ -2,6 +2,15 @@
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the HaloPSA, HaloITSM, and HaloCRM APIs. Not affiliated with, endorsed by, or sponsored by Halo Service Solutions Ltd. HaloPSA, HaloITSM, and HaloCRM are trademarks of Halo Service Solutions Ltd.
 
+<!-- media:start -->
+<p align="center">
+  <a href="https://msp-skills.compoundingteams.com/skills/halopsa/">
+    <img src="../../docs/assets/video/halopsa/animated-og.gif" alt="HaloPSA demo - animated preview" width="600">
+  </a>
+</p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/halopsa/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
+<!-- media:end -->
+
 Add **HaloPSA ticket triage, SLA-breach pre-emption, per-client situational awareness, and cross-client analytics** to the AI you already use - **Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A local SQLite mirror means your AI can answer cross-client questions the live Halo API can't return in one shot - no rate-limit hits during QBR prep. Built for MSP owners. No code required.
 
 ## Works with your agent

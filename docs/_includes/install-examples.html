@@ -1,0 +1,39 @@
+{%- comment -%}
+"Install in 60 seconds" - Path A (paste a prompt) + Path B (run the installer),
+rendered from docs/_data/catalog.json so the examples always cover the featured
+connectors and the swap-the-slug line always matches the live catalog. The
+agent-decides prompt leads: most visitors don't yet know which connector fits.
+
+Emits markdown (Liquid runs before kramdown).
+{%- endcomment %}
+{%- assign featured = site.data.catalog.featured | slice: 0, 2 %}
+
+### Path A - let your AI install it (recommended)
+
+**Not sure which connector to pick? Let your agent decide.** Paste this into **Claude Code**, **Codex CLI**, or **Claude Cowork**:
+
+> Read https://github.com/Servosity/msp-skills and, using everything you know about me and how my MSP works, recommend which connectors I should install - then install the ones I approve.
+
+{% for f in featured -%}
+{% if forloop.first %}**Or install a specific connector.** The **{{ f.display_name }}** prompt:{% else %}And the **{{ f.display_name }}** prompt:{% endif %}
+
+> Install the {{ f.display_name }} Skill and MCP server from Servosity/msp-skills in this agent workspace. If this workspace uses a POSIX shell (macOS, Linux, WSL, or Bash), run `bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/{{ f.skill_dir }}/install.sh)`. If it uses Windows PowerShell, run `iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/{{ f.skill_dir }}/install.ps1 | iex`. {{ f.install_auth_hint }} and run `{{ f.cli_binary }} --help` to explore.
+
+{% endfor -%}
+The same prompt works for **every connector in the table above** - swap the skill name and slug. If your agent can't run shell, use Path B below.
+
+### Path B - run the installer yourself
+
+**{{ featured[0].display_name }} on macOS / Linux:**
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/{{ featured[0].skill_dir }}/install.sh)
+```
+
+**{{ featured[0].display_name }} on Windows (PowerShell):**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/{{ featured[0].skill_dir }}/install.ps1 | iex
+```
+
+Swap `{{ featured[0].slug }}` for any connector's slug from the table above ({% for c in site.data.catalog.connectors %}`{{ c.slug }}`{% unless forloop.last %}, {% endunless %}{% endfor %}). New to all this? See the [first-time setup guide →](/guides/first-time-setup/).
