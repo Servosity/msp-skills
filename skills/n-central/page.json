@@ -53,7 +53,7 @@
     },
     {
       "question": "Every device, exported for the QBR or your documentation tool",
-      "command": "n-central-cli export devices --format jsonl"
+      "command": "n-central-cli export \"devices\" --format jsonl"
     }
   ],
   "different_vs_wrappers": "Most N-central integrations proxy each question into live REST calls - which means org-tree pagination, per-endpoint concurrency caps, and a JWT that dies silently on password rotation. This skill syncs the org tree (service orgs, customers, sites, devices) into a local SQLite mirror: whereis and fanout answer from it instantly and offline, across as many N-central servers as you run; triage, props audit, and maint coverage sweep live data customer by customer without you scripting the pagination; and guardian turns the silent auth failure mode into a CI-wireable warning.",

@@ -79,7 +79,7 @@ N-central knows every device you manage - and answering "where is that machine" 
 | Which devices have no maintenance window before the June 15 patch wave? | `n-central-cli maint coverage --before 2026-06-15` |
 | Is the JWT healthy, and when does the API user's password kill it? | `n-central-cli guardian --password-set 2026-03-01` |
 | Hardware and software inventory for one device | `n-central-cli devices assets 987654321` |
-| Every device, exported for the QBR or your documentation tool | `n-central-cli export devices --format jsonl` |
+| Every device, exported for the QBR or your documentation tool | `n-central-cli export "devices" --format jsonl` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/n-central/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/n-central/guide.md).
 

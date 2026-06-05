@@ -1,6 +1,6 @@
 ---
 name: n-central
-description: "Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search Trigger phrases: `triage n-central issues`, `where is device`, `audit custom properties`, `search across n-central servers`, `check n-central jwt`, `use n-central`, `run n-central`."
+description: "Use when the user asks to find a device in N-able N-central, run the morning NOC triage sweep, search across N-central servers, audit custom-property or maintenance-window coverage, check N-central API health or JWT expiry, pull device inventory, or export org-tree data. Wraps the N-central REST API plus an offline SQLite mirror with cross-tenant search. Trigger phrases: `where is this device in n-central`, `triage n-central issues`, `what's red in n-central`, `audit custom properties`, `search across n-central servers`, `check n-central jwt`, `N-central + ChatGPT`, `N-central + Claude`, `use n-central`, `run n-central-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "N-able N-central"
@@ -11,32 +11,26 @@ metadata:
     requires:
       bins:
         - n-central-cli
-    install:
-      - kind: go
-        bins: [n-central-cli]
-        module: github.com/mvanhorn/printing-press-library/library/developer-tools/n-central/cmd/n-central-cli
 ---
 
-# N-central  -  Printing Press CLI
+# N-able N-central Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `n-central-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install n-central --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/n-central/install.sh)
    ```
-2. Verify: `n-central-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/n-central/install.ps1 | iex
+   ```
+3. Verify: `n-central-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/developer-tools/n-central/cmd/n-central-cli@latest
-```
-
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 A single cross-platform binary for N-able N-central. It mirrors service orgs, customers, sites, devices, active issues, and custom properties into local SQLite so you can search and SQL across every tenant offline. It matches the 87-tool community MCP server's REST coverage and beats it with `fanout` cross-server search, `triage` issue rollups, `props audit` custom-property coverage, and a `guardian` that kills the silent JWT/password-expiry outage.
 
@@ -74,7 +68,7 @@ These capabilities aren't available in any other tool for this API.
 
 ### Local state that compounds
 
-- **`props audit`**  -  Report which devices or org units are missing a required custom-property value, as a coverage percentage grouped by customer.
+- **`props audit`**  -  Report which devices are missing a required custom-property value, as a coverage percentage grouped by customer.
 
   _Reach for this when custom properties drive automation and you need coverage, not a manual CSV spot-check._
 
@@ -146,7 +140,7 @@ These capabilities aren't available in any other tool for this API.
 **server**  -  Server info and health.
 
 - `n-central-cli server health`  -  Return the start and current time of the server (lightweight reachability check).
-- `n-central-cli server info`  -  Return version information for the N-central API service and systems.
+- `n-central-cli server get`  -  Return version information for the N-central API service and systems.
 
 **service-orgs**  -  Service Organizations  -  the top level of the N-central org tree.
 
@@ -231,7 +225,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  n-central-cli access-groups mock-value --agent --select id,name,status
+  n-central-cli access-groups 550e8400-e29b-41d4-a716-446655440000 --agent --select id,name,status
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
@@ -283,7 +277,7 @@ A profile is a saved set of flag values, reused across invocations. Use it when 
 
 ```
 n-central-cli profile save briefing --json
-n-central-cli --profile briefing access-groups mock-value
+n-central-cli --profile briefing access-groups 550e8400-e29b-41d4-a716-446655440000
 n-central-cli profile list --json
 n-central-cli profile show briefing
 n-central-cli profile delete briefing --yes
@@ -325,15 +319,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/developer-tools/n-central/cmd/n-central-mcp@latest
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add n-central-mcp -- n-central-mcp
-   ```
-3. Verify: `claude mcp list`
+The installer above drops `n-central-mcp` alongside the CLI. Register it:
+
+```bash
+claude mcp add n-central-mcp -- n-central-mcp
+```
+
+Verify: `claude mcp list`
 
 ## Direct Use
 

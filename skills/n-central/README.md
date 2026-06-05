@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/n-central/">
-    <img src="../../docs/assets/social/n-central/wide-1200x630.png" alt="N-able N-central - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/n-central/animated-og.gif" alt="N-able N-central demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/n-central/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/n-central/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, issue-triage rollups, and a JWT-expiry guardian no other N-central tool has. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
@@ -154,7 +154,7 @@ NCENTRAL_JWT=<value> n-central-cli doctor
 | Which devices have no maintenance window before the patch wave? | `n-central-cli maint coverage --before 2026-06-15` |
 | Is the JWT healthy, and when does the API user's password kill it? | `n-central-cli guardian --password-set 2026-03-01` |
 | Hardware and software inventory for one device | `n-central-cli devices assets 987654321` |
-| Every device, exported for the QBR or your documentation tool | `n-central-cli export devices --format jsonl` |
+| Every device, exported for the QBR or your documentation tool | `n-central-cli export "devices" --format jsonl` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 

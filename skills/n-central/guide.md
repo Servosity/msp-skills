@@ -7,119 +7,7 @@ A single cross-platform binary for N-able N-central. It mirrors service orgs, cu
 Created by [@dstevens](https://github.com/dstevens) (Damien Stevens).
 Contributors: [@DamienStevens](https://github.com/DamienStevens) (Damien Stevens).
 
-## Install
-
-The recommended path installs both the `n-central-cli` binary and the `pp-n-central` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
-
-```bash
-npx -y @mvanhorn/printing-press-library install n-central
-```
-
-For CLI only (no skill):
-
-```bash
-npx -y @mvanhorn/printing-press-library install n-central --cli-only
-```
-
-For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
-
-```bash
-npx -y @mvanhorn/printing-press-library install n-central --skill-only
-```
-
-To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
-
-```bash
-npx -y @mvanhorn/printing-press-library install n-central --agent claude-code
-npx -y @mvanhorn/printing-press-library install n-central --agent claude-code --agent codex
-```
-
-### Without Node (Go fallback)
-
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/developer-tools/n-central/cmd/n-central-cli@latest
-```
-
-This installs the CLI only  -  no skill.
-
-### Pre-built binary
-
-Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/n-central-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
-
-<!-- pp-hermes-install-anchor -->
-## Install for Hermes
-
-Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
-
-```bash
-npx -y @mvanhorn/printing-press-library install n-central --cli-only
-```
-
-Then install the focused Hermes skill.
-
-From the Hermes CLI:
-
-```bash
-hermes skills install mvanhorn/printing-press-library/cli-skills/pp-n-central --force
-```
-
-Inside a Hermes chat session:
-
-```bash
-/skills install mvanhorn/printing-press-library/cli-skills/pp-n-central --force
-```
-
-Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
-
-## Install for OpenClaw
-Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
-
-```bash
-npx -y @mvanhorn/printing-press-library install n-central --agent openclaw
-```
-
-Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
-
-## Use with Claude Desktop
-
-This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
-
-To install:
-
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/n-central-current).
-2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `NCENTRAL_JWT` when Claude Desktop prompts you.
-
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
-
-<details>
-<summary>Manual JSON config (advanced)</summary>
-
-If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
-
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/developer-tools/n-central/cmd/n-central-mcp@latest
-```
-
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "n-central": {
-      "command": "n-central-mcp",
-      "env": {
-        "NCENTRAL_JWT": "<your-key>"
-      }
-    }
-  }
-}
-```
-
-</details>
+For the short install path see [README.md](./README.md). This file is the command reference.
 
 ## Authentication
 
@@ -175,7 +63,7 @@ These capabilities aren't available in any other tool for this API.
 
 ### Local state that compounds
 
-- **`props audit`**  -  Report which devices or org units are missing a required custom-property value, as a coverage percentage grouped by customer.
+- **`props audit`**  -  Report which devices are missing a required custom-property value, as a coverage percentage grouped by customer.
 
   _Reach for this when custom properties drive automation and you need coverage, not a manual CSV spot-check._
 
@@ -308,7 +196,7 @@ Scheduled tasks  -  run scripts/automation policies on devices and track them.
 Server info and health.
 
 - **`n-central-cli server health`** - Return the start and current time of the server (lightweight reachability check).
-- **`n-central-cli server info`** - Return version information for the N-central API service and systems.
+- **`n-central-cli server get`** - Return version information for the N-central API service and systems.
 
 ### service-orgs
 
@@ -336,19 +224,19 @@ N-central users.
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-n-central-cli access-groups mock-value
+n-central-cli access-groups 550e8400-e29b-41d4-a716-446655440000
 
 # JSON for scripting and agents
-n-central-cli access-groups mock-value --json
+n-central-cli access-groups 550e8400-e29b-41d4-a716-446655440000 --json
 
 # Filter to specific fields
-n-central-cli access-groups mock-value --json --select id,name,status
+n-central-cli access-groups 550e8400-e29b-41d4-a716-446655440000 --json --select id,name,status
 
 # Dry run  -  show the request without sending
-n-central-cli access-groups mock-value --dry-run
+n-central-cli access-groups 550e8400-e29b-41d4-a716-446655440000 --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-n-central-cli access-groups mock-value --agent
+n-central-cli access-groups 550e8400-e29b-41d4-a716-446655440000 --agent
 ```
 
 ## Agent Usage

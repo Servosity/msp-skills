@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Servosity/n-central-mcp",
   "title": "N-able N-central MCP",
-  "description": "Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant",
+  "description": "N-central REST API with an offline org-tree mirror, cross-tenant search, and a JWT-expiry guardian.",
   "version": "0.1.0",
   "icons": [
     {

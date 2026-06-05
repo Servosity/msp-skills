@@ -14,7 +14,7 @@ import (
 func main() {
 	s := server.NewMCPServer(
 		"N-central",
-		"1.0.0",
+		"0.1.0",
 		server.WithToolCapabilities(false),
 	)
 

@@ -103,7 +103,7 @@
       "category": "RMM",
       "display_name": "N-able N-central",
       "tagline": "Find any device, triage issues, and search across every client by asking.",
-      "cli_hash": "sha256:a0b19782ad9548e031a9177015868da0d16ac9c23436c4ae75edd3eea7f4816f",
+      "cli_hash": "sha256:201711890131225f157b48bbe856281d97a695cd8384b8578dfe8020aa4c73f3",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,
