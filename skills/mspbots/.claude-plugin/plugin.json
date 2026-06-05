@@ -1,7 +1,7 @@
 {
   "name": "mspbots",
-  "version": "4.22.0",
-  "description": "The first MSPbots tool anywhere  -  readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
+  "version": "0.1.0",
+  "description": "The first MSPbots tool anywhere \u2014 readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
   "author": {
     "name": "Servosity",
     "url": "https://www.servosity.com"

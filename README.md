@@ -88,7 +88,8 @@ Outcomes, not hype - drawn from each of the 5 connectors' skill pages:
 | What's the dispatcher view across all agents and teams? | halopsa | `halopsa-cli triage --team Support --json` |
 | Which open deals have gone cold with no engagement in the last three weeks? | hubspot | `hubspot-cli stale deals --days 21 --owner me` |
 | Which of my contacts haven't been touched in a month? | hubspot | `hubspot-cli stale contacts --days 30 --owner me` |
-| TODO: question an MSP keeps asking | mspbots | `mspbots-cli TODO` |
+| Is our open-ticket backlog up or down versus last week? | mspbots | `mspbots-cli trend open-tickets --agg count` |
+| What changed in open tickets since the last snapshot - rows added, removed, or edited? | mspbots | `mspbots-cli diff open-tickets` |
 | What needs my attention across every client this morning? | servosity | `servosity-cli attention` |
 | Which backups went stale across all clients in the last week? | servosity | `servosity-cli stale-backups --days 7` |
 <!-- agent-can-do:end -->
@@ -244,5 +245,5 @@ MSPs are the channel that brings AI to small business. The durable moat is the [
 Built by [Servosity](https://www.servosity.com). Maintained by Damien Stevens. Apache-2.0 licensed. See [TRADEMARKS.md](./TRADEMARKS.md) for vendor non-affiliation and [SECURITY.md](./SECURITY.md) to report a vulnerability. Methodology: [Compounding Teams](https://compoundingteams.com). Generated CLIs and MCP servers built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press).
 
 <!-- footer-releases:start -->
-_Last updated: 2026-06-05. Latest releases: [connectwise-manage-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/connectwise-manage-v0.1.0) · [halopsa-v0.1.1](https://github.com/servosity/msp-skills/releases/tag/halopsa-v0.1.1) · [hubspot-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/hubspot-v0.1.0) · [mspbots-v4.22.0](https://github.com/servosity/msp-skills/releases/tag/mspbots-v4.22.0) · [servosity-v0.1.1](https://github.com/servosity/msp-skills/releases/tag/servosity-v0.1.1)._
+_Last updated: 2026-06-05. Latest releases: [connectwise-manage-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/connectwise-manage-v0.1.0) · [halopsa-v0.1.1](https://github.com/servosity/msp-skills/releases/tag/halopsa-v0.1.1) · [hubspot-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/hubspot-v0.1.0) · [mspbots-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/mspbots-v0.1.0) · [servosity-v0.1.1](https://github.com/servosity/msp-skills/releases/tag/servosity-v0.1.1)._
 <!-- footer-releases:end -->

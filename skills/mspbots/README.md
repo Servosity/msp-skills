@@ -1,7 +1,7 @@
 # MSPbots + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the MSPbots
-> API. Not affiliated with, endorsed by, or sponsored by MSPbots, Inc..
+> API. Not affiliated with, endorsed by, or sponsored by MSPbots, Inc.
 
 <!-- media:start -->
 <p align="center">
@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download MSPbots MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/mspbots-v4.22.0/mspbots-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every MSPbots release on the [releases page](https://github.com/servosity/msp-skills/releases?q=mspbots).)
+[**Download MSPbots MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/mspbots-v0.1.0/mspbots-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every MSPbots release on the [releases page](https://github.com/servosity/msp-skills/releases?q=mspbots).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -145,25 +145,36 @@ MSPBOTS_API_KEY=<value> mspbots-cli doctor
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `mspbots-cli ...` |
-
--->
+| Is our open-ticket backlog up or down versus last week? | `mspbots-cli trend open-tickets --agg count` |
+| What changed in open tickets since the last snapshot? | `mspbots-cli diff open-tickets` |
+| Pull the open tickets updated since June 1 | `mspbots-cli pull open-tickets --where "Update Date >= 2026-06-01"` |
+| What columns does this dataset have, and what types? | `mspbots-cli describe open-tickets` |
+| Export the entire dataset to CSV for the QBR deck | `mspbots-cli export open-tickets --format csv` |
+| Capture today's KPI snapshot (schedule it - history accrues) | `mspbots-cli snapshot open-tickets` |
+| Stop pasting 19-digit IDs - name the dataset once | `mspbots-cli registry add open-tickets 1534956341424005122` |
+| Are my API key and resource bindings working? | `mspbots-cli doctor` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most MSPbots integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+There was no MSPbots tool to be different *from* - before this skill there was no published CLI, SDK, or MCP server for the MSPbots Public API anywhere. And a thin wrapper would inherit everything painful about that API: two endpoints, 19-digit resource IDs, comma-encoded filters, no list endpoint, no metadata, no history. It dies the moment you ask "is our backlog up or down versus last week" - the API only knows *now*.
 
-This skill syncs MSPbots into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill adds the missing layers locally. `registry add` gives resources names instead of snowflake IDs. `pull --where "Update Date >= 2026-06-01"` compiles readable predicates into the wire DSL. `export` walks every page automatically. And `snapshot` + `diff` + `trend` keep timestamped copies in a **local SQLite store** - the KPI history MSPbots itself doesn't keep, computed offline with zero API calls.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+MSPbots' own Public API documentation (the wiki.mspbots.ai Public API article, archived April 2024) describes the entire programmatic surface: two GET endpoints, resource IDs copied one at a time out of Settings > Public API, filters encoded as comma-rules in query params, rate limits with unspecified numbers, and intermittent HTTP 502s on heavy widget fetches. No history, no enumeration, no tooling - not even a curl gist.
+
+So the ops manager who lives in MSPbots dashboards keeps the week-over-week column by hand: screenshot the widget on Monday, paste the count into a spreadsheet, repeat. The trend dies the week someone forgets.
+
+- `mspbots-cli snapshot open-tickets` - capture a timestamped copy of any dataset or widget into local SQLite. Schedule it and history accrues.
+- `mspbots-cli trend open-tickets --agg count` - the week-over-week answer, computed from your snapshots, offline.
+- `mspbots-cli diff open-tickets` - row-level added/removed/changed between any two snapshots.
+- `mspbots-cli pull open-tickets --where "Update Date >= 2026-06-01"` - readable filters compiled into the comma-encoded DSL, correct the first time.
+- `mspbots-cli export open-tickets --format csv` - the full table, auto-paginated, with an honest partial-dump flag when a page cap is hit.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +196,25 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Can this write to MSPbots?
+
+No. The MSPbots Public API is read-only - datasets and widgets out, nothing in. The only things this skill writes are local: alias registrations, snapshots, and the sync cache in your own SQLite store. No command can change anything in your MSPbots tenant.
+
+### What credentials do I need?
+
+An MSPbots API key: an admin creates it at **Settings > Public API** in the MSPbots app and binds each dataset or widget to it. Set `MSPBOTS_API_KEY` in your environment or run `mspbots-cli auth set-token`. The binding is the permission boundary - the key can only read resources explicitly bound to it, and the global Enable Public API toggle gates everything.
+
+### Why do I register datasets before pulling them?
+
+The Public API has no list endpoint - it cannot tell you what is bound to your key. You copy each resource ID from Settings > Public API once, register it with `mspbots-cli registry add open-tickets <resourceId>`, and every other command accepts the alias from then on.
+
+### Will this hit MSPbots rate limits?
+
+The API documents rate limits without publishing numbers. The CLI ships a `--rate-limit` throttle, `export` bounds its page-walking with `--max-pages` and reports when the cap was hit, and the history questions (`trend`, `diff`) run entirely against local snapshots - zero API calls after capture.
+
+### Does it support widgets as well as datasets?
+
+Yes - `pull`, `export`, `snapshot`, `describe`, and `registry add` all accept `--type widget`. One documented exception inherited from the API: widgets with measure or calculate layers are not supported by the Public API itself.
 
 ### What does it cost?
 
@@ -198,15 +222,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read (live API) | `mspbots-cli pull`, `export`, `describe`, `dataset`, `widget`, `doctor` | Allow |
+| Local-only writes (never touch the tenant) | `mspbots-cli registry add`, `snapshot`, `sync` - all writes land in your local SQLite store; the API has no write endpoint | Allow - safe to schedule |
+| Credentials / local config | `mspbots-cli auth set-token`, `auth logout`, `registry rm` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the MSPbots credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +238,4 @@ Beta. Validated against the MSPbots API surface and being validated with MSPs ru
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-05._
