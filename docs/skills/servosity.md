@@ -11,7 +11,11 @@ image: /assets/social/servosity/wide-1200x630.png
 
 > Published by Servosity Inc. for MSP partners. Servosity is a trademark of Servosity Inc. Apache-2.0 licensed.
 
-Add **fleet-wide backup triage, stale-backup-set detection, overnight drift, per-client situational awareness, and cross-engine analytics** to the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. A **local fleet mirror** means your AI can answer cross-client questions the partner portal can't show on one screen - **Friday-email-ready in seconds**. Built for MSP partners. No code required.
+**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+
+Add **fleet-wide backup triage, stale-backup-set detection, overnight drift, per-client situational awareness, and cross-engine analytics** to the AI you already use - **Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A **local fleet mirror** means your AI can answer cross-client questions the partner portal can't show on one screen - **Friday-email-ready in seconds**. Built for MSP partners. No code required.
+
+New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)
 
 [Install in 60s →](#install){: .btn .btn-primary} &nbsp; [View on GitHub →](https://github.com/servosity/msp-skills/tree/main/skills/servosity){: .btn}
 
@@ -53,14 +57,9 @@ Backup and DR is where "silent failure" hurts most:
 | --- | --- |
 | **Claude Desktop** | [Step-by-step →](/integrations/claude-desktop/) |
 | **ChatGPT** (Plus/Pro+) | [Step-by-step →](/integrations/chatgpt/) |
-| **Codex CLI** | [Step-by-step →](/integrations/codex/) |
 | **Claude Code** | [Step-by-step →](/integrations/claude-code/) |
-| **Claude Cowork** | [Step-by-step →](/integrations/cowork/) |
-| **GitHub Copilot** (VS Code) | [Step-by-step →](/integrations/github-copilot/) |
-| **Microsoft 365 Copilot / Copilot Studio** | [Step-by-step →](/integrations/microsoft-365-copilot/) (remote) |
-| **Google Gemini** | [Step-by-step →](/integrations/gemini/) |
-| **Hermes**, **OpenClaw** | [Hermes →](/integrations/hermes/) · [OpenClaw →](/integrations/openclaw/) |
-| Cursor, Windsurf, Cline, Continue, Zed | [Which agent? →](/which-agent/) |
+| **Codex CLI** | [Step-by-step →](/integrations/codex/) |
+| Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](/which-agent/) |
 
 **Quickest path** (terminal):
 
@@ -89,7 +88,7 @@ SERVOSITY_MSP_TOKEN=<token> servosity-cli doctor
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | `attention`, `drift`, `stale-backups`, `backup-facts`, `find`, `company show`, `restore-queue list` | Allow |
-| Write (routine) | `triage`, `clear`, `stale-issues`, notes/comments | Allow with `--confirm`; log the plan first |
+| Write (routine) | `triage`, `clear`, `stale-issues`, notes/comments | Compound commands: review the PLAN, then `--confirm`. Raw CRUD: preview with `--dry-run`, approve, never blanket `--yes` |
 | Credential / security | credentials rotate/delete, MFA, agent-install-token, encryption-key update | Human-in-the-loop only |
 | Destructive | `companies delete`, `backups delete`, restic-prune, `users delete` | Human-in-the-loop only |
 | Admin (hidden) | `admin ...` | Operator-only, not for agents |

@@ -1,6 +1,8 @@
-# MSP Skills - HaloPSA and Servosity, for the AI you already use
+# Run your MSP tools by asking - MCP servers and Skills for the AI you already use
 
-**MSP Skills** installs natural-language AI tools for **HaloPSA tickets** and **Servosity backups** directly into **Claude**, **ChatGPT**, **Codex**, **Cursor**, **Windsurf**, or any AI agent that speaks MCP. Free, open source, runs on your laptop. A local SQLite mirror lets your agent answer cross-client questions the live API can't return in one shot - no rate-limit hits, no per-tech SaaS fee, no data leaves your network. Built for MSP owners. No developer experience required.
+**MSP Skills** connects your PSA, RMM, backup, and more to the AI you already use - **Claude**, **ChatGPT**, **Codex**, **Cursor**, **Windsurf**, or any agent that speaks MCP. Ask a plain-English question about your stack and get a real answer back. HaloPSA and Servosity are live today (more PSA, RMM, backup, and M365 connectors ship every week). Free, open source, runs on your laptop. A local SQLite mirror lets your agent answer cross-client questions the live API can't return in one shot - no rate-limit hits, no per-tech SaaS fee, no data leaves your network. Built for MSP owners. No developer experience required.
+
+> **New to the term?** What this repo calls an **MCP server** is what ChatGPT calls an *app* or *connector*, Claude on the web calls a *connector*, Microsoft Copilot calls a *connector*, and Claude Code calls a *Skill*. Same standard underneath: the [Model Context Protocol](https://modelcontextprotocol.io). Full plain-language answer: **[What is an MCP server?](https://msp-skills.compoundingteams.com/what-is-an-mcp-server/)**.
 
 > 🛠 **Built live with MSPs.** Join a free weekly **Build Session** at **[compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions)** to watch a Skill built against a real MSP system - or bring your own.
 
@@ -12,25 +14,17 @@
 
 ## Works with your agent
 
-The six agents MSP owners actually use (self-serve, works today):
+The five agents MSP owners actually use:
 
 | Your AI agent | Why MSPs use it | How to install MSP Skills |
 | --- | --- | --- |
 | **Claude Desktop** (Mac/Windows app) | The most common MSP-owner choice - no terminal, just a chat window | Run installer, then Settings > Extensions to register the MCP server |
 | **ChatGPT** (paid plans) | The brand most MSPs already pay for; pair with Developer Mode | Run installer, expose MCP over HTTPS, register as a Developer Mode connector |
-| **Codex CLI** (OpenAI) | OpenAI's terminal agent for the same audience | Paste the install prompt below |
 | **Claude Code** (CLI) | For the technical-leaning MSP owner or your senior tech | Paste the install prompt below |
+| **Codex CLI** (OpenAI) | OpenAI's terminal agent for the same audience | Paste the install prompt below |
 | **Claude Cowork** (Anthropic, GA Mar 2026) | Desktop agent that runs shell on your behalf | Paste the install prompt below |
-| **GitHub Copilot** (VS Code) | The Microsoft surface that runs the local binary today, in Agent mode | Run installer, add to `mcp.json` under the `servers` key, pick Agent mode |
 
-**Microsoft & Google paths** - big install base, but the honest remote / enterprise route (not the local binary):
-
-| Your AI agent | What it takes |
-| --- | --- |
-| **Microsoft 365 Copilot / Copilot Studio** | Remote only: host the MCP server over HTTPS, wire via Copilot Studio (license) or a declarative agent (tenant admin). See [docs/which-agent.md](./docs/which-agent.md#microsoft-365-copilot--copilot-studio). |
-| **Google Gemini** | Gemini CLI is local (like Claude Code); the Gemini app is remote (like ChatGPT). See [docs/which-agent.md](./docs/which-agent.md#google-gemini). |
-
-> **Skill-native agents (secondary):** [Hermes](https://hermes-agent.nousresearch.com) and OpenClaw read the skill's `SKILL.md` directly *and* speak MCP. **Also works with** Cursor, Windsurf, Cline, Continue.dev, and Zed. MSP Skills speaks the open MCP standard, so any current or future MCP-capable agent can use it. Full per-tool deep-dive: **[docs/which-agent.md](./docs/which-agent.md)**.
+> **Also works with** Cursor, Windsurf, Cline, Continue.dev, Zed, GitHub Copilot, and Gemini CLI. MSP Skills speaks the open MCP standard, so any current or future MCP-capable agent can use it. Full per-tool deep-dive: **[docs/which-agent.md](./docs/which-agent.md)**.
 
 > **Run more than one agent?** Install MSP Skills across all 51+ supported agents at once: `npx skills add Servosity/msp-skills@latest` (requires Node.js, then run the per-skill installer for the CLI/MCP binaries). Details in [docs/which-agent.md](./docs/which-agent.md#install-across-all-your-agents-at-once).
 
@@ -39,9 +33,10 @@ The six agents MSP owners actually use (self-serve, works today):
 <!-- catalog:start -->
 | Skill | System | Status | Install |
 | --- | --- | --- | --- |
-| [halopsa](./skills/halopsa) | HaloPSA, HaloITSM, HaloCRM | ![Tested](https://img.shields.io/badge/Tested-by_MSPs-2E7D32) | [Install](./skills/halopsa/README.md) |
-| [hubspot](./skills/hubspot) | HubSpot CRM: contacts, companies, deals, tickets, engagements | ![Tested](https://img.shields.io/badge/Tested-by_MSPs-2E7D32) | [Install](./skills/hubspot/README.md) |
-| [servosity](./skills/servosity) | Servosity backup and DR | ![Tested](https://img.shields.io/badge/Tested-by_MSPs-2E7D32) | [Install](./skills/servosity/README.md) |
+| [msp-skills-concierge](./skills/_meta) | Connector recommendations + guided install for the msp-skills catalog | ![Meta](https://img.shields.io/badge/Meta-skill-6B7280) | [Marketplace](./skills/_meta/README.md) |
+| [halopsa](./skills/halopsa) | HaloPSA, HaloITSM, HaloCRM | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/halopsa/README.md) |
+| [hubspot](./skills/hubspot) | HubSpot CRM: contacts, companies, deals, tickets, engagements | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/hubspot/README.md) |
+| [servosity](./skills/servosity) | Servosity backup and DR | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/servosity/README.md) |
 <!-- catalog:end -->
 
 > **About status badges.** `Tested` means at least one MSP has run this skill against a real production tenant and it worked. `Untested` (yellow) means the skill was generated, the gates passed, and we shipped it - but no MSP has driven it against live data yet. Untested skills may have rough edges; **feedback is valuable** - open an issue if something breaks.

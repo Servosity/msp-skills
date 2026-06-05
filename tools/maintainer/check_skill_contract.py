@@ -18,11 +18,18 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import registry  # noqa: E402  (local tools/ module)
+
 ROOT = Path(__file__).resolve().parent.parent.parent
 SKILLS_DIR = ROOT / "skills"
 
 REQUIRED_FRONTMATTER = ["name", "description", "allowed-tools", "author", "license", "vendor"]
 REQUIRED_FILES = ["SKILL.md", "README.md", "manifest.json", "install.sh", "install.ps1", "mcp-install.md"]
+# A markdown-only skill (no vendored Go cli/) ships no installers, no manifest,
+# and no MCP wire-up doc - it is markdown-thin. Only SKILL.md + README.md are
+# required, with the same frontmatter keys and README banner.
+REQUIRED_FILES_MARKDOWN_ONLY = ["SKILL.md", "README.md"]
 
 
 def frontmatter_keys(skill_md: Path) -> set[str]:
@@ -69,7 +76,13 @@ def main() -> int:
 
     for d in skill_dirs:
         name = d.name
-        for f in REQUIRED_FILES:
+        slug = registry.slug_for_dir(name)
+        required = (
+            REQUIRED_FILES_MARKDOWN_ONLY
+            if registry.is_markdown_only(slug)
+            else REQUIRED_FILES
+        )
+        for f in required:
             if not (d / f).exists():
                 errors.append(f"{name}: missing required file {f}")
 

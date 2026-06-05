@@ -80,7 +80,7 @@ def scan_file(path: Path, violations: list[str]) -> None:
 def main() -> int:
     violations: list[str] = []
     for slug in sorted(registry.skills()):
-        skill_dir = SKILLS_DIR / slug
+        skill_dir = registry.skill_path(slug)
         for fname in SCAN_FILES:
             fpath = skill_dir / fname
             if fpath.exists():

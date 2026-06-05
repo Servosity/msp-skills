@@ -1,53 +1,27 @@
 # MSP Skills
 
-> Free Claude Code skills + MCP servers for HaloPSA tickets and Servosity backups. Works with Claude, ChatGPT (Plus/Pro+), Codex, Cursor, Windsurf, Cline, Continue, Gemini, GitHub Copilot, and any AI agent that speaks MCP. Local SQLite mirror so cross-client questions don't hit API rate limits. Built for MSP business owners. No code required. Free, Apache-2.0 licensed.
+> Free MCP servers and Skills that connect your MSP tools (PSA, RMM, backup, M365, and more) to the AI you already use - Claude, ChatGPT, Copilot, Codex, Cursor, and any agent that speaks the Model Context Protocol. Local SQLite mirror so cross-client questions don't hit API rate limits. Built for MSP business owners. No code required. Apache-2.0 licensed.
 
-MSP Skills is a public GitHub repository (servosity/msp-skills) maintained by Servosity Inc. that ships two Claude Code Skills and MCP servers for two MSP-relevant platforms: **HaloPSA** (a Professional Services Automation / ticketing system) and **Servosity** (a Business Continuity and Disaster Recovery vendor). Each skill includes a CLI binary (`halopsa-cli`, `servosity-cli`) and an MCP server binary (`halopsa-mcp`, `servosity-mcp`), distributed via GitHub Releases for macOS, Linux, and Windows.
+What this site calls an MCP server is what ChatGPT calls an app or connector, Claude on the web and Microsoft Copilot call a connector, and Claude Code calls a Skill - all the same MCP standard. Full answer: https://msp-skills.compoundingteams.com/what-is-an-mcp-server/
 
-The audience is MSP business owners - not developers. Install paths are designed to be runnable by pasting one sentence into Claude Code / Codex (which then handles the install autonomously), or by running a single bash / PowerShell one-liner per OS. No Node, Python, Docker, GPU, or OpenAI key is required to install or run.
+## Connectors
 
-## Skills
+- HaloPSA (PSA) - Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/halopsa/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)
+- HubSpot (CRM) - Pipeline health, stale deals, and owner workload for every client by asking.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/hubspot/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)
+- Concierge (Meta) - Tell it your stack - it recommends and installs the right connectors.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/msp-skills-concierge/
+- Servosity (Backup/DR) - Backup status, failures, and QBR-ready history for every client by asking.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/servosity/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
 
-- [HaloPSA skill](https://github.com/servosity/msp-skills/tree/main/skills/halopsa): HaloPSA, HaloITSM, HaloCRM integration. Wraps the full HaloPSA REST API plus a local SQLite mirror. Outcomes: ticket triage (`halopsa-cli triage`), SLA-breach pre-emption (`halopsa-cli sla breaching --within 24h`), per-client situational-awareness card (`halopsa-cli client card "Acme Corp"`), contract burn-down (`halopsa-cli contracts burn`), agent workload (`halopsa-cli agent workload`). Cross-entity queries that the live HaloPSA API can't return in one shot run against the local mirror - no rate-limit hits during QBR prep.
+## Key pages
 
-- [Servosity skill](https://github.com/servosity/msp-skills/tree/main/skills/servosity): Servosity backup and DR for MSP partners. First-party (published by Servosity Inc.). Wraps the partner API surface plus a local fleet mirror with snapshot history and FTS5 search. Outcomes: fleet-wide attention (`servosity-cli attention`), stale-backup detection (`servosity-cli stale-backups --days 7`), overnight drift (`servosity-cli drift --from yesterday --to now`), per-client backup view (`servosity-cli company show 4421`), cross-engine search (`servosity-cli find "image manager"`).
+- Why msp-skills: https://msp-skills.compoundingteams.com/why/
+- What is an MCP server: https://msp-skills.compoundingteams.com/what-is-an-mcp-server/
+- Which agent: https://msp-skills.compoundingteams.com/which-agent/
+- Full corpus for AI search: https://msp-skills.compoundingteams.com/llms-full.txt
 
-## What makes this different
-
-Most AI integrations for PSA and backup systems proxy each question into a live API call. That's fine for one record but dies at scale - 47 paginated REST calls, rate-limit headaches, and a context window full of raw JSON for cross-client questions. MSP Skills caches into a local SQLite mirror with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer rather than raw data.
-
-## Cross-tool support
-
-MSP Skills speaks the open MCP (Model Context Protocol) standard. The six agents MSP business owners actually use (self-serve, works today): **Claude Desktop** (Mac/Windows app, no terminal), **ChatGPT** (Plus/Pro/Team/Business/Enterprise/Education plans - Free tier does not yet expose Developer Mode; local stdio binaries need an `mcp-remote` HTTPS bridge), **OpenAI Codex CLI**, **Claude Code** (CLI), **Claude Cowork** (Anthropic desktop agent), and **GitHub Copilot in VS Code** (uses the `servers` key, not `mcpServers`; Agent mode only - the local-binary Microsoft surface that works today). Microsoft & Google named paths (remote / enterprise route): **Microsoft 365 Copilot / Copilot Studio** (remote Streamable-HTTP only - host over HTTPS + Copilot Studio license + tenant admin; not self-serve) and **Google Gemini** (Gemini CLI is local; the Gemini app is remote). Skill-native secondary agents (read SKILL.md directly + speak MCP): **Hermes** (via MCP) and **OpenClaw** (GA, frontmatter pre-wired). Also works with **Cursor**, **Windsurf**, **Cline**, **Continue.dev**, and **Zed**. Skills also conform to the open [Agent Skills spec](https://agentskills.io) (40+ agents).
-
-## Install
-
-Three install paths, in order of recommendation:
-
-1. **Paste into Claude Code or Codex** (recommended): "Set up the HaloPSA skill from https://github.com/servosity/msp-skills - read skills/halopsa/SKILL.md, run its install steps, then run `halopsa-cli --version` to confirm. Walk me through authentication." Swap halopsa for servosity for the other skill.
-
-2. **macOS / Linux**: `bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)` (swap `halopsa` for `servosity`).
-
-3. **Windows (PowerShell)**: `iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.ps1 | iex` (swap `halopsa` for `servosity`).
-
-Each installer drops both the CLI binary and the MCP server binary on the user's PATH. Authentication uses platform-issued credentials (HaloPSA OAuth2 client_credentials; Servosity MSP partner API token) and is set via environment variables documented in each skill's README.
-
-## Pricing
-
-Free. Apache-2.0 licensed. Free to use commercially, free to fork. Servosity does not charge for API access required to run the Servosity skill. Other PSA / RMM / backup vendors set their own API-access terms. Users pay only for whichever AI agent they choose (Claude, ChatGPT, Codex, etc.), billed by their AI provider.
-
-## Maintainer
-
-Built by Servosity Inc. (servosity.com). Maintained by Damien Stevens. Tested live with real MSPs in free weekly Build Sessions at compoundingteams.com/build-sessions. Methodology: Compounding Teams. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press).
-
-## Roadmap
-
-Co-built with MSPs in weekly Build Sessions. Targets the community asks for most: M365 governance / Copilot data-exposure pre-check, Autotask PSA, ConnectWise PSA, NinjaOne fleet hygiene, RMM ticket-to-doc (resolution to IT Glue / Hudu), Datto RMM, Kaseya, Atera, Syncro.
-
-## Request a Skill
-
-MSPs can request new Skills by filing a structured GitHub issue at https://github.com/servosity/msp-skills/issues/new?template=skill-request.yml. First-timer guide at https://github.com/servosity/msp-skills/blob/main/docs/requesting-a-skill.md walks through GitHub account creation, the request form, and what happens next.
-
-## License
-
-Apache-2.0. See LICENSE in the repo.

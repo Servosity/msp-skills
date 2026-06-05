@@ -46,10 +46,34 @@ def md_files() -> list[Path]:
             "_layouts", "_includes", "integrations", "skills", "guides"
         ):
             continue
-        if parts == ("docs", "index.md"):
+        # Top-level Jekyll-rendered pages under docs/ (those declaring a
+        # `permalink:` in front matter, e.g. docs/index.md, docs/why-msp-skills.md,
+        # docs/what-is-an-mcp-server.md) link with render-time permalinks like
+        # /why/ that don't resolve on the filesystem. The Jekyll build is the
+        # right gate for those; skip them here. The repo-doc pages at docs/ top
+        # level (which-agent.md, contributing.md, install-*.md, requesting-a-skill.md)
+        # carry NO front matter and link with filesystem-relative paths, so they
+        # stay checked.
+        if parts[:1] == ("docs",) and len(parts) == 2 and _has_jekyll_permalink(p):
             continue
         out.append(p)
     return out
+
+
+def _has_jekyll_permalink(path: Path) -> bool:
+    """True when a markdown file opens with YAML front matter that declares a
+    `permalink:` key (the marker of a Jekyll-rendered page)."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    if not text.startswith("---"):
+        return False
+    end = text.find("\n---", 3)
+    if end == -1:
+        return False
+    front = text[3:end]
+    return any(re.match(r"^permalink:\s*\S", line) for line in front.splitlines())
 
 
 def main() -> int:

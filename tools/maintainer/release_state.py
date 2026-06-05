@@ -43,12 +43,19 @@ PENDING_STATES = ("never-released", "binary-pending", "version-pending")
 
 
 def manifest_version(slug: str) -> str:
-    """Read the "version" field from skills/<slug>/manifest.json (or '0.0.0')."""
-    mf = SKILLS_DIR / slug / "manifest.json"
-    try:
-        return json.loads(mf.read_text(encoding="utf-8")).get("version", "0.0.0")
-    except (OSError, json.JSONDecodeError):
-        return "0.0.0"
+    """Read the skill's version. Binary skills carry it in manifest.json;
+    markdown-only skills have no manifest, so read .claude-plugin/plugin.json.
+    Honors the registry source_dir mapping (slug != on-disk dir)."""
+    sdir = registry.skill_path(slug)
+    candidates = [sdir / "manifest.json"]
+    if registry.is_markdown_only(slug):
+        candidates = [sdir / ".claude-plugin" / "plugin.json"]
+    for path in candidates:
+        try:
+            return json.loads(path.read_text(encoding="utf-8")).get("version", "0.0.0")
+        except (OSError, json.JSONDecodeError):
+            continue
+    return "0.0.0"
 
 
 def _version_tuple(v: str) -> tuple[int, ...]:
@@ -104,7 +111,18 @@ def tag_exists_remote(tag: str) -> bool:
 
 
 def classify(slug: str, remote: bool) -> dict:
-    cli_dir = SKILLS_DIR / slug / "cli"
+    # markdown-only skills have no cli/ to hash and never cut a binary release;
+    # report a terminal "markdown-only" state (never pending).
+    if registry.is_markdown_only(slug):
+        return {
+            "state": "markdown-only",
+            "version": manifest_version(slug),
+            "latest_tag": None,
+            "current_hash": None,
+            "released_hash": None,
+        }
+
+    cli_dir = registry.skill_path(slug) / "cli"
     current = cli_hash.compute_cli_hash(cli_dir) if cli_dir.is_dir() else None
     entry = registry.skills().get(slug, {})
     released = entry.get("cli_hash_at_release")

@@ -1,0 +1,21 @@
+{%- comment -%}
+"Instead of / just ask" block. The point Harold Mann missed: YOUR AGENT runs the
+command, not you. The CLI line is shown small and de-emphasized with that note.
+
+Usage:
+  {% include instead-of.html
+       instead="exporting three reports and pivoting them in Excel"
+       say="Which clients had backup-failure tickets last quarter?"
+       cli="halopsa-cli tickets search --tag backup-failure --since last-quarter" %}
+
+  instead  (required) - the painful old way, no leading capital, no period.
+  say      (required) - the plain-English question the owner asks the AI.
+  cli      (optional) - the command the AGENT runs under the hood.
+{%- endcomment -%}
+<div class="instead-of">
+  <p class="io-instead"><strong>Instead of</strong> {{ include.instead }}...</p>
+  <p class="io-say"><strong>just ask:</strong> &ldquo;{{ include.say }}&rdquo;</p>
+  {%- if include.cli -%}
+  <p class="io-cli"><code>{{ include.cli }}</code><span class="io-cli-note">Your AI agent runs this for you - you never type it.</span></p>
+  {%- endif -%}
+</div>

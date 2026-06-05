@@ -54,7 +54,10 @@ def main() -> int:
             errors.append("a marketplace plugin entry has no 'name'")
             continue
         market_slugs.add(name)
-        expected_source = f"./skills/{name}"
+        # The source points at the on-disk directory, which equals the slug for a
+        # binary skill but may differ for a markdown-only skill that declares a
+        # registry "source_dir" (msp-skills-concierge -> ./skills/_meta).
+        expected_source = f"./skills/{registry.source_dir(name)}"
         source = plugin.get("source")
         if source != expected_source:
             errors.append(

@@ -10,10 +10,10 @@
       "vendor": "HaloPSA",
       "vendor_trademark_owner": "Halo Service Solutions Ltd.",
       "first_party": false,
-      "cli_hash": "sha256:3105a8c3d3ab9cad87740f06cefb8724ed5c929c67292446e6f21167422715c3",
+      "cli_hash": "sha256:c56723a048fe5d2a5b7f9167d4239f04af6efa23c6369a349885013fd8034712",
       "template_version": 2,
       "version": "0.1.1",
-      "cli_hash_at_release": "sha256:3105a8c3d3ab9cad87740f06cefb8724ed5c929c67292446e6f21167422715c3",
+      "cli_hash_at_release": "sha256:c56723a048fe5d2a5b7f9167d4239f04af6efa23c6369a349885013fd8034712",
       "has_video": false,
       "live_verified": {
         "status": "awaiting",
@@ -48,6 +48,21 @@
         "evidence": null
       }
     },
+    "msp-skills-concierge": {
+      "system": "Connector recommendations + guided install for the msp-skills catalog",
+      "status": "beta",
+      "vendor": "Servosity",
+      "vendor_trademark_owner": "Servosity Inc.",
+      "first_party": true,
+      "markdown_only": true,
+      "source_dir": "_meta",
+      "category": "Meta",
+      "display_name": "Concierge",
+      "tagline": "Tell it your stack - it recommends and installs the right connectors.",
+      "template_version": 2,
+      "has_video": false,
+      "live_verified": null
+    },
     "servosity": {
       "system": "Servosity backup and DR",
       "status": "beta",
@@ -56,10 +71,10 @@
       "vendor": "Servosity",
       "vendor_trademark_owner": "Servosity Inc.",
       "first_party": true,
-      "cli_hash": "sha256:6e517d346514da0331be83a46c5414bccb8fbc411f0ad0baa921a8b8457074d3",
+      "cli_hash": "sha256:65cc2e313e5042eb00375d298367e91d650dca2eadeaf87264086a731e9b8995",
       "template_version": 2,
       "version": "0.1.1",
-      "cli_hash_at_release": "sha256:6e517d346514da0331be83a46c5414bccb8fbc411f0ad0baa921a8b8457074d3",
+      "cli_hash_at_release": "sha256:65cc2e313e5042eb00375d298367e91d650dca2eadeaf87264086a731e9b8995",
       "has_video": false,
       "live_verified": {
         "status": "awaiting",

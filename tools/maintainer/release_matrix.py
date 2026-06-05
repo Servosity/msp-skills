@@ -28,6 +28,9 @@ import registry  # noqa: E402  (local tools/ module)
 def skill_entries() -> list[dict]:
     entries = []
     for slug, meta in registry.skills().items():
+        # markdown-only skills have no vendored cli/ - nothing to build or release.
+        if registry.is_markdown_only(slug):
+            continue
         cli_cmd, mcp_cmd = registry.cmd_dirs(slug)
         entries.append(
             {

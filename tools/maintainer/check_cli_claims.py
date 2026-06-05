@@ -607,6 +607,9 @@ def main(argv: list[str]) -> int:
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
         for slug, entry in targets.items():
+            # markdown-only skills have no binary to build or introspect.
+            if registry.is_markdown_only(slug):
+                continue
             binary = build_binary(slug, entry["cli_binary"], tmp)
             if binary is None:
                 findings.append(f"{slug}: CLI build failed (cannot verify claims)")

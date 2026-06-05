@@ -1,9 +1,21 @@
 {%- comment -%}
 JSON-LD structured data for AI search engines (Google AI Overviews, Perplexity,
-Claude Search, ChatGPT search). Two graph nodes per page: Organization for
-Servosity Inc., and either SoftwareApplication or FAQPage depending on the
-page's `type` front matter.
+Claude Search, ChatGPT search). Emits INDEPENDENT nodes in one @graph so a page
+can carry several at once:
+
+  Organization        always.
+  SoftwareApplication when page.skill_name is set (per-skill pages).
+  FAQPage             when page.faqs is set (array of {q, a}).
+  HowTo               when page.howto is set (array of {name, text}).
+  WebPage             fallback only when none of the above are present.
+
+Pipeline-generated docs/skills/*.md pages carry faqs + howto front matter; this
+include is what makes them emit FAQPage + HowTo schema. Careful with JSON
+escaping: every interpolated string runs through `jsonify`.
 {%- endcomment -%}
+
+{%- assign has_specific = false -%}
+{%- if page.skill_name or page.faqs or page.howto -%}{%- assign has_specific = true -%}{%- endif -%}
 
 <script type="application/ld+json">
 {
@@ -18,13 +30,13 @@ page's `type` front matter.
         "https://github.com/servosity",
         "https://compoundingteams.com"
       ]
-    },
-    {%- if page.skill_name -%}
+    }
+    {%- if page.skill_name -%},
     {
       "@type": "SoftwareApplication",
-      "name": "{{ page.skill_name }}",
+      "name": {{ page.skill_name | jsonify }},
       "description": {{ page.description | jsonify }},
-      "applicationCategory": "DeveloperApplication",
+      "applicationCategory": {{ page.category | default: "DeveloperApplication" | jsonify }},
       "operatingSystem": "macOS, Linux, Windows",
       "softwareRequirements": "Model Context Protocol (MCP) compatible AI agent",
       "offers": {
@@ -37,7 +49,8 @@ page's `type` front matter.
       "url": "{{ page.url | absolute_url }}",
       "codeRepository": "https://github.com/servosity/msp-skills"
     }
-    {%- elsif page.faqs -%}
+    {%- endif -%}
+    {%- if page.faqs -%},
     {
       "@type": "FAQPage",
       "mainEntity": [
@@ -50,7 +63,23 @@ page's `type` front matter.
         {%- endfor -%}
       ]
     }
-    {%- else -%}
+    {%- endif -%}
+    {%- if page.howto -%},
+    {
+      "@type": "HowTo",
+      "name": {{ page.title | default: site.title | jsonify }},
+      "step": [
+        {%- for s in page.howto -%}
+        {
+          "@type": "HowToStep",
+          "name": {{ s.name | jsonify }},
+          "text": {{ s.text | jsonify }}
+        }{%- unless forloop.last %},{% endunless -%}
+        {%- endfor -%}
+      ]
+    }
+    {%- endif -%}
+    {%- unless has_specific -%},
     {
       "@type": "WebPage",
       "name": {{ page.title | default: site.title | jsonify }},
@@ -58,7 +87,7 @@ page's `type` front matter.
       "url": "{{ page.url | absolute_url }}",
       "isPartOf": { "@id": "https://www.servosity.com/#organization" }
     }
-    {%- endif -%}
+    {%- endunless -%}
   ]
 }
 </script>

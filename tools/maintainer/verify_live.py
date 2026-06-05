@@ -75,6 +75,12 @@ def cmd_status() -> int:
     headers = ("slug", "status", "date", "source", "evidence")
     rows = []
     for slug, entry in skills.items():
+        # A markdown-only skill (e.g. the concierge) recommends + installs other
+        # connectors; it has no tenant of its own and so cannot be live-verified.
+        # Show "n/a" rather than "awaiting" so it never reads as a pending badge.
+        if entry.get("markdown_only"):
+            rows.append((slug, "n/a", "-", "-", "markdown-only (no tenant to verify)"))
+            continue
         lv = _entry_state(entry)
         rows.append((
             slug,
@@ -111,6 +117,13 @@ def cmd_verify(slug: str, source: str, evidence: str, date: str | None, force: b
     skills = reg.get("skills", {})
     if slug not in skills:
         print(f"verify_live: unknown slug '{slug}'", file=sys.stderr)
+        return 1
+    if skills[slug].get("markdown_only"):
+        print(
+            f"verify_live: refusing '{slug}' - it is markdown-only (no tenant to "
+            "verify against). markdown-only skills are not live-verifiable.",
+            file=sys.stderr,
+        )
         return 1
     if source not in VALID_SOURCES:
         print(
