@@ -98,7 +98,10 @@ done
 
 echo "== Best-effort (warn if tool missing locally) =="
 if command -v shellcheck >/dev/null 2>&1; then
-  mapfile -t shs < <(git ls-files '*.sh' 2>/dev/null || find . -name '*.sh' -not -path './.git/*')
+  # NOT mapfile: macOS ships bash 3.2, where mapfile doesn't exist and the
+  # check silently no-ops. while-read is portable to every bash CI or a Mac runs.
+  shs=()
+  while IFS= read -r f; do shs+=("$f"); done < <(git ls-files '*.sh' 2>/dev/null || find . -name '*.sh' -not -path './.git/*')
   if [ "${#shs[@]}" -gt 0 ] && shellcheck "${shs[@]}" >/tmp/va.out 2>&1; then pass "shellcheck"; else cat /tmp/va.out; fail "shellcheck"; fi
 else
   warn "shellcheck not installed - skipped (CI runs it)"

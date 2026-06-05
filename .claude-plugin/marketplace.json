@@ -27,6 +27,21 @@
       ]
     },
     {
+      "name": "connectwise-manage",
+      "source": "./skills/connectwise-manage",
+      "description": "Every ConnectWise PSA workflow from the terminal  -  with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.",
+      "version": "0.1.0",
+      "category": "msp",
+      "tags": [
+        "connectwise-manage",
+        "connectwise manage",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "halopsa",
       "source": "./skills/halopsa",
       "description": "Add HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local SQLite mirror so cross-entity queries the live API can't return are fast and offline.",
@@ -45,6 +60,21 @@
       ]
     },
     {
+      "name": "hubspot",
+      "source": "./skills/hubspot",
+      "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
+      "version": "0.1.0",
+      "category": "msp",
+      "tags": [
+        "hubspot",
+        "hubspot",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "servosity",
       "source": "./skills/servosity",
       "description": "Add fleet-wide backup triage, stale-backup detection, and cross-engine analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local fleet mirror with snapshot history so the partner portal's per-page views become one query.",
@@ -57,21 +87,6 @@
         "disaster-recovery",
         "msp",
         "fleet-monitoring",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "hubspot",
-      "source": "./skills/hubspot",
-      "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
-      "version": "0.1.0",
-      "category": "msp",
-      "tags": [
-        "hubspot",
-        "hubspot",
-        "msp",
         "mcp",
         "claude-code",
         "claude-mcp"

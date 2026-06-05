@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "connectwise-manage-pp-mcp",
+  "display_name": "ConnectWise PSA",
+  "version": "0.1.0",
+  "description": "Every ConnectWise PSA workflow from the terminal  -  with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/connectwise-manage-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/connectwise-manage-pp-mcp",
+      "args": [],
+      "env": {
+        "CW_CLIENT_ID": "${user_config.cw_client_id}"
+      }
+    }
+  },
+  "user_config": {
+    "cw_client_id": {
+      "type": "string",
+      "title": "CW_CLIENT_ID",
+      "description": "Registered ConnectWise integration clientId GUID from developer.connectwise.com. Sent in the clientId header on every request.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}
