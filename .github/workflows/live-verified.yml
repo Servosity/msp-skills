@@ -17,12 +17,14 @@ permissions:
   contents: write
   issues: write
 
-# Same group as catalog.yml's main/tag writers: both workflows auto-commit to
-# main and would race each other (non-fast-forward) without serialization,
-# e.g. a badge flip landing while a release tag's catalog job is pushing.
-# cancel-in-progress false: a queued badge flip must still run.
+# Per-ISSUE group, deliberately NOT the shared 'main-autocommit' group: badge
+# flips are per-issue and not interchangeable, and GitHub keeps only ONE pending
+# run per group (an older queued flip would be silently replaced by a newer one
+# and that slug would never get badged). The per-issue group still dedupes
+# re-labels of the same issue; races against catalog.yml's pushes to main are
+# handled by the regenerate-on-top push-retry loop below.
 concurrency:
-  group: main-autocommit
+  group: live-verified-${{ github.event.issue.number }}
   cancel-in-progress: false
 
 jobs:
@@ -149,12 +151,18 @@ jobs:
               exit 0
             fi
             echo "push rejected (attempt $attempt) - recompute on top of new main"
-            git fetch origin main
+            git fetch --force --tags origin main
             git reset --hard origin/main
+            # Tolerate exit 1 here: verify_live exits 1 for an already
+            # live-verified slug (e.g. the peer commit that beat us WAS this
+            # badge flip), and set -e would kill the loop before the staged-diff
+            # check below can conclude there is nothing left to push. The diff
+            # check is the real gate.
             python3 tools/maintainer/verify_live.py \
               --slug "$SLUG" \
               --source github \
-              --evidence "$EVIDENCE"
+              --evidence "$EVIDENCE" \
+              || echo "verify_live returned non-zero (already verified?) - continuing to diff check"
             python3 tools/maintainer/build-catalog.py
             git add tools/maintainer/skills.json catalog.json README.md docs/_data/pending.json 2>/dev/null || true
             if git diff --cached --quiet; then

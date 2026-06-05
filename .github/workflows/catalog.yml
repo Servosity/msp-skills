@@ -23,10 +23,13 @@ on:
 permissions:
   contents: write
 
-# Serialize every run that auto-commits derived files to main - this workflow's
-# push/tag runs AND live-verified.yml share the 'main-autocommit' group, because
-# both push to main and would otherwise race (non-fast-forward) when e.g. two
-# release tags land seconds apart. PR runs get a per-PR group instead: they only
+# Serialize this workflow's push/tag runs (the derived-file auto-committers)
+# under one group so two release tags landing seconds apart queue instead of
+# racing non-fast-forward. live-verified.yml deliberately does NOT share this
+# group: its runs are per-issue and NOT interchangeable (GitHub keeps only one
+# pending run per group and replaces older queued runs - fine for idempotent
+# full-regenerations like these, lossy for badge flips). Cross-workflow races
+# are handled by both sides' regenerate-on-top push-retry loops instead. PR runs get a per-PR group instead: they only
 # read (drift gate), and a global group would wrongly serialize unrelated PR
 # checks (GitHub keeps at most ONE pending run per group, replacing older queued
 # runs). cancel-in-progress stays false: each writer run regenerates from the
@@ -98,7 +101,11 @@ jobs:
               exit 0
             fi
             echo "push rejected (attempt $attempt) - refetch and regenerate on top"
-            git fetch origin main
+            # --tags matters: pending.json is DERIVED FROM TAGS, and the peer
+            # commit that beat us may have been a release whose tag we have not
+            # fetched yet - regenerating from stale tags would overwrite the
+            # newer state that just landed.
+            git fetch --force --tags origin main
             git reset --hard origin/main
             python3 tools/maintainer/build-catalog.py
             python3 tools/maintainer/build-llms.py

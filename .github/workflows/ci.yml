@@ -76,20 +76,41 @@ jobs:
           done
 
   # Skill build matrix is computed from the repo, so a new skill is built+vetted
-  # with no edit here (mirrors the release workflow).
+  # with no edit here (mirrors the release workflow). On PRs the matrix is
+  # SCOPED to skills changed since the merge-base (a docs/tools PR builds zero
+  # skills; a one-skill PR builds one) - at fleet scale (50+ skills) an
+  # unscoped matrix would spawn 50+ build jobs on every PR. Pushes to main
+  # keep the FULL matrix as the post-merge safety net, and release_matrix.py
+  # fails open to the full matrix when build machinery itself changed.
   prepare:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.gen.outputs.matrix }}
+      any: ${{ steps.gen.outputs.any }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need history for merge-base on PRs
       - name: Compute skill matrix
         id: gen
-        run: echo "matrix=$(python3 tools/maintainer/release_matrix.py --skills-only)" >> "$GITHUB_OUTPUT"
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
+        run: |
+          set -euo pipefail
+          if [ -n "$BASE_SHA" ]; then
+            git fetch -q origin "$BASE_SHA"
+            matrix="$(python3 tools/maintainer/release_matrix.py --skills-only --changed-only "$BASE_SHA")"
+          else
+            matrix="$(python3 tools/maintainer/release_matrix.py --skills-only)"
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "any=$(printf '%s' "$matrix" | python3 -c 'import json,sys; print(str(len(json.load(sys.stdin)["skill"])>0).lower())')" >> "$GITHUB_OUTPUT"
+          printf '%s' "$matrix" | python3 -c 'import json,sys; m=json.load(sys.stdin); print("matrix skills:", [s["name"] for s in m["skill"]] or "(none - build job will skip)")'
 
   build:
     needs: prepare
+    if: needs.prepare.outputs.any == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
