@@ -19,6 +19,12 @@ New to the term? An **MCP server** is the same thing ChatGPT calls an app or con
 
 [Install in 60s →](#install){: .btn .btn-primary} &nbsp; [View on GitHub →](https://github.com/servosity/msp-skills/tree/main/skills/servosity){: .btn}
 
+## See it in 30 seconds
+
+<video controls preload="metadata" style="width:100%; max-width:960px; border-radius:12px;" poster="/assets/social/servosity/wide-1200x630.png" src="/assets/video/servosity/demo-30s.mp4">Your browser does not support the video tag. <a href="/assets/video/servosity/demo-30s.mp4">Watch the 30-second demo</a>.</video>
+
+<sub>Demo data is simulated. Every command shown exists in the real CLI.</sub>
+
 ## What it does
 
 | Question your MSP keeps asking | Command |

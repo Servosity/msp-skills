@@ -22,6 +22,9 @@ Ask your AI a plain-English question about your stack and get a real answer back
 
 {% include vocab-bridge.html %}
 
+<video autoplay muted loop playsinline preload="metadata" style="width:100%; max-width:960px; border-radius:12px; display:block; margin: 18px 0;" poster="/assets/social/og-1280x640.png" src="/assets/video/hero-14s.mp4"></video>
+
+
 ## Why MSP owners use this
 
 <div class="why-cards">

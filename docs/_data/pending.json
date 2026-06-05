@@ -7,11 +7,11 @@
     "released_hash": "sha256:c56723a048fe5d2a5b7f9167d4239f04af6efa23c6369a349885013fd8034712"
   },
   "hubspot": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:50cc2d03171acd1232def91fc8fa118aa68feff37236f83d5bb429c4ef0a41e7",
-    "released_hash": null
+    "released_hash": "sha256:50cc2d03171acd1232def91fc8fa118aa68feff37236f83d5bb429c4ef0a41e7"
   },
   "msp-skills-concierge": {
     "state": "markdown-only",
