@@ -2,21 +2,6 @@
   "owner": "servosity",
   "repo": "msp-skills",
   "skills": {
-    "msp-skills-concierge": {
-      "system": "Connector recommendations + guided install for the msp-skills catalog",
-      "status": "beta",
-      "vendor": "Servosity",
-      "vendor_trademark_owner": "Servosity Inc.",
-      "first_party": true,
-      "markdown_only": true,
-      "source_dir": "_meta",
-      "category": "Meta",
-      "display_name": "Concierge",
-      "tagline": "Tell it your stack - it recommends and installs the right connectors.",
-      "template_version": 2,
-      "has_video": false,
-      "live_verified": null
-    },
     "halopsa": {
       "system": "HaloPSA, HaloITSM, HaloCRM",
       "status": "beta",
@@ -39,6 +24,44 @@
       "category": "PSA",
       "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.",
       "display_name": "HaloPSA"
+    },
+    "hubspot": {
+      "system": "HubSpot CRM: contacts, companies, deals, tickets, engagements",
+      "status": "beta",
+      "cli_binary": "hubspot-cli",
+      "mcp_binary": "hubspot-mcp",
+      "vendor": "HubSpot",
+      "vendor_trademark_owner": "HubSpot, Inc.",
+      "first_party": false,
+      "category": "CRM",
+      "display_name": "HubSpot",
+      "tagline": "Pipeline health, stale deals, and owner workload for every client by asking.",
+      "cli_hash": "sha256:50cc2d03171acd1232def91fc8fa118aa68feff37236f83d5bb429c4ef0a41e7",
+      "template_version": 2,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": false,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "msp-skills-concierge": {
+      "system": "Connector recommendations + guided install for the msp-skills catalog",
+      "status": "beta",
+      "vendor": "Servosity",
+      "vendor_trademark_owner": "Servosity Inc.",
+      "first_party": true,
+      "markdown_only": true,
+      "source_dir": "_meta",
+      "category": "Meta",
+      "display_name": "Concierge",
+      "tagline": "Tell it your stack - it recommends and installs the right connectors.",
+      "template_version": 2,
+      "has_video": false,
+      "live_verified": null
     },
     "servosity": {
       "system": "Servosity backup and DR",

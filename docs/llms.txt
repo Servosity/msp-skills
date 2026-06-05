@@ -9,6 +9,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - HaloPSA (PSA) - Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/halopsa/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)
+- HubSpot (CRM) - Pipeline health, stale deals, and owner workload for every client by asking.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/hubspot/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)
 - Concierge (Meta) - Tell it your stack - it recommends and installs the right connectors.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/msp-skills-concierge/
 - Servosity (Backup/DR) - Backup status, failures, and QBR-ready history for every client by asking.

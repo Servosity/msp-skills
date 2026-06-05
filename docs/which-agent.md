@@ -8,15 +8,30 @@ Pick the row for your agent and follow that section. If you're not sure what you
 
 ## Quick lookup
 
-**The 5 MSP-owner primaries - lead here:**
+**The top 6 - the agents MSP owners actually use (self-serve, works today):**
 
 | AI agent | Supports MCP? | Config file or panel | Verified |
 | --- | --- | --- | --- |
-| [Claude Desktop](#claude-desktop-anthropic) | Yes | `claude_desktop_config.json` | 2026-05-28 |
-| [ChatGPT (Plus / Pro+)](#chatgpt-openai-plus-pro-team-business-enterprise-education) | Yes¹ | Settings → Connectors | 2026-05-28 |
-| [Claude Code](#claude-code-anthropic-cli) | Yes | `claude mcp add ...` | 2026-05-28 |
-| [Codex CLI](#codex-cli-openai) | Yes | `~/.codex/config.toml` | 2026-05-28 |
+| [Claude Desktop](#claude-desktop-anthropic) | Yes | `claude_desktop_config.json` | 2026-05-29 |
+| [ChatGPT (Plus / Pro+)](#chatgpt-openai-plus-pro-team-business-enterprise-education) | Yes¹ | Settings → Connectors | 2026-05-29 |
+| [Codex CLI](#codex-cli-openai) | Yes | `~/.codex/config.toml` | 2026-05-29 |
+| [Claude Code](#claude-code-anthropic-cli) | Yes | `claude mcp add ...` | 2026-05-29 |
 | [Claude Cowork](#claude-cowork-anthropic-desktop-agent) | Yes | paste-prompt + Settings > Connectors | 2026-05-29 |
+| [GitHub Copilot](#github-copilot-in-vs-code) | Yes (Agent mode) | `mcp.json` (key: `servers`) | 2026-05-29 |
+
+**Microsoft & Google - named, honest paths** (big install base; the remote / enterprise route, not the local binary you installed):
+
+| AI agent | Supports MCP? | What it takes | Verified |
+| --- | --- | --- | --- |
+| [Microsoft 365 Copilot / Copilot Studio](#microsoft-365-copilot--copilot-studio) | Yes³ (remote only) | Host over HTTPS + Copilot Studio license + tenant admin | 2026-05-29 |
+| [Google Gemini](#google-gemini) | Yes | Gemini CLI: local (like Claude Code). Gemini app: remote (like ChatGPT). | 2026-05-29 |
+
+**Skill-native agents (secondary)** - they read this skill's `SKILL.md` directly *and* speak MCP:
+
+| AI agent | Status | Install path | Verified |
+| --- | --- | --- | --- |
+| [Hermes](#hermes-nous-research) | Yes (via MCP + Skill) | `hermes skills install Servosity/msp-skills/skills/<name>` | 2026-05-29 (paper - install not yet end-to-end tested) |
+| [OpenClaw](#openclaw) | Yes (GA) | `openclaw skills install git:Servosity/msp-skills/skills/<name>@main` | 2026-05-29 (frontmatter spec match; subdir install path needs final dogfood) |
 
 **Long-tail and developer IDEs:**
 
@@ -26,17 +41,8 @@ Pick the row for your agent and follow that section. If you're not sure what you
 | [Windsurf](#windsurf) | Yes | Cascade → MCP Servers | 2026-05-28 |
 | [Cline](#cline-vs-code) | Yes | `Ctrl+Shift+M` / `⌘+Shift+M` | 2026-05-28 |
 | [Continue.dev](#continuedev-vs-code--jetbrains) | Yes (Agent mode) | `config.json` | 2026-05-28 |
-| [Gemini CLI](#gemini-cli-google) | Yes | `~/.gemini/config.json` | 2026-05-28 |
-| [GitHub Copilot in VS Code](#github-copilot-in-vs-code) | Yes (Agent mode) | `mcp.json` (key: `servers`) | 2026-05-28 |
 | [Zed](#zed) | Partial² | `context_servers` in `settings.json` | 2026-05-28 |
 | [JetBrains AI Assistant / Junie](#jetbrains-ai-assistant--junie) | _Verify_ | _verify_ | _pending_ |
-
-**Other agents:**
-
-| AI agent | Status | Install path | Verified |
-| --- | --- | --- | --- |
-| [Hermes](#hermes-nous-research) | Yes (via MCP) | `hermes skills install Servosity/msp-skills/skills/<name>` | 2026-05-29 (paper - install not yet end-to-end tested) |
-| [OpenClaw](#openclaw) | Yes (GA) | `openclaw skills install git:Servosity/msp-skills/skills/<name>@main` | 2026-05-29 (frontmatter spec match; subdir install path needs final dogfood) |
 
 **Or install across all 51+ supported agents at once:**
 
@@ -46,6 +52,7 @@ Pick the row for your agent and follow that section. If you're not sure what you
 
 ¹ ChatGPT requires a paid plan (Plus, Pro, Team, Business, Enterprise, or Education). Free tier does not yet expose Developer Mode. ChatGPT connects only to **remote** MCP servers; local stdio binaries like MSP Skills need an HTTPS bridge (e.g. `mcp-remote`).
 ² Zed supports MCP Tools and Prompts today, not the full spec. Most MSP Skills functionality works; some advanced features may not.
+³ Microsoft 365 Copilot, Copilot Studio, and Security Copilot consume MCP over **remote Streamable-HTTP only** - there is no local-stdio path. You host `halopsa-mcp` / `servosity-mcp` over HTTPS and wire it via Copilot Studio (license required) or a declarative agent (tenant admin). **GitHub Copilot** (in the top 6) is the Microsoft surface that takes the local binary today.
 
 ---
 
@@ -244,11 +251,32 @@ Open-source AI assistant. **MCP tools only work in Agent mode.** Stdio, SSE, Str
 
 ---
 
-## Gemini CLI (Google)
+## Google Gemini
 
-Google's CLI agent. Native MCP - Gemini API + SDK + CLI all speak it as of Mar–Apr 2026.
+Google's Gemini comes in two shapes that consume MCP very differently - know which one you have.
 
-**Setup:** edit `~/.gemini/config.json` (or the path Gemini CLI prints with `gemini config path`) and add an `mcpServers` block with the same shape as Claude Desktop. Gemini CLI's tool list will include the MCP tools after restart.
+**Gemini CLI - local (the self-serve path).** Google's CLI agent speaks MCP natively (Gemini API + SDK + CLI, as of Mar–Apr 2026). This is the local-stdio path, just like Claude Code.
+
+**Setup:** edit `~/.gemini/settings.json` (or the path Gemini CLI prints with `gemini config path`) and add an `mcpServers` block with the same shape as Claude Desktop:
+
+```json
+{
+  "mcpServers": {
+    "halopsa": {
+      "command": "halopsa-mcp",
+      "env": { "HALOPSA_TENANT": "<tenant>", "HALOPSA_CLIENT_ID": "<id>", "HALOPSA_CLIENT_SECRET": "<secret>" }
+    },
+    "servosity": {
+      "command": "servosity-mcp",
+      "env": { "SERVOSITY_MSP_TOKEN": "<token>" }
+    }
+  }
+}
+```
+
+Restart Gemini CLI; its tool list includes the MCP tools.
+
+**Gemini app / web - remote (the HTTPS path).** The Gemini app does not launch a local binary. To use MSP Skills there, host `halopsa-mcp` / `servosity-mcp` over HTTPS (run with `--transport http`, expose via a secure tunnel) and connect that endpoint - the same remote pattern as [ChatGPT](#chatgpt-openai-plus-pro-team-business-enterprise-education). For a no-hosting path on Google, use Gemini CLI above.
 
 Google Cloud also offers fully-managed remote MCP servers for Google services - not relevant to MSP Skills, but worth knowing about. Source: [Google Cloud Blog - official MCP support](https://cloud.google.com/blog/products/ai-machine-learning/announcing-official-mcp-support-for-google-services).
 
@@ -282,6 +310,29 @@ GA in VS Code 1.102 (July 2025). Most enterprise-ready MCP client by reputation:
 ```
 
 Or install through the Extensions view: search `@mcp` and install from the gallery. Source: [code.visualstudio.com/docs/copilot/customization/mcp-servers](https://code.visualstudio.com/docs/copilot/customization/mcp-servers).
+
+> **Note:** "Copilot" is two products. **GitHub Copilot** (this section, the dev IDE) takes the local binary today. **Microsoft 365 Copilot** (the business assistant in Teams/Word/Outlook) is the remote-only path below - don't confuse them.
+
+---
+
+## Microsoft 365 Copilot / Copilot Studio
+
+This is the Copilot most MSPs and their clients actually have - bundled into the Microsoft 365 stack. **Honest heads-up: there is no local-stdio path.** Microsoft 365 Copilot, Copilot Studio, and Security Copilot consume MCP over **remote Streamable-HTTP only**, so the `halopsa-mcp` / `servosity-mcp` binary you installed isn't enough on its own. You also need a **Copilot Studio license** and a **tenant admin** to enable it. This is a build-and-host task, not a self-serve install - if that's a blocker, [GitHub Copilot](#github-copilot-in-vs-code) (local, in the top 6) is the Microsoft surface that works today.
+
+**Step 1 - host the MCP server over HTTPS.** Run it in HTTP mode and expose it through a secure tunnel (Cloudflare Tunnel, ngrok) or your own reverse proxy:
+
+```bash
+HALOPSA_TENANT=<tenant> HALOPSA_CLIENT_ID=<id> HALOPSA_CLIENT_SECRET=<secret> \
+  halopsa-mcp --transport http --addr :7777
+```
+
+Treat the resulting HTTPS URL as a credential; gate it behind SSO / Cloudflare Access for team use.
+
+**Step 2 (lowest-code) - wire it in Copilot Studio.** In your Copilot Studio agent: **Tools → Add a tool → Model Context Protocol**. Enter a **Server name**, the **Server URL** (your HTTPS endpoint), and auth (OAuth 2.0 or API key). Copilot Studio builds the Power Platform connector behind the scenes; **generative orchestration must be on**. Publish the agent into Microsoft 365 Copilot. Source: [Microsoft Learn - Extend your agent with MCP](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-extend-action-mcp).
+
+**Step 2 (alternative, dev-ish) - build a declarative agent.** Use the Microsoft 365 Agents Toolkit in VS Code (**Add an Action → Start with an MCP Server**, point at the remote URL, configure OAuth), then provision / sideload - requires admin-enabled Custom App Upload + Copilot Access. Source: [Microsoft Learn - Build MCP plugins for Microsoft 365 Copilot](https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/build-mcp-plugins).
+
+The **free / consumer Copilot** (copilot.microsoft.com, Windows Copilot) does not support user-supplied MCP servers at all.
 
 ---
 

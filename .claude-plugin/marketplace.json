@@ -61,6 +61,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "hubspot",
+      "source": "./skills/hubspot",
+      "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
+      "version": "0.1.0",
+      "category": "msp",
+      "tags": [
+        "hubspot",
+        "hubspot",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

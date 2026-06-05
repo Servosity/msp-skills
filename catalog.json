@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-04",
+  "generated_at": "2026-06-05",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -40,6 +40,25 @@
       "verification": "awaiting",
       "category": "PSA",
       "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking."
+    },
+    {
+      "name": "hubspot",
+      "system": "HubSpot CRM: contacts, companies, deals, tickets, engagements",
+      "status": "beta",
+      "skill_path": "skills/hubspot",
+      "cli_binary": "hubspot-cli",
+      "mcp_binary": "hubspot-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "HubSpot",
+      "vendor_trademark_owner": "HubSpot, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)",
+      "install_mcp_doc": "skills/hubspot/mcp-install.md",
+      "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
+      "verification": "awaiting",
+      "category": "CRM",
+      "tagline": "Pipeline health, stale deals, and owner workload for every client by asking."
     },
     {
       "name": "servosity",

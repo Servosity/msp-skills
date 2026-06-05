@@ -54,6 +54,40 @@ Outcomes (question -> command your AI agent runs):
 
 Governance: Permission tiers: Read, Write (routine), Destructive / config.
 
+### HubSpot (CRM)
+
+Page: https://msp-skills.compoundingteams.com/skills/hubspot/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)
+
+Outcomes (question -> command your AI agent runs):
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local HubSpot MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my HubSpot data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this hit my HubSpot API rate limits?
+A: The local mirror exists so you stop hitting the API for reads. After the first sync (which respects HubSpot's pagination), every aggregate report runs against your local SQLite with zero API calls. You can scope sync with --resources and --since to keep it light, and the CLI surfaces sync warnings rather than swallowing them.
+Q: Do I need to be a HubSpot partner or a paid tier?
+A: No partnership is required. You create a HubSpot Private App access token from your portal with read scopes for the objects you care about. Property-history retention varies by HubSpot plan, so the depth of historical reporting depends on your tier; the CLI captures whatever the API returns and accrues forward from your first --with-history sync.
+Q: Does it work with HubSpot's free CRM?
+A: It works against any portal that issues a Private App access token with the read scopes you grant. Which objects, properties, and history depth are available is governed by your HubSpot plan and the scopes on the token, not by this skill.
+
+Governance: The skill drives the hubspot-cli and hubspot-mcp binaries, authenticating only with HUBSPOT_ACCESS_TOKEN read from the environment - never written to disk, logged, or sent anywhere except the HubSpot API. Read commands (reports, rollups, search) are always safe and can change nothing. Writes are not gated by default: --dry-run is an opt-in flag (default off) that previews a request without sending, so raw create/update/delete commands send immediately on first run unless your agent passes --dry-run first. The one built-in mutation gate is on contacts bulk-update, and it only fires above 100 rows (smaller batches dispatch immediately with a one-line bypass warning). The recommended policy is an agent-level rule: require the agent to show the exact command and get human approval before any mutation, and require a human for any destructive or credential-touching command. The strongest control is the scope you grant the Private App token.
+
 ### Concierge (Meta)
 
 Page: https://msp-skills.compoundingteams.com/skills/msp-skills-concierge/

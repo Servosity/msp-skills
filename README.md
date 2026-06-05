@@ -35,6 +35,7 @@ The five agents MSP owners actually use:
 | --- | --- | --- | --- |
 | [msp-skills-concierge](./skills/_meta) | Connector recommendations + guided install for the msp-skills catalog | ![Meta](https://img.shields.io/badge/Meta-skill-6B7280) | [Marketplace](./skills/_meta/README.md) |
 | [halopsa](./skills/halopsa) | HaloPSA, HaloITSM, HaloCRM | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/halopsa/README.md) |
+| [hubspot](./skills/hubspot) | HubSpot CRM: contacts, companies, deals, tickets, engagements | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/hubspot/README.md) |
 | [servosity](./skills/servosity) | Servosity backup and DR | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/servosity/README.md) |
 <!-- catalog:end -->
 
