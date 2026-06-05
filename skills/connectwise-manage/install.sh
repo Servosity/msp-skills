@@ -38,10 +38,23 @@ fetch_stdout() {
 if [ -n "${MSP_SKILLS_RELEASE_BASE:-}" ]; then
   RELEASE_BASE="${MSP_SKILLS_RELEASE_BASE}"
 else
-  tag="$(fetch_stdout "https://api.github.com/repos/${OWNER}/${REPO}/releases?per_page=100" \
-    | grep '"tag_name"' \
-    | sed -E 's/.*"tag_name":[[:space:]]*"([^"]+)".*/\1/' \
-    | grep -m1 "^${SKILL}-v")" || true
+  # Paginate: with many skills releasing independently, this skill's newest
+  # tag can sit beyond the first 100 repo releases.
+  tag=""
+  page=1
+  while [ -z "${tag}" ] && [ "${page}" -le 5 ]; do
+    releases="$(fetch_stdout "https://api.github.com/repos/${OWNER}/${REPO}/releases?per_page=100&page=${page}")" || break
+    # pure-shell emptiness check: grep -q on a pipe trips pipefail via SIGPIPE
+    case "${releases}" in
+      *'"tag_name"'*) ;;
+      *) break ;;
+    esac
+    tag="$(printf '%s' "${releases}" \
+      | grep '"tag_name"' \
+      | sed -E 's/.*"tag_name":[[:space:]]*"([^"]+)".*/\1/' \
+      | grep -m1 "^${SKILL}-v")" || true
+    page=$((page + 1))
+  done
   if [ -z "${tag:-}" ]; then
     echo "No ${SKILL}-v* release found in ${OWNER}/${REPO}. Has the first release been published?" >&2
     exit 1
@@ -122,5 +135,5 @@ echo "Verify:"
 echo "  ${CLI_BIN} --version"
 echo ""
 echo "Next:"
-echo "  Read skills/connectwise-manage/README.md for first command + auth."
-echo "  For Claude Desktop or ChatGPT Desktop, read skills/connectwise-manage/mcp-install.md."
+echo "  First command + auth: https://github.com/${OWNER}/${REPO}/tree/main/skills/connectwise-manage#readme"
+echo "  Claude Desktop / ChatGPT wire-up: https://github.com/${OWNER}/${REPO}/blob/main/skills/connectwise-manage/mcp-install.md"

@@ -31,6 +31,11 @@ import registry  # noqa: E402  (local tools/ module)
 
 ROOT = registry.ROOT
 
+# Owner/repo come from the registry so generated pages stay correct on a fork.
+# OWNER_TITLE is the GitHub org's canonical display case (Servosity).
+OWNER, REPO = registry.owner_repo()
+OWNER_TITLE = OWNER[:1].upper() + OWNER[1:]
+
 
 def banner(vendor: str, owner: str, first_party: bool) -> str:
     if first_party:
@@ -79,7 +84,7 @@ def render_page(slug: str) -> Path:
         badge = ("**Awaiting live verification** - passes every mechanical gate "
                  "(build, command-surface, claims, install). Be the first to confirm "
                  "it against your tenant: "
-                 "[report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).")
+                 f"[report it works](https://github.com/{OWNER_TITLE}/{REPO}/issues/new?template=it-works.yml).")
 
     fm_faqs = "".join(
         f"  - q: {json.dumps(f['q'])}\n    a: {json.dumps(f['a'])}\n"
@@ -87,7 +92,7 @@ def render_page(slug: str) -> Path:
     )
     fm_howto = (
         f'  - name: "Run the one-line installer"\n'
-        f'    text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/{slug}/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/{slug}/install.ps1 | iex"\n'
+        f'    text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/{OWNER_TITLE}/{REPO}/main/skills/{slug}/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/{OWNER_TITLE}/{REPO}/main/skills/{slug}/install.ps1 | iex"\n'
         f'  - name: "Authenticate"\n'
         f'    text: "Enter your {display} credentials once; {cli_bin} doctor confirms they work."\n'
         f'  - name: "Ask your first question"\n'
@@ -141,7 +146,7 @@ faqs:
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
-[Install in 60s →](#install){{: .btn .btn-primary}} &nbsp; [View on GitHub →](https://github.com/servosity/msp-skills/tree/main/skills/{slug}){{: .btn}}
+[Install in 60s →](#install){{: .btn .btn-primary}} &nbsp; [View on GitHub →](https://github.com/{OWNER}/{REPO}/tree/main/skills/{slug}){{: .btn}}
 
 ## Instead of clicking through {display}, just ask
 
@@ -153,7 +158,7 @@ faqs:
 | --- | --- |
 {outcomes_rows}
 
-Full command reference at [github.com/servosity/msp-skills/blob/main/skills/{slug}/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/{slug}/guide.md).
+Full command reference at [github.com/{OWNER}/{REPO}/blob/main/skills/{slug}/guide.md](https://github.com/{OWNER}/{REPO}/blob/main/skills/{slug}/guide.md).
 
 ## What makes this one different
 
@@ -182,13 +187,13 @@ Works in any of these agents - pick yours:
 **macOS / Linux:**
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/{slug}/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/{OWNER}/{REPO}/main/skills/{slug}/install.sh)
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/{slug}/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/{OWNER}/{REPO}/main/skills/{slug}/install.ps1 | iex
 ```
 
 {page.get('auth_note', f'After install, authenticate once with your {display} credentials, then verify with `{cli_bin} --version`.')}
@@ -199,7 +204,7 @@ iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/{sl
 | --- | --- | --- |
 {tiers}
 
-{page.get('governance_summary', '')} Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/{slug}/governance.md).
+{page.get('governance_summary', '')} Full details in [governance.md](https://github.com/{OWNER}/{REPO}/blob/main/skills/{slug}/governance.md).
 
 ## Frequently asked questions
 

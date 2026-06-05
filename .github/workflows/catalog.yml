@@ -65,7 +65,10 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           python3 tools/maintainer/build-catalog.py
-          if ! git diff --exit-code catalog.json README.md docs/_data/catalog.json docs/skills/; then
+          # status --porcelain (not diff) so newly GENERATED files (e.g. a new
+          # skill's docs page) count as drift too - git diff ignores untracked.
+          if [ -n "$(git status --porcelain -- catalog.json README.md docs/_data/catalog.json docs/skills/)" ]; then
+            git status --porcelain -- catalog.json README.md docs/_data/catalog.json docs/skills/
             echo ""
             echo "::error::catalog.json, the README, docs/_data/catalog.json, or a docs/skills page is stale."
             echo "::error::Run 'python3 tools/maintainer/build-catalog.py' locally and commit."
@@ -82,13 +85,13 @@ jobs:
           python3 tools/maintainer/build-llms.py
           mkdir -p docs/_data
           python3 tools/maintainer/release_state.py --json > docs/_data/pending.json
-          if git diff --quiet catalog.json README.md docs/_data/catalog.json docs/skills/ docs/llms.txt docs/llms-full.txt docs/_data/pending.json; then
+          if [ -z "$(git status --porcelain -- catalog.json README.md docs/_data/catalog.json docs/skills/ docs/llms.txt docs/llms-full.txt docs/_data/pending.json)" ]; then
             echo "derived files already in sync - nothing to commit"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add catalog.json README.md docs/_data/catalog.json docs/skills/*.md docs/llms.txt docs/llms-full.txt docs/_data/pending.json
+          git add catalog.json README.md docs/_data/catalog.json docs/skills/ docs/llms.txt docs/llms-full.txt docs/_data/pending.json
           git commit -m "chore: regenerate derived files (catalog/llms/pending) [bot]"
           # Push with a self-heal loop: the concurrency group serializes the
           # common case, but a peer commit can still land between our checkout
@@ -110,11 +113,11 @@ jobs:
             python3 tools/maintainer/build-catalog.py
             python3 tools/maintainer/build-llms.py
             python3 tools/maintainer/release_state.py --json > docs/_data/pending.json
-            if git diff --quiet catalog.json README.md docs/_data/catalog.json docs/skills/ docs/llms.txt docs/llms-full.txt docs/_data/pending.json; then
+            if [ -z "$(git status --porcelain -- catalog.json README.md docs/_data/catalog.json docs/skills/ docs/llms.txt docs/llms-full.txt docs/_data/pending.json)" ]; then
               echo "now in sync after peer commit - nothing left to push"
               exit 0
             fi
-            git add catalog.json README.md docs/_data/catalog.json docs/skills/*.md docs/llms.txt docs/llms-full.txt docs/_data/pending.json
+            git add catalog.json README.md docs/_data/catalog.json docs/skills/ docs/llms.txt docs/llms-full.txt docs/_data/pending.json
             git commit -m "chore: regenerate derived files (catalog/llms/pending) [bot]"
           done
           echo "::error::could not push derived files after 5 attempts"

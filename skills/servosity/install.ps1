@@ -22,8 +22,14 @@ $ReleaseBase = if ($env:MSP_SKILLS_RELEASE_BASE) {
   # Each skill is versioned/tagged independently (servosity-vX.Y.Z),
   # so resolve THIS skill's latest release rather than the repo-wide /releases/latest/
   # (GitHub allows only one "latest" per repo). The releases API returns newest-first.
-  $rels = Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repo/releases?per_page=100" -UseBasicParsing
-  $tag = ($rels | Where-Object { $_.tag_name -like "$Skill-v*" } | Select-Object -First 1).tag_name
+  # Paginate: with many skills releasing independently, this skill's newest
+  # tag can sit beyond the first 100 repo releases.
+  $tag = $null
+  for ($page = 1; $page -le 5 -and -not $tag; $page++) {
+    $rels = Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repo/releases?per_page=100&page=$page" -UseBasicParsing
+    if (-not $rels) { break }
+    $tag = ($rels | Where-Object { $_.tag_name -like "$Skill-v*" } | Select-Object -First 1).tag_name
+  }
   if (-not $tag) { throw "No $Skill-v* release found in $Owner/$Repo. Has the first release been published?" }
   "https://github.com/$Owner/$Repo/releases/download/$tag"
 }
@@ -76,5 +82,5 @@ Write-Host "Verify (in a new terminal):"
 Write-Host "  servosity-cli --version"
 Write-Host ""
 Write-Host "Next:"
-Write-Host "  Read skills\servosity\README.md for first command + auth."
-Write-Host "  For Claude Desktop or ChatGPT Desktop, read skills\servosity\mcp-install.md."
+Write-Host "  First command + auth: https://github.com/$Owner/$Repo/tree/main/skills/servosity#readme"
+Write-Host "  Claude Desktop / ChatGPT wire-up: https://github.com/$Owner/$Repo/blob/main/skills/servosity/mcp-install.md"

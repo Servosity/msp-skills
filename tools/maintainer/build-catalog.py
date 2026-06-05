@@ -266,7 +266,7 @@ def render_install_featured() -> str:
         "install - then install the ones I approve.",
         "",
         "Prefer a guided version? The [concierge](./skills/_meta) does the same from "
-        "inside Claude Code: `/plugin marketplace add Servosity/msp-skills`, then "
+        f"inside Claude Code: `/plugin marketplace add {OWNER.capitalize()}/{REPO}`, then "
         "`/plugin install msp-skills-concierge@msp-skills`.",
         "",
     ]

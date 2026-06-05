@@ -93,7 +93,22 @@ def main() -> int:
                 "<img src=...> - expected the demo GIF or social card image"
             )
         for src in srcs:
+            # Only repo-backed relative paths satisfy this gate: a URL or an
+            # absolute/escaping path could "exist" while the committed asset
+            # is missing (masking a broken README image on GitHub).
+            if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", src) or src.startswith("/"):
+                errors.append(
+                    f"{slug}: media image {src!r} in {rel_readme} must be a "
+                    "repo-relative path (no URLs or absolute paths)"
+                )
+                continue
             asset = (skill_dir / src).resolve()
+            if not asset.is_relative_to(ROOT):
+                errors.append(
+                    f"{slug}: media image {src!r} in {rel_readme} resolves "
+                    f"outside the repository ({asset})"
+                )
+                continue
             if not asset.exists():
                 errors.append(
                     f"{slug}: media image {src!r} in {rel_readme} does not exist "

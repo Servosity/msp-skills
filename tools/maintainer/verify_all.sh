@@ -78,8 +78,12 @@ echo "== Catalog idempotency =="
 cp catalog.json /tmp/cat.bak; cp README.md /tmp/readme.bak
 cp docs/_data/catalog.json /tmp/docscat.bak
 rm -rf /tmp/docsskills.bak; cp -R docs/skills /tmp/docsskills.bak
-python3 tools/maintainer/build-catalog.py >/dev/null 2>&1
-if diff -q catalog.json /tmp/cat.bak >/dev/null \
+# Generator failure must fail the gate outright - unchanged files after a
+# crashed regeneration would otherwise read as a PASS.
+if ! python3 tools/maintainer/build-catalog.py >/tmp/buildcat.out 2>&1; then
+  cat /tmp/buildcat.out
+  fail "build-catalog.py failed during the idempotency check"
+elif diff -q catalog.json /tmp/cat.bak >/dev/null \
    && diff -q README.md /tmp/readme.bak >/dev/null \
    && diff -q docs/_data/catalog.json /tmp/docscat.bak >/dev/null \
    && diff -r docs/skills /tmp/docsskills.bak >/dev/null; then
@@ -90,8 +94,10 @@ fi
 
 echo "== llms.txt idempotency =="
 cp docs/llms.txt /tmp/llms.bak; cp docs/llms-full.txt /tmp/llmsfull.bak
-python3 tools/maintainer/build-llms.py >/dev/null 2>&1
-if diff -q docs/llms.txt /tmp/llms.bak >/dev/null && diff -q docs/llms-full.txt /tmp/llmsfull.bak >/dev/null; then
+if ! python3 tools/maintainer/build-llms.py >/tmp/buildllms.out 2>&1; then
+  cat /tmp/buildllms.out
+  fail "build-llms.py failed during the idempotency check"
+elif diff -q docs/llms.txt /tmp/llms.bak >/dev/null && diff -q docs/llms-full.txt /tmp/llmsfull.bak >/dev/null; then
   pass "llms.txt + llms-full.txt already in sync (no drift)"
 else
   fail "llms drift - regenerated; re-run was not a no-op (run build-llms.py and commit)"
