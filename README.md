@@ -1,6 +1,6 @@
 # Run your MSP tools by asking - MCP servers and Skills for the AI you already use
 
-**MSP Skills** connects your PSA, RMM, backup, and more to the AI you already use - **Claude**, **ChatGPT**, **Codex**, **Cursor**, **Windsurf**, or any agent that speaks MCP. Ask a plain-English question about your stack and get a real answer back. HaloPSA and Servosity are live today (more PSA, RMM, backup, and M365 connectors ship every week). Free, open source, runs on your laptop. A local SQLite mirror lets your agent answer cross-client questions the live API can't return in one shot - no rate-limit hits, no per-tech SaaS fee, no data leaves your network. Built for MSP owners. No developer experience required.
+**MSP Skills** connects your PSA, RMM, backup, and more to the AI you already use - **Claude**, **ChatGPT**, **Codex**, **Cursor**, **Windsurf**, or any agent that speaks MCP. Ask a plain-English question about your stack and get a real answer back. HaloPSA, HubSpot, and Servosity are live today (more PSA, RMM, backup, and M365 connectors ship every week). Free, open source, runs on your laptop. A local SQLite mirror lets your agent answer cross-client questions the live API can't return in one shot - no rate-limit hits, no per-tech SaaS fee, no data leaves your network. Built for MSP owners. No developer experience required.
 
 > **New to the term?** What this repo calls an **MCP server** is what ChatGPT calls an *app* or *connector*, Claude on the web calls a *connector*, Microsoft Copilot calls a *connector*, and Claude Code calls a *Skill*. Same standard underneath: the [Model Context Protocol](https://modelcontextprotocol.io). Full plain-language answer: **[What is an MCP server?](https://msp-skills.compoundingteams.com/what-is-an-mcp-server/)**.
 
@@ -11,6 +11,10 @@
 [![MCP](https://img.shields.io/badge/MCP-compatible-7C3AED.svg)](https://modelcontextprotocol.io)
 [![Agent Skills](https://img.shields.io/badge/Agent_Skills-spec-2E7D32.svg)](https://agentskills.io)
 ![Status](https://img.shields.io/badge/status-beta-yellow.svg)
+
+[![Watch: Run your MSP tools by asking - 14-second demo](./docs/assets/social/og-1280x640.png)](https://msp-skills.compoundingteams.com/)
+
+<p align="center"><a href="https://msp-skills.compoundingteams.com/">▶ Watch the 14-second demo</a> - every skill page has its own 30-second walkthrough (<a href="https://msp-skills.compoundingteams.com/skills/hubspot/">example</a>). Demo data is simulated; every command shown exists in the real CLI.</p>
 
 ## Works with your agent
 

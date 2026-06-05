@@ -16,7 +16,7 @@
       "cli_hash": "sha256:f116088f98a762c88afee09ce823463d7529dd2261cb21d2b40d851218ec9575",
       "template_version": 2,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:f116088f98a762c88afee09ce823463d7529dd2261cb21d2b40d851218ec9575",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
