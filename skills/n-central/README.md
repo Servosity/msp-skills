@@ -1,7 +1,7 @@
 # N-able N-central + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the N-able N-central
-> API. Not affiliated with, endorsed by, or sponsored by N-able, Inc..
+> API. Not affiliated with, endorsed by, or sponsored by N-able, Inc.
 
 <!-- media:start -->
 <p align="center">
@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download N-able N-central MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/n-central-v4.22.0/n-central-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every N-able N-central release on the [releases page](https://github.com/servosity/msp-skills/releases?q=n-central).)
+[**Download N-able N-central MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/n-central-v0.1.0/n-central-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every N-able N-central release on the [releases page](https://github.com/servosity/msp-skills/releases?q=n-central).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -145,25 +145,36 @@ NCENTRAL_JWT=<value> n-central-cli doctor
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `n-central-cli ...` |
-
--->
+| What's red right now, grouped by customer and ranked by severity? | `n-central-cli triage --by customer` |
+| Where is EXCHANGE01 - server, service org, customer, site? | `n-central-cli whereis EXCHANGE01` |
+| Find anything named acme across every server we run | `n-central-cli fanout "acme"` |
+| Which devices are missing the Backup Plan custom property? | `n-central-cli props audit --required "Backup Plan"` |
+| Which devices have no maintenance window before the patch wave? | `n-central-cli maint coverage --before 2026-06-15` |
+| Is the JWT healthy, and when does the API user's password kill it? | `n-central-cli guardian --password-set 2026-03-01` |
+| Hardware and software inventory for one device | `n-central-cli devices assets 987654321` |
+| Every device, exported for the QBR or your documentation tool | `n-central-cli export devices --format jsonl` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most N-able N-central integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most N-able N-central integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "where is this device across our three N-central servers" or "what's red right now across every customer" - org-tree pagination, per-endpoint concurrency caps (N-able documents 429s beyond 3-50 concurrent calls), and a JWT that silently dies on password rotation.
 
-This skill syncs N-able N-central into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs the org tree into a **local SQLite mirror** with full-text search. Compound commands like `whereis` (device name fragment to full server > service org > customer > site path), `fanout` (one query unioned across every server's mirror), and `triage` (active issues grouped by customer, device, or monitor and ranked by severity) join across the org tree - work a stateless API wrapper can't do. And `guardian` turns the silent JWT failure mode into a CI-wireable warning.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+N-able's own REST API documentation admits the two traps every N-central integrator hits: per-endpoint concurrency caps (429 beyond 3-50 concurrent calls, per the official known-issues page) and error messages that arrive **inside a 200 OK response**. The community-maintained NC-API-Documentation project on GitHub documents the third: the API user's password expiry - 90 days by default - silently invalidates the JWT, and the integration just stops.
+
+Meanwhile the daily questions stay manual: the morning NOC sweep is a per-customer console walk, "where is that machine" means knowing its customer and site already, and a multi-server MSP repeats all of it in each console.
+
+- `n-central-cli triage --by customer` - the NOC sweep as one command, ranked by severity.
+- `n-central-cli whereis EXCHANGE01` - full org path from the local mirror, offline.
+- `n-central-cli fanout "acme"` - one query across every server's mirror, each match tagged with its server.
+- `n-central-cli guardian --password-set 2026-03-01` - validates the token, warns 14 days before password expiry kills the JWT, and catches the 200-OK-with-error-body case. Exits non-zero so CI can gate on it.
+- `n-central-cli maint coverage --before 2026-06-15` - devices with no maintenance window before the patch wave, so nothing reboots in business hours.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +196,25 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### What credentials do I need?
+
+A JSON Web Token for an API-only user: in N-central, go to **Administration > User Management > Users** > select the API user > **API Access** > **Generate JSON Web Token**. MFA must be off on that user, and the user's password expiry (90 days by default) silently invalidates the JWT - `guardian` tracks that countdown. Set `NCENTRAL_JWT` and `N_CENTRAL_BASE_URL` (e.g. `https://yourmsp.ncod.n-able.com/api`).
+
+### Can this make changes in N-central?
+
+Almost everything is read-only. Two commands can change things: `scheduled-tasks run` executes an API-enabled Automation Policy or Script on a device, and `import` POSTs records from a JSONL file. `--dry-run` is an opt-in preview, not a default - the recommended agent policy is preview first, a human approves, then run. Keep `scheduled-tasks run` human-in-the-loop.
+
+### We run more than one N-central server - does this handle that?
+
+Yes. Each server syncs to its own local mirror, and `fanout` unions them: one query returns matches across every server's mirror, each row tagged with the server it came from.
+
+### Will this hit N-central API rate limits?
+
+N-able documents per-endpoint concurrency caps - 429 responses beyond roughly 3 to 50 concurrent calls depending on the endpoint. The CLI ships a `--rate-limit` throttle, and the heaviest questions (`whereis`, `fanout`, `search`) run against the local mirror with zero API calls.
+
+### Does this work with N-able N-sight?
+
+No. This skill targets the N-central REST API specifically. N-sight is a separate N-able product with a separate API.
 
 ### What does it cost?
 
@@ -198,15 +222,12 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `n-central-cli triage`, `whereis`, `fanout`, `devices list`, `props audit`, `maint coverage`, `guardian`, `export` | Allow |
+| Write (routine) | `n-central-cli import <resource> --input data.jsonl` - POSTs each record; `--dry-run` is an opt-in preview, not a default | Preview with `--dry-run`, then a reviewed write |
+| Remote execution | `n-central-cli scheduled-tasks run --task-type Script --device-id <id> --item-id <id>` - executes on a live endpoint | Human-in-the-loop only, explicit confirmation |
+| Credential / security | `n-central-cli customers registration-token`, `org-units registration-token` (device-enrollment tokens), `auth set-token`, `auth logout` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the N-able N-central credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +239,4 @@ Beta. Validated against the N-able N-central API surface and being validated wit
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-05._

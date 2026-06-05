@@ -91,7 +91,7 @@
       "name": "n-central",
       "source": "./skills/n-central",
       "description": "Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, issue-triage rollups, and a JWT-expiry guardian no other N-central tool has.",
-      "version": "4.22.0",
+      "version": "0.1.0",
       "category": "rmm",
       "tags": [
         "n-central",
