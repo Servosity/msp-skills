@@ -92,7 +92,7 @@ You don't have to switch agents. Same package, two interfaces: a **Skill** for C
 
 ### MSP owner first, not developer first
 
-You don't have to know JSON, regex, or what "stdio transport" means. Paste one sentence into Claude Code or Codex and your agent reads the Skill, installs the binary, and walks you through authentication. The CLIs **plan by default** - mutations show you what they would do before they do it. Every command has a tier (read / write / destructive) and a recommended agent policy. The hard stuff is hidden; the safety bar is high.
+You don't have to know JSON, regex, or what "stdio transport" means. Paste one sentence into Claude Code or Codex and your agent reads the Skill, installs the binary, and walks you through authentication. Every command has a tier (read / write / destructive) and a recommended agent policy in each skill's `governance.md` - reads are always safe, and the recommended agent rule is to preview writes with `--dry-run` and require your approval before any mutation. The hard stuff is hidden; the safety bar is high.
 
 ## Install in 60 seconds
 
