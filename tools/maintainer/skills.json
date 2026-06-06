@@ -16,7 +16,7 @@
       "cli_hash": "sha256:c35fe70e19882732f38eac567b5ed2d9f994f0260a7dc0137914bcd1fe7d0681",
       "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:c35fe70e19882732f38eac567b5ed2d9f994f0260a7dc0137914bcd1fe7d0681",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -61,8 +61,8 @@
       "tagline": "Triage boards, catch unbilled time, and prep QBRs by asking.",
       "cli_hash": "sha256:a0617e8133dbdfbb42b9da1f1412fa9b6eb0ad684af373cfa7d540d58decd602",
       "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:f116088f98a762c88afee09ce823463d7529dd2261cb21d2b40d851218ec9575",
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:a0617e8133dbdfbb42b9da1f1412fa9b6eb0ad684af373cfa7d540d58decd602",
       "has_video": true,
       "featured": 2,
       "install_auth_hint": "Then authenticate per the README",
@@ -137,7 +137,7 @@
       "cli_hash": "sha256:af60ea720c8cb8008855dba17f0f5a5893ae6356c29f79bc806ec152a3a5ef66",
       "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:af60ea720c8cb8008855dba17f0f5a5893ae6356c29f79bc806ec152a3a5ef66",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -221,7 +221,7 @@
       "cli_hash": "sha256:78c736dbe18ce38fe022df3ecf340b7c717b6bd7cc469eaf647b187b47c66791",
       "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:78c736dbe18ce38fe022df3ecf340b7c717b6bd7cc469eaf647b187b47c66791",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -267,7 +267,7 @@
       "cli_hash": "sha256:0b44922c171df9a5d5bcb4ca4e369a30b97b0625f798c62d1a74280064e0670d",
       "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:0b44922c171df9a5d5bcb4ca4e369a30b97b0625f798c62d1a74280064e0670d",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
