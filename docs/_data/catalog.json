@@ -1,5 +1,5 @@
 {
-  "count": 23,
+  "count": 24,
   "connectors": [
     {
       "slug": "acronis",
@@ -144,6 +144,14 @@
       "category": "Billing",
       "verification": "awaiting",
       "url": "/skills/pax8/"
+    },
+    {
+      "slug": "quickbooks",
+      "display_name": "QuickBooks Online",
+      "tagline": "Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking.",
+      "category": "Billing",
+      "verification": "awaiting",
+      "url": "/skills/quickbooks/"
     },
     {
       "slug": "sentinelone",
