@@ -1,6 +1,14 @@
 {
-  "count": 13,
+  "count": 14,
   "connectors": [
+    {
+      "slug": "autotask",
+      "display_name": "Autotask PSA",
+      "tagline": "Triage tickets, surface unbilled time, and project retainer burn by asking.",
+      "category": "PSA",
+      "verification": "awaiting",
+      "url": "/skills/autotask/"
+    },
     {
       "slug": "cipp",
       "display_name": "CIPP",
