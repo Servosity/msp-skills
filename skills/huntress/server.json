@@ -1,0 +1,46 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/huntress-mcp",
+  "title": "Huntress MCP",
+  "description": "Every Huntress endpoint, plus a local SQLite mirror that delivers fleet-wide incident, coverage",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/huntress/huntress-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/huntress"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/huntress-v0.1.0/huntress-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "HUNTRESS_API_KEY",
+          "description": "Set the HUNTRESS_API_KEY credential for the Huntress MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "HUNTRESS_API_SECRET",
+          "description": "Set the HUNTRESS_API_SECRET credential for the Huntress MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

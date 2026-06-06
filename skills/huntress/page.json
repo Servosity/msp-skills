@@ -1,0 +1,109 @@
+{
+  "outcome_intro": "Ask \"which Huntress incidents are oldest across all my clients?\" and get one age-sorted queue spanning every organization - the cross-tenant view the per-org portal never shows. Triage incidents fleet-wide, find coverage gaps and dark agents, reconcile invoiced seats against deployed agents, and trace an indicator's blast radius across your whole account, in plain English, from one local mirror.",
+  "instead_of_say": [
+    {
+      "instead": "Log into the Huntress portal and open each client organization one at a time to eyeball which incidents are oldest.",
+      "say": "Show me every open Huntress incident across all my clients, oldest first.",
+      "cli": "huntress-cli fleet-incidents --sort age"
+    },
+    {
+      "instead": "Export the agent list and the invoice, then reconcile seats against deployed agents in a spreadsheet.",
+      "say": "Am I paying for more Huntress seats than I have agents deployed?",
+      "cli": "huntress-cli billing-reconcile"
+    },
+    {
+      "instead": "Search each org's agents by hand to find the machines that stopped checking in.",
+      "say": "Which Huntress agents haven't called home in a week?",
+      "cli": "huntress-cli stale-agents --days 7"
+    }
+  ],
+  "pain_points": [
+    "The Huntress portal scopes one organization at a time. Run dozens of client tenants and there is no single queue that tells you which incident - anywhere - is the oldest and most urgent right now.",
+    "Invoiced seats and deployed agents drift apart silently; MSPs discover they are over- or under-billed only when someone reconciles by hand at month-end.",
+    "During an incident you need to know whether an IP or file hash touched any other client, but the API answers one org and one entity at a time - never the fleet-wide correlation."
+  ],
+  "outcomes": [
+    {
+      "question": "Which incidents are oldest across every client org?",
+      "command": "huntress-cli fleet-incidents --sort age"
+    },
+    {
+      "question": "Where are my posture gaps - stale callbacks, disabled Defender or firewall?",
+      "command": "huntress-cli coverage-gaps"
+    },
+    {
+      "question": "Has this IP or file hash touched any of my clients?",
+      "command": "huntress-cli blast-radius --indicator 203.0.113.10"
+    },
+    {
+      "question": "Am I billed for more seats than I have agents deployed?",
+      "command": "huntress-cli billing-reconcile"
+    },
+    {
+      "question": "Which agents went dark in the last week?",
+      "command": "huntress-cli stale-agents --days 7"
+    },
+    {
+      "question": "What is my mean time-to-resolve per client?",
+      "command": "huntress-cli mttr --group-by org"
+    },
+    {
+      "question": "What changed across the fleet since my last shift?",
+      "command": "huntress-cli handoff --since 12h"
+    },
+    {
+      "question": "Give me a QBR scorecard for one client.",
+      "command": "huntress-cli org-scorecard --org 12345"
+    }
+  ],
+  "different_vs_wrappers": "Most Huntress integrations proxy each question straight to the live API - one record, one organization at a time. This skill syncs your whole account into a local SQLite mirror, so cross-tenant questions (one incident queue for every client, fleet-wide blast radius, seat-vs-agent reconciliation) resolve as a single local join: instant, offline, and the AI sees the answer rather than raw bulk data.",
+  "different_vs_vendor": "Huntress exposes no public AI assistant over its API, and the portal scopes to one organization at a time. This skill adds the rollups the portal never pre-computes - a unified cross-org incident queue, posture gaps, billing reconciliation, and history (drift, MTTR, handoff) the point-in-time API throws away - without replacing the portal you already use.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Huntress MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Huntress data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Do I need to be a Huntress partner?",
+      "a": "You need a Huntress account with API credentials (a key and secret) generated from your portal. Reseller credentials unlock the cross-account reseller-rollup; a single-account credential drives everything else."
+    },
+    {
+      "q": "Will this hit my Huntress API rate limits?",
+      "a": "Sync pulls your account into a local mirror once, then every rollup and search runs against that local copy - so repeated questions cost zero API calls. The CLI also honors a configurable --rate-limit on the requests it does make."
+    },
+    {
+      "q": "Will this replace my Huntress portal?",
+      "a": "No - it complements it. The portal stays your console for configuration and deep investigation; this skill answers the cross-tenant and historical questions the portal can only show one organization at a time."
+    }
+  ],
+  "governance_summary": "The skill authenticates with your Huntress API key and secret and is read-first: every rollup, search, and report is non-mutating and safe to let an agent run. The handful of write commands (update an organization, membership, account, or unwanted-access rule) and the destructive deletes are opt-in and should sit behind an agent policy of preview-then-approve. Keep autonomous agents to reads plus dry-run previews; require a human for any write or delete.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "fleet-incidents, coverage-gaps, blast-radius, billing-reconcile, mttr, org-scorecard, stale-agents, search",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "organizations update-parameters, accounts memberships update-parameters, unwanted-access-rules update-parameters",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "organizations delete-v1-id, accounts delete-v1-id, unwanted-access-rules delete-v1-id",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

@@ -485,6 +485,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "huntress": {
+      "system": "managed endpoint detection and response (EDR) security platform",
+      "status": "beta",
+      "cli_binary": "huntress-cli",
+      "mcp_binary": "huntress-mcp",
+      "vendor": "Huntress",
+      "vendor_trademark_owner": "Huntress Labs, Inc",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Huntress",
+      "tagline": "Triage Huntress incidents and coverage gaps across every client org from one queue.",
+      "cli_hash": "sha256:cabbf61ddeb69ab20e999dc45ce8d720fb9ae26b15ff74131c986f3080c50f3c",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }

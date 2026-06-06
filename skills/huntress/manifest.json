@@ -1,0 +1,47 @@
+{
+  "manifest_version": "0.3",
+  "name": "huntress-mcp",
+  "display_name": "Huntress",
+  "version": "0.1.0",
+  "description": "Every Huntress endpoint, plus a local SQLite mirror that delivers fleet-wide incident, coverage, and billing rollups the API and official MCP can't.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/huntress-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/huntress-mcp",
+      "args": [],
+      "env": {
+        "HUNTRESS_API_KEY": "${user_config.huntress_api_key}",
+        "HUNTRESS_API_SECRET": "${user_config.huntress_api_secret}"
+      }
+    }
+  },
+  "user_config": {
+    "huntress_api_key": {
+      "type": "string",
+      "title": "HUNTRESS_API_KEY",
+      "description": "Sets HUNTRESS_API_KEY for the Huntress MCP server. Get a credential from https://www.huntress.com/terms-of-service.",
+      "sensitive": true,
+      "required": true
+    },
+    "huntress_api_secret": {
+      "type": "string",
+      "title": "HUNTRESS_API_SECRET",
+      "description": "Sets HUNTRESS_API_SECRET for the Huntress MCP server. Get a credential from https://www.huntress.com/terms-of-service.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}
