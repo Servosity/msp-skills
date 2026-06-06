@@ -393,6 +393,29 @@
         "evidence": null
       },
       "install_auth_hint": "Then set `THREATLOCKER_API_KEY` (Portal > Administrators > API Users > Generate API Token) and run `threatlocker-cli doctor`"
+    },
+    "crowdstrike": {
+      "system": "CrowdStrike Falcon EDR: alerts, devices, Spotlight vulnerabilities, prevention policies, and MSSP Flight Control across every tenant",
+      "status": "beta",
+      "cli_binary": "crowdstrike-cli",
+      "mcp_binary": "crowdstrike-mcp",
+      "vendor": "CrowdStrike",
+      "vendor_trademark_owner": "CrowdStrike, Inc.",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "CrowdStrike Falcon",
+      "tagline": "Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking.",
+      "cli_hash": "sha256:232b3a19180ae6955758434e88d786d9c683eb17ba45f98761b26c063574c7b3",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }

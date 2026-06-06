@@ -269,6 +269,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "crowdstrike",
+      "source": "./skills/crowdstrike",
+      "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once \u2014 something no other Falcon tool (including the official MCP server) does.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "crowdstrike",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

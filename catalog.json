@@ -99,6 +99,25 @@
       "tagline": "Triage boards, catch unbilled time, and prep QBRs by asking."
     },
     {
+      "name": "crowdstrike",
+      "system": "CrowdStrike Falcon EDR: alerts, devices, Spotlight vulnerabilities, prevention policies, and MSSP Flight Control across every tenant",
+      "status": "beta",
+      "skill_path": "skills/crowdstrike",
+      "cli_binary": "crowdstrike-cli",
+      "mcp_binary": "crowdstrike-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "CrowdStrike",
+      "vendor_trademark_owner": "CrowdStrike, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/crowdstrike/install.sh)",
+      "install_mcp_doc": "skills/crowdstrike/mcp-install.md",
+      "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once \u2014 something no other Falcon tool (including the official MCP server) does.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking."
+    },
+    {
       "name": "datto-rmm",
       "system": "Datto RMM: devices, alerts, patch and AV gaps, warranty, agent drift, and fleet QBR scorecards from a local mirror",
       "status": "beta",

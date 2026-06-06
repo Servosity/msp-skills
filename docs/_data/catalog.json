@@ -1,5 +1,5 @@
 {
-  "count": 16,
+  "count": 17,
   "connectors": [
     {
       "slug": "acronis",
@@ -32,6 +32,14 @@
       "category": "PSA",
       "verification": "awaiting",
       "url": "/skills/connectwise-manage/"
+    },
+    {
+      "slug": "crowdstrike",
+      "display_name": "CrowdStrike Falcon",
+      "tagline": "Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking.",
+      "category": "Security",
+      "verification": "awaiting",
+      "url": "/skills/crowdstrike/"
     },
     {
       "slug": "datto-rmm",
