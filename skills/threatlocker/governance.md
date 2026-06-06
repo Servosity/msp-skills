@@ -28,7 +28,7 @@ require a human for anything below the line.
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
 | **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `applications create`, `applications update`, `approvals triage`, `computers maintenance-update`, `policies create` | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
+| **Write (routine)** | Day-to-day mutations. | `approvals approve`, `approvals approve-batch`, `applications create`, `applications update`, `computers maintenance`, `computers enable-protection`, `computers restart-service`, `policies create`, `policies copy`, `policies deploy` | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
 | **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
 | **Destructive** | Irreversible data or config loss. | `computers delete`, `policies delete` | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |

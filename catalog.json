@@ -181,7 +181,7 @@
       "skill_path": "skills/threatlocker",
       "cli_binary": "threatlocker-cli",
       "mcp_binary": "threatlocker-mcp",
-      "version": "4.22.0",
+      "version": "0.1.0",
       "license": "Apache-2.0",
       "vendor": "ThreatLocker",
       "vendor_trademark_owner": "ThreatLocker, Inc.",

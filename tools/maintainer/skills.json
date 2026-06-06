@@ -222,7 +222,7 @@
       "tagline": "Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking.",
       "cli_hash": "sha256:dc7d5e1d3826df0cdd561990769bcdc05827adf7d71cdcd38ae14d62f57f1147",
       "template_version": 3,
-      "version": "4.22.0",
+      "version": "0.1.0",
       "cli_hash_at_release": null,
       "has_video": true,
       "live_verified": {
@@ -230,7 +230,8 @@
         "date": null,
         "source": null,
         "evidence": null
-      }
+      },
+      "install_auth_hint": "Then set `THREATLOCKER_API_KEY` (Portal > Administrators > API Users > Generate API Token) and run `threatlocker-cli doctor`"
     }
   }
 }

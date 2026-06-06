@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/threatlocker/">
-    <img src="../../docs/assets/social/threatlocker/wide-1200x630.png" alt="ThreatLocker - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/threatlocker/animated-og.gif" alt="ThreatLocker demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/threatlocker/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/threatlocker/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
@@ -145,25 +145,34 @@ THREATLOCKER_API_KEY=<value> threatlocker-cli doctor
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `threatlocker-cli ...` |
-
--->
+| What application approvals are pending across all my clients right now? | `threatlocker-cli approvals triage --all-tenants` |
+| Approve this file hash everywhere it's pending, plan first? | `threatlocker-cli approvals approve-batch --hash <sha256> --all-tenants --dry-run` |
+| Which clients are about to lose audit evidence to the 31-day retention cliff? | `threatlocker-cli audit retention-check` |
+| Export every client's audit log before it ages off? | `threatlocker-cli audit export --all-tenants --since 30d` |
+| What changed across all tenants this week, protection off, policy edits, maintenance? | `threatlocker-cli audit drift --since 7d --all-tenants` |
+| Which ThreatLocker agents are offline or stale across every client? | `threatlocker-cli devices health --all-tenants` |
+| Where does this binary live across my whole book, approved or pending? | `threatlocker-cli applications hunt --hash <sha256>` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most ThreatLocker integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most ThreatLocker integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, because the Portal API is scoped one tenant at a time, so asking "show me every pending approval across all 40 clients, deduped by file hash" or "which clients are about to lose audit evidence this month" turns into a header-swap-and-re-query dance the AI burns context on, tenant by tenant.
 
-This skill syncs ThreatLocker into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs ThreatLocker into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `approvals triage`, `applications hunt`, and `devices health` join approval requests, applications, computers, and audit events across every tenant at once - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+ThreatLocker is default-deny, so every new or updated application becomes an approval request an admin has to clear. ThreatLocker's own MSP guide admits the volume: _"While you are onboarding your first few clients, your devices are learning and can be quite noisy"_ ([Allowlisting for MSPs](https://www.threatlocker.com/blog/allowlisting-for-msps)). Across a book of tenants the queue never goes quiet, and the Portal makes you clear it one tenant at a time. Then there's evidence: ThreatLocker's Help Center is explicit that _"by default, the Unified Audit retains data for 31 days. After 31 days, the information is permanently deleted and cannot be recovered"_ ([Log Retention](https://threatlocker.kb.help/log-retention/)) - shorter than most compliance and cyber-insurance asks.
+
+This skill closes both:
+
+- **`approvals triage --all-tenants`** - one ranked queue of every pending approval across all tenants, deduped by file hash.
+- **`approvals approve-batch --hash <sha256> --all-tenants --dry-run`** - permit a known-good file everywhere it's pending, plan first.
+- **`audit retention-check`** + **`audit export --all-tenants --since 30d`** - flag tenants near the 31-day cliff and persist their logs locally before evidence ages off.
+- **`devices health --all-tenants`** - surface dark and stale agents across the whole book without a tenant-by-tenant sweep.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +194,21 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Will this hit my ThreatLocker API rate limits?
+
+The local mirror exists so reads stop hitting the API. After the first `sync`, the cross-tenant views (`approvals triage`, `audit drift`, `devices health`, `applications hunt`) run against local SQLite with **zero API calls**. Live calls respect a `--rate-limit` throttle, and sync is incremental, fetching only what changed since the last checkpoint.
+
+### How does it handle ThreatLocker's 31-day audit retention?
+
+ThreatLocker's Unified Audit log keeps about 31 days by default. `audit export` persists each tenant's log to JSONL or CSV locally so the evidence outlives that window, and `audit retention-check` reports, per tenant, how close your archive is to the cliff and how stale your last sync is, so nothing ages off unnoticed.
+
+### Do I need to be a ThreatLocker MSP or have child tenants?
+
+You need API access in your own ThreatLocker Portal. The cross-tenant features assume a managed (parent) organization with child tenants, the MSP setup, but a single organization works too, you just get the one-tenant view. The credential you mint is the real permission boundary.
+
+### Does it replace the ThreatLocker Portal?
+
+No. The Portal stays best for authoring policies and the interactive approve/deny workflow. This skill adds cross-tenant queries and scriptable writes to your AI agent so you stop logging into each tenant to answer book-wide questions.
 
 ### What does it cost?
 
@@ -198,15 +216,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `approvals triage`, `audit drift`, `audit retention-check`, `audit export`, `devices health`, `applications hunt`, `search` | Allow |
+| Write (routine) | `approvals approve` / `approve-batch`, `applications create` / `update`, `policies create` / `copy` / `deploy`, `computers maintenance` / `enable-protection` / `restart-service` | Preview with `--dry-run`, then a reviewed write |
+| Destructive / config | `computers delete`, `policies delete` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the ThreatLocker credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +232,4 @@ Beta. Validated against the ThreatLocker API surface and being validated with MS
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-05._

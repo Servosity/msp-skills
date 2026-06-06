@@ -338,3 +338,41 @@ Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 Governance: The skill drives the superops-cli and superops-mcp binaries, authenticating with a SUPEROPS_API_TOKEN (plus SUPEROPS_SUBDOMAIN for your tenant) read from the environment - never logged, never sent anywhere except the SuperOps API. Every typed command is read-only: tickets, assets, alerts, clients, contracts, invoices, worklogs, and the cross-entity views change nothing. The single write path is `raw mutation`; the recommended policy is to preview it with --dry-run, show the exact GraphQL request, get approval, then run. The strongest control is the scope of the API token you mint.
+
+### ThreatLocker (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/threatlocker/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/install.sh)
+
+Running ThreatLocker across a whole book of customer tenants? Ask your AI "what approvals are pending everywhere," "which agents went dark this week," or "which clients are about to lose audit evidence," and get one cross-tenant answer the Portal can't compose. Every tenant is mirrored into a local store, so one approval queue, one audit archive, and one health rollup replace dozens of one-tenant-at-a-time Portal logins.
+
+Outcomes (question -> command your AI agent runs):
+- What application approvals are pending across all my clients right now? -> threatlocker-cli approvals triage --all-tenants
+- Approve this file hash everywhere it's pending, but show me the plan first? -> threatlocker-cli approvals approve-batch --hash <sha256> --all-tenants --dry-run
+- Which clients are about to lose audit evidence to the 31-day retention cliff? -> threatlocker-cli audit retention-check
+- Export every client's audit log before it ages off? -> threatlocker-cli audit export --all-tenants --since 30d
+- What security-relevant changes (protection off, policy edits, maintenance) happened across all tenants this week? -> threatlocker-cli audit drift --since 7d --all-tenants
+- Which ThreatLocker agents are offline or stale across every client? -> threatlocker-cli devices health --all-tenants
+- Where does this binary live across my whole book, approved or pending? -> threatlocker-cli applications hunt --hash <sha256>
+- Pull every tenant's ThreatLocker data into a local mirror for offline queries? -> threatlocker-cli sync
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local ThreatLocker MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my ThreatLocker data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this hit my ThreatLocker API rate limits?
+A: The local mirror exists so reads stop hitting the API. After the first sync, the cross-tenant views (approvals triage, audit drift, devices health, applications hunt) run against local SQLite with zero API calls. Live calls respect a --rate-limit throttle, and sync is incremental, fetching only what changed since the last checkpoint.
+Q: How does it handle ThreatLocker's 31-day audit retention?
+A: ThreatLocker's Unified Audit log keeps about 31 days by default. audit export persists each tenant's log to JSONL or CSV locally so evidence outlives that window, and audit retention-check reports, per tenant, how close your archive is to the cliff and how stale your last sync is, so nothing ages off unnoticed.
+Q: Do I need to be a ThreatLocker MSP or have child tenants?
+A: You need API access in your own ThreatLocker Portal. The cross-tenant features assume a managed (parent) organization with child tenants, which is the MSP setup; a single organization works too, you just get the one-tenant view. The credential you mint is the real permission boundary.
+Q: Does it replace the ThreatLocker Portal?
+A: No. The Portal stays best for authoring policies and the interactive approve/deny workflow. This skill adds cross-tenant queries and scriptable writes to your AI agent so you stop logging into each tenant to answer book-wide questions.
+
+Governance: The skill drives the threatlocker-cli and threatlocker-mcp binaries, authenticating with a THREATLOCKER_API_KEY read from the environment, never logged and never sent anywhere except the ThreatLocker API. Read commands (approvals triage, audit drift, audit export, audit retention-check, devices health, applications hunt, search) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule, preview with --dry-run, show the exact command, get approval, then run the write. Keep computers delete and policies delete human-only. The strongest control is the scope of the API key you mint in the Portal.
