@@ -35,10 +35,10 @@
     "released_hash": "sha256:68415b40e97284f38a352bb2b1cba65d33d58d34d42bf67aedd40d533c016d44"
   },
   "hubspot": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.0",
     "latest_tag": "hubspot-v0.1.0",
-    "current_hash": "sha256:50cc2d03171acd1232def91fc8fa118aa68feff37236f83d5bb429c4ef0a41e7",
+    "current_hash": "sha256:4ec274f47091f317aff6a1c2f816410df2f18d6d270de4a4892d7fedb616fd7d",
     "released_hash": "sha256:50cc2d03171acd1232def91fc8fa118aa68feff37236f83d5bb429c4ef0a41e7"
   },
   "microsoft-graph": {
