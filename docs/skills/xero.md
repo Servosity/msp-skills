@@ -12,11 +12,15 @@ faqs:
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my Xero data safe?"
-    a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    a: "Your data stays on your machine - the CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
-  - q: "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Xero portal)"
-    a: "TODO"
+  - q: "Will this hit my Xero API rate limits?"
+    a: "Rarely. After one sync into the local mirror, aging, reconciliation, tie-out, exposure, ledger, and search run entirely offline - zero API calls. Only sync, explicit live reads, and writes touch the API, which Xero caps at 60 calls per minute and 5,000 per day per organisation; the local-first design is built around that limit."
+  - q: "Which Xero credentials does it need, and does it create them?"
+    a: "You mint an OAuth2 token in the Xero developer portal - a Custom Connection is the simplest for machine-to-machine use - then pass it plus your organisation's tenant id via XERO_ACCESS_TOKEN and XERO_TENANT_ID. The CLI never creates or rotates tokens; it only uses the one you give it. Run xero-cli doctor to confirm both are set before syncing."
+  - q: "Does it cover one organisation or several?"
+    a: "One organisation per XERO_TENANT_ID. The local mirror holds a single tenant; for a multi-entity portfolio, point the tenant id at each organisation in turn and loop."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/xero/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/xero/install.ps1 | iex"
@@ -33,7 +37,7 @@ howto:
 
 **Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
 
-TODO: <=70 words, MSP-owner language, leads with the outcome. What does Xero + your AI answer in one sentence that the portal cannot?
+Ask in plain English who owes you and how overdue, which authorised invoices still have no payment applied, and whether the general ledger ties to outstanding invoices at close - for a Xero organisation, in one call. Xero plus your AI agent reads a local mirror of the org, so the aging, reconciliation, and tie-out questions the web reports make you export and pivot become one instant, offline answer.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -41,17 +45,17 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Xero + y
 
 ## Instead of clicking through Xero, just ask
 
-**Instead of** TODO: the painful manual workflow (exporting reports, clicking through the portal)
-**just ask:** *"TODO: the natural-language question the MSP owner asks instead"*
-<sub>Your agent runs: <code>xero-cli TODO</code></sub>
+**Instead of** Export the Aged Receivables report from Xero, drop it into a spreadsheet, and sort by days overdue to build this week's collections list
+**just ask:** *"Who owes us money, and how overdue is each one?"*
+<sub>Your agent runs: <code>xero-cli aging --agent</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>xero-cli TODO</code></sub>
+**Instead of** Open each authorised invoice and cross-check it against the payments list to find which ones still are not paid
+**just ask:** *"Which authorised invoices are still owed with no payment applied?"*
+<sub>Your agent runs: <code>xero-cli reconcile --agent</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>xero-cli TODO</code></sub>
+**Instead of** Pull the General Ledger and the receivables report and reconcile the control-account totals by hand at month-end close
+**just ask:** *"Do the books tie out before I sign off the close?"*
+<sub>Your agent runs: <code>xero-cli tie-out --agent</code></sub>
 
 
 ## See it in 30 seconds
@@ -64,20 +68,30 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Xero + y
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| TODO: question an MSP keeps asking | `xero-cli TODO` |
+| Who owes us, and how overdue is each invoice? | `xero-cli aging --agent` |
+| What do we owe suppliers, bucketed by age? | `xero-cli aging --payable --agent` |
+| Which contacts carry the most receivable risk? | `xero-cli exposure --agent` |
+| Which authorised invoices are still owed with no applied payment? | `xero-cli reconcile --agent` |
+| Which bank transactions are unreconciled, and what might they match? | `xero-cli bank-recon --agent` |
+| Do the GL control accounts tie to outstanding invoices at close? | `xero-cli tie-out --agent` |
+| What posted to a single account, as a running balance? | `xero-cli ledger 200 --agent` |
+| What changed in the organisation since last week? | `xero-cli since 7d --agent` |
+| Give me one state-of-the-org summary in a single call. | `xero-cli snapshot --agent` |
+| Find every synced record matching a keyword. | `xero-cli search "overdue" --agent` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/xero/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/xero/guide.md).
 
 ## What makes this one different
 
-TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most Xero integrations proxy each question into a live API call ...
+Most Xero integrations and MCP servers proxy each question into a live API call - fine for one record, but it dies at scale and burns through Xero's 60-call-per-minute rate limit. This skill syncs the organisation into a local SQLite mirror, so aging, reconciliation, exposure, and GL tie-out become one offline join: instant, reproducible, and computed from your own data instead of re-paging the API.
 
-TODO: one sentence vs Xero's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.
+Xero's web reports answer one report at a time in the browser; this skill answers the cross-report questions - aging plus reconciliation plus GL tie-out - in the AI agent you already work in, computed offline from a local mirror. It complements the Xero web app you still use for editing and day-to-day bookkeeping; it does not replace it.
 
 ## The pain this closes
 
-- TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread
-- TODO: pain 2
+- AR collections run on a stale spreadsheet: pulling Aged Receivables, exporting it, and pivoting by days overdue is a weekly manual chore, so the chase list is always a day behind the actual ledger.
+- Reconciling cash to invoices is one row at a time in the browser - finding which authorised invoices still have no applied payment, or which bank lines are unreconciled, means clicking back and forth between two screens.
+- At month-end close nobody can answer 'do the books tie?' fast: matching the GL control accounts to outstanding invoices is a manual reconciliation, and Xero's 60-calls-per-minute / 5,000-per-day API limit makes roll-your-own scripts crawl.
 
 ## Install
 
@@ -111,11 +125,11 @@ After install, authenticate once with your Xero credentials, then verify with `x
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | TODO: read commands | Allow |
-| Write (routine) | TODO | Preview with --dry-run, then a reviewed write |
-| Destructive / config | TODO | Human-in-the-loop only |
+| Read | aging, exposure, reconcile, bank-recon, tie-out, ledger, snapshot, since, search, analytics, sync, doctor, accounts get, contacts get, invoices get, payments get, journals get | Allow |
+| Write (routine) | invoices create, invoices update, contacts create, contacts update, accounts create, accounts update, payments create, bank-transactions create, items create, items update, import | Preview with --dry-run, then a reviewed write |
+| Destructive / credential | accounts delete, items delete, payments delete, auth logout | Human-in-the-loop only |
 
-TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/xero/governance.md).
+Everything analytical reads from a local mirror - aging, exposure, reconcile, bank-recon, tie-out, ledger, snapshot, since, and search are always safe to run and cannot change anything. Writes (creating or updating invoices, contacts, accounts, payments, bank transactions, and items, plus the bulk import) send to your live Xero organisation, so the recommended agent policy is preview-then-approve. Deletes of accounts, items, and payments are destructive and removing stored auth tokens is credential-tier - keep both human-in-the-loop. The strongest control is the scope of the OAuth2 token you grant. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/xero/governance.md).
 
 ## Frequently asked questions
 
@@ -129,15 +143,23 @@ No. Paste one sentence into Claude Code or Codex and your agent does the install
 
 ### Is my Xero data safe?
 
-Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Your data stays on your machine - the CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
 
 ### What does it cost?
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-### TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Xero portal)
+### Will this hit my Xero API rate limits?
 
-TODO
+Rarely. After one sync into the local mirror, aging, reconciliation, tie-out, exposure, ledger, and search run entirely offline - zero API calls. Only sync, explicit live reads, and writes touch the API, which Xero caps at 60 calls per minute and 5,000 per day per organisation; the local-first design is built around that limit.
+
+### Which Xero credentials does it need, and does it create them?
+
+You mint an OAuth2 token in the Xero developer portal - a Custom Connection is the simplest for machine-to-machine use - then pass it plus your organisation's tenant id via XERO_ACCESS_TOKEN and XERO_TENANT_ID. The CLI never creates or rotates tokens; it only uses the one you give it. Run xero-cli doctor to confirm both are set before syncing.
+
+### Does it cover one organisation or several?
+
+One organisation per XERO_TENANT_ID. The local mirror holds a single tenant; for a multi-entity portfolio, point the tenant id at each organisation in turn and loop.
 
 
 ## Status

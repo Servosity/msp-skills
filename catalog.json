@@ -504,7 +504,7 @@
       "skill_path": "skills/xero",
       "cli_binary": "xero-cli",
       "mcp_binary": "xero-mcp",
-      "version": "4.22.0",
+      "version": "0.1.0",
       "license": "Apache-2.0",
       "vendor": "Xero",
       "vendor_trademark_owner": "Xero Limited",
@@ -514,7 +514,7 @@
       "description": "Every Xero Accounting read plus a local SQLite ledger  -  aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
       "verification": "awaiting",
       "category": "Billing",
-      "tagline": "Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal \u2014 offline, in one call."
+      "tagline": "Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal - offline, in one call."
     }
   ]
 }

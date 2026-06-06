@@ -4,8 +4,17 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [4.22.0]
+## [0.1.0]
 
 ### Added
-- Initial msp-skills release: Xero CLI + MCP server, offline mirror, and
-  cross-object analytics. <!-- TODO: replace with the real highlight list. -->
+- Initial msp-skills release: `xero-cli` + `xero-mcp` for the Xero Accounting
+  API across invoices, contacts, accounts, payments, bank transactions, items,
+  and the immutable journals feed.
+- Offline SQLite mirror with incremental `sync`, FTS5 `search`, and a `since`
+  org delta - cross-object analytics computed locally instead of per-question
+  API calls.
+- Receivables and reconciliation analytics not available in any other Xero tool:
+  `aging`, `exposure`, `reconcile`, `bank-recon`, `tie-out`, `ledger`, and a
+  one-call `snapshot`.
+- Agent-native plumbing: `--agent` mode, `--select` field projection, `--dry-run`
+  previews, named profiles, and `--deliver` output sinks.

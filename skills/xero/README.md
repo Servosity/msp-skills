@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/xero/">
-    <img src="../../docs/assets/social/xero/wide-1200x630.png" alt="Xero - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/xero/animated-og.gif" alt="Xero demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/xero/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/xero/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Every Xero Accounting read plus a local SQLite ledger  -  aging, reconciliation, and GL tie-out that no other Xero tool computes offline. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Xero MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/xero-v4.22.0/xero-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Xero release on the [releases page](https://github.com/servosity/msp-skills/releases?q=xero).)
+[**Download Xero MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/xero-v0.1.0/xero-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Xero release on the [releases page](https://github.com/servosity/msp-skills/releases?q=xero).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -134,10 +134,10 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 
 ### Authenticate
 
-Set the credentials the CLI needs (from your Xero portal):
+Set the two credentials the CLI needs - an OAuth2 access token (mint a Custom Connection in the [Xero developer portal](https://developer.xero.com)) and your organisation's tenant id:
 
 ```bash
-XERO_ACCESS_TOKEN=<value> XERO_ACCOUNTING_OAUTH2=<value> XERO_TENANT_ID=<value> xero-cli doctor
+XERO_ACCESS_TOKEN=<value> XERO_TENANT_ID=<value> xero-cli doctor
 ```
 
 `doctor` confirms the credentials work before you run anything that touches data.
@@ -145,25 +145,37 @@ XERO_ACCESS_TOKEN=<value> XERO_ACCOUNTING_OAUTH2=<value> XERO_TENANT_ID=<value> 
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `xero-cli ...` |
-
--->
+| Who owes us, and how overdue is each invoice? | `xero-cli aging --agent` |
+| What do we owe suppliers, bucketed by age? | `xero-cli aging --payable --agent` |
+| Which contacts carry the most receivable risk? | `xero-cli exposure --agent` |
+| Which authorised invoices are still owed with no applied payment? | `xero-cli reconcile --agent` |
+| Which bank transactions are unreconciled, and what might they match? | `xero-cli bank-recon --agent` |
+| Do the GL control accounts tie to outstanding invoices at close? | `xero-cli tie-out --agent` |
+| What posted to a single account, as a running balance? | `xero-cli ledger 200 --agent` |
+| What changed in the organisation since last week? | `xero-cli since 7d --agent` |
+| Give me one state-of-the-org summary in a single call. | `xero-cli snapshot --agent` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Xero integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Xero integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "who owes us across every authorised invoice and how overdue is each one" - and it burns through Xero's 60-call-per-minute, 5,000-per-day rate limit doing it.
 
-This skill syncs Xero into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs Xero into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `reconcile` (authorised invoices cross-joined to applied payments) and `tie-out` (the immutable journal control accounts compared against outstanding invoices) join across invoices, payments, journals, and accounts - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+Cash flow is what kills small service businesses, and the slowest loop in it is collections. On r/msp and r/bookkeeping the same complaint recurs: the weekly AR chase and the month-end close are manual rituals. You export the Aged Receivables report, paste it into a spreadsheet, pivot by days overdue - a chase list already a day stale by the time it's built. Reconciling applied cash to authorised invoices, and unreconciled bank lines to the invoices they settle, is click-back-and-forth one row at a time. And scripting around it hits Xero's 60-calls-per-minute, 5,000-per-day API ceiling, so the cross-endpoint answers you actually want never come back in a single call.
+
+This skill closes that loop by syncing the org into a local mirror, then answering offline:
+
+- **`xero-cli aging --agent`** - this week's chase list, bucketed by days overdue (`--payable` for what you owe).
+- **`xero-cli exposure --agent`** - receivable risk ranked by contact, with an overdue split.
+- **`xero-cli reconcile --agent`** - the cash-application gap: authorised invoices still owed with no applied payment.
+- **`xero-cli bank-recon --agent`** - unreconciled bank lines matched to their likely invoices and payments.
+- **`xero-cli tie-out --agent`** - proof the GL control accounts tie to outstanding invoices at close; variance zero is the signal.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +197,21 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Will this hit my Xero API rate limits?
+
+Rarely. After one `sync` into the local mirror, aging, reconciliation, tie-out, exposure, ledger, and search run entirely offline - zero API calls. Only `sync`, explicit live reads, and writes touch the API, which Xero caps at **60 calls per minute and 5,000 per day per organisation**. The local-first design exists precisely to stay under that ceiling.
+
+### Which Xero credentials does it need, and does it create them?
+
+You mint an OAuth2 token in the Xero developer portal - a **Custom Connection** is the simplest for machine-to-machine use - then pass it plus your organisation's tenant id via `XERO_ACCESS_TOKEN` and `XERO_TENANT_ID`. The CLI **never creates or rotates tokens**; it only uses the one you give it. Run `xero-cli doctor` to confirm both are set before syncing.
+
+### Does it cover one organisation or several?
+
+One organisation per `XERO_TENANT_ID`. The local mirror holds a single tenant; for a multi-entity portfolio, point the tenant id at each organisation in turn and loop.
+
+### Will it replace the Xero web app?
+
+No. It complements the portal you still use for editing and day-to-day bookkeeping. This skill is for the cross-report questions - aging, reconciliation, GL tie-out - answered in the AI agent you already work in, computed offline.
 
 ### What does it cost?
 
@@ -198,15 +219,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `aging`, `exposure`, `reconcile`, `bank-recon`, `tie-out`, `ledger`, `snapshot`, `since`, `search`, `sync`, `doctor`, and every `get` | Allow |
+| Write (routine) | `invoices create`, `invoices update`, `contacts create`, `accounts create`, `payments create`, `bank-transactions create`, `items create`, and the bulk `import` | Preview with `--dry-run`, then a reviewed write |
+| Destructive / credential | `accounts delete`, `items delete`, `payments delete`, `auth logout` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Xero credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +235,4 @@ Beta. Validated against the Xero API surface and being validated with MSPs runni
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-06._

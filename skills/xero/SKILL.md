@@ -11,32 +11,26 @@ metadata:
     requires:
       bins:
         - xero-cli
-    install:
-      - kind: go
-        bins: [xero-cli]
-        module: github.com/mvanhorn/printing-press-library/library/payments/xero/cmd/xero-cli
 ---
 
-# Xero  -  Printing Press CLI
+# Xero Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `xero-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install xero --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/xero/install.sh)
    ```
-2. Verify: `xero-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/xero/install.ps1 | iex
+   ```
+3. Verify: `xero-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/payments/xero/cmd/xero-cli@latest
-```
-
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 A Go CLI for the Xero Accounting API across invoices, contacts, accounts, payments, bank transactions, items, and the immutable journals feed. It syncs the org into a queryable local store, then answers the questions the web UI, SDKs, and endpoint-mirroring MCP servers cannot in a single call: AR/AP aging (`aging`), payment and bank reconciliation gaps (`reconcile`, `bank-recon`), general-ledger-to-invoice tie-out (`tie-out`), and a running-balance ledger walk (`ledger`).
 
@@ -173,7 +167,7 @@ These capabilities aren't available in any other tool for this API.
 
 - `xero-cli payments create`  -  Creates a single payment for invoice or credit notes
 - `xero-cli payments create-endpoint`  -  Creates multiple payments for invoices or credit notes
-- `xero-cli payments delete`  -  Updates a specific payment for invoices and credit notes
+- `xero-cli payments delete`  -  Deletes (voids) a specific payment for invoices and credit notes
 - `xero-cli payments get`  -  Retrieves payments for invoices and credit notes
 - `xero-cli payments get-paymentid`  -  Retrieves a specific payment for invoices and credit notes using a unique payment Id
 
@@ -201,7 +195,7 @@ Buckets every outstanding invoice by days overdue so you can build a chase list 
 ### Narrow a verbose invoice list for an agent
 
 ```bash
-xero-cli invoices list --agent --select Invoices.InvoiceNumber,Invoices.Contact.Name,Invoices.AmountDue,Invoices.Status
+xero-cli invoices get --agent --select Invoices.InvoiceNumber,Invoices.Contact.Name,Invoices.AmountDue,Invoices.Status
 ```
 
 Xero invoice payloads are large and deeply nested; dotted-path --select returns only the fields an agent needs, keeping context small.
@@ -326,15 +320,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/payments/xero/cmd/xero-mcp@latest
-   ```
-2. Register with Claude Code:
+The installer above drops `xero-mcp` alongside the CLI.
+
+1. Register with Claude Code:
    ```bash
    claude mcp add xero-mcp -- xero-mcp
    ```
-3. Verify: `claude mcp list`
+2. Verify: `claude mcp list`
 
 ## Direct Use
 

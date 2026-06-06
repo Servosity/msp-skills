@@ -28,8 +28,8 @@ require a human for anything below the line.
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
 | **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `accounts create`, `accounts update`, `bank-transactions create`, `bank-transactions history create-bank-transaction-record`, `bank-transactions update`, `bank-transactions update-or-create`, `contacts create`, `contacts history create-contact`, ... (21 total) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
-| **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
+| **Write (routine)** | Day-to-day mutations. | `accounts create`, `accounts update`, `bank-transactions create`, `bank-transactions update`, `bank-transactions update-or-create`, `contacts create`, `contacts update`, `contacts update-or-create`, `invoices create`, `invoices update`, `items create`, `items update`, `payments create`, `payments create-endpoint`, the per-object `history create-*` commands, and `import` (bulk POST, one request per JSONL record) - 22 mutating commands in all | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
+| **Credential / security** | Touches stored auth tokens. | `auth logout` (removes the stored OAuth2 token); `auth login` / `login` (writes a token after the OAuth2 flow) | Human-in-the-loop only |
 | **Destructive** | Irreversible data or config loss. | `accounts delete`, `items delete`, `payments delete` | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
 

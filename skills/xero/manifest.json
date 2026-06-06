@@ -1,8 +1,8 @@
 {
   "manifest_version": "0.3",
-  "name": "xero-pp-mcp",
+  "name": "xero-mcp",
   "display_name": "Xero",
-  "version": "4.22.0",
+  "version": "0.1.0",
   "description": "Every Xero Accounting read plus a local SQLite ledger  -  aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
   "author": {
     "name": "Servosity Inc."
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/xero-pp-mcp",
+    "entry_point": "bin/xero-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/xero-pp-mcp",
+      "command": "${__dirname}/bin/xero-mcp",
       "args": [],
       "env": {
         "XERO_ACCESS_TOKEN": "${user_config.xero_access_token}",
