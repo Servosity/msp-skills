@@ -9,6 +9,36 @@
   },
   "plugins": [
     {
+      "name": "acronis",
+      "source": "./skills/acronis",
+      "description": "The first real CLI for the Acronis Cyber Protect Cloud platform \u2014 every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "acronis",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "autotask",
+      "source": "./skills/autotask",
+      "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can.",
+      "version": "0.1.0",
+      "category": "psa",
+      "tags": [
+        "autotask",
+        "psa",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "cipp",
       "source": "./skills/cipp",
       "description": "First single-binary CLI for CIPP  -  offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.",
@@ -40,6 +70,37 @@
       ]
     },
     {
+      "name": "crowdstrike",
+      "source": "./skills/crowdstrike",
+      "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once \u2014 something no other Falcon tool (including the official MCP server) does.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "crowdstrike",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "datto-rmm",
+      "source": "./skills/datto-rmm",
+      "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "datto-rmm",
+        "datto rmm",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "halopsa",
       "source": "./skills/halopsa",
       "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
@@ -63,6 +124,22 @@
       "tags": [
         "hubspot",
         "crm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "microsoft-graph",
+      "source": "./skills/microsoft-graph",
+      "description": "The maintained single-binary successor to the retiring mgc \u2014 every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "microsoft-graph",
+        "microsoft graph",
+        "security",
         "msp",
         "mcp",
         "claude-code",
@@ -119,6 +196,51 @@
       ]
     },
     {
+      "name": "ninjaone",
+      "source": "./skills/ninjaone",
+      "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "ninjaone",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "pax8",
+      "source": "./skills/pax8",
+      "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces.",
+      "version": "0.1.0",
+      "category": "billing",
+      "tags": [
+        "pax8",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "sentinelone",
+      "source": "./skills/sentinelone",
+      "description": "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics \u2014 fleet health, threat triage, blast radius, drift \u2014 that no console view offers.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "sentinelone",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "servosity",
       "source": "./skills/servosity",
       "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
@@ -149,14 +271,14 @@
       ]
     },
     {
-      "name": "pax8",
-      "source": "./skills/pax8",
-      "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces.",
+      "name": "syncro",
+      "source": "./skills/syncro",
+      "description": "Every Syncro PSA and RMM workflow in your terminal, plus a local database, offline search, and cross-entity reports no other Syncro tool has.",
       "version": "0.1.0",
-      "category": "billing",
+      "category": "psa",
       "tags": [
-        "pax8",
-        "billing",
+        "syncro",
+        "psa",
         "msp",
         "mcp",
         "claude-code",
@@ -171,113 +293,6 @@
       "category": "security",
       "tags": [
         "threatlocker",
-        "security",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "ninjaone",
-      "source": "./skills/ninjaone",
-      "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
-      "version": "0.1.0",
-      "category": "rmm",
-      "tags": [
-        "ninjaone",
-        "rmm",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "microsoft-graph",
-      "source": "./skills/microsoft-graph",
-      "description": "The maintained single-binary successor to the retiring mgc \u2014 every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can.",
-      "version": "0.1.0",
-      "category": "security",
-      "tags": [
-        "microsoft-graph",
-        "microsoft graph",
-        "security",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "sentinelone",
-      "source": "./skills/sentinelone",
-      "description": "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics \u2014 fleet health, threat triage, blast radius, drift \u2014 that no console view offers.",
-      "version": "0.1.0",
-      "category": "security",
-      "tags": [
-        "sentinelone",
-        "security",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "autotask",
-      "source": "./skills/autotask",
-      "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can.",
-      "version": "0.1.0",
-      "category": "psa",
-      "tags": [
-        "autotask",
-        "psa",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "datto-rmm",
-      "source": "./skills/datto-rmm",
-      "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
-      "version": "0.1.0",
-      "category": "rmm",
-      "tags": [
-        "datto-rmm",
-        "datto rmm",
-        "rmm",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "acronis",
-      "source": "./skills/acronis",
-      "description": "The first real CLI for the Acronis Cyber Protect Cloud platform \u2014 every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
-      "version": "0.1.0",
-      "category": "backup-dr",
-      "tags": [
-        "acronis",
-        "backup-dr",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "crowdstrike",
-      "source": "./skills/crowdstrike",
-      "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once \u2014 something no other Falcon tool (including the official MCP server) does.",
-      "version": "0.1.0",
-      "category": "security",
-      "tags": [
-        "crowdstrike",
         "security",
         "msp",
         "mcp",

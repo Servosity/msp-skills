@@ -1,0 +1,20 @@
+{
+  "name": "syncro",
+  "version": "0.1.0",
+  "description": "Every Syncro PSA and RMM workflow in your terminal, plus a local database, offline search, and cross-entity reports no other Syncro tool has.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/syncro",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "syncro",
+    "psa",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

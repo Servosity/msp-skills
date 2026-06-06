@@ -327,6 +327,25 @@
       "tagline": "Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking."
     },
     {
+      "name": "syncro",
+      "system": "Syncro PSA and RMM: tickets, invoicing, estimates, contracts, RMM alerts, and asset patch reporting for MSPs",
+      "status": "beta",
+      "skill_path": "skills/syncro",
+      "cli_binary": "syncro-cli",
+      "mcp_binary": "syncro-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Syncro",
+      "vendor_trademark_owner": "Servably, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/syncro/install.sh)",
+      "install_mcp_doc": "skills/syncro/mcp-install.md",
+      "description": "Every Syncro PSA and RMM workflow in your terminal, plus a local database, offline search, and cross-entity reports no other Syncro tool has.",
+      "verification": "awaiting",
+      "category": "PSA",
+      "tagline": "Run every Syncro PSA and RMM workflow from your terminal: tickets, billing, and patch gaps in one ask."
+    },
+    {
       "name": "threatlocker",
       "system": "ThreatLocker Portal: approvals, audit log, device health, and policy across customer tenants",
       "status": "beta",
