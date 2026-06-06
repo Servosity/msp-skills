@@ -1,6 +1,14 @@
 {
-  "count": 9,
+  "count": 10,
   "connectors": [
+    {
+      "slug": "cipp",
+      "display_name": "CIPP",
+      "tagline": "Every client tenant's M365 posture, license waste, and stale accounts in one cross-tenant rollup.",
+      "category": "Security",
+      "verification": "awaiting",
+      "url": "/skills/cipp/"
+    },
     {
       "slug": "connectwise-manage",
       "display_name": "ConnectWise PSA (Manage)",

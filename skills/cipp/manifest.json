@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "cipp-pp-mcp",
+  "display_name": "CIPP",
+  "version": "0.1.0",
+  "description": "First single-binary CLI for CIPP  -  offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/cipp-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/cipp-pp-mcp",
+      "args": [],
+      "env": {
+        "CIPP_API_KEY": "${user_config.cipp_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "cipp_api_key": {
+      "type": "string",
+      "title": "CIPP bearer token",
+      "description": "Azure AD bearer JWT for your self-hosted CIPP instance. Obtained via OAuth2 client-credentials against login.microsoftonline.com; 'auth login' performs the exchange and caches it. CIPP_API_KEY accepts a static bearer token.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

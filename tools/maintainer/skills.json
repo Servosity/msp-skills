@@ -2,6 +2,29 @@
   "owner": "servosity",
   "repo": "msp-skills",
   "skills": {
+    "cipp": {
+      "system": "the CyberDrain Improved Partner Portal (CIPP), the open-source Microsoft 365 multi-tenant management platform for MSPs",
+      "status": "beta",
+      "cli_binary": "cipp-cli",
+      "mcp_binary": "cipp-mcp",
+      "vendor": "CIPP",
+      "vendor_trademark_owner": "CyberDrain",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "CIPP",
+      "tagline": "Every client tenant's M365 posture, license waste, and stale accounts in one cross-tenant rollup.",
+      "cli_hash": "sha256:5308f96f3678055c37d17cf112bae373f4394a204258300e85b0b5501433e249",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "connectwise-manage": {
       "system": "ConnectWise PSA (Manage)",
       "status": "beta",

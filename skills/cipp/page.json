@@ -1,0 +1,118 @@
+{
+  "outcome_intro": "CIPP manages Microsoft 365 across all your client tenants, but its portal and API work one tenant at a time. Ask your AI \"which tenants are off our security baseline\" or \"where are we paying for unused licenses\" and get the cross-tenant answer the UI never renders: one fan-out pulls every tenant into a local store, then posture, license-waste, stale-account, and standards-drift rollups run instantly - offline, across the whole fleet.",
+  "instead_of_say": [
+    {
+      "instead": "Logging into each client's tenant one at a time to count who still hasn't registered MFA, then pasting the numbers into a QBR spreadsheet",
+      "say": "Show me MFA registration across every tenant",
+      "cli": "cipp-cli posture --dimension mfa"
+    },
+    {
+      "instead": "Clicking through every tenant's license page to find seats you pay for but nobody uses, then reconciling against the CSP bill by hand",
+      "say": "Which assigned M365 licenses are going unused across all my clients?",
+      "cli": "cipp-cli licenses waste"
+    },
+    {
+      "instead": "Running the same offboarding steps - block sign-in, convert mailbox, set forwarding - separately in each tenant for a batch of departures, and starting over when the API throttles you",
+      "say": "Offboard this CSV of departures across their tenants without tripping rate limits",
+      "cli": "cipp-cli bulk --from offboards.csv --execute"
+    }
+  ],
+  "pain_points": [
+    "CIPP scopes nearly every endpoint by a single tenantFilter, so the portal forces you through one client tenant at a time. The fleet-wide questions an MSP owner actually asks at QBR time - how many users still lack MFA across all clients, which tenants drifted off baseline, where licenses sit unused - have no single screen; you click each tenant or script the API by hand.",
+    "The CIPP API (per the official CIPP API documentation at docs.cipp.app) authenticates with an Azure AD app registration via OAuth2 client credentials and runs through Microsoft Graph, which throttles at scale. A bulk change across dozens of tenants hits HTTP 429 / Retry-After limits, and a halted batch means re-running everything - there is no resumable, checkpointing bulk runner.",
+    "As of June 2026 there is no published single-binary CLI or MCP server for CIPP that we could find - automating it means hand-rolled PowerShell against the API or clicking through the portal, neither of which an AI agent can drive in one natural-language step."
+  ],
+  "outcomes": [
+    {
+      "question": "Which tenants still have users without MFA registered?",
+      "command": "cipp-cli posture --dimension mfa"
+    },
+    {
+      "question": "How does Conditional Access coverage compare across all tenants?",
+      "command": "cipp-cli posture --dimension ca"
+    },
+    {
+      "question": "Where am I paying for M365 licenses nobody uses?",
+      "command": "cipp-cli licenses waste"
+    },
+    {
+      "question": "Which licensed accounts haven't signed in for 90 days, across every client?",
+      "command": "cipp-cli users stale --days 90"
+    },
+    {
+      "question": "Which tenants drifted off our security baseline since the last check?",
+      "command": "cipp-cli standards drift"
+    },
+    {
+      "question": "Pull one read across every client tenant at once and keep it locally",
+      "command": "cipp-cli fanout --endpoint /ListUsers --all-tenants --save"
+    },
+    {
+      "question": "Offboard a batch of departures from a CSV with 429 backoff and resume",
+      "command": "cipp-cli bulk --from offboards.csv --execute"
+    },
+    {
+      "question": "Are my CIPP credentials and connectivity healthy?",
+      "command": "cipp-cli doctor"
+    }
+  ],
+  "different_vs_wrappers": "Most CIPP integrations proxy each question into a live, single-tenant API call - fine for one record, but every tenant is a separate round trip and Microsoft Graph throttles you at fleet scale. This skill fans one read out across every tenant, persists the results into a local SQLite store, and then answers posture, license-waste, stale-account, and standards-drift questions from that store - instant, offline, and resumable after a 429. The drift report even compares two synced snapshots over time, history a stateless wrapper has nowhere to keep.",
+  "different_vs_vendor": "CIPP's portal is where you act deeply on a single tenant; this skill is where you see across all of them. It complements CIPP - it reads and writes through the same CIPP API with your own scoped credentials - and adds the fleet-wide rollups plus the local snapshot history (drift over time) that the one-tenant-at-a-time UI never renders.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local CIPP MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my CIPP data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local store are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Do I need my own CIPP instance to use this?",
+      "a": "Yes - this drives your own self-hosted CIPP instance's API. In CIPP you create an API client (it issues a client ID, secret, tenant ID, and token URL); the CLI authenticates with OAuth2 client credentials via 'cipp-cli auth login', or you save a bearer token with 'cipp-cli auth set-token'. It reads and acts through your CIPP - it does not replace it."
+    },
+    {
+      "q": "Will this hit Microsoft Graph or CIPP rate limits?",
+      "a": "The cross-tenant rollups (posture, licenses waste, users stale, standards drift) read the local store after one fan-out, so repeat questions cost zero API calls. fanout throttles with --concurrency and the client retries 429s with Retry-After; bulk checkpoints completed rows with --resume so a throttled batch continues instead of restarting."
+    },
+    {
+      "q": "Can this change my tenants, or only read?",
+      "a": "Both. CIPP is a full management API, so the CLI can create users, offboard, set forwarding, and more. But the fleet rollups are read-only, and bulk prints its plan by default and only writes when you pass --execute. If you want reporting only, scope the API client to read-only in CIPP - the credential is the boundary."
+    },
+    {
+      "q": "Does it replace the CIPP portal?",
+      "a": "No. CIPP stays your portal for deep single-tenant work. This skill adds the cross-tenant reporting layer and lets your AI agent drive CIPP from natural language."
+    }
+  ],
+  "governance_summary": "The skill drives the cipp-cli and cipp-mcp binaries, authenticating to your self-hosted CIPP instance with a bearer token from CIPP_API_KEY (obtained via OAuth2 client credentials - 'auth login' performs and caches the exchange) read from the environment, never logged or sent anywhere except the CIPP API. CIPP is a read-write management API: read and rollup commands change nothing; bulk prints its plan and only writes with --execute; everything else (create/edit/offboard/delete, MFA and token actions) sends on run unless you pass --dry-run first. The real permission boundary is the scope you grant the API client in CIPP, so keep autonomous agents to reads plus previewed writes.",
+  "safety_tiers": [
+    {
+      "tier": "Read (rollups and lists)",
+      "examples": "cipp-cli posture --dimension mfa; cipp-cli licenses waste; cipp-cli users stale --days 90; cipp-cli standards drift; cipp-cli fanout --endpoint /ListUsers --all-tenants; cipp-cli list-tenants; cipp-cli doctor",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "cipp-cli add-user; cipp-cli edit-user; cipp-cli bulk --from changes.csv --execute (plans by default; writes only with --execute)",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Credential / security",
+      "examples": "cipp-cli exec-reset-mfa; cipp-cli exec-per-user-mfa; cipp-cli exec-get-local-admin-password; cipp-cli exec-token-exchange",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Destructive",
+      "examples": "cipp-cli exec-offboard-user; cipp-cli remove-user; cipp-cli exec-device-delete; cipp-cli delete-sharepoint-site",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    }
+  ]
+}
