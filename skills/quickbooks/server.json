@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/quickbooks-mcp",
   "title": "QuickBooks Online MCP",
   "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and",
-  "version": "4.22.0",
+  "version": "0.1.0",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/quickbooks/quickbooks-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/quickbooks-v4.22.0/quickbooks-mcp.mcpb",
-      "version": "4.22.0",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/quickbooks-v0.1.0/quickbooks-mcp.mcpb",
+      "version": "0.1.0",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

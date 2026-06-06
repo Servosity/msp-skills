@@ -15,8 +15,10 @@ faqs:
     a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
-  - q: "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the QuickBooks Online portal)"
-    a: "TODO"
+  - q: "Will this hit my QuickBooks API rate limits?"
+    a: "Rarely. The only API-heavy step is the one-time sync that mirrors your company into local SQLite; after that, ar-aging, dso, cash-forecast, reconcile and the rest run entirely offline against the mirror. Intuit throttles per company (realm), and the CLI paginates and rate-limits sync for you, so day-to-day questions never touch the API."
+  - q: "Do I need to be an Intuit partner to use it?"
+    a: "No. You need a QuickBooks Online company and an OAuth access token scoped to com.intuit.quickbooks.accounting, plus your company realm ID. You mint the token from the Intuit Developer portal or the OAuth 2.0 Playground, and `quickbooks-cli auth refresh` turns a refresh token into a fresh access token - no partner status required."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/quickbooks/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/quickbooks/install.ps1 | iex"
@@ -33,7 +35,7 @@ howto:
 
 **Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
 
-TODO: <=70 words, MSP-owner language, leads with the outcome. What does QuickBooks Online + your AI answer in one sentence that the portal cannot?
+Ask your books a question and get the answer, not a CSV export. The skill syncs your QuickBooks Online company into a local SQLite mirror, then answers who owes you (ar-aging), what you owe (ap-aging), where the cash is (balances), which invoices to chase first (invoices stale), and whether the books are clean to close (reconcile) - instantly, offline, across the whole book. No portal clicking, no per-question API call.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -41,17 +43,17 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does QuickBoo
 
 ## Instead of clicking through QuickBooks Online, just ask
 
-**Instead of** TODO: the painful manual workflow (exporting reports, clicking through the portal)
-**just ask:** *"TODO: the natural-language question the MSP owner asks instead"*
-<sub>Your agent runs: <code>quickbooks-cli TODO</code></sub>
+**Instead of** Exporting the A/R Aging Summary to CSV and pivoting it in Excel to see who is overdue
+**just ask:** *"Who owes us money, and how overdue are they?"*
+<sub>Your agent runs: <code>quickbooks-cli ar-aging --agent</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>quickbooks-cli TODO</code></sub>
+**Instead of** Clicking through every open invoice to build this week's collections call list by hand
+**just ask:** *"Which overdue invoices should I chase first?"*
+<sub>Your agent runs: <code>quickbooks-cli invoices stale --days 30 --agent</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>quickbooks-cli TODO</code></sub>
+**Instead of** Eyeballing the bank balance and guessing whether next month's bills will clear
+**just ask:** *"What does our cash position look like over the next month?"*
+<sub>Your agent runs: <code>quickbooks-cli cash-forecast --weeks 4 --agent</code></sub>
 
 
 ## See it in 30 seconds
@@ -64,20 +66,29 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does QuickBoo
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| TODO: question an MSP keeps asking | `quickbooks-cli TODO` |
+| Who owes us money, bucketed 0-30 / 31-60 / 61-90 / 90+? | `quickbooks-cli ar-aging --agent` |
+| What do we owe vendors, and when is it due? | `quickbooks-cli ap-aging --agent` |
+| Which overdue invoices should I chase first? | `quickbooks-cli invoices stale --days 30 --agent` |
+| Where does our cash stand across accounts, AR, and AP? | `quickbooks-cli balances --agent` |
+| What net cash movement is scheduled over the next 4 weeks? | `quickbooks-cli cash-forecast --weeks 4 --agent` |
+| What is our DSO, and who are the slowest payers? | `quickbooks-cli dso --agent` |
+| Are the books clean enough to close this month? | `quickbooks-cli reconcile --agent` |
+| Which payments came in but were never applied to an invoice? | `quickbooks-cli payments unapplied --agent` |
+| Which customers are duplicated in our list? | `quickbooks-cli dupes customers --agent` |
+| Who slipped an aging bucket since our last check? | `quickbooks-cli aging-delta --agent` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/quickbooks/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/quickbooks/guide.md).
 
 ## What makes this one different
 
-TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most QuickBooks Online integrations proxy each question into a live API call ...
+Most QuickBooks integrations and MCP servers proxy each question into a live API call - fine for fetching one invoice, useless for "who is overdue across the whole book" because QuickBooks has no single endpoint that returns aging, DSO, or a reconciliation verdict. This skill syncs your company into a local SQLite mirror once, then computes those answers offline with real date math and cross-entity joins (invoices to payments to customers) - instant, no rate-limit pressure, and the agent sees the answer, not raw JSON pages.
 
-TODO: one sentence vs QuickBooks Online's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.
+QuickBooks Online's own reports are point-in-time and live in the portal - you click, export, and pivot. This skill answers the same questions from your terminal or AI agent, adds cross-run memory (aging-delta) the portal does not keep, and composes a one-shot month-end reconcile sweep the UI makes you assemble by hand. It complements your books of record; it does not replace them.
 
 ## The pain this closes
 
-- TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread
-- TODO: pain 2
+- Month-end close eats a day: chasing unapplied payments, deduping near-identical customer records, and proving the books actually balance before they go to the accountant - the kind of bookkeeping overhead MSP owners vent about on r/msp and r/QuickBooks.
+- Receivables age silently. By the time you pull the A/R aging report the 90+ bucket already holds money you may never collect, and QuickBooks reports are point-in-time - so you cannot see who slipped a bucket since last month without keeping your own spreadsheet history.
 
 ## Install
 
@@ -111,11 +122,11 @@ After install, authenticate once with your QuickBooks Online credentials, then v
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | TODO: read commands | Allow |
-| Write (routine) | TODO | Preview with --dry-run, then a reviewed write |
-| Destructive / config | TODO | Human-in-the-loop only |
+| Read | ar-aging, ap-aging, balances, dso, cash-forecast, reconcile, dupes, search, plus every list and get | Allow |
+| Write (routine) | invoices / bills / payments / customers / vendors / accounts / items / journal-entries create and update (16 commands) | Preview with --dry-run, then a reviewed write |
+| Destructive / config | invoices delete, bills delete, payments delete, journal-entries delete (hard deletes) | Human-in-the-loop only |
 
-TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/quickbooks/governance.md).
+The skill reads everything - aging, balances, DSO, cash forecast, reconciliation, search - and read commands cannot change anything. Writes are explicit create/update/delete commands on invoices, bills, payments, customers, vendors, accounts, items, and journal entries, and `--dry-run` is opt-in, so the recommended agent policy is: read freely, preview every write, and keep a human on deletes. Credentials are read from the environment only and are never written to disk or logged. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/quickbooks/governance.md).
 
 ## Frequently asked questions
 
@@ -135,9 +146,13 @@ Your data stays on your machine. The CLI, MCP server, and the local mirror are a
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-### TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the QuickBooks Online portal)
+### Will this hit my QuickBooks API rate limits?
 
-TODO
+Rarely. The only API-heavy step is the one-time sync that mirrors your company into local SQLite; after that, ar-aging, dso, cash-forecast, reconcile and the rest run entirely offline against the mirror. Intuit throttles per company (realm), and the CLI paginates and rate-limits sync for you, so day-to-day questions never touch the API.
+
+### Do I need to be an Intuit partner to use it?
+
+No. You need a QuickBooks Online company and an OAuth access token scoped to com.intuit.quickbooks.accounting, plus your company realm ID. You mint the token from the Intuit Developer portal or the OAuth 2.0 Playground, and `quickbooks-cli auth refresh` turns a refresh token into a fresh access token - no partner status required.
 
 
 ## Status

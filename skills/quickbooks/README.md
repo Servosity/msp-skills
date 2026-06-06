@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download QuickBooks Online MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/quickbooks-v4.22.0/quickbooks-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every QuickBooks Online release on the [releases page](https://github.com/servosity/msp-skills/releases?q=quickbooks).)
+[**Download QuickBooks Online MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/quickbooks-v0.1.0/quickbooks-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every QuickBooks Online release on the [releases page](https://github.com/servosity/msp-skills/releases?q=quickbooks).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -134,36 +134,59 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 
 ### Authenticate
 
-Set the credentials the CLI needs (from your QuickBooks Online portal):
+Set the credentials the CLI needs. You need two things: an OAuth access token
+(scope `com.intuit.quickbooks.accounting`) and your company **realm ID** - the
+token says who you are, the realm ID says which company to read.
 
 ```bash
-QUICKBOOKS_ACCESS_TOKEN=<value> quickbooks-cli doctor
+export QUICKBOOKS_ACCESS_TOKEN=<token>     # from the Intuit OAuth 2.0 Playground, or: quickbooks-cli auth refresh
+export QUICKBOOKS_REALM_ID=<company-id>    # your QuickBooks Online company (realm) ID
+# optional: export QUICKBOOKS_ENVIRONMENT=sandbox   # default is production
+quickbooks-cli doctor
 ```
 
-`doctor` confirms the credentials work before you run anything that touches data.
+`doctor` confirms the credentials and company scope work before you run anything that
+touches data. Have a refresh token instead of a live access token? `quickbooks-cli
+auth refresh` mints a fresh one (set `QUICKBOOKS_CLIENT_ID`, `QUICKBOOKS_CLIENT_SECRET`,
+and `QUICKBOOKS_REFRESH_TOKEN`).
 
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
+Sync your company once, then ask:
 
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `quickbooks-cli ...` |
-
--->
+| Who owes us money, bucketed 0-30 / 31-60 / 61-90 / 90+? | `quickbooks-cli ar-aging --agent` |
+| What do we owe vendors, and when is it due? | `quickbooks-cli ap-aging --agent` |
+| Which overdue invoices should I chase first? | `quickbooks-cli invoices stale --days 30 --agent` |
+| Where does our cash stand across accounts, AR, and AP? | `quickbooks-cli balances --agent` |
+| What net cash movement is scheduled over the next 4 weeks? | `quickbooks-cli cash-forecast --weeks 4 --agent` |
+| What is our DSO, and who are the slowest payers? | `quickbooks-cli dso --agent` |
+| Are the books clean enough to close this month? | `quickbooks-cli reconcile --agent` |
+| Who slipped an aging bucket since our last check? | `quickbooks-cli aging-delta --agent` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most QuickBooks Online integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most QuickBooks Online integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at close time, when you're asking "who's overdue across the whole book and how much is in the 90+ bucket" - because QuickBooks has no single endpoint that returns aging, DSO, or a reconciliation verdict.
 
-This skill syncs QuickBooks Online into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs QuickBooks Online into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `ar-aging`, `dso`, and `reconcile` join across invoices, payments, customers, and vendors with real date math - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+Ask any MSP owner what eats the last day of the month and the answer is the books. On r/msp and r/QuickBooks the same complaints recur: close drags because you're chasing unapplied payments, deduping "Acme Inc" against "Acme, Inc.", and proving the ledger balances before it goes to the accountant. Receivables age silently - by the time you export the A/R Aging Summary, the 90+ bucket holds money you'll fight to collect - and because QuickBooks reports are point-in-time, you can't see who slipped a bucket since last month without keeping your own spreadsheet history.
+
+This skill turns each chore into one offline question:
+
+| The chore | The command |
+| --- | --- |
+| See who's overdue without an export-and-pivot | `quickbooks-cli ar-aging --agent` |
+| Build this week's collections call list | `quickbooks-cli invoices stale --days 30 --agent` |
+| Run the whole month-end close-hygiene sweep | `quickbooks-cli reconcile --agent` |
+| Find duplicate customer/vendor records | `quickbooks-cli dupes customers --agent` |
+| See what changed in aging since last check | `quickbooks-cli aging-delta --agent` |
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +208,17 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Will this hit my QuickBooks API rate limits?
+
+Rarely. The only API-heavy step is the one-time `sync` that mirrors your company into local SQLite; after that, `ar-aging`, `dso`, `cash-forecast`, `reconcile` and the rest run entirely offline against the mirror. Intuit throttles per company (realm), and the CLI paginates and rate-limits sync for you, so day-to-day questions never touch the API.
+
+### Do I need to be an Intuit partner to use it?
+
+No. You need a QuickBooks Online company and an OAuth access token scoped to `com.intuit.quickbooks.accounting`, plus your company realm ID. Mint the token from the Intuit Developer portal or the OAuth 2.0 Playground; `quickbooks-cli auth refresh` turns a refresh token into a fresh access token. No partner status required.
+
+### Will this replace my QuickBooks Online portal?
+
+No - it complements it. QuickBooks stays your book of record; this skill answers questions from your terminal or AI agent, keeps cross-run aging memory the portal doesn't, and composes a one-shot month-end `reconcile` the UI makes you assemble by hand. Writes go through the same Accounting API the portal uses.
 
 ### What does it cost?
 
@@ -198,15 +226,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `ar-aging`, `ap-aging`, `balances`, `dso`, `cash-forecast`, `reconcile`, `dupes`, `search`, plus every `list` / `get` | Allow |
+| Write (routine) | `invoices` / `bills` / `payments` / `customers` / `vendors` / `accounts` / `items` / `journal-entries` `create` and `update` (16 commands) | Preview with `--dry-run`, then a reviewed write |
+| Destructive / config | `invoices delete`, `bills delete`, `payments delete`, `journal-entries delete` (hard deletes) | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the QuickBooks Online credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +242,4 @@ Beta. Validated against the QuickBooks Online API surface and being validated wi
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-06._

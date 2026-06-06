@@ -1,6 +1,6 @@
 {
   "name": "quickbooks",
-  "version": "4.22.0",
+  "version": "0.1.0",
   "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
   "author": {
     "name": "Servosity",
