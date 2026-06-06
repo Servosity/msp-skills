@@ -20,7 +20,6 @@ func newHubspotTicketsCrmGetV3ObjectsTicketsTicketIdGetByIdCmd(flags *rootFlags)
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-tickets-ticket-id-get-by-id <ticketId>",
-		Aliases:     []string{"get"},
 		Short:       "Read an Object identified by `{ticketId}`.",
 		Example:     "  hubspot-cli hubspot-tickets-crm get-v3-objects-tickets-ticket-id-get-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-tickets-crm.get-v3-objects-tickets-ticket-id-get-by-id", "pp:method": "GET", "pp:path": "/crm/v3/objects/tickets/{ticketId}", "mcp:read-only": "true"},

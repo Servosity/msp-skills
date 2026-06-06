@@ -12,6 +12,7 @@ import (
 	"hubspot-pp-cli/internal/store"
 )
 
+// pp:data-source local
 func newNovelMeetingsHistoryCmd(flags *rootFlags) *cobra.Command {
 	var property string
 	var dbPath string
@@ -27,6 +28,9 @@ func newNovelMeetingsHistoryCmd(flags *rootFlags) *cobra.Command {
 			if len(args) == 0 {
 				return cmd.Help()
 			}
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -39,6 +43,9 @@ func newNovelMeetingsHistoryCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("opening local database: %w", err)
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, "hubspot-meetings-crm") {
+				hintIfStale(cmd, db, "hubspot-meetings-crm", flags.maxAge)
+			}
 
 			rows, err := queryMeetingsHistory(cmd, db, meetingID, property)
 			if err != nil {
@@ -60,7 +67,7 @@ func newNovelMeetingsHistoryCmd(flags *rootFlags) *cobra.Command {
 			for _, r := range rows {
 				out = append(out, []string{r.Property, r.Value, r.Timestamp, r.Source})
 			}
-			return flags.printTable(cmd, headers, out)
+			return flags.printTabular(cmd, headers, out)
 		},
 	}
 	cmd.Flags().StringVar(&property, "property", "", "Filter to a single property name (e.g. hs_meeting_outcome)")

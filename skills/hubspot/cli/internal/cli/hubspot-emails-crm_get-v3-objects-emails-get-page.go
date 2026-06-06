@@ -22,7 +22,6 @@ func newHubspotEmailsCrmGetV3ObjectsEmailsGetPageCmd(flags *rootFlags) *cobra.Co
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-emails-get-page",
-		Aliases:     []string{"list"},
 		Short:       "Read a page of emails. Control what is returned via the `properties` query param.",
 		Example:     "  hubspot-cli hubspot-emails-crm get-v3-objects-emails-get-page",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-emails-crm.get-v3-objects-emails-get-page", "pp:method": "GET", "pp:path": "/crm/v3/objects/emails", "mcp:read-only": "true"},

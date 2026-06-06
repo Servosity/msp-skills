@@ -15,7 +15,6 @@ func newHubspotDealsCrmDeleteV3Objects03DealIdArchiveCmd(flags *rootFlags) *cobr
 
 	cmd := &cobra.Command{
 		Use:         "delete-v3-objects-0-3-deal-id-archive <dealId>",
-		Aliases:     []string{"delete"},
 		Short:       "Move an Object identified by `{dealId}` to the recycling bin.",
 		Example:     "  hubspot-cli hubspot-deals-crm delete-v3-objects-0-3-deal-id-archive 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-deals-crm.delete-v3-objects-0-3-deal-id-archive", "pp:method": "DELETE", "pp:path": "/crm/v3/objects/0-3/{dealId}"},

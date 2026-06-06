@@ -22,6 +22,7 @@ type sinceItem struct {
 	UpdatedAt string `json:"updated_at"`
 }
 
+// pp:data-source local
 func newNovelSinceCmd(flags *rootFlags) *cobra.Command {
 	var typesCSV string
 	var owner string
@@ -38,6 +39,9 @@ func newNovelSinceCmd(flags *rootFlags) *cobra.Command {
 			if len(args) == 0 {
 				return cmd.Help()
 			}
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -53,6 +57,9 @@ func newNovelSinceCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("opening local database: %w", err)
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, "") {
+				hintIfStale(cmd, db, "", flags.maxAge)
+			}
 			ownerID, err := resolveOwnerArg(db, owner)
 			if err != nil {
 				return err
@@ -147,7 +154,7 @@ LIMIT ?`
 			for _, r := range rows {
 				outRows = append(outRows, []string{r.Type, r.ID, r.Label, r.OwnerID, r.UpdatedAt})
 			}
-			return flags.printTable(cmd, headers, outRows)
+			return flags.printTabular(cmd, headers, outRows)
 		},
 	}
 	cmd.Flags().StringVar(&typesCSV, "types", "", "Limit to types (deals,contacts,engagements,companies)")

@@ -18,7 +18,6 @@ func newHubspotLineItemsCrmPostV3ObjectsLineItemsBatchArchiveArchiveCmd(flags *r
 
 	cmd := &cobra.Command{
 		Use:         "post-v3-objects-line-items-batch-archive-archive",
-		Aliases:     []string{"create"},
 		Short:       "Archive multiple line items simultaneously by specifying their IDs in the request body.",
 		Example:     "  hubspot-cli hubspot-line-items-crm post-v3-objects-line-items-batch-archive-archive",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-line-items-crm.post-v3-objects-line-items-batch-archive-archive", "pp:method": "POST", "pp:path": "/crm/v3/objects/line_items/batch/archive"},

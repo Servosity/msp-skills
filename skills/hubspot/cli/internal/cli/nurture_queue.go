@@ -14,6 +14,7 @@ import (
 	"hubspot-pp-cli/internal/store"
 )
 
+// pp:data-source local
 func newNovelNurtureQueueCmd(flags *rootFlags) *cobra.Command {
 	var owner string
 	var top int
@@ -31,6 +32,9 @@ func newNovelNurtureQueueCmd(flags *rootFlags) *cobra.Command {
 		Example: `  hubspot-cli nurture queue --top 20
   hubspot-cli nurture queue --owner me --filter 'lifecyclestage=opportunity'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -49,6 +53,9 @@ func newNovelNurtureQueueCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("opening local database: %w", err)
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, "hubspot-contacts-crm") {
+				hintIfStale(cmd, db, "hubspot-contacts-crm", flags.maxAge)
+			}
 			ownerID, err := resolveOwnerArg(db, owner)
 			if err != nil {
 				return err
@@ -148,7 +155,7 @@ func newNovelNurtureQueueCmd(flags *rootFlags) *cobra.Command {
 					s.TopStage, s.Reason,
 				})
 			}
-			return flags.printTable(cmd, headers, out)
+			return flags.printTabular(cmd, headers, out)
 		},
 	}
 	cmd.Flags().StringVar(&owner, "owner", "me", "Filter by owner id, email, or 'me'")

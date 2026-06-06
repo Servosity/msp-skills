@@ -18,7 +18,6 @@ func newHubspotCallsCrmPostV3ObjectsCallsBatchArchiveArchiveCmd(flags *rootFlags
 
 	cmd := &cobra.Command{
 		Use:         "post-v3-objects-calls-batch-archive-archive",
-		Aliases:     []string{"create"},
 		Short:       "Archive a batch of calls by ID.",
 		Example:     "  hubspot-cli hubspot-calls-crm post-v3-objects-calls-batch-archive-archive",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-calls-crm.post-v3-objects-calls-batch-archive-archive", "pp:method": "POST", "pp:path": "/crm/v3/objects/calls/batch/archive"},

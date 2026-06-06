@@ -18,7 +18,6 @@ func newHubspotQuotesCrmPostV3ObjectsQuotesBatchArchiveArchiveCmd(flags *rootFla
 
 	cmd := &cobra.Command{
 		Use:         "post-v3-objects-quotes-batch-archive-archive",
-		Aliases:     []string{"create"},
 		Short:       "Archive multiple quotes by their IDs in a single request, effectively moving them to the recycling bin.",
 		Example:     "  hubspot-cli hubspot-quotes-crm post-v3-objects-quotes-batch-archive-archive",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-quotes-crm.post-v3-objects-quotes-batch-archive-archive", "pp:method": "POST", "pp:path": "/crm/v3/objects/quotes/batch/archive"},

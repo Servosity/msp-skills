@@ -19,7 +19,6 @@ func newHubspotListsCrmPostV3ListsFoldersV3ListsFoldersCmd(flags *rootFlags) *co
 
 	cmd := &cobra.Command{
 		Use:         "post-v3-lists-folders-v3-lists-folders",
-		Aliases:     []string{"create"},
 		Short:       "Post v3 lists folders v3 lists folders",
 		Example:     "  hubspot-cli hubspot-lists-crm post-v3-lists-folders-v3-lists-folders --name example-resource",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-lists-crm.post-v3-lists-folders-v3-lists-folders", "pp:method": "POST", "pp:path": "/crm/v3/lists/folders"},

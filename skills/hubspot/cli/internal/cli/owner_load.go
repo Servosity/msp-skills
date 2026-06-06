@@ -11,6 +11,7 @@ import (
 	"hubspot-pp-cli/internal/store"
 )
 
+// pp:data-source local
 func newNovelOwnerLoadCmd(flags *rootFlags) *cobra.Command {
 	var pipeline string
 	var dbPath string
@@ -22,6 +23,9 @@ func newNovelOwnerLoadCmd(flags *rootFlags) *cobra.Command {
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Example:     `  hubspot-cli owner-load --pipeline default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -33,6 +37,9 @@ func newNovelOwnerLoadCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("opening local database: %w", err)
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, "hubspot-deals-crm") {
+				hintIfStale(cmd, db, "hubspot-deals-crm", flags.maxAge)
+			}
 
 			q := `
 SELECT
@@ -41,7 +48,7 @@ SELECT
   COALESCE(json_extract(d.data, '$.properties.dealstage'), 'unknown') AS stage,
   COUNT(*) AS deal_count,
   COALESCE(SUM(CAST(json_extract(d.data, '$.properties.amount') AS REAL)), 0) AS total_amount,
-  MAX(CAST((julianday('now') - julianday(d.created_at)) AS INTEGER)) AS oldest_age_days
+  COALESCE(MAX(CAST((julianday('now') - julianday(d.created_at)) AS INTEGER)), 0) AS oldest_age_days
 FROM hubspot_deals_crm d
 LEFT JOIN hubspot_owners_crm o
   ON owner_id = o.id
@@ -108,7 +115,7 @@ ORDER BY owner_name, stage`
 				})
 			}
 			flush()
-			return flags.printTable(cmd, headers, tableRows)
+			return flags.printTabular(cmd, headers, tableRows)
 		},
 	}
 	cmd.Flags().StringVar(&pipeline, "pipeline", "", "Restrict to a single pipeline id")

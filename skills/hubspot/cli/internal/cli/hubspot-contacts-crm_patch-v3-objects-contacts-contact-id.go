@@ -19,7 +19,6 @@ func newHubspotContactsCrmPatchV3ObjectsContactsContactIdCmd(flags *rootFlags) *
 
 	cmd := &cobra.Command{
 		Use:         "patch-v3-objects-contacts-contact-id <contactId>",
-		Aliases:     []string{"update"},
 		Short:       "Perform a partial update of an Object identified by `{contactId}`.",
 		Example:     "  hubspot-cli hubspot-contacts-crm patch-v3-objects-contacts-contact-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-contacts-crm.patch-v3-objects-contacts-contact-id", "pp:method": "PATCH", "pp:path": "/crm/v3/objects/contacts/{contactId}"},

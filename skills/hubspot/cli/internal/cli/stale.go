@@ -18,6 +18,7 @@ import (
 // everywhere.
 const filterDescription = "HubSpot-style filter: bare 'field' (HAS), '!field' (NOT_HAS), 'field=value' (EQ), 'field~token' (CONTAINS_TOKEN). AND within one --filter, OR across multiple --filter flags."
 
+// pp:data-source local
 func newNovelStaleCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "stale",
@@ -31,6 +32,7 @@ func newNovelStaleCmd(flags *rootFlags) *cobra.Command {
 	return cmd
 }
 
+// pp:data-source local
 func newStaleContactsCmd(flags *rootFlags) *cobra.Command {
 	var days int
 	var owner string
@@ -46,6 +48,9 @@ func newStaleContactsCmd(flags *rootFlags) *cobra.Command {
 		Example: `  hubspot-cli stale contacts --days 30 --owner me
   hubspot-cli stale contacts --days 30 --filter 'lifecyclestage=customer !do_not_call'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -64,6 +69,9 @@ func newStaleContactsCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("opening local database: %w", err)
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, "hubspot-contacts-crm") {
+				hintIfStale(cmd, db, "hubspot-contacts-crm", flags.maxAge)
+			}
 			ownerID, err := resolveOwnerArg(db, owner)
 			if err != nil {
 				return err
@@ -152,7 +160,7 @@ LIMIT ?`
 					it.ID, it.Name, it.Email, it.OwnerID, fmt.Sprintf("%d", it.IdleDays), it.LastContacted,
 				})
 			}
-			return flags.printTable(cmd, headers, tableRows)
+			return flags.printTabular(cmd, headers, tableRows)
 		},
 	}
 	cmd.Flags().IntVar(&days, "days", 30, "Minimum idle days")
@@ -164,6 +172,7 @@ LIMIT ?`
 	return cmd
 }
 
+// pp:data-source local
 func newStaleDealsCmd(flags *rootFlags) *cobra.Command {
 	var days int
 	var owner string
@@ -180,6 +189,9 @@ func newStaleDealsCmd(flags *rootFlags) *cobra.Command {
 		Example: `  hubspot-cli stale deals --days 21 --owner me
   hubspot-cli stale deals --days 30 --filter 'pipeline=default amount~1000'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -198,6 +210,9 @@ func newStaleDealsCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("opening local database: %w", err)
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, "hubspot-deals-crm") {
+				hintIfStale(cmd, db, "hubspot-deals-crm", flags.maxAge)
+			}
 			ownerID, err := resolveOwnerArg(db, owner)
 			if err != nil {
 				return err
@@ -284,7 +299,7 @@ LIMIT ?`
 					fmt.Sprintf("%d", it.IdleDays), it.LastContacted,
 				})
 			}
-			return flags.printTable(cmd, headers, tableRows)
+			return flags.printTabular(cmd, headers, tableRows)
 		},
 	}
 	cmd.Flags().IntVar(&days, "days", 21, "Minimum idle days")

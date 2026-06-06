@@ -19,7 +19,6 @@ func newHubspotCompaniesCrmPatchV3ObjectsCompaniesCompanyIdUpdateCmd(flags *root
 
 	cmd := &cobra.Command{
 		Use:         "patch-v3-objects-companies-company-id-update <companyId>",
-		Aliases:     []string{"update"},
 		Short:       "Update a company by ID (`companyId`) or unique property value (`idProperty`).",
 		Example:     "  hubspot-cli hubspot-companies-crm patch-v3-objects-companies-company-id-update 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-companies-crm.patch-v3-objects-companies-company-id-update", "pp:method": "PATCH", "pp:path": "/crm/v3/objects/companies/{companyId}"},

@@ -19,7 +19,6 @@ func newHubspotLineItemsCrmPatchV3ObjectsLineItemsLineItemIdUpdateCmd(flags *roo
 
 	cmd := &cobra.Command{
 		Use:         "patch-v3-objects-line-items-line-item-id-update <lineItemId>",
-		Aliases:     []string{"update"},
 		Short:       "Perform a partial update of an Object identified by `{lineItemId}`or optionally a unique property value as specified by",
 		Example:     "  hubspot-cli hubspot-line-items-crm patch-v3-objects-line-items-line-item-id-update 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-line-items-crm.patch-v3-objects-line-items-line-item-id-update", "pp:method": "PATCH", "pp:path": "/crm/v3/objects/line_items/{lineItemId}"},

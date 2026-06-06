@@ -15,7 +15,6 @@ func newHubspotQuotesCrmDeleteV3ObjectsQuotesQuoteIdArchiveCmd(flags *rootFlags)
 
 	cmd := &cobra.Command{
 		Use:         "delete-v3-objects-quotes-quote-id-archive <quoteId>",
-		Aliases:     []string{"delete"},
 		Short:       "Move an Object identified by `{quoteId}` to the recycling bin.",
 		Example:     "  hubspot-cli hubspot-quotes-crm delete-v3-objects-quotes-quote-id-archive 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-quotes-crm.delete-v3-objects-quotes-quote-id-archive", "pp:method": "DELETE", "pp:path": "/crm/v3/objects/quotes/{quoteId}"},

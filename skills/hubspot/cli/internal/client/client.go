@@ -40,6 +40,13 @@ type Client struct {
 	limiter    *cliutil.AdaptiveLimiter
 }
 
+// RequestBaseURL returns the base URL used for requests.
+// Novel commands that build request URLs by hand should use this instead of
+// concatenating c.BaseURL directly.
+func (c *Client) RequestBaseURL() string {
+	return c.BaseURL
+}
+
 // APIError carries HTTP status information for structured exit codes.
 type APIError struct {
 	Method     string
@@ -58,7 +65,7 @@ func newHTTPClient(timeout time.Duration, jar http.CookieJar) *http.Client {
 
 func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 	homeDir, _ := os.UserHomeDir()
-	cacheDir := filepath.Join(homeDir, ".cache", "hubspot-pp-cli", "http")
+	cacheDir := filepath.Join(homeDir, ".cache", "hubspot-cli", "http")
 	httpClient := newHTTPClient(timeout, nil)
 	c := &Client{
 		BaseURL:    strings.TrimRight(cfg.BaseURL, "/"),
@@ -603,7 +610,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			req.Header.Del(BinaryResponseHeader)
 		}
 		if req.Header.Get("User-Agent") == "" {
-			req.Header.Set("User-Agent", "hubspot-pp-cli/v4")
+			req.Header.Set("User-Agent", "hubspot-cli/v4")
 		}
 		// Go's net/http omits Accept by default; browsers, curl, and other
 		// stdlibs always send it. Fingerprint-checking WAFs (Imperva, Akamai,
@@ -804,7 +811,7 @@ func looksLikeCredentialPlaceholder(value string) bool {
 }
 
 func authPlaceholderCredentialError(cfg *config.Config) error {
-	return authPlaceholderCredentialErrorWithSetup(cfg, "export HUBSPOT_ACCESS_TOKEN=<your-token> or hubspot-pp-cli auth set-token <token>")
+	return authPlaceholderCredentialErrorWithSetup(cfg, "export HUBSPOT_ACCESS_TOKEN=<your-token> or hubspot-cli auth set-token <token>")
 }
 
 func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) error {

@@ -20,7 +20,6 @@ func newHubspotEmailsCrmGetV3ObjectsEmailsEmailIdGetByIdCmd(flags *rootFlags) *c
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-emails-email-id-get-by-id <emailId>",
-		Aliases:     []string{"get"},
 		Short:       "Read an Object identified by `{emailId}`.",
 		Example:     "  hubspot-cli hubspot-emails-crm get-v3-objects-emails-email-id-get-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-emails-crm.get-v3-objects-emails-email-id-get-by-id", "pp:method": "GET", "pp:path": "/crm/v3/objects/emails/{emailId}", "mcp:read-only": "true"},

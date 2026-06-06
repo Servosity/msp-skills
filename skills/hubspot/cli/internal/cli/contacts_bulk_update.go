@@ -52,6 +52,7 @@ type bulkRow struct {
 	Errors []string `json:"errors,omitempty"`
 }
 
+// pp:data-source live
 func newNovelContactsBulkUpdateCmd(flags *rootFlags) *cobra.Command {
 	var csvPath string
 	var jsonlMode bool
@@ -110,6 +111,9 @@ Rows are identified by an 'id' or 'email' column (id wins when both present).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if csvPath == "" && !jsonlMode {
 				return cmd.Help()
+			}
+			if err := validateDataSourceStrategy(flags, "live"); err != nil {
+				return err
 			}
 			if csvPath != "" && jsonlMode {
 				return fmt.Errorf("--from-csv and --jsonl are mutually exclusive")

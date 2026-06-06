@@ -14,6 +14,7 @@ import (
 	"hubspot-pp-cli/internal/store"
 )
 
+// pp:data-source local
 func newNovelMeetingsEverHadCmd(flags *rootFlags) *cobra.Command {
 	var property string
 	var value string
@@ -33,10 +34,16 @@ func newNovelMeetingsEverHadCmd(flags *rootFlags) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate inside RunE so verify/dry-run can still walk through.
 			if property == "" || value == "" {
+				if err := validateDataSourceStrategy(flags, "local"); err != nil {
+					return err
+				}
 				if dryRunOK(flags) {
 					return nil
 				}
 				return cmd.Help()
+			}
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
 			}
 			if dryRunOK(flags) {
 				return nil
@@ -60,6 +67,9 @@ func newNovelMeetingsEverHadCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("opening local database: %w", err)
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, "hubspot-meetings-crm") {
+				hintIfStale(cmd, db, "hubspot-meetings-crm", flags.maxAge)
+			}
 
 			rows, err := queryMeetingsEverHad(cmd, db, property, value, fromTS, toTS, expr)
 			if err != nil {
@@ -80,7 +90,7 @@ func newNovelMeetingsEverHadCmd(flags *rootFlags) *cobra.Command {
 			for _, r := range rows {
 				out = append(out, []string{r.MeetingID, r.Title, r.OwnerID, r.FirstHitAt, r.CurrentOutcome})
 			}
-			return flags.printTable(cmd, headers, out)
+			return flags.printTabular(cmd, headers, out)
 		},
 	}
 	cmd.Flags().StringVar(&property, "property", "", "Property name to query (e.g. hs_meeting_outcome) — required")
@@ -108,7 +118,7 @@ FROM hubspot_property_history
 WHERE object_type = 'meetings'
   AND property = ?
   AND value = ?
-  AND timestamp BETWEEN ? AND ?
+  AND timestamp >= ? AND timestamp < ?
 GROUP BY object_id
 ORDER BY first_hit_at DESC`
 	rows, err := db.DB().QueryContext(cmd.Context(), q, property, value, fromTS.UTC(), toTS.UTC())
@@ -177,6 +187,13 @@ func parseDateWindow(fromArg, toArg string) (time.Time, time.Time, error) {
 		to, err = parseDateOrTimestamp(toArg)
 		if err != nil {
 			return from, to, fmt.Errorf("--to: %w", err)
+		}
+		// A bare YYYY-MM-DD --to means "through that day": advance the
+		// midnight-UTC parse to the next day so the half-open
+		// [from, to) window in queryMeetingsEverHad keeps the full final
+		// day instead of cutting at 00:00:00.
+		if _, dErr := time.Parse("2006-01-02", toArg); dErr == nil {
+			to = to.AddDate(0, 0, 1)
 		}
 	}
 	if to.Before(from) {

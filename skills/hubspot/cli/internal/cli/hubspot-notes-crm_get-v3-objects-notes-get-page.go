@@ -22,7 +22,6 @@ func newHubspotNotesCrmGetV3ObjectsNotesGetPageCmd(flags *rootFlags) *cobra.Comm
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-notes-get-page",
-		Aliases:     []string{"list"},
 		Short:       "Read a page of notes. Control what is returned via the `properties` query param.",
 		Example:     "  hubspot-cli hubspot-notes-crm get-v3-objects-notes-get-page",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-notes-crm.get-v3-objects-notes-get-page", "pp:method": "GET", "pp:path": "/crm/v3/objects/notes", "mcp:read-only": "true"},

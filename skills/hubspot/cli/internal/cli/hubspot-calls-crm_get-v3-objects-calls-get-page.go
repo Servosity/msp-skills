@@ -22,7 +22,6 @@ func newHubspotCallsCrmGetV3ObjectsCallsGetPageCmd(flags *rootFlags) *cobra.Comm
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-calls-get-page",
-		Aliases:     []string{"list"},
 		Short:       "Read a page of calls. Control what is returned via the `properties` query param.",
 		Example:     "  hubspot-cli hubspot-calls-crm get-v3-objects-calls-get-page",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-calls-crm.get-v3-objects-calls-get-page", "pp:method": "GET", "pp:path": "/crm/v3/objects/calls", "mcp:read-only": "true"},

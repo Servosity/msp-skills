@@ -15,7 +15,6 @@ func newHubspotMeetingsCrmDeleteV3ObjectsMeetingsMeetingIdArchiveCmd(flags *root
 
 	cmd := &cobra.Command{
 		Use:         "delete-v3-objects-meetings-meeting-id-archive <meetingId>",
-		Aliases:     []string{"delete"},
 		Short:       "Move an Object identified by `{meetingId}` to the recycling bin.",
 		Example:     "  hubspot-cli hubspot-meetings-crm delete-v3-objects-meetings-meeting-id-archive 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-meetings-crm.delete-v3-objects-meetings-meeting-id-archive", "pp:method": "DELETE", "pp:path": "/crm/v3/objects/meetings/{meetingId}"},

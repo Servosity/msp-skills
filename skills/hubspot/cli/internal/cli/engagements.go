@@ -12,7 +12,6 @@ func newNovelEngagementsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "engagements",
 		Short:       "Unified call/email/meeting/note/task timelines across CRM objects",
-		Long:        "Cross-object engagement queries that the raw HubSpot endpoints don't compose. Use 'engagements of <target>' to get a chronological timeline of every call, email, meeting, note, and task touching a contact, deal, or company (e.g. 'contact:123', 'deal:456', 'company:789').",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

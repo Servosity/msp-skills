@@ -15,7 +15,6 @@ func newHubspotPropertiesCrmDeleteV3PropertiesObjectTypePropertyNameArchiveCmd(f
 
 	cmd := &cobra.Command{
 		Use:         "delete-v3-properties-object-type-property-name-archive <objectType> <propertyName>",
-		Aliases:     []string{"delete"},
 		Short:       "Move a property identified by {propertyName} to the recycling bin.",
 		Example:     "  hubspot-cli hubspot-properties-crm delete-v3-properties-object-type-property-name-archive example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-properties-crm.delete-v3-properties-object-type-property-name-archive", "pp:method": "DELETE", "pp:path": "/crm/v3/properties/{objectType}/{propertyName}"},

@@ -19,7 +19,6 @@ func newHubspotObjectsCrmPatchV3ObjectsObjectTypeObjectIdUpdateCmd(flags *rootFl
 
 	cmd := &cobra.Command{
 		Use:         "patch-v3-objects-object-type-object-id-update <objectId> <objectType>",
-		Aliases:     []string{"update"},
 		Short:       "Perform a partial update of an Object identified by `{objectId}`or optionally a unique property value as specified by",
 		Example:     "  hubspot-cli hubspot-objects-crm patch-v3-objects-object-type-object-id-update 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-objects-crm.patch-v3-objects-object-type-object-id-update", "pp:method": "PATCH", "pp:path": "/crm/v3/objects/{objectType}/{objectId}"},

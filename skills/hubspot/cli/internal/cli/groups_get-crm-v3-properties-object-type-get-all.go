@@ -16,7 +16,6 @@ func newGroupsGetCrmV3PropertiesObjectTypeGetAllCmd(flags *rootFlags) *cobra.Com
 
 	cmd := &cobra.Command{
 		Use:         "get-crm-v3-properties-object-type-get-all <objectType>",
-		Aliases:     []string{"get"},
 		Short:       "Read all existing property groups for the specified object type and HubSpot account.",
 		Example:     "  hubspot-cli groups get-crm-v3-properties-object-type-get-all example-value",
 		Annotations: map[string]string{"pp:endpoint": "groups.get-crm-v3-properties-object-type-get-all", "pp:method": "GET", "pp:path": "/crm/v3/properties/{objectType}/groups", "mcp:read-only": "true"},

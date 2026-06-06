@@ -30,7 +30,6 @@ func newHubspotPropertiesCrmPatchV3PropertiesObjectTypePropertyNameUpdateCmd(fla
 
 	cmd := &cobra.Command{
 		Use:         "patch-v3-properties-object-type-property-name-update <objectType> <propertyName>",
-		Aliases:     []string{"update"},
 		Short:       "Perform a partial update of a property identified by { propertyName }. Provided fields will be overwritten.",
 		Example:     "  hubspot-cli hubspot-properties-crm patch-v3-properties-object-type-property-name-update example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-properties-crm.patch-v3-properties-object-type-property-name-update", "pp:method": "PATCH", "pp:path": "/crm/v3/properties/{objectType}/{propertyName}"},

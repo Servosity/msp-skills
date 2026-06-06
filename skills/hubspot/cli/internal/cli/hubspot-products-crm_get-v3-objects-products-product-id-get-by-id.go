@@ -20,7 +20,6 @@ func newHubspotProductsCrmGetV3ObjectsProductsProductIdGetByIdCmd(flags *rootFla
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-products-product-id-get-by-id <productId>",
-		Aliases:     []string{"get"},
 		Short:       "Read an Object identified by `{productId}`.",
 		Example:     "  hubspot-cli hubspot-products-crm get-v3-objects-products-product-id-get-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-products-crm.get-v3-objects-products-product-id-get-by-id", "pp:method": "GET", "pp:path": "/crm/v3/objects/products/{productId}", "mcp:read-only": "true"},

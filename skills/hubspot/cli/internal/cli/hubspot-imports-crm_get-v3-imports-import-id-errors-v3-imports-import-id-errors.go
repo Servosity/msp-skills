@@ -20,7 +20,6 @@ func newHubspotImportsCrmGetV3ImportsImportIdErrorsV3ImportsImportIdErrorsCmd(fl
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-imports-import-id-errors-v3-imports-import-id-errors <importId>",
-		Aliases:     []string{"get"},
 		Short:       "Get v3 imports import id errors v3 imports import id errors",
 		Example:     "  hubspot-cli hubspot-imports-crm get-v3-imports-import-id-errors-v3-imports-import-id-errors 42",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-imports-crm.get-v3-imports-import-id-errors-v3-imports-import-id-errors", "pp:method": "GET", "pp:path": "/crm/v3/imports/{importId}/errors", "mcp:read-only": "true"},

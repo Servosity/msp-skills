@@ -19,7 +19,6 @@ func newHubspotPropertiesCrmGetV3PropertiesObjectTypeGetAllCmd(flags *rootFlags)
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-properties-object-type-get-all <objectType>",
-		Aliases:     []string{"get"},
 		Short:       "Read all existing properties for the specified object type and HubSpot account.",
 		Example:     "  hubspot-cli hubspot-properties-crm get-v3-properties-object-type-get-all example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-properties-crm.get-v3-properties-object-type-get-all", "pp:method": "GET", "pp:path": "/crm/v3/properties/{objectType}", "mcp:read-only": "true"},

@@ -18,7 +18,6 @@ func newHubspotMeetingsCrmPostV3ObjectsMeetingsBatchArchiveArchiveCmd(flags *roo
 
 	cmd := &cobra.Command{
 		Use:         "post-v3-objects-meetings-batch-archive-archive",
-		Aliases:     []string{"create"},
 		Short:       "Archive a batch of meetings by ID",
 		Example:     "  hubspot-cli hubspot-meetings-crm post-v3-objects-meetings-batch-archive-archive",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-meetings-crm.post-v3-objects-meetings-batch-archive-archive", "pp:method": "POST", "pp:path": "/crm/v3/objects/meetings/batch/archive"},

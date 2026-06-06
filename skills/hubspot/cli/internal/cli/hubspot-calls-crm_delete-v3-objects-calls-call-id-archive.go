@@ -15,7 +15,6 @@ func newHubspotCallsCrmDeleteV3ObjectsCallsCallIdArchiveCmd(flags *rootFlags) *c
 
 	cmd := &cobra.Command{
 		Use:         "delete-v3-objects-calls-call-id-archive <callId>",
-		Aliases:     []string{"delete"},
 		Short:       "Move an Object identified by `{callId}` to the recycling bin.",
 		Example:     "  hubspot-cli hubspot-calls-crm delete-v3-objects-calls-call-id-archive 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-calls-crm.delete-v3-objects-calls-call-id-archive", "pp:method": "DELETE", "pp:path": "/crm/v3/objects/calls/{callId}"},

@@ -12,7 +12,6 @@ func newNovelNotesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "notes",
 		Short:       "Signal extraction from synced note bodies",
-		Long:        "Higher-level note analysis over locally synced data. Use 'notes signals' to scan note bodies for buying or lost signals (meeting scheduled, budget approved, no response, competitor chosen) and emit per-deal signal counts with the source note id. For raw single-note CRUD see the typed HubSpot Notes CRM commands.",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

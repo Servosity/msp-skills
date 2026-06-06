@@ -15,7 +15,6 @@ func newHubspotLeadsCrmDeleteV3ObjectsLeadsLeadsIdArchiveCmd(flags *rootFlags) *
 
 	cmd := &cobra.Command{
 		Use:         "delete-v3-objects-leads-leads-id-archive <leadsId>",
-		Aliases:     []string{"delete"},
 		Short:       "Move an Object identified by `{leadsId}` to the recycling bin.",
 		Example:     "  hubspot-cli hubspot-leads-crm delete-v3-objects-leads-leads-id-archive 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-leads-crm.delete-v3-objects-leads-leads-id-archive", "pp:method": "DELETE", "pp:path": "/crm/v3/objects/leads/{leadsId}"},

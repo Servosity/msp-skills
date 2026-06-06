@@ -19,7 +19,6 @@ func newHubspotDealsCrmPatchV3Objects03DealIdUpdateCmd(flags *rootFlags) *cobra.
 
 	cmd := &cobra.Command{
 		Use:         "patch-v3-objects-0-3-deal-id-update <dealId>",
-		Aliases:     []string{"update"},
 		Short:       "Perform a partial update of an Object identified by `{dealId}`or optionally a unique property value as specified by the",
 		Example:     "  hubspot-cli hubspot-deals-crm patch-v3-objects-0-3-deal-id-update 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-deals-crm.patch-v3-objects-0-3-deal-id-update", "pp:method": "PATCH", "pp:path": "/crm/v3/objects/0-3/{dealId}"},

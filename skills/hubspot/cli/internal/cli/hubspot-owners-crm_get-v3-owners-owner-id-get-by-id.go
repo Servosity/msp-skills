@@ -17,7 +17,6 @@ func newHubspotOwnersCrmGetV3OwnersOwnerIdGetByIdCmd(flags *rootFlags) *cobra.Co
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-owners-owner-id-get-by-id <ownerId>",
-		Aliases:     []string{"get"},
 		Short:       "Retrieve details of a specific owner using either their 'id' or 'userId'.",
 		Example:     "  hubspot-cli hubspot-owners-crm get-v3-owners-owner-id-get-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-owners-crm.get-v3-owners-owner-id-get-by-id", "pp:method": "GET", "pp:path": "/crm/v3/owners/{ownerId}", "mcp:read-only": "true"},

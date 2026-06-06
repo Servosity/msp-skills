@@ -16,7 +16,6 @@ func newHubspotListsCrmGetV3ListsFoldersV3ListsFoldersCmd(flags *rootFlags) *cob
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-lists-folders-v3-lists-folders",
-		Aliases:     []string{"list"},
 		Short:       "Get v3 lists folders v3 lists folders",
 		Example:     "  hubspot-cli hubspot-lists-crm get-v3-lists-folders-v3-lists-folders",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-lists-crm.get-v3-lists-folders-v3-lists-folders", "pp:method": "GET", "pp:path": "/crm/v3/lists/folders", "mcp:read-only": "true"},

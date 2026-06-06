@@ -15,7 +15,6 @@ func newHubspotTicketsCrmDeleteV3ObjectsTicketsTicketIdArchiveCmd(flags *rootFla
 
 	cmd := &cobra.Command{
 		Use:         "delete-v3-objects-tickets-ticket-id-archive <ticketId>",
-		Aliases:     []string{"delete"},
 		Short:       "Move an Object identified by `{ticketId}` to the recycling bin.",
 		Example:     "  hubspot-cli hubspot-tickets-crm delete-v3-objects-tickets-ticket-id-archive 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-tickets-crm.delete-v3-objects-tickets-ticket-id-archive", "pp:method": "DELETE", "pp:path": "/crm/v3/objects/tickets/{ticketId}"},

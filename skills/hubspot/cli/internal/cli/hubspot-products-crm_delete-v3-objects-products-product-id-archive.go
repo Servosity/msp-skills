@@ -15,7 +15,6 @@ func newHubspotProductsCrmDeleteV3ObjectsProductsProductIdArchiveCmd(flags *root
 
 	cmd := &cobra.Command{
 		Use:         "delete-v3-objects-products-product-id-archive <productId>",
-		Aliases:     []string{"delete"},
 		Short:       "Move an Object identified by `{productId}` to the recycling bin.",
 		Example:     "  hubspot-cli hubspot-products-crm delete-v3-objects-products-product-id-archive 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-products-crm.delete-v3-objects-products-product-id-archive", "pp:method": "DELETE", "pp:path": "/crm/v3/objects/products/{productId}"},

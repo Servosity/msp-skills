@@ -33,6 +33,37 @@ func (s *Store) migrateExtras(ctx context.Context, conn *sql.Conn) error {
 			"expires_at" DATETIME NOT NULL
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_hubspot_pending_digests_expires_at" ON "hubspot_pending_digests"("expires_at")`,
+		// hubspot_property_history is the shared per-property snapshot table
+		// behind sync --with-history and the meetings history / ever-had /
+		// status-report and deals velocity commands. Composite PK makes
+		// re-sync idempotent.
+		`CREATE TABLE IF NOT EXISTS "hubspot_property_history" (
+			"object_type" TEXT NOT NULL,
+			"object_id" TEXT NOT NULL,
+			"property" TEXT NOT NULL,
+			"value" TEXT,
+			"timestamp" DATETIME NOT NULL,
+			"source" TEXT,
+			"source_id" TEXT,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY ("object_type", "object_id", "property", "timestamp")
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_hubspot_property_history_obj_prop_ts" ON "hubspot_property_history"("object_type", "object_id", "property", "timestamp" DESC)`,
+		`CREATE INDEX IF NOT EXISTS "idx_hubspot_property_history_value_lookup" ON "hubspot_property_history"("object_type", "property", "value", "timestamp")`,
+		// hubspot_local_mutations is the best-effort local audit log written
+		// by mutation commands via LogMutation ("what did I just do?").
+		`CREATE TABLE IF NOT EXISTS "hubspot_local_mutations" (
+			"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+			"timestamp" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			"command" TEXT NOT NULL,
+			"args_json" TEXT NOT NULL,
+			"exit_code" INTEGER NOT NULL,
+			"affected_count" INTEGER NOT NULL,
+			"source" TEXT NOT NULL DEFAULT 'cli',
+			"duration_ms" INTEGER NOT NULL DEFAULT 0
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_hubspot_local_mutations_ts" ON "hubspot_local_mutations"("timestamp" DESC)`,
+		`CREATE INDEX IF NOT EXISTS "idx_hubspot_local_mutations_cmd_ts" ON "hubspot_local_mutations"("command", "timestamp" DESC)`,
 	}
 	for _, m := range migrations {
 		if _, err := conn.ExecContext(ctx, m); err != nil {

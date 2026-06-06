@@ -20,7 +20,6 @@ func newHubspotOwnersCrmGetV3OwnersV3OwnersCmd(flags *rootFlags) *cobra.Command 
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-owners-v3-owners",
-		Aliases:     []string{"list"},
 		Short:       "Get v3 owners v3 owners",
 		Example:     "  hubspot-cli hubspot-owners-crm get-v3-owners-v3-owners",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-owners-crm.get-v3-owners-v3-owners", "pp:method": "GET", "pp:path": "/crm/v3/owners", "mcp:read-only": "true"},

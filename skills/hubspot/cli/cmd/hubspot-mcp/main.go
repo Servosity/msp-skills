@@ -44,7 +44,7 @@ func main() {
 		}
 	case "http":
 		httpSrv := server.NewStreamableHTTPServer(s)
-		fmt.Fprintf(os.Stderr, "hubspot-pp-mcp serving MCP over streamable HTTP at %s\n", *addr)
+		fmt.Fprintf(os.Stderr, "hubspot-mcp serving MCP over streamable HTTP at %s\n", *addr)
 		if err := httpSrv.Start(*addr); err != nil {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
 			os.Exit(1)

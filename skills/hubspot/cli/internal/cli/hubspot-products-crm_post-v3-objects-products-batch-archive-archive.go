@@ -18,7 +18,6 @@ func newHubspotProductsCrmPostV3ObjectsProductsBatchArchiveArchiveCmd(flags *roo
 
 	cmd := &cobra.Command{
 		Use:         "post-v3-objects-products-batch-archive-archive",
-		Aliases:     []string{"create"},
 		Short:       "Archive multiple products at once by providing their IDs.",
 		Example:     "  hubspot-cli hubspot-products-crm post-v3-objects-products-batch-archive-archive",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-products-crm.post-v3-objects-products-batch-archive-archive", "pp:method": "POST", "pp:path": "/crm/v3/objects/products/batch/archive"},

@@ -325,7 +325,7 @@ Resource scoping:
 	cmd.Flags().BoolVar(&full, "full", false, "Full resync (ignore previous checkpoint)")
 	cmd.Flags().StringVar(&since, "since", "", "Incremental sync duration (e.g. 7d, 24h, 1w, 30m)")
 	cmd.Flags().IntVar(&concurrency, "concurrency", 4, "Number of parallel sync workers")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/hubspot-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/hubspot-cli/data.db)")
 	cmd.Flags().IntVar(&maxPages, "max-pages", 0, "Maximum pages to fetch per resource (0 = unlimited; cap-hit emits a sync_warning event)")
 	cmd.Flags().BoolVar(&latestOnly, "latest-only", false, "Refresh head of each resource only; clears resume cursor and caps pages at 1. Mutually exclusive with --since (--since wins).")
 	cmd.Flags().BoolVar(&strict, "strict", false, "Exit non-zero on any per-resource failure (default: only critical failures or all-resource failure exit non-zero).")
@@ -428,6 +428,8 @@ func syncResource(ctx context.Context, c interface {
 	var progressCount int64
 	pagesFetched := 0
 	lastNextCursor := ""
+	capExitHit := false
+	capExitCursor := ""
 	// extractFailureTotal accumulates per-item primary-key extraction
 	// misses across pages within this resource sync. Resource-level
 	// concurrency is 1 (one goroutine per resource via the work channel)
@@ -486,8 +488,7 @@ func syncResource(ctx context.Context, c interface {
 		if err != nil {
 			if w, ok := isSyncAccessWarning(err); ok {
 				if !humanFriendly {
-					fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","status":%d,"reason":"%s","message":"%s"}`+"\n",
-						resource, w.Status, w.Reason, strings.ReplaceAll(w.Message, `"`, `\"`))
+					fmt.Fprintln(syncEvents, syncWarningJSON(resource, "", w.Status, w.Reason, w.Message))
 				}
 				return syncResult{Resource: resource, Count: totalCount, Warn: fmt.Errorf("skipped %s: %s", resource, w.Reason), Duration: time.Since(started)}
 			}
@@ -575,9 +576,13 @@ func syncResource(ctx context.Context, c interface {
 			objectType := historyObjectType(resource)
 			if objectType != "" {
 				for _, raw := range items {
-					if err := captureHistoryFromItem(ctx, db, objectType, raw); err != nil && !humanFriendly {
-						fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"property_history_capture","message":"%s"}`+"\n",
-							resource, strings.ReplaceAll(err.Error(), `"`, `\"`))
+					if err := captureHistoryFromItem(ctx, db, objectType, raw); err != nil {
+						if humanFriendly {
+							fmt.Fprintf(os.Stderr, "warning: %s: property-history capture skipped for one item: %v\n", resource, err)
+						} else {
+							fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"property_history_capture","message":"%s"}`+"\n",
+								resource, strings.ReplaceAll(err.Error(), `"`, `\"`))
+						}
 					}
 				}
 			}
@@ -635,11 +640,27 @@ func syncResource(ctx context.Context, c interface {
 		// warning per paginated resource would mask real sync_anomaly /
 		// sync_error output in the same stream.
 		if maxPages > 0 && pagesFetched >= maxPages {
-			if !latestOnly {
-				if humanFriendly {
-					fmt.Fprintf(os.Stderr, "\n  %s: reached --max-pages limit (%d pages, %d items)\n", resource, maxPages, totalCount)
+			truncatedByCap := resourceSupportsPagination(resource) && hasMore
+			truncatedByCap = truncatedByCap && len(items) >= pageSize.limit
+			if truncatedByCap {
+				capExitCursor = nextCursor
+			}
+			if truncatedByCap && capExitCursor == "" {
+				if pageSize.cursorParam == "offset" {
+					currentOffset, _ := strconv.Atoi(cursor)
+					capExitCursor = strconv.Itoa(currentOffset + pageSize.limit)
 				} else {
-					fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"max_pages_cap_hit","message":"reached --max-pages cap of %d; data may be truncated. Re-run with --max-pages 0 (unlimited) or higher to verify."}`+"\n", resource, maxPages)
+					truncatedByCap = false
+				}
+			}
+			if truncatedByCap && capExitCursor != cursor {
+				if !latestOnly {
+					capExitHit = true
+					if humanFriendly {
+						fmt.Fprintf(os.Stderr, "\n  %s: reached --max-pages limit (%d pages, %d items)\n", resource, maxPages, totalCount)
+					} else {
+						fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"max_pages_cap_hit","message":"reached --max-pages cap of %d; data may be truncated. Re-run with --max-pages 0 (unlimited) or higher to verify."}`+"\n", resource, maxPages)
+					}
 				}
 			}
 			break
@@ -690,8 +711,13 @@ func syncResource(ctx context.Context, c interface {
 		cursor = nextCursor
 	}
 
-	// Final sync state: clear cursor (sync is complete), update count
-	_ = db.SaveSyncState(resource, "", totalCount)
+	// Final sync state: clear cursor on natural completion, but preserve the
+	// resume cursor when an operator intentionally capped the page budget.
+	finalCursor := ""
+	if capExitHit {
+		finalCursor = capExitCursor
+	}
+	_ = db.SaveSyncState(resource, finalCursor, totalCount)
 
 	// F4b symptom probe: if items were consumed and successfully
 	// extracted (extractFailures < consumed) but nothing landed in
@@ -853,7 +879,8 @@ func extractItemsByKnownKeys(envelope map[string]json.RawMessage) ([]json.RawMes
 func extractSingleObjectArraySibling(envelope map[string]json.RawMessage) ([]json.RawMessage, bool) {
 	// Fallback: try every key in the envelope. If exactly one maps to a JSON
 	// array with items, use it. This handles APIs that wrap responses with the
-	// resource name (e.g., {"markets": [...], "cursor": "..."}).
+	// resource name alongside arbitrary scalar metadata
+	// (e.g., {"markets": [...], "request_id": "..."}).
 	var arrayItems []json.RawMessage
 	arrayCount := 0
 	for key, raw := range envelope {
@@ -868,9 +895,6 @@ func extractSingleObjectArraySibling(envelope map[string]json.RawMessage) ([]jso
 		var rawArray []json.RawMessage
 		if json.Unmarshal(raw, &rawArray) == nil && !isJSONNull(raw) {
 			continue
-		}
-		if !pageEnvelopeMetadataKeys[key] {
-			return nil, false
 		}
 	}
 	if arrayCount == 1 {
@@ -1483,97 +1507,4 @@ func extractID(resource string, obj map[string]any) string {
 		}
 	}
 	return ""
-}
-
-// supportsPropertyHistory reports whether `propertiesWithHistory` is meaningful
-// for the named resource. HubSpot only supports it on CRM objects; we whitelist
-// the four the --with-history flag advertises.
-func supportsPropertyHistory(resource string) bool {
-	switch resource {
-	case "hubspot-meetings-crm", "hubspot-deals-crm", "hubspot-contacts-crm", "hubspot-companies-crm":
-		return true
-	}
-	return false
-}
-
-// historyObjectType maps a sync resource name to the object_type string the
-// hubspot_property_history table stores; mirrors the prior CLI's table-naming
-// convention (meetings/deals/contacts/companies).
-func historyObjectType(resource string) string {
-	switch resource {
-	case "hubspot-meetings-crm":
-		return "meetings"
-	case "hubspot-deals-crm":
-		return "deals"
-	case "hubspot-contacts-crm":
-		return "contacts"
-	case "hubspot-companies-crm":
-		return "companies"
-	}
-	return ""
-}
-
-// captureHistoryFromItem parses one HubSpot object's `propertiesWithHistory`
-// blob and persists each entry. The blob shape is
-// {"id":"<obj id>","propertiesWithHistory":{"<prop>":[{"value":"...","timestamp":"...","source":"...","sourceId":"..."}]}}.
-// We accept a missing block silently (the API only returns it when the request
-// asked for it AND the object actually has history).
-func captureHistoryFromItem(ctx context.Context, db *store.Store, objectType string, raw json.RawMessage) error {
-	var envelope struct {
-		ID                    string                          `json:"id"`
-		PropertiesWithHistory map[string][]propertyHistoryRaw `json:"propertiesWithHistory"`
-	}
-	if err := json.Unmarshal(raw, &envelope); err != nil {
-		return fmt.Errorf("decode item: %w", err)
-	}
-	if envelope.ID == "" || len(envelope.PropertiesWithHistory) == 0 {
-		return nil
-	}
-	var entries []store.PropertyHistoryEntry
-	for prop, hist := range envelope.PropertiesWithHistory {
-		for _, h := range hist {
-			ts := h.parseTimestamp()
-			if ts.IsZero() {
-				continue
-			}
-			entries = append(entries, store.PropertyHistoryEntry{
-				Property:  prop,
-				Value:     h.Value,
-				Timestamp: ts,
-				Source:    h.Source,
-				SourceID:  h.SourceID,
-			})
-		}
-	}
-	return db.UpsertPropertyHistoryBatch(ctx, objectType, envelope.ID, entries)
-}
-
-// propertyHistoryRaw mirrors the unmarshalled shape of one history entry from
-// HubSpot's `propertiesWithHistory` blob. Timestamps arrive either as ISO 8601
-// strings (REST) or as epoch-millisecond numbers — handle both rather than
-// failing on the second shape.
-type propertyHistoryRaw struct {
-	Value     string          `json:"value"`
-	Timestamp json.RawMessage `json:"timestamp"`
-	Source    string          `json:"source"`
-	SourceID  string          `json:"sourceId"`
-}
-
-func (h propertyHistoryRaw) parseTimestamp() time.Time {
-	if len(h.Timestamp) == 0 {
-		return time.Time{}
-	}
-	// Try string first.
-	var s string
-	if err := json.Unmarshal(h.Timestamp, &s); err == nil && s != "" {
-		if t, err := time.Parse(time.RFC3339, s); err == nil {
-			return t
-		}
-	}
-	// Fall back to epoch ms (number).
-	var n int64
-	if err := json.Unmarshal(h.Timestamp, &n); err == nil && n > 0 {
-		return time.UnixMilli(n).UTC()
-	}
-	return time.Time{}
 }

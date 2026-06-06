@@ -15,7 +15,6 @@ func newHubspotObjectsCrmDeleteV3ObjectsObjectTypeObjectIdArchiveCmd(flags *root
 
 	cmd := &cobra.Command{
 		Use:         "delete-v3-objects-object-type-object-id-archive <objectId> <objectType>",
-		Aliases:     []string{"delete"},
 		Short:       "Move an Object identified by `{objectId}` to the recycling bin.",
 		Example:     "  hubspot-cli hubspot-objects-crm delete-v3-objects-object-type-object-id-archive 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-objects-crm.delete-v3-objects-object-type-object-id-archive", "pp:method": "DELETE", "pp:path": "/crm/v3/objects/{objectType}/{objectId}"},

@@ -20,7 +20,6 @@ func newHubspotLeadsCrmGetV3ObjectsLeadsLeadsIdGetByIdCmd(flags *rootFlags) *cob
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-leads-leads-id-get-by-id <leadsId>",
-		Aliases:     []string{"get"},
 		Short:       "Read an Object identified by `{leadsId}`.",
 		Example:     "  hubspot-cli hubspot-leads-crm get-v3-objects-leads-leads-id-get-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-leads-crm.get-v3-objects-leads-leads-id-get-by-id", "pp:method": "GET", "pp:path": "/crm/v3/objects/leads/{leadsId}", "mcp:read-only": "true"},

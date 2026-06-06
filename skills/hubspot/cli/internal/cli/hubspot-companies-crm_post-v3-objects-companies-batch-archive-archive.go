@@ -18,7 +18,6 @@ func newHubspotCompaniesCrmPostV3ObjectsCompaniesBatchArchiveArchiveCmd(flags *r
 
 	cmd := &cobra.Command{
 		Use:         "post-v3-objects-companies-batch-archive-archive",
-		Aliases:     []string{"create"},
 		Short:       "Delete a batch of companies by ID. Deleted companies can be restored within 90 days of deletion.",
 		Example:     "  hubspot-cli hubspot-companies-crm post-v3-objects-companies-batch-archive-archive",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-companies-crm.post-v3-objects-companies-batch-archive-archive", "pp:method": "POST", "pp:path": "/crm/v3/objects/companies/batch/archive"},

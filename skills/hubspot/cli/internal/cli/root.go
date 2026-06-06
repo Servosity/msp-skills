@@ -17,8 +17,6 @@ import (
 	"hubspot-pp-cli/internal/config"
 )
 
-var version = "1.0.0"
-
 type rootFlags struct {
 	asJSON        bool
 	compact       bool
@@ -163,6 +161,8 @@ Highlights (not in the official API docs):
   • since   What changed across contacts, deals, and engagements since a given timestamp — agent-friendly cross-object delta.
   • nurture-mine   Surface the contacts assigned to you that have gone cold but still have open deals — the daily 'who do I call' list, computed across local SQLite.
   • contacts bulk-update   Apply a CSV of property changes to many contacts at once, pre-validating each row against HubSpot's property schema (types, picklists) before any mutation.
+  • deals velocity   Per-deal days-in-current-stage and per-stage median/p90 dwell time, computed from dealstage change history — find where deals rot.
+  …and 4 more — see README.md for the full list
 
 Agent mode: add --agent to any command for JSON output + non-interactive mode.
 Health check: run 'hubspot-cli doctor' to verify auth and connectivity.
@@ -256,6 +256,8 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
 		// Best-effort local mutation audit-log write. Never propagate errors;
 		// a failure to log must not flip a successful user command to non-zero.
+		// Cobra only runs PersistentPostRunE on success, so the log records
+		// successful mutations only (exit_code is always 0 by construction).
 		logMutationIfApplicable(cmd, args, 0)
 		return nil
 	}
@@ -305,10 +307,10 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newNovelPipelineHealthCmd(flags))
 	rootCmd.AddCommand(newNovelSinceCmd(flags))
 	rootCmd.AddCommand(newNovelStaleCmd(flags))
+	rootCmd.AddCommand(newHistoryCmd(flags))
 	rootCmd.AddCommand(newAPICmd(flags))
 	rootCmd.AddCommand(newObjectsSearchPromotedCmd(flags))
-	rootCmd.AddCommand(newHistoryCmd(flags))
-	rootCmd.AddCommand(newVersionCliCmd())
+	rootCmd.AddCommand(newVersionCmd())
 
 	return rootCmd
 }
@@ -340,49 +342,7 @@ func (f *rootFlags) printTable(w *cobra.Command, headers []string, rows [][]stri
 	if f.asJSON {
 		return fmt.Errorf("use printJSON for JSON output")
 	}
-	out := w.OutOrStdout()
-	switch {
-	case f.csv:
-		// RFC 4180-ish CSV: comma-separated, quote cells containing comma/quote/newline.
-		writeCSVLine := func(cells []string) {
-			line := make([]byte, 0, len(cells)*16)
-			for i, c := range cells {
-				if i > 0 {
-					line = append(line, ',')
-				}
-				if strings.ContainsAny(c, ",\"\n\r") {
-					line = append(line, '"')
-					line = append(line, strings.ReplaceAll(c, `"`, `""`)...)
-					line = append(line, '"')
-				} else {
-					line = append(line, c...)
-				}
-			}
-			line = append(line, '\n')
-			_, _ = out.Write(line)
-		}
-		writeCSVLine(headers)
-		for _, r := range rows {
-			writeCSVLine(r)
-		}
-		return nil
-	case f.quiet:
-		// Bare output, one value per line — the first column of each row.
-		for _, r := range rows {
-			if len(r) > 0 {
-				fmt.Fprintln(out, r[0])
-			}
-		}
-		return nil
-	case f.plain:
-		// Plain tab-separated — no column alignment.
-		fmt.Fprintln(out, strings.Join(headers, "\t"))
-		for _, r := range rows {
-			fmt.Fprintln(out, strings.Join(r, "\t"))
-		}
-		return nil
-	}
-	tw := tabwriter.NewWriter(out, 2, 4, 2, ' ', 0)
+	tw := tabwriter.NewWriter(w.OutOrStdout(), 2, 4, 2, ' ', 0)
 	header := ""
 	for i, h := range headers {
 		if i > 0 {
@@ -402,14 +362,4 @@ func (f *rootFlags) printTable(w *cobra.Command, headers []string, rows [][]stri
 		fmt.Fprintln(tw, line)
 	}
 	return tw.Flush()
-}
-
-func newVersionCliCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Print version",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("%s %s\n", cmd.Root().Name(), version)
-		},
-	}
 }

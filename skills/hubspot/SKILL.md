@@ -11,34 +11,28 @@ metadata:
     requires:
       bins:
         - hubspot-cli
-    install:
-      - kind: go
-        bins: [hubspot-cli]
-        module: github.com/mvanhorn/printing-press-library/library/sales-and-crm/hubspot/cmd/hubspot-cli
 ---
 
-# HubSpot  -  Printing Press CLI
+# HubSpot Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `hubspot-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install hubspot --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)
    ```
-2. Verify: `hubspot-cli --version`
-3. Ensure `$GOPATH/bin` (or `$HOME/go/bin`) is on `$PATH`.
-
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.3 or newer):
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/hubspot/cmd/hubspot-cli@latest
-```
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.ps1 | iex
+   ```
+3. Verify: `hubspot-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
 If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-HubSpot's own CLI (`hs`) only covers CMS  -  there has never been a sales/CRM CLI from HubSpot itself. This one mirrors your CRM into local SQLite so commands like `nurture-mine`, `stale deals`, `owner-load`, and `pipeline-health` answer cross-table questions instantly and offline. New in this reprint: `sync --with-history` persists per-property snapshots into a shared property-history table, and `meetings ever-had` / `meetings status-report` answer questions HubSpot's standard search API physically cannot  -  'every meeting that was EVER status X in month Y, even after it flipped.'
+A local SQLite data layer no other HubSpot tool has: HubSpot's own CLI (`hs`) only covers CMS, and its new Agent CLI is stateless live-API  -  neither gives you a stateful, offline sales/CRM mirror. This one mirrors your CRM into local SQLite so commands like `nurture-mine`, `stale deals`, `owner-load`, and `pipeline-health` answer cross-table questions instantly and offline. New in this reprint: `sync --with-history` persists per-property snapshots into a shared property-history table, and `meetings ever-had` / `meetings status-report` answer questions HubSpot's standard search API physically cannot  -  'every meeting that was EVER status X in month Y, even after it flipped.'
 
 ## When to Use This CLI
 
@@ -67,18 +61,17 @@ These capabilities aren't available in any other tool for this API.
 
   _Use this for forecast-vs-reality checks before a pipeline review._
 
-<!-- cli-claims:ignore -->
   ```bash
-  hubspot-cli pipeline-health default --idle-days 14 --json
+  hubspot-cli pipeline-health "default" --idle-days 14 --json
   ```
-- **`nurture queue`**  -  Ranked 'who to contact today' list scored by a weighted sum of stale-days, log(deal amount), and stage probability (`stale_days*1.0 + log(amount)*0.5 + (1-probability)*100`), with the rationale exposed as columns.
+- **`nurture queue`**  -  Ranked 'who to contact today' list scored by stale-days × deal amount × stage probability, with the rationale exposed as columns.
 
   _Reach for this in the nurture skill or any daily-touch-list loop where an agent needs a priority order with reasons attached._
 
   ```bash
   hubspot-cli nurture queue --owner me --top 20 --agent
   ```
-- **`deals top`**  -  Composite-ranked top-N deals by a weighted sum of signal, log(amount), stage probability, and recency (`signal_score*2 + log(amount)*1.5 + stage_probability*3 + recency_score*2`), with the score breakdown exposed as columns.
+- **`deals top`**  -  Composite-ranked top-N deals by (signal × amount × stage-probability × inverse-days-since-contact) with the score breakdown exposed as columns.
 
   _Pick this for sales-lead Monday reviews or when an agent needs the top opportunities ranked by signal-weighted score, not raw amount._
 
@@ -89,21 +82,21 @@ These capabilities aren't available in any other tool for this API.
 ### Property history & audit
 - **`meetings history`**  -  Show the full timeline of property changes for a single meeting (outcome, title, owner, custom fields)  -  when each value was set, by whom, and from what source.
 
-  _Reach for this when investigating 'when did this meeting flip from Scheduled to No Show, and who changed it'  -  the audit-trail question the HubSpot UI buries inside per-property timelines._
+  _Reach for this when investigating 'when did this meeting flip from Scheduled to No Show, and who changed it'. Requires a prior 'sync --resources hubspot-meetings-crm --with-history <props>' to populate the history table._
 
   ```bash
   hubspot-cli meetings history 53612340987612345 --json
   ```
 - **`meetings ever-had`**  -  Find every meeting whose given property was EVER set to a given value within a date range  -  even if it has since changed.
 
-  _Pick this when a customer or audit asks 'every meeting that was at some point in status X during month Y'  -  the only path through the property-history snapshot table._
+  _Pick this when a customer or audit asks 'every meeting that was at some point in status X during month Y'. Requires a prior 'sync --with-history' capture; the standard /search API cannot answer it._
 
   ```bash
   hubspot-cli meetings ever-had --property hs_meeting_outcome --value Scheduled --from 2026-04-01 --to 2026-04-30 --json
   ```
 - **`meetings status-report`**  -  Composes the meetings ever-had query into the canonical monthly-report shape: every meeting that touched the given status in the given month, with owner, title, current status, and the timestamp of the original status set.
 
-  _Use this once per month per customer report  -  one command replaces a Python pull + a HubSpot export + a manual cross-reference._
+  _Use this once per month per customer report  -  one command replaces a Python pull + a HubSpot export + a manual cross-reference. Requires a prior 'sync --resources hubspot-meetings-crm --with-history hs_meeting_outcome'._
 
   ```bash
   hubspot-cli meetings status-report --status scheduled --month 2026-04 --csv
@@ -114,6 +107,13 @@ These capabilities aren't available in any other tool for this API.
 
   ```bash
   hubspot-cli sync --resources hubspot-meetings-crm --with-history hs_meeting_outcome,hs_meeting_title,hubspot_owner_id
+  ```
+- **`deals velocity`**  -  Per-deal days-in-current-stage and per-stage median/p90 dwell time, computed from dealstage change history  -  find where deals rot.
+
+  _Use this when the user asks where deals stall or how long deals sit per stage  -  requires a prior sync --resources hubspot-deals-crm --with-history dealstage._
+
+  ```bash
+  hubspot-cli deals velocity --pipeline default --json
   ```
 
 ### Cross-object intelligence
@@ -137,6 +137,34 @@ These capabilities aren't available in any other tool for this API.
 
   ```bash
   hubspot-cli since 24h --types deals,engagements --owner me --json
+  ```
+- **`contacts funnel`**  -  One-shot funnel table of contacts per lifecycle stage (subscriber → lead → MQL → SQL → opportunity → customer) with stage-to-stage conversion ratios.
+
+  _Use this for 'where is the top of funnel leaking' questions  -  instant offline funnel snapshot after one sync._
+
+  ```bash
+  hubspot-cli contacts funnel --json
+  ```
+- **`deals unowned`**  -  Open deals with no owner or owned by a deactivated rep, with per-stage dollar exposure  -  the hygiene gap owner-load can't see.
+
+  _Use this in the weekly hygiene pass to find orphaned deals before they rot  -  distinct from owner-load, which only aggregates owned deals._
+
+  ```bash
+  hubspot-cli deals unowned --pipeline default --json
+  ```
+- **`contacts win-back`**  -  Contacts attached to a Closed Won deal but with no engagement in N days  -  the customer-expansion and re-engage list.
+
+  _Use this for post-win expansion outreach  -  distinct from nurture-mine (open-deal cold) and stale (any cold)._
+
+  ```bash
+  hubspot-cli contacts win-back --cold-days 90 --json
+  ```
+- **`deals forecast`**  -  Probability-weighted pipeline forecast bucketed by close-date month  -  the canonical GM revenue question, answered offline.
+
+  _Use this for close-month weighted totals for revenue reviews; pipeline-health answers per-stage risk, forecast answers per-month expectation._
+
+  ```bash
+  hubspot-cli deals forecast --pipeline default --json
   ```
 
 ### Bulk operations
@@ -535,9 +563,8 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Pipeable**  -  JSON on stdout, errors on stderr
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
-<!-- cli-claims:ignore -->
   ```bash
-  hubspot-cli batch post-crm-v3-objects-object-type-archive-archive mock-value --agent --select id,name,status
+  hubspot-cli batch post-crm-v3-objects-object-type-archive-archive "mock-value" --agent --select id,name,status
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
@@ -619,15 +646,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/hubspot/cmd/hubspot-mcp@latest
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add hubspot-mcp -- hubspot-mcp
-   ```
-3. Verify: `claude mcp list`
+The installer above drops `hubspot-mcp` alongside the CLI. Register it:
+
+```bash
+claude mcp add hubspot-mcp -- hubspot-mcp
+```
+
+Verify: `claude mcp list`
 
 ## Direct Use
 

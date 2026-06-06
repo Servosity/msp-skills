@@ -19,7 +19,6 @@ func newHubspotListsCrmGetV3ListsListIdMembershipsJoinOrderV3ListsListIdMembersh
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-lists-list-id-memberships-join-order-v3-lists-list-id-memberships-join-order <listId>",
-		Aliases:     []string{"get"},
 		Short:       "Get v3 lists list id memberships join order v3 lists list id memberships join order",
 		Example:     "  hubspot-cli hubspot-lists-crm get-v3-lists-list-id-memberships-join-order-v3-lists-list-id-memberships-join-order 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-lists-crm.get-v3-lists-list-id-memberships-join-order-v3-lists-list-id-memberships-join-order", "pp:method": "GET", "pp:path": "/crm/v3/lists/{listId}/memberships/join-order", "mcp:read-only": "true"},

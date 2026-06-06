@@ -16,6 +16,7 @@ import (
 	"hubspot-pp-cli/internal/store"
 )
 
+// pp:data-source local
 func newNovelEngagementsOfCmd(flags *rootFlags) *cobra.Command {
 	var since string
 	var typesCSV string
@@ -29,6 +30,9 @@ func newNovelEngagementsOfCmd(flags *rootFlags) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
+			}
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
 			}
 			if dryRunOK(flags) {
 				return nil
@@ -57,6 +61,9 @@ func newNovelEngagementsOfCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("opening local database: %w", err)
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, "") {
+				hintIfStale(cmd, db, "", flags.maxAge)
+			}
 
 			items, source, err := loadEngagementsFor(cmd, db, flags, targetType, targetID, engTypes, cutoff)
 			if err != nil {
@@ -78,7 +85,7 @@ func newNovelEngagementsOfCmd(flags *rootFlags) *cobra.Command {
 			for _, it := range items {
 				rows = append(rows, []string{it.Type, it.ID, it.Timestamp, snippet(it.Title, 80), it.Outcome})
 			}
-			return flags.printTable(cmd, headers, rows)
+			return flags.printTabular(cmd, headers, rows)
 		},
 	}
 	cmd.Flags().StringVar(&since, "since", "", "Only include engagements newer than this (e.g. 30d, 4h, RFC3339)")
@@ -177,7 +184,7 @@ ORDER BY ts DESC`, info.Table)
 		for rows.Next() {
 			var id, ts, title, outcome sql.NullString
 			if err := rows.Scan(&id, &ts, &title, &outcome); err != nil {
-				rows.Close()
+				_ = rows.Close()
 				return nil, err
 			}
 			items = append(items, engagementItem{
@@ -186,10 +193,10 @@ ORDER BY ts DESC`, info.Table)
 			})
 		}
 		if err := rows.Err(); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, fmt.Errorf("iterating %s rows: %w", et, err)
 		}
-		rows.Close()
+		_ = rows.Close()
 	}
 	return items, nil
 }

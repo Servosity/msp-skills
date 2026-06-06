@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "hubspot-pp-mcp",
+  "name": "hubspot-mcp",
   "display_name": "HubSpot",
   "version": "0.1.0",
   "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/hubspot-pp-mcp",
+    "entry_point": "bin/hubspot-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/hubspot-pp-mcp",
+      "command": "${__dirname}/bin/hubspot-mcp",
       "args": [],
       "env": {
         "HUBSPOT_ACCESS_TOKEN": "${user_config.hubspot_access_token}"
