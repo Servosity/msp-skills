@@ -124,7 +124,7 @@
       "skill_path": "skills/datto-bcdr",
       "cli_binary": "datto-bcdr-cli",
       "mcp_binary": "datto-bcdr-mcp",
-      "version": "4.22.0",
+      "version": "0.1.0",
       "license": "Apache-2.0",
       "vendor": "Datto BCDR",
       "vendor_trademark_owner": "Datto, Inc.",

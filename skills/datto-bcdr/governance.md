@@ -27,9 +27,9 @@ require a human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `alert triage`, `asset`, `asset get`, `asset list`, `forgotten assets` | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
-| **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
+| **Read** | Reports, rollups, search. No change. | `screenshots`, `stale-backups`, `recoverability`, `client-risk`, `alert-triage`, `storage-runway`, `forgotten-assets`, `agent-versions`, `client-report`, `device`, `agent`, `asset`, `shares`, `alert`, `vm-restore`, `sync`, `search`, `analytics` | Allow |
+| **Write (routine)** | The one API-mutating command. | `import` (POST each record to the Datto BCDR API) | Preview with `--dry-run`, then an approved write |
+| **Credential / security** | Replaces or clears stored credentials. | `auth set-token`, `auth logout` | Human-in-the-loop only |
 | **Destructive** | Irreversible data or config loss. | (none detected) | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
 
