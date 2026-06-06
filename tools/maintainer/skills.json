@@ -391,6 +391,29 @@
         "evidence": null
       }
     },
+    "quickbooks": {
+      "system": "QuickBooks Online accounting: invoices, bills, payments, customers, vendors, AR/AP aging, DSO, cash forecast",
+      "status": "beta",
+      "cli_binary": "quickbooks-cli",
+      "mcp_binary": "quickbooks-mcp",
+      "vendor": "QuickBooks Online",
+      "vendor_trademark_owner": "Intuit Inc.",
+      "first_party": false,
+      "category": "Billing",
+      "display_name": "QuickBooks Online",
+      "tagline": "Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking.",
+      "cli_hash": "sha256:2dbc4bffec016aeda87ce7165ee9a16bbb044b944095daf2aaa5b9c9154ea4c8",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "sentinelone": {
       "system": "SentinelOne Singularity: threat triage, mitigation, agent fleet health, and protection-coverage gaps across customer sites",
       "status": "beta",

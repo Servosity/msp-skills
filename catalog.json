@@ -365,6 +365,25 @@
       "tagline": "Reconcile Pax8 billing, track MRR, and catch usage overages before they hit the customer invoice"
     },
     {
+      "name": "quickbooks",
+      "system": "QuickBooks Online accounting: invoices, bills, payments, customers, vendors, AR/AP aging, DSO, cash forecast",
+      "status": "beta",
+      "skill_path": "skills/quickbooks",
+      "cli_binary": "quickbooks-cli",
+      "mcp_binary": "quickbooks-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "QuickBooks Online",
+      "vendor_trademark_owner": "Intuit Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/install.sh)",
+      "install_mcp_doc": "skills/quickbooks/mcp-install.md",
+      "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
+      "verification": "awaiting",
+      "category": "Billing",
+      "tagline": "Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking."
+    },
+    {
       "name": "sentinelone",
       "system": "SentinelOne Singularity: threat triage, mitigation, agent fleet health, and protection-coverage gaps across customer sites",
       "status": "beta",
