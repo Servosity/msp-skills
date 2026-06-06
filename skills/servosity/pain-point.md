@@ -20,16 +20,18 @@ Backup and DR is where "silent failure" hurts most. The pains MSP owners name:
 It turns the partner portal's per-client views into fleet-wide, offline-fast
 intelligence:
 
-- `attention` - one screen across every client: open issues, stale backups, and
-  in-flight DR events, ranked per company.
-- `stale-backups` - every client with a backup that has not succeeded in N days,
-  sliced by engine - the list you email clients about on Friday.
+- `attention` - one screen across every client: open issues and stale backups,
+  ranked per company, snapshotted on every run so `drift` can compare days.
+- `stale-backups` - every client with a backup that has not succeeded in N days -
+  the Friday-email list; `email-draft --stale` writes the follow-up emails from it.
 - `drift` - what got worse and what recovered since yesterday, so Monday starts
   with situational awareness instead of a blank slate.
-- `triage` / `clear` / `stale-issues` - batch-ignore, archive, or clear known-safe
-  alert noise for a client in one planned command, so the queue shows only what's new.
-- `company show` / `find` - one command assembles a client's full backup picture
-  (metadata, contracts, three engines, open issues); `find` is one FTS5 query across the whole fleet.
+- `triage` - batch-ignore, archive, reactivate, or comment on known-safe alert
+  noise in one invocation (opt-in `--dry-run` preview), so the queue shows only what's new.
+- `qbr` / `qbr-all` - the backup section of a client's Quarterly Business Review
+  as Markdown, HTML, or PDF - or the whole book in one pass at quarter-end.
+- `bill --reconcile` / `unprovisioned` / `storage-trend` - the revenue surface:
+  bill-vs-invoice drift, installed-but-idle agents, and capacity forecasts per client.
 
 ## Status
 

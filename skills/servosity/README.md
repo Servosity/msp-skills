@@ -11,7 +11,7 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/servosity/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Add **fleet-wide backup triage, stale-backup-set detection, overnight drift, per-client situational awareness, and cross-engine analytics** to the AI you already use - **Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A local fleet mirror means your AI can answer cross-client questions the partner portal can't show on one screen - Friday-email-ready in seconds. Built for MSP partners. No code required.
+Add **fleet-wide backup triage, stale-backup-set detection, overnight drift, per-client situational awareness, and cross-client analytics** to the AI you already use - **Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A local fleet mirror means your AI can answer cross-client questions the partner portal can't show on one screen - Friday-email-ready in seconds. Built for MSP partners. No code required.
 
 ## Works with your agent
 
@@ -35,7 +35,7 @@ For ChatGPT, the Servosity MCP server is stdio - to use it with ChatGPT you expo
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Servosity MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/servosity-v0.1.1/servosity-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Servosity release on the [releases page](https://github.com/servosity/msp-skills/releases?q=servosity).)
+[**Download Servosity MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/servosity-v0.2.0/servosity-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Servosity release on the [releases page](https://github.com/servosity/msp-skills/releases?q=servosity).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -143,23 +143,24 @@ Outcome-first, with the single command that answers each question:
 
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| What needs my attention across every client this morning? | `servosity-cli attention` |
-| Which backups went stale across all clients? | `servosity-cli stale-backups --days 7` |
-| What changed across my fleet overnight? | `servosity-cli drift --from yesterday --to now` |
-| What's the whole story for this client, on one screen? | `servosity-cli company show <id>` |
-| Search across companies, backups, and issues at once | `servosity-cli find "image manager"` |
-| Triage what's worth keeping in the alert queue | `servosity-cli triage` |
-| Clear known-safe alert noise so real failures show | `servosity-cli clear` |
-| List DR restores in flight | `servosity-cli restore-queue list` |
+| Where is my attention needed today, ranked worst-first? | `servosity-cli attention --top 5` |
+| What got worse since yesterday, and what recovered? | `servosity-cli drift` |
+| Which clients have backups stale for 7+ days? | `servosity-cli stale-backups --days 7` |
+| Draft the follow-up email for every stale-backup client | `servosity-cli email-draft --stale --days 7` |
+| Build the backup section of Acme's QBR as a PDF | `servosity-cli qbr "Acme Co" --out acme-q1.pdf` |
+| Quarter-end: every client's QBR report in one pass | `servosity-cli qbr-all --quarter 2026-Q1 --out ./qbrs/` |
+| Watch every client's restore queue during a DR event | `servosity-cli restore-queue watch` |
+| Does my Servosity bill match what I invoice clients? | `servosity-cli bill --reconcile invoices.csv` |
+| Which installed agents still aren't pulling backups? | `servosity-cli unprovisioned` |
 | First-time hydration of the local fleet mirror | `servosity-cli sync --full` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most AI integrations for backup and DR vendors proxy each question into a live API call against the partner portal. That's fine for one client. It fails when you're asking *"which of my 47 clients have a backup set that hasn't succeeded in 7 days, sliced by engine?"* - the partner portal scatters that across per-client pages, three engine views, and an alert queue full of noise.
+Most AI integrations for backup and DR vendors proxy each question into a live API call against the partner portal. That's fine for one client. It fails when you're asking *"which of my 47 clients have a backup set that hasn't succeeded in 7 days?"* - the partner portal scatters that across per-client pages, per-type views (M365, DR Server, DR Desktop), and an alert queue full of noise.
 
-This skill syncs Servosity into a **local fleet mirror** with snapshot history and FTS5 search. Cross-engine, cross-client questions become one local query: instant, offline, and the AI sees the answer, not a context window full of paginated JSON. Compound commands like `attention`, `drift`, `stale-backups`, and `company show` join across companies, three backup engines, issues, contracts, and DR events - work a stateless API wrapper can't do.
+This skill syncs Servosity into a **local fleet mirror** with snapshot history and FTS5 search. Cross-client questions become one local query: instant, offline, and the AI sees the answer, not a context window full of paginated JSON. Compound commands like `attention`, `drift`, `stale-backups`, and `backup-facts` join across companies, backups, and issues - and the snapshot history they persist powers `drift`, `fleet-health` deltas, and `storage-trend` forecasts no stateless API wrapper can offer.
 
 ## The pain this closes
 
@@ -168,9 +169,9 @@ Backup and DR is where "silent failure" hurts most. The pains MSP owners name:
 - **Silent backup failures discovered too late.** A backup that quietly stopped succeeding is invisible until a client needs a restore - the worst possible moment to find out.
 - **No fleet-wide view.** Each client's backup state lives in its own portal view; there is no single screen that says "across my whole book, here's what's stale, failing, or in-flight right now."
 - **Alert-queue noise buries the real failure.** Dozens of repeat and known-safe issues pile up per client; the one that matters hides in the pile.
-- **Per-client questions mean portal archaeology.** Answering "is this client OK?" means clicking through metadata, three backup engines, contracts, and issues by hand.
+- **Per-client questions mean portal archaeology.** Answering "is this client OK?" means clicking through metadata, every backup type, contracts, and issues by hand.
 
-This skill turns per-client portal views into fleet-wide, offline-fast intelligence: `attention` is one screen across every client; `stale-backups` is the Friday-email list, ready; `drift` opens Monday with situational awareness instead of a blank slate; `triage` / `clear` / `stale-issues` batch-suppress known-safe noise so the queue shows only what's new; `company show` / `find` answer per-client and cross-fleet questions in one command.
+This skill turns per-client portal views into fleet-wide, offline-fast intelligence: `attention` is one screen across every client; `stale-backups` finds the Friday-email list and `email-draft` writes the emails; `drift` opens Monday with situational awareness instead of a blank slate; `triage` batch-suppresses known-safe noise (ignore/archive/comment) so the queue shows only what's new; `qbr` and `qbr-all` turn quarter-end report-building into one command.
 
 ## Frequently asked questions
 
@@ -208,17 +209,16 @@ Free. Apache-2.0 licensed. Servosity does not charge for the API access required
 
 ## Safety model
 
-The skill authenticates with one partner token, scoped to **your reseller account only** (no cross-reseller access). The compound write commands (`triage`, `clear`, `stale-issues`) plan by default: nothing mutates until you pass `--confirm`, and the global `--dry-run` flag keeps PLAN mode even then. Raw CRUD writes (notes, comments) prompt interactively, but `--yes`/`--agent` skip that prompt - so gate those at your agent's policy: preview with `--dry-run`, approve, then run.
+The skill authenticates with one partner token, scoped to **your reseller account only** (no cross-reseller access). Know how writes are gated - the binary does NOT gate them for you: `--dry-run` is an **opt-in** preview, and where a command prompts interactively, `--yes` (and `--agent`, which implies `--yes`) skips the prompt. The gate lives in your agent's policy: preview with `--dry-run`, show the exact command, get approval, then run.
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `attention`, `drift`, `stale-backups`, `backup-facts`, `find`, `company show`, `restore-queue list` | Allow |
-| Write (routine) | `triage`, `clear`, `stale-issues`, notes/comments | Compound commands: review the PLAN, then `--confirm`. Raw CRUD: preview with `--dry-run`, approve, never blanket `--yes` |
-| Credential / security | `credentials rotate/delete`, `current-user *-mfa-*`, `resellers agent-install-token`, `*-backups encryption-key update` | Human-in-the-loop only |
-| Destructive | `companies delete`, `backups delete`, `restic-backups restic-prune`, `users delete` | Human-in-the-loop only |
-| Admin (hidden) | `admin ...` | Operator-only, not for agents |
+| Read | `attention`, `drift`, `stale-backups`, `backup-facts`, `qbr`, `fleet-health`, `unprovisioned`, `bill`, `email-draft` (drafts only - nothing is sent), `restore-queue watch`, `search` | Allow |
+| Write (routine) | `triage` (`--ignore`/`--archive`/`--reactivate`/`--comment`), `import`, raw create/update subcommands under the resource groups | Preview with `--dry-run`, then a reviewed write - never blanket `--yes` |
+| Credential / security | `credentials rotate/delete`, `current-user *-mfa-*`, `resellers agent-install-token`, `*-backups encryption-key update`, `auth set-token`/`logout` | Human-in-the-loop only |
+| Destructive | `companies delete` (deletes all backup accounts and data), `backups delete`, `users delete` | Human-in-the-loop only |
 
-Keep autonomous agents to **Read plus planned writes**; gate everything below that behind a human. Full matrix and lock-down guidance in [governance.md](./governance.md).
+Keep autonomous agents to **Read plus previewed writes**; gate everything below that behind a human. Full matrix and lock-down guidance in [governance.md](./governance.md).
 
 ## Status
 

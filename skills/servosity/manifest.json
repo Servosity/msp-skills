@@ -3,7 +3,7 @@
   "name": "servosity-mcp",
   "display_name": "Servosity",
   "version": "0.1.1",
-  "description": "Add fleet-wide backup triage, stale-backup detection, and cross-engine analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local fleet mirror with snapshot history so the partner portal's per-page views become one query.",
+  "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
   "author": {
     "name": "Servosity Inc."
   },
@@ -23,7 +23,7 @@
     "servosity_msp_token": {
       "type": "string",
       "title": "SERVOSITY_MSP_TOKEN",
-      "description": "Sets SERVOSITY_MSP_TOKEN for the Servosity MCP server. Get your partner API token from the Servosity partner portal.",
+      "description": "Sets SERVOSITY_MSP_TOKEN for the Servosity MCP server.",
       "sensitive": true,
       "required": true
     }

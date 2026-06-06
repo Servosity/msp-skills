@@ -1,220 +1,357 @@
-// Copyright 2026 Servosity Inc. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 servosity. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
 import (
-	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
-	"servosity-pp-cli/internal/store"
+	"servosity-msp-pp-cli/internal/store"
 )
 
-// newBackupFactsCmd queries the cross-engine view (synthesized at runtime from
-// classic backups + restic_backups + dr_backups) for "give me one row per
-// backup regardless of engine, with last_successful_at and current_status."
-//
-// The view is synthesized at runtime from whatever the synced tables hold,
-// so it works without a schema migration step. Run `sync` to populate.
-func newBackupFactsCmd(flags *rootFlags) *cobra.Command {
-	var companyFilter, engineFilter, statusFilter string
-	var lastSuccessBefore string
-	var dbPath string
-	var limit int
-
-	cmd := &cobra.Command{
-		Use:   "backup-facts",
-		Short: "Cross-engine backup view: classic + restic + DR unified by company / last successful job / status",
-		Long: `Query the unified backup_facts view (engine + id + company_id +
-last_successful_at + last_status + size_bytes) over all three backup engines
-synced into the local store. The Servosity API has no cross-engine surface;
-this view exists only here.
-
-Run 'sync' first to populate. Then this command runs entirely against
-the local SQLite store.`,
-		Example: `  # Every backup that has not had a successful run since 2026-05-04
-  servosity-cli backup-facts --last-success-before 2026-05-04 --json
-
-  # Restic backups for one company
-  servosity-cli backup-facts --company "ACME Corp" --engine restic --json`,
-		Annotations: map[string]string{"mcp:read-only": "true"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if dryRunOK(flags) {
-				if flags.asJSON {
-					_, _ = cmd.OutOrStdout().Write([]byte(`{"meta":{"source":"dry-run"},"results":[]}` + "\n"))
-				}
-				return nil
-			}
-			ctx := cmd.Context()
-			if dbPath == "" {
-				dbPath = defaultDBPath("servosity-cli")
-			}
-			st, err := store.OpenWithContext(ctx, dbPath)
-			if err != nil {
-				return configErr(fmt.Errorf("open store: %w", err))
-			}
-			defer st.Close()
-
-			cutoff := time.Time{}
-			if lastSuccessBefore != "" {
-				t, err := parseHumanTime(lastSuccessBefore, time.Now())
-				if err != nil {
-					return usageErr(err)
-				}
-				cutoff = t
-			}
-
-			facts, err := readBackupFacts(ctx, st, companyFilter, engineFilter, statusFilter, cutoff, limit)
-			if err != nil {
-				return apiErr(err)
-			}
-
-			out := map[string]any{
-				"meta": map[string]any{
-					"source":  "store",
-					"db":      dbPath,
-					"count":   len(facts),
-					"engines": []string{"classic", "restic", "dr"},
-				},
-				"results": facts,
-			}
-			payload, _ := json.Marshal(out)
-			return printOutputWithFlags(cmd.OutOrStdout(), payload, flags)
-		},
-	}
-	cmd.Flags().StringVar(&companyFilter, "company", "", "Company name (substring match) or numeric ID")
-	cmd.Flags().StringVar(&engineFilter, "engine", "", "Backup engine: classic | restic | dr")
-	cmd.Flags().StringVar(&statusFilter, "status", "", "Last status filter (substring match)")
-	cmd.Flags().StringVar(&lastSuccessBefore, "last-success-before", "", "Show only backups with last successful job before this human time (e.g. 'yesterday', '7d', '2026-05-04')")
-	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum rows (0 = no limit)")
-	cmd.Flags().StringVar(&dbPath, "db", "", "SQLite path (default: ~/.local/share/servosity-pp-cli/data.db)")
-	return cmd
-}
-
-// BackupFact is one normalized cross-engine row.
-type BackupFact struct {
+// backupFact is the unified shape rendered across all three engines.
+// Fields are nullable because no single engine guarantees every key
+// (e.g. restic's size field name differs from classic; missing values
+// become "-" in table output and null in JSON).
+type backupFact struct {
+	CompanyID        *int64 `json:"company_id"`
+	CompanyName      string `json:"company_name"`
 	Engine           string `json:"engine"`
 	ID               string `json:"id"`
-	CompanyID        string `json:"company_id,omitempty"`
-	CompanyName      string `json:"company_name,omitempty"`
-	DeviceName       string `json:"device_name,omitempty"`
-	LastSuccessfulAt string `json:"last_successful_at,omitempty"`
-	LastStatus       string `json:"last_status,omitempty"`
-	SizeBytes        int64  `json:"size_bytes,omitempty"`
+	Hostname         string `json:"hostname"`
+	LastSuccessfulAt string `json:"last_successful_at"`
+	State            string `json:"state"`
+	Health           string `json:"health"`
 }
 
-// readBackupFacts walks each backup-engine table the generator emitted (classic
-// `backups`, `restic_backups`, `dr_backups`) and unifies the rows. We don't
-// hardcode a schema — we read each row's data JSON and pluck candidate fields,
-// because the generator's tables typically have an `id` column plus a `data`
-// JSON column with the full server response.
-func readBackupFacts(ctx context.Context, st *store.Store, company, engine, status string, cutoff time.Time, limit int) ([]BackupFact, error) {
-	tables := []struct {
-		engine string
-		table  string
-	}{
-		{"classic", "backups"},
-		{"restic", "restic_backups"},
-		{"dr", "dr_backups"},
-	}
-	var out []BackupFact
-	for _, t := range tables {
-		if engine != "" && t.engine != engine {
-			continue
-		}
-		rows, err := readBackupTable(ctx, st, t.engine, t.table)
-		if err != nil {
-			// Table may not exist yet (sync hasn't covered this engine). Skip silently.
-			continue
-		}
-		for _, row := range rows {
-			if company != "" && !companyMatch(row, company) {
-				continue
+// pp:data-source local
+func newBackupFactsCmd(flags *rootFlags) *cobra.Command {
+	var companyID int
+	var engine string
+	var status string
+	var since string
+	var refresh bool
+
+	cmd := &cobra.Command{
+		Use:         "backup-facts",
+		Short:       "Unified backup view across classic, restic, and DR engines",
+		Annotations: map[string]string{"mcp:read-only": "true"},
+		Long: `Produce a unified row-per-backup view across all three Servosity backup engines
+(classic /backups/, restic /restic-backups/, and DR /dr-backups/) from the local
+synced store. Optional filters scope by company, engine, health, or freshness.
+
+Health is derived from per-backup freshness (pp_last_success): 'ok' means a
+successful backup within the last 7 days, 'stale' means none on record or
+older than 7 days, 'unknown' means freshness has not been hydrated yet (run
+with --refresh once). The STATE column is the API's lifecycle state (e.g.
+active); the partner API exposes no per-backup failure status — use 'issues'
+for failures.
+
+Requires that 'sync' has been run for the relevant resources at least once.`,
+		Example: `  # All backups across all engines, all companies
+  servosity-cli backup-facts
+
+  # One company, all engines, last 7 days only
+  servosity-cli backup-facts --company 4421 --since 7d
+
+  # Restic backups with no recent success, JSON for piping
+  servosity-cli backup-facts --engine restic --status stale --json`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if dryRunOK(flags) {
+				return nil
 			}
-			if status != "" && !strings.Contains(strings.ToLower(row.LastStatus), strings.ToLower(status)) {
-				continue
+
+			// Validate enums up-front so typos exit cleanly rather than
+			// silently producing an empty result via a WHERE clause that
+			// never matches.
+			engine = strings.ToLower(strings.TrimSpace(engine))
+			switch engine {
+			case "", "all", "classic", "restic", "dr":
+			default:
+				return usageErr(fmt.Errorf("invalid --engine %q (want classic|restic|dr|all)", engine))
 			}
-			if !cutoff.IsZero() && row.LastSuccessfulAt != "" {
-				if t, err := time.Parse(time.RFC3339, row.LastSuccessfulAt); err == nil {
-					if !t.Before(cutoff) {
+			status = strings.ToLower(strings.TrimSpace(status))
+			switch status {
+			case "", "all", "ok", "stale":
+			case "fail":
+				return usageErr(fmt.Errorf("--status fail is not derivable from the partner API (backups carry no failure status); use 'servosity-cli issues list' or 'triage' for failures"))
+			default:
+				return usageErr(fmt.Errorf("invalid --status %q (want ok|stale|all)", status))
+			}
+
+			var sinceTS string
+			if since != "" {
+				t, err := parseSinceDuration(since)
+				if err != nil {
+					return usageErr(fmt.Errorf("invalid --since %q: %w", since, err))
+				}
+				sinceTS = t.UTC().Format(time.RFC3339)
+			}
+
+			dbPath := defaultDBPath("servosity-cli")
+			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			if err != nil {
+				return fmt.Errorf("opening local database: %w\nRun 'servosity-cli sync' first.", err)
+			}
+			defer db.Close()
+
+			// last_successful_at is sourced from pp_last_success. Ensure the
+			// table exists so the LEFT JOIN never errors on a store that has
+			// never hydrated freshness; --refresh repulls it live.
+			if err := ensureLastSuccessTable(cmd.Context(), db); err != nil {
+				return err
+			}
+			if refresh {
+				c, cerr := flags.newClient()
+				if cerr != nil {
+					return cerr
+				}
+				if _, _, herr := hydrateLastSuccess(cmd.Context(), c, db); herr != nil {
+					return fmt.Errorf("refreshing last-success freshness: %w", herr)
+				}
+			}
+
+			// One SELECT per engine UNIONed together. The three engines do
+			// NOT agree on how they reference a company:
+			//   - classic  nests it: json_extract(data,'$.company.id'/'.name')
+			//   - restic/dr store a URL string ("…/companies/4766/"); the id
+			//     is parsed out with substr(... instr('/companies/')+11).
+			// Using a single '$.company_id' path (the old code) matched none
+			// of them, so every row came back company_id=null / name="". The
+			// per-engine company_id expression below is the fix.
+			//
+			// last_successful_at is LEFT-JOINed from pp_last_success (hydrated
+			// from the partner-visible /{engine}-backups/{id}/latest-success/
+			// endpoint) since none of the backup blobs carry it inline.
+			classicCID := `CAST(json_extract(b.data, '$.company.id') AS INTEGER)`
+			urlCID := `CAST(substr(json_extract(b.data, '$.company'), instr(json_extract(b.data, '$.company'), '/companies/') + 11) AS INTEGER)`
+
+			classicLeg := `
+SELECT
+  ` + classicCID + ` AS company_id,
+  COALESCE(c.name, json_extract(b.data, '$.company.name'), '') AS company_name,
+  'classic' AS engine,
+  b.id AS id,
+  COALESCE(json_extract(b.data, '$.hostname'),
+           json_extract(b.data, '$.display_name'),
+           json_extract(b.data, '$.login'), '') AS hostname,
+  COALESCE(ls.last_success, '') AS last_successful_at,
+  COALESCE(json_extract(b.data, '$.last_status'),
+           json_extract(b.data, '$.status'),
+           json_extract(b.data, '$.state'), '') AS status
+FROM backups b
+LEFT JOIN companies c ON CAST(c.id AS INTEGER) = ` + classicCID + `
+LEFT JOIN pp_last_success ls ON ls.engine = 'classic' AND ls.backup_id = b.id
+`
+			resticLeg := `
+SELECT
+  ` + urlCID + ` AS company_id,
+  COALESCE(c.name, '') AS company_name,
+  'restic' AS engine,
+  b.id AS id,
+  COALESCE(json_extract(b.data, '$.hostname'),
+           json_extract(b.data, '$.device_name'),
+           json_extract(b.data, '$.display_name'),
+           json_extract(b.data, '$.login'), '') AS hostname,
+  COALESCE(ls.last_success, '') AS last_successful_at,
+  COALESCE(json_extract(b.data, '$.last_status'),
+           json_extract(b.data, '$.status'),
+           json_extract(b.data, '$.state'), '') AS status
+FROM restic_backups b
+LEFT JOIN companies c ON CAST(c.id AS INTEGER) = ` + urlCID + `
+LEFT JOIN pp_last_success ls ON ls.engine = 'restic' AND ls.backup_id = b.id
+`
+			drLeg := `
+SELECT
+  ` + urlCID + ` AS company_id,
+  COALESCE(c.name, '') AS company_name,
+  'dr' AS engine,
+  b.id AS id,
+  COALESCE(json_extract(b.data, '$.hostname'),
+           json_extract(b.data, '$.device_name'),
+           json_extract(b.data, '$.display_name'),
+           json_extract(b.data, '$.login'), '') AS hostname,
+  COALESCE(ls.last_success, '') AS last_successful_at,
+  COALESCE(json_extract(b.data, '$.last_status'),
+           json_extract(b.data, '$.status'),
+           json_extract(b.data, '$.state'), '') AS status
+FROM dr_backups b
+LEFT JOIN companies c ON CAST(c.id AS INTEGER) = ` + urlCID + `
+LEFT JOIN pp_last_success ls ON ls.engine = 'dr' AND ls.backup_id = b.id
+`
+
+			// Freshness hydration state drives the health bucket: an
+			// un-hydrated store cannot distinguish ok from stale, so every
+			// row reports health=unknown plus a stderr hint.
+			freshnessHydrated := false
+			if r := db.DB().QueryRowContext(cmd.Context(), `SELECT COUNT(*) FROM pp_last_success`); r != nil {
+				var n int
+				if r.Scan(&n) == nil && n > 0 {
+					freshnessHydrated = true
+				}
+			}
+			if !freshnessHydrated {
+				fmt.Fprintln(os.Stderr, "hint: per-backup freshness not hydrated yet — LAST_OK is empty and health=unknown. Run 'servosity-cli backup-facts --refresh' once.")
+				if status == "ok" || status == "stale" {
+					return fmt.Errorf("--status %s needs hydrated freshness; run with --refresh first", status)
+				}
+			}
+
+			// Engine selection: build UNION ALL of just the legs we need.
+			var legs []string
+			switch engine {
+			case "classic":
+				legs = []string{classicLeg}
+			case "restic":
+				legs = []string{resticLeg}
+			case "dr":
+				legs = []string{drLeg}
+			default: // "" / "all"
+				legs = []string{classicLeg, resticLeg, drLeg}
+			}
+
+			unioned := "(" + strings.Join(legs, "\nUNION ALL\n") + ")"
+
+			// Outer wrapper applies post-UNION filters so each engine's
+			// json_extract logic stays self-contained and the filters
+			// hit normalized column aliases.
+			var (
+				where []string
+				bind  []any
+			)
+			if companyID > 0 {
+				where = append(where, "u.company_id = ?")
+				bind = append(bind, int64(companyID))
+			}
+			if sinceTS != "" {
+				where = append(where, "u.last_successful_at >= ?")
+				bind = append(bind, sinceTS)
+			}
+
+			query := "SELECT u.company_id, u.company_name, u.engine, u.id, u.hostname, u.last_successful_at, u.status FROM " + unioned + " AS u"
+			if len(where) > 0 {
+				query += " WHERE " + strings.Join(where, " AND ")
+			}
+			query += " ORDER BY u.company_name, u.engine, u.last_successful_at DESC"
+
+			rows, err := db.DB().QueryContext(cmd.Context(), query, bind...)
+			if err != nil {
+				return fmt.Errorf("querying backup facts: %w", err)
+			}
+			defer rows.Close()
+
+			var facts []backupFact
+			for rows.Next() {
+				var (
+					cid      sql.NullInt64
+					cname    sql.NullString
+					eng      sql.NullString
+					id       sql.NullString
+					hostname sql.NullString
+					lastOK   sql.NullString
+					st       sql.NullString
+				)
+				if err := rows.Scan(&cid, &cname, &eng, &id, &hostname, &lastOK, &st); err != nil {
+					return fmt.Errorf("scanning backup-facts row: %w", err)
+				}
+				f := backupFact{
+					CompanyName:      cname.String,
+					Engine:           eng.String,
+					ID:               id.String,
+					Hostname:         hostname.String,
+					LastSuccessfulAt: lastOK.String,
+					State:            st.String,
+					Health:           backupHealth(lastOK.String, freshnessHydrated, time.Now()),
+				}
+				if cid.Valid {
+					v := cid.Int64
+					f.CompanyID = &v
+				}
+				if status == "ok" || status == "stale" {
+					if f.Health != status {
 						continue
 					}
 				}
+				facts = append(facts, f)
 			}
-			out = append(out, row)
-		}
+			if err := rows.Err(); err != nil {
+				return fmt.Errorf("iterating backup-facts rows: %w", err)
+			}
+
+			if flags.asJSON {
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				if facts == nil {
+					facts = []backupFact{}
+				}
+				return enc.Encode(facts)
+			}
+
+			if len(facts) == 0 {
+				fmt.Fprintln(os.Stderr, "no backup facts matched (try 'sync' first, or relax filters)")
+				return nil
+			}
+
+			headers := []string{"COMPANY", "ENGINE", "ID", "HOSTNAME", "LAST_OK", "STATE", "HEALTH"}
+			rowsOut := make([][]string, 0, len(facts))
+			for _, f := range facts {
+				company := f.CompanyName
+				if f.CompanyID != nil {
+					if company == "" {
+						company = fmt.Sprintf("(%d)", *f.CompanyID)
+					} else {
+						company = fmt.Sprintf("%s (%d)", company, *f.CompanyID)
+					}
+				}
+				lastOK := f.LastSuccessfulAt
+				if lastOK == "" {
+					lastOK = "-"
+				}
+				st := f.State
+				if st == "" {
+					st = "-"
+				}
+				host := f.Hostname
+				if host == "" {
+					host = "-"
+				}
+				rowsOut = append(rowsOut, []string{company, f.Engine, f.ID, host, lastOK, st, f.Health})
+			}
+			return flags.printTable(cmd, headers, rowsOut)
+		},
 	}
-	sort.Slice(out, func(i, j int) bool {
-		// Oldest last-success first (most stale)
-		return out[i].LastSuccessfulAt < out[j].LastSuccessfulAt
-	})
-	if limit > 0 && len(out) > limit {
-		out = out[:limit]
-	}
-	return out, nil
+
+	cmd.Flags().IntVar(&companyID, "company", 0, "Filter to one company ID (0 = all)")
+	cmd.Flags().StringVar(&engine, "engine", "all", "Engine to include: classic|restic|dr|all")
+	cmd.Flags().StringVar(&status, "status", "all", "Status filter: ok|fail|stale|all")
+	cmd.Flags().StringVar(&since, "since", "", "Only backups whose last_successful_at is newer than (e.g. 7d, 24h)")
+	cmd.Flags().BoolVar(&refresh, "refresh", false, "Re-pull per-backup last-success freshness from the API before reporting (restic/dr)")
+
+	return cmd
 }
 
-func companyMatch(r BackupFact, want string) bool {
-	w := strings.ToLower(want)
-	return strings.Contains(strings.ToLower(r.CompanyName), w) ||
-		strings.Contains(strings.ToLower(r.CompanyID), w)
-}
-
-func readBackupTable(ctx context.Context, st *store.Store, engine, table string) ([]BackupFact, error) {
-	if !validIdentifier(table) {
-		return nil, fmt.Errorf("invalid table identifier: %q", table)
+// backupHealth derives the ok/stale/unknown health bucket from per-backup
+// freshness. A backup is ok when its last recorded success is within 7 days,
+// stale when the success is older or absent, and unknown when the freshness
+// table has never been hydrated (so absence of a row proves nothing).
+func backupHealth(lastSuccess string, hydrated bool, now time.Time) string {
+	if !hydrated {
+		return "unknown"
 	}
-	q := fmt.Sprintf("SELECT id, data FROM %s LIMIT 100000", table)
-	rows, err := st.DB().QueryContext(ctx, q)
+	if lastSuccess == "" {
+		return "stale"
+	}
+	t, err := parseFlexTime(lastSuccess)
 	if err != nil {
-		return nil, err
+		return "stale"
 	}
-	defer rows.Close()
-	var out []BackupFact
-	for rows.Next() {
-		var id string
-		var dataStr string
-		if err := rows.Scan(&id, &dataStr); err != nil {
-			continue
-		}
-		obj := map[string]any{}
-		_ = json.Unmarshal([]byte(dataStr), &obj)
-		fact := BackupFact{Engine: engine, ID: id}
-		fact.CompanyID = anyToString(firstAny(obj, "company_id", "company"))
-		fact.CompanyName = anyToString(firstAny(obj, "company_name", "company__name", "name"))
-		fact.DeviceName = anyToString(firstAny(obj, "device_name", "hostname"))
-		fact.LastSuccessfulAt = anyToString(firstAny(obj, "last_successful_at", "last_complete_at", "last_backup_complete", "last_backup_at"))
-		fact.LastStatus = anyToString(firstAny(obj, "last_status", "status", "current_status", "state"))
-		switch v := firstAny(obj, "size_bytes", "size").(type) {
-		case float64:
-			fact.SizeBytes = int64(v)
-		}
-		out = append(out, fact)
+	if now.Sub(t) <= 7*24*time.Hour {
+		return "ok"
 	}
-	return out, rows.Err()
-}
-
-func firstAny(obj map[string]any, keys ...string) any {
-	for _, k := range keys {
-		if v, ok := obj[k]; ok && v != nil {
-			return v
-		}
-	}
-	return nil
-}
-
-func validIdentifier(s string) bool {
-	if s == "" {
-		return false
-	}
-	for i, r := range s {
-		if !(r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (i > 0 && r >= '0' && r <= '9')) {
-			return false
-		}
-	}
-	return true
+	return "stale"
 }

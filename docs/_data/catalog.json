@@ -44,9 +44,9 @@
     {
       "slug": "servosity",
       "display_name": "Servosity",
-      "tagline": "Backup status, failures, and QBR-ready history for every client by asking.",
+      "tagline": "Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.",
       "category": "Backup/DR",
-      "verification": "live-verified",
+      "verification": "awaiting",
       "url": "/skills/servosity/"
     }
   ],
