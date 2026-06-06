@@ -462,6 +462,29 @@
         "evidence": null
       },
       "install_auth_hint": "Then set `THREATLOCKER_API_KEY` (Portal > Administrators > API Users > Generate API Token) and run `threatlocker-cli doctor`"
+    },
+    "itglue": {
+      "system": "IT Glue documentation platform",
+      "status": "beta",
+      "cli_binary": "itglue-cli",
+      "mcp_binary": "itglue-mcp",
+      "vendor": "IT Glue",
+      "vendor_trademark_owner": "Kaseya US LLC",
+      "first_party": false,
+      "category": "Documentation",
+      "display_name": "IT Glue",
+      "tagline": "Find any device, audit stale passwords, and rank thin client docs by asking.",
+      "cli_hash": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }
