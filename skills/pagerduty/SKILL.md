@@ -1,6 +1,6 @@
 ---
 name: pagerduty
-description: "Every PagerDuty incident, on-call and service operation from the terminal Trigger phrases: `who is on call for this service`, `show me the open pagerduty incidents`, `what's the mttr for this service`, `acknowledge the pagerduty incident`, `which services have no on-call coverage`, `use pagerduty`, `run pagerduty-cli`."
+description: "Use when the user asks to triage the PagerDuty incident queue, see who's on call for a service now or next, check MTTA/MTTR or responder workload, audit escalation coverage or on-call schedule gaps, acknowledge or resolve a PagerDuty incident, or reconstruct an incident timeline. Wraps the PagerDuty REST API plus an offline SQLite mirror with cross-object analytics. Trigger phrases: `who is on call for this service`, `show me the open pagerduty incidents`, `what's the mttr by service`, `acknowledge the pagerduty incident`, `which services have no on-call coverage`, `PagerDuty + ChatGPT`, `PagerDuty + Claude`, `use pagerduty`, `run pagerduty-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "PagerDuty"
@@ -11,32 +11,26 @@ metadata:
     requires:
       bins:
         - pagerduty-cli
-    install:
-      - kind: go
-        bins: [pagerduty-cli]
-        module: github.com/mvanhorn/printing-press-library/library/monitoring/pagerduty/cmd/pagerduty-cli
 ---
 
-# PagerDuty  -  Printing Press CLI
+# PagerDuty Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `pagerduty-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install pagerduty --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pagerduty/install.sh)
    ```
-2. Verify: `pagerduty-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pagerduty/install.ps1 | iex
+   ```
+3. Verify: `pagerduty-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/monitoring/pagerduty/cmd/pagerduty-cli@latest
-```
-
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Triage the incident queue, resolve who's on call now and next, and run service and escalation hygiene checks without leaving the shell. Sync once and the local store powers analytics no single API call exposes: pulse for what's hot right now, oncall who for the live escalation chain, audit coverage for escalation gaps, and insights mttr/responders/noisy for offline post-incident analytics.
 
@@ -673,15 +667,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/monitoring/pagerduty/cmd/pagerduty-mcp@latest
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add pagerduty-mcp -- pagerduty-mcp
-   ```
-3. Verify: `claude mcp list`
+The installer above drops `pagerduty-mcp` alongside the CLI. Register it:
+
+```bash
+claude mcp add pagerduty-mcp -- pagerduty-mcp
+```
+
+Verify: `claude mcp list`
 
 ## Direct Use
 
