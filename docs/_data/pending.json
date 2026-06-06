@@ -118,6 +118,13 @@
     "current_hash": "sha256:fdd78076d4955dddd2e4d4c42a66c3b66bece8005d59c5d10944465d525e12a0",
     "released_hash": "sha256:fdd78076d4955dddd2e4d4c42a66c3b66bece8005d59c5d10944465d525e12a0"
   },
+  "syncro": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:88fccde7356fb69b6a650d2d6b48020340af6cb11e17e134646ed0ea95b7556a",
+    "released_hash": null
+  },
   "threatlocker": {
     "state": "up-to-date",
     "version": "0.1.0",
