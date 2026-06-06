@@ -84,7 +84,7 @@
       "tagline": "Triage every Blumira finding across all your MSP client accounts from one ranked queue",
       "cli_hash": "sha256:9a313a7db46e6b3da6cd5cf788afab7beafab2ec371f4697b5182a363b25bc05",
       "template_version": 3,
-      "version": "4.22.0",
+      "version": "0.1.0",
       "cli_hash_at_release": null,
       "has_video": true,
       "live_verified": {

@@ -2,14 +2,28 @@
 
 ## The pain
 
-TODO (calling agent: replace this with the real MSP pain this skill closes,
-citing a concrete community source - r/msp, an X post, a vendor survey). State
-the pain in the language MSP owners actually search for.
+Blumira is sold as detection-and-response that an MSP can run without standing up
+a full SOC, and the r/msp threads weighing it against the other MDR/SIEM options
+keep landing on the same day-two catch: the product is easy to deploy, but the
+ongoing work is triage, and the partner portal makes you do that triage one
+account at a time. Switch the active organization, sort the open findings, note
+the worst, switch to the next client, repeat. Across a book of clients there is
+no single screen that joins findings, detection coverage, and agent health, so
+questions like "which accounts are behind on coverage this month" or "which
+domain controllers went dark this week" turn into a manual sweep an owner holds
+in their head, exactly the kind of cross-tenant blind spot r/msp operators raise
+about every per-tenant security portal.
 
 ## What this skill does about it
 
-TODO: 3-5 of the skill's highest-leverage commands mapped to the pain, each with a
-one-line outcome (not a feature description).
+It mirrors every account into a local store and answers the cross-account
+questions the portal can't compose:
+
+- **`blumira-cli triage --status open`** - one globally-ranked open-findings queue across every client account, so analysts work the worst thing first regardless of which client it belongs to.
+- **`blumira-cli coverage --against basis`** - detection rules missing or disabled versus your basis ruleset, per account, so coverage gaps surface before an auditor or attacker finds them.
+- **`blumira-cli exposure --flag-dc-stale`** - domain controllers that went stale or unprotected, surfaced first, so a client's most important server is never a silent blind spot.
+- **`blumira-cli velocity --by account --window 30d`** - mean-time-to-resolve and open-rate per account, so you can see which client is drowning before they churn.
+- **`blumira-cli drift`** - new, resolved, and status-changed findings since your last sync, so a daily standup reads from one diff instead of thirty portals.
 
 ## Status
 

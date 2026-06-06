@@ -6,13 +6,13 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/blumira/">
-    <img src="../../docs/assets/social/blumira/wide-1200x630.png" alt="Blumira - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/blumira/animated-og.gif" alt="Blumira demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/blumira/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/blumira/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Every Blumira finding, detection, and agent across your direct org and every MSP sub-account  -  in one offline-searchable store with cross-account triage and over-time trends no single API call can answer. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Every Blumira finding, detection, and agent across your direct org and every MSP sub-account - in one offline-searchable store with cross-account triage and over-time trends no single API call can answer. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Blumira MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/blumira-v4.22.0/blumira-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Blumira release on the [releases page](https://github.com/servosity/msp-skills/releases?q=blumira).)
+[**Download Blumira MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/blumira-v0.1.0/blumira-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Blumira release on the [releases page](https://github.com/servosity/msp-skills/releases?q=blumira).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -145,25 +145,36 @@ BLUMIRA_API_TOKEN=<value> BLUMIRA_CLIENT_ID=<value> BLUMIRA_CLIENT_SECRET=<value
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `blumira-cli ...` |
-
--->
+| What are the worst open findings across all my client accounts right now? | `blumira-cli triage --status open` |
+| What changed since my last sync, new, resolved, or status-changed findings? | `blumira-cli drift` |
+| What's my mean-time-to-resolve per account this month? | `blumira-cli velocity --by account --window 30d` |
+| Which open findings are about to breach my age-based SLA? | `blumira-cli sla --breach-in 4h` |
+| Which detection rules fell out of coverage versus our basis ruleset? | `blumira-cli coverage --against basis` |
+| Which domain controllers are stale or unprotected across every account? | `blumira-cli exposure --flag-dc-stale` |
+| Which detections keep firing over and over across accounts? | `blumira-cli recurring --window 90d` |
+| Which findings mention this IOC, hostname, or user in their evidence? | `blumira-cli evidence-search "<ioc>"` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Blumira integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Blumira integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "how many open critical findings sit across all 30 client accounts right now, and which three accounts own most of them."
 
-This skill syncs Blumira into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs Blumira into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `triage`, `coverage`, and `velocity` join findings against detection rules and agent check-ins across every account at once - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+Blumira is sold as detection-and-response that doesn't need a full SOC, and r/msp threads weighing it against the other MDR/SIEM options keep landing on the same operational catch: the product is easy to deploy, but the day-two work is triage, and the partner portal makes you do that triage one account at a time. Switch the active organization, sort the open findings, note the worst, switch again. Across a book of clients there's no single screen that joins findings, detection coverage, and agent health, so "which accounts are behind on coverage" or "which domain controllers went dark this week" becomes a manual sweep you hold in your head.
+
+This skill closes that with cross-account reads off a local mirror:
+
+- **`blumira-cli triage --status open`** - one globally-ranked open-findings queue across every client account.
+- **`blumira-cli coverage --against basis`** - detection rules missing or disabled versus your basis ruleset, per account.
+- **`blumira-cli exposure --flag-dc-stale`** - domain controllers that went stale or unprotected, surfaced first.
+- **`blumira-cli velocity --by account --window 30d`** - mean-time-to-resolve and open-rate per account, so you can see who's drowning.
+- **`blumira-cli drift`** - what's new, resolved, or status-changed since your last sync.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +196,17 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Do I need a Blumira partner account for the cross-account views?
+
+The cross-account commands (`triage`, `overview`, and coverage across every client) read Blumira's **MSP sub-account API**, so they need partner API credentials with sub-account access. A single-org account still gets every direct-org command, findings, evidence search, and agent and detection rollups, plus offline `sync`. Generate credentials under **Settings > Organization > Generate API Credentials**, then run `blumira-cli auth login`.
+
+### Does this replace the Blumira portal or its automated response?
+
+No. Blumira's portal and its automated detection-and-response playbooks stay exactly where they are. This skill reads the same findings, detections, and agents through Blumira's public API and adds the cross-account views the portal doesn't compose. It only writes when you ask it to (a comment, a resolution, an owner assignment), and those writes are best previewed with `--dry-run` first.
+
+### Will this hit my Blumira API rate limits?
+
+`sync` mirrors each account into local SQLite, so your day-to-day questions run against the mirror, not the live API. You control request pace with `--rate-limit` and `--concurrency` on `sync`, and most analytical commands (`triage`, `coverage`, `velocity`, `drift`) read the local store by default.
 
 ### What does it cost?
 
@@ -198,15 +214,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| **Read** | `triage`, `overview`, `drift`, `velocity`, `sla`, `coverage`, `exposure`, `recurring`, `audit`, `search`, `evidence-search`, `sync` | Allow |
+| **Write (routine)** | `msp resolve-finding`, `msp set-finding-owners`, `msp add-account-finding-comment`, `org controller-direct-resolve-finding`, `org controller-direct-set-owners`, `org controller-direct-add-comment` | Preview with `--dry-run`, then a reviewed write |
+| **Credential / config** | Credentials live in `auth login` / `auth set-token`; the API exposes no delete or bulk-config command | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Blumira credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +230,4 @@ Beta. Validated against the Blumira API surface and being validated with MSPs ru
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-06._

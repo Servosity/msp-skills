@@ -27,8 +27,8 @@ require a human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `msp add-account-finding-comment`, `msp get-account-finding-comments`, `msp set-finding-owners`, `org controller-direct-add-comment`, `org controller-direct-get-comments`, `org controller-direct-set-owners`, `triage` | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
+| **Read** | Reports, rollups, search. No change. | `triage`, `overview`, `drift`, `velocity`, `sla`, `coverage`, `exposure`, `recurring`, `audit`, `search`, `evidence-search`, `sync`, and any `get`/`list` command | Allow |
+| **Write (routine)** | Day-to-day mutations (resolve a finding, assign an owner, add a comment). | `msp resolve-finding`, `msp set-finding-owners`, `msp add-account-finding-comment`, `org controller-direct-resolve-finding`, `org controller-direct-set-owners`, `org controller-direct-add-comment` | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
 | **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
 | **Destructive** | Irreversible data or config loss. | (none detected) | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |

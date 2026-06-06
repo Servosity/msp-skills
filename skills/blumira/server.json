@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Servosity/blumira-mcp",
   "title": "Blumira MCP",
-  "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account  -  in",
-  "version": "4.22.0",
+  "description": "Cross-account Blumira findings, detections, and agents in one offline-searchable store.",
+  "version": "0.1.0",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/blumira/blumira-512x512.png",
@@ -21,29 +21,29 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/blumira-v4.22.0/blumira-mcp.mcpb",
-      "version": "4.22.0",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/blumira-v0.1.0/blumira-mcp.mcpb",
+      "version": "0.1.0",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
-          "name": "BLUMIRA_API_TOKEN",
-          "description": "Set the BLUMIRA_API_TOKEN credential for the Blumira MCP server.",
-          "isRequired": true,
-          "isSecret": true
-        },
-        {
           "name": "BLUMIRA_CLIENT_ID",
-          "description": "Set the BLUMIRA_CLIENT_ID credential for the Blumira MCP server.",
-          "isRequired": true,
-          "isSecret": true
+          "description": "Blumira API Client ID (Settings > Organization > Generate API Credentials). With BLUMIRA_CLIENT_SECRET, the server mints and auto-refreshes a JWT.",
+          "isRequired": false,
+          "isSecret": false
         },
         {
           "name": "BLUMIRA_CLIENT_SECRET",
-          "description": "Set the BLUMIRA_CLIENT_SECRET credential for the Blumira MCP server.",
-          "isRequired": true,
+          "description": "Blumira API Client Secret, paired with BLUMIRA_CLIENT_ID to mint a JWT (OAuth2 client_credentials, audience public-api).",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "BLUMIRA_API_TOKEN",
+          "description": "Pre-minted Blumira JWT. An alternative to BLUMIRA_CLIENT_ID + BLUMIRA_CLIENT_SECRET: set this OR the Client ID/Secret pair.",
+          "isRequired": false,
           "isSecret": true
         }
       ]

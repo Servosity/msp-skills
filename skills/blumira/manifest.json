@@ -1,18 +1,18 @@
 {
   "manifest_version": "0.3",
-  "name": "blumira-pp-mcp",
+  "name": "blumira-mcp",
   "display_name": "Blumira",
-  "version": "4.22.0",
-  "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account  -  in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
+  "version": "0.1.0",
+  "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account - in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
   "author": {
     "name": "Servosity Inc."
   },
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/blumira-pp-mcp",
+    "entry_point": "bin/blumira-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/blumira-pp-mcp",
+      "command": "${__dirname}/bin/blumira-mcp",
       "args": [],
       "env": {
         "BLUMIRA_API_TOKEN": "${user_config.blumira_api_token}",

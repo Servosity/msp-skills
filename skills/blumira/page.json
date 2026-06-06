@@ -1,34 +1,82 @@
 {
-  "outcome_intro": "TODO: <=70 words, MSP-owner language, leads with the outcome. What does Blumira + your AI answer in one sentence that the portal cannot?",
+  "outcome_intro": "Running Blumira across a book of client accounts? Ask your AI \"what are the worst open findings everywhere,\" \"which detections fell out of coverage this week,\" or \"which domain controllers went dark,\" and get one cross-account answer the Blumira portal can't compose. Every sub-account is mirrored into a local store, so one ranked triage queue, one MTTR rollup, and one coverage-drift report replace dozens of one-account-at-a-time portal logins.",
   "instead_of_say": [
     {
-      "instead": "TODO: the painful manual workflow (exporting reports, clicking through the portal)",
-      "say": "TODO: the natural-language question the MSP owner asks instead",
-      "cli": "blumira-cli TODO"
+      "instead": "Logging into each client's Blumira account one at a time, sorting every open-findings list by priority, and hand-merging the worst ones into a spreadsheet to decide what your analysts work first",
+      "say": "Show me the highest-priority open findings across every client account, ranked into one queue",
+      "cli": "blumira-cli triage --status open --priority high"
     },
     {
-      "instead": "TODO",
-      "say": "TODO",
-      "cli": "blumira-cli TODO"
+      "instead": "Opening each account's detection-rules page in turn to spot which rules are missing or switched off against your standard ruleset, the gaps an auditor or an attacker finds first",
+      "say": "Which detection rules fell out of coverage versus our basis ruleset, across all accounts?",
+      "cli": "blumira-cli coverage --against basis"
     },
     {
-      "instead": "TODO",
-      "say": "TODO",
-      "cli": "blumira-cli TODO"
+      "instead": "Scrolling each account's agent list by hand for domain controllers that stopped checking in, the blind spots that mean you aren't actually watching a client's most important server",
+      "say": "Which domain controllers went stale or unprotected across every client?",
+      "cli": "blumira-cli exposure --flag-dc-stale"
     }
   ],
   "pain_points": [
-    "TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread",
-    "TODO: pain 2"
+    "Blumira is sold as detection-and-response that doesn't need a full SOC, but an MSP running it across a book of clients still has to triage every account's findings, and the portal makes you do it one account at a time, switching the active organization for each one.",
+    "There's no single screen that joins findings, detection coverage, and agent health across every client. Answering \"which accounts are behind on coverage\" or \"which domain controllers went dark this week\" means opening each account's portal in turn and holding the comparison in your head."
   ],
   "outcomes": [
     {
-      "question": "TODO: question an MSP keeps asking",
-      "command": "blumira-cli TODO"
+      "question": "What are the worst open findings across all my client accounts right now?",
+      "command": "blumira-cli triage --status open"
+    },
+    {
+      "question": "What changed since my last sync, new, resolved, or status-changed findings?",
+      "command": "blumira-cli drift"
+    },
+    {
+      "question": "What's my mean-time-to-resolve per account over the last month?",
+      "command": "blumira-cli velocity --by account --window 30d"
+    },
+    {
+      "question": "Which open findings are about to breach my age-based SLA?",
+      "command": "blumira-cli sla --breach-in 4h"
+    },
+    {
+      "question": "Which detection rules are missing or disabled versus our basis ruleset?",
+      "command": "blumira-cli coverage --against basis"
+    },
+    {
+      "question": "Which domain controllers are stale or unprotected across every account?",
+      "command": "blumira-cli exposure --flag-dc-stale"
+    },
+    {
+      "question": "Which findings were resolved and then re-fired?",
+      "command": "blumira-cli audit --min-reopens 1"
+    },
+    {
+      "question": "Which detections keep firing over and over across accounts?",
+      "command": "blumira-cli recurring --window 90d"
+    },
+    {
+      "question": "Give me one per-account rollup of open findings, age, and agent health?",
+      "command": "blumira-cli overview"
+    },
+    {
+      "question": "Which findings mention this IOC, hostname, or user in their evidence?",
+      "command": "blumira-cli evidence-search \"<ioc>\""
+    },
+    {
+      "question": "Pull every account's Blumira data into a local mirror for offline questions?",
+      "command": "blumira-cli sync"
+    },
+    {
+      "question": "Give me a flat finding-to-owner-to-status table to reconcile against my PSA?",
+      "command": "blumira-cli reconcile --status open"
+    },
+    {
+      "question": "Which analyst is carrying the most open findings, and how old are they?",
+      "command": "blumira-cli workload"
     }
   ],
-  "different_vs_wrappers": "TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most Blumira integrations proxy each question into a live API call ...",
-  "different_vs_vendor": "TODO: one sentence vs Blumira's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.",
+  "different_vs_wrappers": "Blumira's public API is scoped per account: a live wrapper answering a book-wide question has to re-query account by account, burning agent context on each round trip and handing back pages of raw JSON. This skill syncs every account into a local SQLite mirror, so cross-account questions, one ranked triage queue, a coverage-drift table, an MTTR rollup, a domain-controller exposure map, become one offline query the agent reads as an answer rather than re-deriving every time.",
+  "different_vs_vendor": "It complements the Blumira portal rather than replacing it. The portal stays best for configuring detections, tuning automated-response playbooks, and investigating one account in depth, while this skill brings the whole book to whichever AI agent you already use and answers the cross-account questions, one triage queue, one coverage-drift report, one MTTR rollup, that no single portal screen composes.",
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
@@ -47,25 +95,25 @@
       "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
     },
     {
-      "q": "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Blumira portal)",
-      "a": "TODO"
+      "q": "Do I need a Blumira partner account for the cross-account views?",
+      "a": "The cross-account commands (triage, overview, coverage across every client) read Blumira's MSP sub-account API, so they need partner API credentials with sub-account access. A single-org account still gets every direct-org command, findings, evidence search, and agent and detection rollups, plus offline sync. Generate credentials under Settings > Organization > Generate API Credentials, then run `blumira-cli auth login`."
     }
   ],
-  "governance_summary": "TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier.",
+  "governance_summary": "The skill reads findings, detections, agents, and evidence through your Blumira API credential and mirrors them into a local store. It can add comments, resolve findings, and assign owners when you ask, but those writes are opt-in and best previewed with --dry-run first. The safe default for an autonomous agent is read plus planned (dry-run) writes; keep a human on anything that resolves a finding or reassigns ownership.",
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "TODO: read commands",
+      "examples": "triage, overview, drift, velocity, sla, coverage, exposure, recurring, audit, search, evidence-search, sync",
       "policy": "Allow"
     },
     {
       "tier": "Write (routine)",
-      "examples": "TODO",
+      "examples": "msp resolve-finding, msp set-finding-owners, msp add-account-finding-comment, org controller-direct-resolve-finding, org controller-direct-set-owners, org controller-direct-add-comment",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {
-      "tier": "Destructive / config",
-      "examples": "TODO",
+      "tier": "Credential / config",
+      "examples": "Credentials live in auth login / auth set-token; the API exposes no delete or bulk-config command",
       "policy": "Human-in-the-loop only"
     }
   ]
