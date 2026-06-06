@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "mspbots-mcp",
+  "display_name": "MSPbots",
+  "version": "0.1.0",
+  "description": "The first MSPbots tool anywhere \u2014 readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/mspbots-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/mspbots-mcp",
+      "args": [],
+      "env": {
+        "MSPBOTS_API_KEY": "${user_config.mspbots_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "mspbots_api_key": {
+      "type": "string",
+      "title": "MSPBOTS_API_KEY",
+      "description": "Sets MSPBOTS_API_KEY for the MSPbots MCP server.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

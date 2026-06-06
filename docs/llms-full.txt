@@ -149,6 +149,46 @@ Governance: The skill drives the hubspot-cli and hubspot-mcp binaries, authentic
 Page: https://msp-skills.compoundingteams.com/skills/msp-skills-concierge/
 Badge: Awaiting live verification
 
+### MSPbots (Analytics)
+
+Page: https://msp-skills.compoundingteams.com/skills/mspbots/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mspbots/install.sh)
+
+MSPbots aggregates your PSA, RMM, and finance data into KPI dashboards - then keeps it there. Ask your AI "is our ticket backlog up or down this week" and get the answer the dashboard can't give: point-in-time snapshots, week-over-week deltas, row-level diffs, and full CSV exports - through readable aliases and filters instead of 19-digit resource IDs and a comma-encoded query DSL.
+
+Outcomes (question -> command your AI agent runs):
+- Is our open-ticket backlog up or down versus last week? -> mspbots-cli trend open_tickets --agg count
+- What changed in open tickets since the last snapshot - rows added, removed, or edited? -> mspbots-cli diff open_tickets
+- Pull the open tickets updated since June 1 -> mspbots-cli pull open_tickets --where "Update Date >= 2026-06-01"
+- What columns does this dataset have, and what types? -> mspbots-cli describe open_tickets
+- Export the entire dataset to CSV for the QBR deck -> mspbots-cli export open_tickets --format csv
+- Capture today's KPI snapshot (schedule it and history accrues) -> mspbots-cli snapshot open_tickets
+- Stop pasting 19-digit IDs - name the dataset once -> mspbots-cli registry add open_tickets 1534956341424005122
+- Are my API key and resource bindings working? -> mspbots-cli doctor
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local MSPbots MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my MSPbots data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local snapshot store are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: What credentials do I need?
+A: An MSPbots API key: an admin creates it at Settings > Public API in the MSPbots app and binds each dataset or widget to it. Set MSPBOTS_API_KEY in your environment or run mspbots-cli auth set-token. The binding is the permission boundary - the key can only read resources explicitly bound to it, and the global Enable Public API toggle gates everything.
+Q: Can this write to MSPbots?
+A: No. The MSPbots Public API is read-only - datasets and widgets out, nothing in. The only things this skill writes are local: alias registrations, snapshots, and the sync cache in your own SQLite store. No command can change anything in your MSPbots tenant.
+Q: Why do I register datasets before pulling them?
+A: The Public API has no list endpoint - it cannot tell you what is bound to your key. You copy each resource ID from Settings > Public API once, register it with mspbots-cli registry add open_tickets <resourceId>, and every other command accepts the alias from then on.
+Q: Will this hit MSPbots rate limits?
+A: The API documents rate limits without publishing numbers. The CLI ships a --rate-limit throttle, export bounds its page-walking with --max-pages and reports when the cap was hit, and the history questions (trend, diff) run entirely against local snapshots - zero API calls after capture.
+Q: Does it support widgets as well as datasets?
+A: Yes - pull, export, snapshot, describe, and registry add all accept --type widget. One documented exception inherited from the API: widgets with measure or calculate layers are not supported by the Public API itself.
+
+Governance: The skill drives the mspbots-cli and mspbots-mcp binaries, authenticating with an API key read from MSPBOTS_API_KEY or saved locally via auth set-token - never logged and never sent anywhere except the MSPbots API. The Public API is read-only, so no command can change anything in your MSPbots tenant; the only writes are local (alias registry, snapshot store, sync cache in your own SQLite file). The permission boundary is which datasets and widgets an admin binds to the key.
+
 ### N-able N-central (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/n-central/

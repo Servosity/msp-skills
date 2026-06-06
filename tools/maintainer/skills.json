@@ -92,6 +92,29 @@
       "has_video": false,
       "live_verified": null
     },
+    "mspbots": {
+      "system": "MSPbots BI: datasets, KPI snapshots, ticket analytics, exports",
+      "status": "beta",
+      "cli_binary": "mspbots-cli",
+      "mcp_binary": "mspbots-mcp",
+      "vendor": "MSPbots",
+      "vendor_trademark_owner": "MSPbots, Inc.",
+      "first_party": false,
+      "category": "Analytics",
+      "display_name": "MSPbots",
+      "tagline": "Pull datasets, snapshot KPIs, and track ticket backlog trends by asking.",
+      "cli_hash": "sha256:36cb545dfa6bf887732149523853d650b61ff338cbd39734b4f58f350f0de163",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "n-central": {
       "system": "N-able N-central RMM: devices, org tree, issue triage, cross-tenant search",
       "status": "beta",

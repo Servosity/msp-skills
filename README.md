@@ -2,14 +2,14 @@
 
 **MSP Skills** connects your PSA, RMM, backup, and more to the AI you already use - **Claude**, **ChatGPT**, **Codex**, **Cursor**, **Windsurf**, or any agent that speaks MCP. Ask a plain-English question about your stack and get a real answer back.
 <!-- hero-live:start -->
-5 connectors are live today - including Servosity, ConnectWise PSA, HubSpot, and HaloPSA - and more PSA, RMM, backup, and M365 connectors ship every week.
+6 connectors are live today - including Servosity, ConnectWise PSA, HubSpot, and HaloPSA - and more PSA, RMM, backup, and M365 connectors ship every week.
 <!-- hero-live:end -->
 Free, open source, runs on your laptop. A local SQLite mirror lets your agent answer cross-client questions the live API can't return in one shot - no rate-limit hits, no per-tech SaaS fee, no data leaves your network. Built for MSP owners. No developer experience required.
 
 > **New to the term?** What this repo calls an **MCP server** is what ChatGPT calls an *app* or *connector*, Claude on the web calls a *connector*, Microsoft Copilot calls a *connector*, and Claude Code calls a *Skill*. Same standard underneath: the [Model Context Protocol](https://modelcontextprotocol.io). Full plain-language answer: **[What is an MCP server?](https://msp-skills.compoundingteams.com/what-is-an-mcp-server/)**.
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
-[![Skills](https://img.shields.io/badge/skills-5-green.svg)](./catalog.json)
+[![Skills](https://img.shields.io/badge/skills-6-green.svg)](./catalog.json)
 [![MCP](https://img.shields.io/badge/MCP-compatible-1f6feb.svg)](https://modelcontextprotocol.io)
 [![Agent Skills](https://img.shields.io/badge/Agent_Skills-spec-2E7D32.svg)](https://agentskills.io)
 ![Status](https://img.shields.io/badge/status-beta-yellow.svg)
@@ -27,6 +27,7 @@ Free, open source, runs on your laptop. A local SQLite mirror lets your agent an
 | [connectwise-manage](./skills/connectwise-manage) | ConnectWise PSA (Manage) | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/connectwise-manage/README.md) |
 | [halopsa](./skills/halopsa) | HaloPSA, HaloITSM, HaloCRM | ![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32) | [Install](./skills/halopsa/README.md) |
 | [hubspot](./skills/hubspot) | HubSpot CRM: contacts, companies, deals, tickets, engagements | ![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32) | [Install](./skills/hubspot/README.md) |
+| [mspbots](./skills/mspbots) | MSPbots BI: datasets, KPI snapshots, ticket analytics, exports | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/mspbots/README.md) |
 | [n-central](./skills/n-central) | N-able N-central RMM: devices, org tree, issue triage, cross-tenant search | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/n-central/README.md) |
 | [servosity](./skills/servosity) | Servosity backup and DR | ![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32) | [Install](./skills/servosity/README.md) |
 <!-- catalog:end -->
@@ -78,7 +79,7 @@ Each installer drops both the CLI and the MCP server, so you can use the Skill (
 ## What your agent can do
 
 <!-- agent-can-do:start -->
-Outcomes, not hype - drawn from each of the 5 connectors' skill pages:
+Outcomes, not hype - drawn from each of the 6 connectors' skill pages:
 
 | Outcome | Skill | Command |
 | --- | --- | --- |
@@ -88,6 +89,8 @@ Outcomes, not hype - drawn from each of the 5 connectors' skill pages:
 | What's the dispatcher view across all agents and teams? | halopsa | `halopsa-cli triage --team Support --json` |
 | Which open deals have gone cold with no engagement in the last three weeks? | hubspot | `hubspot-cli stale deals --days 21 --owner me` |
 | Which of my contacts haven't been touched in a month? | hubspot | `hubspot-cli stale contacts --days 30 --owner me` |
+| Is our open-ticket backlog up or down versus last week? | mspbots | `mspbots-cli trend open_tickets --agg count` |
+| What changed in open tickets since the last snapshot - rows added, removed, or edited? | mspbots | `mspbots-cli diff open_tickets` |
 | What's red right now, grouped by customer and ranked by severity? | n-central | `n-central-cli triage --by customer` |
 | Where is EXCHANGE01 - server, service org, customer, site? | n-central | `n-central-cli whereis EXCHANGE01` |
 | What needs my attention across every client this morning? | servosity | `servosity-cli attention` |
@@ -245,5 +248,5 @@ MSPs are the channel that brings AI to small business. The durable moat is the [
 Built by [Servosity](https://www.servosity.com). Maintained by Damien Stevens. Apache-2.0 licensed. See [TRADEMARKS.md](./TRADEMARKS.md) for vendor non-affiliation and [SECURITY.md](./SECURITY.md) to report a vulnerability. Methodology: [Compounding Teams](https://compoundingteams.com). Generated CLIs and MCP servers built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press).
 
 <!-- footer-releases:start -->
-_Last updated: 2026-06-05. Latest releases: [connectwise-manage-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/connectwise-manage-v0.1.0) · [halopsa-v0.1.1](https://github.com/servosity/msp-skills/releases/tag/halopsa-v0.1.1) · [hubspot-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/hubspot-v0.1.0) · [n-central-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/n-central-v0.1.0) · [servosity-v0.1.1](https://github.com/servosity/msp-skills/releases/tag/servosity-v0.1.1)._
+_Last updated: 2026-06-05. Latest releases: [connectwise-manage-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/connectwise-manage-v0.1.0) · [halopsa-v0.1.1](https://github.com/servosity/msp-skills/releases/tag/halopsa-v0.1.1) · [hubspot-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/hubspot-v0.1.0) · [mspbots-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/mspbots-v0.1.0) · [n-central-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/n-central-v0.1.0) · [servosity-v0.1.1](https://github.com/servosity/msp-skills/releases/tag/servosity-v0.1.1)._
 <!-- footer-releases:end -->

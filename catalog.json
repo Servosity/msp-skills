@@ -80,6 +80,25 @@
       "tagline": "Pipeline health, stale deals, and owner workload for every client by asking."
     },
     {
+      "name": "mspbots",
+      "system": "MSPbots BI: datasets, KPI snapshots, ticket analytics, exports",
+      "status": "beta",
+      "skill_path": "skills/mspbots",
+      "cli_binary": "mspbots-cli",
+      "mcp_binary": "mspbots-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "MSPbots",
+      "vendor_trademark_owner": "MSPbots, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mspbots/install.sh)",
+      "install_mcp_doc": "skills/mspbots/mcp-install.md",
+      "description": "The first MSPbots tool anywhere \u2014 readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
+      "verification": "awaiting",
+      "category": "Analytics",
+      "tagline": "Pull datasets, snapshot KPIs, and track ticket backlog trends by asking."
+    },
+    {
       "name": "n-central",
       "system": "N-able N-central RMM: devices, org tree, issue triage, cross-tenant search",
       "status": "beta",
