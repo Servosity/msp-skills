@@ -162,6 +162,29 @@
       "category": "Backup/DR",
       "tagline": "Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.",
       "display_name": "Servosity"
+    },
+    "superops": {
+      "system": "SuperOps PSA+RMM: tickets, SLAs, assets, alerts, clients, contracts, invoices, worklogs",
+      "status": "beta",
+      "cli_binary": "superops-cli",
+      "mcp_binary": "superops-mcp",
+      "vendor": "SuperOps",
+      "vendor_trademark_owner": "SuperOps Inc.",
+      "first_party": false,
+      "category": "PSA",
+      "display_name": "SuperOps",
+      "tagline": "Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking.",
+      "cli_hash": "sha256:77f28a27ec9489fa0e8e3df425f3445cdfab5afe5f3a23a3a19154ddff335d20",
+      "template_version": 3,
+      "version": "4.22.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }
