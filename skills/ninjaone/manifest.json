@@ -1,0 +1,55 @@
+{
+  "manifest_version": "0.3",
+  "name": "ninjaone-pp-mcp",
+  "display_name": "NinjaOne",
+  "version": "0.1.0",
+  "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/ninjaone-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/ninjaone-pp-mcp",
+      "args": [],
+      "env": {
+        "NINJAONE_CLIENT_ID": "${user_config.ninjaone_client_id}",
+        "NINJAONE_CLIENT_SECRET": "${user_config.ninjaone_client_secret}",
+        "NINJAONE_OAUTH_SCOPE": "${user_config.ninjaone_oauth_scope}"
+      }
+    }
+  },
+  "user_config": {
+    "ninjaone_client_id": {
+      "type": "string",
+      "title": "NINJAONE_CLIENT_ID",
+      "description": "OAuth2 client_id from NinjaOne Administration > Apps > API.",
+      "sensitive": true,
+      "required": true
+    },
+    "ninjaone_client_secret": {
+      "type": "string",
+      "title": "NINJAONE_CLIENT_SECRET",
+      "description": "OAuth2 client_secret from NinjaOne Administration > Apps > API.",
+      "sensitive": true,
+      "required": true
+    },
+    "ninjaone_oauth_scope": {
+      "type": "string",
+      "title": "NINJAONE_OAUTH_SCOPE",
+      "description": "Optional. Space-separated OAuth2 scopes to request at token mint. Leave blank to use the default (monitoring management control); set it to narrow the token for least-privilege deployments.",
+      "sensitive": false,
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

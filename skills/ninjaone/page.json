@@ -1,0 +1,121 @@
+{
+  "outcome_intro": "NinjaOne is built for real-time, per-device RMM, but its reporting answers one organization at a time. Ask your AI \"which clients are below 95% patched,\" \"which endpoints across the fleet have no backup,\" or \"how far did this threat spread\" and get fleet-wide rollups computed offline from a local SQLite mirror of your estate - one query instead of a per-org report re-totaled in a spreadsheet or a third-party BI overlay.",
+  "instead_of_say": [
+    {
+      "instead": "Running NinjaOne's per-organization patch report for each client and re-totaling the results in a spreadsheet to find who is behind",
+      "say": "Which clients are below 95% patch compliance right now?",
+      "cli": "ninjaone-cli patch-compliance --min-pct 95"
+    },
+    {
+      "instead": "Opening each device's backup tab, or exporting the backup-usage report, to find the endpoints that have no protection at all",
+      "say": "Which endpoints across the whole fleet have no backup?",
+      "cli": "ninjaone-cli backup-coverage"
+    },
+    {
+      "instead": "Cross-checking a single threat detection against the device list by hand to see how far across your clients it spread",
+      "say": "Every device carrying this threat, fleet-wide",
+      "cli": "ninjaone-cli av-sweep --threat \"Trojan.Generic\""
+    }
+  ],
+  "pain_points": [
+    "NinjaOne is strong at real-time per-device monitoring, but its built-in reporting is not consistently executive-ready and client-facing rollups often need effort or a third-party BI overlay (Flamingo, NinjaOne Review, 2026) - so \"which clients are behind on patches\" still means running a per-org report and re-totaling it by hand.",
+    "There is no single unified multi-tenant view: managing many client organizations means a fleet-wide answer is assembled across screens or pushed onto the separately-handled reporting path (Flamingo, NinjaOne vs Intune, 2026), which is exactly the cross-client question MSP owners ask most.",
+    "The API returns per-device rows; any fleet answer - unprotected endpoints, AV blast-radius, OS end-of-life exposure, software version sprawl, or week-over-week trend - has to be fetched, cached, and joined locally rather than asked of the API in one call."
+  ],
+  "outcomes": [
+    {
+      "question": "Which organizations are below 95% patch compliance?",
+      "command": "ninjaone-cli patch-compliance --min-pct 95"
+    },
+    {
+      "question": "Which endpoints across the fleet have no backup at all?",
+      "command": "ninjaone-cli backup-coverage"
+    },
+    {
+      "question": "Which devices is a given threat on, fleet-wide?",
+      "command": "ninjaone-cli av-sweep --threat \"Trojan.Generic\""
+    },
+    {
+      "question": "Which devices have antivirus definitions older than a week?",
+      "command": "ninjaone-cli av-sweep --definition-stale-days 7"
+    },
+    {
+      "question": "What is each organization's overall health score, and why?",
+      "command": "ninjaone-cli fleet-health"
+    },
+    {
+      "question": "Which devices have not checked in for two weeks?",
+      "command": "ninjaone-cli stale-devices --days 14"
+    },
+    {
+      "question": "Which devices are running an end-of-life operating system?",
+      "command": "ninjaone-cli os-eol"
+    },
+    {
+      "question": "Where is a software title sprawling across too many versions?",
+      "command": "ninjaone-cli software-audit --min-versions 3"
+    },
+    {
+      "question": "Did patch compliance get better or worse since last week?",
+      "command": "ninjaone-cli drift --metric patch"
+    },
+    {
+      "question": "Search every synced device, organization, and alert for a string?",
+      "command": "ninjaone-cli search \"disk full\""
+    }
+  ],
+  "different_vs_wrappers": "Most NinjaOne integrations and MCP servers proxy each question into a live API call - fine for one device, but a fleet question becomes a multi-call dance the AI burns context on, and the API only ever returns per-device rows. This skill syncs your whole estate into a local SQLite mirror with full-text search, so cross-fleet questions - patch compliance by organization, unprotected-device detection, AV blast-radius, OS end-of-life, software sprawl, week-over-week drift - become one local join: instant, offline, and the AI sees the answer, not pages of raw JSON.",
+  "different_vs_vendor": "It complements NinjaOne rather than replacing it: the console stays best for real-time monitoring, remote control, and remediation, while this skill brings your estate to whichever AI agent you already use and answers the cross-fleet rollups - joined across every organization - that NinjaOne's per-org reporting does not compose in a single view today.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local NinjaOne MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my NinjaOne data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "Does it work with the US, EU, and other NinjaOne regions?",
+      "a": "Yes. The US host (https://app.ninjarmm.com) is the default. For another region set NINJAONE_BASE_URL (for example https://eu.ninjarmm.com) and NINJAONE_TOKEN_URL (for example https://eu.ninjarmm.com/ws/oauth/token); run 'ninjaone-cli doctor' to confirm the credentials reach your instance."
+    },
+    {
+      "q": "Will this hit my NinjaOne API rate limits?",
+      "a": "The local mirror exists so reads stop hitting the API. After the first 'sync', the fleet views (patch-compliance, backup-coverage, av-sweep, fleet-health, stale-devices, os-eol, software-audit, drift) run against local SQLite with zero API calls. Live calls respect a --rate-limit throttle, and sync is incremental and resumable - it only fetches what changed and treats resources your token cannot reach as warnings, not failures."
+    },
+    {
+      "q": "Do I need to be a NinjaOne partner or buy the reporting add-on?",
+      "a": "No. You need an API app you create yourself under Administration > Apps > API, with an OAuth2 client_id and client_secret. The fleet rollups are computed locally from whatever your token can already read - no reporting add-on, data warehouse, or partner tier required."
+    },
+    {
+      "q": "Can it change things in NinjaOne, or is it read-only?",
+      "a": "The headline fleet views are read-only. The CLI also wraps NinjaOne's write surface (for example updating an organization, creating a ticket, running a script, or rebooting a device) and a smaller destructive tier (deletes). Preview any write with --dry-run, keep a human in the loop, and scope the API token to only what your workflow needs."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    }
+  ],
+  "governance_summary": "The skill drives the ninjaone-cli and ninjaone-mcp binaries, authenticating with NINJAONE_CLIENT_ID and NINJAONE_CLIENT_SECRET (NINJAONE_OAUTH_SCOPE optionally narrows the token) read from the environment - never logged, never sent anywhere except the NinjaOne API. Every fleet view, report, and search is read-only. The CLI also exposes routine write commands and a smaller destructive tier; the recommended policy is to preview a write with --dry-run, show the request, get approval, then run. The strongest control is the scope of the API app you mint.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "ninjaone-cli patch-compliance --min-pct 95; ninjaone-cli backup-coverage; ninjaone-cli av-sweep --threat \"Trojan.Generic\"; ninjaone-cli fleet-health; ninjaone-cli stale-devices --days 14; ninjaone-cli os-eol; ninjaone-cli software-audit --min-versions 3; ninjaone-cli drift --metric patch; ninjaone-cli search \"disk full\"",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "ninjaone-cli organization update; ninjaone-cli ticketing create; ninjaone-cli contact update; ninjaone-cli device reboot; ninjaone-cli device script run-on-device; ninjaone-cli tag set-for-asset (84 write commands in total)",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "ninjaone-cli contact delete; ninjaone-cli organization delete-client-document; ninjaone-cli knowledgebase delete-knowledge-base-articles; ninjaone-cli itam delete-unmanaged-device-public-api (18 destructive commands in total)",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}
