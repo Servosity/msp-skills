@@ -11,32 +11,26 @@ metadata:
     requires:
       bins:
         - atera-cli
-    install:
-      - kind: go
-        bins: [atera-cli]
-        module: github.com/mvanhorn/printing-press-library/library/monitoring/atera/cmd/atera-cli
 ---
 
-# Atera  -  Printing Press CLI
+# Atera Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `atera-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install atera --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/atera/install.sh)
    ```
-2. Verify: `atera-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/atera/install.ps1 | iex
+   ```
+3. Verify: `atera-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/monitoring/atera/cmd/atera-cli@latest
-```
-
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 A single static API key unlocks full CRUD across agents, tickets, customers, contracts, alerts, devices, rates, and custom fields. The difference is the local store: sync once, then run offline cross-entity queries like `agents stale`, `tickets sla`, `customers book`, and `since` that every thin API wrapper leaves on the table.
 
@@ -468,15 +462,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/monitoring/atera/cmd/atera-mcp@latest
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add atera-mcp -- atera-mcp
-   ```
-3. Verify: `claude mcp list`
+The installer above drops `atera-mcp` alongside the CLI. Register it (the server reads `ATERA_API_KEY` from the environment):
+
+```bash
+claude mcp add atera-mcp -- atera-mcp
+```
+
+Verify: `claude mcp list`
 
 ## Direct Use
 

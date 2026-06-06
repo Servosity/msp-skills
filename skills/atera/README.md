@@ -1,7 +1,7 @@
 # Atera + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the Atera
-> API. Not affiliated with, endorsed by, or sponsored by Atera Networks Ltd..
+> API. Not affiliated with, endorsed by, or sponsored by Atera Networks Ltd.
 
 <!-- media:start -->
 <p align="center">
@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Atera MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/atera-v4.22.0/atera-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Atera release on the [releases page](https://github.com/servosity/msp-skills/releases?q=atera).)
+[**Download Atera MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/atera-v0.1.0/atera-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Atera release on the [releases page](https://github.com/servosity/msp-skills/releases?q=atera).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -134,36 +134,49 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 
 ### Authenticate
 
-Set the credentials the CLI needs (from your Atera portal):
+Create an API key in your Atera portal under **Admin → API**, then set it and confirm it works:
 
 ```bash
-ATERA_ACCOUNT_API=<value> ATERA_API_KEY=<value> atera-cli doctor
+ATERA_API_KEY=<your-key> atera-cli doctor
 ```
 
-`doctor` confirms the credentials work before you run anything that touches data.
+`doctor` confirms the credential works and the API is reachable before you run anything that touches data. You can also persist it with `atera-cli auth set-token`.
 
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `atera-cli ...` |
-
--->
+| Which agents have gone offline or stopped checking in? | `atera-cli agents stale --days 30` |
+| Which open tickets are closest to breaching SLA? | `atera-cli tickets sla` |
+| Who is overloaded on the service desk right now? | `atera-cli tickets workload` |
+| Which customers have managed agents but no active contract? | `atera-cli customers coverage` |
+| What contracts expire in the next 60 days? | `atera-cli contracts expiring --days 60` |
+| What's my full book of business by customer and contract mix? | `atera-cli customers book` |
+| Where are the chronic machines generating the most alerts? | `atera-cli agents noisy --days 7` |
+| What's the patch-compliance picture across the fleet? | `atera-cli agents patch-status` |
+| Which machines are running an end-of-life OS? | `atera-cli agents inventory --eol` |
+| What changed across agents, tickets, and alerts since yesterday? | `atera-cli since 24h` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Atera integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Atera integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "which customers across all 40 clients have managed agents but no active contract" or "what's about to breach SLA right now."
 
-This skill syncs Atera into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs Atera into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `customers coverage`, `customers book`, and `agents noisy` join across customers, contracts, agents, and alerts - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+Atera's reporting is the consistent gripe in [G2](https://www.g2.com/products/atera/reviews) and [Capterra](https://www.capterra.com/p/144309/Atera/reviews/) reviews: custom reports need workarounds, filtering is rigid, exports are clunky, and the deeper cross-client analytics sit behind higher-tier plans. There's no single screen that answers "which machines went dark," "which tickets breach SLA next," or "which customers are under-contracted" across every client at once - you assemble it by hand, portal tab by portal tab.
+
+This skill closes that gap with cross-client rollups that run offline against the local mirror:
+
+- **`atera-cli agents stale --days 30`** - the machines that quietly stopped reporting, before the client calls.
+- **`atera-cli tickets sla`** - open tickets ranked by minutes-to-breach, soonest first.
+- **`atera-cli customers coverage`** - accounts you manage but don't bill: managed agents, no active contract.
+- **`atera-cli contracts expiring --days 60`** - the renewal calendar Atera never shows as one view.
+- **`atera-cli agents patch-status`** - fleet-wide missing-patch rollup the API has no single endpoint for.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +198,17 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Will this hit my Atera API rate limits?
+
+Rarely. Most questions run against the local SQLite mirror after a one-time `sync`, so they make zero API calls. The few commands that fetch live (like `agents patch-status`) are paced under Atera's 700-requests-per-minute limit.
+
+### Do I need to be an Atera partner?
+
+No. You need an Atera account and an API key created under **Admin → API**. Any plan that exposes the API works; nothing here requires a special partner tier.
+
+### Will this replace my Atera portal?
+
+No - it complements it. The portal stays your system of record and remote-access console; this skill adds the cross-client, terminal-and-AI query layer the portal doesn't offer.
 
 ### What does it cost?
 
@@ -198,15 +216,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `agents stale`, `tickets sla`, `customers coverage`, `contracts expiring`, `since`, `search`, `sync`, every `get-`/rollup command | Allow |
+| Write (routine) | `tickets post`/`put`, `contacts post`/`put`, `customers post`/`put`, `contracts post`/`update`, `alerts post`/`resolve`, `devices create-*`, `customvalues set-*`, `import` | Preview with `--dry-run`, then a reviewed write |
+| Destructive / config | `agents delete`, `tickets delete`, `customers delete`, `devices delete-*`, and credential changes (`auth set-token`, `auth setup`, `auth logout`) | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Atera credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +232,4 @@ Beta. Validated against the Atera API surface and being validated with MSPs runn
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-06._

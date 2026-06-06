@@ -15,8 +15,12 @@ faqs:
     a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
-  - q: "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Atera portal)"
-    a: "TODO"
+  - q: "Will this hit my Atera API rate limits?"
+    a: "Rarely. Most questions run against the local SQLite mirror after a one-time `sync`, so they make zero API calls. The few commands that fetch live (like `agents patch-status`) are paced under Atera's 700-requests-per-minute limit."
+  - q: "Do I need to be an Atera partner?"
+    a: "No. You need an Atera account and an API key created under Admin \u2192 API. Any plan that exposes the API works; nothing here requires a special partner tier."
+  - q: "Will this replace my Atera portal?"
+    a: "No \u2014 it complements it. The portal stays your system of record and remote-access console; this skill adds the cross-client, terminal-and-AI query layer the portal doesn't offer."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/atera/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/atera/install.ps1 | iex"
@@ -29,11 +33,11 @@ howto:
 # Atera + AI in 60 seconds
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the Atera
-> API. Not affiliated with, endorsed by, or sponsored by Atera Networks Ltd..
+> API. Not affiliated with, endorsed by, or sponsored by Atera Networks Ltd.
 
 **Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
 
-TODO: <=70 words, MSP-owner language, leads with the outcome. What does Atera + your AI answer in one sentence that the portal cannot?
+Ask plain-English questions about your whole Atera estate and get answers the portal can't assemble in one view: which agents went dark, which tickets are about to breach SLA, which customers are under-contracted, and what contracts expire next quarter. `atera-cli` syncs Atera into a local SQLite mirror, then answers cross-client rollups instantly and offline — from the terminal or any AI agent.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -41,17 +45,17 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Atera + 
 
 ## Instead of clicking through Atera, just ask
 
-**Instead of** TODO: the painful manual workflow (exporting reports, clicking through the portal)
-**just ask:** *"TODO: the natural-language question the MSP owner asks instead"*
-<sub>Your agent runs: <code>atera-cli TODO</code></sub>
+**Instead of** Exporting the agents list and filtering by last-seen date to find the machines that quietly stopped reporting
+**just ask:** *"Which Atera agents have gone dark in the last 30 days?"*
+<sub>Your agent runs: <code>atera-cli agents stale --days 30 --agent</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>atera-cli TODO</code></sub>
+**Instead of** Opening every open ticket to eyeball which ones are closest to breaching first-response or resolution SLA
+**just ask:** *"Which open Atera tickets are about to breach SLA?"*
+<sub>Your agent runs: <code>atera-cli tickets sla --agent</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>atera-cli TODO</code></sub>
+**Instead of** Cross-referencing the customer list against contracts by hand to spot accounts you manage but don't bill
+**just ask:** *"Which customers have managed agents but no active contract?"*
+<sub>Your agent runs: <code>atera-cli customers coverage --agent</code></sub>
 
 
 ## See it in 30 seconds
@@ -64,20 +68,30 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Atera + 
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| TODO: question an MSP keeps asking | `atera-cli TODO` |
+| Which agents have gone offline or stopped checking in? | `atera-cli agents stale --days 30` |
+| Which open tickets are closest to breaching SLA? | `atera-cli tickets sla` |
+| Who is overloaded on the service desk right now? | `atera-cli tickets workload` |
+| Which customers have managed agents but no active contract? | `atera-cli customers coverage` |
+| What contracts expire in the next 60 days? | `atera-cli contracts expiring --days 60` |
+| What's my full book of business by customer and contract mix? | `atera-cli customers book` |
+| Which machines generate the most alerts over a week? | `atera-cli agents noisy --days 7` |
+| What's the patch-compliance picture across the fleet? | `atera-cli agents patch-status` |
+| Which machines are running an end-of-life OS? | `atera-cli agents inventory --eol` |
+| What changed across agents, tickets, and alerts in the last 24 hours? | `atera-cli since 24h` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/atera/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/atera/guide.md).
 
 ## What makes this one different
 
-TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most Atera integrations proxy each question into a live API call ...
+Most Atera integrations proxy each question into a live API call — fine for one record, useless for a fleet-wide rollup that would page through thousands of objects against the rate limit. This skill syncs Atera into a local SQLite mirror, so cross-entity questions become one offline join: instant, rate-limit-friendly, and the AI sees the answer, not the raw dump.
 
-TODO: one sentence vs Atera's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.
+Atera's portal and its add-on AI surface single records and canned reports; this skill answers the cross-client, time-windowed questions the portal leaves you to assemble by hand — dark-agent sweeps, SLA-breach queues, under-contracted accounts, and renewal calendars — from one local mirror you can read every line of.
 
 ## The pain this closes
 
-- TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread
-- TODO: pain 2
+- Atera's reporting is the consistent gripe in G2 and Capterra reviews: custom reports need workarounds, filtering is rigid, exports are clunky, and the deeper cross-client analytics sit behind higher-tier plans.
+- There's no single screen that answers 'which machines went dark,' 'which tickets breach SLA next,' or 'which customers are under-contracted' across every client at once — you assemble it by hand, portal tab by portal tab.
+- Pulling fleet-wide numbers through the live API means paging thousands of objects against a rate limit, so the questions that matter at a QBR are the ones nobody has time to answer.
 
 ## Install
 
@@ -111,11 +125,11 @@ After install, authenticate once with your Atera credentials, then verify with `
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | TODO: read commands | Allow |
-| Write (routine) | TODO | Preview with --dry-run, then a reviewed write |
-| Destructive / config | TODO | Human-in-the-loop only |
+| Read | agents stale, tickets sla, customers coverage, contracts expiring, since, search, sync, and every get-/rollup command | Allow |
+| Write (routine) | tickets post/put, contacts post/put, customers post/put, contracts post/update, alerts post/resolve, devices create-*, customvalues set-*, import | Preview with --dry-run, then a reviewed write |
+| Destructive / config | agents delete, tickets delete, customers delete, devices delete-*, and credential changes (auth set-token, auth setup, auth logout) | Human-in-the-loop only |
 
-TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/atera/governance.md).
+The skill reads everything — agents, tickets, customers, contracts, alerts, devices, rates, and custom fields — and can also create, update, and delete those records through the Atera API. Reads, including every cross-client rollup, are always safe to run; routine writes should be previewed with `--dry-run` and approved before they fire; deletes and credential changes are human-in-the-loop only. The CLI can only do what your Atera API key is permitted to do, so scope the key to the workflow. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/atera/governance.md).
 
 ## Frequently asked questions
 
@@ -135,9 +149,17 @@ Your data stays on your machine. The CLI, MCP server, and the local mirror are a
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-### TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Atera portal)
+### Will this hit my Atera API rate limits?
 
-TODO
+Rarely. Most questions run against the local SQLite mirror after a one-time `sync`, so they make zero API calls. The few commands that fetch live (like `agents patch-status`) are paced under Atera's 700-requests-per-minute limit.
+
+### Do I need to be an Atera partner?
+
+No. You need an Atera account and an API key created under Admin → API. Any plan that exposes the API works; nothing here requires a special partner tier.
+
+### Will this replace my Atera portal?
+
+No — it complements it. The portal stays your system of record and remote-access console; this skill adds the cross-client, terminal-and-AI query layer the portal doesn't offer.
 
 
 ## Status

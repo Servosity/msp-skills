@@ -8,8 +8,11 @@
 ## What it authenticates as
 
 The skill drives the `atera-cli` binary (and `atera-mcp`),
-authenticating with `ATERA_ACCOUNT_API`, `ATERA_API_KEY`. Credentials are read from the environment only -
-never written to disk, never logged, never sent anywhere except the Atera API.
+authenticating with an Atera API key created under **Admin → API**, supplied via
+`ATERA_API_KEY` (or its alias `ATERA_ACCOUNT_API`). The key is sent as the
+`X-API-KEY` header. Credentials are read from the environment or the local config
+the CLI writes via `auth set-token` - never logged, never bundled into this repo,
+and never sent anywhere except the Atera API (`https://app.atera.com/api/v3`).
 
 ## Default-safe behavior
 
@@ -27,11 +30,10 @@ require a human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `agents available-patches`, `agents available-patches agent-get-agent-available-updates`, `agents installed-patches`, `agents installed-patches agent-get-agent-installed-updates`, `agents patch status`, `alerts triage`, `contracts update`, `contracts update-contractid`, ... (46 total) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
-| **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
-| **Destructive** | Irreversible data or config loss. | `agents delete`, `alerts delete`, `contacts delete`, `customers delete`, `departments delete`, `devices delete`, `devices delete-http`, `devices delete-snmp`, ... (13 total) | Human-in-the-loop only, explicit confirmation |
-| **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
+| **Read** | Reports, rollups, search. No change. | the cross-client analytics views (`agents stale`, `agents inventory`, `agents noisy`, `agents patch-status`, `alerts triage`, `tickets sla`, `tickets workload`, `customers book`, `customers coverage`, `contracts expiring`, `since`), every `get-`/query command, `search`, and `sync` (≈81 total) | Allow |
+| **Write (routine)** | Day-to-day mutations: create and update. | `tickets post`, `tickets put`, `contacts post`, `contacts put`, `customers post`, `customers put`, `contracts post`, `contracts update`, `alerts post`, `alerts resolve`, `devices create-*`, `customvalues custom-values-set-*`, `rates post-*`/`put-*`, `import` (61 total) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
+| **Credential / security** | Touches the stored API token. | `auth set-token`, `auth setup`, `auth logout` (3 total) | Human-in-the-loop only |
+| **Destructive** | Irreversible data loss. | `agents delete`, `alerts delete`, `contacts delete`, `customers delete`, `departments delete`, `devices delete`, `devices delete-http`, `devices delete-snmp`, ... (13 total) | Human-in-the-loop only, explicit confirmation |
 
 ## How to lock it down
 
