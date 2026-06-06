@@ -370,6 +370,29 @@
         "evidence": null
       }
     },
+    "syncro": {
+      "system": "Syncro PSA and RMM: tickets, invoicing, estimates, contracts, RMM alerts, and asset patch reporting for MSPs",
+      "status": "beta",
+      "cli_binary": "syncro-cli",
+      "mcp_binary": "syncro-mcp",
+      "vendor": "Syncro",
+      "vendor_trademark_owner": "Servably, Inc.",
+      "first_party": false,
+      "category": "PSA",
+      "display_name": "Syncro",
+      "tagline": "Run every Syncro PSA and RMM workflow from your terminal: tickets, billing, and patch gaps in one ask.",
+      "cli_hash": "sha256:88fccde7356fb69b6a650d2d6b48020340af6cb11e17e134646ed0ea95b7556a",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "threatlocker": {
       "system": "ThreatLocker Portal: approvals, audit log, device health, and policy across customer tenants",
       "status": "beta",

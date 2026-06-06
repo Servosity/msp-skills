@@ -1,0 +1,46 @@
+{
+  "manifest_version": "0.3",
+  "name": "syncro-mcp",
+  "display_name": "Syncro",
+  "version": "0.1.0",
+  "description": "Every Syncro PSA and RMM workflow in your terminal, plus a local database, offline search, and cross-entity reports no other Syncro tool has.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/syncro-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/syncro-mcp",
+      "args": [],
+      "env": {
+        "SYNCRO_API_KEY": "${user_config.syncro_api_key}",
+        "SYNCRO_SUBDOMAIN": "${user_config.syncro_subdomain}"
+      }
+    }
+  },
+  "user_config": {
+    "syncro_api_key": {
+      "type": "string",
+      "title": "SYNCRO_API_KEY",
+      "description": "Sets SYNCRO_API_KEY for the Syncro MCP server. Get a credential from https://syncromsp.com.",
+      "sensitive": true,
+      "required": true
+    },
+    "syncro_subdomain": {
+      "type": "string",
+      "title": "SYNCRO_SUBDOMAIN",
+      "description": "Sets SYNCRO_SUBDOMAIN for the endpoint template variable {subdomain}.",
+      "default": "your-subdomain"
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

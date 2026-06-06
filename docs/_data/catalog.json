@@ -1,5 +1,5 @@
 {
-  "count": 17,
+  "count": 18,
   "connectors": [
     {
       "slug": "acronis",
@@ -128,6 +128,14 @@
       "category": "PSA",
       "verification": "awaiting",
       "url": "/skills/superops/"
+    },
+    {
+      "slug": "syncro",
+      "display_name": "Syncro",
+      "tagline": "Run every Syncro PSA and RMM workflow from your terminal: tickets, billing, and patch gaps in one ask.",
+      "category": "PSA",
+      "verification": "awaiting",
+      "url": "/skills/syncro/"
     },
     {
       "slug": "threatlocker",

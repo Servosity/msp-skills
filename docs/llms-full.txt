@@ -648,6 +648,43 @@ A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already us
 
 Governance: The skill drives the superops-cli and superops-mcp binaries, authenticating with a SUPEROPS_API_TOKEN (plus SUPEROPS_SUBDOMAIN for your tenant) read from the environment - never logged, never sent anywhere except the SuperOps API. Every typed command is read-only: tickets, assets, alerts, clients, contracts, invoices, worklogs, and the cross-entity views change nothing. The single write path is `raw mutation`; the recommended policy is to preview it with --dry-run, show the exact GraphQL request, get approval, then run. The strongest control is the scope of the API token you mint.
 
+### Syncro (PSA)
+
+Page: https://msp-skills.compoundingteams.com/skills/syncro/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/syncro/install.sh)
+
+Ask your AI "which customers have logged time we never invoiced?" and get the unbilled hours ranked by customer in seconds - no report exports, no portal clicking. Syncro plus your agent answers billing-leakage, AR-aging, SLA-breach, and patch-gap questions across every customer at once, from one local mirror of your Syncro PSA and RMM data. Free, open source, runs on your laptop.
+
+Outcomes (question -> command your AI agent runs):
+- Which customers have logged time we never invoiced? -> syncro-cli billing uninvoiced
+- Which closed tickets had billable time that was never invoiced? -> syncro-cli billing drift
+- How is our unpaid AR aging (0-30/30-60/60-90/90+)? -> syncro-cli billing ar-aging
+- What is our revenue per labor hour by customer this quarter? -> syncro-cli customers margin
+- Which open tickets are going stale with no recent activity? -> syncro-cli tickets aging
+- Which assets are missing the most critical patches? -> syncro-cli assets patch-gaps
+- Which customers generate the most RMM alert noise? -> syncro-cli alerts noise
+- Which RMM alerts never became a ticket? -> syncro-cli alerts orphans
+- Give me one cross-entity card for a single customer. -> syncro-cli customers profile 12345
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Syncro MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Syncro data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this hit my Syncro API rate limits?
+A: Day-to-day questions read from the local SQLite mirror, not the live API, so they don't touch your rate limit at all. Only `sync` and live reads call Syncro, and the CLI has a built-in `--rate-limit` flag plus response caching to stay polite.
+Q: Do I need to be a Syncro partner or on a specific plan?
+A: You just need a Syncro account and an API token from your own portal (Admin area). It authenticates as you, against your subdomain, with whatever permissions that token is scoped to - no partner program or special tier required.
+Q: Will this replace my Syncro portal?
+A: No. It reads from your Syncro account and is for the cross-customer questions and bulk analysis the portal makes tedious. You still run tickets, billing, and RMM day-to-day in Syncro; this is the fast lane for the questions an owner keeps re-asking.
+
+Governance: The skill is read-first: reporting, rollups, and cross-entity views can't change anything in Syncro. Mutating commands (create/update/delete tickets, invoices, customers, and the like) send immediately unless you pass `--dry-run` to preview first, so the safe agent policy is read plus previewed writes, with a human approving anything that creates, updates, or deletes. The CLI can only ever do what the API token you supply is scoped to do.
+
 ### ThreatLocker (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/threatlocker/

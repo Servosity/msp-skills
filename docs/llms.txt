@@ -56,6 +56,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - SuperOps (PSA) - Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/superops/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/superops/install.sh)
+- Syncro (PSA) - Run every Syncro PSA and RMM workflow from your terminal: tickets, billing, and patch gaps in one ask.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/syncro/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/syncro/install.sh)
 - ThreatLocker (Security) - Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/threatlocker/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/install.sh)
