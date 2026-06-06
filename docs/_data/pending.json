@@ -1,8 +1,8 @@
 {
   "autotask": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "autotask-v0.1.0",
     "current_hash": "sha256:c35fe70e19882732f38eac567b5ed2d9f994f0260a7dc0137914bcd1fe7d0681",
     "released_hash": "sha256:c35fe70e19882732f38eac567b5ed2d9f994f0260a7dc0137914bcd1fe7d0681"
   },
@@ -14,9 +14,9 @@
     "released_hash": "sha256:5308f96f3678055c37d17cf112bae373f4394a204258300e85b0b5501433e249"
   },
   "connectwise-manage": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "connectwise-manage-v0.1.0",
+    "latest_tag": "connectwise-manage-v0.1.1",
     "current_hash": "sha256:a0617e8133dbdfbb42b9da1f1412fa9b6eb0ad684af373cfa7d540d58decd602",
     "released_hash": "sha256:a0617e8133dbdfbb42b9da1f1412fa9b6eb0ad684af373cfa7d540d58decd602"
   },
@@ -35,9 +35,9 @@
     "released_hash": "sha256:50cc2d03171acd1232def91fc8fa118aa68feff37236f83d5bb429c4ef0a41e7"
   },
   "microsoft-graph": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "microsoft-graph-v0.1.0",
     "current_hash": "sha256:af60ea720c8cb8008855dba17f0f5a5893ae6356c29f79bc806ec152a3a5ef66",
     "released_hash": "sha256:af60ea720c8cb8008855dba17f0f5a5893ae6356c29f79bc806ec152a3a5ef66"
   },
@@ -63,9 +63,9 @@
     "released_hash": "sha256:201711890131225f157b48bbe856281d97a695cd8384b8578dfe8020aa4c73f3"
   },
   "ninjaone": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "ninjaone-v0.1.0",
     "current_hash": "sha256:78c736dbe18ce38fe022df3ecf340b7c717b6bd7cc469eaf647b187b47c66791",
     "released_hash": "sha256:78c736dbe18ce38fe022df3ecf340b7c717b6bd7cc469eaf647b187b47c66791"
   },
@@ -77,9 +77,9 @@
     "released_hash": "sha256:e2809dda5dece4cfd4241cfe38305249d3b5b98eb4ae5dd6259f85f1cb2ea738"
   },
   "sentinelone": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "sentinelone-v0.1.0",
     "current_hash": "sha256:0b44922c171df9a5d5bcb4ca4e369a30b97b0625f798c62d1a74280064e0670d",
     "released_hash": "sha256:0b44922c171df9a5d5bcb4ca4e369a30b97b0625f798c62d1a74280064e0670d"
   },
