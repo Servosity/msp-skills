@@ -80,6 +80,25 @@
       "tagline": "Triage boards, catch unbilled time, and prep QBRs by asking."
     },
     {
+      "name": "datto-rmm",
+      "system": "Datto RMM: devices, alerts, patch and AV gaps, warranty, agent drift, and fleet QBR scorecards from a local mirror",
+      "status": "beta",
+      "skill_path": "skills/datto-rmm",
+      "cli_binary": "datto-rmm-cli",
+      "mcp_binary": "datto-rmm-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Datto RMM",
+      "vendor_trademark_owner": "Datto, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-rmm/install.sh)",
+      "install_mcp_doc": "skills/datto-rmm/mcp-install.md",
+      "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
+      "verification": "awaiting",
+      "category": "RMM",
+      "tagline": "Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask."
+    },
+    {
       "name": "halopsa",
       "system": "HaloPSA, HaloITSM, HaloCRM",
       "status": "beta",

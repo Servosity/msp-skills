@@ -151,6 +151,40 @@ A: Yes. CW_SITE accepts your own server's hostname as well as the cloud region h
 
 Governance: The skill drives the connectwise-manage-cli and connectwise-manage-mcp binaries, authenticating with API Member keys read from the environment (CW_COMPANY_ID, CW_PUBLIC_KEY, CW_PRIVATE_KEY, CW_CLIENT_ID) - never logged and never sent anywhere except your ConnectWise Manage instance. Read commands (boards, cross-entity views, search, reports) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep delete and member-administration commands human-only. The strongest control is the security role on the API Member you create.
 
+### Datto RMM (RMM)
+
+Page: https://msp-skills.compoundingteams.com/skills/datto-rmm/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-rmm/install.sh)
+
+Ask in plain English which endpoints across every client have gone dark, lost antivirus, fallen behind on patches, or are about to drop out of warranty - and get the list in seconds. Datto RMM plus your AI agent reads a local mirror of your whole multi-site fleet, so the cross-customer questions the portal makes you click through site by site become one instant, reproducible answer.
+
+Outcomes (question -> command your AI agent runs):
+- Which devices haven't checked in for 30 days, across every client? -> datto-rmm-cli fleet stale --days 30 --agent
+- Where is antivirus missing, disabled, or not running? -> datto-rmm-cli fleet av-gaps --status not-running --agent
+- Which endpoints are most behind on patches right now? -> datto-rmm-cli fleet patch-gaps --min-missing 5 --agent
+- Which devices have warranties expiring in the next 60 days? -> datto-rmm-cli fleet warranty --within 60 --agent
+- Which devices are generating the most alert noise this week? -> datto-rmm-cli fleet storms --days 7 --top 20 --agent
+- Give me a one-page health scorecard for a client before the QBR. -> datto-rmm-cli fleet scorecard "Acme Corporation" --agent
+- How many copies of an app are installed fleet-wide, and which versions? -> datto-rmm-cli fleet sprawl --name "Google Chrome" --agent
+- Which devices are running an out-of-date RMM agent? -> datto-rmm-cli fleet agent-drift --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Datto RMM MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Datto RMM data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this hit my Datto RMM API rate limits?
+A: It's gentle by design. The skill syncs your fleet into a local mirror once, then answers fleet-wide questions from that mirror instead of calling the API per question. You re-sync on your own cadence; everyday analytics run offline against the local store.
+Q: Do I need to be a Datto partner or have special permissions?
+A: You need an API key and secret key from Setup > Users in your Datto RMM portal (the OAuth API user). The skill can only do what that API user is allowed to do, so scope the user to the access your workflow actually needs.
+
+Governance: The skill reads your Datto RMM fleet and writes only when you ask it to - creating or updating variables, warranty and UDF data, sites, and quick jobs. Every fleet rollup, search, and lookup is read-only and always safe to run. Deleting variables or site proxy settings, bulk-resolving alert storms, and resetting your API keys are gated as destructive or credential operations and should stay human-in-the-loop.
+
 ### HaloPSA (PSA)
 
 Page: https://msp-skills.compoundingteams.com/skills/halopsa/

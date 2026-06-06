@@ -1,0 +1,54 @@
+{
+  "manifest_version": "0.3",
+  "name": "datto-rmm-pp-mcp",
+  "display_name": "Datto RMM",
+  "version": "0.1.0",
+  "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/datto-rmm-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/datto-rmm-pp-mcp",
+      "args": [],
+      "env": {
+        "DATTO_RMM_API_KEY": "${user_config.datto_rmm_api_key}",
+        "DATTO_RMM_API_SECRET_KEY": "${user_config.datto_rmm_api_secret_key}",
+        "DATTO_RMM_TOKEN": "${user_config.datto_rmm_token}"
+      }
+    }
+  },
+  "user_config": {
+    "datto_rmm_api_key": {
+      "type": "string",
+      "title": "DATTO_RMM_API_KEY",
+      "description": "Datto RMM API key (username in the OAuth password grant). Generate in Setup > Users in the Datto RMM web UI.",
+      "sensitive": true,
+      "required": true
+    },
+    "datto_rmm_api_secret_key": {
+      "type": "string",
+      "title": "DATTO_RMM_API_SECRET_KEY",
+      "description": "Datto RMM API secret key (password in the OAuth password grant).",
+      "sensitive": true,
+      "required": true
+    },
+    "datto_rmm_token": {
+      "type": "string",
+      "title": "DATTO_RMM_TOKEN",
+      "description": "Optional. Optional pre-minted OAuth bearer token (skips the auto-mint).",
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

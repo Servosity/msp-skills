@@ -238,6 +238,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "datto-rmm",
+      "source": "./skills/datto-rmm",
+      "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "datto-rmm",
+        "datto rmm",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
