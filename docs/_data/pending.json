@@ -42,10 +42,10 @@
     "released_hash": "sha256:201711890131225f157b48bbe856281d97a695cd8384b8578dfe8020aa4c73f3"
   },
   "servosity": {
-    "state": "binary-pending",
-    "version": "0.1.1",
+    "state": "version-pending",
+    "version": "0.2.0",
     "latest_tag": "servosity-v0.1.1",
     "current_hash": "sha256:a09af51adc8d48806b4ded23bf2bb7ec4fa434ebaf50f6d4a8672dc7bd8e4a43",
-    "released_hash": "sha256:65cc2e313e5042eb00375d298367e91d650dca2eadeaf87264086a731e9b8995"
+    "released_hash": "sha256:a09af51adc8d48806b4ded23bf2bb7ec4fa434ebaf50f6d4a8672dc7bd8e4a43"
   }
 }
