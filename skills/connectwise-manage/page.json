@@ -106,7 +106,7 @@
     },
     {
       "tier": "Destructive / config",
-      "examples": "connectwise-manage-cli service delete-tickets-by-id; connectwise-manage-cli company delete-companies-by-id; connectwise-manage-cli system post-members-by-member-identifier-tokens",
+      "examples": "connectwise-manage-cli service delete-tickets-by-id; connectwise-manage-cli company delete-companies-by-id; connectwise-manage-cli company delete-configurations-by-id",
       "policy": "Human-in-the-loop only"
     }
   ]
