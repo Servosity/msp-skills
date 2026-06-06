@@ -194,6 +194,25 @@
       "tagline": "Audit Hudu documentation hygiene, find stale passwords and expiring certs, and search every company offline."
     },
     {
+      "name": "itglue",
+      "system": "IT Glue documentation platform",
+      "status": "beta",
+      "skill_path": "skills/itglue",
+      "cli_binary": "itglue-cli",
+      "mcp_binary": "itglue-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "IT Glue",
+      "vendor_trademark_owner": "Kaseya US LLC",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/install.sh)",
+      "install_mcp_doc": "skills/itglue/mcp-install.md",
+      "description": "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search, and documentation-hygiene analytics no other IT Glue tool offers.",
+      "verification": "awaiting",
+      "category": "Documentation",
+      "tagline": "Find any device, audit stale passwords, and rank thin client docs by asking."
+    },
+    {
       "name": "microsoft-graph",
       "system": "Microsoft 365 / Entra tenant administration via Microsoft Graph",
       "status": "beta",
