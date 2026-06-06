@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-06",
+  "generated_at": "2026-06-05",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -135,6 +135,25 @@
       "verification": "awaiting",
       "category": "Backup/DR",
       "tagline": "Fleet attention, stale backups, QBR reports, and restore watch for every client by asking."
+    },
+    {
+      "name": "superops",
+      "system": "SuperOps PSA+RMM: tickets, SLAs, assets, alerts, clients, contracts, invoices, worklogs",
+      "status": "beta",
+      "skill_path": "skills/superops",
+      "cli_binary": "superops-cli",
+      "mcp_binary": "superops-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "SuperOps",
+      "vendor_trademark_owner": "SuperOps Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/superops/install.sh)",
+      "install_mcp_doc": "skills/superops/mcp-install.md",
+      "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
+      "verification": "awaiting",
+      "category": "PSA",
+      "tagline": "Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking."
     }
   ]
 }

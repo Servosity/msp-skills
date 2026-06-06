@@ -1,5 +1,5 @@
 {
-  "count": 6,
+  "count": 7,
   "connectors": [
     {
       "slug": "connectwise-manage",
@@ -48,6 +48,14 @@
       "category": "Backup/DR",
       "verification": "awaiting",
       "url": "/skills/servosity/"
+    },
+    {
+      "slug": "superops",
+      "display_name": "SuperOps",
+      "tagline": "Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking.",
+      "category": "PSA",
+      "verification": "awaiting",
+      "url": "/skills/superops/"
     }
   ],
   "featured": [

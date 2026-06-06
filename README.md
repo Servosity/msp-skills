@@ -2,14 +2,14 @@
 
 **MSP Skills** connects your PSA, RMM, backup, and more to the AI you already use - **Claude**, **ChatGPT**, **Codex**, **Cursor**, **Windsurf**, or any agent that speaks MCP. Ask a plain-English question about your stack and get a real answer back.
 <!-- hero-live:start -->
-6 connectors are live today - including Servosity, ConnectWise PSA, HubSpot, and HaloPSA - and more PSA, RMM, backup, and M365 connectors ship every week.
+7 connectors are live today - including Servosity, ConnectWise PSA, HubSpot, and HaloPSA - and more PSA, RMM, backup, and M365 connectors ship every week.
 <!-- hero-live:end -->
 Free, open source, runs on your laptop. A local SQLite mirror lets your agent answer cross-client questions the live API can't return in one shot - no rate-limit hits, no per-tech SaaS fee, no data leaves your network. Built for MSP owners. No developer experience required.
 
 > **New to the term?** What this repo calls an **MCP server** is what ChatGPT calls an *app* or *connector*, Claude on the web calls a *connector*, Microsoft Copilot calls a *connector*, and Claude Code calls a *Skill*. Same standard underneath: the [Model Context Protocol](https://modelcontextprotocol.io). Full plain-language answer: **[What is an MCP server?](https://msp-skills.compoundingteams.com/what-is-an-mcp-server/)**.
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
-[![Skills](https://img.shields.io/badge/skills-6-green.svg)](./catalog.json)
+[![Skills](https://img.shields.io/badge/skills-7-green.svg)](./catalog.json)
 [![MCP](https://img.shields.io/badge/MCP-compatible-1f6feb.svg)](https://modelcontextprotocol.io)
 [![Agent Skills](https://img.shields.io/badge/Agent_Skills-spec-2E7D32.svg)](https://agentskills.io)
 ![Status](https://img.shields.io/badge/status-beta-yellow.svg)
@@ -30,6 +30,7 @@ Free, open source, runs on your laptop. A local SQLite mirror lets your agent an
 | [mspbots](./skills/mspbots) | MSPbots BI: datasets, KPI snapshots, ticket analytics, exports | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/mspbots/README.md) |
 | [n-central](./skills/n-central) | N-able N-central RMM: devices, org tree, issue triage, cross-tenant search | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/n-central/README.md) |
 | [servosity](./skills/servosity) | Servosity backup and DR: fleet attention, stale backups, QBR reports, restores, billing | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/servosity/README.md) |
+| [superops](./skills/superops) | SuperOps PSA+RMM: tickets, SLAs, assets, alerts, clients, contracts, invoices, worklogs | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/superops/README.md) |
 <!-- catalog:end -->
 
 > **About the badges.** `Live-verified` (green) means a real MSP confirmed this skill against a live production tenant - the badge carries the date and source. `Awaiting live verification` (amber) means it passes every mechanical gate (build, command-surface-vs-docs claims check, install dry-run) but no one has reported a live run yet - **be the first**: run it against your tenant and [report that it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
@@ -79,22 +80,17 @@ Each installer drops both the CLI and the MCP server, so you can use the Skill (
 ## What your agent can do
 
 <!-- agent-can-do:start -->
-Outcomes, not hype - drawn from each of the 6 connectors' skill pages:
+Outcomes, not hype - drawn from each of the 7 connectors' skill pages:
 
 | Outcome | Skill | Command |
 | --- | --- | --- |
 | Which tickets did we touch this week that have zero time logged against them? | connectwise-manage | `connectwise-manage-cli unbilled --since 7d` |
-| Which clients are about to blow through their block-hours agreement? | connectwise-manage | `connectwise-manage-cli agreement-burn --period 30d` |
 | What's about to breach SLA in the next 24 hours? | halopsa | `halopsa-cli sla breaching --within 24h --team Support --json` |
-| What's the dispatcher view across all agents and teams? | halopsa | `halopsa-cli triage --team Support --json` |
 | Which open deals have gone cold with no engagement in the last three weeks? | hubspot | `hubspot-cli stale deals --days 21 --owner me` |
-| Which of my contacts haven't been touched in a month? | hubspot | `hubspot-cli stale contacts --days 30 --owner me` |
 | Is our open-ticket backlog up or down versus last week? | mspbots | `mspbots-cli trend open_tickets --agg count` |
-| What changed in open tickets since the last snapshot - rows added, removed, or edited? | mspbots | `mspbots-cli diff open_tickets` |
 | What's red right now, grouped by customer and ranked by severity? | n-central | `n-central-cli triage --by customer` |
-| Where is EXCHANGE01 - server, service org, customer, site? | n-central | `n-central-cli whereis EXCHANGE01` |
 | Where is my attention needed today, ranked worst-first? | servosity | `servosity-cli attention --top 5` |
-| What got worse since yesterday, and what recovered? | servosity | `servosity-cli drift` |
+| Who's about to breach SLA, grouped by technician? | superops | `superops-cli sla-watch --by tech --window 4h` |
 <!-- agent-can-do:end -->
 
 Cross-skill questions compose too: find every ticket about backup failures across all clients by combining `halopsa-cli tickets search` with `servosity-cli stale-backups`.
@@ -248,5 +244,5 @@ MSPs are the channel that brings AI to small business. The durable moat is the [
 Built by [Servosity](https://www.servosity.com). Maintained by Damien Stevens. Apache-2.0 licensed. See [TRADEMARKS.md](./TRADEMARKS.md) for vendor non-affiliation and [SECURITY.md](./SECURITY.md) to report a vulnerability. Methodology: [Compounding Teams](https://compoundingteams.com). Generated CLIs and MCP servers built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press).
 
 <!-- footer-releases:start -->
-_Last updated: 2026-06-06. Latest releases: [connectwise-manage-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/connectwise-manage-v0.1.0) · [halopsa-v0.1.1](https://github.com/servosity/msp-skills/releases/tag/halopsa-v0.1.1) · [hubspot-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/hubspot-v0.1.0) · [mspbots-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/mspbots-v0.1.0) · [n-central-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/n-central-v0.1.0) · [servosity-v0.2.0](https://github.com/servosity/msp-skills/releases/tag/servosity-v0.2.0)._
+_Last updated: 2026-06-05. Latest releases: [connectwise-manage-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/connectwise-manage-v0.1.0) · [halopsa-v0.1.1](https://github.com/servosity/msp-skills/releases/tag/halopsa-v0.1.1) · [hubspot-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/hubspot-v0.1.0) · [mspbots-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/mspbots-v0.1.0) · [n-central-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/n-central-v0.1.0) · [servosity-v0.2.0](https://github.com/servosity/msp-skills/releases/tag/servosity-v0.2.0) · [superops-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/superops-v0.1.0)._
 <!-- footer-releases:end -->
