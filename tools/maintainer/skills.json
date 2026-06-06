@@ -169,6 +169,29 @@
         "evidence": "Damien: verified live against the Servosity HubSpot portal (2026-06-05)"
       }
     },
+    "hudu": {
+      "system": "IT documentation and knowledge-base platform for MSPs",
+      "status": "beta",
+      "cli_binary": "hudu-cli",
+      "mcp_binary": "hudu-mcp",
+      "vendor": "Hudu",
+      "vendor_trademark_owner": "Hudu Technologies, Inc.",
+      "first_party": false,
+      "category": "Documentation",
+      "display_name": "Hudu",
+      "tagline": "Audit Hudu documentation hygiene, find stale passwords and expiring certs, and search every company offline.",
+      "cli_hash": "sha256:0fda7c0ab5e2f9450b73920b61807e8af2f398c489c89e4145d07039a384fdca",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "microsoft-graph": {
       "system": "Microsoft 365 / Entra tenant administration via Microsoft Graph",
       "status": "beta",

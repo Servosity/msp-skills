@@ -299,6 +299,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "hudu",
+      "source": "./skills/hudu",
+      "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
+      "version": "0.1.0",
+      "category": "documentation",
+      "tags": [
+        "hudu",
+        "documentation",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

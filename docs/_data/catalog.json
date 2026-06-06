@@ -1,5 +1,5 @@
 {
-  "count": 18,
+  "count": 19,
   "connectors": [
     {
       "slug": "acronis",
@@ -64,6 +64,14 @@
       "category": "CRM",
       "verification": "live-verified",
       "url": "/skills/hubspot/"
+    },
+    {
+      "slug": "hudu",
+      "display_name": "Hudu",
+      "tagline": "Audit Hudu documentation hygiene, find stale passwords and expiring certs, and search every company offline.",
+      "category": "Documentation",
+      "verification": "awaiting",
+      "url": "/skills/hudu/"
     },
     {
       "slug": "microsoft-graph",
