@@ -182,7 +182,7 @@ An ability may be available to your account based on things like your pricing pl
 
 An ability may be available to your account based on things like your pricing plan or account state.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#abilities)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `abilities.read`
 - **`pagerduty-cli abilities list`** - List all of your account's abilities, by name.
@@ -191,7 +191,7 @@ Scoped OAuth requires: `abilities.read`
 
 An ability may be available to your account based on things like your pricing plan or account state.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#abilities)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `abilities.read`
 
@@ -205,28 +205,28 @@ Addon's are pieces of functionality that developers can write to insert new func
 
 Given a configuration containing a `src` parameter, that URL will be embedded in an `iframe` on a page that's available to users from a drop-down menu.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#add-ons)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `addons.write`
 - **`pagerduty-cli addons delete`** - Remove an existing Add-on.
 
 Addon's are pieces of functionality that developers can write to insert new functionality into PagerDuty's UI.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#add-ons)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `addons.write`
 - **`pagerduty-cli addons get`** - Get details about an existing Add-on.
 
 Addon's are pieces of functionality that developers can write to insert new functionality into PagerDuty's UI.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#add-ons)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `addons.read`
 - **`pagerduty-cli addons list`** - List all of the Add-ons installed on your account.
 
 Addon's are pieces of functionality that developers can write to insert new functionality into PagerDuty's UI.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#add-ons)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `addons.read`
 - **`pagerduty-cli addons update`** - Update an existing Add-on.
@@ -235,7 +235,7 @@ Addon's are pieces of functionality that developers can write to insert new func
 
 Given a configuration containing a `src` parameter, that URL will be embedded in an `iframe` on a page that's available to users from a drop-down menu.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#add-ons)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `addons.write`
 
@@ -338,7 +338,7 @@ Business services model capabilities that span multiple technical services and t
 
 There is a limit of 5,000 business services per account. If the limit is reached, the API will respond with an error.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#business-services)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
 - **`pagerduty-cli business-services delete`** - Delete an existing Business Service.
@@ -347,7 +347,7 @@ Once the service is deleted, it will not be accessible from the web UI and new i
 
 Business services model capabilities that span multiple technical services and that may be owned by several different teams.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#business-services)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
 - **`pagerduty-cli business-services delete-priority-thresholds`** - Clears the Priority Threshold for the account.  If the priority threshold is cleared, any Incident with a Priority set will be able to impact Business Services.
@@ -356,7 +356,7 @@ Scoped OAuth requires: `services.write`
 
 Business services model capabilities that span multiple technical services and that may be owned by several different teams.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#business-services)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.read`
 - **`pagerduty-cli business-services get-impacts`** - Retrieve a list top-level Business Services sorted by highest Impact with `status` included.
@@ -380,7 +380,7 @@ Scoped OAuth requires: `services.read`
 
 Business services model capabilities that span multiple technical services and that may be owned by several different teams.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#business-services)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.read`
 - **`pagerduty-cli business-services put-priority-thresholds`** - Set the Account-level priority threshold for Business Service.
@@ -389,7 +389,7 @@ Scoped OAuth requires: `services.write`
 
 Business services model capabilities that span multiple technical services and that may be owned by several different teams.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#business-services)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
 
@@ -416,35 +416,35 @@ Escalation policies define which user should be alerted at which time.
 
 Escalation policies define which user should be alerted at which time.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#escalation-policies)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `escalation_policies.write`
 - **`pagerduty-cli escalation-policies delete-escalation-policy`** - Deletes an existing escalation policy and rules. The escalation policy must not be in use by any services.
 
 Escalation policies define which user should be alerted at which time.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#escalation-policies)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `escalation_policies.write`
 - **`pagerduty-cli escalation-policies get-escalation-policy`** - Get information about an existing escalation policy and its rules.
 
 Escalation policies define which user should be alerted at which time.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#escalation-policies)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `escalation_policies.read`
 - **`pagerduty-cli escalation-policies list`** - List all of the existing escalation policies.
 
 Escalation policies define which user should be alerted at which time.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#escalation-policies)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `escalation_policies.read`
 - **`pagerduty-cli escalation-policies update-escalation-policy`** - Updates an existing escalation policy and rules.
 
 Escalation policies define which user should be alerted at which time.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#escalation-policies)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `escalation_policies.write`
 
@@ -456,98 +456,98 @@ Event Orchestrations allow you to route events to an endpoint and create collect
 
 Cache Variables allow you to store event data on an Event Orchestration, which can then be used in Event Orchestration rules as part of conditions or actions.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#event-orchestrations)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
 - **`pagerduty-cli event-orchestrations delete-cache-var-on-service-orch`** - Delete a Cache Variable for a Service Event Orchestration.
 
 Cache Variables allow you to store event data on an Event Orchestration, which can then be used in Event Orchestration rules as part of conditions or actions.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#event-orchestrations)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
 - **`pagerduty-cli event-orchestrations delete-orchestration`** - Delete a Global Event Orchestration.
 
 Once deleted, you will no longer be able to ingest events into PagerDuty using this Orchestration's Routing Key.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#event-orchestrations)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `event_orchestrations.write`
 - **`pagerduty-cli event-orchestrations get-cache-var-on-service-orch`** - Get a Cache Variable for a Service Event Orchestration.
 
 Cache Variables allow you to store event data on an Event Orchestration, which can then be used in Event Orchestration rules as part of conditions or actions.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#event-orchestrations)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.read`
 - **`pagerduty-cli event-orchestrations get-orch-active-status`** - Get a Service Orchestration's active status.
 
 A Service Orchestration allows you to set an active status based on whether an event will be evaluated against a service orchestration path (true) or service ruleset (false).
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#event-orchestrations)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.read`
 - **`pagerduty-cli event-orchestrations get-orch-path-service`** - Get a Service Orchestration.
 
 A Service Orchestration allows you to create a set of Event Rules. The Service Orchestration evaluates Events sent to this Service against each of its rules, beginning with the rules in the "start" set. When a matching rule is found, it can modify and enhance the event and can route the event to another set of rules within this Service Orchestration for further processing.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#event-orchestrations)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.read`
 - **`pagerduty-cli event-orchestrations get-orchestration`** - Get a Global Event Orchestration.
 
 Global Event Orchestrations allow you define a set of Global Rules and Router Rules, so that when you ingest events using the Orchestration's Routing Key your events will have actions applied via the Global Rules & then routed to the correct Service by the Router Rules, based on the event's content.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#event-orchestrations)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `event_orchestrations.read`
 - **`pagerduty-cli event-orchestrations list`** - List all Global Event Orchestrations on an Account.
 
 Global Event Orchestrations allow you define a set of Global Rules and Router Rules, so that when you ingest events using the Orchestration's Routing Key your events will have actions applied via the Global Rules & then routed to the correct Service by the Router Rules, based on the event's content.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#event-orchestrations)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `event_orchestrations.read`
 - **`pagerduty-cli event-orchestrations list-cache-var-on-service-orch`** - List Cache Variables for a Service Event Orchestration.
 
 Cache Variables allow you to store event data on an Event Orchestration, which can then be used in Event Orchestration rules as part of conditions or actions.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#event-orchestrations)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.read`
 - **`pagerduty-cli event-orchestrations post-orchestration`** - Create a Global Event Orchestration.
 
 Global Event Orchestrations allow you define a set of Global Rules and Router Rules, so that when you ingest events using the Orchestration's Routing Key your events will have actions applied via the Global Rules & then routed to the correct Service by the Router Rules, based on the event's content.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#event-orchestrations)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `event_orchestrations.write`
 - **`pagerduty-cli event-orchestrations update-cache-var-on-service-orch`** - Update a Cache Variable for a Service Event Orchestration.
 
 Cache Variables allow you to store event data on an Event Orchestration, which can then be used in Event Orchestration rules as part of conditions or actions.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#event-orchestrations)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
 - **`pagerduty-cli event-orchestrations update-orch-active-status`** - Update a Service Orchestration's active status.
 
 A Service Orchestration allows you to set an active status based on whether an event will be evaluated against a service orchestration path (true) or service ruleset (false).
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#event-orchestrations)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
 - **`pagerduty-cli event-orchestrations update-orch-path-service`** - Update a Service Orchestration.
 
 A Service Orchestration allows you to create a set of Event Rules. The Service Orchestration evaluates Events sent to this Service against each of its rules, beginning with the rules in the "start" set. When a matching rule is found, it can modify and enhance the event and can route the event to another set of rules within this Service Orchestration for further processing.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#event-orchestrations)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
 - **`pagerduty-cli event-orchestrations update-orchestration`** - Update a Global Event Orchestration.
 
 Global Event Orchestrations allow you define a set of Global Rules and Router Rules, so that when you ingest events using the Orchestration's Routing Key your events will have actions applied via the Global Rules & then routed to the correct Service by the Router Rules, based on the event's content.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#event-orchestrations)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `event_orchestrations.write`
 
@@ -559,14 +559,14 @@ A PagerDuty extension vendor represents a specific type of outbound extension su
 
 A PagerDuty extension vendor represents a specific type of outbound extension such as Generic Webhook, Slack, ServiceNow.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#extension-schemas)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `extension_schemas.read`
 - **`pagerduty-cli extension-schemas list`** - List all extension schemas.
 
 A PagerDuty extension vendor represents a specific type of outbound extension such as Generic Webhook, Slack, ServiceNow.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#extension-schemas)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `extension_schemas.read`
 
@@ -578,7 +578,7 @@ Extensions are representations of Extension Schema objects that are attached to 
 
 Extensions are representations of Extension Schema objects that are attached to Services.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#extensions)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `extensions.write`
 - **`pagerduty-cli extensions delete`** - Delete an existing extension.
@@ -587,28 +587,28 @@ Once the extension is deleted, it will not be accessible from the web UI and new
 
 Extensions are representations of Extension Schema objects that are attached to Services.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#extensions)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `extensions.write`
 - **`pagerduty-cli extensions get`** - Get details about an existing extension.
 
 Extensions are representations of Extension Schema objects that are attached to Services.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#extensions)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `extensions.read`
 - **`pagerduty-cli extensions list`** - List existing extensions.
 
 Extensions are representations of Extension Schema objects that are attached to Services.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#extensions)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `extensions.read`
 - **`pagerduty-cli extensions update`** - Update an existing extension.
 
 Extensions are representations of Extension Schema objects that are attached to Services.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#extensions)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `extensions.write`
 
@@ -679,7 +679,7 @@ An incident represents a problem or an issue that needs to be addressed and reso
 
 An incident represents a problem or an issue that needs to be addressed and resolved.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#incidents)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `incidents.write`
 
@@ -688,7 +688,7 @@ This API operation has operation specific rate limits. See the [Rate Limits](htt
 > ### Deprecated
 > This endpoint is deprecated and only works for fields on the Base Incident Type. \
 > For more flexibility, we recommend using the Incident Types endpoint: \
-> [/incidents/types/{type_id_or_name}/custom_fields](openapiv3.json/paths/~1incidents~1types~1{type_id_or_name}~1custom_fields/post)
+> `/incidents/types/{type_id_or_name}/custom_fields`
 
 Creates a new Custom Field on the Base Incident Type, along with the Field Options if provided. \
 An account may have up to 10 Fields.
@@ -698,7 +698,7 @@ Scoped OAuth requires: `custom_fields.write`
 > ### Deprecated
 > This endpoint is deprecated and only works for fields on the Base Incident Type. \
 > For more flexibility, we recommend using the Incident Types endpoint: \
-> [/incidents/types/{type_id_or_name}/custom_fields/{field_id}/field_options](openapiv3.json/paths/~1incidents~1types~1{type_id_or_name}~1custom_fields~1{field_id}~1field_options/post)
+> `/incidents/types/{type_id_or_name}/custom_fields/{field_id}/field_options`
 
 Create a new Field Option for a Custom Field on the Base Incident Type. Field Options may only be created for Fields that have `field_options`. A Field may have no more than 10 enabled options.
 
@@ -707,7 +707,7 @@ Scoped OAuth requires: `custom_fields.write`
 
 Incident Types are a feature which will allow customers to categorize incidents, such as a security incident, a major incident, or a fraud incident.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#incidentType)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `incident_types.write`
 - **`pagerduty-cli incidents create-type-custom-field`** - Create a Custom Field for an Incident Type
@@ -728,7 +728,7 @@ Scoped OAuth requires: `custom_fields.write`
 > ### Deprecated
 > This endpoint is deprecated and only works for fields on the Base Incident Type. \
 > For more flexibility, we recommend using the Incident Types endpoint: \
-> [/incidents/types/{type_id_or_name}/custom_fields/{field_id}](openapiv3.json/paths/~1incidents~1types~1{type_id_or_name}~1custom_fields~1{field_id}/delete)
+> `/incidents/types/{type_id_or_name}/custom_fields/{field_id}`
 
 Delete a Custom Field from the Base Incident Type.
 
@@ -737,7 +737,7 @@ Scoped OAuth requires: `custom_fields.write`
 > ### Deprecated
 > This endpoint is deprecated and only works for fields on the Base Incident Type. \
 > For more flexibility, we recommend using the Incident Types endpoint: \
-> [/incidents/types/{type_id_or_name}/custom_fields/{field_id}/field_options/{field_option_id}](openapiv3.json/paths/~1incidents~1types~1{type_id_or_name}~1custom_fields~1{field_id}~1field_options~1{field_option_id}/delete)
+> `/incidents/types/{type_id_or_name}/custom_fields/{field_id}/field_options/{field_option_id}`
 
 Delete a Field Option for a Custom Field on the Base Incident Type.
 
@@ -760,14 +760,14 @@ Scoped OAuth requires: `custom_fields.write`
 
 An incident represents a problem or an issue that needs to be addressed and resolved.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#incidents)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `incidents.read`
 - **`pagerduty-cli incidents get-custom-fields-field`** - <!-- theme: warning -->
 > ### Deprecated
 > This endpoint is deprecated and only works for fields on the Base Incident Type. \
 > For more flexibility, we recommend using the Incident Types endpoint: \
-> [/incidents/types/{type_id_or_name}/custom_fields/{field_id}](openapiv3.json/paths/~1incidents~1types~1{type_id_or_name}~1custom_fields~1{field_id}/get)
+> `/incidents/types/{type_id_or_name}/custom_fields/{field_id}`
 
 Show detailed information about a Custom Field on the Base Incident Type.
 
@@ -776,7 +776,7 @@ Scoped OAuth requires: `custom_fields.read`
 
 Incident Types are a feature which will allow customers to categorize incidents, such as a security incident, a major incident, or a fraud incident.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#incident)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `incident_types.read`
 - **`pagerduty-cli incidents get-type-custom-field`** - Get a custom field for an incident type.
@@ -797,14 +797,14 @@ Scoped OAuth requires: `custom_fields.read`
 
 An incident represents a problem or an issue that needs to be addressed and resolved.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#incidents)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `incidents.read`
 - **`pagerduty-cli incidents list-custom-fields-field-options`** - <!-- theme: warning -->
 > ### Deprecated
 > This endpoint is deprecated and only works for fields on the Base Incident Type. \
 > For more flexibility, we recommend using the Incident Types endpoint: \
-> [/incidents/types/{type_id_or_name}/custom_fields/{field_id}/field_options](openapiv3.json/paths/~1incidents~1types~1{type_id_or_name}~1custom_fields~1{field_id}~1field_options/get)
+> `/incidents/types/{type_id_or_name}/custom_fields/{field_id}/field_options`
 
 List all enabled Field Options for a Custom Field on the Base Incident Type.
 
@@ -813,7 +813,7 @@ Scoped OAuth requires: `custom_fields.read`
 > ### Deprecated
 > This endpoint is deprecated and only works for fields on the Base Incident Type. \
 > For more flexibility, we recommend using the Incident Types endpoint: \
-> [/incidents/types/{type_id_or_name}/custom_fields](openapiv3.json/paths/~1incidents~1types~1{type_id_or_name}~1custom_fields/get)
+> `/incidents/types/{type_id_or_name}/custom_fields`
 
 List Custom Fields on the Base Incident Type.
 
@@ -837,7 +837,7 @@ Scoped OAuth requires: `custom_fields.read`
 Incident Types are a feature which will allow customers to categorize incidents, such as a security incident, a major incident, or a fraud incident.
 These can be filtered by enabled or disabled types.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#incidentType)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `incident_types.read`
 - **`pagerduty-cli incidents update`** - Acknowledge, resolve, escalate or reassign one or more incidents.
@@ -846,7 +846,7 @@ An incident represents a problem or an issue that needs to be addressed and reso
 
 A maximum of 250 incidents may be updated at a time. If more than this number of incidents are given, the API will respond with status 413 (Request Entity Too Large).
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#incidents)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `incidents.write`
 
@@ -855,7 +855,7 @@ This API operation has operation specific rate limits. See the [Rate Limits](htt
 > ### Deprecated
 > This endpoint is deprecated and only works for fields on the Base Incident Type. \
 > For more flexibility, we recommend using the Incident Types endpoint: \
-> [/incidents/types/{type_id_or_name}/custom_fields/{field_id}](openapiv3.json/paths/~1incidents~1types~1{type_id_or_name}~1custom_fields~1{field_id}/put)
+> `/incidents/types/{type_id_or_name}/custom_fields/{field_id}`
 
 Update a Custom Field on the Base Incident Type.
 
@@ -864,7 +864,7 @@ Scoped OAuth requires: `custom_fields.write`
 > ### Deprecated
 > This endpoint is deprecated and only works for fields on the Base Incident Type. \
 > For more flexibility, we recommend using the Incident Types endpoint: \
-> [/incidents/types/{type_id_or_name}/custom_fields/{field_id}/field_options/{field_option_id}](openapiv3.json/paths/~1incidents~1types~1{type_id_or_name}~1custom_fields~1{field_id}~1field_options~1{field_option_id}/put)
+> `/incidents/types/{type_id_or_name}/custom_fields/{field_id}/field_options/{field_option_id}`
 
 Update a Field Option for a Custom Field on the Base Incident Type.
 
@@ -873,14 +873,14 @@ Scoped OAuth requires: `custom_fields.write`
 
 An incident represents a problem or an issue that needs to be addressed and resolved.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#incidents)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `incidents.write`
 - **`pagerduty-cli incidents update-type`** - Update an Incident Type.
 
 Incident Types are a feature which will allow customers to categorize incidents, such as a security incident, a major incident, or a fraud incident.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#incident)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `incident_types.write`
 - **`pagerduty-cli incidents update-type-custom-field`** - Update a custom field for an incident type. Field Options can also be updated within the same call.
@@ -983,14 +983,14 @@ A log of all the events that happen to an Incident, and these are exposed as Log
 
 A log of all the events that happen to an Incident, and these are exposed as Log Entries.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#log-entries)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `incidents.read`
 - **`pagerduty-cli log-entries list`** - List all of the incident log entries across the entire account.
 
 A log of all the events that happen to an Incident, and these are exposed as Log Entries.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#log-entries)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `incidents.read`
 
@@ -1002,35 +1002,35 @@ A Maintenance Window is used to temporarily disable one or more Services for a s
 
 A Maintenance Window is used to temporarily disable one or more Services for a set period of time.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#maintenance-windows)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
 - **`pagerduty-cli maintenance-windows delete`** - Delete an existing maintenance window if it's in the future, or end it if it's currently on-going. If the maintenance window has already ended it cannot be deleted.
 
 A Maintenance Window is used to temporarily disable one or more Services for a set period of time.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#maintenance-windows)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
 - **`pagerduty-cli maintenance-windows get`** - Get an existing maintenance window.
 
 A Maintenance Window is used to temporarily disable one or more Services for a set period of time.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#maintenance-windows)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.read`
 - **`pagerduty-cli maintenance-windows list`** - List existing maintenance windows, optionally filtered by service and/or team, or whether they are from the past, present or future.
 
 A Maintenance Window is used to temporarily disable one or more Services for a set period of time.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#maintenance-windows)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.read`
 - **`pagerduty-cli maintenance-windows update`** - Update an existing maintenance window.
 
 A Maintenance Window is used to temporarily disable one or more Services for a set period of time.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#maintenance-windows)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
 
@@ -1042,7 +1042,7 @@ A Notification is created when an Incident is triggered or escalated.
 
 A Notification is created when an Incident is triggered or escalated.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#notifications)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `users:notifications.read`
 
@@ -1081,7 +1081,7 @@ Manage oncalls
 
 An on-call represents a contiguous unit of time for which a User will be on call for a given Escalation Policy and Escalation Rules.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#on-calls)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `oncalls.read`
 
@@ -1230,12 +1230,12 @@ Provides paused Incident reporting data on services and accounts that have pause
 
 - **`pagerduty-cli paused-incident-reports get-alerts`** - Returns the 5 most recent alerts that were triggered after being paused and the 5 most recent alerts that were resolved after being paused for a given reporting period (maximum 6 months lookback period).  Note: This feature is currently available as part of the Event Intelligence package or Digital Operations plan only.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#paused-incident-reports)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `incidents.read`
 - **`pagerduty-cli paused-incident-reports get-counts`** - Returns reporting counts for paused Incident usage for a given reporting period (maximum 6 months lookback period).  Note: This feature is currently available as part of the Event Intelligence package or Digital Operations plan only.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#paused-incident-reports)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `incidents.read`
 
@@ -1247,7 +1247,7 @@ A priority is a label representing the importance and impact of an incident. Thi
 
 A priority is a label representing the importance and impact of an incident.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#priorities)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `priorities.read`
 
@@ -1262,7 +1262,7 @@ Rulesets allow you to route events to an endpoint and create collections of Even
 
 Rulesets allow you to route events to an endpoint and create collections of Event Rules, which define sets of actions to take based on event content.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#rulesets)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `event_rules.write`
 - **`pagerduty-cli rulesets delete`** - Delete a Ruleset.
@@ -1272,7 +1272,7 @@ Scoped OAuth requires: `event_rules.write`
 
 Rulesets allow you to route events to an endpoint and create collections of Event Rules, which define sets of actions to take based on event content.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#rulesets)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `event_rules.write`
 - **`pagerduty-cli rulesets get`** - Get a Ruleset.
@@ -1282,7 +1282,7 @@ Scoped OAuth requires: `event_rules.write`
 
 Rulesets allow you to route events to an endpoint and create collections of Event Rules, which define sets of actions to take based on event content.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#rulesets)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `event_rules.read`
 - **`pagerduty-cli rulesets list`** - List all Rulesets
@@ -1292,7 +1292,7 @@ Scoped OAuth requires: `event_rules.read`
 
 Rulesets allow you to route events to an endpoint and create collections of Event Rules, which define sets of actions to take based on event content.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#rulesets)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `event_rules.read`
 - **`pagerduty-cli rulesets update`** - Update a Ruleset.
@@ -1302,7 +1302,7 @@ Scoped OAuth requires: `event_rules.read`
 
 Rulesets allow you to route events to an endpoint and create collections of Event Rules, which define sets of actions to take based on event content.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#rulesets)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `event_rules.write`
 
@@ -1314,14 +1314,14 @@ A Schedule determines the time periods that users are On-Call.
 
 A Schedule determines the time periods that users are On-Call.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#schedules)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `schedules.write`
 - **`pagerduty-cli schedules create-preview`** - Preview what an on-call schedule would look like without saving it.
 
 A Schedule determines the time periods that users are On-Call.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#schedules)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `schedules.write`
 - **`pagerduty-cli schedules create-v3`** - <!-- theme: info -->
@@ -1342,7 +1342,7 @@ accepted in the request body and will result in a 400 error.
 
 A Schedule determines the time periods that users are On-Call.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#schedules)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `schedules.write`
 - **`pagerduty-cli schedules delete-v3`** - <!-- theme: info -->
@@ -1378,7 +1378,7 @@ Use `since` and `until` to specify the time range.
 
 A Schedule determines the time periods that users are On-Call.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#schedules)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `schedules.read`
 - **`pagerduty-cli schedules list-v3`** - <!-- theme: info -->
@@ -1399,7 +1399,7 @@ caller cannot read are silently excluded.
 
 A Schedule determines the time periods that users are On-Call.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#schedules)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `schedules.write`
 - **`pagerduty-cli schedules update-v3`** - <!-- theme: info -->
@@ -1429,27 +1429,27 @@ Business services model capabilities that span multiple technical services and t
 
 A service can have a maximum of 2,000 dependencies with a depth limit of 100. If the limit is reached, the API will respond with an error.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#business-services)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
 - **`pagerduty-cli service-dependencies delete-service-dependency`** - Disassociate dependencies between two services.
 
 Business services model capabilities that span multiple technical services and that may be owned by several different teams.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#business-services)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
 - **`pagerduty-cli service-dependencies get-business-service`** - Get all immediate dependencies of any Business Service.
 
 Business Services model capabilities that span multiple technical services and that may be owned by several different teams.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#business-services)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.read`
 - **`pagerduty-cli service-dependencies get-technical-service`** - Get all immediate dependencies of any technical service.
 Technical services are also known as `services`.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#services)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.read`
 
@@ -1465,7 +1465,7 @@ A service may represent an application, component, or team you wish to open inci
 
 There is a limit of 25,000 services per account. If the limit is reached, the API will respond with an error. There is also a limit of 100,000 open Incidents per Service. If the limit is reached and `auto_resolve_timeout` is disabled (set to 0 or null), the `auto_resolve_timeout` property will automatically be set to  84600 (1 day).
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#services)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
 - **`pagerduty-cli services create-custom-field`** - Creates a new Custom Field for Services, along with the Field Options if provided.
@@ -1480,7 +1480,7 @@ Once the service is deleted, it will not be accessible from the web UI and new i
 
 A service may represent an application, component, or team you wish to open incidents against.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#services)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
 - **`pagerduty-cli services delete-custom-field`** - Delete a Custom Field from Services.
@@ -1493,7 +1493,7 @@ Scoped OAuth requires: `custom_fields.write`
 
 A service may represent an application, component, or team you wish to open incidents against.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#services)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.read`
 - **`pagerduty-cli services get-custom-field`** - Show detailed information about a Custom Field for Services.
@@ -1506,7 +1506,7 @@ Scoped OAuth requires: `custom_fields.read`
 
 A service may represent an application, component, or team you wish to open incidents against.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#services)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.read`
 - **`pagerduty-cli services list-custom-field-options`** - List all options for a given field.
@@ -1521,7 +1521,7 @@ A service may represent an application, component, or team you wish to open inci
 
 There is a limit of 100,000 open Incidents per Service. If the limit is reached and you disable `auto_resolve_timeout` (set to 0 or null), the API will respond with an error.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#services)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
 - **`pagerduty-cli services update-custom-field`** - Update a Custom Field for Services.
@@ -1628,35 +1628,35 @@ A Tag is applied to Escalation Policies, Teams or Users and can be used to filte
 
 A Tag is applied to Escalation Policies, Teams or Users and can be used to filter them.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#tags)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `tags.write`
 - **`pagerduty-cli tags delete`** - Remove an existing Tag.
 
 A Tag is applied to Escalation Policies, Teams or Users and can be used to filter them.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#tags)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `tags.write`
 - **`pagerduty-cli tags get`** - Get details about an existing Tag.
 
 A Tag is applied to Escalation Policies, Teams or Users and can be used to filter them.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#tags)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `tags.read`
 - **`pagerduty-cli tags get-by-entity-type`** - Get related Users, Teams or Escalation Policies for the Tag.
 
 A Tag is applied to Escalation Policies, Teams or Users and can be used to filter them.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#tags)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `tags.read`
 - **`pagerduty-cli tags list`** - List all of your account's tags.
 
 A Tag is applied to Escalation Policies, Teams or Users and can be used to filter them.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#tags)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `tags.read`
 
@@ -1668,7 +1668,7 @@ A team is a collection of Users and Escalation Policies that represent a group o
 
 A team is a collection of Users and Escalation Policies that represent a group of people within an organization.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#teams)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `teams.write`
 - **`pagerduty-cli teams delete`** - Remove an existing team.
@@ -1681,28 +1681,28 @@ Note that the incidents reassignment process is asynchronous and has no guarante
 
 A team is a collection of Users and Escalation Policies that represent a group of people within an organization.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#teams)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `teams.write`
 - **`pagerduty-cli teams get`** - Get details about an existing team.
 
 A team is a collection of Users and Escalation Policies that represent a group of people within an organization.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#teams)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `teams.read`
 - **`pagerduty-cli teams list`** - List teams of your PagerDuty account, optionally filtered by a search query.
 
 A team is a collection of Users and Escalation Policies that represent a group of people within an organization.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#teams)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `teams.read`
 - **`pagerduty-cli teams update`** - Update an existing team.
 
 A team is a collection of Users and Escalation Policies that represent a group of people within an organization.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#teams)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `teams.write`
 
@@ -1737,7 +1737,7 @@ Users are members of a PagerDuty account that have the ability to interact with 
 
 Users are members of a PagerDuty account that have the ability to interact with Incidents and other data on the account.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#users)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `users.write`
 - **`pagerduty-cli users delete`** - Remove an existing user.
@@ -1750,14 +1750,14 @@ Note that the incidents reassignment process is asynchronous and has no guarante
 
 Users are members of a PagerDuty account that have the ability to interact with Incidents and other data on the account.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#users)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `users.write`
 - **`pagerduty-cli users get`** - Get details about an existing user.
 
 Users are members of a PagerDuty account that have the ability to interact with Incidents and other data on the account.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#users)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `users.read`
 - **`pagerduty-cli users get-current`** - Get details about the current user.
@@ -1766,19 +1766,19 @@ This endpoint can only be used with a [user-level API key](https://support.pager
 
 Users are members of a PagerDuty account that have the ability to interact with Incidents and other data on the account.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#users)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 - **`pagerduty-cli users list`** - List users of your PagerDuty account, optionally filtered by a search query.
 
 Users are members of a PagerDuty account that have the ability to interact with Incidents and other data on the account.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#users)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `users.read`
 - **`pagerduty-cli users update`** - Update an existing user.
 
 Users are members of a PagerDuty account that have the ability to interact with Incidents and other data on the account.
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#users)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `users.write`
 
@@ -1790,14 +1790,14 @@ A PagerDuty Vendor represents a specific type of integration. AWS Cloudwatch, Sp
 
 A PagerDuty Vendor represents a specific type of integration. AWS Cloudwatch, Splunk, Datadog are all examples of vendors
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#vendors)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `vendors.read`
 - **`pagerduty-cli vendors list`** - List all vendors.
 
 A PagerDuty Vendor represents a specific type of integration. AWS Cloudwatch, Splunk, Datadog are all examples of vendors
 
-For more information see the [API Concepts Document](../../api-reference/a47605517c19a-api-concepts#vendors)
+For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `vendors.read`
 

@@ -81,7 +81,7 @@ Full command reference at [github.com/servosity/msp-skills/blob/main/skills/page
 
 ## What makes this one different
 
-Most PagerDuty integrations and MCP servers proxy each question into a live API call - fine for reading one incident, useless for "MTTR by service across the quarter," which no single API call returns. This skill syncs PagerDuty into a local SQLite mirror, so cross-object analytics (insights mttr, insights responders, audit coverage) become one offline join: instant, rate-limit-free, and the AI sees the answer, not a raw data dump.
+Most PagerDuty integrations and MCP servers proxy each question into a live API call - fine for reading one incident, costly for "MTTR by service across the quarter," which otherwise means PagerDuty's paid Analytics tier or a call per service. This skill syncs PagerDuty into a local SQLite mirror, so cross-object analytics (insights mttr, insights responders, audit coverage) become one offline join: instant, rate-limit-free, computed without the Analytics add-on, and the AI sees the answer, not a raw data dump.
 
 PagerDuty's own AI and Analytics live in the web app and largely on paid tiers; this skill puts the same post-incident math - MTTA/MTTR, responder workload, noisy-service ranking, escalation-coverage and schedule-gap audits - in your terminal and your AI agent, computed offline from data any REST API key can read. It complements the portal; it does not replace your account.
 
