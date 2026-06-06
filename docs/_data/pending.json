@@ -62,6 +62,13 @@
     "current_hash": "sha256:0fda7c0ab5e2f9450b73920b61807e8af2f398c489c89e4145d07039a384fdca",
     "released_hash": null
   },
+  "huntress": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:cabbf61ddeb69ab20e999dc45ce8d720fb9ae26b15ff74131c986f3080c50f3c",
+    "released_hash": null
+  },
   "itglue": {
     "state": "never-released",
     "version": "0.1.0",
