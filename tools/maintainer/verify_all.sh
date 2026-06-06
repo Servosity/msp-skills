@@ -125,9 +125,19 @@ if reg and not reg.get('markdown_only') and reg.get('cli_hash_at_release') in (N
       echo "$out"; fail "$(dirname "$sh") install.sh URL"
     fi
   else
-    out="$(DRY_RUN=1 bash "$sh" 2>&1 || true)"
+    # Released skill: prefer pinning to the newest LOCAL <slug>-v* tag. The
+    # unpinned path makes ~5 paginated releases-API calls per skill per run;
+    # at fleet scale that trips GitHub secondary rate limits intermittently
+    # (403 -> "No release found" -> false FAIL). Local tags are deterministic.
+    # Fallback (shallow clones with no tags, e.g. CI): the live API path.
+    local_tag="$(git tag -l "${slug}-v*" --sort=-version:refname 2>/dev/null | head -1)"
+    if [ -n "$local_tag" ]; then
+      out="$(DRY_RUN=1 MSP_SKILLS_RELEASE_BASE="https://github.com/servosity/msp-skills/releases/download/${local_tag}" bash "$sh" 2>&1 || true)"
+    else
+      out="$(DRY_RUN=1 bash "$sh" 2>&1 || true)"
+    fi
     if echo "$out" | grep -q 'github.com/servosity/msp-skills' && ! echo "$out" | grep -qi 'PLACEHOLDER'; then
-      pass "$slug install.sh URLs resolve"
+      pass "$slug install.sh URLs resolve${local_tag:+ (pinned from local tag ${local_tag})}"
     else
       echo "$out"; fail "$(dirname "$sh") install.sh URL"
     fi
