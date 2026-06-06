@@ -99,6 +99,25 @@
       "tagline": "Pipeline health, stale deals, and owner workload for every client by asking."
     },
     {
+      "name": "microsoft-graph",
+      "system": "Microsoft 365 / Entra tenant administration via Microsoft Graph",
+      "status": "beta",
+      "skill_path": "skills/microsoft-graph",
+      "cli_binary": "microsoft-graph-cli",
+      "mcp_binary": "microsoft-graph-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Microsoft Graph",
+      "vendor_trademark_owner": "Microsoft Corporation",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/microsoft-graph/install.sh)",
+      "install_mcp_doc": "skills/microsoft-graph/mcp-install.md",
+      "description": "The maintained single-binary successor to the retiring mgc \u2014 every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking."
+    },
+    {
       "name": "mspbots",
       "system": "MSPbots BI: datasets, KPI snapshots, ticket analytics, exports",
       "status": "beta",
@@ -135,6 +154,25 @@
       "verification": "awaiting",
       "category": "RMM",
       "tagline": "Find any device, triage issues, and search across every client by asking."
+    },
+    {
+      "name": "ninjaone",
+      "system": "NinjaOne RMM: devices, patch compliance, backup gaps, AV blast-radius, health, drift",
+      "status": "beta",
+      "skill_path": "skills/ninjaone",
+      "cli_binary": "ninjaone-cli",
+      "mcp_binary": "ninjaone-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "NinjaOne",
+      "vendor_trademark_owner": "NinjaOne, LLC",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ninjaone/install.sh)",
+      "install_mcp_doc": "skills/ninjaone/mcp-install.md",
+      "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
+      "verification": "awaiting",
+      "category": "RMM",
+      "tagline": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query."
     },
     {
       "name": "pax8",

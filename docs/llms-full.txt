@@ -182,6 +182,42 @@ A: It works against any portal that issues a Private App access token with the r
 
 Governance: The skill drives the hubspot-cli and hubspot-mcp binaries, authenticating only with HUBSPOT_ACCESS_TOKEN read from the environment - never written to disk, logged, or sent anywhere except the HubSpot API. Read commands (reports, rollups, search) are always safe and can change nothing. Writes are not gated by default: --dry-run is an opt-in flag (default off) that previews a request without sending, so raw create/update/delete commands send immediately on first run unless your agent passes --dry-run first. The one built-in mutation gate is on contacts bulk-update, and it only fires above 100 rows (smaller batches dispatch immediately with a one-line bypass warning). The recommended policy is an agent-level rule: require the agent to show the exact command and get human approval before any mutation, and require a human for any destructive or credential-touching command. The strongest control is the scope you grant the Private App token.
 
+### Microsoft Graph (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/microsoft-graph/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/microsoft-graph/install.sh)
+
+Microsoft retires the Graph CLI (mgc) on August 28, 2026 and points admins at the heavier PowerShell SDK. This is the lightweight successor: one cross-platform binary, no .NET or PowerShell runtime. Ask your AI "which M365 licenses are we wasting," "who holds privileged admin right now," or "what's new in Defender since yesterday," and get cross-tenant answers computed offline from a local SQLite mirror - one query instead of CSV exports and portal tab-hopping.
+
+Outcomes (question -> command your AI agent runs):
+- Which SKUs are we paying for but not fully using, ranked by wasted seats? -> microsoft-graph-cli licenses waste --agent
+- Which disabled or guest accounts still hold a paid license? -> microsoft-graph-cli licenses orphans --json
+- Who exactly is consuming one specific SKU before I reclaim seats? -> microsoft-graph-cli licenses map "ENTERPRISEPACK" --agent
+- Who holds a privileged directory role right now, and which holders are guest or disabled? -> microsoft-graph-cli admins audit --agent
+- What open security alerts are new since yesterday, by severity and source? -> microsoft-graph-cli security triage --since 24h --agent
+- Which Intune devices are non-compliant, unencrypted, or stale this month? -> microsoft-graph-cli managed-devices drift --days 30 --agent
+- Which groups are ownerless, empty, or guest-heavy across the tenant? -> microsoft-graph-cli groups risk --agent
+- Where does this tenant stand overall - users, license waste, admins, alerts, device drift? -> microsoft-graph-cli tenant snapshot --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Microsoft Graph MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Microsoft 365 data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local SQLite mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills - the token is read from your environment and used only against the Microsoft Graph API.
+Q: Will this hit my Microsoft Graph throttling limits?
+A: The local mirror exists so reads stop hitting Graph. After the first `pull`, the cross-entity views (licenses waste/orphans/map, admins audit, security triage, managed-devices drift, groups risk, tenant snapshot) run against local SQLite with zero API calls. Live calls follow @odata.nextLink and respect a `--rate-limit` throttle, and pull treats resources your token can't reach as warnings, not failures.
+Q: Is this the replacement for the Microsoft Graph CLI (mgc) that's being retired?
+A: It is built as the lightweight successor for the MSP read-and-report core - directory, licensing, security, and device surfaces - as one cross-platform Go binary with no .NET or PowerShell runtime. Microsoft's own recommended path is the PowerShell SDK; this is the option for teams who want a scriptable single binary and their AI agent instead. It is not affiliated with or endorsed by Microsoft.
+Q: Does it use a delegated or app-only token?
+A: Either. Run `auth login --tenant <id> --client-id <id> --client-secret <secret>` to mint and cache an app-only (client-credentials) token for unattended MSP use, or export a pre-minted token as MICROSOFT_GRAPH_TOKEN. Read scopes such as Directory.Read.All, RoleManagement.Read.Directory, SecurityAlert.Read.All, and DeviceManagementManagedDevices.Read.All must be granted and admin-consented. App-only tokens have no /me, so `users me` is delegated-only.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: The skill drives the microsoft-graph-cli and microsoft-graph-mcp binaries, authenticating with a MICROSOFT_GRAPH_TOKEN read from the environment - never logged, never written to disk, never sent anywhere except the Microsoft Graph API. Every typed command is read-only: users, groups, directory roles, licenses, devices, managed devices, security alerts and incidents, and the cross-entity analytics change nothing. The single write path is the explicit `import` command (a JSONL-to-POST create path), which previews with `--dry-run`. The strongest control is the scope of the token you mint - grant read-only Graph scopes and the CLI can only read.
+
 ### Concierge (Meta)
 
 Page: https://msp-skills.compoundingteams.com/skills/msp-skills-concierge/
@@ -266,6 +302,46 @@ Q: Does this work with N-able N-sight?
 A: No. This skill targets the N-central REST API specifically. N-sight is a separate N-able product with a separate API.
 
 Governance: The skill drives the n-central-cli and n-central-mcp binaries, authenticating with an API-only user's JWT (NCENTRAL_JWT) exchanged for short-lived access tokens - never logged and never sent anywhere except your N-central server. Nearly all commands are read-only; the exceptions are scheduled-tasks run (executes an API-enabled script or automation policy on a live device) and import (POSTs records), both previewable with the opt-in --dry-run flag. Registration tokens enroll new devices - treat them like credentials. The API user's role in N-central is the real permission boundary.
+
+### NinjaOne (RMM)
+
+Page: https://msp-skills.compoundingteams.com/skills/ninjaone/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ninjaone/install.sh)
+
+NinjaOne is built for real-time, per-device RMM, but its reporting answers one organization at a time. Ask your AI "which clients are below 95% patched," "which endpoints across the fleet have no backup," or "how far did this threat spread" and get fleet-wide rollups computed offline from a local SQLite mirror of your estate - one query instead of a per-org report re-totaled in a spreadsheet or a third-party BI overlay.
+
+Outcomes (question -> command your AI agent runs):
+- Which organizations are below 95% patch compliance? -> ninjaone-cli patch-compliance --min-pct 95
+- Which endpoints across the fleet have no backup at all? -> ninjaone-cli backup-coverage
+- Which devices is a given threat on, fleet-wide? -> ninjaone-cli av-sweep --threat "Trojan.Generic"
+- Which devices have antivirus definitions older than a week? -> ninjaone-cli av-sweep --definition-stale-days 7
+- What is each organization's overall health score, and why? -> ninjaone-cli fleet-health
+- Which devices have not checked in for two weeks? -> ninjaone-cli stale-devices --days 14
+- Which devices are running an end-of-life operating system? -> ninjaone-cli os-eol
+- Where is a software title sprawling across too many versions? -> ninjaone-cli software-audit --min-versions 3
+- Did patch compliance get better or worse since last week? -> ninjaone-cli drift --metric patch
+- Search every synced device, organization, and alert for a string? -> ninjaone-cli search "disk full"
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local NinjaOne MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my NinjaOne data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: Does it work with the US, EU, and other NinjaOne regions?
+A: Yes. The US host (https://app.ninjarmm.com) is the default. For another region set NINJAONE_BASE_URL (for example https://eu.ninjarmm.com) and NINJAONE_TOKEN_URL (for example https://eu.ninjarmm.com/ws/oauth/token); run 'ninjaone-cli doctor' to confirm the credentials reach your instance.
+Q: Will this hit my NinjaOne API rate limits?
+A: The local mirror exists so reads stop hitting the API. After the first 'sync', the fleet views (patch-compliance, backup-coverage, av-sweep, fleet-health, stale-devices, os-eol, software-audit, drift) run against local SQLite with zero API calls. Live calls respect a --rate-limit throttle, and sync is incremental and resumable - it only fetches what changed and treats resources your token cannot reach as warnings, not failures.
+Q: Do I need to be a NinjaOne partner or buy the reporting add-on?
+A: No. You need an API app you create yourself under Administration > Apps > API, with an OAuth2 client_id and client_secret. The fleet rollups are computed locally from whatever your token can already read - no reporting add-on, data warehouse, or partner tier required.
+Q: Can it change things in NinjaOne, or is it read-only?
+A: The headline fleet views are read-only. The CLI also wraps NinjaOne's write surface (for example updating an organization, creating a ticket, running a script, or rebooting a device) and a smaller destructive tier (deletes). Preview any write with --dry-run, keep a human in the loop, and scope the API token to only what your workflow needs.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: The skill drives the ninjaone-cli and ninjaone-mcp binaries, authenticating with NINJAONE_CLIENT_ID and NINJAONE_CLIENT_SECRET (NINJAONE_OAUTH_SCOPE optionally narrows the token) read from the environment - never logged, never sent anywhere except the NinjaOne API. Every fleet view, report, and search is read-only. The CLI also exposes routine write commands and a smaller destructive tier; the recommended policy is to preview a write with --dry-run, show the request, get approval, then run. The strongest control is the scope of the API app you mint.
 
 ### Pax8 (Billing)
 

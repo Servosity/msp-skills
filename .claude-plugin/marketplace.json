@@ -177,6 +177,37 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "ninjaone",
+      "source": "./skills/ninjaone",
+      "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "ninjaone",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "microsoft-graph",
+      "source": "./skills/microsoft-graph",
+      "description": "The maintained single-binary successor to the retiring mgc \u2014 every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "microsoft-graph",
+        "microsoft graph",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

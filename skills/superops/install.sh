@@ -20,10 +20,21 @@ REPO="${MSP_SKILLS_REPO:-msp-skills}"
 INSTALL_DIR="${INSTALL_DIR:-${HOME}/.local/bin}"
 
 fetch_stdout() {
+  # GITHUB_TOKEN/GH_TOKEN (optional) authenticates GitHub API calls - lifts the
+  # 60/hr unauthenticated rate limit that bites shared/corporate IPs and CI.
+  _tok="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$1"
+    if [ -n "${_tok}" ]; then
+      curl -fsSL -H "Authorization: Bearer ${_tok}" "$1"
+    else
+      curl -fsSL "$1"
+    fi
   elif command -v wget >/dev/null 2>&1; then
-    wget -qO- "$1"
+    if [ -n "${_tok}" ]; then
+      wget -qO- --header="Authorization: Bearer ${_tok}" "$1"
+    else
+      wget -qO- "$1"
+    fi
   else
     echo "Neither curl nor wget available; install one and retry." >&2
     exit 1

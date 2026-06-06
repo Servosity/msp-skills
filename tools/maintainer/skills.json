@@ -100,6 +100,29 @@
         "evidence": "Damien: verified live against the Servosity HubSpot portal (2026-06-05)"
       }
     },
+    "microsoft-graph": {
+      "system": "Microsoft 365 / Entra tenant administration via Microsoft Graph",
+      "status": "beta",
+      "cli_binary": "microsoft-graph-cli",
+      "mcp_binary": "microsoft-graph-mcp",
+      "vendor": "Microsoft Graph",
+      "vendor_trademark_owner": "Microsoft Corporation",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Microsoft Graph",
+      "tagline": "Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking.",
+      "cli_hash": "sha256:af60ea720c8cb8008855dba17f0f5a5893ae6356c29f79bc806ec152a3a5ef66",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "msp-skills-concierge": {
       "system": "Connector recommendations + guided install for the msp-skills catalog",
       "status": "beta",
@@ -153,6 +176,29 @@
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": "sha256:201711890131225f157b48bbe856281d97a695cd8384b8578dfe8020aa4c73f3",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "ninjaone": {
+      "system": "NinjaOne RMM: devices, patch compliance, backup gaps, AV blast-radius, health, drift",
+      "status": "beta",
+      "cli_binary": "ninjaone-cli",
+      "mcp_binary": "ninjaone-mcp",
+      "vendor": "NinjaOne",
+      "vendor_trademark_owner": "NinjaOne, LLC",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "NinjaOne",
+      "tagline": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.",
+      "cli_hash": "sha256:78c736dbe18ce38fe022df3ecf340b7c717b6bd7cc469eaf647b187b47c66791",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
       "has_video": true,
       "live_verified": {
         "status": "awaiting",

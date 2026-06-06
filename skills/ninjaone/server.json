@@ -1,0 +1,52 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/ninjaone-mcp",
+  "title": "NinjaOne MCP",
+  "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/ninjaone/ninjaone-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/ninjaone"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/ninjaone-v0.1.0/ninjaone-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "NINJAONE_CLIENT_ID",
+          "description": "Set the NINJAONE_CLIENT_ID credential for the NinjaOne MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "NINJAONE_CLIENT_SECRET",
+          "description": "Set the NINJAONE_CLIENT_SECRET credential for the NinjaOne MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "NINJAONE_OAUTH_SCOPE",
+          "description": "Set the NINJAONE_OAUTH_SCOPE credential for the NinjaOne MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

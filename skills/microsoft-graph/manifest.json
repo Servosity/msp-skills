@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "microsoft-graph-pp-mcp",
+  "display_name": "Microsoft Graph",
+  "version": "0.1.0",
+  "description": "The maintained single-binary successor to the retiring mgc \u2014 every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/microsoft-graph-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/microsoft-graph-pp-mcp",
+      "args": [],
+      "env": {
+        "MICROSOFT_GRAPH_TOKEN": "${user_config.microsoft_graph_token}"
+      }
+    }
+  },
+  "user_config": {
+    "microsoft_graph_token": {
+      "type": "string",
+      "title": "MICROSOFT_GRAPH_TOKEN",
+      "description": "Sets MICROSOFT_GRAPH_TOKEN for the Microsoft Graph MCP server.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}
