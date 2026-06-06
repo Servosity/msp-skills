@@ -1,0 +1,5 @@
+{
+  "descriptions": {
+    "companies_contacts_get-companies": "Fetch a single contact at a Pax8 company by its contact id. Required path params: companyId and contactId. Returns the contact's id, firstName, lastName, email, phone, types, and createdDate. Use this when you already have a contactId and need that one person's details; use companies_contacts_get instead to list all contacts at a company."
+  }
+}

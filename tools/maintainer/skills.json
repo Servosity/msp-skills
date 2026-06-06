@@ -138,6 +138,29 @@
         "evidence": null
       }
     },
+    "pax8": {
+      "system": "Pax8 cloud marketplace billing, subscriptions, reconciliation, MRR, and usage overages",
+      "status": "beta",
+      "cli_binary": "pax8-cli",
+      "mcp_binary": "pax8-mcp",
+      "vendor": "Pax8",
+      "vendor_trademark_owner": "Pax8, Inc.",
+      "first_party": false,
+      "category": "Billing",
+      "display_name": "Pax8",
+      "tagline": "Reconcile Pax8 billing, track MRR, and catch usage overages before they hit the customer invoice",
+      "cli_hash": "sha256:577dce7d92928c0817c826a691d0bf58b4b3a92bdae44246fe2b17bd518fc35e",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "servosity": {
       "system": "Servosity backup and DR: fleet attention, stale backups, QBR reports, restores, billing",
       "status": "beta",

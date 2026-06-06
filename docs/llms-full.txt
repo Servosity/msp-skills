@@ -229,6 +229,42 @@ A: No. This skill targets the N-central REST API specifically. N-sight is a sepa
 
 Governance: The skill drives the n-central-cli and n-central-mcp binaries, authenticating with an API-only user's JWT (NCENTRAL_JWT) exchanged for short-lived access tokens - never logged and never sent anywhere except your N-central server. Nearly all commands are read-only; the exceptions are scheduled-tasks run (executes an API-enabled script or automation policy on a live device) and import (POSTs records), both previewable with the opt-in --dry-run flag. Registration tokens enroll new devices - treat them like credentials. The API user's role in N-central is the real permission boundary.
 
+### Pax8 (Billing)
+
+Page: https://msp-skills.compoundingteams.com/skills/pax8/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pax8/install.sh)
+
+MSPs resell Microsoft, security, and backup through Pax8, then lose days each month reconciling its invoices against subscriptions and their PSA. Ask your AI "where is billing leaking this month," "what's my MRR and margin," or "which usage is about to overage," and get answers the Pax8 portal can't compose: invoices joined to subscriptions joined to usage, computed offline from a local mirror in one query instead of a CSV export and a spreadsheet.
+
+Outcomes (question -> command your AI agent runs):
+- Where is my billing leaking - invoiced for a cancelled product, or active but never billed? -> pax8-cli reconcile
+- Can I catch that leakage before the next invoice finalizes? -> pax8-cli reconcile --draft
+- What is my MRR and margin right now, broken down by product? -> pax8-cli mrr
+- Which usage summaries are running hot before they hit the invoice? -> pax8-cli overage
+- What changed in my book of business this week - new, cancelled, resized subscriptions? -> pax8-cli since 7d
+- Which customers cost the most across every invoice? -> pax8-cli spend
+- Everything about one customer - subscriptions, contacts, invoices, usage - in one view? -> pax8-cli company show <companyId>
+- Which products can I resell that match a vendor or keyword? -> pax8-cli search "microsoft 365"
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Pax8 MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Pax8 data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need to be a Pax8 partner, and what credentials does it use?
+A: Yes - it talks to the Pax8 Partner API with your own partner credentials. Create an OAuth2 Client ID and Client Secret in the Pax8 portal under Integrations, then set PAX8_CLIENT_ID and PAX8_CLIENT_SECRET. The CLI exchanges them for a bearer token at Pax8's token endpoint and caches it. PAX8_AUDIENCE (default api://p8p.client) and PAX8_OAUTH_SCOPE are optional overrides. The credential's own permissions are the real boundary - scope it to what you want the AI to reach.
+Q: Will this hit my Pax8 API rate limits?
+A: After the first sync, the analytics commands (reconcile, mrr, overage, spend, since, company show, search) run against your local SQLite mirror with zero API calls. Live calls respect a --rate-limit throttle, and sync is incremental - it only fetches what changed since the last checkpoint.
+Q: Does this replace the Pax8 portal?
+A: No. Provisioning, ordering, and support workflows stay in the portal. This skill answers the cross-entity billing and revenue questions the portal cannot compose in one place, from your terminal or agent.
+
+Governance: The skill drives the pax8-cli and pax8-mcp binaries, authenticating with a Pax8 Partner API OAuth2 client ID and secret read from the environment (PAX8_CLIENT_ID, PAX8_CLIENT_SECRET) - never logged and never sent anywhere except Pax8's own API. Read commands (reconcile, mrr, overage, spend, since, company show, search, and the find/get queries) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep subscription cancellation, contact deletion, and order creation human-only. The strongest control is the permission scope on the API credential you create.
+
 ### Servosity (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/servosity/

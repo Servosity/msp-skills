@@ -132,6 +132,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "pax8",
+      "source": "./skills/pax8",
+      "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces.",
+      "version": "0.1.0",
+      "category": "billing",
+      "tags": [
+        "pax8",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
