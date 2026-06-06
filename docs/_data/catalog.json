@@ -1,5 +1,5 @@
 {
-  "count": 24,
+  "count": 25,
   "connectors": [
     {
       "slug": "acronis",
@@ -136,6 +136,14 @@
       "category": "RMM",
       "verification": "awaiting",
       "url": "/skills/ninjaone/"
+    },
+    {
+      "slug": "pagerduty",
+      "display_name": "PagerDuty",
+      "tagline": "Triage PagerDuty incidents, on-call schedules, and escalation policies from the terminal.",
+      "category": "Incident Response",
+      "verification": "awaiting",
+      "url": "/skills/pagerduty/"
     },
     {
       "slug": "pax8",
