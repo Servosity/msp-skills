@@ -1,0 +1,113 @@
+{
+  "outcome_intro": "Ask \"who's on call for the payments service right now, and when do they hand off?\" or \"what's our MTTR by service this month?\" and get the answer in one command. PagerDuty syncs to a local SQLite mirror, so post-incident analytics, on-call coverage audits, and escalation-gap checks run instantly and offline: no Analytics add-on, no portal clicking, no per-question API call.",
+  "instead_of_say": [
+    {
+      "instead": "Clicking through the PagerDuty Analytics dashboard service by service the night before a QBR to stitch together an MTTR report",
+      "say": "What's our mean time to acknowledge and resolve by service over the last 30 days?",
+      "cli": "pagerduty-cli insights mttr --by service --since 30d"
+    },
+    {
+      "instead": "Opening every escalation policy and schedule by hand to find which services have a coverage gap",
+      "say": "Which services have a broken escalation chain or a single point of failure?",
+      "cli": "pagerduty-cli audit coverage --severity high"
+    },
+    {
+      "instead": "Pinging the team in Slack to find out who is actually on call for a service right now",
+      "say": "Who's on call for the Payments service right now, and when's the handoff?",
+      "cli": "pagerduty-cli oncall who --service \"Payments\""
+    }
+  ],
+  "pain_points": [
+    "On-call responders drown in pages - the average engineer gets roughly 50 alerts a week and only a handful matter, so the real incident hides in the noise and burnout climbs (Catchpoint 2025 SRE report).",
+    "The numbers leadership asks for at the QBR - MTTA, MTTR, who's carrying the on-call load - sit behind PagerDuty's paid Analytics tier or a CSV you assemble by hand.",
+    "Nobody notices the hole in next week's on-call schedule until an incident finds it first."
+  ],
+  "outcomes": [
+    {
+      "question": "What's on fire right now, ranked by SLA risk?",
+      "command": "pagerduty-cli pulse"
+    },
+    {
+      "question": "Who's on call for a service right now, and when's the handoff?",
+      "command": "pagerduty-cli oncall who --service \"Payments\""
+    },
+    {
+      "question": "What's our MTTA and MTTR by service this month?",
+      "command": "pagerduty-cli insights mttr --by service --since 30d"
+    },
+    {
+      "question": "Which services have a broken escalation chain or single point of failure?",
+      "command": "pagerduty-cli audit coverage --severity high"
+    },
+    {
+      "question": "Where does a schedule have nobody on call over the next two weeks?",
+      "command": "pagerduty-cli audit schedule-gaps --days 14"
+    },
+    {
+      "question": "Which responders carry the most pages and off-hours load?",
+      "command": "pagerduty-cli insights responders --since 30d"
+    },
+    {
+      "question": "Which services are the noisiest?",
+      "command": "pagerduty-cli insights noisy --top 10 --since 7d"
+    },
+    {
+      "question": "What changed right before this incident broke?",
+      "command": "pagerduty-cli incidents changes <incident-id> --window 4h"
+    },
+    {
+      "question": "What's the full timeline of this incident?",
+      "command": "pagerduty-cli incidents timeline <incident-id>"
+    },
+    {
+      "question": "Which open incidents are quietly rotting with no recent activity?",
+      "command": "pagerduty-cli insights stale --hours 24"
+    }
+  ],
+  "different_vs_wrappers": "Most PagerDuty integrations and MCP servers proxy each question into a live API call - fine for reading one incident, costly for \"MTTR by service across the quarter,\" which otherwise means PagerDuty's paid Analytics tier or a call per service. This skill syncs PagerDuty into a local SQLite mirror, so cross-object analytics (insights mttr, insights responders, audit coverage) become one offline join: instant, rate-limit-free, computed without the Analytics add-on, and the AI sees the answer, not a raw data dump.",
+  "different_vs_vendor": "PagerDuty's own AI and Analytics live in the web app and largely on paid tiers; this skill puts the same post-incident math - MTTA/MTTR, responder workload, noisy-service ranking, escalation-coverage and schedule-gap audits - in your terminal and your AI agent, computed offline from data any REST API key can read. It complements the portal; it does not replace your account.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local PagerDuty MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my PagerDuty data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Will this hit my PagerDuty API rate limits?",
+      "a": "Rarely. Read questions run against the local SQLite mirror, not the API - you sync once, then analytics, audits, and search are offline. Only sync and live writes call PagerDuty, and the CLI honors a configurable --rate-limit."
+    },
+    {
+      "q": "Do I need PagerDuty's paid Analytics add-on for MTTR reporting?",
+      "a": "No. The skill computes MTTA, MTTR, responder workload, and noisy-service rankings locally from the incidents and log entries any REST API key can read, so you get the post-incident numbers without the paid Analytics tier."
+    }
+  ],
+  "governance_summary": "The skill reads everything through your PagerDuty REST API key and writes only when you tell it to - acknowledging, resolving, snoozing, or noting incidents, and creating or editing services, schedules, and policies. Reads (pulse, insights, audit, oncall, search) are always safe to run. Routine writes should be previewed with --dry-run and approved; deletes and config changes are human-in-the-loop only. The strongest control is scoping the API key to what your workflow actually needs.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "pulse, insights mttr, insights responders, audit coverage, oncall who, search, incidents list / get / timeline",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "incidents update (acknowledge / resolve / reassign), incidents snooze, incidents notes create-incident, incidents create",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "escalation-policies delete-escalation-policy, automation-actions delete, business-services delete, addons delete",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}
