@@ -1,0 +1,20 @@
+{
+  "name": "pagerduty",
+  "version": "0.1.0",
+  "description": "The first real CLI for PagerDuty incident response and on-call management - incidents, services, schedules, escalation policies, and analytics mirrored locally, with live triage, on-call resolution, coverage audits, and MTTA/MTTR reporting no single API call returns.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/pagerduty",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "pagerduty",
+    "incident-response",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

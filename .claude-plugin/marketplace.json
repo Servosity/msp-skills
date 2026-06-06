@@ -392,6 +392,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "pagerduty",
+      "source": "./skills/pagerduty",
+      "description": "The first real CLI for PagerDuty incident response and on-call management - incidents, services, schedules, escalation policies, and analytics mirrored locally, with live triage, on-call resolution, coverage audits, and MTTA/MTTR reporting no single API call returns.",
+      "version": "0.1.0",
+      "category": "incident-response",
+      "tags": [
+        "pagerduty",
+        "incident-response",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

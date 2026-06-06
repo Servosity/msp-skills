@@ -346,6 +346,25 @@
       "tagline": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query."
     },
     {
+      "name": "pagerduty",
+      "system": "PagerDuty incident response and on-call management platform",
+      "status": "beta",
+      "skill_path": "skills/pagerduty",
+      "cli_binary": "pagerduty-cli",
+      "mcp_binary": "pagerduty-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "PagerDuty",
+      "vendor_trademark_owner": "PagerDuty, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pagerduty/install.sh)",
+      "install_mcp_doc": "skills/pagerduty/mcp-install.md",
+      "description": "The first real CLI for PagerDuty incident response and on-call management - incidents, services, schedules, escalation policies, and analytics mirrored locally, with live triage, on-call resolution, coverage audits, and MTTA/MTTR reporting no single API call returns.",
+      "verification": "awaiting",
+      "category": "Incident Response",
+      "tagline": "Triage PagerDuty incidents, on-call schedules, and escalation policies from the terminal."
+    },
+    {
       "name": "pax8",
       "system": "Pax8 cloud marketplace billing, subscriptions, reconciliation, MRR, and usage overages",
       "status": "beta",

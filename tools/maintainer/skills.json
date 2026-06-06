@@ -368,6 +368,29 @@
         "evidence": null
       }
     },
+    "pagerduty": {
+      "system": "PagerDuty incident response and on-call management platform",
+      "status": "beta",
+      "cli_binary": "pagerduty-cli",
+      "mcp_binary": "pagerduty-mcp",
+      "vendor": "PagerDuty",
+      "vendor_trademark_owner": "PagerDuty, Inc.",
+      "first_party": false,
+      "category": "Incident Response",
+      "display_name": "PagerDuty",
+      "tagline": "Triage PagerDuty incidents, on-call schedules, and escalation policies from the terminal.",
+      "cli_hash": "sha256:36391dfbded332a0db48405fe8151efffbe19324716653e518a5cae354ed15ce",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "pax8": {
       "system": "Pax8 cloud marketplace billing, subscriptions, reconciliation, MRR, and usage overages",
       "status": "beta",

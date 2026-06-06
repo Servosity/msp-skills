@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "pagerduty-mcp",
+  "display_name": "PagerDuty",
+  "version": "0.1.0",
+  "description": "The first real CLI for PagerDuty incident response and on-call management - incidents, services, schedules, escalation policies, and analytics mirrored locally, with live triage, on-call resolution, coverage audits, and MTTA/MTTR reporting no single API call returns.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/pagerduty-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/pagerduty-mcp",
+      "args": [],
+      "env": {
+        "PAGERDUTY_API_KEY": "${user_config.pagerduty_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "pagerduty_api_key": {
+      "type": "string",
+      "title": "PAGERDUTY_API_KEY",
+      "description": "Sets PAGERDUTY_API_KEY for the PagerDuty MCP server. A PagerDuty REST API key (the CLI adds the required \"Token token=\" prefix).",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}
