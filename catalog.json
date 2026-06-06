@@ -496,6 +496,25 @@
       "verification": "awaiting",
       "category": "Security",
       "tagline": "Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking."
+    },
+    {
+      "name": "xero",
+      "system": "the Xero cloud accounting platform",
+      "status": "beta",
+      "skill_path": "skills/xero",
+      "cli_binary": "xero-cli",
+      "mcp_binary": "xero-mcp",
+      "version": "4.22.0",
+      "license": "Apache-2.0",
+      "vendor": "Xero",
+      "vendor_trademark_owner": "Xero Limited",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/xero/install.sh)",
+      "install_mcp_doc": "skills/xero/mcp-install.md",
+      "description": "Every Xero Accounting read plus a local SQLite ledger  -  aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
+      "verification": "awaiting",
+      "category": "Billing",
+      "tagline": "Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal \u2014 offline, in one call."
     }
   ]
 }
