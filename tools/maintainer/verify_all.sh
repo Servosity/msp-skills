@@ -105,11 +105,32 @@ fi
 
 echo "== Install scripts resolve cleanly (dry run) =="
 for sh in skills/*/install.sh; do
-  out="$(DRY_RUN=1 bash "$sh" 2>&1 || true)"
-  if echo "$out" | grep -q 'github.com/servosity/msp-skills' && ! echo "$out" | grep -qi 'PLACEHOLDER'; then
-    pass "$(dirname "$sh" | xargs basename) install.sh URLs resolve"
+  slug="$(basename "$(dirname "$sh")")"
+  # First-release chicken-and-egg: a never-released skill (cli_hash_at_release
+  # null in skills.json) has no <slug>-v* tag yet, so the live tag lookup can
+  # never succeed. Pin the release base to the version it WILL ship as - the
+  # script's full logic still runs; only the tag lookup is bypassed.
+  pin="$(SLUG="$slug" python3 -c "
+import json, os
+slug = os.environ['SLUG']
+reg = json.load(open('tools/maintainer/skills.json'))['skills'].get(slug, {})
+if reg and not reg.get('markdown_only') and reg.get('cli_hash_at_release') in (None, ''):
+    print(json.load(open(f'skills/{slug}/manifest.json'))['version'])
+")"
+  if [ -n "$pin" ]; then
+    out="$(DRY_RUN=1 MSP_SKILLS_RELEASE_BASE="https://github.com/servosity/msp-skills/releases/download/${slug}-v${pin}" bash "$sh" 2>&1 || true)"
+    if echo "$out" | grep -q 'github.com/servosity/msp-skills' && ! echo "$out" | grep -qi 'PLACEHOLDER'; then
+      pass "$slug install.sh URLs resolve (first release pending - pinned ${slug}-v${pin})"
+    else
+      echo "$out"; fail "$(dirname "$sh") install.sh URL"
+    fi
   else
-    echo "$out"; fail "$(dirname "$sh") install.sh URL"
+    out="$(DRY_RUN=1 bash "$sh" 2>&1 || true)"
+    if echo "$out" | grep -q 'github.com/servosity/msp-skills' && ! echo "$out" | grep -qi 'PLACEHOLDER'; then
+      pass "$slug install.sh URLs resolve"
+    else
+      echo "$out"; fail "$(dirname "$sh") install.sh URL"
+    fi
   fi
 done
 

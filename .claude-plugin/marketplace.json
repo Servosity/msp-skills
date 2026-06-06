@@ -86,6 +86,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "n-central",
+      "source": "./skills/n-central",
+      "description": "Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, issue-triage rollups, and a JWT-expiry guardian no other N-central tool has.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "n-central",
+        "n-able n-central",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

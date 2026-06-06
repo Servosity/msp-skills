@@ -17,6 +17,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)
 - Concierge (Meta) - Tell it your stack - it recommends and installs the right connectors.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/msp-skills-concierge/
+- N-able N-central (RMM) - Find any device, triage issues, and search across every client by asking.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/n-central/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/n-central/install.sh)
 - Servosity (Backup/DR) - Backup status, failures, and QBR-ready history for every client by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/servosity/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)

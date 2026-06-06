@@ -1,5 +1,5 @@
 {
-  "count": 4,
+  "count": 5,
   "connectors": [
     {
       "slug": "connectwise-manage",
@@ -24,6 +24,14 @@
       "category": "CRM",
       "verification": "live-verified",
       "url": "/skills/hubspot/"
+    },
+    {
+      "slug": "n-central",
+      "display_name": "N-able N-central",
+      "tagline": "Find any device, triage issues, and search across every client by asking.",
+      "category": "RMM",
+      "verification": "awaiting",
+      "url": "/skills/n-central/"
     },
     {
       "slug": "servosity",
