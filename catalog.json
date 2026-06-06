@@ -143,7 +143,7 @@
       "skill_path": "skills/superops",
       "cli_binary": "superops-cli",
       "mcp_binary": "superops-mcp",
-      "version": "4.22.0",
+      "version": "0.1.0",
       "license": "Apache-2.0",
       "vendor": "SuperOps",
       "vendor_trademark_owner": "SuperOps Inc.",

@@ -176,7 +176,7 @@
       "tagline": "Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking.",
       "cli_hash": "sha256:77f28a27ec9489fa0e8e3df425f3445cdfab5afe5f3a23a3a19154ddff335d20",
       "template_version": 3,
-      "version": "4.22.0",
+      "version": "0.1.0",
       "cli_hash_at_release": null,
       "has_video": true,
       "live_verified": {
