@@ -194,6 +194,25 @@
       "tagline": "Audit Hudu documentation hygiene, find stale passwords and expiring certs, and search every company offline."
     },
     {
+      "name": "huntress",
+      "system": "managed endpoint detection and response (EDR) security platform",
+      "status": "beta",
+      "skill_path": "skills/huntress",
+      "cli_binary": "huntress-cli",
+      "mcp_binary": "huntress-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Huntress",
+      "vendor_trademark_owner": "Huntress Labs, Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/huntress/install.sh)",
+      "install_mcp_doc": "skills/huntress/mcp-install.md",
+      "description": "Every Huntress endpoint, plus a local SQLite mirror that delivers fleet-wide incident, coverage, and billing rollups the API and official MCP can't.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Triage Huntress incidents and coverage gaps across every client org from one queue."
+    },
+    {
       "name": "itglue",
       "system": "IT Glue documentation platform",
       "status": "beta",

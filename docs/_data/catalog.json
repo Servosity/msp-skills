@@ -1,5 +1,5 @@
 {
-  "count": 20,
+  "count": 21,
   "connectors": [
     {
       "slug": "acronis",
@@ -72,6 +72,14 @@
       "category": "Documentation",
       "verification": "awaiting",
       "url": "/skills/hudu/"
+    },
+    {
+      "slug": "huntress",
+      "display_name": "Huntress",
+      "tagline": "Triage Huntress incidents and coverage gaps across every client org from one queue.",
+      "category": "Security",
+      "verification": "awaiting",
+      "url": "/skills/huntress/"
     },
     {
       "slug": "itglue",

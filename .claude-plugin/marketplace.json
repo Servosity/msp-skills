@@ -330,6 +330,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "huntress",
+      "source": "./skills/huntress",
+      "description": "Every Huntress endpoint, plus a local SQLite mirror that delivers fleet-wide incident, coverage, and billing rollups the API and official MCP can't.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "huntress",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
