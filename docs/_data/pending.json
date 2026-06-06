@@ -125,6 +125,13 @@
     "current_hash": "sha256:78c736dbe18ce38fe022df3ecf340b7c717b6bd7cc469eaf647b187b47c66791",
     "released_hash": "sha256:78c736dbe18ce38fe022df3ecf340b7c717b6bd7cc469eaf647b187b47c66791"
   },
+  "pagerduty": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:36391dfbded332a0db48405fe8151efffbe19324716653e518a5cae354ed15ce",
+    "released_hash": null
+  },
   "pax8": {
     "state": "up-to-date",
     "version": "0.1.0",
