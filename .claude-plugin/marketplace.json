@@ -58,7 +58,7 @@
       "name": "hubspot",
       "source": "./skills/hubspot",
       "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "crm",
       "tags": [
         "hubspot",
