@@ -1,10 +1,10 @@
 {
   "acronis": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:5aee353c2bab50f319fa4768e4461ea0bda3fdb6fa8eeda8b3fa921fb283bee6",
-    "released_hash": null
+    "released_hash": "sha256:5aee353c2bab50f319fa4768e4461ea0bda3fdb6fa8eeda8b3fa921fb283bee6"
   },
   "autotask": {
     "state": "up-to-date",
@@ -27,12 +27,19 @@
     "current_hash": "sha256:a0617e8133dbdfbb42b9da1f1412fa9b6eb0ad684af373cfa7d540d58decd602",
     "released_hash": "sha256:a0617e8133dbdfbb42b9da1f1412fa9b6eb0ad684af373cfa7d540d58decd602"
   },
+  "crowdstrike": {
+    "state": "version-pending",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:232b3a19180ae6955758434e88d786d9c683eb17ba45f98761b26c063574c7b3",
+    "released_hash": "sha256:232b3a19180ae6955758434e88d786d9c683eb17ba45f98761b26c063574c7b3"
+  },
   "datto-rmm": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:a013e2d6c3503f228fba1379e54e8d1c46a2f58c92e83852bd90e8872221b4da",
-    "released_hash": null
+    "released_hash": "sha256:a013e2d6c3503f228fba1379e54e8d1c46a2f58c92e83852bd90e8872221b4da"
   },
   "halopsa": {
     "state": "up-to-date",
@@ -42,11 +49,11 @@
     "released_hash": "sha256:68415b40e97284f38a352bb2b1cba65d33d58d34d42bf67aedd40d533c016d44"
   },
   "hubspot": {
-    "state": "binary-pending",
-    "version": "0.1.0",
+    "state": "version-pending",
+    "version": "0.1.1",
     "latest_tag": "hubspot-v0.1.0",
     "current_hash": "sha256:4ec274f47091f317aff6a1c2f816410df2f18d6d270de4a4892d7fedb616fd7d",
-    "released_hash": "sha256:50cc2d03171acd1232def91fc8fa118aa68feff37236f83d5bb429c4ef0a41e7"
+    "released_hash": "sha256:4ec274f47091f317aff6a1c2f816410df2f18d6d270de4a4892d7fedb616fd7d"
   },
   "microsoft-graph": {
     "state": "up-to-date",
