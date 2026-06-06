@@ -1,0 +1,47 @@
+{
+  "manifest_version": "0.3",
+  "name": "datto-bcdr-mcp",
+  "display_name": "Datto BCDR",
+  "version": "0.1.0",
+  "description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/datto-bcdr-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/datto-bcdr-mcp",
+      "args": [],
+      "env": {
+        "DATTO_BCDR_PUBLIC_KEY": "${user_config.datto_bcdr_public_key}",
+        "DATTO_BCDR_SECRET_KEY": "${user_config.datto_bcdr_secret_key}"
+      }
+    }
+  },
+  "user_config": {
+    "datto_bcdr_public_key": {
+      "type": "string",
+      "title": "DATTO_BCDR_PUBLIC_KEY",
+      "description": "Sets DATTO_BCDR_PUBLIC_KEY for the Datto BCDR MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "datto_bcdr_secret_key": {
+      "type": "string",
+      "title": "DATTO_BCDR_SECRET_KEY",
+      "description": "Sets DATTO_BCDR_SECRET_KEY for the Datto BCDR MCP server.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

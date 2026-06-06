@@ -231,6 +231,45 @@ A: No. The console stays best for hunting, RTR sessions, policy authoring, and t
 
 Governance: The skill drives the crowdstrike-cli and crowdstrike-mcp binaries, authenticating with a Falcon API client (FALCON_CLIENT_ID + FALCON_CLIENT_SECRET, plus an optional CROWDSTRIKE_OAUTH_SCOPE) read from the environment, never logged and never sent anywhere except the CrowdStrike API. The read commands (every fleet rollup, the alerts/devices/spotlight/policy/mssp query and get commands, search, doctor) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the destructive tier (devices delete-host-groups, policy delete-prevention-policies, the mssp delete-* and deleted-roles commands) and the devices perform-action-v2 host actions (contain, delete) human-only. The strongest control is the scope you grant the Falcon API client.
 
+### Datto BCDR (Backup/DR)
+
+Page: https://msp-skills.compoundingteams.com/skills/datto-bcdr/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-bcdr/install.sh)
+
+Ask in plain English which Datto backups failed their last screenshot verification, which clients are most at risk, and which appliance fills up first - and get the answer across your whole fleet in seconds. The Datto BCDR API answers one appliance at a time; this skill mirrors every device, agent, and alert locally, so the fleet-wide question the Partner Portal can't answer becomes one instant command.
+
+Outcomes (question -> command your AI agent runs):
+- Which protected machines failed their last backup screenshot verification? -> datto-bcdr-cli screenshots --failed --stale-days 7 --agent
+- Which agents are behind on local snapshots or offsite sync? -> datto-bcdr-cli stale-backups --local-days 1 --offsite-days 3 --agent
+- What percentage of my fleet is actually recoverable right now? -> datto-bcdr-cli recoverability --agent
+- Which clients are most at risk across backups, alerts, and storage? -> datto-bcdr-cli client-risk --top 10 --agent
+- Show me every open alert across the whole fleet, grouped by client. -> datto-bcdr-cli alert-triage --group-by client --agent
+- Which appliance runs out of local or offsite storage first? -> datto-bcdr-cli storage-runway --threshold-pct 85 --agent
+- Which protected machines are paused, archived, or on an appliance that went dark? -> datto-bcdr-cli forgotten-assets --offline-days 2 --agent
+- Which machines are running an outdated backup agent? -> datto-bcdr-cli agent-versions --outdated --agent
+- Give me a one-page backup health report for a single client before the QBR. -> datto-bcdr-cli client-report "Acme Corp" --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Datto BCDR MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Datto BCDR data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need to be a Datto partner to use this?
+A: Yes. It uses the Datto BCDR REST API, which needs a partner-generated public/secret key pair from the Partner Portal under Admin > Integrations. If you manage Datto BCDR appliances, you already qualify - the CLI base64-encodes the key pair into the Authorization header on every request.
+Q: Will this hit my Datto BCDR API rate limits?
+A: It's gentle by design. The first sync pulls each resource with bounded pagination, and you can cap throughput with --rate-limit. After that, fleet questions run against the local mirror and make zero API calls - --data-source local never touches the API at all.
+Q: Does this replace the Datto Partner Portal?
+A: No. It answers the fleet-wide, cross-client questions the per-appliance portal can't, and it's read-only for everyday use - you still use the portal for restores, virtualization, and device configuration.
+Q: Can it change anything in Datto, or just read?
+A: Read-only for everyday use - every analysis, list, and report command only reads. The single exception is `import`, an explicit bulk data-load command you would never run by accident; preview it with --dry-run first.
+
+Governance: The datto-bcdr skill is read-only for everyday use: it reads your Datto BCDR fleet (devices, agents, shares, alerts, screenshots) and writes only to a local SQLite mirror on your machine. The single API-mutating command is `import`, a bulk data load you preview with --dry-run; nothing else can change remote state. Scope the partner key pair to what your workflow needs, and keep autonomous agents to read plus previewed imports.
+
 ### Datto RMM (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/datto-rmm/

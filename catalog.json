@@ -118,6 +118,25 @@
       "tagline": "Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking."
     },
     {
+      "name": "datto-bcdr",
+      "system": "Datto BCDR: appliances, agents, screenshot-verification audits, stale-backup roll-ups, recoverability KPI, and cross-client alert triage from a local mirror",
+      "status": "beta",
+      "skill_path": "skills/datto-bcdr",
+      "cli_binary": "datto-bcdr-cli",
+      "mcp_binary": "datto-bcdr-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Datto BCDR",
+      "vendor_trademark_owner": "Datto, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-bcdr/install.sh)",
+      "install_mcp_doc": "skills/datto-bcdr/mcp-install.md",
+      "description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk.",
+      "verification": "awaiting",
+      "category": "Backup/DR",
+      "tagline": "Fleet-wide Datto BCDR answers - failed screenshots, stale backups, at-risk clients - from a local mirror in one ask."
+    },
+    {
       "name": "datto-rmm",
       "system": "Datto RMM: devices, alerts, patch and AV gaps, warranty, agent drift, and fleet QBR scorecards from a local mirror",
       "status": "beta",

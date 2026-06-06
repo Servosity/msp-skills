@@ -21,6 +21,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - CrowdStrike Falcon (Security) - Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/crowdstrike/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/crowdstrike/install.sh)
+- Datto BCDR (Backup/DR) - Fleet-wide Datto BCDR answers - failed screenshots, stale backups, at-risk clients - from a local mirror in one ask.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/datto-bcdr/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-bcdr/install.sh)
 - Datto RMM (RMM) - Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/datto-rmm/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-rmm/install.sh)

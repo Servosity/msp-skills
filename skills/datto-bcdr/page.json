@@ -1,0 +1,117 @@
+{
+  "outcome_intro": "Ask in plain English which Datto backups failed their last screenshot verification, which clients are most at risk, and which appliance fills up first - and get the answer across your whole fleet in seconds. The Datto BCDR API answers one appliance at a time; this skill mirrors every device, agent, and alert locally, so the fleet-wide question the Partner Portal can't answer becomes one instant command.",
+  "instead_of_say": [
+    {
+      "instead": "Open every SIRIS and ALTO in the Datto Partner Portal one at a time and read down the screenshot column to find backups that won't boot",
+      "say": "Which protected machines failed their last backup screenshot verification, across every client?",
+      "cli": "datto-bcdr-cli screenshots --failed --stale-days 7 --agent"
+    },
+    {
+      "instead": "Click into each appliance to check recovery-point dates, hoping you catch a backup that quietly stopped taking snapshots",
+      "say": "Which agents haven't taken a local snapshot or synced offsite recently, fleet-wide?",
+      "cli": "datto-bcdr-cli stale-backups --local-days 1 --offsite-days 3 --agent"
+    },
+    {
+      "instead": "Build a per-client risk picture by hand in a spreadsheet before a QBR or a renewal conversation",
+      "say": "Which of my clients are most at risk right now in Datto?",
+      "cli": "datto-bcdr-cli client-risk --top 10 --agent"
+    }
+  ],
+  "pain_points": [
+    "A backup that fails screenshot verification is silently unbootable - you find out at restore time, when the client is already down, because the Partner Portal makes you check bootability one appliance at a time.",
+    "Datto's API and portal are scoped per-device, so the cross-client question every owner actually asks - 'are all my backups recoverable?' - means walking every SIRIS and ALTO by hand.",
+    "An agent that quietly stops taking recovery points, or one paused 'temporarily' months ago, never fires an alert - the gap only surfaces when someone needs that machine restored."
+  ],
+  "outcomes": [
+    {
+      "question": "Which protected machines failed their last backup screenshot verification?",
+      "command": "datto-bcdr-cli screenshots --failed --stale-days 7 --agent"
+    },
+    {
+      "question": "Which agents are behind on local snapshots or offsite sync?",
+      "command": "datto-bcdr-cli stale-backups --local-days 1 --offsite-days 3 --agent"
+    },
+    {
+      "question": "What percentage of my fleet is actually recoverable right now?",
+      "command": "datto-bcdr-cli recoverability --agent"
+    },
+    {
+      "question": "Which clients are most at risk across backups, alerts, and storage?",
+      "command": "datto-bcdr-cli client-risk --top 10 --agent"
+    },
+    {
+      "question": "Show me every open alert across the whole fleet, grouped by client.",
+      "command": "datto-bcdr-cli alert-triage --group-by client --agent"
+    },
+    {
+      "question": "Which appliance runs out of local or offsite storage first?",
+      "command": "datto-bcdr-cli storage-runway --threshold-pct 85 --agent"
+    },
+    {
+      "question": "Which protected machines are paused, archived, or on an appliance that went dark?",
+      "command": "datto-bcdr-cli forgotten-assets --offline-days 2 --agent"
+    },
+    {
+      "question": "Which machines are running an outdated backup agent?",
+      "command": "datto-bcdr-cli agent-versions --outdated --agent"
+    },
+    {
+      "question": "Give me a one-page backup health report for a single client before the QBR.",
+      "command": "datto-bcdr-cli client-report \"Acme Corp\" --agent"
+    }
+  ],
+  "different_vs_wrappers": "Most Datto BCDR integrations and MCP servers proxy each question into a single live API call - and because the Datto API is strictly per-appliance, that means one call per device just to answer one fleet question. This skill syncs your entire estate - every device, agent, share, and alert - into a local SQLite mirror, so a question like 'which backups failed verification everywhere' becomes one offline join: instant, fully paginated, and reproducible later as a snapshot you can diff.",
+  "different_vs_vendor": "The Datto Partner Portal answers backup-health questions one appliance at a time and has no cross-client recoverability rollup; this skill answers them across every client at once and hands the result to the AI agent you already work in - it complements the portal you still use for restores and device config, it doesn't replace it.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Datto BCDR MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Datto BCDR data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Do I need to be a Datto partner to use this?",
+      "a": "Yes. It uses the Datto BCDR REST API, which needs a partner-generated public/secret key pair from the Partner Portal under Admin > Integrations. If you manage Datto BCDR appliances, you already qualify - the CLI base64-encodes the key pair into the Authorization header on every request."
+    },
+    {
+      "q": "Will this hit my Datto BCDR API rate limits?",
+      "a": "It's gentle by design. The first sync pulls each resource with bounded pagination, and you can cap throughput with --rate-limit. After that, fleet questions run against the local mirror and make zero API calls - --data-source local never touches the API at all."
+    },
+    {
+      "q": "Does this replace the Datto Partner Portal?",
+      "a": "No. It answers the fleet-wide, cross-client questions the per-appliance portal can't, and it's read-only for everyday use - you still use the portal for restores, virtualization, and device configuration."
+    },
+    {
+      "q": "Can it change anything in Datto, or just read?",
+      "a": "Read-only for everyday use - every analysis, list, and report command only reads. The single exception is `import`, an explicit bulk data-load command you would never run by accident; preview it with --dry-run first."
+    }
+  ],
+  "governance_summary": "The datto-bcdr skill is read-only for everyday use: it reads your Datto BCDR fleet (devices, agents, shares, alerts, screenshots) and writes only to a local SQLite mirror on your machine. The single API-mutating command is `import`, a bulk data load you preview with --dry-run; nothing else can change remote state. Scope the partner key pair to what your workflow needs, and keep autonomous agents to read plus previewed imports.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "screenshots, stale-backups, recoverability, client-risk, alert-triage, storage-runway, forgotten-assets, agent-versions, client-report, device/agent/asset/shares/alert/vm-restore, sync, search, analytics",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "import (POST each record to the Datto BCDR API)",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Credential / config",
+      "examples": "auth set-token, auth logout (replace or clear stored credentials)",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}
