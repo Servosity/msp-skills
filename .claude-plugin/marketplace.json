@@ -192,6 +192,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "microsoft-graph",
+      "source": "./skills/microsoft-graph",
+      "description": "The maintained single-binary successor to the retiring mgc \u2014 every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "microsoft-graph",
+        "microsoft graph",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

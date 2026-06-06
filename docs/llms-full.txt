@@ -182,6 +182,42 @@ A: It works against any portal that issues a Private App access token with the r
 
 Governance: The skill drives the hubspot-cli and hubspot-mcp binaries, authenticating only with HUBSPOT_ACCESS_TOKEN read from the environment - never written to disk, logged, or sent anywhere except the HubSpot API. Read commands (reports, rollups, search) are always safe and can change nothing. Writes are not gated by default: --dry-run is an opt-in flag (default off) that previews a request without sending, so raw create/update/delete commands send immediately on first run unless your agent passes --dry-run first. The one built-in mutation gate is on contacts bulk-update, and it only fires above 100 rows (smaller batches dispatch immediately with a one-line bypass warning). The recommended policy is an agent-level rule: require the agent to show the exact command and get human approval before any mutation, and require a human for any destructive or credential-touching command. The strongest control is the scope you grant the Private App token.
 
+### Microsoft Graph (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/microsoft-graph/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/microsoft-graph/install.sh)
+
+Microsoft retires the Graph CLI (mgc) on August 28, 2026 and points admins at the heavier PowerShell SDK. This is the lightweight successor: one cross-platform binary, no .NET or PowerShell runtime. Ask your AI "which M365 licenses are we wasting," "who holds privileged admin right now," or "what's new in Defender since yesterday," and get cross-tenant answers computed offline from a local SQLite mirror - one query instead of CSV exports and portal tab-hopping.
+
+Outcomes (question -> command your AI agent runs):
+- Which SKUs are we paying for but not fully using, ranked by wasted seats? -> microsoft-graph-cli licenses waste --agent
+- Which disabled or guest accounts still hold a paid license? -> microsoft-graph-cli licenses orphans --json
+- Who exactly is consuming one specific SKU before I reclaim seats? -> microsoft-graph-cli licenses map "ENTERPRISEPACK" --agent
+- Who holds a privileged directory role right now, and which holders are guest or disabled? -> microsoft-graph-cli admins audit --agent
+- What open security alerts are new since yesterday, by severity and source? -> microsoft-graph-cli security triage --since 24h --agent
+- Which Intune devices are non-compliant, unencrypted, or stale this month? -> microsoft-graph-cli managed-devices drift --days 30 --agent
+- Which groups are ownerless, empty, or guest-heavy across the tenant? -> microsoft-graph-cli groups risk --agent
+- Where does this tenant stand overall - users, license waste, admins, alerts, device drift? -> microsoft-graph-cli tenant snapshot --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Microsoft Graph MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Microsoft 365 data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local SQLite mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills - the token is read from your environment and used only against the Microsoft Graph API.
+Q: Will this hit my Microsoft Graph throttling limits?
+A: The local mirror exists so reads stop hitting Graph. After the first `pull`, the cross-entity views (licenses waste/orphans/map, admins audit, security triage, managed-devices drift, groups risk, tenant snapshot) run against local SQLite with zero API calls. Live calls follow @odata.nextLink and respect a `--rate-limit` throttle, and pull treats resources your token can't reach as warnings, not failures.
+Q: Is this the replacement for the Microsoft Graph CLI (mgc) that's being retired?
+A: It is built as the lightweight successor for the MSP read-and-report core - directory, licensing, security, and device surfaces - as one cross-platform Go binary with no .NET or PowerShell runtime. Microsoft's own recommended path is the PowerShell SDK; this is the option for teams who want a scriptable single binary and their AI agent instead. It is not affiliated with or endorsed by Microsoft.
+Q: Does it use a delegated or app-only token?
+A: Either. Run `auth login --tenant <id> --client-id <id> --client-secret <secret>` to mint and cache an app-only (client-credentials) token for unattended MSP use, or export a pre-minted token as MICROSOFT_GRAPH_TOKEN. Read scopes such as Directory.Read.All, RoleManagement.Read.Directory, SecurityAlert.Read.All, and DeviceManagementManagedDevices.Read.All must be granted and admin-consented. App-only tokens have no /me, so `users me` is delegated-only.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: The skill drives the microsoft-graph-cli and microsoft-graph-mcp binaries, authenticating with a MICROSOFT_GRAPH_TOKEN read from the environment - never logged, never written to disk, never sent anywhere except the Microsoft Graph API. Every typed command is read-only: users, groups, directory roles, licenses, devices, managed devices, security alerts and incidents, and the cross-entity analytics change nothing. The single write path is the explicit `import` command (a JSONL-to-POST create path), which previews with `--dry-run`. The strongest control is the scope of the token you mint - grant read-only Graph scopes and the CLI can only read.
+
 ### Concierge (Meta)
 
 Page: https://msp-skills.compoundingteams.com/skills/msp-skills-concierge/

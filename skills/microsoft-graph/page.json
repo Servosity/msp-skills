@@ -1,0 +1,109 @@
+{
+  "outcome_intro": "Microsoft retires the Graph CLI (mgc) on August 28, 2026 and points admins at the heavier PowerShell SDK. This is the lightweight successor: one cross-platform binary, no .NET or PowerShell runtime. Ask your AI \"which M365 licenses are we wasting,\" \"who holds privileged admin right now,\" or \"what's new in Defender since yesterday,\" and get cross-tenant answers computed offline from a local SQLite mirror - one query instead of CSV exports and portal tab-hopping.",
+  "instead_of_say": [
+    {
+      "instead": "Exporting subscribedSku CSVs from the M365 admin center and reconciling assigned-versus-used seats in a spreadsheet to find license spend you can reclaim at renewal",
+      "say": "Which M365 licenses are we paying for but not using?",
+      "cli": "microsoft-graph-cli licenses waste --agent"
+    },
+    {
+      "instead": "Clicking through Entra > Roles and administrators, opening each privileged role, and reading its members one role at a time to see who can administer the tenant",
+      "say": "Who holds global admin or other privileged roles right now?",
+      "cli": "microsoft-graph-cli admins audit --agent"
+    },
+    {
+      "instead": "Paging through the Defender portal every morning to work out which alerts are new and still open since yesterday",
+      "say": "What security alerts are new and still open since yesterday?",
+      "cli": "microsoft-graph-cli security triage --since 24h --agent"
+    }
+  ],
+  "pain_points": [
+    "Microsoft is retiring the Microsoft Graph CLI (mgc) on August 28, 2026 - deprecated since September 2025, no new features, security fixes only - and steering everyone to the PowerShell SDK (Microsoft 365 Developer Blog, \"Microsoft Graph CLI retirement\"). MSPs who scripted tenant reporting on a lightweight cross-platform binary now face a heavier .NET/PowerShell dependency on every machine that runs it.",
+    "The questions an MSP actually asks about a tenant - how much license spend is recoverable, who holds admin, which devices are drifting out of compliance - span multiple Graph entities, and no single Graph endpoint returns them. The admin center and Defender/Intune portals answer one object at a time, so each question becomes a CSV export plus a spreadsheet join or a click-path across modules.",
+    "Microsoft Graph throttles bulk reads and paginates everything behind @odata.nextLink, so any script that wants a tenant-wide view - all users with their licenses, every privileged role with its members - has to fetch, page, cache, and join locally rather than ask the API for the answer directly."
+  ],
+  "outcomes": [
+    {
+      "question": "Which SKUs are we paying for but not fully using, ranked by wasted seats?",
+      "command": "microsoft-graph-cli licenses waste --agent"
+    },
+    {
+      "question": "Which disabled or guest accounts still hold a paid license?",
+      "command": "microsoft-graph-cli licenses orphans --json"
+    },
+    {
+      "question": "Who exactly is consuming one specific SKU before I reclaim seats?",
+      "command": "microsoft-graph-cli licenses map \"ENTERPRISEPACK\" --agent"
+    },
+    {
+      "question": "Who holds a privileged directory role right now, and which holders are guest or disabled?",
+      "command": "microsoft-graph-cli admins audit --agent"
+    },
+    {
+      "question": "What open security alerts are new since yesterday, by severity and source?",
+      "command": "microsoft-graph-cli security triage --since 24h --agent"
+    },
+    {
+      "question": "Which Intune devices are non-compliant, unencrypted, or stale this month?",
+      "command": "microsoft-graph-cli managed-devices drift --days 30 --agent"
+    },
+    {
+      "question": "Which groups are ownerless, empty, or guest-heavy across the tenant?",
+      "command": "microsoft-graph-cli groups risk --agent"
+    },
+    {
+      "question": "Where does this tenant stand overall - users, license waste, admins, alerts, device drift?",
+      "command": "microsoft-graph-cli tenant snapshot --agent"
+    }
+  ],
+  "different_vs_wrappers": "Most Microsoft Graph integrations and MCP servers proxy each question into a live Graph call - fine for one record, but a tenant-wide question becomes a paginate-and-join dance the AI burns context on, and Graph throttles the bulk reads those questions need. This skill pulls the MSP-relevant surface into a local SQLite mirror, so the cross-entity answers - license waste, orphaned SKUs, privileged-access audit, device drift, tenant snapshot - become one local join: instant, offline, and the AI sees the answer, not pages of raw Graph JSON.",
+  "different_vs_vendor": "It is the lightweight replacement for the retiring mgc rather than a competitor to the platform: the M365 admin center, Entra, Defender, and Intune portals stay best for in-console workflows and writes, while this skill brings the read-and-report core to whichever AI agent you already use - as one cross-platform binary with no .NET or PowerShell runtime - and answers the cross-entity questions no single portal screen composes.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Microsoft Graph MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Microsoft 365 data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local SQLite mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills - the token is read from your environment and used only against the Microsoft Graph API."
+    },
+    {
+      "q": "Will this hit my Microsoft Graph throttling limits?",
+      "a": "The local mirror exists so reads stop hitting Graph. After the first `pull`, the cross-entity views (licenses waste/orphans/map, admins audit, security triage, managed-devices drift, groups risk, tenant snapshot) run against local SQLite with zero API calls. Live calls follow @odata.nextLink and respect a `--rate-limit` throttle, and pull treats resources your token can't reach as warnings, not failures."
+    },
+    {
+      "q": "Is this the replacement for the Microsoft Graph CLI (mgc) that's being retired?",
+      "a": "It is built as the lightweight successor for the MSP read-and-report core - directory, licensing, security, and device surfaces - as one cross-platform Go binary with no .NET or PowerShell runtime. Microsoft's own recommended path is the PowerShell SDK; this is the option for teams who want a scriptable single binary and their AI agent instead. It is not affiliated with or endorsed by Microsoft."
+    },
+    {
+      "q": "Does it use a delegated or app-only token?",
+      "a": "Either. Run `auth login --tenant <id> --client-id <id> --client-secret <secret>` to mint and cache an app-only (client-credentials) token for unattended MSP use, or export a pre-minted token as MICROSOFT_GRAPH_TOKEN. Read scopes such as Directory.Read.All, RoleManagement.Read.Directory, SecurityAlert.Read.All, and DeviceManagementManagedDevices.Read.All must be granted and admin-consented. App-only tokens have no /me, so `users me` is delegated-only."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    }
+  ],
+  "governance_summary": "The skill drives the microsoft-graph-cli and microsoft-graph-mcp binaries, authenticating with a MICROSOFT_GRAPH_TOKEN read from the environment - never logged, never written to disk, never sent anywhere except the Microsoft Graph API. Every typed command is read-only: users, groups, directory roles, licenses, devices, managed devices, security alerts and incidents, and the cross-entity analytics change nothing. The single write path is the explicit `import` command (a JSONL-to-POST create path), which previews with `--dry-run`. The strongest control is the scope of the token you mint - grant read-only Graph scopes and the CLI can only read.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "microsoft-graph-cli licenses waste --agent; microsoft-graph-cli admins audit --agent; microsoft-graph-cli security triage --since 24h --agent; microsoft-graph-cli managed-devices drift --days 30 --agent; microsoft-graph-cli groups risk --agent; microsoft-graph-cli tenant snapshot --agent; microsoft-graph-cli users list --top 50 --agent; microsoft-graph-cli pull; microsoft-graph-cli search \"disk full\"",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (import escape hatch)",
+      "examples": "microsoft-graph-cli import <resource> --input data.jsonl - the only write path; issues a POST per JSONL record. Pass --dry-run to preview the requests without sending",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "No typed destructive command exists; the CLI exposes no delete or update path. Any irreversible change would require a write the typed commands do not provide",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

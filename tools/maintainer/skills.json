@@ -100,6 +100,29 @@
         "evidence": "Damien: verified live against the Servosity HubSpot portal (2026-06-05)"
       }
     },
+    "microsoft-graph": {
+      "system": "Microsoft 365 / Entra tenant administration via Microsoft Graph",
+      "status": "beta",
+      "cli_binary": "microsoft-graph-cli",
+      "mcp_binary": "microsoft-graph-mcp",
+      "vendor": "Microsoft Graph",
+      "vendor_trademark_owner": "Microsoft Corporation",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Microsoft Graph",
+      "tagline": "Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking.",
+      "cli_hash": "sha256:af60ea720c8cb8008855dba17f0f5a5893ae6356c29f79bc806ec152a3a5ef66",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "msp-skills-concierge": {
       "system": "Connector recommendations + guided install for the msp-skills catalog",
       "status": "beta",
