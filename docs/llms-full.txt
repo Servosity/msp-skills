@@ -371,6 +371,44 @@ A: Mostly. Audits and search run over whatever you've synced, so they work with 
 
 Governance: The skill reads everything over a local mirror - audits, search, resolve, and reconcile are always safe to run and cannot change anything. Writes (creating or updating assets, articles, companies, and asset layouts, plus 'onboard --apply') send to your live Hudu instance, so the recommended agent policy is preview-then-approve. Reading or changing password-vault entries and managing the API credential are credential-tier; deletes and archives are destructive - keep both human-in-the-loop.
 
+### IT Glue (Documentation)
+
+Page: https://msp-skills.compoundingteams.com/skills/itglue/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/install.sh)
+
+MSPs keep their whole client world in IT Glue - organizations, contacts, passwords, configurations, documents - but the API answers one record at a time under a 3000-request rate ceiling. Ask your AI "which clients are under-documented," "which credentials haven't rotated in a year," or "which client owns this serial number," and get fleet-wide answers from a local mirror in one query - no portal clicking, no rate-limit math.
+
+Outcomes (question -> command your AI agent runs):
+- Which client owns this device, serial number, or contact? -> itglue-cli search "Fortinet"
+- Which clients are under-documented, thinnest first? -> itglue-cli coverage --below 1
+- Which credentials haven't been rotated in a year, grouped by client? -> itglue-cli passwords stale --days 365
+- What changed across every client since a given date? -> itglue-cli changes --since 2026-05-01
+- Which contacts are duplicated across or within clients? -> itglue-cli contacts dupes
+- Everything we know about one client, in a single offline read? -> itglue-cli org show "12345"
+- Which records are orphaned after a client was offboarded? -> itglue-cli orphans
+- List every organization in the account. -> itglue-cli organizations list
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local IT Glue MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my IT Glue data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: What credentials do I need?
+A: An IT Glue API key, which you generate in your IT Glue account settings (Account > Settings > API Keys). Set ITGLUE_API_KEY in your environment, or run itglue-cli auth set-token. The key inherits the permissions of the IT Glue account it belongs to, so scope that account to exactly what you want the AI to reach - a key with password access lets passwords get/list return stored secrets, so scope it accordingly.
+Q: Will this blow through my IT Glue API limits?
+A: IT Glue meters the API at roughly 3000 requests per 5 minutes. The local mirror exists so reads stop hitting the API: after the first sync, search, coverage, passwords stale, changes, contacts dupes, org show, and orphans all run against local SQLite with zero API calls, and sync is incremental - it only fetches what changed since the last checkpoint.
+Q: Does it work with IT Glue's EU or AU data regions?
+A: Yes. IT Glue hosts data in regional API endpoints; set ITGLUE_BASE_URL to your region's API URL and the CLI uses it. The default targets the US endpoint.
+Q: Can it delete my documentation?
+A: No. The CLI reads, and creates or updates contacts, passwords, configurations, and documents - it exposes no delete for any IT Glue resource. The coverage and stale-password audits read metadata only; password secret values are never read or printed.
+
+Governance: The skill drives the itglue-cli and itglue-mcp binaries, authenticating with an IT Glue API key read from the environment (ITGLUE_API_KEY) - never logged and never sent anywhere except the IT Glue API. Most read commands (search, coverage, changes, contacts dupes, org show, orphans, and the organization/configuration/contact/document list and get) change nothing and run against the local mirror. The exceptions are passwords get and passwords list: when the API key has password access they can return the stored secret, so treat them as credential-tier, not routine reads (passwords stale is metadata-only and stays safe). Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. The CLI exposes no delete for any IT Glue resource; the most sensitive operations are credential reads and writes (passwords get/list/create/update), which should stay human-approved. The real permission boundary is the scope of the IT Glue account whose key you use.
+
 ### Microsoft Graph (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/microsoft-graph/

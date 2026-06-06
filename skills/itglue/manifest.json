@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "itglue-pp-mcp",
+  "display_name": "IT Glue / MyGlue",
+  "version": "0.1.0",
+  "description": "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search, and documentation-hygiene analytics no other IT Glue tool offers.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/itglue-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/itglue-pp-mcp",
+      "args": [],
+      "env": {
+        "ITGLUE_API_KEY": "${user_config.itglue_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "itglue_api_key": {
+      "type": "string",
+      "title": "ITGLUE_API_KEY",
+      "description": "IT Glue API key with permissions for the requested read and write operations.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

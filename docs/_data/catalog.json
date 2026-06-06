@@ -1,5 +1,5 @@
 {
-  "count": 19,
+  "count": 20,
   "connectors": [
     {
       "slug": "acronis",
@@ -72,6 +72,14 @@
       "category": "Documentation",
       "verification": "awaiting",
       "url": "/skills/hudu/"
+    },
+    {
+      "slug": "itglue",
+      "display_name": "IT Glue",
+      "tagline": "Find any device, audit stale passwords, and rank thin client docs by asking.",
+      "category": "Documentation",
+      "verification": "awaiting",
+      "url": "/skills/itglue/"
     },
     {
       "slug": "microsoft-graph",

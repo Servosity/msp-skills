@@ -2,14 +2,14 @@
 
 **MSP Skills** connects your PSA, RMM, backup, and more to the AI you already use - **Claude**, **ChatGPT**, **Codex**, **Cursor**, **Windsurf**, or any agent that speaks MCP. Ask a plain-English question about your stack and get a real answer back.
 <!-- hero-live:start -->
-19 connectors are live today - including Servosity, ConnectWise PSA, HubSpot, and HaloPSA - and more PSA, RMM, backup, and M365 connectors ship every week.
+20 connectors are live today - including Servosity, ConnectWise PSA, HubSpot, and HaloPSA - and more PSA, RMM, backup, and M365 connectors ship every week.
 <!-- hero-live:end -->
 Free, open source, runs on your laptop. A local SQLite mirror lets your agent answer cross-client questions the live API can't return in one shot - no rate-limit hits, no per-tech SaaS fee, no data leaves your network. Built for MSP owners. No developer experience required.
 
 > **New to the term?** What this repo calls an **MCP server** is what ChatGPT calls an *app* or *connector*, Claude on the web calls a *connector*, Microsoft Copilot calls a *connector*, and Claude Code calls a *Skill*. Same standard underneath: the [Model Context Protocol](https://modelcontextprotocol.io). Full plain-language answer: **[What is an MCP server?](https://msp-skills.compoundingteams.com/what-is-an-mcp-server/)**.
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
-[![Skills](https://img.shields.io/badge/skills-19-green.svg)](./catalog.json)
+[![Skills](https://img.shields.io/badge/skills-20-green.svg)](./catalog.json)
 [![MCP](https://img.shields.io/badge/MCP-compatible-1f6feb.svg)](https://modelcontextprotocol.io)
 [![Agent Skills](https://img.shields.io/badge/Agent_Skills-spec-2E7D32.svg)](https://agentskills.io)
 ![Status](https://img.shields.io/badge/status-beta-yellow.svg)
@@ -33,6 +33,7 @@ Free, open source, runs on your laptop. A local SQLite mirror lets your agent an
 | [halopsa](./skills/halopsa) | HaloPSA, HaloITSM, HaloCRM | ![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32) | [Install](./skills/halopsa/README.md) |
 | [hubspot](./skills/hubspot) | HubSpot CRM: contacts, companies, deals, tickets, engagements | ![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32) | [Install](./skills/hubspot/README.md) |
 | [hudu](./skills/hudu) | IT documentation and knowledge-base platform for MSPs | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/hudu/README.md) |
+| [itglue](./skills/itglue) | IT Glue documentation platform | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/itglue/README.md) |
 | [microsoft-graph](./skills/microsoft-graph) | Microsoft 365 / Entra tenant administration via Microsoft Graph | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/microsoft-graph/README.md) |
 | [mspbots](./skills/mspbots) | MSPbots BI: datasets, KPI snapshots, ticket analytics, exports | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/mspbots/README.md) |
 | [n-central](./skills/n-central) | N-able N-central RMM: devices, org tree, issue triage, cross-tenant search | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/n-central/README.md) |
@@ -92,7 +93,7 @@ Each installer drops both the CLI and the MCP server, so you can use the Skill (
 ## What your agent can do
 
 <!-- agent-can-do:start -->
-Outcomes, not hype - drawn from each of the 19 connectors' skill pages:
+Outcomes, not hype - drawn from each of the 20 connectors' skill pages:
 
 | Outcome | Skill | Command |
 | --- | --- | --- |
@@ -105,6 +106,7 @@ Outcomes, not hype - drawn from each of the 19 connectors' skill pages:
 | What's about to breach SLA in the next 24 hours? | halopsa | `halopsa-cli sla breaching --within 24h --team Support --json` |
 | Which open deals have gone cold with no engagement in the last three weeks? | hubspot | `hubspot-cli stale deals --days 21 --owner me` |
 | Which clients have the worst documentation completeness? | hudu | `hudu-cli audit completeness --agent` |
+| Which client owns this device, serial number, or contact? | itglue | `itglue-cli search "Fortinet"` |
 | Which SKUs are we paying for but not fully using, ranked by wasted seats? | microsoft-graph | `microsoft-graph-cli licenses waste --agent` |
 | Is our open-ticket backlog up or down versus last week? | mspbots | `mspbots-cli trend open_tickets --agg count` |
 | What's red right now, grouped by customer and ranked by severity? | n-central | `n-central-cli triage --by customer` |
@@ -268,5 +270,5 @@ MSPs are the channel that brings AI to small business. The durable moat is the [
 Built by [Servosity](https://www.servosity.com). Maintained by Damien Stevens. Apache-2.0 licensed. See [TRADEMARKS.md](./TRADEMARKS.md) for vendor non-affiliation and [SECURITY.md](./SECURITY.md) to report a vulnerability. Methodology: [Compounding Teams](https://compoundingteams.com). Generated CLIs and MCP servers built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press).
 
 <!-- footer-releases:start -->
-_Last updated: 2026-06-06. Latest releases: [acronis-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/acronis-v0.1.0) · [autotask-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/autotask-v0.1.0) · [cipp-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/cipp-v0.1.0) · [connectwise-manage-v0.1.1](https://github.com/servosity/msp-skills/releases/tag/connectwise-manage-v0.1.1) · [crowdstrike-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/crowdstrike-v0.1.0) · [datto-rmm-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/datto-rmm-v0.1.0) · [halopsa-v0.2.0](https://github.com/servosity/msp-skills/releases/tag/halopsa-v0.2.0) · [hubspot-v0.1.1](https://github.com/servosity/msp-skills/releases/tag/hubspot-v0.1.1) · [hudu-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/hudu-v0.1.0) · [microsoft-graph-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/microsoft-graph-v0.1.0) · [mspbots-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/mspbots-v0.1.0) · [n-central-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/n-central-v0.1.0) · [ninjaone-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/ninjaone-v0.1.0) · [pax8-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/pax8-v0.1.0) · [sentinelone-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/sentinelone-v0.1.0) · [servosity-v0.2.0](https://github.com/servosity/msp-skills/releases/tag/servosity-v0.2.0) · [superops-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/superops-v0.1.0) · [syncro-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/syncro-v0.1.0) · [threatlocker-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/threatlocker-v0.1.0)._
+_Last updated: 2026-06-06. Latest releases: [acronis-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/acronis-v0.1.0) · [autotask-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/autotask-v0.1.0) · [cipp-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/cipp-v0.1.0) · [connectwise-manage-v0.1.1](https://github.com/servosity/msp-skills/releases/tag/connectwise-manage-v0.1.1) · [crowdstrike-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/crowdstrike-v0.1.0) · [datto-rmm-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/datto-rmm-v0.1.0) · [halopsa-v0.2.0](https://github.com/servosity/msp-skills/releases/tag/halopsa-v0.2.0) · [hubspot-v0.1.1](https://github.com/servosity/msp-skills/releases/tag/hubspot-v0.1.1) · [hudu-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/hudu-v0.1.0) · [itglue-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/itglue-v0.1.0) · [microsoft-graph-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/microsoft-graph-v0.1.0) · [mspbots-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/mspbots-v0.1.0) · [n-central-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/n-central-v0.1.0) · [ninjaone-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/ninjaone-v0.1.0) · [pax8-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/pax8-v0.1.0) · [sentinelone-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/sentinelone-v0.1.0) · [servosity-v0.2.0](https://github.com/servosity/msp-skills/releases/tag/servosity-v0.2.0) · [superops-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/superops-v0.1.0) · [syncro-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/syncro-v0.1.0) · [threatlocker-v0.1.0](https://github.com/servosity/msp-skills/releases/tag/threatlocker-v0.1.0)._
 <!-- footer-releases:end -->

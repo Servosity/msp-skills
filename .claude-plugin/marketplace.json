@@ -314,6 +314,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "itglue",
+      "source": "./skills/itglue",
+      "description": "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search, and documentation-hygiene analytics no other IT Glue tool offers.",
+      "version": "0.1.0",
+      "category": "documentation",
+      "tags": [
+        "itglue",
+        "it glue",
+        "documentation",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
