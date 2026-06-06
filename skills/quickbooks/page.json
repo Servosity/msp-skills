@@ -100,7 +100,7 @@
     },
     {
       "tier": "Write (routine)",
-      "examples": "invoices / bills / payments / customers / vendors / accounts / items / journal-entries create and update (16 commands)",
+      "examples": "invoices / bills / payments / customers / vendors / accounts / items / journal-entries create and update (16 commands), plus bulk import",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {

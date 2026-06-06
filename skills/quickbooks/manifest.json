@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "quickbooks-pp-mcp",
+  "name": "quickbooks-mcp",
   "display_name": "QuickBooks Online",
   "version": "0.1.0",
   "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
@@ -10,12 +10,14 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/quickbooks-pp-mcp",
+    "entry_point": "bin/quickbooks-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/quickbooks-pp-mcp",
+      "command": "${__dirname}/bin/quickbooks-mcp",
       "args": [],
       "env": {
-        "QUICKBOOKS_ACCESS_TOKEN": "${user_config.quickbooks_access_token}"
+        "QUICKBOOKS_ACCESS_TOKEN": "${user_config.quickbooks_access_token}",
+        "QUICKBOOKS_REALM_ID": "${user_config.quickbooks_realm_id}",
+        "QUICKBOOKS_ENVIRONMENT": "${user_config.quickbooks_environment}"
       }
     }
   },
@@ -23,9 +25,24 @@
     "quickbooks_access_token": {
       "type": "string",
       "title": "QUICKBOOKS_ACCESS_TOKEN",
-      "description": "OAuth 2.0 bearer access token sent as `Authorization: Bearer <token>`. Obtain one\nfrom the Intuit OAuth 2.0 Playground or mint it from a refresh token. Also set the\ncompany scope via QUICKBOOKS_REALM_ID (+ QUICKBOOKS_ENVIRONMENT=production|sandbox)\nor the full QUICKBOOKS_BASE_URL. Required scope: com.intuit.quickbooks.accounting.",
+      "description": "OAuth 2.0 bearer access token sent as `Authorization: Bearer <token>`. Obtain one\nfrom the Intuit OAuth 2.0 Playground or mint it from a refresh token with `quickbooks-cli\nauth refresh`. Required scope: com.intuit.quickbooks.accounting.",
       "sensitive": true,
       "required": true
+    },
+    "quickbooks_realm_id": {
+      "type": "string",
+      "title": "QUICKBOOKS_REALM_ID",
+      "description": "Your QuickBooks Online company (realm) ID. It scopes every request to one company.\nFind it in the Intuit Developer dashboard or the connected-company URL. Without it\n(or a full QUICKBOOKS_BASE_URL) the CLI has no company to target.",
+      "sensitive": false,
+      "required": true
+    },
+    "quickbooks_environment": {
+      "type": "string",
+      "title": "QUICKBOOKS_ENVIRONMENT",
+      "description": "Which Intuit host to target: `production` (default) or `sandbox`. Combined with\nQUICKBOOKS_REALM_ID it builds the base URL automatically.",
+      "default": "production",
+      "sensitive": false,
+      "required": false
     }
   },
   "compatibility": {

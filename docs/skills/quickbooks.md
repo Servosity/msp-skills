@@ -123,7 +123,7 @@ After install, authenticate once with your QuickBooks Online credentials, then v
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | ar-aging, ap-aging, balances, dso, cash-forecast, reconcile, dupes, search, plus every list and get | Allow |
-| Write (routine) | invoices / bills / payments / customers / vendors / accounts / items / journal-entries create and update (16 commands) | Preview with --dry-run, then a reviewed write |
+| Write (routine) | invoices / bills / payments / customers / vendors / accounts / items / journal-entries create and update (16 commands), plus bulk import | Preview with --dry-run, then a reviewed write |
 | Destructive / config | invoices delete, bills delete, payments delete, journal-entries delete (hard deletes) | Human-in-the-loop only |
 
 The skill reads everything - aging, balances, DSO, cash forecast, reconciliation, search - and read commands cannot change anything. Writes are explicit create/update/delete commands on invoices, bills, payments, customers, vendors, accounts, items, and journal entries, and `--dry-run` is opt-in, so the recommended agent policy is: read freely, preview every write, and keep a human on deletes. Credentials are read from the environment only and are never written to disk or logged. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/quickbooks/governance.md).

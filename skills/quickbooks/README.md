@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/quickbooks/">
-    <img src="../../docs/assets/social/quickbooks/wide-1200x630.png" alt="QuickBooks Online - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/quickbooks/animated-og.gif" alt="QuickBooks Online demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/quickbooks/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/quickbooks/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
@@ -229,7 +229,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | `ar-aging`, `ap-aging`, `balances`, `dso`, `cash-forecast`, `reconcile`, `dupes`, `search`, plus every `list` / `get` | Allow |
-| Write (routine) | `invoices` / `bills` / `payments` / `customers` / `vendors` / `accounts` / `items` / `journal-entries` `create` and `update` (16 commands) | Preview with `--dry-run`, then a reviewed write |
+| Write (routine) | `invoices` / `bills` / `payments` / `customers` / `vendors` / `accounts` / `items` / `journal-entries` `create` and `update` (16 commands), plus bulk `import` | Preview with `--dry-run`, then a reviewed write |
 | Destructive / config | `invoices delete`, `bills delete`, `payments delete`, `journal-entries delete` (hard deletes) | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the QuickBooks Online credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).

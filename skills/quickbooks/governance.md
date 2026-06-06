@@ -8,7 +8,9 @@
 ## What it authenticates as
 
 The skill drives the `quickbooks-cli` binary (and `quickbooks-mcp`),
-authenticating with `QUICKBOOKS_ACCESS_TOKEN`. Credentials are read from the environment only -
+authenticating with `QUICKBOOKS_ACCESS_TOKEN` and scoping every call to one company via
+`QUICKBOOKS_REALM_ID` (the default base URL is a placeholder until you set the realm, so
+both are effectively required). Credentials are read from the environment only -
 never written to disk, never logged, never sent anywhere except the QuickBooks Online API.
 
 ## Default-safe behavior
@@ -27,9 +29,9 @@ require a human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `accounts create`, `accounts update`, `bills create`, `bills update`, `customers create`, `customers update`, `invoices create`, `invoices update`, ... (16 total) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
-| **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
+| **Read** | Reports, rollups, search. No change to QuickBooks. | the cross-entity views, `sync` / `search` (populate and read the local mirror only), and any non-mutating command | Allow |
+| **Write (routine)** | Day-to-day mutations. | `accounts create`, `accounts update`, `bills create`, `bills update`, `customers create`, `customers update`, `invoices create`, `invoices update`, ... (16 total), plus bulk `import` (JSONL via API create/upsert) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
+| **Credential / security** | Touches tokens, keys, MFA. | `auth set-token`, `auth refresh`, `auth logout` (local credential management - not API mutations) | Operator-run setup; not for autonomous agents |
 | **Destructive** | Irreversible data or config loss. | `bills delete`, `invoices delete`, `journal-entries delete`, `payments delete` | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
 

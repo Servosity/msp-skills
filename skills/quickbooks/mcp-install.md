@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "quickbooks": {
       "command": "quickbooks-mcp",
       "env": {
-        "QUICKBOOKS_ACCESS_TOKEN": "<your-quickbooks_access_token>"
+        "QUICKBOOKS_ACCESS_TOKEN": "<your-quickbooks_access_token>",
+        "QUICKBOOKS_REALM_ID": "<your-company-realm-id>"
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "quickbooks-mcp",
       "env": {
-        "QUICKBOOKS_ACCESS_TOKEN": "<your-quickbooks_access_token>"
+        "QUICKBOOKS_ACCESS_TOKEN": "<your-quickbooks_access_token>",
+        "QUICKBOOKS_REALM_ID": "<your-company-realm-id>"
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "quickbooks": {
       "command": "quickbooks-mcp",
       "env": {
-        "QUICKBOOKS_ACCESS_TOKEN": "<your-quickbooks_access_token>"
+        "QUICKBOOKS_ACCESS_TOKEN": "<your-quickbooks_access_token>",
+        "QUICKBOOKS_REALM_ID": "<your-company-realm-id>"
       }
     }
   }
@@ -101,7 +104,7 @@ All remote agents need `quickbooks-mcp` reachable as a public **HTTPS** endpoint
 in HTTP mode with your credentials in the environment:
 
 ```bash
-QUICKBOOKS_ACCESS_TOKEN=<value> quickbooks-mcp --transport http --addr :7777
+QUICKBOOKS_ACCESS_TOKEN=<value> QUICKBOOKS_REALM_ID=<company-id> quickbooks-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

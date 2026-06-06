@@ -719,6 +719,42 @@ A: No. Provisioning, ordering, and support workflows stay in the portal. This sk
 
 Governance: The skill drives the pax8-cli and pax8-mcp binaries, authenticating with a Pax8 Partner API OAuth2 client ID and secret read from the environment (PAX8_CLIENT_ID, PAX8_CLIENT_SECRET) - never logged and never sent anywhere except Pax8's own API. Read commands (reconcile, mrr, overage, spend, since, company show, search, and the find/get queries) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep subscription cancellation, contact deletion, and order creation human-only. The strongest control is the permission scope on the API credential you create.
 
+### QuickBooks Online (Billing)
+
+Page: https://msp-skills.compoundingteams.com/skills/quickbooks/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/install.sh)
+
+Ask your books a question and get the answer, not a CSV export. The skill syncs your QuickBooks Online company into a local SQLite mirror, then answers who owes you (ar-aging), what you owe (ap-aging), where the cash is (balances), which invoices to chase first (invoices stale), and whether the books are clean to close (reconcile) - instantly, offline, across the whole book. No portal clicking, no per-question API call.
+
+Outcomes (question -> command your AI agent runs):
+- Who owes us money, bucketed 0-30 / 31-60 / 61-90 / 90+? -> quickbooks-cli ar-aging --agent
+- What do we owe vendors, and when is it due? -> quickbooks-cli ap-aging --agent
+- Which overdue invoices should I chase first? -> quickbooks-cli invoices stale --days 30 --agent
+- Where does our cash stand across accounts, AR, and AP? -> quickbooks-cli balances --agent
+- What net cash movement is scheduled over the next 4 weeks? -> quickbooks-cli cash-forecast --weeks 4 --agent
+- What is our DSO, and who are the slowest payers? -> quickbooks-cli dso --agent
+- Are the books clean enough to close this month? -> quickbooks-cli reconcile --agent
+- Which payments came in but were never applied to an invoice? -> quickbooks-cli payments unapplied --agent
+- Which customers are duplicated in our list? -> quickbooks-cli dupes customers --agent
+- Who slipped an aging bucket since our last check? -> quickbooks-cli aging-delta --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local QuickBooks Online MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my QuickBooks Online data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this hit my QuickBooks API rate limits?
+A: Rarely. The only API-heavy step is the one-time sync that mirrors your company into local SQLite; after that, ar-aging, dso, cash-forecast, reconcile and the rest run entirely offline against the mirror. Intuit throttles per company (realm), and the CLI paginates and rate-limits sync for you, so day-to-day questions never touch the API.
+Q: Do I need to be an Intuit partner to use it?
+A: No. You need a QuickBooks Online company and an OAuth access token scoped to com.intuit.quickbooks.accounting, plus your company realm ID. You mint the token from the Intuit Developer portal or the OAuth 2.0 Playground, and `quickbooks-cli auth refresh` turns a refresh token into a fresh access token - no partner status required.
+
+Governance: The skill reads everything - aging, balances, DSO, cash forecast, reconciliation, search - and read commands cannot change anything. Writes are explicit create/update/delete commands on invoices, bills, payments, customers, vendors, accounts, items, and journal entries, and `--dry-run` is opt-in, so the recommended agent policy is: read freely, preview every write, and keep a human on deletes. Credentials are read from the environment only and are never written to disk or logged.
+
 ### SentinelOne (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/sentinelone/

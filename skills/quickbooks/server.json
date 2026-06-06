@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Servosity/quickbooks-mcp",
   "title": "QuickBooks Online MCP",
-  "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and",
+  "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror and AR/AP aging.",
   "version": "0.1.0",
   "icons": [
     {
@@ -30,9 +30,21 @@
       "environmentVariables": [
         {
           "name": "QUICKBOOKS_ACCESS_TOKEN",
-          "description": "Set the QUICKBOOKS_ACCESS_TOKEN credential for the QuickBooks Online MCP server.",
+          "description": "OAuth 2.0 bearer access token (scope com.intuit.quickbooks.accounting). Mint it from the Intuit OAuth 2.0 Playground or `quickbooks-cli auth refresh`.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "QUICKBOOKS_REALM_ID",
+          "description": "Your QuickBooks Online company (realm) ID; scopes every request to one company. Required unless you set the full QUICKBOOKS_BASE_URL.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "QUICKBOOKS_ENVIRONMENT",
+          "description": "Intuit host to target: production (default) or sandbox. Combined with QUICKBOOKS_REALM_ID to build the base URL.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }
