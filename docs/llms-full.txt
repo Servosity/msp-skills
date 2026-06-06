@@ -34,6 +34,47 @@ The vision is simple: one install pattern, every MSP tool. HaloPSA and Servosity
 
 ## Connectors
 
+### Autotask PSA (PSA)
+
+Page: https://msp-skills.compoundingteams.com/skills/autotask/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/install.sh)
+
+MSPs run Autotask PSA as the system of record - tickets, time, contracts, billing. Ask your AI "what's gone stale on the service desk," "which approved time hasn't been invoiced," or "how burned is that block-hours contract," and get answers the portal can't compose: cross-entity rollups across tickets, time, contracts, and resources, computed offline from a local mirror in one query instead of a LiveReport and an Excel export.
+
+Outcomes (question -> command your AI agent runs):
+- Which approved time entries haven't been invoiced yet? -> autotask-cli unbilled
+- How stale is the service desk right now, bucketed by age? -> autotask-cli ticket-aging
+- Which open tickets has nobody touched in a week? -> autotask-cli stale --days 7
+- Which unassigned tickets should the dispatcher pick up first? -> autotask-cli triage
+- Who's overloaded before I assign the next ticket? -> autotask-cli workload
+- How burned are our block-hour contracts, and when do they run out? -> autotask-cli retainer
+- Everything we know about one company - tickets, contacts, contracts, config items, opportunities? -> autotask-cli company-360 "1234"
+- What's the month-end billing picture - unbilled time, contract burn, money on the table? -> autotask-cli reconcile
+- What's the label-to-ID map for the ticket status picklist? -> autotask-cli picklist "Tickets" "status"
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Autotask MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Autotask data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: What credentials do I need?
+A: An API-only user created in your own Autotask instance, which gives you a UserName and Secret, plus the tracking Integration Code from your integration vendor record. Set AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, and AUTOTASK_PSA_API_INTEGRATION_CODE in your environment. The API user's security level is the real permission boundary - scope it to exactly what you want the AI to reach.
+Q: Do I have to figure out my Autotask zone URL?
+A: No. Autotask hosts each tenant in a numbered zone (webservicesN.autotask.net). Run autotask-cli zone once and the CLI discovers and caches your tenant's base URL, the same way Autotask's own docs tell integrations to make a zone-information request first.
+Q: Will this blow through my Autotask API limits?
+A: Autotask meters API calls per database in a rolling 60-minute window and adds latency as you approach the threshold. The local mirror exists so reads stop hitting the API: after the first sync, the cross-entity views (unbilled, reconcile, retainer, company-360, ticket-aging, triage, workload) run against local SQLite with zero API calls, and sync is incremental - it only fetches what changed since the last checkpoint.
+Q: How do I deal with status and priority being numbers, not labels?
+A: Run autotask-cli picklist "Tickets" "status" (or any entity and field) and it prints the label-to-ID map from cached field metadata, so you can read reports and build filters without memorizing the integer IDs Autotask stores categorical fields as.
+Q: Is this Datto Autotask PSA or just Autotask?
+A: Same product. Autotask PSA is now branded Datto Autotask PSA under Kaseya; this skill targets the Autotask REST API, which both names refer to. It does not cover Datto RMM - that is a separate product with a separate API.
+
+Governance: The skill drives the autotask-cli and autotask-mcp binaries, authenticating with an Autotask API user's credentials read from the environment (AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, AUTOTASK_PSA_API_INTEGRATION_CODE) - never logged and never sent anywhere except your own Autotask zone. Read commands (the cross-entity views, search, picklist) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the delete commands and any security-level administration human-only. The strongest control is the security level on the API user you create.
+
 ### CIPP (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/cipp/

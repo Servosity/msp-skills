@@ -223,6 +223,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "autotask",
+      "source": "./skills/autotask",
+      "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can.",
+      "version": "0.1.0",
+      "category": "psa",
+      "tags": [
+        "autotask",
+        "psa",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

@@ -6,6 +6,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 
 ## Connectors
 
+- Autotask PSA (PSA) - Triage tickets, surface unbilled time, and project retainer burn by asking.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/autotask/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/install.sh)
 - CIPP (Security) - Every client tenant's M365 posture, license waste, and stale accounts in one cross-tenant rollup.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/cipp/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cipp/install.sh)

@@ -1,0 +1,55 @@
+{
+  "manifest_version": "0.3",
+  "name": "autotask-mcp",
+  "display_name": "Autotask PSA",
+  "version": "0.1.0",
+  "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/autotask-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/autotask-mcp",
+      "args": [],
+      "env": {
+        "AUTOTASK_PSA_API_INTEGRATION_CODE": "${user_config.autotask_psa_api_integration_code}",
+        "AUTOTASK_PSA_SECRET": "${user_config.autotask_psa_secret}",
+        "AUTOTASK_PSA_USER_NAME": "${user_config.autotask_psa_user_name}"
+      }
+    }
+  },
+  "user_config": {
+    "autotask_psa_api_integration_code": {
+      "type": "string",
+      "title": "AUTOTASK_PSA_API_INTEGRATION_CODE",
+      "description": "Sets AUTOTASK_PSA_API_INTEGRATION_CODE for the Autotask PSA MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "autotask_psa_secret": {
+      "type": "string",
+      "title": "AUTOTASK_PSA_SECRET",
+      "description": "Sets AUTOTASK_PSA_SECRET for the Autotask PSA MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "autotask_psa_user_name": {
+      "type": "string",
+      "title": "AUTOTASK_PSA_USER_NAME",
+      "description": "Sets AUTOTASK_PSA_USER_NAME for the Autotask PSA MCP server.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}
