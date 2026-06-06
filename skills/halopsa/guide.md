@@ -4107,7 +4107,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/halo-pp-cli/config.toml`
+Config file: `~/.config/halopsa-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
@@ -4141,7 +4141,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - **Empty list results that should have data**  -  Pass `--include-inactive` (clients/users) or `--include-deleted` (tickets)  -  Halo filters these by default. Verify with `halopsa-cli sql "SELECT COUNT(*) FROM tickets"`.
 - **`sync` runs slowly on first call**  -  Initial sync pulls all 952 endpoints' top resources. Subsequent `sync` runs use `lastupdatedfrom` and are fast. Use `--only tickets,clients` to scope.
 - **429 Too Many Requests during a burst**  -  The client auto-retries with exponential backoff. If it persists, lower `--concurrency` (default 4) on batch commands.
-- **Tenant URL wrong / DNS error**  -  Confirm your Halo subdomain at https://<tenant>.halopsa.com (or .haloitsm.com / .halocrm.com). Pass `--tenant-domain haloitsm.com` to override the default `.halopsa.com`.
+- **Tenant URL wrong / DNS error**  -  Confirm your Halo subdomain at https://<tenant>.halopsa.com (or .haloitsm.com / .halocrm.com). Set `HALOPSA_DOMAIN=haloitsm.com` to override the default `.halopsa.com`.
 
 ## Sources & Inspiration
 

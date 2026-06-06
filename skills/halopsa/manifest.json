@@ -48,14 +48,14 @@
     "halopsa_oauth_scope": {
       "type": "string",
       "title": "HALOPSA_OAUTH_SCOPE",
-      "description": "Sets HALOPSA_OAUTH_SCOPE for the HaloPSA MCP server. Required by the generated client for credential refresh or hand-written auth flow.",
-      "sensitive": true,
-      "required": true
+      "description": "OAuth2 scope sent in the token request. Optional - defaults to \"all\" when unset.",
+      "required": false
     },
     "halopsa_scope": {
       "type": "string",
       "title": "HALOPSA_SCOPE",
-      "description": "Optional. OAuth2 scope (defaults to \"all\"); set to a narrower scope when your API application requires it"
+      "description": "Legacy config-file scope label; not sent in the token request (use HALOPSA_OAUTH_SCOPE for that).",
+      "required": false
     },
     "halopsa_tenant": {
       "type": "string",

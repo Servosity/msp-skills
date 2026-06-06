@@ -152,7 +152,7 @@ Outcome-first, with the single command that answers each question:
 | Which clients have stale tickets aging out? | `halopsa-cli tickets age-out` |
 | What changed in Halo since this morning? | `halopsa-cli tickets changed-since 9:00` |
 | What's the asset history for this device? | `halopsa-cli asset history <id>` |
-| Which KB article should the tech link to? | `halopsa-cli kbarticle suggest <ticket>` |
+| Which KB article should the tech link to? | `halopsa-cli kbarticle suggest --ticket 12345` |
 | First-time hydration of the local SQLite mirror | `halopsa-cli sync --full` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
