@@ -1,0 +1,46 @@
+{
+  "manifest_version": "0.3",
+  "name": "acronis-mcp",
+  "display_name": "Acronis Cyber Protect Cloud",
+  "version": "0.1.0",
+  "description": "The first real CLI for the Acronis Cyber Protect Cloud platform - every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/acronis-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/acronis-mcp",
+      "args": [],
+      "env": {
+        "ACRONIS_CYBER_PROTECT_BEARER_AUTH": "${user_config.acronis_cyber_protect_bearer_auth}",
+        "ACRONIS_DATACENTER": "${user_config.acronis_datacenter}"
+      }
+    }
+  },
+  "user_config": {
+    "acronis_cyber_protect_bearer_auth": {
+      "type": "string",
+      "title": "ACRONIS_CYBER_PROTECT_BEARER_AUTH",
+      "description": "Sets ACRONIS_CYBER_PROTECT_BEARER_AUTH for the Acronis Cyber Protect Cloud MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "acronis_datacenter": {
+      "type": "string",
+      "title": "ACRONIS_DATACENTER",
+      "description": "Sets ACRONIS_DATACENTER for the endpoint template variable {datacenter}.",
+      "default": "eu2-cloud"
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

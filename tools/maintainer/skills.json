@@ -2,6 +2,29 @@
   "owner": "servosity",
   "repo": "msp-skills",
   "skills": {
+    "acronis": {
+      "system": "Acronis Cyber Protect Cloud",
+      "status": "beta",
+      "cli_binary": "acronis-cli",
+      "mcp_binary": "acronis-mcp",
+      "vendor": "Acronis",
+      "vendor_trademark_owner": "Acronis International GmbH",
+      "first_party": false,
+      "category": "Backup/DR",
+      "display_name": "Acronis Cyber Protect Cloud",
+      "tagline": "Spot failed backups, offline agents, and unbilled usage across every Acronis tenant by asking.",
+      "cli_hash": "sha256:5aee353c2bab50f319fa4768e4461ea0bda3fdb6fa8eeda8b3fa921fb283bee6",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "autotask": {
       "system": "Autotask PSA",
       "status": "beta",

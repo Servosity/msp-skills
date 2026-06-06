@@ -2,6 +2,14 @@
   "count": 15,
   "connectors": [
     {
+      "slug": "acronis",
+      "display_name": "Acronis Cyber Protect Cloud",
+      "tagline": "Spot failed backups, offline agents, and unbilled usage across every Acronis tenant by asking.",
+      "category": "Backup/DR",
+      "verification": "awaiting",
+      "url": "/skills/acronis/"
+    },
+    {
       "slug": "autotask",
       "display_name": "Autotask PSA",
       "tagline": "Triage tickets, surface unbilled time, and project retainer burn by asking.",

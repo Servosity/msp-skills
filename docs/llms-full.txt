@@ -34,6 +34,46 @@ The vision is simple: one install pattern, every MSP tool. HaloPSA and Servosity
 
 ## Connectors
 
+### Acronis Cyber Protect Cloud (Backup/DR)
+
+Page: https://msp-skills.compoundingteams.com/skills/acronis/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/acronis/install.sh)
+
+MSPs run Acronis Cyber Protect Cloud across dozens of customer tenants, but its partner dashboards report one tenant at a time. Ask your AI "whose backups failed last night," "which agents went offline," or "where am I billing for protection that isn't running," and get the cross-tenant answer in one table - computed offline from a local mirror, not six console drill-downs or a month-end CSV export.
+
+Outcomes (question -> command your AI agent runs):
+- Whose backups succeeded, failed, or went stale across every customer last night? -> acronis-cli health
+- Show me each failed or missed backup in the last 24 hours, newest first -> acronis-cli failures --since 24h
+- Which customers have gone too long without a good backup (SLA breach)? -> acronis-cli freshness --sla 48h --breached
+- Which backup agents have silently gone offline across all tenants? -> acronis-cli agents stale --older-than 7d
+- Did every customer's agents update after the rollout? -> acronis-cli agents compliance
+- Where am I billing for protection that isn't actually running? -> acronis-cli coverage --unprotected
+- Which usage has no matching SKU, and which paid SKUs have zero usage? -> acronis-cli reconcile usages
+- What grew or shrank in usage between two months? -> acronis-cli usages drift --from 2026-04-01 --to 2026-05-01
+- Give me the full picture on one customer before the call -> acronis-cli customer "<TENANT_ID>"
+- Which enabled customers are missing users, agents, or offering items? -> acronis-cli tenants audit
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Acronis MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Acronis data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this hit my Acronis API rate limits?
+A: The local mirror exists so reads stop hitting the API. After the first sync, the cross-tenant views (health, coverage, freshness, agents stale, reconcile usages) run against local SQLite with zero API calls. Live calls respect a --rate-limit throttle, and sync is incremental - it only fetches what changed since the last checkpoint.
+Q: Do I need to be an Acronis partner?
+A: Yes. You authenticate with an API client created in your own Acronis Management Portal (an OAuth2 client, or a bearer token), so you need partner or admin access to the tenants you want to reach. The CLI can only see what that API client is scoped to.
+Q: Which datacenter does it point at?
+A: Whichever hosts your Acronis account. Set ACRONIS_DATACENTER (for example us-cloud or eu2-cloud), or pass --datacenter on auth login. The CLI builds the correct regional API host from it, so you don't hand-assemble the datacenter URL in every call.
+Q: Will this replace the Acronis console?
+A: No. The console stays best for configuring protection plans and running restores. This skill adds the cross-tenant reporting layer the partner dashboards don't - one place to ask whose backups failed, which agents are offline, and where billing and protection diverge.
+
+Governance: The skill drives the acronis-cli and acronis-mcp binaries, authenticating with an Acronis API credential read from the environment (ACRONIS_CYBER_PROTECT_BEARER_AUTH, or an OAuth2 client via auth login) and scoped to your datacenter (ACRONIS_DATACENTER) - never logged, never sent anywhere except the Acronis API. Read commands (the cross-tenant rollups, search, reports) cannot change anything. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep tenant, agent, and OAuth-client deletion plus the token (idp) commands human-only. The strongest control is the scope of the API client you create in the Acronis Management Portal.
+
 ### Autotask PSA (PSA)
 
 Page: https://msp-skills.compoundingteams.com/skills/autotask/
