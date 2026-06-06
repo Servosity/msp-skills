@@ -48,6 +48,13 @@
     "current_hash": "sha256:201711890131225f157b48bbe856281d97a695cd8384b8578dfe8020aa4c73f3",
     "released_hash": "sha256:201711890131225f157b48bbe856281d97a695cd8384b8578dfe8020aa4c73f3"
   },
+  "ninjaone": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:78c736dbe18ce38fe022df3ecf340b7c717b6bd7cc469eaf647b187b47c66791",
+    "released_hash": null
+  },
   "pax8": {
     "state": "up-to-date",
     "version": "0.1.0",
