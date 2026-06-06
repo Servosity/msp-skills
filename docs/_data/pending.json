@@ -27,6 +27,13 @@
     "current_hash": "sha256:50cc2d03171acd1232def91fc8fa118aa68feff37236f83d5bb429c4ef0a41e7",
     "released_hash": "sha256:50cc2d03171acd1232def91fc8fa118aa68feff37236f83d5bb429c4ef0a41e7"
   },
+  "microsoft-graph": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:af60ea720c8cb8008855dba17f0f5a5893ae6356c29f79bc806ec152a3a5ef66",
+    "released_hash": null
+  },
   "msp-skills-concierge": {
     "state": "markdown-only",
     "version": "0.1.0",
