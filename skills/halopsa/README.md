@@ -5,10 +5,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/halopsa/">
-    <img src="../../docs/assets/video/halopsa/animated-og.gif" alt="HaloPSA demo - animated preview" width="600">
+    <img src="../../docs/assets/social/halopsa/wide-1200x630.png" alt="HaloPSA - MCP server and Claude Code Skill" width="600">
   </a>
 </p>
-<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/halopsa/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
+<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/halopsa/">Full skill page</a> - install, outcomes, safety model.</sub></p>
 <!-- media:end -->
 
 Add **HaloPSA ticket triage, SLA-breach pre-emption, per-client situational awareness, and cross-client analytics** to the AI you already use - **Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A local SQLite mirror means your AI can answer cross-client questions the live Halo API can't return in one shot - no rate-limit hits during QBR prep. Built for MSP owners. No code required.
@@ -152,7 +152,7 @@ Outcome-first, with the single command that answers each question:
 | Which clients have stale tickets aging out? | `halopsa-cli tickets age-out` |
 | What changed in Halo since this morning? | `halopsa-cli tickets changed-since 9:00` |
 | What's the asset history for this device? | `halopsa-cli asset history <id>` |
-| Which KB article should the tech link to? | `halopsa-cli kbarticle suggest <ticket>` |
+| Which KB article should the tech link to? | `halopsa-cli kbarticle suggest --ticket 12345` |
 | First-time hydration of the local SQLite mirror | `halopsa-cli sync --full` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).

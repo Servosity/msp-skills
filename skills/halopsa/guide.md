@@ -1,13 +1,8 @@
-# HaloPSA Claude Code Skill and MCP Server - command reference
-
-> Unofficial. Community-built Claude Code Skill and MCP server for the HaloPSA,
-> HaloITSM, and HaloCRM APIs. Not affiliated with, endorsed by, or sponsored by
-> Halo Service Solutions Ltd. HaloPSA, HaloITSM, and HaloCRM are trademarks of
-> Halo Service Solutions Ltd.
+# HaloPSA CLI
 
 **Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.**
 
-Wraps the full Halo REST API (952 endpoints across tickets, clients, assets, contracts, time, KB, and workflows) with offline-first search, JSON output your agent can pipe, and cross-entity commands like `triage`, `client card`, and `contracts burn` that join tables Halo's UI scatters across five tabs.
+Wraps the full Halo REST API (952 endpoints across tickets, clients, assets, contracts, time, KB, and workflows) with offline-first search, agent-native JSON output, and cross-entity commands like `triage`, `client card`, and `contracts burn` that join tables Halo's UI scatters across five tabs.
 
 For the short install path see [README.md](./README.md). This file is the command reference.
 
@@ -18,21 +13,17 @@ Halo uses OAuth2 client_credentials. Create an API application in your tenant un
 ## Quick Start
 
 ```bash
-# Confirm auth, tenant URL, token expiry, and a sample GET succeed
+# Confirm setup. Set HALOPSA_TENANT, HALOPSA_CLIENT_ID, and HALOPSA_CLIENT_SECRET in your env first (or run `halopsa-cli auth login` for an interactive prompt); doctor verifies the token mints and a sample GET succeeds.
 halopsa-cli doctor
-
 
 # First sync pulls tickets, clients, sites, agents, assets, contracts, KB into the local SQLite store
 halopsa-cli sync --full
 
-
 # The dispatcher view  -  per-agent load, stale count, 24h breach count in one table
 halopsa-cli triage --team Support --json
 
-
 # The keystone command  -  client + sites + tickets + contracts + assets + KB in one panel
 halopsa-cli client card "Acme Corp" --json
-
 
 # Drop into SQL when the prebuilt commands don't fit
 halopsa-cli sql "SELECT status, COUNT(*) FROM tickets WHERE assigned_team='Support' GROUP BY status"
@@ -139,6 +130,83 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   halopsa-cli client overlay --metric open_tickets --top 10 --json
   ```
+
+### Local state that compounds
+- **`time leaks`**  -  Billable time entries not yet attached to any invoice, summed by client and agent  -  the revenue sitting un-invoiced.
+
+  _Reach for this in Monday billing prep to catch revenue leaks before invoices go out._
+
+  ```bash
+  halopsa-cli time leaks --month current --json
+  ```
+
+### Reporting that writes itself
+- **`sla scorecard`**  -  Historical SLA pass-rate for closed tickets  -  % met resolution targets, by team or agent.
+
+  _Reach for this for the weekly leadership report instead of a brittle export pipeline._
+
+  ```bash
+  halopsa-cli sla scorecard --since 30d --by team
+  ```
+
+### Cross-entity intelligence
+- **`assets expiring`**  -  Assets whose linked contract ends in the next N days, joined to the owning client and sorted by days-to-expiry.
+
+  _Reach for this in renewal prep and proactive replacement planning._
+
+  ```bash
+  halopsa-cli assets expiring --within 60
+  ```
+- **`tickets reopens`**  -  Tickets that bounced from closed back to open in the window, grouped by agent and client with reopen counts.
+
+  _Reach for this in quality audits to find boomerang patterns by agent or client._
+
+  ```bash
+  halopsa-cli tickets reopens --since 30d
+  ```
+
+## Recipes
+
+
+### Monday queue cleanse
+
+```bash
+halopsa-cli tickets age-out --status "Awaiting Customer Reply" --stale-days 14 --action-note "Auto-closing per policy"
+```
+
+Preview every stale customer-waiting ticket. Add --apply when you're ready to close them.
+
+### Friday SLA radar before hand-off
+
+```bash
+halopsa-cli sla breaching --within 24h --team Support --agent --select id,summary,client_name,agent_name,minutes_to_breach
+```
+
+List every ticket the on-call shift inherits that's at risk of breaching SLA in their first 24h. Pipe to anything.
+
+### Pre-call client briefing
+
+```bash
+halopsa-cli client card "Acme Corp" --agent --select active_tickets,contract_hours_remaining,assets,recent_kb_links
+```
+
+Get the client's complete situation in one query before answering the phone. Use --select to narrow what an agent sees.
+
+### Friday timesheet reconcile
+
+```bash
+halopsa-cli time gaps --agent me --week current --json
+```
+
+Find every ticket you touched this week with zero time logged so the gap doesn't ship with your timesheet.
+
+### Contract overage check before client meeting
+
+```bash
+halopsa-cli contracts burn --client "Acme Corp" --month current --json
+```
+
+See current hours consumed vs. bank with projected overage so the contract conversation isn't a surprise.
 
 ## Usage
 
@@ -763,20 +831,6 @@ Manage chat profile
 - **`halopsa-cli chat-profile list`** - Use this to return multiple ChatProfile.<br>
 				Requires authentication.
 
-### client
-
-Manage client
-
-- **`halopsa-cli client create`** - Create
-- **`halopsa-cli client create-newaccountsid`** - Create newaccountsid
-- **`halopsa-cli client create-paymentmethodupdate`** - Create paymentmethodupdate
-- **`halopsa-cli client delete`** - Delete
-- **`halopsa-cli client get`** - Use this to return a single instance of Area.<br>
-				Requires authentication.
-- **`halopsa-cli client list`** - Use this to return multiple Area.<br>
-				Requires authentication.
-- **`halopsa-cli client list-me`** - List me
-
 ### client-cache
 
 Manage client cache
@@ -806,6 +860,20 @@ Manage client prepay
 				Requires authentication.
 - **`halopsa-cli client-prepay list`** - Use this to return multiple PrepayHistory.<br>
 				Requires authentication.
+
+### clients
+
+Manage clients
+
+- **`halopsa-cli clients create`** - Create
+- **`halopsa-cli clients create-client`** - Create client
+- **`halopsa-cli clients create-client-2`** - Create client 2
+- **`halopsa-cli clients delete`** - Delete
+- **`halopsa-cli clients get`** - Use this to return a single instance of Area.<br>
+				Requires authentication.
+- **`halopsa-cli clients list`** - Use this to return multiple Area.<br>
+				Requires authentication.
+- **`halopsa-cli clients list-client`** - List client
 
 ### config-commit
 
@@ -1363,6 +1431,17 @@ Manage feed
 - **`halopsa-cli feed`** - Use this to return multiple Feed.<br>
 				Requires authentication.
 
+### feedback_items
+
+Manage feedback items
+
+- **`halopsa-cli feedback-items create`** - Create
+- **`halopsa-cli feedback-items delete`** - Delete
+- **`halopsa-cli feedback-items get`** - Use this to return a single instance of Feedback.<br>
+				Requires authentication.
+- **`halopsa-cli feedback-items list`** - List
+- **`halopsa-cli feedback-items list-feedback`** - List feedback
+
 ### field
 
 Manage field
@@ -1468,29 +1547,11 @@ Manage halo device info
 - **`halopsa-cli halo-device-info delete`** - Delete
 - **`halopsa-cli halo-device-info get`** - Get
 
-### halo-feedback
-
-Manage halo feedback
-
-- **`halopsa-cli halo-feedback create`** - Create
-- **`halopsa-cli halo-feedback delete`** - Delete
-- **`halopsa-cli halo-feedback get`** - Use this to return a single instance of Feedback.<br>
-				Requires authentication.
-- **`halopsa-cli halo-feedback list`** - List
-- **`halopsa-cli halo-feedback list-feedbackmessage`** - List feedbackmessage
-
 ### halo-field
 
 Manage halo field
 
 - **`halopsa-cli halo-field`** - List
-
-### halo-health
-
-Manage halo health
-
-- **`halopsa-cli halo-health list`** - List
-- **`halopsa-cli halo-health list-hashing`** - List hashing
 
 ### halo-integration
 
@@ -1511,23 +1572,19 @@ Manage halo news
 				Requires authentication.
 - **`halopsa-cli halo-news list`** - List
 
-### halo-search
+### halo_search
 
 Manage halo search
 
 - **`halopsa-cli halo-search`** - Use this to return multiple Search.<br>
 				Requires authentication.
 
-### halo-workflow
+### health
 
-Manage halo workflow
+Manage health
 
-- **`halopsa-cli halo-workflow create`** - Create
-- **`halopsa-cli halo-workflow delete`** - Delete
-- **`halopsa-cli halo-workflow get`** - Use this to return a single instance of FlowHeader.<br>
-				Requires authentication.
-- **`halopsa-cli halo-workflow list`** - Use this to return multiple FlowHeader.<br>
-				Requires authentication.
+- **`halopsa-cli health list`** - List
+- **`halopsa-cli health list-hashing`** - List hashing
 
 ### historical-ticket-volumes
 
@@ -3946,6 +4003,17 @@ Manage workflow target
 - **`halopsa-cli workflow-target get`** - Get
 - **`halopsa-cli workflow-target list`** - List
 
+### workflows
+
+Manage workflows
+
+- **`halopsa-cli workflows create`** - Create
+- **`halopsa-cli workflows delete`** - Delete
+- **`halopsa-cli workflows get`** - Use this to return a single instance of FlowHeader.<br>
+				Requires authentication.
+- **`halopsa-cli workflows list`** - Use this to return multiple FlowHeader.<br>
+				Requires authentication.
+
 ### workflowstep
 
 Manage workflowstep
@@ -4047,12 +4115,18 @@ Environment variables:
 
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
+| `HALOPSA_TENANT` | endpoint | Yes |  |
+| `HALOPSA_DOMAIN` | endpoint | Yes |  |
+| `HALOPSA_CLIENT_ID` | auth_flow_input | Yes | OAuth2 client ID from your Halo API application |
+| `HALOPSA_CLIENT_SECRET` | auth_flow_input | Yes | Set during initial auth setup. |
 | `HALOPSA_TENANT` | auth_flow_input | Yes | Your Halo tenant subdomain (e.g. "acme-msp" for acme-msp.halopsa.com) |
 | `HALOPSA_DOMAIN` | auth_flow_input | No | Halo domain root: halopsa.com (default), haloitsm.com, or halocrm.com |
-| `HALOPSA_CLIENT_ID` | auth_flow_input | Yes | OAuth2 client ID from your Halo API application |
-| `HALOPSA_CLIENT_SECRET` | auth_flow_input | Yes | OAuth2 client secret from your Halo API application |
-| `HALOPSA_SCOPE` | auth_flow_input | No | OAuth2 scope (defaults to "all"); set to a narrower scope when your API application requires it |
+| `HALOPSA_OAUTH_SCOPE` | auth_flow_input | No | OAuth2 scope (defaults to "all"); set to a narrower scope when your API application requires it |
 | `HALOPSA_TOKEN` | per_call | No | Set to your API credential. |
+
+### agentcookie (optional)
+
+If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `halopsa-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**
@@ -4063,14 +4137,11 @@ Environment variables:
 - Run the `list` command to see available items
 
 ### API-specific
-
 - **401 Unauthorized on every request**  -  Run `halopsa-cli doctor`  -  the token may have expired or your client_id lost the required scopes. Re-run `auth login`.
 - **Empty list results that should have data**  -  Pass `--include-inactive` (clients/users) or `--include-deleted` (tickets)  -  Halo filters these by default. Verify with `halopsa-cli sql "SELECT COUNT(*) FROM tickets"`.
 - **`sync` runs slowly on first call**  -  Initial sync pulls all 952 endpoints' top resources. Subsequent `sync` runs use `lastupdatedfrom` and are fast. Use `--only tickets,clients` to scope.
 - **429 Too Many Requests during a burst**  -  The client auto-retries with exponential backoff. If it persists, lower `--concurrency` (default 4) on batch commands.
-- **Tenant URL wrong / DNS error**  -  Confirm your Halo subdomain at https://<tenant>.halopsa.com (or .haloitsm.com / .halocrm.com). Set `HALOPSA_DOMAIN=haloitsm.com` (or `halocrm.com`) to override the default `halopsa.com`.
-
----
+- **Tenant URL wrong / DNS error**  -  Confirm your Halo subdomain at https://<tenant>.halopsa.com (or .haloitsm.com / .halocrm.com). Set `HALOPSA_DOMAIN=haloitsm.com` to override the default `.halopsa.com`.
 
 ## Sources & Inspiration
 
@@ -4086,3 +4157,8 @@ This CLI was built by studying these projects and resources:
 - [**lwhitelock/HaloPSA-Automation**](https://github.com/lwhitelock/HaloPSA-Automation)  -  PowerShell
 
 Generated by [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press)
+
+## Known Gaps
+
+- **Mock-mode sync row validation cannot pass for this API.** Halo's vendor Swagger leaves 751 of 806 GET responses without a typed schema, so the verification mock cannot fabricate list payloads and `verify`'s data-pipeline row check reports 0 rows in mock mode (upstream: cli-printing-press#2687). The sync engine itself is unchanged from the live-verified prior print; run `halopsa-cli sync && halopsa-cli sql "SELECT COUNT(*) FROM tickets"` against a real tenant to confirm rows flow.
+- **`tickets reopens` requires the tenant's ticket payloads to carry `$.reopened`.** When absent the command says detection is unavailable rather than reporting zero boomerangs.

@@ -11,6 +11,7 @@ import (
 
 // newRulesCmd is a novel parent ("rules dump"). The generated CRUD lives
 // under "ticket-rules" / "workflow".
+// pp:data-source live
 func newRulesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rules",
@@ -51,7 +52,7 @@ func newRulesDumpCmd(flags *rootFlags) *cobra.Command {
 			}
 			out := map[string]any{}
 			// TicketRules
-			rulesJSON, err := c.Get("/TicketRules", map[string]string{"page_size": fmt.Sprintf("%d", limit)})
+			rulesJSON, err := c.Get(cmd.Context(), "/TicketRules", map[string]string{"page_size": fmt.Sprintf("%d", limit)})
 			if err != nil {
 				return fmt.Errorf("fetching ticket rules: %w", err)
 			}
@@ -63,7 +64,7 @@ func newRulesDumpCmd(flags *rootFlags) *cobra.Command {
 			if workflow != "" {
 				params["search"] = workflow
 			}
-			wfJSON, err := c.Get("/Workflow", params)
+			wfJSON, err := c.Get(cmd.Context(), "/Workflow", params)
 			if err != nil {
 				return fmt.Errorf("fetching workflows: %w", err)
 			}

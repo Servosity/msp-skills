@@ -13,6 +13,7 @@ import (
 	"halopsa-pp-cli/internal/store"
 )
 
+// pp:data-source local
 func newTriageCmd(flags *rootFlags) *cobra.Command {
 	var (
 		dbPath    string

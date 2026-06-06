@@ -15,6 +15,7 @@ import (
 
 // newContractsCmd is a novel parent ("contracts burn"). The generated CRUD
 // for contracts lives under "client-contract".
+// pp:data-source local
 func newContractsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "contracts",
@@ -123,7 +124,7 @@ the conversation isn't a surprise. Reads client_contract + actions locally.`,
                 FROM actions a, tickets t
                 WHERE json_extract(a.data,'$.ticket_id') = t.id
                   AND t.client_id = ?
-                  AND datetime(COALESCE(NULLIF(json_extract(a.data,'$.actiondatecreated'),''), a.datecreated))
+                  AND datetime(COALESCE(NULLIF(json_extract(a.data,'$.actiondatecreated'),''), a.actiondatecreated))
                       BETWEEN datetime(?) AND datetime(?)`
 				var used sql.NullFloat64
 				_ = db.DB().QueryRowContext(cmd.Context(), hSQL, b.ClientID, start.Format(time.RFC3339), end.Format(time.RFC3339)).Scan(&used)

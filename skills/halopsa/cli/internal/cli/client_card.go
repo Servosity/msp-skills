@@ -11,6 +11,7 @@ import (
 	"halopsa-pp-cli/internal/store"
 )
 
+// pp:data-source local
 func newClientCardCmd(flags *rootFlags) *cobra.Command {
 	var (
 		dbPath string
@@ -55,11 +56,11 @@ client. Resolves by numeric ID or by name (case-insensitive substring match).`,
 				byID = true
 			}
 			if byID {
-				if err := db.DB().QueryRowContext(cmd.Context(), `SELECT id, COALESCE(name, COALESCE(json_extract(data,'$.name'),'?')) FROM client WHERE id = ?`, query).Scan(&clientID, &clientName); err != nil {
+				if err := db.DB().QueryRowContext(cmd.Context(), `SELECT id, COALESCE(name, COALESCE(json_extract(data,'$.name'),'?')) FROM clients WHERE id = ?`, query).Scan(&clientID, &clientName); err != nil {
 					return fmt.Errorf("client %q not found in local store: %w", query, err)
 				}
 			} else {
-				if err := db.DB().QueryRowContext(cmd.Context(), `SELECT id, COALESCE(name, COALESCE(json_extract(data,'$.name'),'?')) FROM client WHERE LOWER(COALESCE(name, json_extract(data,'$.name'))) LIKE LOWER(?) ORDER BY length(COALESCE(name, json_extract(data,'$.name'))) LIMIT 1`, "%"+query+"%").Scan(&clientID, &clientName); err != nil {
+				if err := db.DB().QueryRowContext(cmd.Context(), `SELECT id, COALESCE(name, COALESCE(json_extract(data,'$.name'),'?')) FROM clients WHERE LOWER(COALESCE(name, json_extract(data,'$.name'))) LIKE LOWER(?) ORDER BY length(COALESCE(name, json_extract(data,'$.name'))) LIMIT 1`, "%"+query+"%").Scan(&clientID, &clientName); err != nil {
 					return fmt.Errorf("client matching %q not found in local store: %w", query, err)
 				}
 			}

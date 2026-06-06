@@ -14,6 +14,7 @@ import (
 
 // newTimeCmd is a novel-features parent ("time gaps"), separate from the
 // generated "timesheet" CRUD parent.
+// pp:data-source local
 func newTimeCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "time",
@@ -94,7 +95,7 @@ The Friday-timesheet reconcile.`,
 			// Tickets with a time entry in window: actions table with actionchargehours+actionnonchargehours > 0
 			timeSQL := `SELECT DISTINCT json_extract(a.data, '$.ticket_id') AS tid
                 FROM actions a
-                WHERE datetime(COALESCE(NULLIF(json_extract(a.data,'$.actiondatecreated'),''), a.datecreated)) BETWEEN datetime(?) AND datetime(?)
+                WHERE datetime(COALESCE(NULLIF(json_extract(a.data,'$.actiondatecreated'),''), a.actiondatecreated)) BETWEEN datetime(?) AND datetime(?)
                   AND (COALESCE(json_extract(a.data, '$.actionchargehours'), 0) + COALESCE(json_extract(a.data, '$.actionnonchargehours'), 0)) > 0`
 			tRows, err := db.DB().QueryContext(cmd.Context(), timeSQL, start.Format(time.RFC3339), end.Format(time.RFC3339))
 			withTime := map[string]bool{}

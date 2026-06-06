@@ -11,7 +11,8 @@ import (
 	"halopsa-pp-cli/internal/store"
 )
 
-func newSLABreachingCmd(flags *rootFlags) *cobra.Command {
+// pp:data-source local
+func newNovelSlaBreachingCmd(flags *rootFlags) *cobra.Command {
 	var (
 		dbPath string
 		team   string
