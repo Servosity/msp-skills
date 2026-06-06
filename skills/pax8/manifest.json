@@ -1,0 +1,63 @@
+{
+  "manifest_version": "0.3",
+  "name": "pax8-pp-mcp",
+  "display_name": "Pax8",
+  "version": "0.1.0",
+  "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/pax8-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/pax8-pp-mcp",
+      "args": [],
+      "env": {
+        "PAX8_AUDIENCE": "${user_config.pax8_audience}",
+        "PAX8_CLIENT_ID": "${user_config.pax8_client_id}",
+        "PAX8_CLIENT_SECRET": "${user_config.pax8_client_secret}",
+        "PAX8_OAUTH_SCOPE": "${user_config.pax8_oauth_scope}"
+      }
+    }
+  },
+  "user_config": {
+    "pax8_audience": {
+      "type": "string",
+      "title": "PAX8_AUDIENCE",
+      "description": "Sets PAX8_AUDIENCE for the Pax8 MCP server. Required by the generated client for credential refresh or hand-written auth flow.",
+      "sensitive": true,
+      "required": true
+    },
+    "pax8_client_id": {
+      "type": "string",
+      "title": "PAX8_CLIENT_ID",
+      "description": "Sets PAX8_CLIENT_ID for the Pax8 MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "pax8_client_secret": {
+      "type": "string",
+      "title": "PAX8_CLIENT_SECRET",
+      "description": "Sets PAX8_CLIENT_SECRET for the Pax8 MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "pax8_oauth_scope": {
+      "type": "string",
+      "title": "PAX8_OAUTH_SCOPE",
+      "description": "Sets PAX8_OAUTH_SCOPE for the Pax8 MCP server. Required by the generated client for credential refresh or hand-written auth flow.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

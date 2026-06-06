@@ -23,6 +23,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - N-able N-central (RMM) - Find any device, triage issues, and search across every client by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/n-central/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/n-central/install.sh)
+- Pax8 (Billing) - Reconcile Pax8 billing, track MRR, and catch usage overages before they hit the customer invoice
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pax8/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pax8/install.sh)
 - Servosity (Backup/DR) - Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/servosity/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)

@@ -1,5 +1,5 @@
 {
-  "count": 7,
+  "count": 8,
   "connectors": [
     {
       "slug": "connectwise-manage",
@@ -40,6 +40,14 @@
       "category": "RMM",
       "verification": "awaiting",
       "url": "/skills/n-central/"
+    },
+    {
+      "slug": "pax8",
+      "display_name": "Pax8",
+      "tagline": "Reconcile Pax8 billing, track MRR, and catch usage overages before they hit the customer invoice",
+      "category": "Billing",
+      "verification": "awaiting",
+      "url": "/skills/pax8/"
     },
     {
       "slug": "servosity",

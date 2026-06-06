@@ -118,6 +118,25 @@
       "tagline": "Find any device, triage issues, and search across every client by asking."
     },
     {
+      "name": "pax8",
+      "system": "Pax8 cloud marketplace billing, subscriptions, reconciliation, MRR, and usage overages",
+      "status": "beta",
+      "skill_path": "skills/pax8",
+      "cli_binary": "pax8-cli",
+      "mcp_binary": "pax8-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Pax8",
+      "vendor_trademark_owner": "Pax8, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pax8/install.sh)",
+      "install_mcp_doc": "skills/pax8/mcp-install.md",
+      "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces.",
+      "verification": "awaiting",
+      "category": "Billing",
+      "tagline": "Reconcile Pax8 billing, track MRR, and catch usage overages before they hit the customer invoice"
+    },
+    {
       "name": "servosity",
       "system": "Servosity backup and DR: fleet attention, stale backups, QBR reports, restores, billing",
       "status": "beta",
