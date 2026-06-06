@@ -19,7 +19,6 @@ func newHubspotContactsCrmPostV3ObjectsContactsCmd(flags *rootFlags) *cobra.Comm
 
 	cmd := &cobra.Command{
 		Use:         "post-v3-objects-contacts",
-		Aliases:     []string{"create"},
 		Short:       "Create a contact with the given properties and return a copy of the object, including the ID.",
 		Example:     "  hubspot-cli hubspot-contacts-crm post-v3-objects-contacts",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-contacts-crm.post-v3-objects-contacts", "pp:method": "POST", "pp:path": "/crm/v3/objects/contacts"},

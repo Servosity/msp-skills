@@ -20,7 +20,6 @@ func newHubspotTasksCrmGetV3ObjectsTasksTaskIdGetByIdCmd(flags *rootFlags) *cobr
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-tasks-task-id-get-by-id <taskId>",
-		Aliases:     []string{"get"},
 		Short:       "Read an Object identified by `{taskId}`.",
 		Example:     "  hubspot-cli hubspot-tasks-crm get-v3-objects-tasks-task-id-get-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-tasks-crm.get-v3-objects-tasks-task-id-get-by-id", "pp:method": "GET", "pp:path": "/crm/v3/objects/tasks/{taskId}", "mcp:read-only": "true"},

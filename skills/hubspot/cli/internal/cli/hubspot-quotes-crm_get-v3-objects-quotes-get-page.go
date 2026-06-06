@@ -22,7 +22,6 @@ func newHubspotQuotesCrmGetV3ObjectsQuotesGetPageCmd(flags *rootFlags) *cobra.Co
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-quotes-get-page",
-		Aliases:     []string{"list"},
 		Short:       "Read a page of quotes. Control what is returned via the `properties` query param.",
 		Example:     "  hubspot-cli hubspot-quotes-crm get-v3-objects-quotes-get-page",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-quotes-crm.get-v3-objects-quotes-get-page", "pp:method": "GET", "pp:path": "/crm/v3/objects/quotes", "mcp:read-only": "true"},

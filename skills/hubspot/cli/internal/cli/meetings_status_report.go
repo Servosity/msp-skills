@@ -31,6 +31,7 @@ var canonicalMeetingStatuses = map[string]string{
 // stable ordered list (instead of a map) keeps the report shape deterministic.
 var meetingStatusBuckets = []string{"SCHEDULED", "NO_SHOW", "COMPLETED", "CANCELED"}
 
+// pp:data-source local
 func newNovelMeetingsStatusReportCmd(flags *rootFlags) *cobra.Command {
 	var statusArg string
 	var monthArg string
@@ -43,6 +44,9 @@ func newNovelMeetingsStatusReportCmd(flags *rootFlags) *cobra.Command {
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Example:     `  hubspot-cli meetings status-report --status scheduled --month 2026-05`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -63,6 +67,9 @@ func newNovelMeetingsStatusReportCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("opening local database: %w", err)
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, "hubspot-meetings-crm") {
+				hintIfStale(cmd, db, "hubspot-meetings-crm", flags.maxAge)
+			}
 
 			rows, err := queryMeetingsEverHad(cmd, db, "hs_meeting_outcome", status, from, to, cliutil.FilterExpr{})
 			if err != nil {
@@ -118,18 +125,25 @@ func newNovelMeetingsStatusReportCmd(flags *rootFlags) *cobra.Command {
 				return flags.printJSON(cmd, summary)
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Meetings whose %s was ever %q in %s: %d\n", "hs_meeting_outcome", status, month, len(rows))
-			fmt.Fprintln(cmd.OutOrStdout(), "Breakdown by current outcome:")
-			for _, b := range ordered {
-				fmt.Fprintf(cmd.OutOrStdout(), "  %s: %d\n", b.Outcome, b.Count)
+			// In --csv/--plain mode the prose preamble would corrupt the
+			// machine-parseable stdout stream, so route it to stderr (the same
+			// convention the other novel commands use for data_source lines).
+			summaryW := cmd.OutOrStdout()
+			if flags.csv || flags.plain {
+				summaryW = cmd.ErrOrStderr()
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "")
+			fmt.Fprintf(summaryW, "Meetings whose %s was ever %q in %s: %d\n", "hs_meeting_outcome", status, month, len(rows))
+			fmt.Fprintln(summaryW, "Breakdown by current outcome:")
+			for _, b := range ordered {
+				fmt.Fprintf(summaryW, "  %s: %d\n", b.Outcome, b.Count)
+			}
+			fmt.Fprintln(summaryW, "")
 			headers := []string{"meeting_id", "title", "owner_id", "first_hit_at", "current_outcome"}
 			out := make([][]string, 0, len(rows))
 			for _, r := range rows {
 				out = append(out, []string{r.MeetingID, r.Title, r.OwnerID, r.FirstHitAt, r.CurrentOutcome})
 			}
-			return flags.printTable(cmd, headers, out)
+			return flags.printTabular(cmd, headers, out)
 		},
 	}
 	cmd.Flags().StringVar(&statusArg, "status", "scheduled", "Status to report on (scheduled, no-show, completed, cancelled — or pass a custom value verbatim)")

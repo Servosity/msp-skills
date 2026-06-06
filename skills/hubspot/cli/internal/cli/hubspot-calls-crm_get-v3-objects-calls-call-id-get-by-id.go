@@ -20,7 +20,6 @@ func newHubspotCallsCrmGetV3ObjectsCallsCallIdGetByIdCmd(flags *rootFlags) *cobr
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-calls-call-id-get-by-id <callId>",
-		Aliases:     []string{"get"},
 		Short:       "Read an Object identified by `{callId}`.",
 		Example:     "  hubspot-cli hubspot-calls-crm get-v3-objects-calls-call-id-get-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-calls-crm.get-v3-objects-calls-call-id-get-by-id", "pp:method": "GET", "pp:path": "/crm/v3/objects/calls/{callId}", "mcp:read-only": "true"},

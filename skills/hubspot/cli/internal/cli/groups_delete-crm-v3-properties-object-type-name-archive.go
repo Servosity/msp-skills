@@ -15,7 +15,6 @@ func newGroupsDeleteCrmV3PropertiesObjectTypeNameArchiveCmd(flags *rootFlags) *c
 
 	cmd := &cobra.Command{
 		Use:         "delete-crm-v3-properties-object-type-name-archive <groupName> <objectType>",
-		Aliases:     []string{"delete"},
 		Short:       "Move a property group identified by {groupName} to the recycling bin.",
 		Example:     "  hubspot-cli groups delete-crm-v3-properties-object-type-name-archive example-resource example-value",
 		Annotations: map[string]string{"pp:endpoint": "groups.delete-crm-v3-properties-object-type-name-archive", "pp:method": "DELETE", "pp:path": "/crm/v3/properties/{objectType}/groups/{groupName}"},

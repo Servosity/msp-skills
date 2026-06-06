@@ -19,7 +19,6 @@ func newHubspotObjectsCrmPostV3ObjectsObjectTypeCreateCmd(flags *rootFlags) *cob
 
 	cmd := &cobra.Command{
 		Use:         "post-v3-objects-object-type-create <objectType>",
-		Aliases:     []string{"create"},
 		Short:       "Create a CRM object with the given properties and return a copy of the object, including the ID.",
 		Example:     "  hubspot-cli hubspot-objects-crm post-v3-objects-object-type-create example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-objects-crm.post-v3-objects-object-type-create", "pp:method": "POST", "pp:path": "/crm/v3/objects/{objectType}"},

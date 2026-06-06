@@ -20,7 +20,6 @@ func newHubspotNotesCrmGetV3ObjectsNotesNoteIdGetByIdCmd(flags *rootFlags) *cobr
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-notes-note-id-get-by-id <noteId>",
-		Aliases:     []string{"get"},
 		Short:       "Read an Object identified by `{noteId}`.",
 		Example:     "  hubspot-cli hubspot-notes-crm get-v3-objects-notes-note-id-get-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-notes-crm.get-v3-objects-notes-note-id-get-by-id", "pp:method": "GET", "pp:path": "/crm/v3/objects/notes/{noteId}", "mcp:read-only": "true"},

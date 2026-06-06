@@ -11,6 +11,7 @@ import (
 	"hubspot-pp-cli/internal/store"
 )
 
+// pp:data-source local
 func newNovelNurtureMineCmd(flags *rootFlags) *cobra.Command {
 	var owner string
 	var staleDays int
@@ -25,6 +26,9 @@ func newNovelNurtureMineCmd(flags *rootFlags) *cobra.Command {
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Example:     `  hubspot-cli nurture-mine --owner me --stale-days 14`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -36,6 +40,9 @@ func newNovelNurtureMineCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("opening local database: %w", err)
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, "hubspot-contacts-crm") {
+				hintIfStale(cmd, db, "hubspot-contacts-crm", flags.maxAge)
+			}
 			ownerID, err := resolveOwnerArg(db, owner)
 			if err != nil {
 				return err
@@ -63,7 +70,7 @@ func newNovelNurtureMineCmd(flags *rootFlags) *cobra.Command {
 					r.LatestDealStage,
 				})
 			}
-			return flags.printTable(cmd, headers, out)
+			return flags.printTabular(cmd, headers, out)
 		},
 	}
 	cmd.Flags().StringVar(&owner, "owner", "me", "Filter by owner id, email, or 'me'")

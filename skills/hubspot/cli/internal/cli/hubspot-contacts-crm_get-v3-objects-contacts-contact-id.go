@@ -20,7 +20,6 @@ func newHubspotContactsCrmGetV3ObjectsContactsContactIdCmd(flags *rootFlags) *co
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-contacts-contact-id <contactId>",
-		Aliases:     []string{"get"},
 		Short:       "Read an Object identified by `{contactId}`.",
 		Example:     "  hubspot-cli hubspot-contacts-crm get-v3-objects-contacts-contact-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-contacts-crm.get-v3-objects-contacts-contact-id", "pp:method": "GET", "pp:path": "/crm/v3/objects/contacts/{contactId}", "mcp:read-only": "true"},

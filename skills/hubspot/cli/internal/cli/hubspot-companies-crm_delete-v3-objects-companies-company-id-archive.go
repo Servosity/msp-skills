@@ -15,7 +15,6 @@ func newHubspotCompaniesCrmDeleteV3ObjectsCompaniesCompanyIdArchiveCmd(flags *ro
 
 	cmd := &cobra.Command{
 		Use:         "delete-v3-objects-companies-company-id-archive <companyId>",
-		Aliases:     []string{"delete"},
 		Short:       "Delete a company by ID. Deleted companies can be restored within 90 days of deletion.",
 		Example:     "  hubspot-cli hubspot-companies-crm delete-v3-objects-companies-company-id-archive 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-companies-crm.delete-v3-objects-companies-company-id-archive", "pp:method": "DELETE", "pp:path": "/crm/v3/objects/companies/{companyId}"},

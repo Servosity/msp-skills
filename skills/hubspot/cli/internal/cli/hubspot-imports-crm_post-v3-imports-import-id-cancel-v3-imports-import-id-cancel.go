@@ -17,7 +17,6 @@ func newHubspotImportsCrmPostV3ImportsImportIdCancelV3ImportsImportIdCancelCmd(f
 
 	cmd := &cobra.Command{
 		Use:         "post-v3-imports-import-id-cancel-v3-imports-import-id-cancel <importId>",
-		Aliases:     []string{"create"},
 		Short:       "Post v3 imports import id cancel v3 imports import id cancel",
 		Example:     "  hubspot-cli hubspot-imports-crm post-v3-imports-import-id-cancel-v3-imports-import-id-cancel 42",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-imports-crm.post-v3-imports-import-id-cancel-v3-imports-import-id-cancel", "pp:method": "POST", "pp:path": "/crm/v3/imports/{importId}/cancel"},

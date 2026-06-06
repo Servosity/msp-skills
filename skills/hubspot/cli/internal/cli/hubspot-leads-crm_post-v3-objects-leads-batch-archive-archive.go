@@ -18,7 +18,6 @@ func newHubspotLeadsCrmPostV3ObjectsLeadsBatchArchiveArchiveCmd(flags *rootFlags
 
 	cmd := &cobra.Command{
 		Use:         "post-v3-objects-leads-batch-archive-archive",
-		Aliases:     []string{"create"},
 		Short:       "Archive multiple leads by their IDs in a single request, moving them to the recycling bin.",
 		Example:     "  hubspot-cli hubspot-leads-crm post-v3-objects-leads-batch-archive-archive",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-leads-crm.post-v3-objects-leads-batch-archive-archive", "pp:method": "POST", "pp:path": "/crm/v3/objects/leads/batch/archive"},

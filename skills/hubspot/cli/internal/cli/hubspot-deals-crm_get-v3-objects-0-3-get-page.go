@@ -22,7 +22,6 @@ func newHubspotDealsCrmGetV3Objects03GetPageCmd(flags *rootFlags) *cobra.Command
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-0-3-get-page",
-		Aliases:     []string{"list"},
 		Short:       "Read a page of deals. Control what is returned via the `properties` query param.",
 		Example:     "  hubspot-cli hubspot-deals-crm get-v3-objects-0-3-get-page",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-deals-crm.get-v3-objects-0-3-get-page", "pp:method": "GET", "pp:path": "/crm/v3/objects/0-3", "mcp:read-only": "true"},

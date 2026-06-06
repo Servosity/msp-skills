@@ -22,7 +22,6 @@ func newHubspotContactsCrmGetV3ObjectsContactsCmd(flags *rootFlags) *cobra.Comma
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-contacts",
-		Aliases:     []string{"list"},
 		Short:       "Read a page of contacts. Control what is returned via the `properties` query param.",
 		Example:     "  hubspot-cli hubspot-contacts-crm get-v3-objects-contacts",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-contacts-crm.get-v3-objects-contacts", "pp:method": "GET", "pp:path": "/crm/v3/objects/contacts", "mcp:read-only": "true"},

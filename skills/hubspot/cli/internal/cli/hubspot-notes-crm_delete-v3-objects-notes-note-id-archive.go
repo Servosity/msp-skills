@@ -15,7 +15,6 @@ func newHubspotNotesCrmDeleteV3ObjectsNotesNoteIdArchiveCmd(flags *rootFlags) *c
 
 	cmd := &cobra.Command{
 		Use:         "delete-v3-objects-notes-note-id-archive <noteId>",
-		Aliases:     []string{"delete"},
 		Short:       "Move an Object identified by `{noteId}` to the recycling bin.",
 		Example:     "  hubspot-cli hubspot-notes-crm delete-v3-objects-notes-note-id-archive 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-notes-crm.delete-v3-objects-notes-note-id-archive", "pp:method": "DELETE", "pp:path": "/crm/v3/objects/notes/{noteId}"},

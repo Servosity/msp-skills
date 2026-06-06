@@ -11,11 +11,12 @@ func newNovelContactsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "contacts",
-		Short:       "Bulk contact operations beyond the raw HubSpot CRM endpoints",
-		Long:        "Higher-level contact workflows that compose multiple HubSpot endpoints. Use 'contacts bulk-update' to apply a CSV or JSONL of property changes to many contacts at once with pre-validation and digest gating. For raw single-contact CRUD see the typed HubSpot Contacts CRM commands.",
+		Short:       "Bulk contact operations and contact analytics beyond the raw HubSpot CRM endpoints",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 	cmd.AddCommand(newNovelContactsBulkUpdateCmd(flags))
+	cmd.AddCommand(newNovelContactsFunnelCmd(flags))
+	cmd.AddCommand(newNovelContactsWinBackCmd(flags))
 	return cmd
 }

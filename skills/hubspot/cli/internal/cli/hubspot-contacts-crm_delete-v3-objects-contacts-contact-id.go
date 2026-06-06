@@ -15,7 +15,6 @@ func newHubspotContactsCrmDeleteV3ObjectsContactsContactIdCmd(flags *rootFlags) 
 
 	cmd := &cobra.Command{
 		Use:         "delete-v3-objects-contacts-contact-id <contactId>",
-		Aliases:     []string{"delete"},
 		Short:       "Move an Object identified by `{contactId}` to the recycling bin.",
 		Example:     "  hubspot-cli hubspot-contacts-crm delete-v3-objects-contacts-contact-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-contacts-crm.delete-v3-objects-contacts-contact-id", "pp:method": "DELETE", "pp:path": "/crm/v3/objects/contacts/{contactId}"},

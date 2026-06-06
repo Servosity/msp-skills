@@ -17,7 +17,6 @@ func newHubspotListsCrmPutV3ListsFoldersFolderIdMoveNewParentFolderIdV3ListsFold
 
 	cmd := &cobra.Command{
 		Use:         "put-v3-lists-folders-folder-id-move-new-parent-folder-id-v3-lists-folders-folder-id-move-new-parent-folder-id <folderId> <newParentFolderId>",
-		Aliases:     []string{"update"},
 		Short:       "Put v3 lists folders folder id move new parent folder id v3 lists folders folder id move new parent folder id",
 		Example:     "  hubspot-cli hubspot-lists-crm put-v3-lists-folders-folder-id-move-new-parent-folder-id-v3-lists-folders-folder-id-move-new-parent-folder-id 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-lists-crm.put-v3-lists-folders-folder-id-move-new-parent-folder-id-v3-lists-folders-folder-id-move-new-parent-folder-id", "pp:method": "PUT", "pp:path": "/crm/v3/lists/folders/{folderId}/move/{newParentFolderId}"},

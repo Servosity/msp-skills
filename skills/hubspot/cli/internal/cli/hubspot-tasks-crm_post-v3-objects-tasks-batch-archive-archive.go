@@ -18,7 +18,6 @@ func newHubspotTasksCrmPostV3ObjectsTasksBatchArchiveArchiveCmd(flags *rootFlags
 
 	cmd := &cobra.Command{
 		Use:         "post-v3-objects-tasks-batch-archive-archive",
-		Aliases:     []string{"create"},
 		Short:       "Archive a batch of tasks by their IDs, moving them to the recycling bin.",
 		Example:     "  hubspot-cli hubspot-tasks-crm post-v3-objects-tasks-batch-archive-archive",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-tasks-crm.post-v3-objects-tasks-batch-archive-archive", "pp:method": "POST", "pp:path": "/crm/v3/objects/tasks/batch/archive"},

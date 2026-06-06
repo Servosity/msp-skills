@@ -2410,11 +2410,11 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		ID:             "objects_search.post-crm-v3-objects-object-type-search-do-search",
 		Method:         "POST",
 		Path:           "/crm/v3/objects/{objectType}/search",
-		Summary:        "Search for CRM objects of any standard or custom type using filters, sorts, and property selection.",
+		Summary:        "Post crm v3 objects object type search do search",
 		Positional:     []string{"objectType"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
-		keywords:       codeOrchKeywords("objects_search", "post-crm-v3-objects-object-type-search-do-search", "Search for CRM objects of any standard or custom type using filters, sorts, and property selection.", "/crm/v3/objects/{objectType}/search"),
+		keywords:       codeOrchKeywords("objects_search", "post-crm-v3-objects-object-type-search-do-search", "Post crm v3 objects object type search do search", "/crm/v3/objects/{objectType}/search"),
 	},
 }
 

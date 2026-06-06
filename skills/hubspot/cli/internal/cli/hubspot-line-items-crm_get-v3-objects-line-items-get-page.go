@@ -22,7 +22,6 @@ func newHubspotLineItemsCrmGetV3ObjectsLineItemsGetPageCmd(flags *rootFlags) *co
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-line-items-get-page",
-		Aliases:     []string{"list"},
 		Short:       "Read a page of line items. Control what is returned via the `properties` query param.",
 		Example:     "  hubspot-cli hubspot-line-items-crm get-v3-objects-line-items-get-page",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-line-items-crm.get-v3-objects-line-items-get-page", "pp:method": "GET", "pp:path": "/crm/v3/objects/line_items", "mcp:read-only": "true"},

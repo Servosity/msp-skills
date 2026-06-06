@@ -18,7 +18,6 @@ func newBatchPostCrmV3ObjectsObjectTypeArchiveArchiveCmd(flags *rootFlags) *cobr
 
 	cmd := &cobra.Command{
 		Use:         "post-crm-v3-objects-object-type-archive-archive <objectType>",
-		Aliases:     []string{"create"},
 		Short:       "Archive a batch of objects by ID",
 		Example:     "  hubspot-cli batch post-crm-v3-objects-object-type-archive-archive example-value",
 		Annotations: map[string]string{"pp:endpoint": "batch.post-crm-v3-objects-object-type-archive-archive", "pp:method": "POST", "pp:path": "/crm/v3/objects/{objectType}/batch/archive"},

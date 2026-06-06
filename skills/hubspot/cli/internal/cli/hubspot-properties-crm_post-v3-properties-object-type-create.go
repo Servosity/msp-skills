@@ -35,7 +35,6 @@ func newHubspotPropertiesCrmPostV3PropertiesObjectTypeCreateCmd(flags *rootFlags
 
 	cmd := &cobra.Command{
 		Use:         "post-v3-properties-object-type-create <objectType>",
-		Aliases:     []string{"create"},
 		Short:       "Create and return a copy of a new property for the specified object type.",
 		Example:     "  hubspot-cli hubspot-properties-crm post-v3-properties-object-type-create example-value --field-type booleancheckbox",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-properties-crm.post-v3-properties-object-type-create", "pp:method": "POST", "pp:path": "/crm/v3/properties/{objectType}"},

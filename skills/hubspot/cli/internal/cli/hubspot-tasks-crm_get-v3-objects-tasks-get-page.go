@@ -22,7 +22,6 @@ func newHubspotTasksCrmGetV3ObjectsTasksGetPageCmd(flags *rootFlags) *cobra.Comm
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-tasks-get-page",
-		Aliases:     []string{"list"},
 		Short:       "Read a page of tasks. Control what is returned via the `properties` query param.",
 		Example:     "  hubspot-cli hubspot-tasks-crm get-v3-objects-tasks-get-page",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-tasks-crm.get-v3-objects-tasks-get-page", "pp:method": "GET", "pp:path": "/crm/v3/objects/tasks", "mcp:read-only": "true"},

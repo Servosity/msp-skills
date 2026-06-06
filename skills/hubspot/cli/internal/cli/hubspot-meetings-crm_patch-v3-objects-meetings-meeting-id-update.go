@@ -19,7 +19,6 @@ func newHubspotMeetingsCrmPatchV3ObjectsMeetingsMeetingIdUpdateCmd(flags *rootFl
 
 	cmd := &cobra.Command{
 		Use:         "patch-v3-objects-meetings-meeting-id-update <meetingId>",
-		Aliases:     []string{"update"},
 		Short:       "Perform a partial update of an Object identified by `{meetingId}`or optionally a unique property value as specified by",
 		Example:     "  hubspot-cli hubspot-meetings-crm patch-v3-objects-meetings-meeting-id-update 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-meetings-crm.patch-v3-objects-meetings-meeting-id-update", "pp:method": "PATCH", "pp:path": "/crm/v3/objects/meetings/{meetingId}"},

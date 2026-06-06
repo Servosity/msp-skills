@@ -22,7 +22,6 @@ func newHubspotMeetingsCrmGetV3ObjectsMeetingsGetPageCmd(flags *rootFlags) *cobr
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-meetings-get-page",
-		Aliases:     []string{"list"},
 		Short:       "Read a page of meetings. Control what is returned via the `properties` query param.",
 		Example:     "  hubspot-cli hubspot-meetings-crm get-v3-objects-meetings-get-page",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-meetings-crm.get-v3-objects-meetings-get-page", "pp:method": "GET", "pp:path": "/crm/v3/objects/meetings", "mcp:read-only": "true"},

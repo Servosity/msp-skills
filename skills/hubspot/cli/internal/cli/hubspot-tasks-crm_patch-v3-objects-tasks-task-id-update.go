@@ -19,7 +19,6 @@ func newHubspotTasksCrmPatchV3ObjectsTasksTaskIdUpdateCmd(flags *rootFlags) *cob
 
 	cmd := &cobra.Command{
 		Use:         "patch-v3-objects-tasks-task-id-update <taskId>",
-		Aliases:     []string{"update"},
 		Short:       "Perform a partial update of an Object identified by `{taskId}`or optionally a unique property value as specified by the",
 		Example:     "  hubspot-cli hubspot-tasks-crm patch-v3-objects-tasks-task-id-update 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-tasks-crm.patch-v3-objects-tasks-task-id-update", "pp:method": "PATCH", "pp:path": "/crm/v3/objects/tasks/{taskId}"},

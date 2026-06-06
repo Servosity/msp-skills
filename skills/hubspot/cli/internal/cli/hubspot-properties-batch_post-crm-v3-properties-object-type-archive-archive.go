@@ -18,7 +18,6 @@ func newHubspotPropertiesBatchPostCrmV3PropertiesObjectTypeArchiveArchiveCmd(fla
 
 	cmd := &cobra.Command{
 		Use:         "post-crm-v3-properties-object-type-archive-archive <objectType>",
-		Aliases:     []string{"create"},
 		Short:       "Archive a provided list of properties.",
 		Example:     "  hubspot-cli hubspot-properties-batch post-crm-v3-properties-object-type-archive-archive example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-properties-batch.post-crm-v3-properties-object-type-archive-archive", "pp:method": "POST", "pp:path": "/crm/v3/properties/{objectType}/batch/archive"},

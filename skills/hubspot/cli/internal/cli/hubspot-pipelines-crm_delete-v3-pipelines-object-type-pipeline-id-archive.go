@@ -17,7 +17,6 @@ func newHubspotPipelinesCrmDeleteV3PipelinesObjectTypePipelineIdArchiveCmd(flags
 
 	cmd := &cobra.Command{
 		Use:         "delete-v3-pipelines-object-type-pipeline-id-archive <objectType> <pipelineId>",
-		Aliases:     []string{"delete"},
 		Short:       "Delete a pipeline",
 		Example:     "  hubspot-cli hubspot-pipelines-crm delete-v3-pipelines-object-type-pipeline-id-archive example-value 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-pipelines-crm.delete-v3-pipelines-object-type-pipeline-id-archive", "pp:method": "DELETE", "pp:path": "/crm/v3/pipelines/{objectType}/{pipelineId}"},

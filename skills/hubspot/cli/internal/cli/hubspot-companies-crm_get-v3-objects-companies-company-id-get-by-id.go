@@ -20,7 +20,6 @@ func newHubspotCompaniesCrmGetV3ObjectsCompaniesCompanyIdGetByIdCmd(flags *rootF
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-companies-company-id-get-by-id <companyId>",
-		Aliases:     []string{"get"},
 		Short:       "Retrieve a company by its ID (`companyId`) or by a unique property (`idProperty`).",
 		Example:     "  hubspot-cli hubspot-companies-crm get-v3-objects-companies-company-id-get-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-companies-crm.get-v3-objects-companies-company-id-get-by-id", "pp:method": "GET", "pp:path": "/crm/v3/objects/companies/{companyId}", "mcp:read-only": "true"},

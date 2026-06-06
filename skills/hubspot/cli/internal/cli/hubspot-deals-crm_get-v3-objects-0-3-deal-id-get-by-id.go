@@ -20,7 +20,6 @@ func newHubspotDealsCrmGetV3Objects03DealIdGetByIdCmd(flags *rootFlags) *cobra.C
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-0-3-deal-id-get-by-id <dealId>",
-		Aliases:     []string{"get"},
 		Short:       "Read an Object identified by `{dealId}`.",
 		Example:     "  hubspot-cli hubspot-deals-crm get-v3-objects-0-3-deal-id-get-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-deals-crm.get-v3-objects-0-3-deal-id-get-by-id", "pp:method": "GET", "pp:path": "/crm/v3/objects/0-3/{dealId}", "mcp:read-only": "true"},

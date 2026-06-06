@@ -12,6 +12,7 @@ import (
 	"hubspot-pp-cli/internal/store"
 )
 
+// pp:data-source local
 func newNovelPipelineHealthCmd(flags *rootFlags) *cobra.Command {
 	var idleDays int
 	var dbPath string
@@ -26,6 +27,9 @@ func newNovelPipelineHealthCmd(flags *rootFlags) *cobra.Command {
 			if len(args) == 0 {
 				return cmd.Help()
 			}
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -37,6 +41,9 @@ func newNovelPipelineHealthCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("opening local database: %w", err)
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, "hubspot-deals-crm") {
+				hintIfStale(cmd, db, "hubspot-deals-crm", flags.maxAge)
+			}
 
 			pipelineID, stages, err := resolvePipeline(db, args[0])
 			if err != nil {
@@ -114,7 +121,7 @@ WHERE COALESCE(archived, 0) = 0
 					fmt.Sprintf("%.2f", it.Probability),
 				})
 			}
-			return flags.printTable(cmd, headers, rows)
+			return flags.printTabular(cmd, headers, rows)
 		},
 	}
 	cmd.Flags().IntVar(&idleDays, "idle-days", 14, "Idle threshold for the $-at-risk column")

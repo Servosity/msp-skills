@@ -22,7 +22,6 @@ func newHubspotCompaniesCrmGetV3ObjectsCompaniesGetPageCmd(flags *rootFlags) *co
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-companies-get-page",
-		Aliases:     []string{"list"},
 		Short:       "Retrieve all companies, using query parameters to control the information that gets returned.",
 		Example:     "  hubspot-cli hubspot-companies-crm get-v3-objects-companies-get-page",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-companies-crm.get-v3-objects-companies-get-page", "pp:method": "GET", "pp:path": "/crm/v3/objects/companies", "mcp:read-only": "true"},

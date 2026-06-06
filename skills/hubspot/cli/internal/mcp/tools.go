@@ -324,21 +324,21 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 					"\n      Set your API key: export HUBSPOT_ACCESS_TOKEN=<your-key>" +
 					"\n      Get a key at: https://app.hubspot.com/private-apps" +
 					"\n      Create a private app, grant CRM scopes, and copy the access token." +
-					"\n      Run 'hubspot-pp-cli doctor' to check auth status."), nil
+					"\n      Run 'hubspot-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your token." +
 					"\n      Set it with: export HUBSPOT_ACCESS_TOKEN=<your-key>" +
 					"\n      Get a key at: https://app.hubspot.com/private-apps" +
 					"\n      Create a private app, grant CRM scopes, and copy the access token." +
-					"\n      Run 'hubspot-pp-cli doctor' to check auth status."), nil
+					"\n      Run 'hubspot-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: your credentials are valid but lack access to this resource." +
 					"\n      Set it with: export HUBSPOT_ACCESS_TOKEN=<your-key>" +
 					"\n      Get a key at: https://app.hubspot.com/private-apps" +
 					"\n      Create a private app, grant CRM scopes, and copy the access token." +
-					"\n      Run 'hubspot-pp-cli doctor' to check auth status."), nil
+					"\n      Run 'hubspot-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
 				if method == "DELETE" {
 					return mcplib.NewToolResultText("already deleted (no-op)"), nil
@@ -380,7 +380,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 
 func newMCPClient() (*client.Client, error) {
 	home, _ := os.UserHomeDir()
-	cfgPath := filepath.Join(home, ".config", "hubspot-pp-cli", "config.toml")
+	cfgPath := filepath.Join(home, ".config", "hubspot-cli", "config.toml")
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
@@ -397,7 +397,7 @@ func newMCPClient() (*client.Client, error) {
 
 func dbPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".local", "share", "hubspot-pp-cli", "data.db")
+	return filepath.Join(home, ".local", "share", "hubspot-cli", "data.db")
 }
 
 // Note: MCP tools use their own dbPath() because they are in a separate package (main, not cli).
@@ -426,8 +426,7 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 		return mcplib.NewToolResultError(fmt.Sprintf("search failed: %v", err)), nil
 	}
 
-	data, _ := json.MarshalIndent(results, "", "  ")
-	return mcplib.NewToolResultText(string(data)), nil
+	return toolResultJSON(results)
 }
 
 // validateReadOnlyQuery gates the MCP sql tool. The agent contract advertised
@@ -507,7 +506,10 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 	}
 	defer rows.Close()
 
-	cols, _ := rows.Columns()
+	cols, err := rows.Columns()
+	if err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("reading columns: %v", err)), nil
+	}
 	var results []map[string]any
 	for rows.Next() {
 		values := make([]any, len(cols))
@@ -515,29 +517,42 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 		for i := range values {
 			ptrs[i] = &values[i]
 		}
-		rows.Scan(ptrs...)
+		if err := rows.Scan(ptrs...); err != nil {
+			return mcplib.NewToolResultError(fmt.Sprintf("scanning row: %v", err)), nil
+		}
 		row := make(map[string]any)
 		for i, col := range cols {
 			row[col] = values[i]
 		}
 		results = append(results, row)
 	}
+	// rows.Next() stops on a mid-iteration error without failing the loop, so
+	// skipping rows.Err() would return a truncated result set as success.
 	if err := rows.Err(); err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("iterating rows: %v", err)), nil
+		return mcplib.NewToolResultError(fmt.Sprintf("reading rows: %v", err)), nil
 	}
 
-	data, _ := json.MarshalIndent(results, "", "  ")
+	return toolResultJSON(results)
+}
+
+// toolResultJSON renders v as the indented JSON body of an MCP text result,
+// surfacing a marshal failure as a tool error instead of empty content.
+func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("encoding result: %v", err)), nil
+	}
 	return mcplib.NewToolResultText(string(data)), nil
 }
 
 func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	ctx := map[string]any{
 		"api":         "hubspot",
-		"description": "CRM contacts API",
+		"description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting",
 		"archetype":   "crm",
 		"tool_count":  232,
 		// tool_surface tells agents which surface a capability lives on.
-		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion hubspot-pp-cli binary.",
+		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion hubspot-cli binary.",
 		"auth": map[string]any{
 			"type": "bearer_token",
 			"env_vars": []map[string]any{
@@ -724,42 +739,41 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "Stale objects", "command": "stale", "description": "Find contacts or deals with no engagement in N days, scoped by owner or pipeline stage — instantly, offline.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Owner load", "command": "owner-load", "description": "Open deals per rep per pipeline stage with $ totals, count, and oldest-deal age — the Monday-morning sales-lead report.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Pipeline health", "command": "pipeline-health", "description": "Per-stage rollup of count, $ total, $ at risk (idle deals near their close date)", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Nurture queue", "command": "nurture queue", "description": "Ranked 'who to contact today' list scored by stale-days × deal amount × stage probability", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Top deals by opportunity score", "command": "deals top", "description": "Composite-ranked top-N deals by (signal × amount × stage-probability × inverse-days-since-contact)", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Per-meeting property history", "command": "meetings history", "description": "Show the full timeline of property changes for a single meeting (outcome, title, owner, custom fields)", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Meetings ever-had query", "command": "meetings ever-had", "description": "Find every meeting whose given property was EVER set to a given value within a date range — even if it has since", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Monthly meeting status report", "command": "meetings status-report", "description": "Composes the meetings ever-had query into the canonical monthly-report shape", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Sync with property history", "command": "sync --with-history", "description": "Opt-in sync flag that requests propertiesWithHistory for the named properties on meetings (and on deals, contacts", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Engagements of", "command": "engagements of", "description": "Unified chronological timeline of every call, email, meeting, note, and task touching a contact, deal, or company.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Note signal extraction", "command": "notes signals", "description": "Scan note bodies for buying / lost signals (meeting scheduled, budget approved, no response, competitor chosen)", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Since", "command": "since", "description": "What changed across contacts, deals, and engagements since a given timestamp — agent-friendly cross-object delta.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Nurture mine", "command": "nurture-mine", "description": "Surface the contacts assigned to you that have gone cold but still have open deals — the daily 'who do I call' list", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Bulk update from CSV with schema validation", "command": "contacts bulk-update", "description": "Apply a CSV of property changes to many contacts at once", "rationale": "", "via": "mcp-command-mirror"},
+			{"name": "Stale objects", "command": "stale", "description": "Find contacts or deals with no engagement in N days, scoped by owner or pipeline stage — instantly, offline.", "rationale": "Left-joins the engagement tables against contacts/deals locally; the live API has no 'no engagement since' filter shape.", "via": "mcp-command-mirror"},
+			{"name": "Owner load", "command": "owner-load", "description": "Open deals per rep per pipeline stage with $ totals, count, and oldest-deal age — the Monday-morning sales-lead report.", "rationale": "SQL GROUP BY on deals × owners × pipeline_stages", "via": "mcp-command-mirror"},
+			{"name": "Pipeline health", "command": "pipeline-health", "description": "Per-stage rollup of count, $ total, $ at risk (idle deals near their close date)", "rationale": "Local join across deals × pipeline_stages × engagements with mechanical scoring (amount × probability × idle-flag)", "via": "mcp-command-mirror"},
+			{"name": "Nurture queue", "command": "nurture queue", "description": "Ranked 'who to contact today' list scored by stale-days × deal amount × stage probability", "rationale": "Designed for the nurture skill loop — replaces ad-hoc Python in meetings/.", "via": "mcp-command-mirror"},
+			{"name": "Top deals by opportunity score", "command": "deals top", "description": "Composite-ranked top-N deals by (signal × amount × stage-probability × inverse-days-since-contact)", "rationale": "Implements the same scoring formula Damien has been running in Python (pipeline-review/score_urgency.", "via": "mcp-command-mirror"},
+			{"name": "Per-meeting property history", "command": "meetings history", "description": "Show the full timeline of property changes for a single meeting (outcome, title, owner, custom fields)", "rationale": "Reads the local hubspot_property_history snapshot table populated by sync --with-history; zero API calls at query time.", "via": "mcp-command-mirror"},
+			{"name": "Meetings ever-had query", "command": "meetings ever-had", "description": "Find every meeting whose given property was EVER set to a given value within a date range — even if it has since", "rationale": "SELECT DISTINCT object_id FROM hubspot_property_history filtered on object_type='meetings', property, value", "via": "mcp-command-mirror"},
+			{"name": "Monthly meeting status report", "command": "meetings status-report", "description": "Composes the meetings ever-had query into the canonical monthly-report shape", "rationale": "Wraps meetings ever-had with a calendar-month window and an opinionated report shape (JSON or CSV) ready for handoff.", "via": "mcp-command-mirror"},
+			{"name": "Sync with property history", "command": "sync --with-history", "description": "Opt-in sync flag that requests propertiesWithHistory for the named properties on meetings (and on deals, contacts", "rationale": "Adds ?", "via": "mcp-command-mirror"},
+			{"name": "Engagements of", "command": "engagements of", "description": "Unified chronological timeline of every call, email, meeting, note, and task touching a contact, deal, or company.", "rationale": "Local associations graph table joins all five engagement tables in one SQL query", "via": "mcp-command-mirror"},
+			{"name": "Note signal extraction", "command": "notes signals", "description": "Scan note bodies for buying / lost signals (meeting scheduled, budget approved, no response, competitor chosen)", "rationale": "Pure regex over local hs_note_body — no LLM dependency.", "via": "mcp-command-mirror"},
+			{"name": "Since", "command": "since", "description": "What changed across contacts, deals, and engagements since a given timestamp — agent-friendly cross-object delta.", "rationale": "Scans hs_lastmodifieddate cursors stored in the local mirror", "via": "mcp-command-mirror"},
+			{"name": "Nurture mine", "command": "nurture-mine", "description": "Surface the contacts assigned to you that have gone cold but still have open deals — the daily 'who do I call' list", "rationale": "Joins contacts × associations × engagements × deals × pipeline_stages × owners — five tables no single HubSpot API call", "via": "mcp-command-mirror"},
+			{"name": "Bulk update from CSV with schema validation", "command": "contacts bulk-update", "description": "Apply a CSV of property changes to many contacts at once", "rationale": "Reads the locally cached properties table and rejects bad rows up-front", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
-			{"topic": "Stale objects", "insight": ""},
-			{"topic": "Owner load", "insight": ""},
-			{"topic": "Pipeline health", "insight": ""},
-			{"topic": "Nurture queue", "insight": ""},
-			{"topic": "Top deals by opportunity score", "insight": ""},
-			{"topic": "Per-meeting property history", "insight": ""},
-			{"topic": "Meetings ever-had query", "insight": ""},
-			{"topic": "Monthly meeting status report", "insight": ""},
-			{"topic": "Sync with property history", "insight": ""},
-			{"topic": "Engagements of", "insight": ""},
-			{"topic": "Note signal extraction", "insight": ""},
-			{"topic": "Since", "insight": ""},
-			{"topic": "Nurture mine", "insight": ""},
-			{"topic": "Bulk update from CSV with schema validation", "insight": ""},
+			{"topic": "Stale objects", "insight": "Left-joins the engagement tables against contacts/deals locally; the live API has no 'no engagement since' filter shape."},
+			{"topic": "Owner load", "insight": "SQL GROUP BY on deals × owners × pipeline_stages; HubSpot's web UI requires the Deal Owner report plus a Sheets pivot to assemble this."},
+			{"topic": "Pipeline health", "insight": "Local join across deals × pipeline_stages × engagements with mechanical scoring (amount × probability × idle-flag); the web UI cannot answer '$ at risk of slipping this quarter' in one screen. Uses HubSpot-provided stage probabilities — Closed Lost is 0, not 0.5 (PR #549 review fix)."},
+			{"topic": "Nurture queue", "insight": "Designed for the nurture skill loop — replaces ad-hoc Python in meetings/. Local SQL ranking with explicit columns means the agent doesn't have to recompute aggregations in-process."},
+			{"topic": "Top deals by opportunity score", "insight": "Implements the same scoring formula Damien has been running in Python (pipeline-review/score_urgency.py) but locally over the synced store — one offline command instead of a 30-line script with live API calls per deal."},
+			{"topic": "Per-meeting property history", "insight": "Reads the local hubspot_property_history snapshot table populated by sync --with-history; zero API calls at query time. No incumbent CLI or MCP retains property history across syncs."},
+			{"topic": "Meetings ever-had query", "insight": "SELECT DISTINCT object_id FROM hubspot_property_history filtered on object_type='meetings', property, value, and timestamp range. HubSpot's /search API physically cannot answer this: it sees only current property values, not the history."},
+			{"topic": "Monthly meeting status report", "insight": "Wraps meetings ever-had with a calendar-month window and an opinionated report shape (JSON or CSV) ready for handoff. Built for the Servosity customer use case (monthly 'every meeting ever Scheduled in April' report) but generalizes to any property + month."},
+			{"topic": "Sync with property history", "insight": "Adds ?propertiesWithHistory=<list> to the per-object GET leg of sync; writes both the current value and the full history block in one transaction. Composite PK (object_type+object_id+property+timestamp) makes re-sync idempotent. Foundation for meetings history / ever-had / status-report and for future per-object ever-had commands on the other three object types."},
+			{"topic": "Engagements of", "insight": "Local associations graph table joins all five engagement tables in one SQL query, replacing N+1 round trips across HubSpot's per-engagement endpoints."},
+			{"topic": "Note signal extraction", "insight": "Pure regex over local hs_note_body — no LLM dependency. The patterns came from real pipeline-review work, so they reflect signals that have actually moved Damien's deals."},
+			{"topic": "Since", "insight": "Scans hs_lastmodifieddate cursors stored in the local mirror; no aggregated 'what changed everywhere' endpoint exists on HubSpot's API."},
+			{"topic": "Nurture mine", "insight": "Joins contacts × associations × engagements × deals × pipeline_stages × owners — five tables no single HubSpot API call can compose. The web UI requires three filter passes per object; every incumbent MCP demands live calls per query."},
+			{"topic": "Bulk update from CSV with schema validation", "insight": "Reads the locally cached properties table and rejects bad rows up-front, then dispatches valid rows through batch endpoints. HubSpot's own Imports API silently drops bad rows — this surfaces them."},
 			{"topic": "Contact lookup", "insight": "Use search for finding contacts by name/email. List endpoints return unsorted results and require pagination for large datasets."},
 			{"topic": "Activity tracking", "insight": "When checking deal activity, sync first and query locally. CRM APIs often throttle activity-log endpoints heavily."},
 		},
 	}
-	data, _ := json.MarshalIndent(ctx, "", "  ")
-	return mcplib.NewToolResultText(string(data)), nil
+	return toolResultJSON(ctx)
 }
 
 // RegisterNovelFeatureTools is kept as a compatibility no-op for older MCP

@@ -5,15 +5,64 @@ package cli
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"hubspot-pp-cli/internal/cliutil"
 	"hubspot-pp-cli/internal/store"
 )
+
+// printTabular renders headers+rows honoring the --csv and --plain output
+// flags, falling through to the generated space-padded table renderer for the
+// default human view. The generated rootFlags.printTable only emits the
+// tabwriter view; novel/analytics commands route through this helper so that
+// the documented --csv (RFC 4180) and --plain (tab-separated, no padding)
+// contracts hold across every hand-written transcendence command, matching the
+// behavior the generated endpoint-mirror commands already provide via
+// printOutputWithFlags.
+func (f *rootFlags) printTabular(cmd *cobra.Command, headers []string, rows [][]string) error {
+	if f.quiet {
+		return nil
+	}
+	w := cmd.OutOrStdout()
+	switch {
+	case f.csv:
+		cw := csv.NewWriter(w)
+		if len(headers) > 0 {
+			if err := cw.Write(headers); err != nil {
+				return err
+			}
+		}
+		for _, row := range rows {
+			if err := cw.Write(row); err != nil {
+				return err
+			}
+		}
+		cw.Flush()
+		return cw.Error()
+	case f.plain:
+		// Tab-separated, no column padding — machine-friendly and cut/awk-able.
+		if len(headers) > 0 {
+			if _, err := fmt.Fprintln(w, strings.Join(headers, "\t")); err != nil {
+				return err
+			}
+		}
+		for _, row := range rows {
+			if _, err := fmt.Fprintln(w, strings.Join(row, "\t")); err != nil {
+				return err
+			}
+		}
+		return nil
+	default:
+		return f.printTable(cmd, headers, rows)
+	}
+}
 
 // resolveOwnerArg accepts an owner id, an email, or the literal "me".
 // "me" resolves to the owner whose email matches `git config user.email`
@@ -74,7 +123,7 @@ func parseDurationOrTimestamp(s string) (string, error) {
 	if s == "" {
 		return "", fmt.Errorf("empty duration")
 	}
-	re := regexp.MustCompile(`^(\d+)([hdw])$`)
+	re := regexp.MustCompile(`^(\d+)([mhdw])$`)
 	m := re.FindStringSubmatch(s)
 	if m != nil {
 		ts, err := parseSinceDuration(s)

@@ -12,7 +12,6 @@ func newNovelNurtureCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "nurture",
 		Short:       "Daily 'who to contact' queues computed from synced data",
-		Long:        "Sales-nurture queues computed from locally synced contacts, deals, and engagements. Use 'nurture queue' for a ranked 'who to contact today' list scored by stale-days x deal amount x stage probability, with the rationale exposed as columns. See also the top-level 'nurture-mine' command for contacts assigned to you that have gone cold.",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

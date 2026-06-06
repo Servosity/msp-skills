@@ -21,7 +21,6 @@ func newHubspotPipelinesCrmPatchV3PipelinesObjectTypePipelineIdStagesStageIdUpda
 
 	cmd := &cobra.Command{
 		Use:         "patch-v3-pipelines-object-type-pipeline-id-stages-stage-id-update <objectType> <pipelineId> <stageId>",
-		Aliases:     []string{"update"},
 		Short:       "Patch v3 pipelines object type pipeline id stages stage id update",
 		Example:     "  hubspot-cli hubspot-pipelines-crm patch-v3-pipelines-object-type-pipeline-id-stages-stage-id-update example-value 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-pipelines-crm.patch-v3-pipelines-object-type-pipeline-id-stages-stage-id-update", "pp:method": "PATCH", "pp:path": "/crm/v3/pipelines/{objectType}/{pipelineId}/stages/{stageId}"},

@@ -18,7 +18,6 @@ func newHubspotImportsCrmGetV3ImportsV3ImportsCmd(flags *rootFlags) *cobra.Comma
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-imports-v3-imports",
-		Aliases:     []string{"list"},
 		Short:       "Get v3 imports v3 imports",
 		Example:     "  hubspot-cli hubspot-imports-crm get-v3-imports-v3-imports",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-imports-crm.get-v3-imports-v3-imports", "pp:method": "GET", "pp:path": "/crm/v3/imports", "mcp:read-only": "true"},

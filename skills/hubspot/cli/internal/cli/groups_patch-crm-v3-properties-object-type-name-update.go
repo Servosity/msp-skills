@@ -19,7 +19,6 @@ func newGroupsPatchCrmV3PropertiesObjectTypeNameUpdateCmd(flags *rootFlags) *cob
 
 	cmd := &cobra.Command{
 		Use:         "patch-crm-v3-properties-object-type-name-update <groupName> <objectType>",
-		Aliases:     []string{"update"},
 		Short:       "Perform a partial update of a property group identified by {groupName}. Provided fields will be overwritten.",
 		Example:     "  hubspot-cli groups patch-crm-v3-properties-object-type-name-update example-resource example-value",
 		Annotations: map[string]string{"pp:endpoint": "groups.patch-crm-v3-properties-object-type-name-update", "pp:method": "PATCH", "pp:path": "/crm/v3/properties/{objectType}/groups/{groupName}"},

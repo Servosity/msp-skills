@@ -17,7 +17,6 @@ func newCrmPutV4ObjectsFromObjectTypeFromObjectIdAssociationsDefaultToObjectType
 
 	cmd := &cobra.Command{
 		Use:         "put-v4-objects-from-object-type-from-object-id-associations-default-to-object-type-to-object-id-create-default <fromObjectId> <fromObjectType> <toObjectId> <toObjectType>",
-		Aliases:     []string{"update"},
 		Short:       "Create the default (most generic) association type between two object types",
 		Example:     "  hubspot-cli crm put-v4-objects-from-object-type-from-object-id-associations-default-to-object-type-to-object-id-create-default 550e8400-e29b-41d4-a716-446655440000 example-value 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "crm.put-v4-objects-from-object-type-from-object-id-associations-default-to-object-type-to-object-id-create-default", "pp:method": "PUT", "pp:path": "/crm/v4/objects/{fromObjectType}/{fromObjectId}/associations/default/{toObjectType}/{toObjectId}"},

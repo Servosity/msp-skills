@@ -1,115 +1,14 @@
 # HubSpot CLI
 
-**Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.**
+**Every Sales Hub feature, plus offline cross-object queries and retained property-change history.**
 
-HubSpot's own CLI (`hs`) only covers CMS  -  there has never been a sales/CRM CLI from HubSpot itself. This one mirrors your CRM into local SQLite so commands like `nurture-mine`, `stale deals`, `owner-load`, and `pipeline-health` answer cross-table questions instantly and offline. New in this reprint: `sync --with-history` persists per-property snapshots into a shared property-history table, and `meetings ever-had` / `meetings status-report` answer questions HubSpot's standard search API physically cannot  -  'every meeting that was EVER status X in month Y, even after it flipped.'
+A local SQLite data layer no other HubSpot tool has: HubSpot's own CLI (`hs`) only covers CMS, and its new Agent CLI is stateless live-API  -  neither gives you a stateful, offline sales/CRM mirror. This one mirrors your CRM into local SQLite so commands like `nurture-mine`, `stale deals`, `owner-load`, and `pipeline-health` answer cross-table questions instantly and offline. New in this reprint: `sync --with-history` persists per-property snapshots into a shared property-history table, and `meetings ever-had` / `meetings status-report` answer questions HubSpot's standard search API physically cannot  -  'every meeting that was EVER status X in month Y, even after it flipped.'
 
 Learn more at [HubSpot](https://developers.hubspot.com/docs/api).
 
 Created by [@DamienStevens](https://github.com/DamienStevens) (Damien Stevens).
 
-## Install
-
-The recommended path installs both the `hubspot-cli` binary and the `pp-hubspot` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
-
-```bash
-npx -y @mvanhorn/printing-press-library install hubspot
-```
-
-For CLI only (no skill):
-
-```bash
-npx -y @mvanhorn/printing-press-library install hubspot --cli-only
-```
-
-For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
-
-```bash
-npx -y @mvanhorn/printing-press-library install hubspot --skill-only
-```
-
-To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
-
-```bash
-npx -y @mvanhorn/printing-press-library install hubspot --agent claude-code
-npx -y @mvanhorn/printing-press-library install hubspot --agent claude-code --agent codex
-```
-
-### Without Node (Go fallback)
-
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.3 or newer):
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/hubspot/cmd/hubspot-cli@latest
-```
-
-This installs the CLI only  -  no skill.
-
-### Pre-built binary
-
-Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/hubspot-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
-
-<!-- pp-hermes-install-anchor -->
-## Install for Hermes
-
-From the Hermes CLI:
-
-```bash
-hermes skills install mvanhorn/printing-press-library/cli-skills/pp-hubspot --force
-```
-
-Inside a Hermes chat session:
-
-```bash
-/skills install mvanhorn/printing-press-library/cli-skills/pp-hubspot --force
-```
-
-## Install for OpenClaw
-
-Tell your OpenClaw agent (copy this):
-
-```
-Install the pp-hubspot skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-hubspot. The skill defines how its required CLI can be installed.
-```
-
-## Use with Claude Desktop
-
-This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
-
-To install:
-
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/hubspot-current).
-2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `HUBSPOT_ACCESS_TOKEN` when Claude Desktop prompts you.
-
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
-
-<details>
-<summary>Manual JSON config (advanced)</summary>
-
-If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
-
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/hubspot/cmd/hubspot-mcp@latest
-```
-
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "hubspot": {
-      "command": "hubspot-mcp",
-      "env": {
-        "HUBSPOT_ACCESS_TOKEN": "<your-key>"
-      }
-    }
-  }
-}
-```
-
-</details>
+For the short install path see [README.md](./README.md). This file is the command reference.
 
 ## Authentication
 
@@ -161,9 +60,8 @@ These capabilities aren't available in any other tool for this API.
 
   _Use this for forecast-vs-reality checks before a pipeline review._
 
-<!-- cli-claims:ignore -->
   ```bash
-  hubspot-cli pipeline-health default --idle-days 14 --json
+  hubspot-cli pipeline-health "default" --idle-days 14 --json
   ```
 - **`nurture queue`**  -  Ranked 'who to contact today' list scored by stale-days × deal amount × stage probability, with the rationale exposed as columns.
 
@@ -183,21 +81,21 @@ These capabilities aren't available in any other tool for this API.
 ### Property history & audit
 - **`meetings history`**  -  Show the full timeline of property changes for a single meeting (outcome, title, owner, custom fields)  -  when each value was set, by whom, and from what source.
 
-  _Reach for this when investigating 'when did this meeting flip from Scheduled to No Show, and who changed it'  -  the audit-trail question the HubSpot UI buries inside per-property timelines._
+  _Reach for this when investigating 'when did this meeting flip from Scheduled to No Show, and who changed it'. Requires a prior 'sync --resources hubspot-meetings-crm --with-history <props>' to populate the history table._
 
   ```bash
   hubspot-cli meetings history 53612340987612345 --json
   ```
 - **`meetings ever-had`**  -  Find every meeting whose given property was EVER set to a given value within a date range  -  even if it has since changed.
 
-  _Pick this when a customer or audit asks 'every meeting that was at some point in status X during month Y'  -  the only path through the property-history snapshot table._
+  _Pick this when a customer or audit asks 'every meeting that was at some point in status X during month Y'. Requires a prior 'sync --with-history' capture; the standard /search API cannot answer it._
 
   ```bash
   hubspot-cli meetings ever-had --property hs_meeting_outcome --value Scheduled --from 2026-04-01 --to 2026-04-30 --json
   ```
 - **`meetings status-report`**  -  Composes the meetings ever-had query into the canonical monthly-report shape: every meeting that touched the given status in the given month, with owner, title, current status, and the timestamp of the original status set.
 
-  _Use this once per month per customer report  -  one command replaces a Python pull + a HubSpot export + a manual cross-reference._
+  _Use this once per month per customer report  -  one command replaces a Python pull + a HubSpot export + a manual cross-reference. Requires a prior 'sync --resources hubspot-meetings-crm --with-history hs_meeting_outcome'._
 
   ```bash
   hubspot-cli meetings status-report --status scheduled --month 2026-04 --csv
@@ -208,6 +106,13 @@ These capabilities aren't available in any other tool for this API.
 
   ```bash
   hubspot-cli sync --resources hubspot-meetings-crm --with-history hs_meeting_outcome,hs_meeting_title,hubspot_owner_id
+  ```
+- **`deals velocity`**  -  Per-deal days-in-current-stage and per-stage median/p90 dwell time, computed from dealstage change history  -  find where deals rot.
+
+  _Use this when the user asks where deals stall or how long deals sit per stage  -  requires a prior sync deals --with-history dealstage._
+
+  ```bash
+  hubspot-cli deals velocity --pipeline default --json
   ```
 
 ### Cross-object intelligence
@@ -231,6 +136,34 @@ These capabilities aren't available in any other tool for this API.
 
   ```bash
   hubspot-cli since 24h --types deals,engagements --owner me --json
+  ```
+- **`contacts funnel`**  -  One-shot funnel table of contacts per lifecycle stage (subscriber → lead → MQL → SQL → opportunity → customer) with stage-to-stage conversion ratios.
+
+  _Use this for 'where is the top of funnel leaking' questions  -  instant offline funnel snapshot after one sync._
+
+  ```bash
+  hubspot-cli contacts funnel --json
+  ```
+- **`deals unowned`**  -  Open deals with no owner or owned by a deactivated rep, with per-stage dollar exposure  -  the hygiene gap owner-load can't see.
+
+  _Use this in the weekly hygiene pass to find orphaned deals before they rot  -  distinct from owner-load, which only aggregates owned deals._
+
+  ```bash
+  hubspot-cli deals unowned --pipeline default --json
+  ```
+- **`contacts win-back`**  -  Contacts attached to a Closed Won deal but with no engagement in N days  -  the customer-expansion and re-engage list.
+
+  _Use this for post-win expansion outreach  -  distinct from nurture-mine (open-deal cold) and stale (any cold)._
+
+  ```bash
+  hubspot-cli contacts win-back --cold-days 90 --json
+  ```
+- **`deals forecast`**  -  Probability-weighted pipeline forecast bucketed by close-date month  -  the canonical GM revenue question, answered offline.
+
+  _Use this for close-month weighted totals for revenue reviews; pipeline-health answers per-stage risk, forecast answers per-month expectation._
+
+  ```bash
+  hubspot-cli deals forecast --pipeline default --json
   ```
 
 ### Bulk operations
@@ -661,22 +594,21 @@ Manage objects search
 
 ## Output Formats
 
-<!-- cli-claims:ignore -->
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-hubspot-cli batch post-crm-v3-objects-object-type-archive-archive mock-value
+hubspot-cli batch post-crm-v3-objects-object-type-archive-archive "mock-value"
 
 # JSON for scripting and agents
-hubspot-cli batch post-crm-v3-objects-object-type-archive-archive mock-value --json
+hubspot-cli batch post-crm-v3-objects-object-type-archive-archive "mock-value" --json
 
 # Filter to specific fields
-hubspot-cli batch post-crm-v3-objects-object-type-archive-archive mock-value --json --select id,name,status
+hubspot-cli batch post-crm-v3-objects-object-type-archive-archive "mock-value" --json --select id,name,status
 
 # Dry run  -  show the request without sending
-hubspot-cli batch post-crm-v3-objects-object-type-archive-archive mock-value --dry-run
+hubspot-cli batch post-crm-v3-objects-object-type-archive-archive "mock-value" --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-hubspot-cli batch post-crm-v3-objects-object-type-archive-archive mock-value --agent
+hubspot-cli batch post-crm-v3-objects-object-type-archive-archive "mock-value" --agent
 ```
 
 ## Agent Usage

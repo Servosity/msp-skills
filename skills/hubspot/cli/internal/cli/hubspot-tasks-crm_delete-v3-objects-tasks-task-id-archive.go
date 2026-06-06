@@ -15,7 +15,6 @@ func newHubspotTasksCrmDeleteV3ObjectsTasksTaskIdArchiveCmd(flags *rootFlags) *c
 
 	cmd := &cobra.Command{
 		Use:         "delete-v3-objects-tasks-task-id-archive <taskId>",
-		Aliases:     []string{"delete"},
 		Short:       "Move an Object identified by `{taskId}` to the recycling bin.",
 		Example:     "  hubspot-cli hubspot-tasks-crm delete-v3-objects-tasks-task-id-archive 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-tasks-crm.delete-v3-objects-tasks-task-id-archive", "pp:method": "DELETE", "pp:path": "/crm/v3/objects/tasks/{taskId}"},

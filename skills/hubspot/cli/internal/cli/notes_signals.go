@@ -13,6 +13,7 @@ import (
 	"hubspot-pp-cli/internal/store"
 )
 
+// pp:data-source local
 func newNovelNotesSignalsCmd(flags *rootFlags) *cobra.Command {
 	var pipeline string
 	var since string
@@ -26,6 +27,9 @@ func newNovelNotesSignalsCmd(flags *rootFlags) *cobra.Command {
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Example:     `  hubspot-cli notes signals --since 30d --pipeline default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -37,6 +41,9 @@ func newNovelNotesSignalsCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("opening local database: %w", err)
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, "hubspot-notes-crm") {
+				hintIfStale(cmd, db, "hubspot-notes-crm", flags.maxAge)
+			}
 			ownerID, err := resolveOwnerArg(db, owner)
 			if err != nil {
 				return err
@@ -55,8 +62,10 @@ func newNovelNotesSignalsCmd(flags *rootFlags) *cobra.Command {
 			source := "local"
 			if assocCount == 0 {
 				source = "local-no-associations"
+				if pipeline != "" {
+					fmt.Fprintln(cmd.ErrOrStderr(), "warning: --pipeline requires the hubspot_associations table (sync associations first); emitting unfiltered per-note rows")
+				}
 			}
-			_ = pipeline
 
 			q := `
 SELECT n.id,
@@ -119,7 +128,8 @@ WHERE COALESCE(n.archived, 0) = 0
 SELECT a.to_id, COALESCE(json_extract(d.data, '$.properties.dealname'), '')
 FROM hubspot_associations a
 JOIN hubspot_deals_crm d ON d.id = a.to_id
-WHERE a.from_type = 'notes' AND a.to_type = 'deals' AND a.from_id = ?`, n.NoteID)
+WHERE a.from_type = 'notes' AND a.to_type = 'deals' AND a.from_id = ?
+  AND (? = '' OR COALESCE(json_extract(d.data, '$.properties.pipeline'), '') = ?)`, n.NoteID, pipeline, pipeline)
 					if err != nil {
 						continue
 					}
@@ -140,9 +150,9 @@ WHERE a.from_type = 'notes' AND a.to_type = 'deals' AND a.from_id = ?`, n.NoteID
 							a.LastNoteAt = n.TS
 						}
 					}
-					dealRows.Close()
+					_ = dealRows.Close()
 				}
-				var aggList []dealAgg
+				aggList := []dealAgg{}
 				for _, v := range agg {
 					aggList = append(aggList, *v)
 				}
@@ -163,7 +173,7 @@ WHERE a.from_type = 'notes' AND a.to_type = 'deals' AND a.from_id = ?`, n.NoteID
 						joinSignals(a.Signals), a.LastNoteAt,
 					})
 				}
-				return flags.printTable(cmd, headers, out)
+				return flags.printTabular(cmd, headers, out)
 			}
 
 			// Fallback: per-note results.
@@ -200,7 +210,7 @@ WHERE a.from_type = 'notes' AND a.to_type = 'deals' AND a.from_id = ?`, n.NoteID
 					joinSignals(it.Signals), it.NoteAt, it.Snippet,
 				})
 			}
-			return flags.printTable(cmd, headers, out)
+			return flags.printTabular(cmd, headers, out)
 		},
 	}
 	cmd.Flags().StringVar(&pipeline, "pipeline", "", "Restrict to deals in a single pipeline id (requires sync-associations)")

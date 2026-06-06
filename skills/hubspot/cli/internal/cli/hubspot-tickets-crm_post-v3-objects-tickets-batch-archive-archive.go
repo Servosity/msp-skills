@@ -18,7 +18,6 @@ func newHubspotTicketsCrmPostV3ObjectsTicketsBatchArchiveArchiveCmd(flags *rootF
 
 	cmd := &cobra.Command{
 		Use:         "post-v3-objects-tickets-batch-archive-archive",
-		Aliases:     []string{"create"},
 		Short:       "Delete a batch of tickets by ID. Deleted tickets can be restored within 90 days of deletion.",
 		Example:     "  hubspot-cli hubspot-tickets-crm post-v3-objects-tickets-batch-archive-archive",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-tickets-crm.post-v3-objects-tickets-batch-archive-archive", "pp:method": "POST", "pp:path": "/crm/v3/objects/tickets/batch/archive"},

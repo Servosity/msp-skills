@@ -22,7 +22,6 @@ func newHubspotObjectsCrmGetV3ObjectsObjectTypeGetPageCmd(flags *rootFlags) *cob
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-object-type-get-page <objectType>",
-		Aliases:     []string{"get"},
 		Short:       "Read a page of objects. Control what is returned via the `properties` query param.",
 		Example:     "  hubspot-cli hubspot-objects-crm get-v3-objects-object-type-get-page example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-objects-crm.get-v3-objects-object-type-get-page", "pp:method": "GET", "pp:path": "/crm/v3/objects/{objectType}", "mcp:read-only": "true"},

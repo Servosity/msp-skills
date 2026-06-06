@@ -22,7 +22,6 @@ func newHubspotTicketsCrmGetV3ObjectsTicketsGetPageCmd(flags *rootFlags) *cobra.
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-tickets-get-page",
-		Aliases:     []string{"list"},
 		Short:       "Read a page of tickets. Control what is returned via the `properties` query param.",
 		Example:     "  hubspot-cli hubspot-tickets-crm get-v3-objects-tickets-get-page",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-tickets-crm.get-v3-objects-tickets-get-page", "pp:method": "GET", "pp:path": "/crm/v3/objects/tickets", "mcp:read-only": "true"},

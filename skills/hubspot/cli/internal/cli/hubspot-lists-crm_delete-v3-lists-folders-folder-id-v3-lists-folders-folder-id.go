@@ -15,7 +15,6 @@ func newHubspotListsCrmDeleteV3ListsFoldersFolderIdV3ListsFoldersFolderIdCmd(fla
 
 	cmd := &cobra.Command{
 		Use:         "delete-v3-lists-folders-folder-id-v3-lists-folders-folder-id <folderId>",
-		Aliases:     []string{"delete"},
 		Short:       "Delete v3 lists folders folder id v3 lists folders folder id",
 		Example:     "  hubspot-cli hubspot-lists-crm delete-v3-lists-folders-folder-id-v3-lists-folders-folder-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-lists-crm.delete-v3-lists-folders-folder-id-v3-lists-folders-folder-id", "pp:method": "DELETE", "pp:path": "/crm/v3/lists/folders/{folderId}"},

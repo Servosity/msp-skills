@@ -27,7 +27,7 @@ func SiblingCLIPath() (string, error) {
 }
 
 func cliExecutableName(goos string) string {
-	name := "hubspot-pp-cli"
+	name := "hubspot-cli"
 	if goos == "windows" {
 		return name + ".exe"
 	}

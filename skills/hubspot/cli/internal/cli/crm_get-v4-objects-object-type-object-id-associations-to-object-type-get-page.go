@@ -18,7 +18,6 @@ func newCrmGetV4ObjectsObjectTypeObjectIdAssociationsToObjectTypeGetPageCmd(flag
 
 	cmd := &cobra.Command{
 		Use:         "get-v4-objects-object-type-object-id-associations-to-object-type-get-page <objectId> <objectType> <toObjectType>",
-		Aliases:     []string{"get"},
 		Short:       "Retrieve all associations between a specific record and an object type. Limit 500 per call.",
 		Example:     "  hubspot-cli crm get-v4-objects-object-type-object-id-associations-to-object-type-get-page 550e8400-e29b-41d4-a716-446655440000 example-value example-value",
 		Annotations: map[string]string{"pp:endpoint": "crm.get-v4-objects-object-type-object-id-associations-to-object-type-get-page", "pp:method": "GET", "pp:path": "/crm/v4/objects/{objectType}/{objectId}/associations/{toObjectType}", "mcp:read-only": "true"},

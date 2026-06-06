@@ -15,6 +15,7 @@ import (
 	"hubspot-pp-cli/internal/store"
 )
 
+// pp:data-source local
 func newNovelDealsTopCmd(flags *rootFlags) *cobra.Command {
 	var topN int
 	var pipeline string
@@ -31,6 +32,9 @@ func newNovelDealsTopCmd(flags *rootFlags) *cobra.Command {
 		Example: `  hubspot-cli deals top --top 5 --owner me
   hubspot-cli deals top --top 10 --filter 'pipeline=default'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -49,6 +53,9 @@ func newNovelDealsTopCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("opening local database: %w", err)
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, "hubspot-deals-crm") {
+				hintIfStale(cmd, db, "hubspot-deals-crm", flags.maxAge)
+			}
 			ownerID, err := resolveOwnerArg(db, owner)
 			if err != nil {
 				return err
@@ -181,7 +188,7 @@ WHERE COALESCE(archived, 0) = 0
 					it.TopBuying, it.TopLost,
 				})
 			}
-			return flags.printTable(cmd, headers, out)
+			return flags.printTabular(cmd, headers, out)
 		},
 	}
 	cmd.Flags().IntVar(&topN, "top", 5, "Number of top deals to return")

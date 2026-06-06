@@ -18,7 +18,6 @@ func newHubspotEmailsCrmPostV3ObjectsEmailsBatchArchiveArchiveCmd(flags *rootFla
 
 	cmd := &cobra.Command{
 		Use:         "post-v3-objects-emails-batch-archive-archive",
-		Aliases:     []string{"create"},
 		Short:       "Archive a batch of emails identified by their IDs.",
 		Example:     "  hubspot-cli hubspot-emails-crm post-v3-objects-emails-batch-archive-archive",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-emails-crm.post-v3-objects-emails-batch-archive-archive", "pp:method": "POST", "pp:path": "/crm/v3/objects/emails/batch/archive"},

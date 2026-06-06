@@ -20,7 +20,6 @@ func newHubspotLineItemsCrmGetV3ObjectsLineItemsLineItemIdGetByIdCmd(flags *root
 
 	cmd := &cobra.Command{
 		Use:         "get-v3-objects-line-items-line-item-id-get-by-id <lineItemId>",
-		Aliases:     []string{"get"},
 		Short:       "Read an Object identified by `{lineItemId}`.",
 		Example:     "  hubspot-cli hubspot-line-items-crm get-v3-objects-line-items-line-item-id-get-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-line-items-crm.get-v3-objects-line-items-line-item-id-get-by-id", "pp:method": "GET", "pp:path": "/crm/v3/objects/line_items/{lineItemId}", "mcp:read-only": "true"},

@@ -18,7 +18,6 @@ func newHubspotNotesCrmPostV3ObjectsNotesBatchArchiveArchiveCmd(flags *rootFlags
 
 	cmd := &cobra.Command{
 		Use:         "post-v3-objects-notes-batch-archive-archive",
-		Aliases:     []string{"create"},
 		Short:       "Archive multiple notes by their IDs in a single request.",
 		Example:     "  hubspot-cli hubspot-notes-crm post-v3-objects-notes-batch-archive-archive",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-notes-crm.post-v3-objects-notes-batch-archive-archive", "pp:method": "POST", "pp:path": "/crm/v3/objects/notes/batch/archive"},

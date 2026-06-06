@@ -92,12 +92,10 @@ func logMutationIfApplicable(cmd *cobra.Command, args []string, exitCode int) {
 // log is local-only, but we still avoid persisting raw tokens.
 func sanitizeArgs(args []string) []string {
 	out := make([]string, len(args))
-	for i, a := range args {
-		// Strip values after well-known credential flags (e.g. --token=xyz,
-		// --token xyz). The next arg gets elided too when the previous was
-		// a known credential flag.
-		out[i] = a
-	}
+	copy(out, args)
+	// Strip values after well-known credential flags (e.g. --token=xyz,
+	// --token xyz). The next arg gets elided too when the previous was
+	// a known credential flag.
 	for i := 0; i < len(out); i++ {
 		lower := strings.ToLower(out[i])
 		if strings.HasPrefix(lower, "--token=") || strings.HasPrefix(lower, "--api-key=") || strings.HasPrefix(lower, "--secret=") {
@@ -111,6 +109,7 @@ func sanitizeArgs(args []string) []string {
 	return out
 }
 
+// pp:data-source local
 func newHistoryCmd(flags *rootFlags) *cobra.Command {
 	var sinceArg string
 	var kinds []string
@@ -131,6 +130,9 @@ func newHistoryCmd(flags *rootFlags) *cobra.Command {
   # Multiple kinds (OR)
   hubspot-cli history --kind sync --kind 'contacts bulk-update'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -172,7 +174,7 @@ func newHistoryCmd(flags *rootFlags) *cobra.Command {
 					truncate(r.ArgsSummary, 60),
 				})
 			}
-			return flags.printTable(cmd, headers, out)
+			return flags.printTabular(cmd, headers, out)
 		},
 	}
 	cmd.Flags().StringVar(&sinceArg, "since", "24h", "Only events newer than this duration (e.g. 1h, 24h, 7d) or RFC3339 timestamp")

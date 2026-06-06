@@ -19,7 +19,6 @@ func newHubspotTicketsCrmPatchV3ObjectsTicketsTicketIdUpdateCmd(flags *rootFlags
 
 	cmd := &cobra.Command{
 		Use:         "patch-v3-objects-tickets-ticket-id-update <ticketId>",
-		Aliases:     []string{"update"},
 		Short:       "Perform a partial update of an Object identified by `{ticketId}`or optionally a unique property value as specified by",
 		Example:     "  hubspot-cli hubspot-tickets-crm patch-v3-objects-tickets-ticket-id-update 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-tickets-crm.patch-v3-objects-tickets-ticket-id-update", "pp:method": "PATCH", "pp:path": "/crm/v3/objects/tickets/{ticketId}"},
