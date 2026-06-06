@@ -371,6 +371,42 @@ A: Mostly. Audits and search run over whatever you've synced, so they work with 
 
 Governance: The skill reads everything over a local mirror - audits, search, resolve, and reconcile are always safe to run and cannot change anything. Writes (creating or updating assets, articles, companies, and asset layouts, plus 'onboard --apply') send to your live Hudu instance, so the recommended agent policy is preview-then-approve. Reading or changing password-vault entries and managing the API credential are credential-tier; deletes and archives are destructive - keep both human-in-the-loop.
 
+### Huntress (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/huntress/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/huntress/install.sh)
+
+Ask "which Huntress incidents are oldest across all my clients?" and get one age-sorted queue spanning every organization - the cross-tenant view the per-org portal never shows. Triage incidents fleet-wide, find coverage gaps and dark agents, reconcile invoiced seats against deployed agents, and trace an indicator's blast radius across your whole account, in plain English, from one local mirror.
+
+Outcomes (question -> command your AI agent runs):
+- Which incidents are oldest across every client org? -> huntress-cli fleet-incidents --sort age
+- Where are my posture gaps - stale callbacks, disabled Defender or firewall? -> huntress-cli coverage-gaps
+- Has this IP or file hash touched any of my clients? -> huntress-cli blast-radius --indicator 203.0.113.10
+- Am I billed for more seats than I have agents deployed? -> huntress-cli billing-reconcile
+- Which agents went dark in the last week? -> huntress-cli stale-agents --days 7
+- What is my mean time-to-resolve per client? -> huntress-cli mttr --group-by org
+- What changed across the fleet since my last shift? -> huntress-cli handoff --since 12h
+- Give me a QBR scorecard for one client. -> huntress-cli org-scorecard --org 12345
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Huntress MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Huntress data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need to be a Huntress partner?
+A: You need a Huntress account with API credentials (a key and secret) generated from your portal. Reseller credentials unlock the cross-account reseller-rollup; a single-account credential drives everything else.
+Q: Will this hit my Huntress API rate limits?
+A: Sync pulls your account into a local mirror once, then every rollup and search runs against that local copy - so repeated questions cost zero API calls. The CLI also honors a configurable --rate-limit on the requests it does make.
+Q: Will this replace my Huntress portal?
+A: No - it complements it. The portal stays your console for configuration and deep investigation; this skill answers the cross-tenant and historical questions the portal can only show one organization at a time.
+
+Governance: The skill authenticates with your Huntress API key and secret and is read-first: every rollup, search, and report is non-mutating and safe to let an agent run. The handful of write commands (update an organization, membership, account, or unwanted-access rule) and the destructive deletes are opt-in and should sit behind an agent policy of preview-then-approve. Keep autonomous agents to reads plus dry-run previews; require a human for any write or delete.
+
 ### IT Glue (Documentation)
 
 Page: https://msp-skills.compoundingteams.com/skills/itglue/
