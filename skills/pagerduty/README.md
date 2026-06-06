@@ -155,9 +155,9 @@ Full command reference: [guide.md](./guide.md). For the AI-agent operating contr
 
 ## What makes this different
 
-Most PagerDuty integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "what was our MTTR by service across the whole quarter" or "who carried the most off-hours pages last month" - questions no single PagerDuty API call returns.
+Most PagerDuty integrations and MCP servers proxy each question into a live API call. That's fine for one record. It gets slow and costly at scale, when you're asking "what was our MTTR by service across the whole quarter" or "who carried the most off-hours pages last month" - the cross-incident analytics PagerDuty otherwise gates behind its paid Analytics tier.
 
-This skill syncs PagerDuty into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `insights mttr`, `insights responders`, and `audit coverage` join across incidents, log entries, services, escalation policies, and schedules - work a stateless API wrapper can't do.
+This skill syncs PagerDuty into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Commands like `insights mttr`, `insights responders`, and `audit coverage` compute that math locally from the incidents, log entries, services, escalation policies, and schedules any REST API key can read - no Analytics add-on, no live call per question.
 
 ## The pain this closes
 

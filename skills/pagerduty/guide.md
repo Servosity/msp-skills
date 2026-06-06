@@ -1,8 +1,8 @@
 # PagerDuty CLI
 
-**Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions  -  MTTA/MTTR, on-call coverage gaps, responder load  -  that neither the API nor the web UI can.**
+**Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions  -  MTTA/MTTR, on-call coverage gaps, responder load  -  offline, without the paid Analytics tier.**
 
-Triage the incident queue, resolve who's on call now and next, and run service and escalation hygiene checks without leaving the shell. Sync once and the local store powers analytics no single API call exposes: pulse for what's hot right now, oncall who for the live escalation chain, audit coverage for escalation gaps, and insights mttr/responders/noisy for offline post-incident analytics.
+Triage the incident queue, resolve who's on call now and next, and run service and escalation hygiene checks without leaving the shell. Sync once and the local store powers offline analytics with no Analytics add-on and no live call per question: pulse for what's hot right now, oncall who for the live escalation chain, audit coverage for escalation gaps, and insights mttr/responders/noisy for post-incident analytics.
 
 Learn more at [PagerDuty](http://www.pagerduty.com/support).
 
