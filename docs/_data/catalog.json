@@ -54,7 +54,7 @@
       "display_name": "HaloPSA",
       "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.",
       "category": "PSA",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "url": "/skills/halopsa/"
     },
     {
@@ -126,7 +126,7 @@
       "display_name": "Servosity",
       "tagline": "Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.",
       "category": "Backup/DR",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "url": "/skills/servosity/"
     },
     {

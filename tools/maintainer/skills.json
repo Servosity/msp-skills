@@ -96,6 +96,29 @@
         "evidence": null
       }
     },
+    "crowdstrike": {
+      "system": "CrowdStrike Falcon EDR: alerts, devices, Spotlight vulnerabilities, prevention policies, and MSSP Flight Control across every tenant",
+      "status": "beta",
+      "cli_binary": "crowdstrike-cli",
+      "mcp_binary": "crowdstrike-mcp",
+      "vendor": "CrowdStrike",
+      "vendor_trademark_owner": "CrowdStrike, Inc.",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "CrowdStrike Falcon",
+      "tagline": "Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking.",
+      "cli_hash": "sha256:232b3a19180ae6955758434e88d786d9c683eb17ba45f98761b26c063574c7b3",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:232b3a19180ae6955758434e88d786d9c683eb17ba45f98761b26c063574c7b3",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "datto-rmm": {
       "system": "Datto RMM: devices, alerts, patch and AV gaps, warranty, agent drift, and fleet QBR scorecards from a local mirror",
       "status": "beta",
@@ -135,10 +158,10 @@
       "featured": 4,
       "install_auth_hint": "Then authenticate with `halopsa-cli auth login` (Configuration > Integrations > Halo PSA API in your tenant gives you the credentials)",
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
+        "status": "live-verified",
+        "date": "2026-06-05",
+        "source": "self",
+        "evidence": "Damien: verified live (2026-06-05)"
       },
       "category": "PSA",
       "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.",
@@ -361,10 +384,10 @@
       "featured": 1,
       "install_auth_hint": "Then authenticate with `SERVOSITY_MSP_TOKEN=<your-partner-token> servosity-cli doctor`",
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
+        "status": "live-verified",
+        "date": "2026-06-05",
+        "source": "self",
+        "evidence": "Damien: verified live against the Servosity partner tenant (2026-06-05)"
       },
       "category": "Backup/DR",
       "tagline": "Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.",
@@ -439,29 +462,6 @@
         "evidence": null
       },
       "install_auth_hint": "Then set `THREATLOCKER_API_KEY` (Portal > Administrators > API Users > Generate API Token) and run `threatlocker-cli doctor`"
-    },
-    "crowdstrike": {
-      "system": "CrowdStrike Falcon EDR: alerts, devices, Spotlight vulnerabilities, prevention policies, and MSSP Flight Control across every tenant",
-      "status": "beta",
-      "cli_binary": "crowdstrike-cli",
-      "mcp_binary": "crowdstrike-mcp",
-      "vendor": "CrowdStrike",
-      "vendor_trademark_owner": "CrowdStrike, Inc.",
-      "first_party": false,
-      "category": "Security",
-      "display_name": "CrowdStrike Falcon",
-      "tagline": "Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking.",
-      "cli_hash": "sha256:232b3a19180ae6955758434e88d786d9c683eb17ba45f98761b26c063574c7b3",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:232b3a19180ae6955758434e88d786d9c683eb17ba45f98761b26c063574c7b3",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
     }
   }
 }

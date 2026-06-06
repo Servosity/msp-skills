@@ -5,7 +5,7 @@ description: "The first MSP-fleet CLI for backup. Every Servosity API endpoint a
 permalink: /skills/servosity/
 skill_name: "Servosity MCP"
 image: /assets/social/servosity/wide-1200x630.png
-verification: awaiting
+verification: live-verified
 faqs:
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Servosity MCP server via a secure bridge. Step-by-step in the install guide."
@@ -37,7 +37,7 @@ howto:
 > Published by Servosity Inc. for MSP partners. Servosity is a trademark of
 > Servosity Inc.. Apache-2.0 licensed.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Live-verified** - confirmed by a real MSP against a live Servosity tenant (2026-06-05).
 
 MSPs run Servosity as the backup and DR platform - M365, DR Server, and DR Desktop protection across a whole book of clients. Ask your AI "where is my attention needed today", "which backups went stale this week", or "build Acme's QBR backup section" and get fleet-wide answers the per-client dashboard can't compose: ranked attention sweeps, day-over-day drift, ready-to-send stale-backup follow-ups, and the whole book's QBR reports in one pass.
 
