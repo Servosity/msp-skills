@@ -34,6 +34,14 @@
       "url": "/skills/hubspot/"
     },
     {
+      "slug": "microsoft-graph",
+      "display_name": "Microsoft Graph",
+      "tagline": "Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking.",
+      "category": "Security",
+      "verification": "awaiting",
+      "url": "/skills/microsoft-graph/"
+    },
+    {
       "slug": "mspbots",
       "display_name": "MSPbots",
       "tagline": "Pull datasets, snapshot KPIs, and track ticket backlog trends by asking.",
