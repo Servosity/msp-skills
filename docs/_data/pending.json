@@ -61,5 +61,12 @@
     "latest_tag": null,
     "current_hash": "sha256:fdd78076d4955dddd2e4d4c42a66c3b66bece8005d59c5d10944465d525e12a0",
     "released_hash": null
+  },
+  "threatlocker": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:dc7d5e1d3826df0cdd561990769bcdc05827adf7d71cdcd38ae14d62f57f1147",
+    "released_hash": null
   }
 }
