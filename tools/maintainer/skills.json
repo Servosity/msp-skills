@@ -139,14 +139,14 @@
       }
     },
     "servosity": {
-      "system": "Servosity backup and DR",
+      "system": "Servosity backup and DR: fleet attention, stale backups, QBR reports, restores, billing",
       "status": "beta",
       "cli_binary": "servosity-cli",
       "mcp_binary": "servosity-mcp",
       "vendor": "Servosity",
       "vendor_trademark_owner": "Servosity Inc.",
       "first_party": true,
-      "cli_hash": "sha256:65cc2e313e5042eb00375d298367e91d650dca2eadeaf87264086a731e9b8995",
+      "cli_hash": "sha256:a09af51adc8d48806b4ded23bf2bb7ec4fa434ebaf50f6d4a8672dc7bd8e4a43",
       "template_version": 3,
       "version": "0.1.1",
       "cli_hash_at_release": "sha256:65cc2e313e5042eb00375d298367e91d650dca2eadeaf87264086a731e9b8995",
@@ -160,7 +160,7 @@
         "evidence": "Damien: verified live against the Servosity partner tenant (2026-06-05)"
       },
       "category": "Backup/DR",
-      "tagline": "Backup status, failures, and QBR-ready history for every client by asking.",
+      "tagline": "Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.",
       "display_name": "Servosity"
     }
   }

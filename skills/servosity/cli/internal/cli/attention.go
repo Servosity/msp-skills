@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 servosity. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -6,262 +6,450 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
-	"servosity-pp-cli/internal/store"
+	"servosity-msp-pp-cli/internal/client"
+	"servosity-msp-pp-cli/internal/snapshot"
+	"servosity-msp-pp-cli/internal/store"
 )
 
+// attentionCompany is one company row in the attention rollup.
+type attentionCompany struct {
+	CompanyID        int64  `json:"company_id"`
+	CompanyName      string `json:"company_name"`
+	Score            int    `json:"score"`
+	OpenIssues       int    `json:"open_issues"`
+	StaleBackups     int    `json:"stale_backups"`
+	DRBackupInFlight int    `json:"drbackup_in_flight"`
+}
+
+// attentionResult is the full envelope written both to stdout and the snapshot.
+type attentionResult struct {
+	TakenAt   time.Time          `json:"taken_at"`
+	Companies []attentionCompany `json:"companies"`
+	Totals    map[string]int     `json:"totals"`
+}
+
+// newAttentionCmd builds the morning fleet-sweep command. It merges open
+// issues + stale backup sets into a
+// per-company ranked view, persists the result as a snapshot for `drift`,
+// and emits a JSON envelope on stdout.
+//
+// v1 ranking:  score = (open_issues * 2) + (stale_backups * 3)
+//
+// Restore-queue weighting is deferred to v0.2 (per-company iteration is too
+// expensive without a synced table; see TODO below).
+// pp:data-source auto
 func newAttentionCmd(flags *rootFlags) *cobra.Command {
-	var resellerFilter string
-	var noStore bool
-	var dbPath string
+	var refresh bool
+	var since string
+	var topN int
 
 	cmd := &cobra.Command{
 		Use:   "attention",
-		Short: "Fleet rollup: what needs your eyes-on right now (admin attention + dirty repos + DRaaS-in-flight + open issues)",
-		Long: `Composes 4 server-side rollups into one ranked per-company view:
-  - GET /admin/attention/      (server's own "needs attention" list)
-  - GET /admin/dirty-repos/    (restic repos in inconsistent state)
-  - GET /admin/draas-in-progress/ (DRaaS sessions in flight)
-  - GET /issues/?state=ACTIVE  (open issues)
+		Short: "Morning fleet sweep: rank companies by open issues + stale backups",
+		Long: `Merge open issues and stale backup sets into a
+per-company ranked view of where your attention is needed today.
 
-Each call is also persisted as a snapshot row so 'drift' can compare today
-to yesterday. Use --no-store to skip persistence.`,
-		Example: `  # Print today's attention rollup as JSON
-  servosity-cli attention --json
+By default reads from the local store (run 'sync' first). Pass --refresh to
+pull live from the API. Results are snapshotted to pp_snapshots so future
+runs of 'drift' can compute day-over-day changes.`,
+		Example: `  # Use local store
+  servosity-cli attention
 
-  # Filter to one reseller's companies
-  servosity-cli attention --reseller 12 --json --select results.score,results.company`,
+  # Pull live, only items newer than 12h, top 5
+  servosity-cli attention --refresh --since 12h --top 5`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate --since up front; bail with a usage error before
+			// any IO or work that might mask the real issue.
+			sinceDur, err := time.ParseDuration(since)
+			if err != nil {
+				return usageErr(fmt.Errorf("invalid --since value %q: %w", since, err))
+			}
+			if topN <= 0 {
+				return usageErr(fmt.Errorf("--top must be > 0, got %d", topN))
+			}
+
+			// --dry-run short-circuits BEFORE any IO so verify probes don't
+			// touch the store or hit the API.
 			if dryRunOK(flags) {
-				if flags.asJSON {
-					_, _ = cmd.OutOrStdout().Write([]byte(`{"meta":{"source":"dry-run"},"results":[]}` + "\n"))
-				}
 				return nil
 			}
-			c, err := flags.newClient()
+
+			ctx := cmd.Context()
+			// staleCutoff: a backup whose last success predates this is stale.
+			// --since drives the morning-sweep window ("not backed up since…").
+			staleCutoff := time.Now().Add(-sinceDur)
+
+			// Per-company aggregate, keyed by company id.
+			agg := map[int64]*attentionCompany{}
+
+			// Open the local store once; both the issue and stale sources read
+			// from it (and --refresh hydrates freshness into it first).
+			db, err := store.Open(defaultDBPath("servosity-cli"))
 			if err != nil {
+				return fmt.Errorf("opening local store: %w\nRun 'servosity-cli sync' first.", err)
+			}
+			defer db.Close()
+			if err := ensureLastSuccessTable(ctx, db); err != nil {
 				return err
 			}
-			ctx := cmd.Context()
 
-			rows, totals, err := collectAttention(ctx, c, resellerFilter)
+			// ---- 1. Open issues ----
+			// An OPEN issue needs attention regardless of when it was filed, so
+			// open issues are never gated by age. (The old code filtered by
+			// created_at >= now-since, which dropped every still-open issue
+			// older than a day and made the whole sweep rank zero companies.)
+			if refresh {
+				c, err := flags.newClient()
+				if err != nil {
+					return err
+				}
+				// Partner tokens cannot hit /issues/ globally — that endpoint is
+				// admin-only and 403s. Resolve the reseller and walk every page
+				// of /resellers/{id}/issues/ so the ranking sees the whole book.
+				resellerID, err := resolveResellerID(cmd.Context(), c)
+				if err != nil {
+					return fmt.Errorf("resolving reseller ID: %w", err)
+				}
+				if err := countIssuesPaged(cmd.Context(), c, fmt.Sprintf("/resellers/%d/issues/", resellerID), agg); err != nil {
+					return classifyAPIError(err, flags)
+				}
+				// Hydrate per-backup freshness so the stale source is live.
+				if _, _, herr := hydrateLastSuccess(ctx, c, db); herr != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: freshness hydration failed (%v)\n", herr)
+				}
+			} else {
+				if err := countIssuesFromStore(db, agg); err != nil {
+					return err
+				}
+			}
+
+			// ---- 2. Stale backups (partner-derived) ----
+			// Derived from pp_last_success (latest-success per backup), not the
+			// admin-only /reports/stale-backup-sets/ report. A backup counts as
+			// stale when its last success predates the --since window, or it has
+			// never reported a success.
+			if err := countStaleFromFreshness(ctx, db, staleCutoff, agg); err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: stale-backup section unavailable (%v)\n", err)
+			}
+
+			// ---- 3. DR backup in-flight ----
+			// TODO(v0.2): /companies/{id}/restore-queues/ requires per-company
+			// iteration; skip in v1 until a synced restore_queues table exists.
+			// All drbackup_in_flight values stay 0 for now.
+
+			// ---- Rank & truncate ----
+			companies := make([]attentionCompany, 0, len(agg))
+			for _, row := range agg {
+				row.Score = row.OpenIssues*2 + row.StaleBackups*3
+				companies = append(companies, *row)
+			}
+			sort.Slice(companies, func(i, j int) bool {
+				if companies[i].Score != companies[j].Score {
+					return companies[i].Score > companies[j].Score
+				}
+				// Stable secondary by name then id so output is deterministic
+				// even when two companies score identically.
+				if companies[i].CompanyName != companies[j].CompanyName {
+					return companies[i].CompanyName < companies[j].CompanyName
+				}
+				return companies[i].CompanyID < companies[j].CompanyID
+			})
+
+			totalIssues := 0
+			totalStale := 0
+			for _, c := range companies {
+				totalIssues += c.OpenIssues
+				totalStale += c.StaleBackups
+			}
+			totalCompanies := len(companies)
+
+			if len(companies) > topN {
+				companies = companies[:topN]
+			}
+
+			result := attentionResult{
+				TakenAt:   time.Now().UTC(),
+				Companies: companies,
+				Totals: map[string]int{
+					"companies": totalCompanies,
+					"issues":    totalIssues,
+					"stale":     totalStale,
+				},
+			}
+
+			// ---- Persist snapshot for `drift` ----
+			payload, err := json.Marshal(result)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return fmt.Errorf("marshal attention result: %w", err)
+			}
+			if db, err := store.Open(defaultDBPath("servosity-cli")); err == nil {
+				if serr := snapshot.Save(ctx, db.DB(), "attention", result.TakenAt, json.RawMessage(payload)); serr != nil {
+					// Snapshot save is best-effort; print to stderr but don't
+					// fail the user's read. Drift will warn on a missing
+					// anchor; that's a clearer signal than an attention exit.
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: snapshot save failed: %v\n", serr)
+				}
+				_ = db.Close()
 			}
 
-			// Persist snapshot unless caller opted out.
-			runID := ""
-			if !noStore {
-				if dbPath == "" {
-					dbPath = defaultDBPath("servosity-cli")
-				}
-				st, oerr := store.OpenWithContext(ctx, dbPath)
-				if oerr == nil {
-					defer st.Close()
-					rid, werr := st.WriteAttentionSnapshot(ctx, resellerFilter, rows)
-					if werr == nil {
-						runID = rid
-					}
-				}
+			// ---- Emit ----
+			if flags.asJSON || !isTerminal(cmd.OutOrStdout()) {
+				return printJSONFiltered(cmd.OutOrStdout(), result, flags)
 			}
-
-			out := buildAttentionView(rows, totals, runID)
-			outBytes, _ := json.Marshal(out)
-			return printOutputWithFlags(cmd.OutOrStdout(), outBytes, flags)
+			return renderAttentionTable(cmd, result)
 		},
 	}
-	cmd.Flags().StringVar(&resellerFilter, "reseller", "", "Filter to companies under one reseller ID")
-	cmd.Flags().BoolVar(&noStore, "no-store", false, "Do not persist this run as a snapshot")
-	cmd.Flags().StringVar(&dbPath, "db", "", "SQLite path (default: ~/.local/share/servosity-pp-cli/data.db)")
+
+	cmd.Flags().BoolVar(&refresh, "refresh", false, "Pull live from the API instead of the local store")
+	cmd.Flags().StringVar(&since, "since", "24h", "Staleness window: a backup not successful within this duration counts as stale (open issues are counted regardless of age)")
+	cmd.Flags().IntVar(&topN, "top", 10, "Limit output to top N companies by score")
+
 	return cmd
 }
 
-// collectAttention fetches all four rollups and produces normalized rows + totals.
-func collectAttention(ctx context.Context, c interface {
-	Get(path string, params map[string]string) (json.RawMessage, error)
-}, reseller string) ([]store.AttentionSnapshotRow, map[string]int, error) {
-	totals := map[string]int{}
-	rows := []store.AttentionSnapshotRow{}
-
-	// 1) admin attention
-	if data, err := c.Get("/admin/attention/", nil); err == nil {
-		var items []map[string]json.RawMessage
-		if perr := unmarshalAnyList(data, &items); perr == nil {
-			for _, it := range items {
-				row := mkAttentionRow("admin_attention", it, "needs admin attention", 3)
-				if reseller != "" && row.ResellerID != "" && row.ResellerID != reseller {
-					continue
-				}
-				rows = append(rows, row)
-			}
-			totals["admin_attention"] = len(items)
+// countIssuesPaged walks every page of the /resellers/{id}/issues/ endpoint
+// and increments per-company open-issue counts. Open issues are counted
+// regardless of age — an issue that is still open needs attention whether it
+// was filed today or a year ago.
+//
+// DRF returns an absolute `next` URL with an opaque cursor token. We can't
+// feed that URL back through client.Get (which prepends BaseURL); instead we
+// extract just the `cursor` query value and re-issue against the same relative
+// path so the client encodes it exactly once.
+func countIssuesPaged(ctx context.Context, c *client.Client, path string, agg map[int64]*attentionCompany) error {
+	params := map[string]string{}
+	guard := 0
+	for guard < 100 {
+		guard++
+		data, err := c.Get(ctx, path, params)
+		if err != nil {
+			return err
 		}
-	} else {
-		_ = err
-	}
-
-	// 2) dirty repos (restic)
-	if data, err := c.Get("/admin/dirty-repos/", nil); err == nil {
-		var items []map[string]json.RawMessage
-		if perr := unmarshalAnyList(data, &items); perr == nil {
-			for _, it := range items {
-				row := mkAttentionRow("dirty_repos", it, "restic repo dirty", 2)
-				if reseller != "" && row.ResellerID != "" && row.ResellerID != reseller {
-					continue
-				}
-				rows = append(rows, row)
-			}
-			totals["dirty_repos"] = len(items)
+		for _, item := range unwrapList(data) {
+			countIssueItem(item, agg)
 		}
-	}
-
-	// 3) DRaaS in progress
-	if data, err := c.Get("/admin/draas-in-progress/", nil); err == nil {
-		var items []map[string]json.RawMessage
-		if perr := unmarshalAnyList(data, &items); perr == nil {
-			for _, it := range items {
-				row := mkAttentionRow("draas_in_progress", it, "DRaaS in progress", 2)
-				if reseller != "" && row.ResellerID != "" && row.ResellerID != reseller {
-					continue
-				}
-				rows = append(rows, row)
-			}
-			totals["draas_in_progress"] = len(items)
+		var env struct {
+			Next string `json:"next"`
 		}
-	}
-
-	// 4) open issues
-	params := map[string]string{"state": "ACTIVE"}
-	if reseller != "" {
-		params["reseller"] = reseller
-	}
-	if data, err := c.Get("/issues/", params); err == nil {
-		var items []map[string]json.RawMessage
-		if perr := unmarshalPaginated(data, &items); perr == nil {
-			for _, it := range items {
-				row := mkAttentionRow("open_issues", it, "open issue", 1)
-				if reseller != "" && row.ResellerID != "" && row.ResellerID != reseller {
-					continue
-				}
-				rows = append(rows, row)
-			}
-			totals["open_issues"] = len(items)
+		if err := json.Unmarshal(data, &env); err != nil || env.Next == "" {
+			break
 		}
+		u, perr := url.Parse(env.Next)
+		if perr != nil {
+			break
+		}
+		cursor := u.Query().Get("cursor")
+		if cursor == "" {
+			break
+		}
+		params["cursor"] = cursor
 	}
-
-	// Roll up by company; pick highest-score row per company for ranking.
-	return rollupByCompany(rows), totals, nil
+	return nil
 }
 
-func mkAttentionRow(source string, obj map[string]json.RawMessage, reason string, score int) store.AttentionSnapshotRow {
-	row := store.AttentionSnapshotRow{Source: source, Reason: reason, Score: score}
-	row.CompanyID = strField(obj, "company_id", "company", "id_company")
-	row.CompanyName = strField(obj, "company_name", "company__name", "name", "title")
-	row.ResellerID = strField(obj, "reseller_id", "reseller", "id_reseller")
-	if r, _ := json.Marshal(obj); r != nil {
-		row.Raw = r
+// countIssueItem increments the per-company open-issue count for one raw issue
+// row. Closed/resolved/archived/ignored issues are skipped.
+func countIssueItem(item json.RawMessage, agg map[int64]*attentionCompany) {
+	var row struct {
+		Company     any    `json:"company"`
+		CompanyName string `json:"company_name"`
+		State       string `json:"state"`
 	}
-	return row
+	if err := json.Unmarshal(item, &row); err != nil {
+		return
+	}
+	switch strings.ToLower(row.State) {
+	case "closed", "resolved", "archived", "ignored":
+		return
+	}
+	id := coerceID(row.Company)
+	if id == 0 {
+		return
+	}
+	bumpIssues(agg, id, row.CompanyName)
 }
 
-// strField returns the first non-empty string value from obj for any of `keys`.
-// Handles raw JSON values by unmarshalling each.
-func strField(obj map[string]json.RawMessage, keys ...string) string {
-	for _, k := range keys {
-		raw, ok := obj[k]
-		if !ok {
+// countIssuesFromStore reads the local `issues` table directly. Open issues
+// are counted regardless of created_at — see countIssuesPaged for why.
+func countIssuesFromStore(db *store.Store, agg map[int64]*attentionCompany) error {
+	rows, err := db.DB().Query(`
+		SELECT COALESCE(company, 0), COALESCE(company_name, ''), COALESCE(state, '')
+		  FROM issues
+		 WHERE lower(COALESCE(state,'')) NOT IN ('closed','resolved','archived','ignored')`)
+	if err != nil {
+		return fmt.Errorf("query issues from store: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var companyID int64
+		var companyName, state string
+		if err := rows.Scan(&companyID, &companyName, &state); err != nil {
 			continue
 		}
-		var s string
-		if err := json.Unmarshal(raw, &s); err == nil && s != "" {
-			return s
+		if companyID == 0 {
+			continue
 		}
-		var n float64
-		if err := json.Unmarshal(raw, &n); err == nil {
-			return fmt.Sprintf("%g", n)
-		}
+		bumpIssues(agg, companyID, companyName)
 	}
-	return ""
+	return rows.Err()
 }
 
-func rollupByCompany(rows []store.AttentionSnapshotRow) []store.AttentionSnapshotRow {
-	// Keep all rows; but stable-sort by (company, score desc) so the same company's
-	// rows cluster together for human reading. JSON consumers can group themselves.
-	sort.SliceStable(rows, func(i, j int) bool {
-		if rows[i].CompanyName != rows[j].CompanyName {
-			return rows[i].CompanyName < rows[j].CompanyName
+// countStaleFromFreshness increments stale_backups per company from the
+// hydrated pp_last_success table. A backup is stale when its last success
+// predates staleCutoff, or it has never reported a success.
+func countStaleFromFreshness(ctx context.Context, db *store.Store, staleCutoff time.Time, agg map[int64]*attentionCompany) error {
+	rows, err := db.DB().QueryContext(ctx, `
+		SELECT COALESCE(company_id, 0), COALESCE(last_success, '')
+		  FROM pp_last_success`)
+	if err != nil {
+		return fmt.Errorf("reading freshness table: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var companyID int64
+		var lastSuccess string
+		if err := rows.Scan(&companyID, &lastSuccess); err != nil {
+			continue
 		}
-		return rows[i].Score > rows[j].Score
-	})
-	return rows
+		if companyID == 0 {
+			continue
+		}
+		stale := false
+		if strings.TrimSpace(lastSuccess) == "" {
+			stale = true // never succeeded
+		} else if t, perr := parseFlexTime(lastSuccess); perr == nil {
+			stale = t.Before(staleCutoff)
+		} else {
+			stale = true // unparseable timestamp ⇒ treat as stale
+		}
+		if stale {
+			bumpStale(agg, companyID, "")
+		}
+	}
+	return rows.Err()
 }
 
-func buildAttentionView(rows []store.AttentionSnapshotRow, totals map[string]int, runID string) map[string]any {
-	type outRow struct {
-		Score       int             `json:"score"`
-		Source      string          `json:"source"`
-		CompanyID   string          `json:"company_id,omitempty"`
-		CompanyName string          `json:"company,omitempty"`
-		ResellerID  string          `json:"reseller_id,omitempty"`
-		Reason      string          `json:"reason"`
-		Raw         json.RawMessage `json:"raw,omitempty"`
+// unwrapList normalises a paginated envelope ({"results":[...]} or
+// {"items":[...]}) and a bare top-level array into a slice of raw items.
+// Returns nil for shapes it can't recognise so callers see an empty rollup
+// section rather than a panic.
+func unwrapList(data json.RawMessage) []json.RawMessage {
+	if len(data) == 0 {
+		return nil
 	}
-	out := make([]outRow, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, outRow{
-			Score: r.Score, Source: r.Source, CompanyID: r.CompanyID,
-			CompanyName: r.CompanyName, ResellerID: r.ResellerID,
-			Reason: r.Reason, Raw: r.Raw,
+	var arr []json.RawMessage
+	if err := json.Unmarshal(data, &arr); err == nil {
+		return arr
+	}
+	var env struct {
+		Results []json.RawMessage `json:"results"`
+		Items   []json.RawMessage `json:"items"`
+		Data    []json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(data, &env); err == nil {
+		if len(env.Results) > 0 {
+			return env.Results
+		}
+		if len(env.Items) > 0 {
+			return env.Items
+		}
+		if len(env.Data) > 0 {
+			return env.Data
+		}
+	}
+	return nil
+}
+
+// coerceID accepts either a JSON number (decoded as float64) or a numeric
+// string and returns it as int64; everything else becomes 0.
+func coerceID(v any) int64 {
+	switch t := v.(type) {
+	case float64:
+		return int64(t)
+	case int64:
+		return t
+	case int:
+		return int64(t)
+	case string:
+		var n int64
+		_, _ = fmt.Sscanf(t, "%d", &n)
+		return n
+	}
+	return 0
+}
+
+func bumpIssues(agg map[int64]*attentionCompany, id int64, name string) {
+	row, ok := agg[id]
+	if !ok {
+		row = &attentionCompany{CompanyID: id, CompanyName: name}
+		agg[id] = row
+	}
+	if row.CompanyName == "" && name != "" {
+		row.CompanyName = name
+	}
+	row.OpenIssues++
+}
+
+func bumpStale(agg map[int64]*attentionCompany, id int64, name string) {
+	row, ok := agg[id]
+	if !ok {
+		row = &attentionCompany{CompanyID: id, CompanyName: name}
+		agg[id] = row
+	}
+	if row.CompanyName == "" && name != "" {
+		row.CompanyName = name
+	}
+	row.StaleBackups++
+}
+
+func renderAttentionTable(cmd *cobra.Command, r attentionResult) error {
+	w := cmd.OutOrStdout()
+	fmt.Fprintf(w, "Attention as of %s — %d companies, %d issues, %d stale backups\n\n",
+		r.TakenAt.Format(time.RFC3339), r.Totals["companies"], r.Totals["issues"], r.Totals["stale"])
+	if len(r.Companies) == 0 {
+		fmt.Fprintln(w, "No companies need attention right now.")
+		return nil
+	}
+	headers := []string{"SCORE", "COMPANY", "ISSUES", "STALE", "DR"}
+	rows := make([][]string, 0, len(r.Companies))
+	for _, c := range r.Companies {
+		name := c.CompanyName
+		if name == "" {
+			name = fmt.Sprintf("company:%d", c.CompanyID)
+		}
+		rows = append(rows, []string{
+			fmt.Sprintf("%d", c.Score),
+			name,
+			fmt.Sprintf("%d", c.OpenIssues),
+			fmt.Sprintf("%d", c.StaleBackups),
+			fmt.Sprintf("%d", c.DRBackupInFlight),
 		})
 	}
-	return map[string]any{
-		"meta": map[string]any{
-			"source":      "live",
-			"captured_at": time.Now().UTC().Format(time.RFC3339),
-			"run_id":      runID,
-			"totals":      totals,
-		},
-		"results": out,
+	// Reuse rootFlags.printTable — but it requires a *rootFlags, which we
+	// don't have in scope here; emit via a simple tabwriter-less format to
+	// keep this file dependency-light. The JSON path handles agent output.
+	for i, h := range headers {
+		if i > 0 {
+			fmt.Fprint(w, "\t")
+		}
+		fmt.Fprint(w, h)
 	}
-}
-
-// unmarshalAnyList accepts either a JSON array or a paginated `{results: [...]}` envelope.
-func unmarshalAnyList(data json.RawMessage, dst *[]map[string]json.RawMessage) error {
-	trimmed := bytes_trimSpace(data)
-	if len(trimmed) > 0 && trimmed[0] == '[' {
-		return json.Unmarshal(data, dst)
+	fmt.Fprintln(w)
+	for _, row := range rows {
+		for i, cell := range row {
+			if i > 0 {
+				fmt.Fprint(w, "\t")
+			}
+			fmt.Fprint(w, cell)
+		}
+		fmt.Fprintln(w)
 	}
-	return unmarshalPaginated(data, dst)
-}
-
-func unmarshalPaginated(data json.RawMessage, dst *[]map[string]json.RawMessage) error {
-	var env struct {
-		Results []map[string]json.RawMessage `json:"results"`
-	}
-	if err := json.Unmarshal(data, &env); err == nil && env.Results != nil {
-		*dst = env.Results
-		return nil
-	}
-	// Fall back to direct list parse — some endpoints return raw arrays.
-	if err := json.Unmarshal(data, dst); err == nil {
-		return nil
-	}
-	return fmt.Errorf("response is neither a list nor a paginated envelope")
-}
-
-func bytes_trimSpace(b []byte) []byte {
-	for len(b) > 0 && (b[0] == ' ' || b[0] == '\t' || b[0] == '\r' || b[0] == '\n') {
-		b = b[1:]
-	}
-	return b
-}
-
-// strJoin is a defensive small helper used in human output.
-func strJoin(parts []string, sep string) string {
-	return strings.Join(parts, sep)
+	return nil
 }

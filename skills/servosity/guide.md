@@ -1,40 +1,145 @@
-# Servosity Claude Code Skill and MCP Server - command reference
+# Servosity CLI
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Servosity
-> partner API. Servosity is a trademark of Servosity Inc.
+**The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't  -  across your whole book of clients.**
 
-Servosity REST API surface available to authenticated MSP partners. All operations are scoped to the authenticated reseller. Admin-only endpoints (cross-reseller listing, billing back-office, support tooling) are not included.
+No competitor in the MSP backup space ships a fleet-wide CLI. Reach for servosity-cli when you need to triage attention across every client at once, generate the backup section of a QBR in 30 seconds, watch every restore queue during DR from one terminal, or reconcile your Servosity bill against what you're invoicing clients. Every response is agent-native: --json, --select, --csv, --dry-run, typed exit codes.
 
-For the short install path see [README.md](./README.md). This file is the command reference.
+## Install
+
+The recommended path installs both the `servosity-cli` binary and the `pp-servosity-msp` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+
+```bash
+npx -y @mvanhorn/printing-press-library install servosity-msp
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install servosity-msp --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install servosity-msp --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install servosity-msp --agent claude-code
+npx -y @mvanhorn/printing-press-library install servosity-msp --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/servosity-msp/cmd/servosity-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/servosity-msp-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install servosity-msp --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-servosity-msp --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-servosity-msp --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install servosity-msp --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/servosity-msp-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `SERVOSITY_MSP_TOKEN` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/servosity-msp/cmd/servosity-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "servosity-msp": {
+      "command": "servosity-mcp",
+      "env": {
+        "SERVOSITY_MSP_TOKEN": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+## Authentication
+
+Authenticate with your Servosity partner API token. Export SERVOSITY_MSP_TOKEN with your reseller-scoped token (find or rotate it in the Servosity partner portal). The CLI auto-resolves your reseller ID from your company list (override with SERVOSITY_MSP_RESELLER_ID) on first run  -  you never type it.
 
 ## Quick Start
 
-### 1. Install
-
-See [Install](#install) above.
-
-### 2. Set Up Credentials
-
-Get your API key from your API provider's developer portal. The key typically looks like a long alphanumeric string.
-
 ```bash
-export SERVOSITY_MSP_TOKEN="<paste-your-key>"
-```
-
-You can also persist this in your config file at `~/.config/servosity-partner-msp-pp-cli/config.toml`.
-
-### 3. Verify Setup
-
-```bash
+# Confirm token works and API is reachable
 servosity-cli doctor
-```
 
-This checks your configuration and credentials.
+# Pull companies, backups, and issues into the local SQLite mirror
+servosity-cli sync
 
-### 4. Try Your First Command
+# Morning fleet sweep  -  what needs my attention across my book
+servosity-cli attention --top 10
 
-```bash
-servosity-cli agent-login list
+# Friday review  -  clients with stalled backups to follow up on
+servosity-cli stale-backups --days 7
+
+# Generate the backup section of a client's QBR as a PDF
+servosity-cli qbr <company> --quarter 2026-Q1 --format pdf --out report.pdf
+
 ```
 
 ## Unique Features
@@ -42,12 +147,12 @@ servosity-cli agent-login list
 These capabilities aren't available in any other tool for this API.
 
 ### Fleet-wide intelligence
-- **`attention`**  -  One screen across your whole book of clients. Merges open issues, stale backups, and in-flight DR events into a per-company ranked view, then persists the result so tomorrow's drift command can compare.
+- **`attention`**  -  One screen across your whole book of clients. Merges open issues, stale backups into a per-company ranked view, then persists the result so tomorrow's drift command can compare.
 
   _Reach for this in the morning to triage what needs follow-up across every client without clicking through a portal._
 
   ```bash
-  servosity-cli attention --json
+  servosity-cli attention --top 10 --json
   ```
 - **`drift`**  -  Diff two snapshots the CLI collected  -  show which companies got worse, which recovered, and which are new since a past anchor. Default compares yesterday-to-now on the attention metric.
 
@@ -56,75 +161,140 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   servosity-cli drift --metric attention --from yesterday --to now --json
   ```
-- **`stale-backups`**  -  Slice the synced `/reports/stale-backup-sets/` snapshot by reseller, company, age window, and backup engine  -  entirely offline once synced. Use --refresh to re-pull freshness from the live report.
+- **`stale-backups`**  -  Slice the stale-backup-sets report by company, age window, and backup engine  -  entirely offline once cached. Use --refresh to repull from the API.
 
   _Run this Friday afternoon to compile the list of clients you need to email about a stalled backup._
 
   ```bash
   servosity-cli stale-backups --days 7 --engine restic --json
   ```
-- **`backup-facts`**  -  Unified view across Servosity's three backup engines (classic, restic, DR) for one company or all. Engine, ID, hostname, last_successful_at, status  -  joined from three local store tables into one table.
+- **`backup-facts`**  -  Unified view across Servosity's three backup engines (classic, restic, DR) for one company or all. Engine, ID, hostname, last_successful_at, state, and freshness-derived health  -  joined from three local store tables into one table.
 
   _Reach for this when triaging a client who has multiple engines protecting different devices and you need to know which engine is failing where._
 
   ```bash
-  servosity-cli backup-facts --company 4421 --status fail --json
+  servosity-cli backup-facts --company 4421 --status stale --json
   ```
 
-- **`find`**  -  SQLite FTS5 across companies (name, billing notes), issues (title and comments), and backups (descriptive name, last error)  -  one query hits the whole fleet.
+### Client-facing reporting
+- **`qbr`**  -  Generate the backup section of a client's Quarterly Business Review as Markdown, HTML, or PDF. Job success rate, restore tests run this quarter, coverage map across all three engines, open issues, storage trend.
 
-  _Use when you remember a phrase but not which entity owned it  -  one call replaces hunting through three list pages._
-
-  ```bash
-  servosity-cli find "image manager" --in issues,backups --json
-  ```
-
-### Per-company quick view
-- **`company show`**  -  One command pulls a company's metadata + addresses + contracts + all backups across three engines + open issues + agent sessions into one human or `--json` view.
-
-  _Use when a customer asks "is my backup OK?"  -  one call, every relevant fact, ready to paste into a ticket._
+  _Use this 1-2 weeks before a client QBR. Saves 30-60 min of manual deck-building per client._
 
   ```bash
-  servosity-cli company show 4421 --json
+  servosity-cli qbr 4421 --quarter 2026-Q1 --format pdf --out acme-q1.pdf
   ```
 
 ### Daily ops efficiency
-- **`triage`**  -  List open issues with filters, then batch ignore / archive / reactivate / comment in one invocation. Plans by default; pass --confirm to mutate. Typed exit codes.
+- **`triage`**  -  List open issues with filters, then batch-mutate them (ignore / archive / reactivate / comment) in one invocation with --dry-run support and typed exit codes.
 
   _Use when the issue queue is bursty or during a planned-outage window where many alerts cluster around one client._
 
   ```bash
-  servosity-cli triage --company 4421 --json
-  servosity-cli triage --company 4421 --ignore 18,22,29 --ignore-until "6am tomorrow" --confirm
+  servosity-cli triage --company 4421 --ignore 18,22,29 --comment 'scheduled outage' --dry-run
   ```
 
 ### Disaster recovery
-- **`restore-queue list`**  -  List per-company restore queues across the whole book; `--watch` repolls on an interval and prints diffs since the last tick.
+- **`restore-queue watch`**  -  Watch every active company's restore queue across the book during a DR event. Polls each company periodically and prints diffs since the last tick.
 
   _Use during an active disaster recovery event when multiple clients have restores in flight._
 
   ```bash
-  servosity-cli restore-queue list --json
-  servosity-cli restore-queue list --watch --interval 30s
+  servosity-cli restore-queue watch --interval 30s --json
   ```
 
-### Tier-One support workflows
-- **`clear`**  -  Resolve one or more names as companies (then resellers) and batch-ignore their active issues until a human-readable time. Defaults to --dry-run; pass --confirm to mutate.
+### Business operations
+- **`bill --reconcile`**  -  Pull the MSP's monthly Servosity bill and compare line-by-line against a CSV of what the MSP is invoicing their clients. Surfaces drift  -  clients under- or over-charged.
 
-  _Use when a partner is doing planned maintenance and you want their alert noise paused until morning  -  one command instead of dozens of UI clicks._
+  _Run this every month-end before invoicing clients. Catches missed line items and pricing mismatches._
 
   ```bash
-  servosity-cli clear "ACME Corp" --until "6am tomorrow"
-  servosity-cli clear "ACME Corp" --until "6am tomorrow" --confirm
+  servosity-cli bill --reconcile invoiced-2026-05.csv --month 2026-05 --json
   ```
-- **`stale-issues`**  -  Pull your FMDB companies, fetch active issues, classify known-safe-to-archive patterns from a shipped rule table, auto-archive the safe ones, ignore non-dashboard noise, and print unknowns for review. Defaults to --dry-run.
+- **`unprovisioned`**  -  List agents installed on client machines but not yet pulling backups, ranked by client. Surfaces lost revenue from incomplete onboardings.
 
-  _Run this every weekday before standup to clear the obvious stale noise off your dashboard so triage focuses on what's actually new._
+  _Run weekly to catch agents installed during onboarding that never successfully phoned home._
 
   ```bash
-  servosity-cli stale-issues --mine --json
-  servosity-cli stale-issues --mine --cutoff "11pm yesterday" --auto-archive-known --confirm
+  servosity-cli unprovisioned --age 24h --json
   ```
+- **`storage-trend`**  -  Linear-regression forecast of when a specific client will hit a capacity threshold. Reads the historical storage_bytes time series from local snapshots; with --snapshot, persists a new measurement for future runs.
+
+  _Run quarterly per high-storage client to identify upsell opportunities before they hit a hard limit._
+
+  ```bash
+  servosity-cli storage-trend 4421 --weeks 12 --threshold 1TB --json
+  ```
+
+### Local state that compounds
+- **`email-draft`**  -  Generate ready-to-paste follow-up email bodies for every client with a stale backup, filled from the local store (client name, hosts, days stale, last success).
+
+  _Reach for this on the Friday follow-up sweep to turn the stale list into sendable emails in one step._
+
+  ```bash
+  servosity-cli email-draft --stale --days 7
+  ```
+
+### Cross-tenant intelligence
+- **`fleet-health`**  -  One fleet-wide scorecard: 24h job success rate, companies with stale backups, and open issues, with week-over-week deltas.
+
+  _Reach for this when you need the owner-glance fleet number set, not the per-company list._
+
+  ```bash
+  servosity-cli fleet-health --json
+  ```
+
+### Reporting that writes itself
+- **`qbr-all`**  -  Generate every client's QBR backup report in one pass, one file per company.
+
+  _Reach for this at quarter end to produce the whole book's QBR backup sections at once._
+
+  ```bash
+  servosity-cli qbr-all --quarter 2026-Q1 --out ./qbrs/
+  ```
+
+## Recipes
+
+
+### Morning attention sweep with field projection
+
+```bash
+servosity-cli attention --top 5 --json --select companies.company_name,companies.score,companies.open_issues
+```
+
+Narrow the output to just the fields an agent cares about  -  keeps token usage low and pipes cleanly to jq or downstream tools.
+
+### Friday stale-backup follow-up list
+
+```bash
+servosity-cli stale-backups --days 7 --engine restic --csv
+```
+
+CSV output for paste-into-spreadsheet workflows when you're compiling the list of clients to email.
+
+### Client QBR pack
+
+```bash
+servosity-cli qbr 4421 --quarter 2026-Q1 --format pdf --out acme-q1-backup.pdf
+```
+
+Generates a self-contained PDF with cover page, job success rate, restore tests, coverage table, open issues, and storage trend table. Hand it to the account lead 1-2 weeks before the QBR.
+
+### Bill reconciliation against invoicing CSV
+
+```bash
+servosity-cli bill --reconcile invoiced-2026-05.csv --month 2026-05 --json
+```
+
+CSV columns: company_id, company_name, invoiced_amount. Output shows delta vs Servosity's bill, sorted by absolute delta  -  catches under-billing before month-end close.
+
+### Restore-queue watch during DR event
+
+```bash
+servosity-cli restore-queue watch --interval 30s --json
+```
+
+Emits NDJSON, one tick per line. Pipe to `tee dr-event.log` to capture the timeline of every queue change for the post-mortem.
 
 ## Usage
 
@@ -506,7 +676,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/servosity-partner-msp-pp-cli/config.toml`
+Config file: `~/.config/servosity-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
@@ -516,6 +686,10 @@ Environment variables:
 | --- | --- | --- | --- |
 | `SERVOSITY_MSP_TOKEN` | per_call | Yes | Set to your API credential. |
 
+### agentcookie (optional)
+
+If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `servosity-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+
 ## Troubleshooting
 **Authentication errors (exit code 4)**
 - Run `servosity-cli doctor` to check credentials
@@ -524,6 +698,8 @@ Environment variables:
 - Check the resource ID is correct
 - Run the `list` command to see available items
 
----
-
-Generated by [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press)
+### API-specific
+- **doctor reports authentication failure**  -  Export SERVOSITY_MSP_TOKEN with your reseller-scoped token. Get one from the Servosity partner portal.
+- **qbr --format pdf returns 'PDF rendering requires Chrome'**  -  Install Chrome, Google Chrome, or Chromium. Or use --format md / --format html instead.
+- **drift returns 'No snapshot found for metric ...'**  -  Run `servosity-cli attention` first to record the first snapshot, then run drift later to compare.
+- **storage-trend says 'No historical data yet'**  -  Run `storage-trend <company> --snapshot` periodically (weekly cron is sensible) to build the trend line.

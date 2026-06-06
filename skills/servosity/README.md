@@ -5,10 +5,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/servosity/">
-    <img src="../../docs/assets/video/servosity/animated-og.gif" alt="Servosity demo - animated preview" width="600">
+    <img src="../../docs/assets/social/servosity/wide-1200x630.png" alt="Servosity - MCP server and Claude Code Skill" width="600">
   </a>
 </p>
-<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/servosity/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
+<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/servosity/">Full skill page</a> - install, outcomes, safety model.</sub></p>
 <!-- media:end -->
 
 Add **fleet-wide backup triage, stale-backup-set detection, overnight drift, per-client situational awareness, and cross-engine analytics** to the AI you already use - **Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A local fleet mirror means your AI can answer cross-client questions the partner portal can't show on one screen - Friday-email-ready in seconds. Built for MSP partners. No code required.

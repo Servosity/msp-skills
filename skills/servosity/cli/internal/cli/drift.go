@@ -1,348 +1,370 @@
-// Copyright 2026 Servosity Inc. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 servosity. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
-	"servosity-pp-cli/internal/store"
+	"servosity-msp-pp-cli/internal/snapshot"
+	"servosity-msp-pp-cli/internal/store"
 )
 
+// driftCompany mirrors the per-company shape inside an `attention` snapshot
+// payload. Kept private to this file; the diff logic is the substance.
+type driftCompany struct {
+	CompanyID        int64  `json:"company_id"`
+	CompanyName      string `json:"company_name"`
+	Score            int    `json:"score"`
+	OpenIssues       int    `json:"open_issues"`
+	StaleBackups     int    `json:"stale_backups"`
+	DRBackupInFlight int    `json:"drbackup_in_flight"`
+}
+
+// driftSnapshotPayload is the envelope written by `attention`.
+type driftSnapshotPayload struct {
+	TakenAt   time.Time      `json:"taken_at"`
+	Companies []driftCompany `json:"companies"`
+	Totals    map[string]int `json:"totals"`
+}
+
+// driftChange is one row in the WORSE or RECOVERED sections of the diff.
+type driftChange struct {
+	CompanyID        int64  `json:"company_id"`
+	CompanyName      string `json:"company_name"`
+	ScoreFrom        int    `json:"score_from"`
+	ScoreTo          int    `json:"score_to"`
+	ScoreDelta       int    `json:"score_delta"`
+	OpenIssuesFrom   int    `json:"open_issues_from"`
+	OpenIssuesTo     int    `json:"open_issues_to"`
+	StaleBackupsFrom int    `json:"stale_backups_from"`
+	StaleBackupsTo   int    `json:"stale_backups_to"`
+	NewCompany       bool   `json:"new_company,omitempty"`
+	Dropped          bool   `json:"dropped,omitempty"`
+}
+
+// driftResult is the JSON envelope emitted on stdout in machine mode.
+type driftResult struct {
+	From           time.Time     `json:"from"`
+	To             time.Time     `json:"to"`
+	Metric         string        `json:"metric"`
+	Worse          []driftChange `json:"worse"`
+	Recovered      []driftChange `json:"recovered"`
+	UnchangedCount int           `json:"unchanged_count"`
+}
+
+// newDriftCmd builds the trend-awareness command: it diffs two `attention`
+// snapshots (or any other metric series) so you can see what got worse and
+// what recovered between two moments in time. Read-only on the local store;
+// the snapshots themselves are written by `attention`.
+// pp:data-source local
 func newDriftCmd(flags *rootFlags) *cobra.Command {
 	var metric string
-	var fromStr, toStr string
-	var dbPath string
+	var fromAnchor string
+	var toAnchor string
 
 	cmd := &cobra.Command{
 		Use:   "drift",
-		Short: "Diff two snapshots the CLI itself collected — show what got worse and what recovered",
-		Long: `Compare two snapshots from the local store (collected by 'attention' or
-'sync stale'/'sync dirty-repos') and emit the symmetric difference:
+		Short: "Diff two snapshots: what got worse, what recovered",
+		Long: `Diff two snapshots the CLI itself collected over time. Shows what got
+worse (new issues, new stale backups) and what recovered between two
+timestamps. Snapshots are recorded by 'attention' (and other commands that
+opt in via the snapshot package).
 
-  - "added"     companies that became attention-worthy / stale
-  - "removed"   companies that recovered
-  - "unchanged" carried over
+Anchors accept the same vocabulary as everywhere else: "now", "today",
+"yesterday", "2h ago", "7d ago", "2026-05-21", RFC3339.
 
-The default metric is "attention". --from and --to accept human times like
-"yesterday", "6am tomorrow", "2h", or RFC3339; defaults are the two most-recent
-snapshots of the chosen metric.`,
-		Example: `  # What changed between the two most-recent attention snapshots
-  servosity-cli drift --json
+If either anchor has no snapshot recorded, drift will tell you so and
+suggest 'attention' as the way to record one.`,
+		Example: `  # Default: attention metric, yesterday vs now
+  servosity-cli drift
 
-  # Compare yesterday's stale snapshot to today's
-  servosity-cli drift --metric stale --from yesterday --to now --json`,
+  # Explicit window
+  servosity-cli drift --from "7d ago" --to now
+
+  # Pin to a specific historical pair
+  servosity-cli drift --from 2026-05-20 --to 2026-05-22`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
-				if flags.asJSON {
-					_, _ = cmd.OutOrStdout().Write([]byte(`{"meta":{"source":"dry-run"},"added":[],"removed":[]}` + "\n"))
-				}
 				return nil
 			}
-			if metric == "" {
-				metric = "attention"
+
+			now := time.Now()
+			fromTime, ok := snapshot.ResolveAnchor(now, fromAnchor)
+			if !ok {
+				return usageErr(fmt.Errorf("invalid --from anchor %q (try 'yesterday', '2h ago', '2026-05-21')", fromAnchor))
 			}
-			switch metric {
-			case "attention", "stale":
-			default:
-				return usageErr(fmt.Errorf("unsupported --metric %q (try attention | stale)", metric))
+			toTime, ok := snapshot.ResolveAnchor(now, toAnchor)
+			if !ok {
+				return usageErr(fmt.Errorf("invalid --to anchor %q (try 'now', '2h ago', '2026-05-22')", toAnchor))
 			}
 
 			ctx := cmd.Context()
-			if dbPath == "" {
-				dbPath = defaultDBPath("servosity-cli")
-			}
-			st, err := store.OpenWithContext(ctx, dbPath)
+			db, err := store.Open(defaultDBPath("servosity-cli"))
 			if err != nil {
-				return configErr(fmt.Errorf("open store: %w", err))
+				return fmt.Errorf("opening local store: %w\nRun 'servosity-cli sync' first.", err)
 			}
-			defer st.Close()
-			if err := st.EnsureNovelTables(ctx); err != nil {
-				return apiErr(err)
+			defer db.Close()
+
+			fromSnap, err := snapshot.At(ctx, db.DB(), metric, fromTime)
+			if err != nil {
+				return fmt.Errorf("reading --from snapshot: %w", err)
+			}
+			if fromSnap == nil {
+				return driftNoSnapshot(cmd, flags, metric, fromAnchor)
+			}
+			toSnap, err := snapshot.At(ctx, db.DB(), metric, toTime)
+			if err != nil {
+				return fmt.Errorf("reading --to snapshot: %w", err)
+			}
+			if toSnap == nil {
+				return driftNoSnapshot(cmd, flags, metric, toAnchor)
 			}
 
-			out, err := computeDrift(ctx, st, metric, fromStr, toStr)
-			if err != nil {
-				return err
+			var fromPayload, toPayload driftSnapshotPayload
+			if err := json.Unmarshal(fromSnap.Data, &fromPayload); err != nil {
+				return fmt.Errorf("decoding --from snapshot payload: %w", err)
 			}
-			// If the user explicitly named --from / --to AND the closest
-			// snapshot is more than 6 hours off the requested time, emit a
-			// stderr warning so an agent reading the JSON doesn't mistake a
-			// 5-minute-apart pair for the answer to "yesterday vs now".
-			warnIfDriftFallback(cmd, st, ctx, metric, fromStr, toStr)
-			payload, _ := json.Marshal(out)
-			return printOutputWithFlags(cmd.OutOrStdout(), payload, flags)
+			if err := json.Unmarshal(toSnap.Data, &toPayload); err != nil {
+				return fmt.Errorf("decoding --to snapshot payload: %w", err)
+			}
+
+			result := diffSnapshots(metric, fromSnap.TakenAt, toSnap.TakenAt, fromPayload, toPayload)
+
+			if flags.asJSON || !isTerminal(cmd.OutOrStdout()) {
+				return printJSONFiltered(cmd.OutOrStdout(), result, flags)
+			}
+			return renderDriftHuman(cmd, result)
 		},
 	}
-	cmd.Flags().StringVar(&metric, "metric", "attention", "Snapshot family to diff: attention | stale")
-	cmd.Flags().StringVar(&fromStr, "from", "", "Earlier snapshot timestamp (default: 2nd-most-recent)")
-	cmd.Flags().StringVar(&toStr, "to", "", "Later snapshot timestamp (default: most-recent)")
-	cmd.Flags().StringVar(&dbPath, "db", "", "SQLite path (default: ~/.local/share/servosity-pp-cli/data.db)")
+
+	cmd.Flags().StringVar(&metric, "metric", "attention", "Which snapshot series to diff (snapshots are tagged by metric name)")
+	cmd.Flags().StringVar(&fromAnchor, "from", "yesterday", "Earlier anchor (yesterday, now, 2h ago, 7d ago, 2026-05-21, RFC3339)")
+	cmd.Flags().StringVar(&toAnchor, "to", "now", "Later anchor (same vocabulary as --from)")
+
 	return cmd
 }
 
-func computeDrift(ctx context.Context, st *store.Store, metric, fromStr, toStr string) (map[string]any, error) {
-	now := time.Now()
-	var fromRunID, toRunID string
-
-	switch metric {
-	case "attention":
-		ids, err := st.LatestRunIDs(ctx, "attention_runs", 50)
-		if err != nil {
-			return nil, apiErr(fmt.Errorf("list attention_runs: %w", err))
-		}
-		fromRunID, toRunID, err = pickRuns(ids, fromStr, toStr, now)
-		if err != nil {
-			return nil, err
-		}
-		fromRows, err := st.AttentionAt(ctx, fromRunID)
-		if err != nil {
-			return nil, apiErr(err)
-		}
-		toRows, err := st.AttentionAt(ctx, toRunID)
-		if err != nil {
-			return nil, apiErr(err)
-		}
-		return diffAttention(fromRunID, toRunID, fromRows, toRows), nil
-
-	case "stale":
-		ids, err := st.LatestRunIDs(ctx, "stale_runs", 50)
-		if err != nil {
-			return nil, apiErr(err)
-		}
-		fromRunID, toRunID, err = pickRuns(ids, fromStr, toStr, now)
-		if err != nil {
-			return nil, err
-		}
-		fromRows, err := st.StaleAt(ctx, fromRunID, store.StaleFilter{})
-		if err != nil {
-			return nil, apiErr(err)
-		}
-		toRows, err := st.StaleAt(ctx, toRunID, store.StaleFilter{})
-		if err != nil {
-			return nil, apiErr(err)
-		}
-		return diffStale(fromRunID, toRunID, fromRows, toRows), nil
-	}
-	return nil, usageErr(fmt.Errorf("unsupported metric"))
-}
-
-// pickRuns returns (fromRunID, toRunID). When fromStr/toStr are empty, picks
-// the two most-recent run IDs. Otherwise resolves each via parseHumanTime
-// and picks the run closest to the requested time.
-func pickRuns(ids []string, fromStr, toStr string, now time.Time) (string, string, error) {
-	if len(ids) == 0 {
-		return "", "", notFoundErr(fmt.Errorf("no snapshots found — run 'attention' or 'sync stale' first"))
-	}
-	if len(ids) == 1 && fromStr == "" && toStr == "" {
-		return "", "", notFoundErr(fmt.Errorf("only one snapshot exists; need at least two to compute drift"))
-	}
-	if fromStr == "" && toStr == "" {
-		// Latest is index 0 (DESC order from LatestRunIDs); previous is index 1.
-		return ids[1], ids[0], nil
-	}
-	pickClosest := func(s string) (string, error) {
-		t, err := parseHumanTime(s, now)
-		if err != nil {
-			return "", usageErr(err)
-		}
-		return closestRun(ids, t), nil
-	}
-	from := ids[len(ids)-1]
-	to := ids[0]
-	if fromStr != "" {
-		v, err := pickClosest(fromStr)
-		if err != nil {
-			return "", "", err
-		}
-		from = v
-	}
-	if toStr != "" {
-		v, err := pickClosest(toStr)
-		if err != nil {
-			return "", "", err
-		}
-		to = v
-	}
-	return from, to, nil
-}
-
-// warnIfDriftFallback emits a stderr warning when an explicit --from / --to
-// resolved to a snapshot more than 6 hours from the requested time. Silent
-// substitution is the failure the Phase 4.85 review caught.
-func warnIfDriftFallback(cmd *cobra.Command, st *store.Store, ctx context.Context, metric, fromStr, toStr string) {
-	if fromStr == "" && toStr == "" {
-		return // default behavior, not a fallback
-	}
-	runTable := metric + "_runs"
-	switch runTable {
-	case "attention_runs", "stale_runs":
-	default:
-		return
-	}
-	ids, err := st.LatestRunIDs(ctx, runTable, 50)
-	if err != nil || len(ids) == 0 {
-		return
-	}
-	const threshold = 6 * time.Hour
-	now := time.Now()
-	if fromStr != "" {
-		if t, err := parseHumanTime(fromStr, now); err == nil {
-			if _, delta := closestRunWithDelta(ids, t); delta > threshold {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: --from %q resolved to a snapshot %v away (closest snapshot is older/newer than 6h from requested time)\n", fromStr, delta.Round(time.Minute))
-			}
-		}
-	}
-	if toStr != "" {
-		if t, err := parseHumanTime(toStr, now); err == nil {
-			if _, delta := closestRunWithDelta(ids, t); delta > threshold {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: --to %q resolved to a snapshot %v away (closest snapshot is older/newer than 6h from requested time)\n", toStr, delta.Round(time.Minute))
-			}
-		}
-	}
-}
-
-// closestRun returns the run_id whose embedded timestamp is closest to target.
-// run_ids look like "20260511T143000.123Z" (UTC).
-func closestRun(ids []string, target time.Time) string {
-	best := ids[0]
-	bestDiff := time.Duration(1<<62 - 1)
-	for _, id := range ids {
-		t, err := time.Parse("20060102T150405.000Z", id)
-		if err != nil {
+// diffSnapshots compares two attention payloads and returns the WORSE,
+// RECOVERED, and unchanged sets. Companies are keyed by company_id; missing
+// IDs in 0 (decode failures) are skipped — a row with no id can't be diffed.
+//
+// WORSE: score increased OR open_issues increased OR stale_backups increased.
+// RECOVERED: score decreased OR open_issues went from non-zero to zero.
+// NEW in the later snapshot: marked NEW; if score > 0 they also count as
+// worse (something appeared that needs attention).
+// DROPPED from the later snapshot: included as recovered with dropped=true
+// and score_to=0, but only when their from-score was > 0 (otherwise it's
+// noise, not recovery).
+func diffSnapshots(metric string, fromTaken, toTaken time.Time, from, to driftSnapshotPayload) driftResult {
+	fromByID := map[int64]driftCompany{}
+	for _, c := range from.Companies {
+		if c.CompanyID == 0 {
 			continue
 		}
-		d := t.Sub(target)
-		if d < 0 {
-			d = -d
+		fromByID[c.CompanyID] = c
+	}
+	toByID := map[int64]driftCompany{}
+	for _, c := range to.Companies {
+		if c.CompanyID == 0 {
+			continue
 		}
-		if d < bestDiff {
-			best = id
-			bestDiff = d
+		toByID[c.CompanyID] = c
+	}
+
+	var worse []driftChange
+	var recovered []driftChange
+	unchanged := 0
+
+	// Walk the later snapshot first so NEW companies surface.
+	for id, t := range toByID {
+		f, existedBefore := fromByID[id]
+		change := driftChange{
+			CompanyID:        id,
+			CompanyName:      pickName(t.CompanyName, f.CompanyName, id),
+			ScoreFrom:        f.Score,
+			ScoreTo:          t.Score,
+			ScoreDelta:       t.Score - f.Score,
+			OpenIssuesFrom:   f.OpenIssues,
+			OpenIssuesTo:     t.OpenIssues,
+			StaleBackupsFrom: f.StaleBackups,
+			StaleBackupsTo:   t.StaleBackups,
+			NewCompany:       !existedBefore,
+		}
+
+		gotWorse := t.Score > f.Score ||
+			t.OpenIssues > f.OpenIssues ||
+			t.StaleBackups > f.StaleBackups
+		gotBetter := t.Score < f.Score ||
+			(t.OpenIssues == 0 && f.OpenIssues > 0)
+
+		switch {
+		case gotWorse && !gotBetter:
+			worse = append(worse, change)
+		case gotBetter && !gotWorse:
+			recovered = append(recovered, change)
+		case gotWorse && gotBetter:
+			// Mixed signal (e.g. open_issues up, stale_backups down): defer to
+			// the score delta as the tiebreaker — score is the rolled-up bar.
+			if change.ScoreDelta > 0 {
+				worse = append(worse, change)
+			} else if change.ScoreDelta < 0 {
+				recovered = append(recovered, change)
+			} else {
+				unchanged++
+			}
+		default:
+			unchanged++
 		}
 	}
-	return best
+
+	// Dropped companies: present in `from`, absent in `to`. Only count as
+	// recovery when they actually had something to recover from.
+	for id, f := range fromByID {
+		if _, stillThere := toByID[id]; stillThere {
+			continue
+		}
+		if f.Score == 0 && f.OpenIssues == 0 && f.StaleBackups == 0 {
+			// They were zero-everything in `from` and are gone in `to`;
+			// that's not recovery, it's just absence. Don't count it.
+			continue
+		}
+		recovered = append(recovered, driftChange{
+			CompanyID:        id,
+			CompanyName:      pickName(f.CompanyName, "", id),
+			ScoreFrom:        f.Score,
+			ScoreTo:          0,
+			ScoreDelta:       -f.Score,
+			OpenIssuesFrom:   f.OpenIssues,
+			OpenIssuesTo:     0,
+			StaleBackupsFrom: f.StaleBackups,
+			StaleBackupsTo:   0,
+			Dropped:          true,
+		})
+	}
+
+	// Sort: worse by biggest delta first; recovered by biggest improvement first.
+	sort.Slice(worse, func(i, j int) bool {
+		if worse[i].ScoreDelta != worse[j].ScoreDelta {
+			return worse[i].ScoreDelta > worse[j].ScoreDelta
+		}
+		return worse[i].CompanyName < worse[j].CompanyName
+	})
+	sort.Slice(recovered, func(i, j int) bool {
+		if recovered[i].ScoreDelta != recovered[j].ScoreDelta {
+			return recovered[i].ScoreDelta < recovered[j].ScoreDelta
+		}
+		return recovered[i].CompanyName < recovered[j].CompanyName
+	})
+
+	return driftResult{
+		From:           fromTaken,
+		To:             toTaken,
+		Metric:         metric,
+		Worse:          worse,
+		Recovered:      recovered,
+		UnchangedCount: unchanged,
+	}
 }
 
-// closestRunWithDelta returns the closest run AND the absolute time offset from
-// the requested target. Callers can warn when delta exceeds a sensible bound
-// (e.g., "you asked for yesterday but the closest snapshot is 5 minutes ago").
-func closestRunWithDelta(ids []string, target time.Time) (string, time.Duration) {
-	best := closestRun(ids, target)
-	t, err := time.Parse("20060102T150405.000Z", best)
-	if err != nil {
-		return best, 0
+func pickName(primary, fallback string, id int64) string {
+	if primary != "" {
+		return primary
 	}
-	d := t.Sub(target)
-	if d < 0 {
-		d = -d
+	if fallback != "" {
+		return fallback
 	}
-	return best, d
+	return fmt.Sprintf("company:%d", id)
 }
 
-func diffAttention(fromID, toID string, from, to []store.AttentionSnapshotRow) map[string]any {
-	keyFn := func(r store.AttentionSnapshotRow) string {
-		// Group by company per source so a company that recovered on one source
-		// but degraded on another shows in both buckets.
-		return r.Source + "|" + r.CompanyID + "|" + r.CompanyName
-	}
-	fromIdx := map[string]store.AttentionSnapshotRow{}
-	for _, r := range from {
-		fromIdx[keyFn(r)] = r
-	}
-	toIdx := map[string]store.AttentionSnapshotRow{}
-	for _, r := range to {
-		toIdx[keyFn(r)] = r
+func renderDriftHuman(cmd *cobra.Command, r driftResult) error {
+	w := cmd.OutOrStdout()
+	fmt.Fprintf(w, "Drift in %s from %s to %s:\n\n",
+		r.Metric,
+		r.From.Local().Format("2006-01-02 15:04"),
+		r.To.Local().Format("2006-01-02 15:04"))
+
+	if len(r.Worse) == 0 && len(r.Recovered) == 0 {
+		fmt.Fprintf(w, "No change across %d companies.\n", r.UnchangedCount)
+		return nil
 	}
 
-	type rowOut struct {
-		Source      string `json:"source"`
-		CompanyID   string `json:"company_id,omitempty"`
-		CompanyName string `json:"company,omitempty"`
-		Reason      string `json:"reason"`
-		Score       int    `json:"score"`
-	}
-	added := []rowOut{}
-	removed := []rowOut{}
-	unchangedCount := 0
-	for k, r := range toIdx {
-		if _, ok := fromIdx[k]; !ok {
-			added = append(added, rowOut{r.Source, r.CompanyID, r.CompanyName, r.Reason, r.Score})
-		} else {
-			unchangedCount++
+	if len(r.Worse) > 0 {
+		fmt.Fprintf(w, "WORSE (%d %s):\n", len(r.Worse), pluralize(len(r.Worse), "company", "companies"))
+		for _, c := range r.Worse {
+			fmt.Fprintf(w, "  %s\n", formatDriftLine(c))
 		}
+		fmt.Fprintln(w)
 	}
-	for k, r := range fromIdx {
-		if _, ok := toIdx[k]; !ok {
-			removed = append(removed, rowOut{r.Source, r.CompanyID, r.CompanyName, r.Reason, r.Score})
+
+	if len(r.Recovered) > 0 {
+		fmt.Fprintf(w, "RECOVERED (%d %s):\n", len(r.Recovered), pluralize(len(r.Recovered), "company", "companies"))
+		for _, c := range r.Recovered {
+			fmt.Fprintf(w, "  %s\n", formatDriftLine(c))
 		}
+		fmt.Fprintln(w)
 	}
-	sort.Slice(added, func(i, j int) bool { return added[i].Score > added[j].Score })
-	sort.Slice(removed, func(i, j int) bool { return removed[i].Score > removed[j].Score })
-	return map[string]any{
-		"meta": map[string]any{
-			"metric":      "attention",
-			"from_run_id": fromID,
-			"to_run_id":   toID,
-			"from_count":  len(from),
-			"to_count":    len(to),
-			"unchanged":   unchangedCount,
-		},
-		"added":   added,
-		"removed": removed,
-	}
+
+	fmt.Fprintf(w, "NO CHANGE: %d %s\n", r.UnchangedCount, pluralize(r.UnchangedCount, "company", "companies"))
+	return nil
 }
 
-func diffStale(fromID, toID string, from, to []store.StaleSnapshotRow) map[string]any {
-	keyFn := func(r store.StaleSnapshotRow) string {
-		return r.Company + "|" + r.BackupSet + "|" + r.BackupAccount
+func formatDriftLine(c driftChange) string {
+	label := fmt.Sprintf("%s (%d):", c.CompanyName, c.CompanyID)
+	deltaSign := "+"
+	if c.ScoreDelta < 0 {
+		deltaSign = "" // negative already prints its own sign
 	}
-	fromIdx := map[string]store.StaleSnapshotRow{}
-	for _, r := range from {
-		fromIdx[keyFn(r)] = r
+	head := fmt.Sprintf("%-28s score %d → %d (%s%d)",
+		label, c.ScoreFrom, c.ScoreTo, deltaSign, c.ScoreDelta)
+
+	var detail []string
+	if c.OpenIssuesFrom != c.OpenIssuesTo {
+		detail = append(detail, fmt.Sprintf("open_issues %d→%d", c.OpenIssuesFrom, c.OpenIssuesTo))
 	}
-	toIdx := map[string]store.StaleSnapshotRow{}
-	for _, r := range to {
-		toIdx[keyFn(r)] = r
+	if c.StaleBackupsFrom != c.StaleBackupsTo {
+		detail = append(detail, fmt.Sprintf("stale_backups %d→%d", c.StaleBackupsFrom, c.StaleBackupsTo))
 	}
-	type rowOut struct {
-		Company   string  `json:"company,omitempty"`
-		BackupSet string  `json:"backup_set,omitempty"`
-		Engine    string  `json:"engine,omitempty"`
-		DaysStale float64 `json:"days_stale"`
+	tags := []string{}
+	if c.NewCompany {
+		tags = append(tags, "NEW")
 	}
-	added := []rowOut{}
-	removed := []rowOut{}
-	unchangedCount := 0
-	for k, r := range toIdx {
-		if _, ok := fromIdx[k]; !ok {
-			added = append(added, rowOut{r.Company, r.BackupSet, r.Engine, r.DaysStale})
-		} else {
-			unchangedCount++
-		}
+	if c.Dropped {
+		tags = append(tags, "DROPPED")
 	}
-	for k, r := range fromIdx {
-		if _, ok := toIdx[k]; !ok {
-			removed = append(removed, rowOut{r.Company, r.BackupSet, r.Engine, r.DaysStale})
-		}
+
+	out := head
+	if len(detail) > 0 {
+		out += " — " + strings.Join(detail, ", ")
 	}
-	sort.Slice(added, func(i, j int) bool { return added[i].DaysStale > added[j].DaysStale })
-	sort.Slice(removed, func(i, j int) bool { return removed[i].DaysStale > removed[j].DaysStale })
-	return map[string]any{
-		"meta": map[string]any{
-			"metric":      "stale",
-			"from_run_id": fromID,
-			"to_run_id":   toID,
-			"from_count":  len(from),
-			"to_count":    len(to),
-			"unchanged":   unchangedCount,
-		},
-		"added":   added,
-		"removed": removed,
+	if len(tags) > 0 {
+		out += " (" + strings.Join(tags, ", ") + ")"
 	}
+	return out
+}
+
+func pluralize(n int, singular, plural string) string {
+	if n == 1 {
+		return singular
+	}
+	return plural
+}
+
+// driftNoSnapshot reports the empty-state outcome (no snapshot recorded for
+// the requested anchor) as exit 0 with a structured note: an unhydrated
+// snapshot store is an empty state, not an input error. Agents parse the
+// note; humans get the same line on stdout.
+func driftNoSnapshot(cmd *cobra.Command, flags *rootFlags, metric, anchor string) error {
+	note := fmt.Sprintf("no snapshot recorded for metric %q at %s; run 'servosity-cli attention' to record one", metric, anchor)
+	fmt.Fprintln(cmd.ErrOrStderr(), "hint: "+note)
+	if !wantsHumanTable(cmd.OutOrStdout(), flags) {
+		return printJSONFiltered(cmd.OutOrStdout(), map[string]any{"changes": []any{}, "note": note}, flags)
+	}
+	fmt.Fprintln(cmd.OutOrStdout(), note)
+	return nil
 }

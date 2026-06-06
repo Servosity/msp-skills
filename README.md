@@ -29,7 +29,7 @@ Free, open source, runs on your laptop. A local SQLite mirror lets your agent an
 | [hubspot](./skills/hubspot) | HubSpot CRM: contacts, companies, deals, tickets, engagements | ![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32) | [Install](./skills/hubspot/README.md) |
 | [mspbots](./skills/mspbots) | MSPbots BI: datasets, KPI snapshots, ticket analytics, exports | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/mspbots/README.md) |
 | [n-central](./skills/n-central) | N-able N-central RMM: devices, org tree, issue triage, cross-tenant search | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/n-central/README.md) |
-| [servosity](./skills/servosity) | Servosity backup and DR | ![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32) | [Install](./skills/servosity/README.md) |
+| [servosity](./skills/servosity) | Servosity backup and DR: fleet attention, stale backups, QBR reports, restores, billing | ![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32) | [Install](./skills/servosity/README.md) |
 <!-- catalog:end -->
 
 > **About the badges.** `Live-verified` (green) means a real MSP confirmed this skill against a live production tenant - the badge carries the date and source. `Awaiting live verification` (amber) means it passes every mechanical gate (build, command-surface-vs-docs claims check, install dry-run) but no one has reported a live run yet - **be the first**: run it against your tenant and [report that it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).

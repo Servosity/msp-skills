@@ -1,7 +1,7 @@
 {
   "name": "servosity",
   "version": "0.1.1",
-  "description": "Add fleet-wide backup triage, stale-backup detection, and cross-engine analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local fleet mirror with snapshot history so the partner portal's per-page views become one query.",
+  "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
   "author": {
     "name": "Servosity",
     "url": "https://www.servosity.com"
