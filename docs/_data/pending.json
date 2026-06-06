@@ -1,4 +1,11 @@
 {
+  "cipp": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:5308f96f3678055c37d17cf112bae373f4394a204258300e85b0b5501433e249",
+    "released_hash": null
+  },
   "connectwise-manage": {
     "state": "up-to-date",
     "version": "0.1.0",
