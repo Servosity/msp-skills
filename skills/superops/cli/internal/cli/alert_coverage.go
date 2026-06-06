@@ -62,6 +62,6 @@ a literal "did this alert become a ticket" check. See README "Known Gaps".`,
 		},
 	}
 	cmd.Flags().StringVar(&flagClient, "client", "", "Limit to a single client (by name)")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/superops-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/superops-cli/data.db)")
 	return cmd
 }

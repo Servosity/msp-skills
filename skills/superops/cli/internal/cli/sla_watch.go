@@ -66,6 +66,6 @@ API call answers this — it requires the local join over the synced mirror.`,
 	}
 	cmd.Flags().StringVar(&flagBy, "by", "tech", "Group by 'tech' or 'client'")
 	cmd.Flags().StringVar(&flagWindow, "window", "4h", "At-risk window before due time (e.g. 4h, 30m)")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/superops-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/superops-cli/data.db)")
 	return cmd
 }

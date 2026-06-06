@@ -20,7 +20,7 @@ import (
 )
 
 // JobRow is one entry in the local jobs ledger. Rows are appended as NDJSON
-// to ~/.superops-pp-cli/jobs.jsonl; the latest row for a given JobID wins
+// to ~/.superops-cli/jobs.jsonl; the latest row for a given JobID wins
 // when listing. Pruning rewrites the file without old entries.
 type JobRow struct {
 	JobID          string    `json:"job_id"`
@@ -217,7 +217,7 @@ func newJobsCmd(flags *rootFlags) *cobra.Command {
 		Use:   "jobs",
 		Short: "List and inspect async jobs tracked by this CLI",
 		Long: `Jobs tracked when you submit an async-capable endpoint land in
-~/.superops-pp-cli/jobs.jsonl. This command lists, inspects, and prunes them.
+~/.superops-cli/jobs.jsonl. This command lists, inspects, and prunes them.
 
 Submit an async endpoint with --wait to block until completion; submit
 without --wait to get the job ID back immediately and track it later.`,

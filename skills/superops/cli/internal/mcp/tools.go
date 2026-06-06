@@ -386,17 +386,17 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
 					"\n      Set your API key: export SUPEROPS_API_TOKEN=<your-key>" +
-					"\n      Run 'superops-pp-cli doctor' to check auth status."), nil
+					"\n      Run 'superops-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your token." +
 					"\n      Set it with: export SUPEROPS_API_TOKEN=<your-key>" +
-					"\n      Run 'superops-pp-cli doctor' to check auth status."), nil
+					"\n      Run 'superops-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: your credentials are valid but lack access to this resource." +
 					"\n      Set it with: export SUPEROPS_API_TOKEN=<your-key>" +
-					"\n      Run 'superops-pp-cli doctor' to check auth status."), nil
+					"\n      Run 'superops-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
 				if method == "DELETE" {
 					return mcplib.NewToolResultText("already deleted (no-op)"), nil
@@ -438,7 +438,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 
 func newMCPClient() (*client.Client, error) {
 	home, _ := os.UserHomeDir()
-	cfgPath := filepath.Join(home, ".config", "superops-pp-cli", "config.toml")
+	cfgPath := filepath.Join(home, ".config", "superops-cli", "config.toml")
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
@@ -455,7 +455,7 @@ func newMCPClient() (*client.Client, error) {
 
 func dbPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".local", "share", "superops-pp-cli", "data.db")
+	return filepath.Join(home, ".local", "share", "superops-cli", "data.db")
 }
 
 // Note: MCP tools use their own dbPath() because they are in a separate package (main, not cli).
@@ -599,7 +599,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"archetype":   "project-management",
 		"tool_count":  19,
 		// tool_surface tells agents which surface a capability lives on.
-		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion superops-pp-cli binary.",
+		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion superops-cli binary.",
 		"auth": map[string]any{
 			"type": "bearer_token",
 			"env_vars": []map[string]any{

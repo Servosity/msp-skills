@@ -63,6 +63,6 @@ child-activity timestamps; this is computed locally over the synced mirror.`,
 		},
 	}
 	cmd.Flags().IntVar(&flagDays, "days", 7, "Idle-days threshold")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/superops-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/superops-cli/data.db)")
 	return cmd
 }

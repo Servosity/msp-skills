@@ -73,6 +73,6 @@ than a strict worklog-minus-invoice diff. See README "Known Gaps".`,
 	}
 	cmd.Flags().StringVar(&flagClient, "client", "", "Limit to a single client (by name)")
 	cmd.Flags().StringVar(&flagSince, "since", "", "Only count worklog started on/after this ISO date")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/superops-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/superops-cli/data.db)")
 	return cmd
 }

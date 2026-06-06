@@ -60,6 +60,6 @@ fetch those live with 'superops-cli tickets get <id>'. See README "Known Gaps".`
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/superops-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/superops-cli/data.db)")
 	return cmd
 }

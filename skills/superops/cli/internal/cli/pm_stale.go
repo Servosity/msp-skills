@@ -275,7 +275,7 @@ the specified number of days. Useful for identifying forgotten or blocked work.`
 
 	cmd.Flags().IntVar(&days, "days", 30, "Number of days without update to consider stale")
 	cmd.Flags().StringVar(&team, "team", "", "Filter by team identifier")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/superops-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/superops-cli/data.db)")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum items to show")
 
 	return cmd

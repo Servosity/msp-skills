@@ -46,7 +46,7 @@ func Load(configPath string) (*Config, error) {
 	}
 	if path == "" {
 		home, _ := os.UserHomeDir()
-		path = filepath.Join(home, ".config", "superops-pp-cli", "config.toml")
+		path = filepath.Join(home, ".config", "superops-cli", "config.toml")
 	}
 	cfg.Path = path
 

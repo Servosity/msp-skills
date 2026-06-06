@@ -27,7 +27,7 @@ func SiblingCLIPath() (string, error) {
 }
 
 func cliExecutableName(goos string) string {
-	name := "superops-pp-cli"
+	name := "superops-cli"
 	if goos == "windows" {
 		return name + ".exe"
 	}
