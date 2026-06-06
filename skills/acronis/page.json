@@ -1,0 +1,121 @@
+{
+  "outcome_intro": "MSPs run Acronis Cyber Protect Cloud across dozens of customer tenants, but its partner dashboards report one tenant at a time. Ask your AI \"whose backups failed last night,\" \"which agents went offline,\" or \"where am I billing for protection that isn't running,\" and get the cross-tenant answer in one table - computed offline from a local mirror, not six console drill-downs or a month-end CSV export.",
+  "instead_of_say": [
+    {
+      "instead": "Logging into the Acronis console and opening each customer tenant one at a time to see whose backups failed overnight, because partner-level dashboards only show one tenant at a time",
+      "say": "Whose backups failed last night?",
+      "cli": "acronis-cli failures --since 24h"
+    },
+    {
+      "instead": "Keeping a side spreadsheet of which backup agents last checked in, because a silently offline agent is the most common way a backup quietly stops and the console won't page you about it",
+      "say": "Which backup agents have gone offline across all my customers?",
+      "cli": "acronis-cli agents stale --older-than 7d"
+    },
+    {
+      "instead": "Exporting per-tenant usage reports at month-end and reconciling them by hand against what each customer is actually billed for",
+      "say": "Where am I billing for protection that isn't running?",
+      "cli": "acronis-cli coverage --unprotected"
+    }
+  ],
+  "pain_points": [
+    "Acronis's own Management Portal Administrator Guide states that partner-level dashboards and reports work only inside one partner tenant - so the question every MSP asks each morning, \"whose backups failed,\" has no single cross-customer view. You drill into each tenant, or you export and stitch in Excel.",
+    "A silently offline backup agent is the most common way a backup quietly stops succeeding - the agent just stops checking in, and nobody notices until a restore isn't there. Catching it means knowing which agents across every tenant have gone quiet, which the per-tenant console makes a manual sweep.",
+    "Acronis's developer monitoring guide tells MSPs that custom multi-tenant monitoring requires fetching each customer tenant's data via the API at intervals and storing it locally - real engineering most MSPs never build, so usage-to-billing reconciliation and backup-SLA reporting fall back to month-end spreadsheets."
+  ],
+  "outcomes": [
+    {
+      "question": "Whose backups succeeded, failed, or went stale across every customer last night?",
+      "command": "acronis-cli health"
+    },
+    {
+      "question": "Show me each failed or missed backup in the last 24 hours, newest first",
+      "command": "acronis-cli failures --since 24h"
+    },
+    {
+      "question": "Which customers have gone too long without a good backup (SLA breach)?",
+      "command": "acronis-cli freshness --sla 48h --breached"
+    },
+    {
+      "question": "Which backup agents have silently gone offline across all tenants?",
+      "command": "acronis-cli agents stale --older-than 7d"
+    },
+    {
+      "question": "Did every customer's agents update after the rollout?",
+      "command": "acronis-cli agents compliance"
+    },
+    {
+      "question": "Where am I billing for protection that isn't actually running?",
+      "command": "acronis-cli coverage --unprotected"
+    },
+    {
+      "question": "Which usage has no matching SKU, and which paid SKUs have zero usage?",
+      "command": "acronis-cli reconcile usages"
+    },
+    {
+      "question": "What grew or shrank in usage between two months?",
+      "command": "acronis-cli usages drift --from 2026-04-01 --to 2026-05-01"
+    },
+    {
+      "question": "Give me the full picture on one customer before the call",
+      "command": "acronis-cli customer \"<TENANT_ID>\""
+    },
+    {
+      "question": "Which enabled customers are missing users, agents, or offering items?",
+      "command": "acronis-cli tenants audit"
+    }
+  ],
+  "different_vs_wrappers": "Most Acronis integrations and MCP servers proxy each question into a live API call - fine for one tenant, but a fleet-wide question becomes a token-burning loop of paginated calls, one per customer, behind token exchange and the datacenter-host dance. This skill follows Acronis's own monitoring guidance: it syncs every tenant, agent, and usage metric into a local SQLite mirror, so cross-tenant questions (health, coverage, freshness, reconcile usages) become one offline join - instant, and the AI sees the answer table, not pages of raw JSON.",
+  "different_vs_vendor": "It complements the Acronis console rather than replacing it: the portal stays best for configuring protection plans and running restores, while this skill brings every customer tenant into one place for the cross-tenant questions - whose backups failed, which agents are offline, where billing and protection diverge - that partner-level dashboards, scoped to a single tenant, can't answer in one view.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Acronis MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Acronis data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Will this hit my Acronis API rate limits?",
+      "a": "The local mirror exists so reads stop hitting the API. After the first sync, the cross-tenant views (health, coverage, freshness, agents stale, reconcile usages) run against local SQLite with zero API calls. Live calls respect a --rate-limit throttle, and sync is incremental - it only fetches what changed since the last checkpoint."
+    },
+    {
+      "q": "Do I need to be an Acronis partner?",
+      "a": "Yes. You authenticate with an API client created in your own Acronis Management Portal (an OAuth2 client, or a bearer token), so you need partner or admin access to the tenants you want to reach. The CLI can only see what that API client is scoped to."
+    },
+    {
+      "q": "Which datacenter does it point at?",
+      "a": "Whichever hosts your Acronis account. Set ACRONIS_DATACENTER (for example us-cloud or eu2-cloud), or pass --datacenter on auth login. The CLI builds the correct regional API host from it, so you don't hand-assemble the datacenter URL in every call."
+    },
+    {
+      "q": "Will this replace the Acronis console?",
+      "a": "No. The console stays best for configuring protection plans and running restores. This skill adds the cross-tenant reporting layer the partner dashboards don't - one place to ask whose backups failed, which agents are offline, and where billing and protection diverge."
+    }
+  ],
+  "governance_summary": "The skill drives the acronis-cli and acronis-mcp binaries, authenticating with an Acronis API credential read from the environment (ACRONIS_CYBER_PROTECT_BEARER_AUTH, or an OAuth2 client via auth login) and scoped to your datacenter (ACRONIS_DATACENTER) - never logged, never sent anywhere except the Acronis API. Read commands (the cross-tenant rollups, search, reports) cannot change anything. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep tenant, agent, and OAuth-client deletion plus the token (idp) commands human-only. The strongest control is the scope of the API client you create in the Acronis Management Portal.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "acronis-cli health; acronis-cli failures --since 24h; acronis-cli freshness --sla 48h --breached; acronis-cli coverage --unprotected; acronis-cli agents stale --older-than 7d; acronis-cli reconcile usages; acronis-cli customer \"<TENANT_ID>\"; acronis-cli search \"acme\"",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "acronis-cli tenants create (provision a customer); acronis-cli tenants update (rename or enable/disable); acronis-cli tenants offering-items update (change SKUs); acronis-cli clients create (issue an API client); acronis-cli agent-manager force-agent-update; acronis-cli agent-manager update-agent-update-settings - writes send immediately; --dry-run is an opt-in preview, not a default",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "acronis-cli tenants delete; acronis-cli clients delete; acronis-cli agent-manager delete-agent; acronis-cli agent-manager delete-agents; acronis-cli idp revoke-token; acronis-cli idp request-token",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}
