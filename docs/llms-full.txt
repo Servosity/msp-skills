@@ -683,6 +683,42 @@ A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already us
 
 Governance: The skill drives the ninjaone-cli and ninjaone-mcp binaries, authenticating with NINJAONE_CLIENT_ID and NINJAONE_CLIENT_SECRET (NINJAONE_OAUTH_SCOPE optionally narrows the token) read from the environment - never logged, never sent anywhere except the NinjaOne API. Every fleet view, report, and search is read-only. The CLI also exposes routine write commands and a smaller destructive tier; the recommended policy is to preview a write with --dry-run, show the request, get approval, then run. The strongest control is the scope of the API app you mint.
 
+### PagerDuty (Incident Response)
+
+Page: https://msp-skills.compoundingteams.com/skills/pagerduty/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pagerduty/install.sh)
+
+Ask "who's on call for the payments service right now, and when do they hand off?" or "what's our MTTR by service this month?" and get the answer in one command. PagerDuty syncs to a local SQLite mirror, so post-incident analytics, on-call coverage audits, and escalation-gap checks run instantly and offline: no Analytics add-on, no portal clicking, no per-question API call.
+
+Outcomes (question -> command your AI agent runs):
+- What's on fire right now, ranked by SLA risk? -> pagerduty-cli pulse
+- Who's on call for a service right now, and when's the handoff? -> pagerduty-cli oncall who --service "Payments"
+- What's our MTTA and MTTR by service this month? -> pagerduty-cli insights mttr --by service --since 30d
+- Which services have a broken escalation chain or single point of failure? -> pagerduty-cli audit coverage --severity high
+- Where does a schedule have nobody on call over the next two weeks? -> pagerduty-cli audit schedule-gaps --days 14
+- Which responders carry the most pages and off-hours load? -> pagerduty-cli insights responders --since 30d
+- Which services are the noisiest? -> pagerduty-cli insights noisy --top 10 --since 7d
+- What changed right before this incident broke? -> pagerduty-cli incidents changes <incident-id> --window 4h
+- What's the full timeline of this incident? -> pagerduty-cli incidents timeline <incident-id>
+- Which open incidents are quietly rotting with no recent activity? -> pagerduty-cli insights stale --hours 24
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local PagerDuty MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my PagerDuty data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this hit my PagerDuty API rate limits?
+A: Rarely. Read questions run against the local SQLite mirror, not the API - you sync once, then analytics, audits, and search are offline. Only sync and live writes call PagerDuty, and the CLI honors a configurable --rate-limit.
+Q: Do I need PagerDuty's paid Analytics add-on for MTTR reporting?
+A: No. The skill computes MTTA, MTTR, responder workload, and noisy-service rankings locally from the incidents and log entries any REST API key can read, so you get the post-incident numbers without the paid Analytics tier.
+
+Governance: The skill reads everything through your PagerDuty REST API key and writes only when you tell it to - acknowledging, resolving, snoozing, or noting incidents, and creating or editing services, schedules, and policies. Reads (pulse, insights, audit, oncall, search) are always safe to run. Routine writes should be previewed with --dry-run and approved; deletes and config changes are human-in-the-loop only. The strongest control is scoping the API key to what your workflow actually needs.
+
 ### Pax8 (Billing)
 
 Page: https://msp-skills.compoundingteams.com/skills/pax8/

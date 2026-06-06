@@ -59,6 +59,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - NinjaOne (RMM) - Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/ninjaone/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ninjaone/install.sh)
+- PagerDuty (Incident Response) - Triage PagerDuty incidents, on-call schedules, and escalation policies from the terminal.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pagerduty/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pagerduty/install.sh)
 - Pax8 (Billing) - Reconcile Pax8 billing, track MRR, and catch usage overages before they hit the customer invoice
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pax8/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pax8/install.sh)
