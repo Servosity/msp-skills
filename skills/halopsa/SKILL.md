@@ -1,6 +1,6 @@
 ---
 name: halopsa
-description: "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return. Trigger phrases: `triage my Halo queue`, `check SLA breaches in HaloPSA`, `who is overloaded in Halo`, `client card for Acme in Halo`, `Halo contract burn-down`, `what changed in Halo since this morning`, `find time gaps in my Halo timesheet`, `use halopsa`, `run halopsa`."
+description: "Use when the user asks to triage their HaloPSA queue, audit SLA breaches, build a per-client situational-awareness card, reconcile contract hours, check agent workload, or run any cross-client analytic question against HaloPSA, HaloITSM, or HaloCRM. Wraps the full HaloPSA REST API plus a local SQLite mirror so cross-entity queries the live API can't return in one shot are fast and offline. Trigger phrases: `triage my Halo queue`, `check SLA breaches in HaloPSA`, `who's overloaded in Halo`, `client card for Acme`, `Halo contract burn-down`, `what changed in Halo since this morning`, `HaloPSA + ChatGPT`, `HaloPSA + Claude`, `use halopsa`, `run halopsa`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "HaloPSA"
@@ -11,32 +11,26 @@ metadata:
     requires:
       bins:
         - halopsa-cli
-    install:
-      - kind: go
-        bins: [halopsa-cli]
-        module: github.com/mvanhorn/printing-press-library/library/project-management/halopsa/cmd/halopsa-cli
 ---
 
-# HaloPSA  -  Printing Press CLI
+# HaloPSA Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `halopsa-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install halopsa --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)
    ```
-2. Verify: `halopsa-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.ps1 | iex
+   ```
+3. Verify: `halopsa-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/project-management/halopsa/cmd/halopsa-cli@latest
-```
-
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Wraps the full Halo REST API (952 endpoints across tickets, clients, assets, contracts, time, KB, and workflows) with offline-first search, agent-native JSON output, and cross-entity commands like `triage`, `client card`, and `contracts burn` that join tables Halo's UI scatters across five tabs.
 
@@ -2872,7 +2866,7 @@ See current hours consumed vs. bank with projected overage so the contract conve
 
 ## Auth Setup
 
-Halo uses OAuth2 client_credentials. Create an API application in your tenant under Configuration > Integrations > Halo PSA API (Authentication Method: Client ID and Secret  -  Services), then run `halopsa-cli auth login --client-id <id> --client-secret <secret> --tenant <yoursub>`. The CLI exchanges the credentials at https://<tenant>.halopsa.com/auth/token and caches the access token (auto-refreshed before expiry).
+Halo uses OAuth2 client_credentials. Create an API application in your tenant under Configuration > Integrations > Halo PSA API (Authentication Method: Client ID and Secret  -  Services), then run `HALOPSA_TENANT=<yoursub> halopsa-cli auth login --client-id <id> --client-secret <secret>`. The CLI exchanges the credentials at https://<tenant>.halopsa.com/auth/token and caches the access token (auto-refreshed before expiry).
 
 Run `halopsa-cli doctor` to verify setup.
 
@@ -2966,15 +2960,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/project-management/halopsa/cmd/halopsa-mcp@latest
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add halopsa-mcp -- halopsa-mcp
-   ```
-3. Verify: `claude mcp list`
+The installer above drops `halopsa-mcp` alongside the CLI. Register it:
+
+```bash
+claude mcp add halopsa-mcp -- halopsa-mcp
+```
+
+Verify: `claude mcp list`
 
 ## Direct Use
 

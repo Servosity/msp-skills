@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "halopsa-pp-mcp",
+  "name": "halopsa-mcp",
   "display_name": "HaloPSA",
   "version": "0.1.1",
   "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/halopsa-pp-mcp",
+    "entry_point": "bin/halopsa-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/halopsa-pp-mcp",
+      "command": "${__dirname}/bin/halopsa-mcp",
       "args": [],
       "env": {
         "HALOPSA_CLIENT_ID": "${user_config.halopsa_client_id}",

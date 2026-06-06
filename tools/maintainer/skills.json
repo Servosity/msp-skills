@@ -66,10 +66,10 @@
       "featured": 4,
       "install_auth_hint": "Then authenticate with `halopsa-cli auth login` (Configuration > Integrations > Halo PSA API in your tenant gives you the credentials)",
       "live_verified": {
-        "status": "live-verified",
-        "date": "2026-06-05",
-        "source": "self",
-        "evidence": "Damien: verified live (2026-06-05)"
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       },
       "category": "PSA",
       "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.",

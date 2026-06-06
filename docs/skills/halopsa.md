@@ -5,7 +5,7 @@ description: "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite s
 permalink: /skills/halopsa/
 skill_name: "HaloPSA MCP"
 image: /assets/social/halopsa/wide-1200x630.png
-verification: live-verified
+verification: awaiting
 faqs:
   - q: "Does this work with ChatGPT?"
     a: "Yes, on Plus, Pro, Team, Business, Enterprise, and Education plans (the Free tier does not yet expose Developer Mode). ChatGPT connects to remote MCP servers over HTTPS, not local stdio binaries, so you expose the local HaloPSA MCP server via the mcp-remote bridge or your own HTTPS endpoint. Step-by-step in mcp-install.md."
@@ -35,7 +35,7 @@ howto:
 > Unofficial. Community-built Claude Code Skill and MCP server for the HaloPSA
 > API. Not affiliated with, endorsed by, or sponsored by Halo Service Solutions Ltd..
 
-**Live-verified** - confirmed by a real MSP against a live HaloPSA tenant (2026-06-05).
+**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
 
 MSPs run HaloPSA as the service desk - tickets, SLAs, contracts, and the queue that never stops. Ask your AI "what's about to breach SLA," "who's overloaded," or "what's the whole story for this client," and get an answer the portal can't compose in one shot: cross-entity rollups across tickets, clients, contracts, time, and assets, joined offline in one query instead of clicking through five tabs. A local SQLite mirror means QBR-time questions don't hit rate limits.
 
