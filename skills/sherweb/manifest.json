@@ -1,0 +1,63 @@
+{
+  "manifest_version": "0.3",
+  "name": "sherweb-mcp",
+  "display_name": "Sherweb",
+  "version": "0.1.0",
+  "description": "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/sherweb-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/sherweb-mcp",
+      "args": [],
+      "env": {
+        "SHERWEB_CLIENT_ID": "${user_config.sherweb_client_id}",
+        "SHERWEB_CLIENT_SECRET": "${user_config.sherweb_client_secret}",
+        "SHERWEB_OAUTH_SCOPE": "${user_config.sherweb_oauth_scope}",
+        "SHERWEB_SUBSCRIPTION_KEY": "${user_config.sherweb_subscription_key}"
+      }
+    }
+  },
+  "user_config": {
+    "sherweb_client_id": {
+      "type": "string",
+      "title": "SHERWEB_CLIENT_ID",
+      "description": "Sets SHERWEB_CLIENT_ID for the Sherweb MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "sherweb_client_secret": {
+      "type": "string",
+      "title": "SHERWEB_CLIENT_SECRET",
+      "description": "Sets SHERWEB_CLIENT_SECRET for the Sherweb MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "sherweb_oauth_scope": {
+      "type": "string",
+      "title": "SHERWEB_OAUTH_SCOPE",
+      "description": "Sets SHERWEB_OAUTH_SCOPE for the Sherweb MCP server. Required by the generated client for credential refresh or hand-written auth flow.",
+      "sensitive": true,
+      "required": true
+    },
+    "sherweb_subscription_key": {
+      "type": "string",
+      "title": "SHERWEB_SUBSCRIPTION_KEY",
+      "description": "APIM gateway subscription key from cumulus.sherweb.com Security > APIs.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

@@ -437,6 +437,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "sherweb",
+      "source": "./skills/sherweb",
+      "description": "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has.",
+      "version": "0.1.0",
+      "category": "billing",
+      "tags": [
+        "sherweb",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

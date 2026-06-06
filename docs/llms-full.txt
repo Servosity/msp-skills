@@ -906,6 +906,43 @@ A: Yes - the CLI authenticates with an MSP partner token. If you're not a partne
 
 Governance: First-party: published by Servosity for MSP partners. The skill drives the servosity-cli and servosity-mcp binaries, authenticating with your partner token (SERVOSITY_MSP_TOKEN) - never logged and never sent anywhere except the Servosity API. The fleet views are reads; the write surface is issue triage (ignore/archive/reactivate/comment), import, and raw CRUD under the resource groups, all with the opt-in --dry-run preview. The token's reseller scope is the permission boundary.
 
+### Sherweb (Billing)
+
+Page: https://msp-skills.compoundingteams.com/skills/sherweb/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sherweb/install.sh)
+
+MSPs resell Microsoft 365, Azure, and security through Sherweb, then spend the monthly close reconciling what they owe Sherweb against what they bill customers. Ask your AI "what's my net margin per customer," "which subscriptions am I paying for but not billing," or "what will this seat change cost," and get answers the Sherweb portal cannot compose: payable charges joined to receivable charges and subscriptions, computed offline from a local mirror in one query instead of a CSV export and a spreadsheet.
+
+Outcomes (question -> command your AI agent runs):
+- What is my net margin per customer this month - receivable minus payable? -> sherweb-cli margin --month 2026-04
+- Whose margin is sliding month over month before an account goes negative? -> sherweb-cli margin-trend --last 6
+- Which active subscriptions am I paying Sherweb for but not billing the customer? -> sherweb-cli orphans
+- Where am I absorbing metered usage I never billed back? -> sherweb-cli usage-leak
+- Which subscriptions have more seats paid than seats actually used? -> sherweb-cli right-size
+- What changed on my payable charges since the last sync - new, vanished, or repriced? -> sherweb-cli drift
+- What subscriptions were added, cancelled, or resized across my whole book this month? -> sherweb-cli sub-changes --since 30d
+- How many total seats of each product do I carry across every customer? -> sherweb-cli fleet-subs --product "Microsoft 365"
+- What will a seat change cost before I actually submit the amendment? -> sherweb-cli amend-preview --sub "SUB123" --qty 25
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Sherweb MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Sherweb data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need to be a Sherweb partner, and what credentials does it use?
+A: Yes - it talks to the Sherweb Partner API with your own partner credentials, using composed authentication. You need an OAuth2 client-credentials Client ID and Secret (with a scope) for the bearer token, plus an APIM gateway subscription key that rides on every call. Create the OAuth2 application and copy the subscription key from cumulus.sherweb.com under Security > APIs, then set SHERWEB_CLIENT_ID, SHERWEB_CLIENT_SECRET, SHERWEB_OAUTH_SCOPE, and SHERWEB_SUBSCRIPTION_KEY. The credential's own permissions are the real boundary - scope it to what you want the AI to reach. Run sherweb-cli doctor to confirm auth and connectivity.
+Q: Will this hit my Sherweb API rate limits?
+A: After deep-sync, the analytics commands (margin, margin-trend, orphans, usage-leak, right-size, drift, sub-changes, fleet-subs, amend-preview) run against your local SQLite mirror with zero API calls. Live calls respect a --rate-limit throttle, and sync is resumable and incremental - it only fetches what changed since the last checkpoint.
+Q: Does this replace the Sherweb portal?
+A: No. Provisioning, ordering, and subscription management stay in the portal. This skill answers the cross-entity margin and billing questions the portal cannot compose in one place, from your terminal or agent.
+
+Governance: The skill drives the sherweb-cli and sherweb-mcp binaries, authenticating with Sherweb Partner API credentials read from the environment (SHERWEB_CLIENT_ID, SHERWEB_CLIENT_SECRET, SHERWEB_OAUTH_SCOPE, SHERWEB_SUBSCRIPTION_KEY) - never logged and never sent anywhere except Sherweb's own API. The analytics and list/get read commands (margin, margin-trend, orphans, usage-leak, right-size, drift, sub-changes, fleet-subs, amend-preview, distributor, and the service-provider list/get queries) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep subscription amendments, order placement, and especially subscription cancellation human-only, and treat the auth commands as credential operations. The strongest control is the permission scope on the OAuth2 application and subscription key you create.
+
 ### SuperOps (PSA)
 
 Page: https://msp-skills.compoundingteams.com/skills/superops/

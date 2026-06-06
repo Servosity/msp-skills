@@ -460,6 +460,25 @@
       "tagline": "Fleet attention, stale backups, QBR reports, and restore watch for every client by asking."
     },
     {
+      "name": "sherweb",
+      "system": "Sherweb cloud marketplace billing, subscriptions, customers, and margin across Microsoft CSP and cloud services",
+      "status": "beta",
+      "skill_path": "skills/sherweb",
+      "cli_binary": "sherweb-cli",
+      "mcp_binary": "sherweb-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Sherweb",
+      "vendor_trademark_owner": "Sherweb Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sherweb/install.sh)",
+      "install_mcp_doc": "skills/sherweb/mcp-install.md",
+      "description": "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has.",
+      "verification": "awaiting",
+      "category": "Billing",
+      "tagline": "Reconcile what you owe Sherweb against what customers owe you and surface true net margin per customer."
+    },
+    {
       "name": "superops",
       "system": "SuperOps PSA+RMM: tickets, SLAs, assets, alerts, clients, contracts, invoices, worklogs",
       "status": "beta",
