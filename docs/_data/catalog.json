@@ -1,5 +1,5 @@
 {
-  "count": 21,
+  "count": 22,
   "connectors": [
     {
       "slug": "acronis",
@@ -40,6 +40,14 @@
       "category": "Security",
       "verification": "awaiting",
       "url": "/skills/crowdstrike/"
+    },
+    {
+      "slug": "datto-bcdr",
+      "display_name": "Datto BCDR",
+      "tagline": "Fleet-wide Datto BCDR answers - failed screenshots, stale backups, at-risk clients - from a local mirror in one ask.",
+      "category": "Backup/DR",
+      "verification": "awaiting",
+      "url": "/skills/datto-bcdr/"
     },
     {
       "slug": "datto-rmm",
