@@ -20,6 +20,13 @@
     "current_hash": "sha256:a0617e8133dbdfbb42b9da1f1412fa9b6eb0ad684af373cfa7d540d58decd602",
     "released_hash": "sha256:a0617e8133dbdfbb42b9da1f1412fa9b6eb0ad684af373cfa7d540d58decd602"
   },
+  "datto-rmm": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:a013e2d6c3503f228fba1379e54e8d1c46a2f58c92e83852bd90e8872221b4da",
+    "released_hash": null
+  },
   "halopsa": {
     "state": "up-to-date",
     "version": "0.2.0",
