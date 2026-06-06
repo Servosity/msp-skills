@@ -1,5 +1,5 @@
 {
-  "count": 10,
+  "count": 11,
   "connectors": [
     {
       "slug": "cipp",
@@ -48,6 +48,14 @@
       "category": "RMM",
       "verification": "awaiting",
       "url": "/skills/n-central/"
+    },
+    {
+      "slug": "ninjaone",
+      "display_name": "NinjaOne",
+      "tagline": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.",
+      "category": "RMM",
+      "verification": "awaiting",
+      "url": "/skills/ninjaone/"
     },
     {
       "slug": "pax8",

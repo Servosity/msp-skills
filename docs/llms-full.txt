@@ -267,6 +267,46 @@ A: No. This skill targets the N-central REST API specifically. N-sight is a sepa
 
 Governance: The skill drives the n-central-cli and n-central-mcp binaries, authenticating with an API-only user's JWT (NCENTRAL_JWT) exchanged for short-lived access tokens - never logged and never sent anywhere except your N-central server. Nearly all commands are read-only; the exceptions are scheduled-tasks run (executes an API-enabled script or automation policy on a live device) and import (POSTs records), both previewable with the opt-in --dry-run flag. Registration tokens enroll new devices - treat them like credentials. The API user's role in N-central is the real permission boundary.
 
+### NinjaOne (RMM)
+
+Page: https://msp-skills.compoundingteams.com/skills/ninjaone/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ninjaone/install.sh)
+
+NinjaOne is built for real-time, per-device RMM, but its reporting answers one organization at a time. Ask your AI "which clients are below 95% patched," "which endpoints across the fleet have no backup," or "how far did this threat spread" and get fleet-wide rollups computed offline from a local SQLite mirror of your estate - one query instead of a per-org report re-totaled in a spreadsheet or a third-party BI overlay.
+
+Outcomes (question -> command your AI agent runs):
+- Which organizations are below 95% patch compliance? -> ninjaone-cli patch-compliance --min-pct 95
+- Which endpoints across the fleet have no backup at all? -> ninjaone-cli backup-coverage
+- Which devices is a given threat on, fleet-wide? -> ninjaone-cli av-sweep --threat "Trojan.Generic"
+- Which devices have antivirus definitions older than a week? -> ninjaone-cli av-sweep --definition-stale-days 7
+- What is each organization's overall health score, and why? -> ninjaone-cli fleet-health
+- Which devices have not checked in for two weeks? -> ninjaone-cli stale-devices --days 14
+- Which devices are running an end-of-life operating system? -> ninjaone-cli os-eol
+- Where is a software title sprawling across too many versions? -> ninjaone-cli software-audit --min-versions 3
+- Did patch compliance get better or worse since last week? -> ninjaone-cli drift --metric patch
+- Search every synced device, organization, and alert for a string? -> ninjaone-cli search "disk full"
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local NinjaOne MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my NinjaOne data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: Does it work with the US, EU, and other NinjaOne regions?
+A: Yes. The US host (https://app.ninjarmm.com) is the default. For another region set NINJAONE_BASE_URL (for example https://eu.ninjarmm.com) and NINJAONE_TOKEN_URL (for example https://eu.ninjarmm.com/ws/oauth/token); run 'ninjaone-cli doctor' to confirm the credentials reach your instance.
+Q: Will this hit my NinjaOne API rate limits?
+A: The local mirror exists so reads stop hitting the API. After the first 'sync', the fleet views (patch-compliance, backup-coverage, av-sweep, fleet-health, stale-devices, os-eol, software-audit, drift) run against local SQLite with zero API calls. Live calls respect a --rate-limit throttle, and sync is incremental and resumable - it only fetches what changed and treats resources your token cannot reach as warnings, not failures.
+Q: Do I need to be a NinjaOne partner or buy the reporting add-on?
+A: No. You need an API app you create yourself under Administration > Apps > API, with an OAuth2 client_id and client_secret. The fleet rollups are computed locally from whatever your token can already read - no reporting add-on, data warehouse, or partner tier required.
+Q: Can it change things in NinjaOne, or is it read-only?
+A: The headline fleet views are read-only. The CLI also wraps NinjaOne's write surface (for example updating an organization, creating a ticket, running a script, or rebooting a device) and a smaller destructive tier (deletes). Preview any write with --dry-run, keep a human in the loop, and scope the API token to only what your workflow needs.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: The skill drives the ninjaone-cli and ninjaone-mcp binaries, authenticating with NINJAONE_CLIENT_ID and NINJAONE_CLIENT_SECRET (NINJAONE_OAUTH_SCOPE optionally narrows the token) read from the environment - never logged, never sent anywhere except the NinjaOne API. Every fleet view, report, and search is read-only. The CLI also exposes routine write commands and a smaller destructive tier; the recommended policy is to preview a write with --dry-run, show the request, get approval, then run. The strongest control is the scope of the API app you mint.
+
 ### Pax8 (Billing)
 
 Page: https://msp-skills.compoundingteams.com/skills/pax8/

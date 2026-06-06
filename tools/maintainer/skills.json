@@ -161,6 +161,29 @@
         "evidence": null
       }
     },
+    "ninjaone": {
+      "system": "NinjaOne RMM: devices, patch compliance, backup gaps, AV blast-radius, health, drift",
+      "status": "beta",
+      "cli_binary": "ninjaone-cli",
+      "mcp_binary": "ninjaone-mcp",
+      "vendor": "NinjaOne",
+      "vendor_trademark_owner": "NinjaOne, LLC",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "NinjaOne",
+      "tagline": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.",
+      "cli_hash": "sha256:78c736dbe18ce38fe022df3ecf340b7c717b6bd7cc469eaf647b187b47c66791",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "pax8": {
       "system": "Pax8 cloud marketplace billing, subscriptions, reconciliation, MRR, and usage overages",
       "status": "beta",
