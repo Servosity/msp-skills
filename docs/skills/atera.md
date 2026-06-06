@@ -20,7 +20,7 @@ faqs:
   - q: "Do I need to be an Atera partner?"
     a: "No. You need an Atera account and an API key created under Admin \u2192 API. Any plan that exposes the API works; nothing here requires a special partner tier."
   - q: "Will this replace my Atera portal?"
-    a: "No \u2014 it complements it. The portal stays your system of record and remote-access console; this skill adds the cross-client, terminal-and-AI query layer the portal doesn't offer."
+    a: "No - it complements it. The portal stays your system of record and remote-access console; this skill adds the cross-client, terminal-and-AI query layer the portal doesn't offer."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/atera/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/atera/install.ps1 | iex"
@@ -37,7 +37,7 @@ howto:
 
 **Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
 
-Ask plain-English questions about your whole Atera estate and get answers the portal can't assemble in one view: which agents went dark, which tickets are about to breach SLA, which customers are under-contracted, and what contracts expire next quarter. `atera-cli` syncs Atera into a local SQLite mirror, then answers cross-client rollups instantly and offline — from the terminal or any AI agent.
+Ask plain-English questions about your whole Atera estate and get answers the portal can't assemble in one view: which agents went dark, which tickets are about to breach SLA, which customers are under-contracted, and what contracts expire next quarter. `atera-cli` syncs Atera into a local SQLite mirror, then answers cross-client rollups instantly and offline - from the terminal or any AI agent.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -83,14 +83,14 @@ Full command reference at [github.com/servosity/msp-skills/blob/main/skills/ater
 
 ## What makes this one different
 
-Most Atera integrations proxy each question into a live API call — fine for one record, useless for a fleet-wide rollup that would page through thousands of objects against the rate limit. This skill syncs Atera into a local SQLite mirror, so cross-entity questions become one offline join: instant, rate-limit-friendly, and the AI sees the answer, not the raw dump.
+Most Atera integrations proxy each question into a live API call - fine for one record, useless for a fleet-wide rollup that would page through thousands of objects against the rate limit. This skill syncs Atera into a local SQLite mirror, so cross-entity questions become one offline join: instant, rate-limit-friendly, and the AI sees the answer, not the raw dump.
 
-Atera's portal and its add-on AI surface single records and canned reports; this skill answers the cross-client, time-windowed questions the portal leaves you to assemble by hand — dark-agent sweeps, SLA-breach queues, under-contracted accounts, and renewal calendars — from one local mirror you can read every line of.
+Atera's portal and its add-on AI surface single records and canned reports; this skill answers the cross-client, time-windowed questions the portal leaves you to assemble by hand - dark-agent sweeps, SLA-breach queues, under-contracted accounts, and renewal calendars - from one local mirror you can read every line of.
 
 ## The pain this closes
 
 - Atera's reporting is the consistent gripe in G2 and Capterra reviews: custom reports need workarounds, filtering is rigid, exports are clunky, and the deeper cross-client analytics sit behind higher-tier plans.
-- There's no single screen that answers 'which machines went dark,' 'which tickets breach SLA next,' or 'which customers are under-contracted' across every client at once — you assemble it by hand, portal tab by portal tab.
+- There's no single screen that answers 'which machines went dark,' 'which tickets breach SLA next,' or 'which customers are under-contracted' across every client at once - you assemble it by hand, portal tab by portal tab.
 - Pulling fleet-wide numbers through the live API means paging thousands of objects against a rate limit, so the questions that matter at a QBR are the ones nobody has time to answer.
 
 ## Install
@@ -129,7 +129,7 @@ After install, authenticate once with your Atera credentials, then verify with `
 | Write (routine) | tickets post/put, contacts post/put, customers post/put, contracts post/update, alerts post/resolve, devices create-*, customvalues set-*, import | Preview with --dry-run, then a reviewed write |
 | Destructive / config | agents delete, tickets delete, customers delete, devices delete-*, and credential changes (auth set-token, auth setup, auth logout) | Human-in-the-loop only |
 
-The skill reads everything — agents, tickets, customers, contracts, alerts, devices, rates, and custom fields — and can also create, update, and delete those records through the Atera API. Reads, including every cross-client rollup, are always safe to run; routine writes should be previewed with `--dry-run` and approved before they fire; deletes and credential changes are human-in-the-loop only. The CLI can only do what your Atera API key is permitted to do, so scope the key to the workflow. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/atera/governance.md).
+The skill reads everything - agents, tickets, customers, contracts, alerts, devices, rates, and custom fields - and can also create, update, and delete those records through the Atera API. Reads, including every cross-client rollup, are always safe to run; routine writes should be previewed with `--dry-run` and approved before they fire; deletes and credential changes are human-in-the-loop only. The CLI can only do what your Atera API key is permitted to do, so scope the key to the workflow. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/atera/governance.md).
 
 ## Frequently asked questions
 
@@ -159,7 +159,7 @@ No. You need an Atera account and an API key created under Admin → API. Any pl
 
 ### Will this replace my Atera portal?
 
-No — it complements it. The portal stays your system of record and remote-access console; this skill adds the cross-client, terminal-and-AI query layer the portal doesn't offer.
+No - it complements it. The portal stays your system of record and remote-access console; this skill adds the cross-client, terminal-and-AI query layer the portal doesn't offer.
 
 
 ## Status

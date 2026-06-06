@@ -80,7 +80,7 @@ Page: https://msp-skills.compoundingteams.com/skills/atera/
 Badge: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/atera/install.sh)
 
-Ask plain-English questions about your whole Atera estate and get answers the portal can't assemble in one view: which agents went dark, which tickets are about to breach SLA, which customers are under-contracted, and what contracts expire next quarter. `atera-cli` syncs Atera into a local SQLite mirror, then answers cross-client rollups instantly and offline — from the terminal or any AI agent.
+Ask plain-English questions about your whole Atera estate and get answers the portal can't assemble in one view: which agents went dark, which tickets are about to breach SLA, which customers are under-contracted, and what contracts expire next quarter. `atera-cli` syncs Atera into a local SQLite mirror, then answers cross-client rollups instantly and offline - from the terminal or any AI agent.
 
 Outcomes (question -> command your AI agent runs):
 - Which agents have gone offline or stopped checking in? -> atera-cli agents stale --days 30
@@ -108,9 +108,9 @@ A: Rarely. Most questions run against the local SQLite mirror after a one-time `
 Q: Do I need to be an Atera partner?
 A: No. You need an Atera account and an API key created under Admin → API. Any plan that exposes the API works; nothing here requires a special partner tier.
 Q: Will this replace my Atera portal?
-A: No — it complements it. The portal stays your system of record and remote-access console; this skill adds the cross-client, terminal-and-AI query layer the portal doesn't offer.
+A: No - it complements it. The portal stays your system of record and remote-access console; this skill adds the cross-client, terminal-and-AI query layer the portal doesn't offer.
 
-Governance: The skill reads everything — agents, tickets, customers, contracts, alerts, devices, rates, and custom fields — and can also create, update, and delete those records through the Atera API. Reads, including every cross-client rollup, are always safe to run; routine writes should be previewed with `--dry-run` and approved before they fire; deletes and credential changes are human-in-the-loop only. The CLI can only do what your Atera API key is permitted to do, so scope the key to the workflow.
+Governance: The skill reads everything - agents, tickets, customers, contracts, alerts, devices, rates, and custom fields - and can also create, update, and delete those records through the Atera API. Reads, including every cross-client rollup, are always safe to run; routine writes should be previewed with `--dry-run` and approved before they fire; deletes and credential changes are human-in-the-loop only. The CLI can only do what your Atera API key is permitted to do, so scope the key to the workflow.
 
 ### Autotask PSA (PSA)
 
