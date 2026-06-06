@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -252,7 +253,7 @@ func cwEmit(cmd *cobra.Command, flags *rootFlags, jsonVal any, headers []string,
 // cwNoStoreHint prints a sync hint to stderr and emits the empty result so the
 // command exits 0 (honest empty, never fabricated data).
 func cwNoStoreHint(cmd *cobra.Command, flags *rootFlags, empty any, headers []string, resources string) error {
-	fmt.Fprintf(os.Stderr, "no synced data yet — run `connectwise-manage-cli sync %s` first\n", resources)
+	fmt.Fprintf(cmd.ErrOrStderr(), "no synced data yet — run `connectwise-manage-cli sync %s` first\n", resources)
 	return cwEmit(cmd, flags, empty, headers, nil)
 }
 
@@ -321,9 +322,21 @@ func cwTrunc(s string, n int) string {
 	return s[:n-1] + "…"
 }
 
+// cwLoggedHours returns the effective logged hours for a time entry:
+// hoursBilled when present and non-zero, else actualHours. The zero-billed
+// fallback is intentional — these views measure effort, not invoicing, so an
+// entry deliberately billed at 0 still counts its actual hours.
+func cwLoggedHours(te map[string]any) float64 {
+	h, ok := cwFloat(te["hoursBilled"])
+	if !ok || h == 0 {
+		h, _ = cwFloat(te["actualHours"])
+	}
+	return h
+}
+
 // ticketTimeIndex sums logged hours per service-ticket id from time entries.
 // Only chargeToType == "ServiceTicket" rows count; hoursBilled wins, falling
-// back to actualHours.
+// back to actualHours (see cwLoggedHours).
 func ticketTimeIndex(timeEntries []map[string]any) map[int]float64 {
 	idx := map[int]float64{}
 	for _, te := range timeEntries {
@@ -334,11 +347,7 @@ func ticketTimeIndex(timeEntries []map[string]any) map[int]float64 {
 		if !ok || tid == 0 {
 			continue
 		}
-		h, ok := cwFloat(te["hoursBilled"])
-		if !ok || h == 0 {
-			h, _ = cwFloat(te["actualHours"])
-		}
-		idx[tid] += h
+		idx[tid] += cwLoggedHours(te)
 	}
 	return idx
 }
@@ -348,7 +357,7 @@ func ticketTimeIndex(timeEntries []map[string]any) map[int]float64 {
 // (matched against owner identifier/name). Sorted least-hours-then-oldest.
 func computeUnbilled(tickets, timeEntries []map[string]any, since time.Time, member string, threshold float64, now time.Time) []ticketRow {
 	idx := ticketTimeIndex(timeEntries)
-	var out []ticketRow
+	out := make([]ticketRow, 0)
 	for _, t := range tickets {
 		row := cwTicketRow(t, now)
 		if row.ID == 0 {
@@ -378,7 +387,7 @@ func computeUnbilled(tickets, timeEntries []map[string]any, since time.Time, mem
 // computeStale returns open tickets not updated since `olderThan`, optionally
 // scoped to a board (matched against board name or numeric id), oldest first.
 func computeStale(tickets []map[string]any, olderThan time.Time, board string, now time.Time) []ticketRow {
-	var out []ticketRow
+	out := make([]ticketRow, 0)
 	for _, t := range tickets {
 		if cwBool(t, "closedFlag") {
 			continue
@@ -414,7 +423,7 @@ func matchesBoard(t map[string]any, board string) bool {
 // computeBoard returns open tickets on a board (matched by name or id),
 // optionally only unassigned, oldest-first (most urgent for triage).
 func computeBoard(tickets []map[string]any, board string, unassignedOnly bool, now time.Time) []ticketRow {
-	var out []ticketRow
+	out := make([]ticketRow, 0)
 	for _, t := range tickets {
 		if cwBool(t, "closedFlag") {
 			continue
@@ -504,11 +513,7 @@ func agreementHours(timeEntries []map[string]any, since time.Time) map[int]float
 				continue
 			}
 		}
-		h, ok := cwFloat(te["hoursBilled"])
-		if !ok || h == 0 {
-			h, _ = cwFloat(te["actualHours"])
-		}
-		idx[aid] += h
+		idx[aid] += cwLoggedHours(te)
 	}
 	return idx
 }
@@ -517,7 +522,7 @@ func agreementHours(timeEntries []map[string]any, since time.Time) map[int]float
 // utilization vs the agreement's hour allotment (when applicationUnits=Hours).
 func computeAgreementBurn(agreements, timeEntries []map[string]any, companyFilter string, since time.Time) []burnRow {
 	hrs := agreementHours(timeEntries, since)
-	var out []burnRow
+	out := make([]burnRow, 0)
 	for _, a := range agreements {
 		id := cwTopID(a)
 		if id == 0 {
@@ -768,7 +773,11 @@ func explainConditions(s string) (clauses []string, join string) {
 			i++
 		case depth == 0 && matchKeyword(runes, i, "AND"):
 			flush()
-			join = "AND"
+			if join == "" || join == "AND" {
+				join = "AND"
+			} else {
+				join = "MIXED"
+			}
 			i += 5 // " AND " consumed including surrounding spaces handled below
 		case depth == 0 && matchKeyword(runes, i, "OR"):
 			flush()
@@ -844,19 +853,35 @@ func formatScalar(s string) string {
 	if s == "" {
 		return `""`
 	}
-	if (strings.HasPrefix(s, `"`) && strings.HasSuffix(s, `"`)) ||
-		(strings.HasPrefix(s, "[") && strings.HasSuffix(s, "]")) {
+	// Pass through values the user already quoted/bracketed. Require length
+	// >= 2 so a lone `"` or `[` is not misread as a balanced pair.
+	if len(s) >= 2 && ((s[0] == '"' && s[len(s)-1] == '"') ||
+		(s[0] == '[' && s[len(s)-1] == ']')) {
 		return s
 	}
 	switch strings.ToLower(s) {
 	case "true", "false", "null":
 		return strings.ToLower(s)
 	}
-	if _, err := strconv.ParseFloat(s, 64); err == nil {
-		return s
+	// Bare-number check: plain decimal literals only. ParseFloat alone also
+	// accepts NaN/Inf/Infinity and hex floats, which ConnectWise treats as
+	// strings, so gate on the decimal shape first.
+	if cwPlainNumber.MatchString(s) {
+		if _, err := strconv.ParseFloat(s, 64); err == nil {
+			return s
+		}
 	}
 	if looksLikeISODate(s) {
 		return "[" + s + "]"
 	}
-	return `"` + strings.ReplaceAll(s, `"`, `\"`) + `"`
+	// Escape backslashes before quotes so a value containing `\` or a
+	// trailing backslash cannot break out of the double-quoted context.
+	escaped := strings.ReplaceAll(s, `\`, `\\`)
+	escaped = strings.ReplaceAll(escaped, `"`, `\"`)
+	return `"` + escaped + `"`
 }
+
+// cwPlainNumber matches plain decimal numeric literals (optionally signed,
+// optional fraction, optional exponent) — the only shapes ConnectWise
+// conditions accept bare.
+var cwPlainNumber = regexp.MustCompile(`^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$`)

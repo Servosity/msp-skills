@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/connectwise-manage/">
-    <img src="../../docs/assets/video/connectwise-manage/animated-og.gif" alt="ConnectWise PSA (Manage) demo - animated preview" width="600">
+    <img src="../../docs/assets/social/connectwise-manage/wide-1200x630.png" alt="ConnectWise PSA (Manage) - MCP server and Claude Code Skill" width="600">
   </a>
 </p>
-<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/connectwise-manage/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
+<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/connectwise-manage/">Full skill page</a> - install, outcomes, safety model.</sub></p>
 <!-- media:end -->
 
 Every ConnectWise PSA workflow from the terminal  -  with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.

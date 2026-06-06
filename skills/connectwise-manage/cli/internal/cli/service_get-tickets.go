@@ -25,7 +25,7 @@ func newServiceGetTicketsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-tickets",
 		Short:       "Get List of ConnectWise.Apis.v3_0.v2015_3.Service.Ticket.Ticket",
-		Example:     "  connectwise-manage-cli service get-tickets",
+		Example:     "  connectwise-manage-cli service get-tickets --conditions 'status/name=\"New\"' --agent --select id,summary,board.name,company.identifier,owner.identifier",
 		Annotations: map[string]string{"pp:endpoint": "service.get-tickets", "pp:method": "GET", "pp:path": "/service/tickets", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()

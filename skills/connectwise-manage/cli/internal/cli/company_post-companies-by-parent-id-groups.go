@@ -155,7 +155,7 @@ func newCompanyPostCompaniesByParentIdGroupsCmd(flags *rootFlags) *cobra.Command
 				}
 			}
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure) {
-				writeMutationResponseToStore(cmd.Context(), "company", data, "")
+				writeMutationResponseToStore(cmd.Context(), "company", data, "contactIds")
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")

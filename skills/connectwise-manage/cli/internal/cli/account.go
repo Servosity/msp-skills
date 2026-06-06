@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// pp:data-source local
 func newNovelAccountCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "account [id-or-identifier]",
@@ -18,7 +19,11 @@ Assembles a one-card view of a company from the local store — contacts,
 active agreements, deployed configurations, open-ticket count, and last
 activity — joining five synced tables the PSA web UI spreads across five
 screens. Pass a company id or identifier. Run
-'sync company-companies company company-configurations finance-agreements service-tickets' first.`, "\n"),
+'sync company-companies company company-configurations finance-agreements service-tickets' first.
+
+Use this command to assemble a company's full context (contacts, agreements,
+configs, open tickets) before a call. Do NOT use this command to measure
+hours-vs-allotment utilization on an agreement; use 'agreement-burn' instead.`, "\n"),
 		Example: strings.Trim(`
   connectwise-manage-cli account AcmeCorp
   connectwise-manage-cli account 42 --agent`, "\n"),
@@ -30,14 +35,19 @@ screens. Pass a company id or identifier. Run
 			if dryRunOK(flags) {
 				return nil
 			}
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			query := args[0]
 
 			db, err := cwOpenStore(cmd.Context())
 			if err != nil {
-				fmt.Fprintln(cmd.ErrOrStderr(), "no synced data yet — run `connectwise-manage-cli sync company-companies company company-configurations finance-agreements service-tickets` first")
-				return flags.printJSON(cmd, accountCard{Found: false})
+				return cwNoStoreHint(cmd, flags, accountCard{Found: false}, nil, "company-companies company company-configurations finance-agreements service-tickets")
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, cwCompanies) {
+				hintIfStale(cmd, db, cwCompanies, flags.maxAge)
+			}
 
 			companies, err := cwLoad(cmd.Context(), db, cwCompanies)
 			if err != nil {

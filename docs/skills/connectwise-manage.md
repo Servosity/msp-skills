@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "ConnectWise PSA (Manage) MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "Every ConnectWise PSA workflow from the terminal  -  with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you."
+description: "Every ConnectWise PSA workflow from the terminal \u2014 with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you."
 permalink: /skills/connectwise-manage/
 skill_name: "ConnectWise PSA (Manage) MCP"
 image: /assets/social/connectwise-manage/wide-1200x630.png
@@ -127,7 +127,7 @@ After install, authenticate once with your ConnectWise PSA (Manage) credentials,
 | --- | --- | --- |
 | Read | connectwise-manage-cli stale --days 5; connectwise-manage-cli board "Help Desk"; connectwise-manage-cli unbilled --since 7d; connectwise-manage-cli account AcmeCorp; connectwise-manage-cli agreement-burn; connectwise-manage-cli workload; connectwise-manage-cli search "vpn outage" | Allow |
 | Write (routine) | connectwise-manage-cli time post-entries (log time); connectwise-manage-cli service post-tickets (create a ticket); connectwise-manage-cli service patch-tickets-by-id (update status or owner); connectwise-manage-cli company patch-companies-by-id - writes send immediately; --dry-run is an opt-in preview, not a default | Preview with --dry-run, then a reviewed write |
-| Destructive / config | connectwise-manage-cli service delete-tickets-by-id; connectwise-manage-cli company delete-companies-by-id; connectwise-manage-cli system post-members-by-member-identifier-tokens | Human-in-the-loop only |
+| Destructive / config | connectwise-manage-cli service delete-tickets-by-id; connectwise-manage-cli company delete-companies-by-id; connectwise-manage-cli company delete-configurations-by-id | Human-in-the-loop only |
 
 The skill drives the connectwise-manage-cli and connectwise-manage-mcp binaries, authenticating with API Member keys read from the environment (CW_COMPANY_ID, CW_PUBLIC_KEY, CW_PRIVATE_KEY, CW_CLIENT_ID) - never logged and never sent anywhere except your ConnectWise Manage instance. Read commands (boards, cross-entity views, search, reports) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep delete and member-administration commands human-only. The strongest control is the security role on the API Member you create. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/connectwise-manage/governance.md).
 

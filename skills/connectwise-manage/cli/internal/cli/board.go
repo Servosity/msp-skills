@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// pp:data-source local
 func newNovelBoardCmd(flags *rootFlags) *cobra.Command {
 	var flagUnassigned bool
 	var flagLimit int
@@ -30,6 +31,9 @@ Run 'sync service-tickets' first.`, "\n"),
 			if dryRunOK(flags) {
 				return nil
 			}
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			board := ""
 			if len(args) > 0 {
 				board = args[0]
@@ -42,6 +46,9 @@ Run 'sync service-tickets' first.`, "\n"),
 				return cwNoStoreHint(cmd, flags, []ticketRow{}, headers, "service-tickets")
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, cwTickets) {
+				hintIfStale(cmd, db, cwTickets, flags.maxAge)
+			}
 
 			tickets, err := cwLoad(cmd.Context(), db, cwTickets)
 			if err != nil {

@@ -17,8 +17,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "1.0.0"
-
 type rootFlags struct {
 	asJSON        bool
 	compact       bool
@@ -152,8 +150,8 @@ Highlights (not in the official API docs):
   • unbilled   Find tickets you touched or closed in a window that have zero or under-threshold time logged against them.
   • account   One card for a company: contacts, active agreements, deployed configurations, open-ticket count, and last activity.
   • agreement-burn   Hours logged against an agreement's company in a period versus the agreement's allotment, as a utilization percentage with over/under flag.
-  • board   A grouped board view: tickets by status with age, owner, priority, and an SLA flag, joined to the tech who owns each.
-  • stale   Open tickets with no update older than N days, grouped by owner and board, sorted by age.
+  • board   Open tickets on a board, oldest first, with each ticket's age, owner, status, and priority joined from the synced reference data.
+  • stale   Open tickets with no update in N days, oldest first, with board and owner columns so you see what's rotting and whose it is.
   • workload   Open ticket count and aging per tech, so you route the next ticket to whoever is lightest.
   • condition   Build a validated ConnectWise conditions expression from flags (handling string quoting, bracketed dates, and AND-default / OR-parentheses), or explain what an existing expression queries.
 
@@ -262,6 +260,8 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newTailCmd(flags))
 	rootCmd.AddCommand(newAnalyticsCmd(flags))
 	rootCmd.AddCommand(newWorkflowCmd(flags))
+	rootCmd.AddCommand(newOrphansCmd(flags))
+	rootCmd.AddCommand(newLoadCmd(flags))
 	rootCmd.AddCommand(newNovelAccountCmd(flags))
 	rootCmd.AddCommand(newNovelAgreementBurnCmd(flags))
 	rootCmd.AddCommand(newNovelBoardCmd(flags))
@@ -269,7 +269,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newNovelStaleCmd(flags))
 	rootCmd.AddCommand(newNovelUnbilledCmd(flags))
 	rootCmd.AddCommand(newNovelWorkloadCmd(flags))
-	rootCmd.AddCommand(newVersionCliCmd())
+	rootCmd.AddCommand(newVersionCmd())
 
 	return rootCmd
 }
@@ -321,14 +321,4 @@ func (f *rootFlags) printTable(w *cobra.Command, headers []string, rows [][]stri
 		fmt.Fprintln(tw, line)
 	}
 	return tw.Flush()
-}
-
-func newVersionCliCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Print version",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("%s %s\n", cmd.Root().Name(), version)
-		},
-	}
 }

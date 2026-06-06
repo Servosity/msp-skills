@@ -66,14 +66,14 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Dispatcher views
-- **`board`**  -  A grouped board view: open tickets by status with age, owner, and priority, joined to the tech who owns each.
+- **`board`**  -  Open tickets on a board, oldest first, with each ticket's age, owner, status, and priority joined from the synced reference data.
 
   _Reach for this for the morning queue sweep instead of reloading the web board view._
 
   ```bash
   connectwise-manage-cli board 2 --unassigned
   ```
-- **`stale`**  -  Open tickets with no update older than N days, grouped by owner and board, sorted by age.
+- **`stale`**  -  Open tickets with no update in N days, oldest first, with board and owner columns so you see what's rotting and whose it is.
 
   _Use it for the daily 'what's rotting on my board' pass before standup._
 
@@ -732,7 +732,7 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-Install the MCP binary from this CLI's published public-library entry or pre-built release, then register it:
+Install the MCP binary (the `install.sh` / `install.ps1` above drop both `connectwise-manage-cli` and `connectwise-manage-mcp` into your user bin path), then register it:
 
 ```bash
 claude mcp add connectwise-manage-mcp -- connectwise-manage-mcp

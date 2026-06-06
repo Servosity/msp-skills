@@ -36,7 +36,7 @@
       "category": "PSA",
       "display_name": "ConnectWise PSA (Manage)",
       "tagline": "Triage boards, catch unbilled time, and prep QBRs by asking.",
-      "cli_hash": "sha256:f116088f98a762c88afee09ce823463d7529dd2261cb21d2b40d851218ec9575",
+      "cli_hash": "sha256:a0617e8133dbdfbb42b9da1f1412fa9b6eb0ad684af373cfa7d540d58decd602",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": "sha256:f116088f98a762c88afee09ce823463d7529dd2261cb21d2b40d851218ec9575",

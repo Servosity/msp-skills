@@ -513,6 +513,155 @@ func TestMigrate_ResourcesCompositeKeyUpgrade(t *testing.T) {
 	}
 }
 
+func TestMigrate_V2ResourcesFTSRowIDUpgrade(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE resources (
+		id TEXT NOT NULL,
+		resource_type TEXT NOT NULL,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (resource_type, id)
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create v2 resources: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE VIRTUAL TABLE resources_fts USING fts5(
+		id, resource_type, content, tokenize='porter unicode61'
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create stale resources_fts: %v", err)
+	}
+	if _, err := raw.Exec(`INSERT INTO resources (id, resource_type, data) VALUES ('shared', 'biz', '{"kind":"biz","name":"legacy restaurant"}')`); err != nil {
+		raw.Close()
+		t.Fatalf("seed v2 resource: %v", err)
+	}
+	if _, err := raw.Exec(`INSERT INTO resources_fts (rowid, id, resource_type, content) VALUES (1, 'shared', 'biz', '{"kind":"biz","name":"legacy restaurant"}')`); err != nil {
+		raw.Close()
+		t.Fatalf("seed stale resources_fts row: %v", err)
+	}
+	if _, err := raw.Exec(`PRAGMA user_version = 2`); err != nil {
+		raw.Close()
+		t.Fatalf("stamp v2: %v", err)
+	}
+	raw.Close()
+
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open upgraded db: %v", err)
+	}
+	defer s.Close()
+
+	v, err := s.SchemaVersion()
+	if err != nil {
+		t.Fatalf("read schema version: %v", err)
+	}
+	if v != StoreSchemaVersion {
+		t.Fatalf("upgraded version = %d, want %d", v, StoreSchemaVersion)
+	}
+
+	var count int
+	if err := s.DB().QueryRow(`SELECT COUNT(*) FROM resources_fts WHERE id = 'shared' AND resource_type = 'biz'`).Scan(&count); err != nil {
+		t.Fatalf("count rebuilt resources_fts rows: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("resources_fts row count = %d, want 1", count)
+	}
+
+	var rowid int64
+	if err := s.DB().QueryRow(`SELECT rowid FROM resources_fts WHERE id = 'shared' AND resource_type = 'biz'`).Scan(&rowid); err != nil {
+		t.Fatalf("read rebuilt resources_fts rowid: %v", err)
+	}
+	if want := ftsRowID("biz", "shared"); rowid != want {
+		t.Fatalf("resources_fts rowid = %d, want %d", rowid, want)
+	}
+
+	data, err := s.Get("biz", "shared")
+	if err != nil {
+		t.Fatalf("get preserved v2 resource after rowid migration: %v", err)
+	}
+	if string(data) != `{"kind":"biz","name":"legacy restaurant"}` {
+		t.Fatalf("preserved v2 resource payload = %s, want original", data)
+	}
+
+	if err := s.Upsert("biz", "shared", []byte(`{"kind":"biz","name":"legacy cafe"}`)); err != nil {
+		t.Fatalf("upsert after rowid migration: %v", err)
+	}
+	matches, err := s.Search("legacy", 10)
+	if err != nil {
+		t.Fatalf("search rebuilt fts: %v", err)
+	}
+	if len(matches) != 1 || string(matches[0]) != `{"kind":"biz","name":"legacy cafe"}` {
+		t.Fatalf("legacy search = %q, want exactly one updated payload", matches)
+	}
+}
+
+func TestMigrate_V3ResourcesFTSNoRebuild(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE resources (
+		id TEXT NOT NULL,
+		resource_type TEXT NOT NULL,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (resource_type, id)
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create v3 resources: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE VIRTUAL TABLE resources_fts USING fts5(
+		id, resource_type, content, tokenize='porter unicode61'
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create v3 resources_fts: %v", err)
+	}
+	if _, err := raw.Exec(`INSERT INTO resources (id, resource_type, data) VALUES ('shared', 'biz', '{"kind":"biz","name":"canonical resource"}')`); err != nil {
+		raw.Close()
+		t.Fatalf("seed v3 resource: %v", err)
+	}
+	if _, err := raw.Exec(`INSERT INTO resources_fts (rowid, id, resource_type, content) VALUES (?, 'shared', 'biz', '{"kind":"biz","name":"sentinel fts"}')`, ftsRowID("biz", "shared")); err != nil {
+		raw.Close()
+		t.Fatalf("seed v3 resources_fts row: %v", err)
+	}
+	if _, err := raw.Exec(`PRAGMA user_version = 3`); err != nil {
+		raw.Close()
+		t.Fatalf("stamp v3: %v", err)
+	}
+	raw.Close()
+
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open v3 db: %v", err)
+	}
+	defer s.Close()
+
+	v, err := s.SchemaVersion()
+	if err != nil {
+		t.Fatalf("read schema version: %v", err)
+	}
+	if v != StoreSchemaVersion {
+		t.Fatalf("schema version = %d, want %d", v, StoreSchemaVersion)
+	}
+
+	var content string
+	if err := s.DB().QueryRow(`SELECT content FROM resources_fts WHERE id = 'shared' AND resource_type = 'biz'`).Scan(&content); err != nil {
+		t.Fatalf("read resources_fts content: %v", err)
+	}
+	if content != `{"kind":"biz","name":"sentinel fts"}` {
+		t.Fatalf("resources_fts content = %s, want sentinel row preserved", content)
+	}
+}
+
 // TestOpenReadOnly_RejectsWrites pins the contract: direct and CTE-wrapped
 // writes against the main DB fail under mode=ro. Deliberately does not
 // assert VACUUM INTO and ATTACH DATABASE — modernc.org/sqlite allows both
@@ -887,6 +1036,10 @@ func TestMigrate_AddsColumnsOnUpgrade_Finance(t *testing.T) {
 		"taxable",
 		"top_comment",
 		"work_order",
+		"caption",
+		"connect_wise_id",
+		"entry_method",
+		"number_of_decimals",
 		"agreement_id",
 		"bill_customer",
 		"billed_quantity",
@@ -1144,41 +1297,16 @@ func TestMigrate_AddsColumnsOnUpgrade_Procurement(t *testing.T) {
 		"flagged",
 		"purchase_header_rec_id",
 		"text",
-		"cancel_reason",
-		"closed_by",
-		"closed_flag",
-		"customer_city",
-		"customer_extension",
-		"customer_name",
-		"customer_phone",
-		"customer_site_name",
-		"customer_state",
-		"customer_street_line1",
-		"customer_street_line2",
-		"customer_zip",
-		"date_closed",
-		"drop_ship_customer_flag",
-		"freight_cost",
-		"freight_packing_slip",
-		"freight_tax_total",
-		"po_date",
-		"po_number",
-		"sales_tax",
-		"shipping_instructions",
-		"sub_total",
-		"tax_freight_flag",
-		"tax_po_flag",
-		"total",
-		"update_shipment_info",
-		"update_vendor_order_number",
-		"vendor_invoice_date",
-		"vendor_invoice_number",
-		"vendor_order_number",
+		"caption",
+		"connect_wise_id",
+		"entry_method",
+		"number_of_decimals",
 		"backordered_flag",
 		"batched_flag",
 		"canceled_by",
 		"canceled_flag",
 		"canceled_reason",
+		"closed_flag",
 		"date_canceled",
 		"date_canceled_utc",
 		"date_received",
@@ -1194,6 +1322,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Procurement(t *testing.T) {
 		"tax",
 		"unbatched_rec_id",
 		"unit_cost",
+		"vendor_order_number",
 	} {
 		if !hasColumn[want] {
 			t.Fatalf("%s column missing from procurement after migrate", want)
@@ -1295,7 +1424,19 @@ func TestMigrate_AddsColumnsOnUpgrade_Project(t *testing.T) {
 		"scheduled_end",
 		"scheduled_hours",
 		"scheduled_start",
+		"caption",
+		"connect_wise_id",
+		"entry_method",
+		"number_of_decimals",
+		"bill_phase_separately",
+		"billable_hours",
+		"end_date",
+		"mark_as_milestone_flag",
+		"notes",
 		"project_id",
+		"scheduled_duration",
+		"start_date",
+		"wbs_code",
 		"flagged",
 		"text",
 		"bill_phase_closed_flag",
@@ -1303,14 +1444,9 @@ func TestMigrate_AddsColumnsOnUpgrade_Project(t *testing.T) {
 		"bill_separately_flag",
 		"business_unit_id",
 		"deadline_date",
-		"end_date",
 		"hourly_rate",
 		"location_id",
-		"mark_as_milestone_flag",
-		"notes",
 		"po_number",
-		"start_date",
-		"wbs_code",
 		"hours",
 		"count",
 		"address_line1",
@@ -1445,6 +1581,10 @@ func TestMigrate_AddsColumnsOnUpgrade_Sales(t *testing.T) {
 		"notes",
 		"notify_flag",
 		"phone_number",
+		"caption",
+		"connect_wise_id",
+		"entry_method",
+		"number_of_decimals",
 		"count",
 		"closed_flag",
 		"default_flag",
@@ -1806,12 +1946,9 @@ func TestMigrate_AddsColumnsOnUpgrade_System(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"cloud_region",
-		"is_cloud",
-		"server_time_zone",
-		"version",
-		"count",
+		"active_flag",
 		"name",
+		"count",
 		"screen_link",
 		"locale_code",
 		"location_flag",
@@ -2023,11 +2160,15 @@ func TestMigrate_AddsColumnsOnUpgrade_Time(t *testing.T) {
 		"ticket_type",
 		"time_end",
 		"time_start",
+		"caption",
+		"connect_wise_id",
+		"entry_method",
+		"number_of_decimals",
+		"type",
 		"message",
 		"new_value",
 		"old_value",
 		"source",
-		"type",
 		"value",
 		"count",
 		"date_end",
