@@ -2,29 +2,6 @@
   "owner": "servosity",
   "repo": "msp-skills",
   "skills": {
-    "acronis": {
-      "system": "Acronis Cyber Protect Cloud",
-      "status": "beta",
-      "cli_binary": "acronis-cli",
-      "mcp_binary": "acronis-mcp",
-      "vendor": "Acronis",
-      "vendor_trademark_owner": "Acronis International GmbH",
-      "first_party": false,
-      "category": "Backup/DR",
-      "display_name": "Acronis Cyber Protect Cloud",
-      "tagline": "Spot failed backups, offline agents, and unbilled usage across every Acronis tenant by asking.",
-      "cli_hash": "sha256:5aee353c2bab50f319fa4768e4461ea0bda3fdb6fa8eeda8b3fa921fb283bee6",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": null,
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
     "autotask": {
       "system": "Autotask PSA",
       "status": "beta",
@@ -96,18 +73,18 @@
         "evidence": null
       }
     },
-    "datto-rmm": {
-      "system": "Datto RMM: devices, alerts, patch and AV gaps, warranty, agent drift, and fleet QBR scorecards from a local mirror",
+    "crowdstrike": {
+      "system": "CrowdStrike Falcon EDR: alerts, devices, Spotlight vulnerabilities, prevention policies, and MSSP Flight Control across every tenant",
       "status": "beta",
-      "cli_binary": "datto-rmm-cli",
-      "mcp_binary": "datto-rmm-mcp",
-      "vendor": "Datto RMM",
-      "vendor_trademark_owner": "Datto, Inc.",
+      "cli_binary": "crowdstrike-cli",
+      "mcp_binary": "crowdstrike-mcp",
+      "vendor": "CrowdStrike",
+      "vendor_trademark_owner": "CrowdStrike, Inc.",
       "first_party": false,
-      "category": "RMM",
-      "display_name": "Datto RMM",
-      "tagline": "Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask.",
-      "cli_hash": "sha256:a013e2d6c3503f228fba1379e54e8d1c46a2f58c92e83852bd90e8872221b4da",
+      "category": "Security",
+      "display_name": "CrowdStrike Falcon",
+      "tagline": "Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking.",
+      "cli_hash": "sha256:232b3a19180ae6955758434e88d786d9c683eb17ba45f98761b26c063574c7b3",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,
@@ -155,7 +132,7 @@
       "category": "CRM",
       "display_name": "HubSpot",
       "tagline": "Pipeline health, stale deals, and owner workload for every client by asking.",
-      "cli_hash": "sha256:4ec274f47091f317aff6a1c2f816410df2f18d6d270de4a4892d7fedb616fd7d",
+      "cli_hash": "sha256:50cc2d03171acd1232def91fc8fa118aa68feff37236f83d5bb429c4ef0a41e7",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": "sha256:50cc2d03171acd1232def91fc8fa118aa68feff37236f83d5bb429c4ef0a41e7",

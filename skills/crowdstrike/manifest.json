@@ -1,0 +1,54 @@
+{
+  "manifest_version": "0.3",
+  "name": "crowdstrike-mcp",
+  "display_name": "CrowdStrike Falcon",
+  "version": "0.1.0",
+  "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once \u2014 something no other Falcon tool (including the official MCP server) does.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/crowdstrike-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/crowdstrike-mcp",
+      "args": [],
+      "env": {
+        "CROWDSTRIKE_OAUTH_SCOPE": "${user_config.crowdstrike_oauth_scope}",
+        "FALCON_CLIENT_ID": "${user_config.falcon_client_id}",
+        "FALCON_CLIENT_SECRET": "${user_config.falcon_client_secret}"
+      }
+    }
+  },
+  "user_config": {
+    "crowdstrike_oauth_scope": {
+      "type": "string",
+      "title": "CROWDSTRIKE_OAUTH_SCOPE",
+      "description": "Sets CROWDSTRIKE_OAUTH_SCOPE for the CrowdStrike Falcon MCP server. Required by the generated client for credential refresh or hand-written auth flow.",
+      "sensitive": true,
+      "required": true
+    },
+    "falcon_client_id": {
+      "type": "string",
+      "title": "FALCON_CLIENT_ID",
+      "description": "CrowdStrike API client ID (Falcon console > API Clients & Keys).",
+      "required": true
+    },
+    "falcon_client_secret": {
+      "type": "string",
+      "title": "FALCON_CLIENT_SECRET",
+      "description": "CrowdStrike API client secret. Shown once at client creation.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

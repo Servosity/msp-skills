@@ -1,0 +1,121 @@
+{
+  "outcome_intro": "Running CrowdStrike Falcon across a book of client tenants? Ask your AI \"what should I triage first across every CID,\" \"which sensors went silent,\" or \"where are the critical vulnerabilities,\" and get one cross-tenant answer the Falcon console can't compose. Every child CID is mirrored into one local store keyed by CID, so a single scorecard, vuln ranking, and stale-sensor sweep replace flipping Flight Control tenant by tenant.",
+  "instead_of_say": [
+    {
+      "instead": "Logging into the Falcon console and switching CID by CID through Flight Control to work out which open detections actually matter most across all your clients",
+      "say": "Give me one severity-sorted alert queue across every tenant",
+      "cli": "crowdstrike-cli fleet alerts --status new"
+    },
+    {
+      "instead": "Pulling each tenant's Spotlight report in turn to find the critical, actively-exploited vulnerabilities hiding across your whole book of business",
+      "say": "Rank the critical vulnerabilities across every CrowdStrike tenant",
+      "cli": "crowdstrike-cli fleet vulns --severity critical"
+    },
+    {
+      "instead": "Checking each customer's host list one Flight Control scope at a time to catch the sensors that quietly stopped checking in",
+      "say": "Which hosts haven't reported a sensor heartbeat in two weeks, across all tenants?",
+      "cli": "crowdstrike-cli fleet stale --days 14"
+    }
+  ],
+  "pain_points": [
+    "The Falcon console scopes to one CID at a time. Run CrowdStrike across a book of client tenants and every cross-client question - who has the worst open detections, whose sensors went dark, which tenant is missing a prevention policy - means switching CID through Flight Control and re-reading the same screens tenant by tenant. MSPs raise this single-pane gap repeatedly: Flight Control hands you parent-level child management, but no one view ranks every CID's alerts, vulnerabilities, or sensor health side by side.",
+    "Posture erodes quietly between logins. A sensor stops checking in, a host falls out of a prevention policy, a tenant's critical-vuln count climbs after Patch Tuesday - and unless someone scopes into that exact CID and reads that exact filter, it goes unnoticed until an incident. Spotlight and the host list expose these as per-tenant views, never as one fleet-wide 'what got worse since last week' or 'which sensors are silent right now' answer.",
+    "QBR and audit prep is manual assembly. Building a per-tenant posture scorecard (host count, sensor coverage, open critical alerts, critical vulns, policy posture) or working out which single remediation clears the most hosts across the fleet means exporting each CID and stitching it by hand, because no single console call returns a CID-level composite or a fleet-wide remediation rollup."
+  ],
+  "outcomes": [
+    {
+      "question": "What should I triage first across all my client tenants right now?",
+      "command": "crowdstrike-cli fleet alerts --status new"
+    },
+    {
+      "question": "Rank the critical vulnerabilities across every tenant?",
+      "command": "crowdstrike-cli fleet vulns --severity critical"
+    },
+    {
+      "question": "Which hosts haven't reported a sensor heartbeat lately?",
+      "command": "crowdstrike-cli fleet stale --days 14"
+    },
+    {
+      "question": "Give me one posture scorecard per tenant for the QBR deck?",
+      "command": "crowdstrike-cli fleet scorecard"
+    },
+    {
+      "question": "Which tenants are under-protected versus my prevention-policy baseline?",
+      "command": "crowdstrike-cli fleet policy-drift"
+    },
+    {
+      "question": "Which single fix clears the most hosts and tenants?",
+      "command": "crowdstrike-cli fleet remediate --severity critical"
+    },
+    {
+      "question": "Which tenants got worse since the last sync?",
+      "command": "crowdstrike-cli fleet trend"
+    },
+    {
+      "question": "Map every child CID, CID group, and role grant across my MSSP?",
+      "command": "crowdstrike-cli fleet tenants"
+    },
+    {
+      "question": "Search every synced host, alert, vuln, and policy across all tenants?",
+      "command": "crowdstrike-cli fleet search \"<query>\""
+    },
+    {
+      "question": "Pull every child tenant's Falcon data into a local mirror for offline queries?",
+      "command": "crowdstrike-cli fleet sync --all-cids"
+    }
+  ],
+  "different_vs_wrappers": "The Falcon API is paginated and CID-scoped: a live API wrapper answering a book-wide question has to page through and re-query each child CID, burning agent context on raw JSON it then has to summarize. This skill syncs every CID into one local SQLite store keyed by CID and snapshots history on each sync, so cross-tenant questions become a single offline query the agent reads as a finished answer - and time-aware questions a stateless wrapper simply cannot answer (which tenants got worse since the last sync, week-over-week critical-alert and vuln deltas, which one remediation clears the most hosts) fall out of that stored history.",
+  "different_vs_vendor": "It complements the Falcon console, Flight Control, and Charlotte AI rather than replacing them: the console stays best for deep hunting, policy authoring, and the response workflow inside one CID, while this skill brings the cross-tenant rollups - one alert queue, one vuln ranking, one posture scorecard, one policy-drift and remediation view - to whichever AI agent you already use, answering the side-by-side, all-CIDs-at-once questions no single console screen composes.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local CrowdStrike MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my CrowdStrike data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Do I need a parent (MSSP) CID for the fleet commands?",
+      "a": "Yes. The cross-tenant fleet commands need a parent-CID Falcon API client with Flight Control (MSSP) scope so fleet sync can discover and pull every child CID. Without it, sync degrades gracefully to the single authenticated CID and the fleet rollups simply cover that one tenant. The per-CID commands (alerts, devices, spotlight, policy) work against any single tenant's client."
+    },
+    {
+      "q": "Will this hit my CrowdStrike API rate limits?",
+      "a": "The local store exists so reads stop hitting the API. After fleet sync, every cross-tenant view (fleet alerts, vulns, stale, scorecard, policy-drift, remediate, trend, tenants, search) runs against local SQLite with zero API calls, and live calls respect a --rate-limit throttle. The trend and policy-drift analytics need at least two syncs to have history to diff."
+    },
+    {
+      "q": "What scopes does the Falcon API client need?",
+      "a": "Read scopes for the entities you query - Alerts (read), Hosts (read), Spotlight Vulnerabilities (read), Prevention Policies (read), and for the fleet commands a parent-CID client with Flight Control / MSSP read. Add write scopes (Hosts write, Prevention Policies write) only if you intend to contain hosts or edit policies. Mint a read-only client for reporting workflows and keep write scope for the rare case you actually need it - the client's scopes are the real permission boundary."
+    },
+    {
+      "q": "Does it replace the Falcon console?",
+      "a": "No. The console stays best for hunting, RTR sessions, policy authoring, and the interactive response workflow inside one CID. This skill adds cross-tenant queries and scriptable actions to your AI agent so you stop scoping into each CID to answer book-wide questions."
+    }
+  ],
+  "governance_summary": "The skill drives the crowdstrike-cli and crowdstrike-mcp binaries, authenticating with a Falcon API client (FALCON_CLIENT_ID + FALCON_CLIENT_SECRET, plus an optional CROWDSTRIKE_OAUTH_SCOPE) read from the environment, never logged and never sent anywhere except the CrowdStrike API. The read commands (every fleet rollup, the alerts/devices/spotlight/policy/mssp query and get commands, search, doctor) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the destructive tier (devices delete-host-groups, policy delete-prevention-policies, the mssp delete-* and deleted-roles commands) and the devices perform-action-v2 host actions (contain, delete) human-only. The strongest control is the scope you grant the Falcon API client.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "crowdstrike-cli fleet scorecard; crowdstrike-cli fleet alerts --status new; crowdstrike-cli fleet vulns --severity critical; crowdstrike-cli fleet stale --days 14; crowdstrike-cli fleet trend; crowdstrike-cli alerts post-combined-v1; crowdstrike-cli devices query-by-filter; crowdstrike-cli spotlight query-vulnerabilities; crowdstrike-cli mssp query-children; crowdstrike-cli search \"<query>\"",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "crowdstrike-cli alerts patch-entities-v3 (update or assign alerts); crowdstrike-cli devices perform-action-v2 (contain/lift, or delete/restore a host); crowdstrike-cli devices update-tags; crowdstrike-cli policy update-prevention-policies; crowdstrike-cli policy create-prevention-policies - writes send immediately; --dry-run is an opt-in preview, not a default",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "crowdstrike-cli devices delete-host-groups; crowdstrike-cli policy delete-prevention-policies; crowdstrike-cli policy set-prevention-policies-precedence; crowdstrike-cli mssp delete-cidgroups; crowdstrike-cli mssp delete-user-groups; crowdstrike-cli mssp deleted-roles",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}
