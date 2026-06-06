@@ -4,6 +4,37 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.0]
+
+### Changed
+- Engine upgrade from the 2026-06-05 reprint: the fleet CLI grows a reporting and
+  revenue surface on top of the morning-sweep commands.
+
+### Added
+- `qbr` / `qbr-all`: the backup section of a client's Quarterly Business Review as
+  Markdown, HTML, or PDF - one client or the whole book in one pass.
+- `email-draft --stale`: ready-to-paste follow-up email bodies for every client
+  with a stale backup, filled from the local store.
+- `fleet-health`: one fleet-wide scorecard (24h job success rate, stale companies,
+  open issues) with week-over-week deltas.
+- `bill --reconcile`: line-by-line comparison of your monthly Servosity bill
+  against a CSV of what you invoice your clients - surfaces over/under-charges.
+- `unprovisioned`: agents installed at clients but not yet pulling backups,
+  ranked by client - the lost-revenue surface.
+- `storage-trend`: linear-regression forecast of when a client hits a storage
+  capacity threshold, from locally captured measurements.
+- `restore-queue watch`: one terminal pinned on every client's restore queue
+  during a DR event, printing diffs per tick.
+- `backup-facts`: one row-per-backup view across every backup type with
+  freshness-derived health.
+
+### Removed
+- `clear`, `stale-issues`, `company show`, `find`, and `restore-queue list` from
+  the previous engine. `triage` now carries the batch issue mutations
+  (ignore/archive/reactivate/comment) with the opt-in `--dry-run` preview;
+  `search` replaces `find`; `restore-queue watch --once` replaces
+  `restore-queue list`.
+
 ## [0.1.1] - 2026-06-02
 
 ### Changed

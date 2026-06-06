@@ -1,6 +1,6 @@
 ---
 name: servosity
-description: "The first MSP-fleet CLI for backup. Trigger phrases: `what needs my attention on servosity`, `fleet stale backups`, `show me the QBR backup report for`, `triage servosity issues`, `drift since yesterday on servosity`, `watch restore queue`, `reconcile servosity bill`, `use servosity-msp`, `run servosity-msp`."
+description: "Use when the user asks where their attention is needed across Servosity clients, which backups went stale, what changed since yesterday, to build QBR backup reports, draft stale-backup follow-up emails, watch restore queues during a DR event, reconcile the Servosity bill, or find unprovisioned agents. Wraps the Servosity partner API plus a local fleet mirror with snapshot history. Trigger phrases: `what needs my attention on servosity`, `fleet stale backups`, `show me the QBR backup report for`, `triage servosity issues`, `drift since yesterday on servosity`, `watch restore queue`, `reconcile servosity bill`, `Servosity + ChatGPT`, `Servosity + Claude`, `use servosity`, `run servosity-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Servosity"
@@ -11,32 +11,26 @@ metadata:
     requires:
       bins:
         - servosity-cli
-    install:
-      - kind: go
-        bins: [servosity-cli]
-        module: github.com/mvanhorn/printing-press-library/library/monitoring/servosity-msp/cmd/servosity-cli
 ---
 
-# Servosity  -  Printing Press CLI
+# Servosity Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `servosity-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install servosity-msp --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
    ```
-2. Verify: `servosity-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.ps1 | iex
+   ```
+3. Verify: `servosity-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/monitoring/servosity-msp/cmd/servosity-cli@latest
-```
-
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 No competitor in the MSP backup space ships a fleet-wide CLI. Reach for servosity-cli when you need to triage attention across every client at once, generate the backup section of a QBR in 30 seconds, watch every restore queue during DR from one terminal, or reconcile your Servosity bill against what you're invoicing clients. Every response is agent-native: --json, --select, --csv, --dry-run, typed exit codes.
 
@@ -509,15 +503,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/monitoring/servosity-msp/cmd/servosity-mcp@latest
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add servosity-mcp -- servosity-mcp
-   ```
-3. Verify: `claude mcp list`
+The installer above drops `servosity-mcp` alongside the CLI. Register it:
+
+```bash
+claude mcp add servosity-mcp -- servosity-mcp
+```
+
+Verify: `claude mcp list`
 
 ## Direct Use
 

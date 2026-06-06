@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "servosity-msp-pp-mcp",
+  "name": "servosity-mcp",
   "display_name": "Servosity",
   "version": "0.1.1",
   "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/servosity-msp-pp-mcp",
+    "entry_point": "bin/servosity-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/servosity-msp-pp-mcp",
+      "command": "${__dirname}/bin/servosity-mcp",
       "args": [],
       "env": {
         "SERVOSITY_MSP_TOKEN": "${user_config.servosity_msp_token}"
