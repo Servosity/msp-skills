@@ -34,6 +34,13 @@
     "current_hash": "sha256:232b3a19180ae6955758434e88d786d9c683eb17ba45f98761b26c063574c7b3",
     "released_hash": "sha256:232b3a19180ae6955758434e88d786d9c683eb17ba45f98761b26c063574c7b3"
   },
+  "datto-bcdr": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:305bd912e613b78f8b33e1ca1488d27a03c5c2e4a37f26cfc8df357a4de0ffa0",
+    "released_hash": null
+  },
   "datto-rmm": {
     "state": "up-to-date",
     "version": "0.1.0",
