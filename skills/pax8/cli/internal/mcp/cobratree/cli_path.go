@@ -27,7 +27,7 @@ func SiblingCLIPath() (string, error) {
 }
 
 func cliExecutableName(goos string) string {
-	name := "pax8-pp-cli"
+	name := "pax8-cli"
 	if goos == "windows" {
 		return name + ".exe"
 	}

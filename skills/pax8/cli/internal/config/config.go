@@ -41,7 +41,7 @@ func Load(configPath string) (*Config, error) {
 	}
 	if path == "" {
 		home, _ := os.UserHomeDir()
-		path = filepath.Join(home, ".config", "pax8-pp-cli", "config.toml")
+		path = filepath.Join(home, ".config", "pax8-cli", "config.toml")
 	}
 	cfg.Path = path
 
