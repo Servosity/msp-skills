@@ -1,7 +1,7 @@
 # PagerDuty + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the PagerDuty
-> API. Not affiliated with, endorsed by, or sponsored by PagerDuty, Inc..
+> API. Not affiliated with, endorsed by, or sponsored by PagerDuty, Inc.
 
 <!-- media:start -->
 <p align="center">
@@ -139,25 +139,37 @@ See [mcp-install.md](./mcp-install.md) for the credentials `pagerduty-cli` needs
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `pagerduty-cli ...` |
-
--->
+| What's on fire right now, ranked by SLA risk? | `pagerduty-cli pulse` |
+| Who's on call for a service right now, and when's the handoff? | `pagerduty-cli oncall who --service "Payments"` |
+| What's our MTTA and MTTR by service this month? | `pagerduty-cli insights mttr --by service --since 30d` |
+| Which services have a broken escalation chain or single point of failure? | `pagerduty-cli audit coverage --severity high` |
+| Where does a schedule have nobody on call over the next two weeks? | `pagerduty-cli audit schedule-gaps --days 14` |
+| Which responders carry the most pages and off-hours load? | `pagerduty-cli insights responders --since 30d` |
+| Which services are the noisiest? | `pagerduty-cli insights noisy --top 10 --since 7d` |
+| What changed right before this incident broke? | `pagerduty-cli incidents changes <incident-id> --window 4h` |
+| Which open incidents are quietly rotting? | `pagerduty-cli insights stale --hours 24` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most PagerDuty integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most PagerDuty integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "what was our MTTR by service across the whole quarter" or "who carried the most off-hours pages last month" - questions no single PagerDuty API call returns.
 
-This skill syncs PagerDuty into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs PagerDuty into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `insights mttr`, `insights responders`, and `audit coverage` join across incidents, log entries, services, escalation policies, and schedules - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+On-call is where good teams quietly bleed out. Catchpoint's 2025 SRE survey found nearly **70% of responders say on-call stress drives burnout and attrition**, and a 2025 Splunk study tied **73% of outages to alerts that got ignored** - because the average engineer fields ~50 pages a week and only a handful matter. Meanwhile the numbers leadership wants at the QBR (MTTA, MTTR, who's carrying the load) sit behind PagerDuty's paid Analytics tier or a hand-stitched CSV, and the gap in next week's on-call schedule stays invisible until an incident finds it.
+
+This skill turns those into one-line answers:
+
+- `pagerduty-cli pulse` - what's open right now, bucketed by service and sorted by SLA risk.
+- `pagerduty-cli insights mttr --by service --since 30d` - MTTA/MTTR per service, computed offline, no Analytics add-on.
+- `pagerduty-cli insights responders --since 30d` - who's carrying the pages and the off-hours share, the burnout signal.
+- `pagerduty-cli audit coverage --severity high` - services whose escalation chain is broken or a single point of failure.
+- `pagerduty-cli audit schedule-gaps --days 14` - future windows where a schedule has nobody on call, before the incident finds the hole.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -179,12 +191,17 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Will this hit my PagerDuty API rate limits?
+
+Rarely. Read questions run against the local SQLite mirror, not the API - you `pagerduty-cli sync` once, then analytics, audits, and search are offline. Only `sync` and live writes call PagerDuty, and the CLI honors a configurable `--rate-limit`.
+
+### Do I need PagerDuty's paid Analytics add-on for MTTR reporting?
+
+No. The skill computes MTTA, MTTR, responder workload, and noisy-service rankings locally from the incidents and log entries any REST API key can read, so you get the post-incident numbers without the paid Analytics tier.
+
+### How is this different from PagerDuty's own AI features?
+
+It complements them. PagerDuty Advance and Analytics live in the web app and largely on paid tiers; this skill puts the same post-incident math in your terminal and your AI agent, computed offline from your synced data. It doesn't replace your PagerDuty account - it reads and acts through your own API key.
 
 ### What does it cost?
 
@@ -192,15 +209,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `pulse`, `insights mttr`, `audit coverage`, `oncall who`, `search`, `incidents timeline` | Allow |
+| Write (routine) | `incidents update` (acknowledge / resolve / reassign), `incidents snooze`, `incidents notes create-incident`, `incidents create` | Preview with `--dry-run`, then a reviewed write |
+| Destructive / config | `escalation-policies delete-escalation-policy`, `automation-actions delete`, `business-services delete`, `addons delete` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the PagerDuty credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -212,4 +225,4 @@ Beta. Validated against the PagerDuty API surface and being validated with MSPs 
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-06._

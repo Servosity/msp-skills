@@ -15,8 +15,10 @@ faqs:
     a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
-  - q: "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the PagerDuty portal)"
-    a: "TODO"
+  - q: "Will this hit my PagerDuty API rate limits?"
+    a: "Rarely. Read questions run against the local SQLite mirror, not the API - you sync once, then analytics, audits, and search are offline. Only sync and live writes call PagerDuty, and the CLI honors a configurable --rate-limit."
+  - q: "Do I need PagerDuty's paid Analytics add-on for MTTR reporting?"
+    a: "No. The skill computes MTTA, MTTR, responder workload, and noisy-service rankings locally from the incidents and log entries any REST API key can read, so you get the post-incident numbers without the paid Analytics tier."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/pagerduty/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/pagerduty/install.ps1 | iex"
@@ -33,7 +35,7 @@ howto:
 
 **Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
 
-TODO: <=70 words, MSP-owner language, leads with the outcome. What does PagerDuty + your AI answer in one sentence that the portal cannot?
+Ask "who's on call for the payments service right now, and when do they hand off?" or "what's our MTTR by service this month?" and get the answer in one command. PagerDuty syncs to a local SQLite mirror, so post-incident analytics, on-call coverage audits, and escalation-gap checks run instantly and offline: no Analytics add-on, no portal clicking, no per-question API call.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -41,17 +43,17 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does PagerDut
 
 ## Instead of clicking through PagerDuty, just ask
 
-**Instead of** TODO: the painful manual workflow (exporting reports, clicking through the portal)
-**just ask:** *"TODO: the natural-language question the MSP owner asks instead"*
-<sub>Your agent runs: <code>pagerduty-cli TODO</code></sub>
+**Instead of** Clicking through the PagerDuty Analytics dashboard service by service the night before a QBR to stitch together an MTTR report
+**just ask:** *"What's our mean time to acknowledge and resolve by service over the last 30 days?"*
+<sub>Your agent runs: <code>pagerduty-cli insights mttr --by service --since 30d</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>pagerduty-cli TODO</code></sub>
+**Instead of** Opening every escalation policy and schedule by hand to find which services have a coverage gap
+**just ask:** *"Which services have a broken escalation chain or a single point of failure?"*
+<sub>Your agent runs: <code>pagerduty-cli audit coverage --severity high</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>pagerduty-cli TODO</code></sub>
+**Instead of** Pinging the team in Slack to find out who is actually on call for a service right now
+**just ask:** *"Who's on call for the Payments service right now, and when's the handoff?"*
+<sub>Your agent runs: <code>pagerduty-cli oncall who --service "Payments"</code></sub>
 
 
 ## See it in 30 seconds
@@ -64,20 +66,30 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does PagerDut
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| TODO: question an MSP keeps asking | `pagerduty-cli TODO` |
+| What's on fire right now, ranked by SLA risk? | `pagerduty-cli pulse` |
+| Who's on call for a service right now, and when's the handoff? | `pagerduty-cli oncall who --service "Payments"` |
+| What's our MTTA and MTTR by service this month? | `pagerduty-cli insights mttr --by service --since 30d` |
+| Which services have a broken escalation chain or single point of failure? | `pagerduty-cli audit coverage --severity high` |
+| Where does a schedule have nobody on call over the next two weeks? | `pagerduty-cli audit schedule-gaps --days 14` |
+| Which responders carry the most pages and off-hours load? | `pagerduty-cli insights responders --since 30d` |
+| Which services are the noisiest? | `pagerduty-cli insights noisy --top 10 --since 7d` |
+| What changed right before this incident broke? | `pagerduty-cli incidents changes <incident-id> --window 4h` |
+| What's the full timeline of this incident? | `pagerduty-cli incidents timeline <incident-id>` |
+| Which open incidents are quietly rotting with no recent activity? | `pagerduty-cli insights stale --hours 24` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/pagerduty/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/pagerduty/guide.md).
 
 ## What makes this one different
 
-TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most PagerDuty integrations proxy each question into a live API call ...
+Most PagerDuty integrations and MCP servers proxy each question into a live API call - fine for reading one incident, useless for "MTTR by service across the quarter," which no single API call returns. This skill syncs PagerDuty into a local SQLite mirror, so cross-object analytics (insights mttr, insights responders, audit coverage) become one offline join: instant, rate-limit-free, and the AI sees the answer, not a raw data dump.
 
-TODO: one sentence vs PagerDuty's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.
+PagerDuty's own AI and Analytics live in the web app and largely on paid tiers; this skill puts the same post-incident math - MTTA/MTTR, responder workload, noisy-service ranking, escalation-coverage and schedule-gap audits - in your terminal and your AI agent, computed offline from data any REST API key can read. It complements the portal; it does not replace your account.
 
 ## The pain this closes
 
-- TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread
-- TODO: pain 2
+- On-call responders drown in pages - the average engineer gets roughly 50 alerts a week and only a handful matter, so the real incident hides in the noise and burnout climbs (Catchpoint 2025 SRE report).
+- The numbers leadership asks for at the QBR - MTTA, MTTR, who's carrying the on-call load - sit behind PagerDuty's paid Analytics tier or a CSV you assemble by hand.
+- Nobody notices the hole in next week's on-call schedule until an incident finds it first.
 
 ## Install
 
@@ -111,11 +123,11 @@ After install, authenticate once with your PagerDuty credentials, then verify wi
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | TODO: read commands | Allow |
-| Write (routine) | TODO | Preview with --dry-run, then a reviewed write |
-| Destructive / config | TODO | Human-in-the-loop only |
+| Read | pulse, insights mttr, insights responders, audit coverage, oncall who, search, incidents list / get / timeline | Allow |
+| Write (routine) | incidents update (acknowledge / resolve / reassign), incidents snooze, incidents notes create-incident, incidents create | Preview with --dry-run, then a reviewed write |
+| Destructive / config | escalation-policies delete-escalation-policy, automation-actions delete, business-services delete, addons delete | Human-in-the-loop only |
 
-TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/pagerduty/governance.md).
+The skill reads everything through your PagerDuty REST API key and writes only when you tell it to - acknowledging, resolving, snoozing, or noting incidents, and creating or editing services, schedules, and policies. Reads (pulse, insights, audit, oncall, search) are always safe to run. Routine writes should be previewed with --dry-run and approved; deletes and config changes are human-in-the-loop only. The strongest control is scoping the API key to what your workflow actually needs. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/pagerduty/governance.md).
 
 ## Frequently asked questions
 
@@ -135,9 +147,13 @@ Your data stays on your machine. The CLI, MCP server, and the local mirror are a
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-### TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the PagerDuty portal)
+### Will this hit my PagerDuty API rate limits?
 
-TODO
+Rarely. Read questions run against the local SQLite mirror, not the API - you sync once, then analytics, audits, and search are offline. Only sync and live writes call PagerDuty, and the CLI honors a configurable --rate-limit.
+
+### Do I need PagerDuty's paid Analytics add-on for MTTR reporting?
+
+No. The skill computes MTTA, MTTR, responder workload, and noisy-service rankings locally from the incidents and log entries any REST API key can read, so you get the post-incident numbers without the paid Analytics tier.
 
 
 ## Status
