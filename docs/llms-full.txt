@@ -740,7 +740,7 @@ Governance: The skill drives the halopsa-cli and halopsa-mcp binaries, authentic
 ### HubSpot (CRM)
 
 Page: https://msp-skills.compoundingteams.com/skills/hubspot/
-Badge: Awaiting live verification
+Badge: Live-verified
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)
 
 MSPs run HubSpot as the sales CRM - pipeline, deals, quote-chasing. Ask your AI "which deals went cold," "what's my pipeline health," or "who do I call today," and get an answer the portal can't compose: cross-object rollups across deals, contacts, owners, and engagements, computed offline in one query instead of a dozen exports and saved views.

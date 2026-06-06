@@ -225,8 +225,10 @@ def summarize_safety(gov: str) -> str:
 
 
 def badge_state(meta: dict) -> str:
-    lv = meta.get("live_verified", {})
-    if isinstance(lv, dict) and lv.get("status") == "verified":
+    lv = meta.get("live_verified") or {}
+    # The canonical verified value is "live-verified" (verify_live.py writes it;
+    # build-catalog.py reads it) - not "verified".
+    if isinstance(lv, dict) and lv.get("status") == "live-verified":
         return "Live-verified"
     return "Awaiting live verification"
 
