@@ -173,6 +173,25 @@
       "verification": "awaiting",
       "category": "PSA",
       "tagline": "Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking."
+    },
+    {
+      "name": "threatlocker",
+      "system": "ThreatLocker Portal: approvals, audit log, device health, and policy across customer tenants",
+      "status": "beta",
+      "skill_path": "skills/threatlocker",
+      "cli_binary": "threatlocker-cli",
+      "mcp_binary": "threatlocker-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "ThreatLocker",
+      "vendor_trademark_owner": "ThreatLocker, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/install.sh)",
+      "install_mcp_doc": "skills/threatlocker/mcp-install.md",
+      "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking."
     }
   ]
 }
