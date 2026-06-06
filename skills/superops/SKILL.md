@@ -1,6 +1,6 @@
 ---
 name: superops
-description: "Every SuperOps PSA+RMM entity in your terminal Trigger phrases: `list superops tickets`, `which tickets are breaching sla`, `show unbilled worklog in superops`, `assets missing patches with open tickets`, `client 360 in superops`, `use superops`, `run superops`."
+description: "Use when the user asks to triage a SuperOps queue, see who's about to breach SLA, pull a client 360 before a QBR, find at-risk assets (unpatched and actively alerting), check alert coverage, total billable worklog per client at month-end, find stale tickets, or run any cross-entity question across SuperOps PSA and RMM. Wraps the full SuperOps GraphQL surface plus a local SQLite mirror; read-only by default with a single previewable `raw mutation` write path. Trigger phrases: `list superops tickets`, `which tickets are breaching SLA`, `client 360 in superops`, `at-risk assets in superops`, `unbilled worklog in superops`, `stale tickets in superops`, `SuperOps + ChatGPT`, `SuperOps + Claude`, `use superops`, `run superops-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "SuperOps"
@@ -13,24 +13,27 @@ metadata:
         - superops-cli
 ---
 
-# SuperOps  -  Printing Press CLI
+# SuperOps Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `superops-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install superops --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/superops/install.sh)
    ```
-2. Verify: `superops-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/superops/install.ps1 | iex
+   ```
+3. Verify: `superops-cli --version`
 
-If the `npx` install fails before this CLI has a public-library category, install Node or use the category-specific Go fallback after publish.
+The installer drops `superops-cli` and `superops-mcp` into your user bin path. Ensure that directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-SuperOps unifies PSA and RMM on one relational database; this CLI syncs your whole tenant into local SQLite so you can grep, jq, and join across tickets, assets, clients, contracts, and invoices offline. Match every entity the GraphQL API exposes, then transcend with commands like sla-watch, unbilled, at-risk-assets, and alert-coverage that no single SuperOps call answers.
+SuperOps unifies PSA and RMM on one relational database; this CLI syncs your whole tenant into local SQLite so you can grep, jq, and join across tickets, assets, clients, contracts, and invoices offline. Match every entity the GraphQL API exposes, then go further with cross-entity views like sla-watch, unbilled, at-risk-assets, and alert-coverage that no single SuperOps call answers.
 
 ## When to Use This CLI
 
@@ -53,9 +56,9 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   superops-cli sla-watch --by tech --window 4h --agent
   ```
-- **`unbilled`**  -  Find logged worklog time that never landed on an invoice, totaled in dollars per client.
+- **`unbilled`**  -  Total billable logged worklog per client - the month-end reconciliation target. (The SuperOps list API exposes no per-entry "already billed" flag, so this is billable time per client, not a strict worklog-minus-invoice diff.)
 
-  _Reach for this at month-end to surface revenue leaking out of the billing pipeline._
+  _Reach for this at month-end to see where billable time is concentrated before invoicing._
 
   ```bash
   superops-cli unbilled --since 2026-05-01 --agent
@@ -79,7 +82,7 @@ These capabilities aren't available in any other tool for this API.
   _Reach for this before a QBR or escalation to load the full client picture in one command._
 
   ```bash
-  superops-cli client-360 acme --agent
+  superops-cli client-360 "Acme Corp" --agent
   ```
 - **`stale-tickets`**  -  Open tickets with no conversation, note, or worklog activity in N days.
 
@@ -184,13 +187,13 @@ superops-cli sla-watch --by tech --window 4h
 
 Groups at-risk tickets per tech so the service desk knows where to push first.
 
-### Month-end revenue leak check
+### Month-end billable-time reconciliation
 
 ```bash
-superops-cli unbilled --agent --select client.name,worklog.minutes,worklog.amount
+superops-cli unbilled --since 2026-05-01 --agent
 ```
 
-Lists unbilled worklog per client with just the fields billing needs.
+Totals billable logged worklog per client so you see where billable time is concentrated before the invoice run.
 
 ### Patch remediation priorities
 

@@ -2,7 +2,7 @@
 
 **Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.**
 
-SuperOps unifies PSA and RMM on one relational database; this CLI syncs your whole tenant into local SQLite so you can grep, jq, and join across tickets, assets, clients, contracts, and invoices offline. Match every entity the GraphQL API exposes, then transcend with commands like sla-watch, unbilled, at-risk-assets, and alert-coverage that no single SuperOps call answers.
+SuperOps unifies PSA and RMM on one relational database; this CLI syncs your whole tenant into local SQLite so you can grep, jq, and join across tickets, assets, clients, contracts, and invoices offline. Match every entity the GraphQL API exposes, then go further with cross-entity views like sla-watch, unbilled, at-risk-assets, and alert-coverage that no single SuperOps call answers.
 
 Created by [@dstevens](https://github.com/dstevens) (Damien Stevens).
 Contributors: [@DamienStevens](https://github.com/DamienStevens) (Damien Stevens).
@@ -154,9 +154,9 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   superops-cli sla-watch --by tech --window 4h --agent
   ```
-- **`unbilled`**  -  Find logged worklog time that never landed on an invoice, totaled in dollars per client.
+- **`unbilled`**  -  Total billable logged worklog per client - the month-end reconciliation target. (The SuperOps list API exposes no per-entry "already billed" flag, so this is billable time per client, not a strict worklog-minus-invoice diff.)
 
-  _Reach for this at month-end to surface revenue leaking out of the billing pipeline._
+  _Reach for this at month-end to see where billable time is concentrated before invoicing._
 
   ```bash
   superops-cli unbilled --since 2026-05-01 --agent
@@ -180,7 +180,7 @@ These capabilities aren't available in any other tool for this API.
   _Reach for this before a QBR or escalation to load the full client picture in one command._
 
   ```bash
-  superops-cli client-360 acme --agent
+  superops-cli client-360 "Acme Corp" --agent
   ```
 - **`stale-tickets`**  -  Open tickets with no conversation, note, or worklog activity in N days.
 
@@ -211,10 +211,10 @@ superops-cli sla-watch --by tech --window 4h
 
 Groups at-risk tickets per tech so the service desk knows where to push first.
 
-### Month-end revenue leak check
+### Month-end billable-time reconciliation
 
 ```bash
-superops-cli unbilled --agent --select client.name,worklog.minutes,worklog.amount
+superops-cli unbilled --since 2026-05-01 --agent
 ```
 
 Lists unbilled worklog per client with just the fields billing needs.

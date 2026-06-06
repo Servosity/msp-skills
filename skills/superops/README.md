@@ -1,15 +1,15 @@
 # SuperOps + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the SuperOps
-> API. Not affiliated with, endorsed by, or sponsored by SuperOps Inc..
+> API. Not affiliated with, endorsed by, or sponsored by SuperOps Inc.
 
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/superops/">
-    <img src="../../docs/assets/social/superops/wide-1200x630.png" alt="SuperOps - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/superops/animated-og.gif" alt="SuperOps demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/superops/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/superops/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download SuperOps MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/superops-v4.22.0/superops-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every SuperOps release on the [releases page](https://github.com/servosity/msp-skills/releases?q=superops).)
+[**Download SuperOps MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/superops-v0.1.0/superops-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every SuperOps release on the [releases page](https://github.com/servosity/msp-skills/releases?q=superops).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -134,38 +134,69 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 
 ### Authenticate
 
-Set the credentials the CLI needs (from your SuperOps portal):
+Set the credentials the CLI needs - a SuperOps **API token** (Settings > My Profile >
+API token) and your **tenant subdomain** (Settings > MSP Information):
 
 ```bash
-SUPEROPS_API_TOKEN=<value> superops-cli doctor
+export SUPEROPS_API_TOKEN=<your api token>
+export SUPEROPS_SUBDOMAIN=<your tenant subdomain>   # sent as the CustomerSubDomain header
+export SUPEROPS_REGION=us                            # or eu for euapi.superops.ai (us is the default)
+superops-cli doctor
 ```
 
-`doctor` confirms the credentials work before you run anything that touches data.
+`doctor` confirms the credentials work before you run anything that touches data. The
+**scope of the token you mint** is the permission boundary - the CLI can only do what
+that token is allowed to do.
 
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `superops-cli ...` |
+| Who's about to breach SLA, grouped by technician? | `superops-cli sla-watch --by tech --window 4h` |
+| Which clients have alerts still sitting unresolved? | `superops-cli alert-coverage --client Acme` |
+| Which endpoints are missing a critical patch and actively alerting? | `superops-cli at-risk-assets --client Acme` |
+| Which open tickets has nobody touched in a week? | `superops-cli stale-tickets --days 7` |
+| Everything about one client - sites, users, contracts, tickets, assets, open invoices? | `superops-cli client-360 "Acme Corp"` |
+| Where is billable time concentrated before this month's invoicing? | `superops-cli unbilled --since 2026-05-01` |
+| One ticket with its worklogs, client, and SLA for a triage agent? | `superops-cli context-ticket 12345 --agent` |
+| Search every synced ticket, asset, and client | `superops-cli search "disk full"` |
 
--->
+Beyond the views: every SuperOps PSA+RMM entity - tickets, assets, alerts, clients,
+sites, users, contracts, invoices, worklogs, technicians, service items, IT docs, KB -
+is a typed `list`/`get` subcommand, and `raw query` runs any GraphQL read the typed
+commands don't wrap. Every command is also available as an MCP tool.
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most SuperOps integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most SuperOps integrations and MCP servers proxy each question into a live GraphQL call. That's fine for one record. It dies at scale, when you're asking "which open tickets across every client are about to breach SLA, and on whose queue" - the API rate-limits reads, and its list payloads don't even carry some of the cross-entity links that question needs.
 
-This skill syncs SuperOps into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs SuperOps into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `sla-watch`, `client-360`, and `at-risk-assets` join across tickets, SLAs, technicians, clients, contracts, assets, alerts, and invoices - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+SuperOps' pitch is one database for PSA and RMM - and that part is real. But the console still answers one entity at a time, and the platform's own AI is, as third-party reviewers put it, "more roadmap than reality" (Flamingo, "SuperOps Review for MSPs," 2026). So the questions you actually ask at month-end or before a QBR are still cross-entity questions no single console screen composes: who's about to miss SLA and on whose queue, how much billable time is sitting unreconciled for a client, which endpoints are both unpatched and actively alerting. And the GraphQL API makes the do-it-yourself version painful - it rate-limits reads and omits some of the very links those questions need (asset-to-ticket, aggregated child-activity timestamps), so any script has to fetch, cache, and join locally.
+
+What this skill does about it:
+
+- `superops-cli sla-watch --by tech --window 4h` - every open ticket breaching or about to breach its resolution SLA, grouped by technician. The dispatcher's morning triage.
+- `superops-cli client-360 "Acme Corp"` - the client plus its sites, users, contracts, open tickets, assets, and open invoices in one bundle. Six console tabs in one command.
+- `superops-cli at-risk-assets --client Acme` - endpoints whose patch status signals a missing/critical patch that also carry an unresolved alert. Remediation, prioritized.
+- `superops-cli unbilled --since 2026-05-01` - billable logged worklog totaled per client (the reconciliation target), so you see where billable time is concentrated before the invoice run.
+
+The first run, a `sync` pulls your tenant into local SQLite; after that these views run offline, instant, and free of rate limits.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
+
+### Known gaps (honest limits)
+
+These views are computed from what the SuperOps list API actually exposes, and the CLI is candid about its proxies:
+
+- `unbilled` surfaces **billable** logged time per client, not a strict worklog-minus-invoice diff - the API carries no per-entry "already billed" flag.
+- `at-risk-assets` and `alert-coverage` use an **unresolved alert** as the proxy for "currently causing pain," because the asset-to-ticket link is absent from the list payloads.
+- `context-ticket` bundles the synced ticket, its worklogs, client, and SLA; conversation and note threads are fetched live with `superops-cli tickets <id>`.
 
 ## Frequently asked questions
 
@@ -185,12 +216,21 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Will this hit my SuperOps API rate limits?
+
+The local mirror exists so reads stop hitting the API. After the first `sync`, the cross-entity views (`sla-watch`, `client-360`, `at-risk-assets`, `alert-coverage`, `unbilled`, `stale-tickets`) run against local SQLite with **zero API calls**. Live calls respect a `--rate-limit` throttle, and `sync` is incremental and resumable - it only fetches what changed, and it treats resources your token can't reach as warnings, not failures.
+
+### Does it work with the US and EU SuperOps regions?
+
+Yes. The US host is the default; set `SUPEROPS_REGION=eu` to target the EU host (`euapi.superops.ai`). Your tenant subdomain goes in `SUPEROPS_SUBDOMAIN`, which the CLI sends as the `CustomerSubDomain` header on every request.
+
+### Can it create or update tickets?
+
+The typed commands are **read-only** by design - inspection, export, sync, and analysis. The one write path is `raw mutation`, the supported escape hatch for operations the typed commands don't wrap (for example `createTicket`, `updateTicket`, `resolveAlerts`). Pair it with `--dry-run` to preview the exact GraphQL request, and keep a human in the loop. `raw query` is the read-only counterpart.
+
+### Will this replace my SuperOps console?
+
+No - and it isn't trying to. The console stays best for in-app workflows like dispatch, time entry, and invoicing. This skill brings your tenant's data to whichever AI agent you already use, and answers the cross-entity questions - joined across PSA and RMM - that no single console screen composes today.
 
 ### What does it cost?
 
@@ -198,15 +238,13 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
+| Read | every typed command + `raw query` - `sla-watch`, `client-360`, `at-risk-assets`, `alert-coverage`, `unbilled`, `stale-tickets`, `tickets list`, `assets list`, `search`, `sync` | Allow |
+| Write (mutation escape hatch) | `raw mutation` - the only write path; wraps what the read-only typed commands don't cover (`createTicket`, `updateTicket`, `resolveAlerts`) | Preview with `--dry-run`, then a reviewed write |
+| Destructive | no typed destructive command exists; a delete would be an explicit destructive GraphQL operation run through `raw mutation` | Human-in-the-loop only |
 
--->
+Every typed command is **read-only**; the binary's one path to remote change is `raw mutation`, and `--dry-run` prints the exact GraphQL request without sending it. Put the gate in your agent's policy: preview, show the request, get approval, then run.
 
 The strongest control is the **scope you grant the SuperOps credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +256,4 @@ Beta. Validated against the SuperOps API surface and being validated with MSPs r
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-05._
