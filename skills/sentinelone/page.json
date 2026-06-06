@@ -1,0 +1,121 @@
+{
+  "outcome_intro": "Running SentinelOne across a book of customer sites? Ask your AI \"what should I triage first across every client,\" \"which endpoints went dark or dropped to detect-only,\" or \"where did this malicious file spread,\" and get one cross-site answer the console can't compose. Every site is mirrored into a local store, so one triage worklist, one fleet-health rollup, and one posture scorecard replace the morning ritual of flipping the console scope selector tenant by tenant.",
+  "instead_of_say": [
+    {
+      "instead": "Logging into the SentinelOne console every morning and flipping the scope selector site by site to work out which open threats actually matter most across all your clients",
+      "say": "Give me the ranked triage worklist of every open threat across all my client sites",
+      "cli": "sentinelone-cli threats triage"
+    },
+    {
+      "instead": "During an incident, searching each endpoint in turn to find everywhere a malicious file landed and checking one by one whether it has actually been contained",
+      "say": "Show me every endpoint this hash touched and which are still active, not mitigated",
+      "cli": "sentinelone-cli threats blast-radius \"3f5a9c2e1b7d8a4f6c0e2d1a9b8c7f6e5d4c3b2a\""
+    },
+    {
+      "instead": "Checking each client's agents one console scope at a time to catch the ones that went offline, fell behind on agent version, or quietly dropped from Protect to detect-only mode",
+      "say": "Which endpoints are decaying worst first - offline, out-of-date, infected, or under-protected?",
+      "cli": "sentinelone-cli fleet-health stale"
+    }
+  ],
+  "pain_points": [
+    "The SentinelOne management console scopes to one Account or Site at a time. Run it across a book of customer sites and every cross-client question - who has the worst open threats, whose agents went dark, who is still on an old build - means flipping the scope selector and re-reading the same screens tenant by tenant. MSPs raise this single-pane gap on r/msp repeatedly: there is no one view that ranks every client's threats or fleet health side by side.",
+    "Protection silently erodes. An endpoint drops to detect-only, an agent stops checking in, a version rollout stalls mid-wave, or an auto-mitigated threat gets re-opened - and unless someone scopes into that exact site and reads that exact filter, it goes unnoticed until it matters. The console exposes these as separate per-site filters, never as one fleet-wide 'what changed since yesterday' or 'who is under-protected right now' answer.",
+    "QBR and incident prep is manual assembly. Building a per-client posture scorecard (agent health, coverage, open-threat count, MTTR, version compliance) or tracing one threat's blast radius across endpoints means exporting and stitching data by hand, because no single console call returns a tenant-level composite or an endpoint-joined containment view."
+  ],
+  "outcomes": [
+    {
+      "question": "What should I triage first across all my client sites right now?",
+      "command": "sentinelone-cli threats triage"
+    },
+    {
+      "question": "Where did this malicious file spread, and which endpoints are still active?",
+      "command": "sentinelone-cli threats blast-radius \"Mimikatz\""
+    },
+    {
+      "question": "Which endpoints are decaying - offline, out-of-date, infected, or under-protected?",
+      "command": "sentinelone-cli fleet-health stale --min-score 50"
+    },
+    {
+      "question": "Which clients have protection gaps (detect-only, Ranger off, firewall off)?",
+      "command": "sentinelone-cli coverage gaps"
+    },
+    {
+      "question": "What changed across the whole fleet since yesterday?",
+      "command": "sentinelone-cli whatchanged --since 24h"
+    },
+    {
+      "question": "Which threats keep coming back after we mitigated them?",
+      "command": "sentinelone-cli threats recurrence"
+    },
+    {
+      "question": "Are we hitting our mitigation SLA, and where are the breaches?",
+      "command": "sentinelone-cli threats mttr --sla 4"
+    },
+    {
+      "question": "Rank my clients by risk so I know which tenant to call first?",
+      "command": "sentinelone-cli sites risk"
+    },
+    {
+      "question": "Give me one posture scorecard per client for the QBR deck?",
+      "command": "sentinelone-cli posture"
+    },
+    {
+      "question": "Pull every site's SentinelOne data into a local mirror for offline queries?",
+      "command": "sentinelone-cli sync"
+    }
+  ],
+  "different_vs_wrappers": "The SentinelOne Management API is paginated and scope-bound: a live API wrapper answering a book-wide question has to page through and re-query site by site, burning agent context on raw JSON it then has to summarize. This skill syncs every site into a local SQLite mirror and keeps a history snapshot on each sync, so cross-site questions become one offline query the agent reads as a finished answer - and time-aware questions a stateless wrapper simply cannot answer (what changed since yesterday, mitigation MTTR and SLA breaches, version-rollout progress, verdict flips between syncs) fall out of that stored history.",
+  "different_vs_vendor": "It complements the SentinelOne console and Purple AI rather than replacing them: the console stays best for deep hunting, policy authoring, and the response workflow inside one scope, while this skill brings the whole console's cross-site rollups - one triage worklist, one fleet-health and posture view, one blast-radius trace - to whichever AI agent you already use, answering the side-by-side, all-clients-at-once questions no single console screen composes.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local SentinelOne MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my SentinelOne data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Will this hit my SentinelOne API rate limits?",
+      "a": "The local mirror exists so reads stop hitting the API. After the first sync, the cross-site views (threats triage, blast-radius, fleet-health, coverage gaps, posture, sites risk, whatchanged) run against local SQLite with zero API calls, and live calls respect a --rate-limit throttle. The history-aware analytics (whatchanged, MTTR, versions rollout, verdicts --changed) need at least two syncs to have something to diff."
+    },
+    {
+      "q": "What API token do I need, and how do I scope it?",
+      "a": "A SentinelOne API token from your management console (a Service User token is the durable choice; a personal user token works but expires). The token inherits the role of the user that mints it, so that role is the real permission boundary - mint a read-scoped token for reporting workflows and keep write or admin scope for the rare case you actually need it."
+    },
+    {
+      "q": "Does it work across more than one SentinelOne console?",
+      "a": "Each install points at one console URL plus its token, which already spans every Account, Site, and Group that token can see - the usual MSSP setup. For genuinely separate consoles, run a profile per console (see 'sentinelone-cli profile') and point each at its own credential."
+    },
+    {
+      "q": "Does it replace the SentinelOne console?",
+      "a": "No. The console stays best for hunting, policy authoring, and the interactive response workflow. This skill adds cross-site queries and scriptable actions to your AI agent so you stop scoping into each site to answer book-wide questions."
+    }
+  ],
+  "governance_summary": "The skill drives the sentinelone-cli and sentinelone-mcp binaries, authenticating with a SENTINELONE_API_TOKEN read from the environment, never logged and never sent anywhere except the SentinelOne API. The read commands (threats triage, blast-radius, recurrence, mttr, verdicts; fleet-health, coverage gaps, posture, sites risk, versions rollout, ranger exposure, exclusions audit, whatchanged, search) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the destructive and credential tiers (agents uninstall / decommission, exclusions delete, sites delete, config-override delete, users delete, uninstall-password and API-token commands) human-only. The strongest control is the role you scope the API token to.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "sentinelone-cli threats triage; sentinelone-cli threats blast-radius \"<hash>\"; sentinelone-cli fleet-health stale; sentinelone-cli coverage gaps; sentinelone-cli posture; sentinelone-cli sites risk; sentinelone-cli versions rollout; sentinelone-cli whatchanged --since 24h; sentinelone-cli exclusions audit; sentinelone-cli search",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "sentinelone-cli agents initiate-scan (start a disk scan); sentinelone-cli threats mitigate (mitigate matching threats); sentinelone-cli agents disconnect-from-network (network-isolate an endpoint); sentinelone-cli agents update-software; sentinelone-cli exclusions create - writes send immediately; --dry-run is an opt-in preview, not a default",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "sentinelone-cli agents uninstall; sentinelone-cli agents decommission; sentinelone-cli exclusions delete; sentinelone-cli sites delete; sentinelone-cli config-override delete; sentinelone-cli users delete",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

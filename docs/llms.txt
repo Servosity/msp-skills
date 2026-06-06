@@ -35,6 +35,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Pax8 (Billing) - Reconcile Pax8 billing, track MRR, and catch usage overages before they hit the customer invoice
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pax8/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pax8/install.sh)
+- SentinelOne (Security) - Triage threats, find protection gaps, and catch overnight fleet drift across every SentinelOne tenant by asking.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/sentinelone/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sentinelone/install.sh)
 - Servosity (Backup/DR) - Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/servosity/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)

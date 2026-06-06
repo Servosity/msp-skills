@@ -230,6 +230,29 @@
         "evidence": null
       }
     },
+    "sentinelone": {
+      "system": "SentinelOne Singularity: threat triage, mitigation, agent fleet health, and protection-coverage gaps across customer sites",
+      "status": "beta",
+      "cli_binary": "sentinelone-cli",
+      "mcp_binary": "sentinelone-mcp",
+      "vendor": "SentinelOne",
+      "vendor_trademark_owner": "SentinelOne, Inc.",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "SentinelOne",
+      "tagline": "Triage threats, find protection gaps, and catch overnight fleet drift across every SentinelOne tenant by asking.",
+      "cli_hash": "sha256:0b44922c171df9a5d5bcb4ca4e369a30b97b0625f798c62d1a74280064e0670d",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "servosity": {
       "system": "Servosity backup and DR: fleet attention, stale backups, QBR reports, restores, billing",
       "status": "beta",
