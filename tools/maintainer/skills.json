@@ -2,6 +2,29 @@
   "owner": "servosity",
   "repo": "msp-skills",
   "skills": {
+    "autotask": {
+      "system": "Autotask PSA",
+      "status": "beta",
+      "cli_binary": "autotask-cli",
+      "mcp_binary": "autotask-mcp",
+      "vendor": "Autotask",
+      "vendor_trademark_owner": "Datto, Inc",
+      "first_party": false,
+      "category": "PSA",
+      "display_name": "Autotask PSA",
+      "tagline": "Triage tickets, surface unbilled time, and project retainer burn by asking.",
+      "cli_hash": "sha256:c35fe70e19882732f38eac567b5ed2d9f994f0260a7dc0137914bcd1fe7d0681",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "cipp": {
       "system": "the CyberDrain Improved Partner Portal (CIPP), the open-source Microsoft 365 multi-tenant management platform for MSPs",
       "status": "beta",

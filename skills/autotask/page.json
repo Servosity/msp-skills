@@ -1,0 +1,121 @@
+{
+  "outcome_intro": "MSPs run Autotask PSA as the system of record - tickets, time, contracts, billing. Ask your AI \"what's gone stale on the service desk,\" \"which approved time hasn't been invoiced,\" or \"how burned is that block-hours contract,\" and get answers the portal can't compose: cross-entity rollups across tickets, time, contracts, and resources, computed offline from a local mirror in one query instead of a LiveReport and an Excel export.",
+  "instead_of_say": [
+    {
+      "instead": "Building a LiveReport or exporting closed tickets and time entries to Excel before the invoice run to find which approved hours never made it onto an invoice",
+      "say": "Which approved time haven't we invoiced yet?",
+      "cli": "autotask-cli unbilled"
+    },
+    {
+      "instead": "Sorting the ticket grid by last activity and eyeballing which tickets have sat untouched while the SLA clock runs",
+      "say": "What's gone stale on the service desk in the last week?",
+      "cli": "autotask-cli stale --days 7"
+    },
+    {
+      "instead": "Clicking through tickets, contacts, contracts, configuration items, and opportunities across separate Autotask screens to prep one client review",
+      "say": "Give me the full picture on company 1234 before my 2 o'clock",
+      "cli": "autotask-cli company-360 \"1234\""
+    }
+  ],
+  "pain_points": [
+    "Unlogged and uninvoiced time is direct revenue leakage: techs close tickets without entering time, or approved hours never make it onto an invoice, and nobody notices until the billing run - because Autotask has no single screen that joins approved time entries to the invoices they belong on. Finding the gap means a LiveReport plus an Excel pass.",
+    "Cross-object reporting means an export. Autotask's native LiveReports is a copy-and-edit report designer that outputs to Excel, PDF, RTF, or CSV (per Kaseya's own Autotask PSA reporting help), so answering \"how burned is this contract\" or \"what is this client's full footprint\" across tickets, time, contracts, and opportunities is commonly pushed into Power BI or another BI tool - an entire third-party connector market exists just to pull Autotask data into a unified model.",
+    "The REST API is friction at the edges: it authenticates with three static headers (UserName, Secret, and an ApiIntegrationCode) against a per-tenant zone URL you must discover first, and categorical fields like status, priority, and queue are integer picklist IDs that vary per instance - so even a simple filter means resolving a label to its numeric ID before you can ask the question (per Autotask's REST API developer docs)."
+  ],
+  "outcomes": [
+    {
+      "question": "Which approved time entries haven't been invoiced yet?",
+      "command": "autotask-cli unbilled"
+    },
+    {
+      "question": "How stale is the service desk right now, bucketed by age?",
+      "command": "autotask-cli ticket-aging"
+    },
+    {
+      "question": "Which open tickets has nobody touched in a week?",
+      "command": "autotask-cli stale --days 7"
+    },
+    {
+      "question": "Which unassigned tickets should the dispatcher pick up first?",
+      "command": "autotask-cli triage"
+    },
+    {
+      "question": "Who's overloaded before I assign the next ticket?",
+      "command": "autotask-cli workload"
+    },
+    {
+      "question": "How burned are our block-hour contracts, and when do they run out?",
+      "command": "autotask-cli retainer"
+    },
+    {
+      "question": "Everything we know about one company - tickets, contacts, contracts, config items, opportunities?",
+      "command": "autotask-cli company-360 \"1234\""
+    },
+    {
+      "question": "What's the month-end billing picture - unbilled time, contract burn, money on the table?",
+      "command": "autotask-cli reconcile"
+    },
+    {
+      "question": "What's the label-to-ID map for the ticket status picklist?",
+      "command": "autotask-cli picklist \"Tickets\" \"status\""
+    }
+  ],
+  "different_vs_wrappers": "Most Autotask integrations and MCP servers proxy every question into a live API call - fine for one ticket, but an aggregate question becomes a multi-call dance against a per-tenant zone URL, each categorical filter gated by integer picklist IDs that vary per instance. This skill syncs the PSA into a local SQLite mirror with full-text search, so cross-entity questions - unbilled time, contract burn, account 360 - become one local join: instant, offline, and the AI sees the answer, not pages of raw JSON. Reads run against the mirror, so they stop spending your hourly API request budget.",
+  "different_vs_vendor": "It complements Autotask's own reporting rather than replacing it: LiveReports and the portal stay best for in-app workflows and scheduled documents, while this skill brings the PSA to whichever agent you already use and answers the cross-object questions - tickets joined to time joined to contracts - that no single portal screen or LiveReport composes without an export.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Autotask MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Autotask data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "What credentials do I need?",
+      "a": "An API-only user created in your own Autotask instance, which gives you a UserName and Secret, plus the tracking Integration Code from your integration vendor record. Set AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, and AUTOTASK_PSA_API_INTEGRATION_CODE in your environment. The API user's security level is the real permission boundary - scope it to exactly what you want the AI to reach."
+    },
+    {
+      "q": "Do I have to figure out my Autotask zone URL?",
+      "a": "No. Autotask hosts each tenant in a numbered zone (webservicesN.autotask.net). Run autotask-cli zone once and the CLI discovers and caches your tenant's base URL, the same way Autotask's own docs tell integrations to make a zone-information request first."
+    },
+    {
+      "q": "Will this blow through my Autotask API limits?",
+      "a": "Autotask meters API calls per database in a rolling 60-minute window and adds latency as you approach the threshold. The local mirror exists so reads stop hitting the API: after the first sync, the cross-entity views (unbilled, reconcile, retainer, company-360, ticket-aging, triage, workload) run against local SQLite with zero API calls, and sync is incremental - it only fetches what changed since the last checkpoint."
+    },
+    {
+      "q": "How do I deal with status and priority being numbers, not labels?",
+      "a": "Run autotask-cli picklist \"Tickets\" \"status\" (or any entity and field) and it prints the label-to-ID map from cached field metadata, so you can read reports and build filters without memorizing the integer IDs Autotask stores categorical fields as."
+    },
+    {
+      "q": "Is this Datto Autotask PSA or just Autotask?",
+      "a": "Same product. Autotask PSA is now branded Datto Autotask PSA under Kaseya; this skill targets the Autotask REST API, which both names refer to. It does not cover Datto RMM - that is a separate product with a separate API."
+    }
+  ],
+  "governance_summary": "The skill drives the autotask-cli and autotask-mcp binaries, authenticating with an Autotask API user's credentials read from the environment (AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, AUTOTASK_PSA_API_INTEGRATION_CODE) - never logged and never sent anywhere except your own Autotask zone. Read commands (the cross-entity views, search, picklist) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the delete commands and any security-level administration human-only. The strongest control is the security level on the API user you create.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "autotask-cli triage; autotask-cli ticket-aging; autotask-cli unbilled; autotask-cli stale --days 7; autotask-cli company-360 \"1234\"; autotask-cli retainer; autotask-cli workload; autotask-cli search \"vpn outage\"; autotask-cli tickets query",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "autotask-cli tickets create-entity (open a ticket); autotask-cli tickets patch-entity (update status or owner); autotask-cli time-entries create-entity (log time); autotask-cli companies update-entity - writes send immediately; --dry-run is an opt-in preview, not a default",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "autotask-cli time-entries delete-entity; autotask-cli service-calls delete-entity \"1234\"; autotask-cli contact-groups delete-entity \"1234\"",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

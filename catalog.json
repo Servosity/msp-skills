@@ -23,6 +23,25 @@
       "markdown_only": true
     },
     {
+      "name": "autotask",
+      "system": "Autotask PSA",
+      "status": "beta",
+      "skill_path": "skills/autotask",
+      "cli_binary": "autotask-cli",
+      "mcp_binary": "autotask-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Autotask",
+      "vendor_trademark_owner": "Datto, Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/install.sh)",
+      "install_mcp_doc": "skills/autotask/mcp-install.md",
+      "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can.",
+      "verification": "awaiting",
+      "category": "PSA",
+      "tagline": "Triage tickets, surface unbilled time, and project retainer burn by asking."
+    },
+    {
       "name": "cipp",
       "system": "the CyberDrain Improved Partner Portal (CIPP), the open-source Microsoft 365 multi-tenant management platform for MSPs",
       "status": "beta",
