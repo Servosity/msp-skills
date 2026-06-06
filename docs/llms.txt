@@ -9,6 +9,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Acronis Cyber Protect Cloud (Backup/DR) - Spot failed backups, offline agents, and unbilled usage across every Acronis tenant by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/acronis/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/acronis/install.sh)
+- Atera (RMM) - Answer fleet-health, SLA, and book-of-business questions across your Atera estate from the terminal.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/atera/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/atera/install.sh)
 - Autotask PSA (PSA) - Triage tickets, surface unbilled time, and project retainer burn by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/autotask/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/install.sh)

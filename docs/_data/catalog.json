@@ -1,5 +1,5 @@
 {
-  "count": 22,
+  "count": 23,
   "connectors": [
     {
       "slug": "acronis",
@@ -8,6 +8,14 @@
       "category": "Backup/DR",
       "verification": "awaiting",
       "url": "/skills/acronis/"
+    },
+    {
+      "slug": "atera",
+      "display_name": "Atera",
+      "tagline": "Answer fleet-health, SLA, and book-of-business questions across your Atera estate from the terminal.",
+      "category": "RMM",
+      "verification": "awaiting",
+      "url": "/skills/atera/"
     },
     {
       "slug": "autotask",

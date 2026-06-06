@@ -25,6 +25,29 @@
         "evidence": null
       }
     },
+    "atera": {
+      "system": "all-in-one RMM, PSA, and remote-access platform for MSPs and internal IT teams",
+      "status": "beta",
+      "cli_binary": "atera-cli",
+      "mcp_binary": "atera-mcp",
+      "vendor": "Atera",
+      "vendor_trademark_owner": "Atera Networks Ltd",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "Atera",
+      "tagline": "Answer fleet-health, SLA, and book-of-business questions across your Atera estate from the terminal.",
+      "cli_hash": "sha256:f41285fdec8985ba8d97780fdec6c66b3d6863147abab3a4cbc8be0fbca651f8",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "autotask": {
       "system": "Autotask PSA",
       "status": "beta",

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/atera-mcp",
+  "title": "Atera MCP",
+  "description": "Every Atera RMM + PSA endpoint, plus a local SQLite mirror that answers fleet-health, SLA, and",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/atera/atera-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/atera"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/atera-v0.1.0/atera-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ATERA_ACCOUNT_API",
+          "description": "Set the ATERA_ACCOUNT_API credential for the Atera MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "ATERA_API_KEY",
+          "description": "Set the ATERA_API_KEY credential for the Atera MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

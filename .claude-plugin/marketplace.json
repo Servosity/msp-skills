@@ -361,6 +361,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "atera",
+      "source": "./skills/atera",
+      "description": "Every Atera RMM + PSA endpoint, plus a local SQLite mirror that answers fleet-health, SLA, and book-of-business questions no single API call can.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "atera",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
