@@ -208,6 +208,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "sentinelone",
+      "source": "./skills/sentinelone",
+      "description": "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics \u2014 fleet health, threat triage, blast radius, drift \u2014 that no console view offers.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "sentinelone",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

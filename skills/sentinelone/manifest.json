@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "sentinelone-pp-mcp",
+  "display_name": "SentinelOne",
+  "version": "0.1.0",
+  "description": "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics \u2014 fleet health, threat triage, blast radius, drift \u2014 that no console view offers.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/sentinelone-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/sentinelone-pp-mcp",
+      "args": [],
+      "env": {
+        "SENTINELONE_API_TOKEN": "${user_config.sentinelone_api_token}"
+      }
+    }
+  },
+  "user_config": {
+    "sentinelone_api_token": {
+      "type": "string",
+      "title": "SENTINELONE_API_TOKEN",
+      "description": "Sets SENTINELONE_API_TOKEN for the SentinelOne MCP server.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "count": 12,
+  "count": 13,
   "connectors": [
     {
       "slug": "cipp",
@@ -72,6 +72,14 @@
       "category": "Billing",
       "verification": "awaiting",
       "url": "/skills/pax8/"
+    },
+    {
+      "slug": "sentinelone",
+      "display_name": "SentinelOne",
+      "tagline": "Triage threats, find protection gaps, and catch overnight fleet drift across every SentinelOne tenant by asking.",
+      "category": "Security",
+      "verification": "awaiting",
+      "url": "/skills/sentinelone/"
     },
     {
       "slug": "servosity",

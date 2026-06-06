@@ -379,6 +379,46 @@ A: No. Provisioning, ordering, and support workflows stay in the portal. This sk
 
 Governance: The skill drives the pax8-cli and pax8-mcp binaries, authenticating with a Pax8 Partner API OAuth2 client ID and secret read from the environment (PAX8_CLIENT_ID, PAX8_CLIENT_SECRET) - never logged and never sent anywhere except Pax8's own API. Read commands (reconcile, mrr, overage, spend, since, company show, search, and the find/get queries) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep subscription cancellation, contact deletion, and order creation human-only. The strongest control is the permission scope on the API credential you create.
 
+### SentinelOne (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/sentinelone/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sentinelone/install.sh)
+
+Running SentinelOne across a book of customer sites? Ask your AI "what should I triage first across every client," "which endpoints went dark or dropped to detect-only," or "where did this malicious file spread," and get one cross-site answer the console can't compose. Every site is mirrored into a local store, so one triage worklist, one fleet-health rollup, and one posture scorecard replace the morning ritual of flipping the console scope selector tenant by tenant.
+
+Outcomes (question -> command your AI agent runs):
+- What should I triage first across all my client sites right now? -> sentinelone-cli threats triage
+- Where did this malicious file spread, and which endpoints are still active? -> sentinelone-cli threats blast-radius "Mimikatz"
+- Which endpoints are decaying - offline, out-of-date, infected, or under-protected? -> sentinelone-cli fleet-health stale --min-score 50
+- Which clients have protection gaps (detect-only, Ranger off, firewall off)? -> sentinelone-cli coverage gaps
+- What changed across the whole fleet since yesterday? -> sentinelone-cli whatchanged --since 24h
+- Which threats keep coming back after we mitigated them? -> sentinelone-cli threats recurrence
+- Are we hitting our mitigation SLA, and where are the breaches? -> sentinelone-cli threats mttr --sla 4
+- Rank my clients by risk so I know which tenant to call first? -> sentinelone-cli sites risk
+- Give me one posture scorecard per client for the QBR deck? -> sentinelone-cli posture
+- Pull every site's SentinelOne data into a local mirror for offline queries? -> sentinelone-cli sync
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local SentinelOne MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my SentinelOne data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this hit my SentinelOne API rate limits?
+A: The local mirror exists so reads stop hitting the API. After the first sync, the cross-site views (threats triage, blast-radius, fleet-health, coverage gaps, posture, sites risk, whatchanged) run against local SQLite with zero API calls, and live calls respect a --rate-limit throttle. The history-aware analytics (whatchanged, MTTR, versions rollout, verdicts --changed) need at least two syncs to have something to diff.
+Q: What API token do I need, and how do I scope it?
+A: A SentinelOne API token from your management console (a Service User token is the durable choice; a personal user token works but expires). The token inherits the role of the user that mints it, so that role is the real permission boundary - mint a read-scoped token for reporting workflows and keep write or admin scope for the rare case you actually need it.
+Q: Does it work across more than one SentinelOne console?
+A: Each install points at one console URL plus its token, which already spans every Account, Site, and Group that token can see - the usual MSSP setup. For genuinely separate consoles, run a profile per console (see 'sentinelone-cli profile') and point each at its own credential.
+Q: Does it replace the SentinelOne console?
+A: No. The console stays best for hunting, policy authoring, and the interactive response workflow. This skill adds cross-site queries and scriptable actions to your AI agent so you stop scoping into each site to answer book-wide questions.
+
+Governance: The skill drives the sentinelone-cli and sentinelone-mcp binaries, authenticating with a SENTINELONE_API_TOKEN read from the environment, never logged and never sent anywhere except the SentinelOne API. The read commands (threats triage, blast-radius, recurrence, mttr, verdicts; fleet-health, coverage gaps, posture, sites risk, versions rollout, ranger exposure, exclusions audit, whatchanged, search) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the destructive and credential tiers (agents uninstall / decommission, exclusions delete, sites delete, config-override delete, users delete, uninstall-password and API-token commands) human-only. The strongest control is the role you scope the API token to.
+
 ### Servosity (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/servosity/
