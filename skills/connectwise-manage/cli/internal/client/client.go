@@ -5,6 +5,8 @@ package client
 
 import (
 	"bytes"
+	"connectwise-manage-pp-cli/internal/cliutil"
+	"connectwise-manage-pp-cli/internal/config"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
@@ -12,8 +14,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	enetxhttp "github.com/enetx/http"
-	"github.com/enetx/surf"
 	"io"
 	"math"
 	"net/http"
@@ -23,9 +23,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"connectwise-manage-pp-cli/internal/cliutil"
-	"connectwise-manage-pp-cli/internal/config"
 )
 
 const BinaryResponseHeader = "X-Printing-Press-Binary-Response"
@@ -42,6 +39,13 @@ type Client struct {
 	limiter    *cliutil.AdaptiveLimiter
 }
 
+// RequestBaseURL returns the base URL used for requests.
+// Novel commands that build request URLs by hand should use this instead of
+// concatenating c.BaseURL directly.
+func (c *Client) RequestBaseURL() string {
+	return c.BaseURL
+}
+
 // APIError carries HTTP status information for structured exit codes.
 type APIError struct {
 	Method     string
@@ -55,43 +59,12 @@ func (e *APIError) Error() string {
 }
 
 func newHTTPClient(timeout time.Duration, jar http.CookieJar) *http.Client {
-	builder := surf.NewClient().
-		Builder().
-		Impersonate().
-		Chrome().
-		Timeout(timeout)
-	builder = builder.ForceHTTP2()
-	if jar == nil {
-		builder = builder.Session()
-	}
-	surfClient := builder.Build().Unwrap()
-	// Surf's underlying *http.Transport sets ResponseHeaderTimeout to
-	// its package default (10s in surf v1.x), which caps how long we
-	// wait for the FIRST response byte independent of the overall
-	// client Timeout. Slow-streaming endpoints (RAG queries, LLM
-	// completions, server-side rendering) routinely take longer than
-	// that to emit headers; without this override the user-facing
-	// --timeout flag has no effect on transport-layer cutoffs and
-	// requests fail with "net/http: timeout awaiting response headers"
-	// at the package default regardless of --timeout. Override so the
-	// transport-layer ceiling tracks the user's intent.
-	// surf's GetTransport returns *enetxhttp.Transport (surf's HTTP fork
-	// used for browser-impersonate features), NOT *net/http.Transport,
-	// so the assertion targets the enetx package's Transport type.
-	if t, ok := surfClient.GetTransport().(*enetxhttp.Transport); ok {
-		t.ResponseHeaderTimeout = timeout
-	}
-	httpClient := surfClient.Std()
-	httpClient.Timeout = timeout
-	if jar != nil {
-		httpClient.Jar = jar
-	}
-	return httpClient
+	return &http.Client{Timeout: timeout, Jar: jar}
 }
 
 func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 	homeDir, _ := os.UserHomeDir()
-	cacheDir := filepath.Join(homeDir, ".cache", "connectwise-manage-pp-cli", "http")
+	cacheDir := filepath.Join(homeDir, ".cache", "connectwise-manage-cli", "http")
 	httpClient := newHTTPClient(timeout, nil)
 	c := &Client{
 		BaseURL:    strings.TrimRight(cfg.BaseURL, "/"),
@@ -240,18 +213,18 @@ func (c *Client) cacheKey(path string, params map[string]string) string {
 	key += "|base_url=" + c.BaseURL
 	if c.Config != nil {
 		key += "|auth_source=" + c.Config.AuthSource
-		// ConnectWise: the tenant lives in the Basic username, not the URL, so
-		// partition the cache by company id to avoid cross-tenant bleed when
-		// two tenants share a region host.
-		if c.Config.CompanyID != "" {
-			key += "|company=" + c.Config.CompanyID
-		}
 		if authHeader := c.Config.AuthHeader(); authHeader != "" {
 			authHash := sha256.Sum256([]byte(authHeader))
 			key += "|auth=" + hex.EncodeToString(authHash[:8])
 		}
 		if c.Config.Path != "" {
 			key += "|config_path=" + c.Config.Path
+		}
+		// ConnectWise: the tenant lives in the Basic username, not the URL, so
+		// partition the cache by company id to avoid cross-tenant bleed when
+		// two tenants share a region host.
+		if c.Config.CompanyID != "" {
+			key += "|company=" + c.Config.CompanyID
 		}
 	}
 	paramKeys := make([]string, 0, len(params))
@@ -543,6 +516,27 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		if binaryResponse {
 			req.Header.Del(BinaryResponseHeader)
 		}
+		if req.Header.Get("User-Agent") == "" {
+			req.Header.Set("User-Agent", "connectwise-manage-cli/2024.13")
+		}
+		// Go's net/http omits Accept by default; browsers, curl, and other
+		// stdlibs always send it. Fingerprint-checking WAFs (Imperva, Akamai,
+		// Cloudflare bot-mode, DataDome) flag the absence as a bot signal
+		// and answer with empty-body 5xx, 403, or a challenge redirect
+		// depending on vendor and rule tier. The value is application/json
+		// rather than */* because strict-JSON APIs (Zendesk, Atlassian REST,
+		// Salesforce) return 415 on anything that isn't literally
+		// application/json; specs that need a different content type
+		// (vendor mediatypes, XML, HTML) declare it via RequiredHeaders or
+		// per-endpoint headerOverrides, both of which run before this
+		// if-empty default.
+		if req.Header.Get("Accept") == "" {
+			if binaryResponse {
+				req.Header.Set("Accept", "*/*")
+			} else {
+				req.Header.Set("Accept", "application/json")
+			}
+		}
 
 		resp, err := c.HTTPClient.Do(req)
 		if err != nil {
@@ -741,7 +735,7 @@ func looksLikeCredentialPlaceholder(value string) bool {
 }
 
 func authPlaceholderCredentialError(cfg *config.Config) error {
-	return authPlaceholderCredentialErrorWithSetup(cfg, "export CW_CLIENT_ID=<your-token> or connectwise-manage-pp-cli auth set-token <token>")
+	return authPlaceholderCredentialErrorWithSetup(cfg, "export CW_CLIENT_ID=<your-token> or connectwise-manage-cli auth set-token <token>")
 }
 
 func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) error {

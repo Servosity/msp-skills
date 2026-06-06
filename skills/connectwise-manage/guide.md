@@ -1,15 +1,122 @@
-# ConnectWise Manage Claude Code Skill and MCP Server - command reference
+# ConnectWise PSA CLI
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the ConnectWise
-> Manage API. Not affiliated with, endorsed by, or sponsored by ConnectWise, LLC.
-> ConnectWise, ConnectWise Manage, and ConnectWise PSA are trademarks of
-> ConnectWise, LLC.
+**Every ConnectWise PSA workflow from the terminal  -  with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.**
 
-**Every ConnectWise PSA workflow from the terminal - with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.**
+A spec-generated CLI over the ConnectWise Manage REST API covering tickets, time, companies, contacts, agreements, configurations, projects, opportunities, and members. It syncs the high-gravity entities into a local SQLite store so you get instant full-text search and cross-table views the PSA never surfaces in one place  -  `unbilled` reconciles tickets against logged time, `account` assembles a full company 360, `board`/`stale`/`workload` give a dispatcher's queue at a glance. Every command speaks `--json`/`--select` and the whole tree is exposed as an MCP server for AI-driven triage.
 
-A spec-generated CLI over the ConnectWise Manage REST API covering tickets, time, companies, contacts, agreements, configurations, projects, opportunities, and members. It syncs the high-gravity entities into a local SQLite store so you get instant full-text search and cross-table views the PSA never surfaces in one place - `unbilled` reconciles tickets against logged time, `account` assembles a full company 360, `board`/`stale`/`workload` give a dispatcher's queue at a glance. Every command speaks `--json`/`--select` and the whole tree is exposed as an MCP server for AI-driven triage.
+## Install
 
-For the short install path see [README.md](./README.md). This file is the command reference.
+The recommended path installs both the `connectwise-manage-cli` binary and the `pp-connectwise-manage` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+
+```bash
+npx -y @mvanhorn/printing-press-library install connectwise-manage
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install connectwise-manage --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install connectwise-manage --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install connectwise-manage --agent claude-code
+npx -y @mvanhorn/printing-press-library install connectwise-manage --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/project-management/connectwise-manage/cmd/connectwise-manage-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/connectwise-manage-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install connectwise-manage --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-connectwise-manage --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-connectwise-manage --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install connectwise-manage --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/connectwise-manage-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `CW_CLIENT_ID` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/project-management/connectwise-manage/cmd/connectwise-manage-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "connectwise-manage": {
+      "command": "connectwise-manage-mcp",
+      "env": {
+        "CW_CLIENT_ID": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Authentication
 
@@ -63,14 +170,14 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Dispatcher views
-- **`board`**  -  A grouped board view: open tickets by status with age, owner, and priority, joined to the tech who owns each.
+- **`board`**  -  Open tickets on a board, oldest first, with each ticket's age, owner, status, and priority joined from the synced reference data.
 
   _Reach for this for the morning queue sweep instead of reloading the web board view._
 
   ```bash
   connectwise-manage-cli board 2 --unassigned
   ```
-- **`stale`**  -  Open tickets with no update older than N days, grouped by owner and board, sorted by age.
+- **`stale`**  -  Open tickets with no update in N days, oldest first, with board and owner columns so you see what's rotting and whose it is.
 
   _Use it for the daily 'what's rotting on my board' pass before standup._
 

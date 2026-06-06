@@ -271,17 +271,17 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
 					"\n      Set your API key: export CW_CLIENT_ID=<your-key>" +
-					"\n      Run 'connectwise-manage-pp-cli doctor' to check auth status."), nil
+					"\n      Run 'connectwise-manage-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your API key." +
 					"\n      Set it with: export CW_CLIENT_ID=<your-key>" +
-					"\n      Run 'connectwise-manage-pp-cli doctor' to check auth status."), nil
+					"\n      Run 'connectwise-manage-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: your credentials are valid but lack access to this resource." +
 					"\n      Set it with: export CW_CLIENT_ID=<your-key>" +
-					"\n      Run 'connectwise-manage-pp-cli doctor' to check auth status."), nil
+					"\n      Run 'connectwise-manage-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
 				if method == "DELETE" {
 					return mcplib.NewToolResultText("already deleted (no-op)"), nil
@@ -323,7 +323,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 
 func newMCPClient() (*client.Client, error) {
 	home, _ := os.UserHomeDir()
-	cfgPath := filepath.Join(home, ".config", "connectwise-manage-pp-cli", "config.toml")
+	cfgPath := filepath.Join(home, ".config", "connectwise-manage-cli", "config.toml")
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
@@ -340,7 +340,7 @@ func newMCPClient() (*client.Client, error) {
 
 func dbPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".local", "share", "connectwise-manage-pp-cli", "data.db")
+	return filepath.Join(home, ".local", "share", "connectwise-manage-cli", "data.db")
 }
 
 // Note: MCP tools use their own dbPath() because they are in a separate package (main, not cli).
@@ -369,8 +369,7 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 		return mcplib.NewToolResultError(fmt.Sprintf("search failed: %v", err)), nil
 	}
 
-	data, _ := json.MarshalIndent(results, "", "  ")
-	return mcplib.NewToolResultText(string(data)), nil
+	return toolResultJSON(results)
 }
 
 // validateReadOnlyQuery gates the MCP sql tool. The agent contract advertised
@@ -450,7 +449,10 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 	}
 	defer rows.Close()
 
-	cols, _ := rows.Columns()
+	cols, err := rows.Columns()
+	if err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("reading columns: %v", err)), nil
+	}
 	var results []map[string]any
 	for rows.Next() {
 		values := make([]any, len(cols))
@@ -458,15 +460,31 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 		for i := range values {
 			ptrs[i] = &values[i]
 		}
-		rows.Scan(ptrs...)
+		if err := rows.Scan(ptrs...); err != nil {
+			return mcplib.NewToolResultError(fmt.Sprintf("scanning row: %v", err)), nil
+		}
 		row := make(map[string]any)
 		for i, col := range cols {
 			row[col] = values[i]
 		}
 		results = append(results, row)
 	}
+	// rows.Next() stops on a mid-iteration error without failing the loop, so
+	// skipping rows.Err() would return a truncated result set as success.
+	if err := rows.Err(); err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("reading rows: %v", err)), nil
+	}
 
-	data, _ := json.MarshalIndent(results, "", "  ")
+	return toolResultJSON(results)
+}
+
+// toolResultJSON renders v as the indented JSON body of an MCP text result,
+// surfacing a marshal failure as a tool error instead of empty content.
+func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("encoding result: %v", err)), nil
+	}
 	return mcplib.NewToolResultText(string(data)), nil
 }
 
@@ -474,10 +492,10 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 	ctx := map[string]any{
 		"api":         "connectwise-manage",
 		"description": "Every ConnectWise PSA workflow from the terminal — with a typed conditions query builder, offline SQLite sync",
-		"archetype":   "crm",
+		"archetype":   "project-management",
 		"tool_count":  468,
 		// tool_surface tells agents which surface a capability lives on.
-		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion connectwise-manage-pp-cli binary.",
+		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion connectwise-manage-cli binary.",
 		"auth": map[string]any{
 			"type": "api_key",
 			"env_vars": []map[string]any{
@@ -574,12 +592,12 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			{"topic": "Stale-ticket detector", "insight": "A local query over the synced tickets table using the lastUpdated sync cursor — fast where paging the live API is slow."},
 			{"topic": "Workload / dispatch balance", "insight": "Aggregates open tickets grouped by owner from the local store — no single API call returns per-tech open load."},
 			{"topic": "Conditions builder + explainer", "insight": "Pure construction and validation of the distinctive conditions DSL, including name-to-id resolution from the local reference tables."},
-			{"topic": "Contact lookup", "insight": "Use search for finding contacts by name/email. List endpoints return unsorted results and require pagination for large datasets."},
-			{"topic": "Activity tracking", "insight": "When checking deal activity, sync first and query locally. CRM APIs often throttle activity-log endpoints heavily."},
+			{"topic": "Finding stale work", "insight": "Use the stale command or sql query to find items not updated recently. More reliable than scanning list results manually."},
+			{"topic": "Load analysis", "insight": "When analyzing team workload, filter by assignee and status. Raw counts without status filtering are misleading."},
+			{"topic": "Bulk operations", "insight": "For bulk status changes, prefer update endpoints over delete+create. Most PM APIs track history on updates."},
 		},
 	}
-	data, _ := json.MarshalIndent(ctx, "", "  ")
-	return mcplib.NewToolResultText(string(data)), nil
+	return toolResultJSON(ctx)
 }
 
 // RegisterNovelFeatureTools is kept as a compatibility no-op for older MCP

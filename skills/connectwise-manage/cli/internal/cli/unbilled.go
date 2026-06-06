@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// pp:data-source local
 func newNovelUnbilledCmd(flags *rootFlags) *cobra.Command {
 	var flagSince string
 	var flagMember string
@@ -32,6 +33,9 @@ no single call for. Run 'sync service-tickets time-entries' first.`, "\n"),
 			if dryRunOK(flags) {
 				return nil
 			}
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			var since time.Time
 			if strings.TrimSpace(flagSince) != "" {
 				t, err := parseSinceDuration(flagSince)
@@ -48,6 +52,9 @@ no single call for. Run 'sync service-tickets time-entries' first.`, "\n"),
 				return cwNoStoreHint(cmd, flags, []ticketRow{}, headers, "service-tickets time-entries")
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, cwTickets) {
+				hintIfStale(cmd, db, cwTickets, flags.maxAge)
+			}
 
 			tickets, err := cwLoad(cmd.Context(), db, cwTickets)
 			if err != nil {

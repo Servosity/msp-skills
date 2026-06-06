@@ -324,7 +324,7 @@ Resource scoping:
 	cmd.Flags().BoolVar(&full, "full", false, "Full resync (ignore previous checkpoint)")
 	cmd.Flags().StringVar(&since, "since", "", "Incremental sync duration (e.g. 7d, 24h, 1w, 30m)")
 	cmd.Flags().IntVar(&concurrency, "concurrency", 4, "Number of parallel sync workers")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/connectwise-manage-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/connectwise-manage-cli/data.db)")
 	cmd.Flags().IntVar(&maxPages, "max-pages", 0, "Maximum pages to fetch per resource (0 = unlimited; cap-hit emits a sync_warning event)")
 	cmd.Flags().BoolVar(&latestOnly, "latest-only", false, "Refresh head of each resource only; clears resume cursor and caps pages at 1. Mutually exclusive with --since (--since wins).")
 	cmd.Flags().BoolVar(&strict, "strict", false, "Exit non-zero on any per-resource failure (default: only critical failures or all-resource failure exit non-zero).")
@@ -427,6 +427,8 @@ func syncResource(ctx context.Context, c interface {
 	var progressCount int64
 	pagesFetched := 0
 	lastNextCursor := ""
+	capExitHit := false
+	capExitCursor := ""
 	// extractFailureTotal accumulates per-item primary-key extraction
 	// misses across pages within this resource sync. Resource-level
 	// concurrency is 1 (one goroutine per resource via the work channel)
@@ -466,8 +468,7 @@ func syncResource(ctx context.Context, c interface {
 		if err != nil {
 			if w, ok := isSyncAccessWarning(err); ok {
 				if !humanFriendly {
-					fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","status":%d,"reason":"%s","message":"%s"}`+"\n",
-						resource, w.Status, w.Reason, strings.ReplaceAll(w.Message, `"`, `\"`))
+					fmt.Fprintln(syncEvents, syncWarningJSON(resource, "", w.Status, w.Reason, w.Message))
 				}
 				return syncResult{Resource: resource, Count: totalCount, Warn: fmt.Errorf("skipped %s: %s", resource, w.Reason), Duration: time.Since(started)}
 			}
@@ -598,11 +599,27 @@ func syncResource(ctx context.Context, c interface {
 		// warning per paginated resource would mask real sync_anomaly /
 		// sync_error output in the same stream.
 		if maxPages > 0 && pagesFetched >= maxPages {
-			if !latestOnly {
-				if humanFriendly {
-					fmt.Fprintf(os.Stderr, "\n  %s: reached --max-pages limit (%d pages, %d items)\n", resource, maxPages, totalCount)
+			truncatedByCap := resourceSupportsPagination(resource) && hasMore
+			truncatedByCap = truncatedByCap && len(items) >= pageSize.limit
+			if truncatedByCap {
+				capExitCursor = nextCursor
+			}
+			if truncatedByCap && capExitCursor == "" {
+				if pageSize.cursorParam == "offset" {
+					currentOffset, _ := strconv.Atoi(cursor)
+					capExitCursor = strconv.Itoa(currentOffset + pageSize.limit)
 				} else {
-					fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"max_pages_cap_hit","message":"reached --max-pages cap of %d; data may be truncated. Re-run with --max-pages 0 (unlimited) or higher to verify."}`+"\n", resource, maxPages)
+					truncatedByCap = false
+				}
+			}
+			if truncatedByCap && capExitCursor != cursor {
+				if !latestOnly {
+					capExitHit = true
+					if humanFriendly {
+						fmt.Fprintf(os.Stderr, "\n  %s: reached --max-pages limit (%d pages, %d items)\n", resource, maxPages, totalCount)
+					} else {
+						fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"max_pages_cap_hit","message":"reached --max-pages cap of %d; data may be truncated. Re-run with --max-pages 0 (unlimited) or higher to verify."}`+"\n", resource, maxPages)
+					}
 				}
 			}
 			break
@@ -653,8 +670,13 @@ func syncResource(ctx context.Context, c interface {
 		cursor = nextCursor
 	}
 
-	// Final sync state: clear cursor (sync is complete), update count
-	_ = db.SaveSyncState(resource, "", totalCount)
+	// Final sync state: clear cursor on natural completion, but preserve the
+	// resume cursor when an operator intentionally capped the page budget.
+	finalCursor := ""
+	if capExitHit {
+		finalCursor = capExitCursor
+	}
+	_ = db.SaveSyncState(resource, finalCursor, totalCount)
 
 	// F4b symptom probe: if items were consumed and successfully
 	// extracted (extractFailures < consumed) but nothing landed in
@@ -1220,7 +1242,8 @@ func extractItemsByKnownKeys(envelope map[string]json.RawMessage) ([]json.RawMes
 func extractSingleObjectArraySibling(envelope map[string]json.RawMessage) ([]json.RawMessage, bool) {
 	// Fallback: try every key in the envelope. If exactly one maps to a JSON
 	// array with items, use it. This handles APIs that wrap responses with the
-	// resource name (e.g., {"markets": [...], "cursor": "..."}).
+	// resource name alongside arbitrary scalar metadata
+	// (e.g., {"markets": [...], "request_id": "..."}).
 	var arrayItems []json.RawMessage
 	arrayCount := 0
 	for key, raw := range envelope {
@@ -1235,9 +1258,6 @@ func extractSingleObjectArraySibling(envelope map[string]json.RawMessage) ([]jso
 		var rawArray []json.RawMessage
 		if json.Unmarshal(raw, &rawArray) == nil && !isJSONNull(raw) {
 			continue
-		}
-		if !pageEnvelopeMetadataKeys[key] {
-			return nil, false
 		}
 	}
 	if arrayCount == 1 {

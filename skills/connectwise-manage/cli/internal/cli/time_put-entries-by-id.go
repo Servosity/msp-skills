@@ -628,7 +628,7 @@ func newTimePutEntriesByIdCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure) {
-				writeMutationResponseToStore(cmd.Context(), "time", data, "")
+				writeMutationResponseToStore(cmd.Context(), "time", data, "customFields")
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")

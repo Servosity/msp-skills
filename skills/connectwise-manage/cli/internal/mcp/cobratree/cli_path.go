@@ -27,7 +27,7 @@ func SiblingCLIPath() (string, error) {
 }
 
 func cliExecutableName(goos string) string {
-	name := "connectwise-manage-pp-cli"
+	name := "connectwise-manage-cli"
 	if goos == "windows" {
 		return name + ".exe"
 	}

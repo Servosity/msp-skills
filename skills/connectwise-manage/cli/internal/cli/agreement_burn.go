@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// pp:data-source local
 func newNovelAgreementBurnCmd(flags *rootFlags) *cobra.Command {
 	var flagPeriod string
 	var flagCompany string
@@ -21,7 +22,11 @@ func newNovelAgreementBurnCmd(flags *rootFlags) *cobra.Command {
 Joins synced agreements to logged time entries (by agreement id) and reports
 hours used vs the agreement's hour allotment as a utilization percentage with
 an over-limit flag. Agreements whose unit is not Hours report used hours only.
-Run 'sync finance-agreements time-entries' first.`, "\n"),
+Run 'sync finance-agreements time-entries' first.
+
+Use this command to measure hours logged against an agreement's allotment as a
+utilization percentage. Do NOT use this command for general company context;
+use 'account' instead.`, "\n"),
 		Example: strings.Trim(`
   connectwise-manage-cli agreement-burn
   connectwise-manage-cli agreement-burn --company AcmeCorp --period 30d
@@ -30,6 +35,9 @@ Run 'sync finance-agreements time-entries' first.`, "\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil
+			}
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
 			}
 			var since time.Time
 			if strings.TrimSpace(flagPeriod) != "" {
@@ -46,6 +54,9 @@ Run 'sync finance-agreements time-entries' first.`, "\n"),
 				return cwNoStoreHint(cmd, flags, []burnRow{}, headers, "finance-agreements time-entries")
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, cwAgreements) {
+				hintIfStale(cmd, db, cwAgreements, flags.maxAge)
+			}
 
 			agreements, err := cwLoad(cmd.Context(), db, cwAgreements)
 			if err != nil {

@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "ConnectWise PSA (Manage) MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "Every ConnectWise PSA workflow from the terminal  -  with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you."
+description: "Every ConnectWise PSA workflow from the terminal \u2014 with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you."
 permalink: /skills/connectwise-manage/
 skill_name: "ConnectWise PSA (Manage) MCP"
 image: /assets/social/connectwise-manage/wide-1200x630.png

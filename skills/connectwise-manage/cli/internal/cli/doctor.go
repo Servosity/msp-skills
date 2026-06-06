@@ -170,6 +170,8 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			// Check auth — ConnectWise Manage needs the composite Basic
 			// credentials (companyId+publicKey:privateKey) PLUS the clientId
 			// header. All four must be present for auth to be complete.
+			// (Hand-wired: the generator's single-scheme model can't express
+			// this composite shape; carried forward from the prior print.)
 			if cfg != nil {
 				cwMissing := []string{}
 				cwPresent := []string{}

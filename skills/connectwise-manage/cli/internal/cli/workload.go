@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// pp:data-source local
 func newNovelWorkloadCmd(flags *rootFlags) *cobra.Command {
 	var flagBoard string
 
@@ -18,7 +19,11 @@ func newNovelWorkloadCmd(flags *rootFlags) *cobra.Command {
 		Long: strings.Trim(`
 Aggregates open service tickets from the local store by owner, with the count
 and the oldest open age per tech — the per-tech load the PSA has no single call
-for. Optionally scope to one board. Run 'sync service-tickets' first.`, "\n"),
+for. Optionally scope to one board. Run 'sync service-tickets' first.
+
+Use this command to see open-ticket load and aging per tech, to decide who
+takes the next ticket. Do NOT use this command to view one board's queue
+grouped by status; use 'board' instead.`, "\n"),
 		Example: strings.Trim(`
   connectwise-manage-cli workload
   connectwise-manage-cli workload --board "Help Desk" --agent`, "\n"),
@@ -26,6 +31,9 @@ for. Optionally scope to one board. Run 'sync service-tickets' first.`, "\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil
+			}
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
 			}
 			now := time.Now()
 			headers := []string{"Owner", "OpenTickets", "OldestAge(d)"}
@@ -35,6 +43,9 @@ for. Optionally scope to one board. Run 'sync service-tickets' first.`, "\n"),
 				return cwNoStoreHint(cmd, flags, []workloadRow{}, headers, "service-tickets")
 			}
 			defer db.Close()
+			if !hintIfUnsynced(cmd, db, cwTickets) {
+				hintIfStale(cmd, db, cwTickets, flags.maxAge)
+			}
 
 			tickets, err := cwLoad(cmd.Context(), db, cwTickets)
 			if err != nil {

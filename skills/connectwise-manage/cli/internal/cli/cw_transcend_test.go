@@ -254,3 +254,85 @@ func TestComputeAccount(t *testing.T) {
 		t.Fatalf("account Nope = %+v; want not found", c3)
 	}
 }
+
+// --- Phase 4.95 review regression tests (reprint 20260605-220229) ---
+
+func TestFormatScalarAdversarial(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"lone-quote", `"`, `"\""`},
+		{"lone-bracket", `[`, `"["`},
+		{"nan-token", "NaN", `"NaN"`},
+		{"inf-token", "Inf", `"Inf"`},
+		{"neg-inf", "-Inf", `"-Inf"`},
+		{"infinity", "Infinity", `"Infinity"`},
+		{"hex-float", "0x1p4", `"0x1p4"`},
+		{"plain-int", "42", "42"},
+		{"plain-float", "4.5", "4.5"},
+		{"exponent", "1e3", "1e3"},
+		{"null-literal", "null", "null"},
+		{"embedded-quote", `a"b`, `"a\"b"`},
+		{"trailing-backslash", `foo\`, `"foo\\"`},
+		{"backslash-quote", `a\"b`, `"a\\\"b"`},
+		{"prequoted-passthrough", `"already"`, `"already"`},
+		{"prebracketed-passthrough", `[2024-01-01T00:00:00Z]`, `[2024-01-01T00:00:00Z]`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := formatScalar(tc.in); got != tc.want {
+				t.Fatalf("formatScalar(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestBuildConditionsNotIn(t *testing.T) {
+	got, err := buildConditions([]condClause{{"status/id", "not in", "1,2"}}, "and")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if want := `status/id not in (1,2)`; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestExplainConditionsMixedOrThenAnd(t *testing.T) {
+	clauses, join := explainConditions(`a = "x" OR b = "y" AND c = "z"`)
+	if join != "MIXED" {
+		t.Fatalf("OR-then-AND join = %q, want MIXED", join)
+	}
+	if len(clauses) != 3 {
+		t.Fatalf("clause count = %d, want 3", len(clauses))
+	}
+}
+
+func TestAgreementHoursSinceWindow(t *testing.T) {
+	since := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	entries := []map[string]any{
+		{"agreement": ref("10", "Block"), "hoursBilled": num("2"), "dateEntered": "2026-05-20T00:00:00Z"}, // before window — excluded
+		{"agreement": ref("10", "Block"), "hoursBilled": num("3"), "dateEntered": "2026-06-03T00:00:00Z"}, // in window — counted
+		{"agreement": ref("10", "Block"), "hoursBilled": num("5")},                                        // no dateEntered — kept (inclusion bias by design)
+	}
+	idx := agreementHours(entries, since)
+	if got := idx[10]; got != 8 {
+		t.Fatalf("windowed hours = %v, want 8 (3 in-window + 5 undated)", got)
+	}
+	all := agreementHours(entries, time.Time{})
+	if got := all[10]; got != 10 {
+		t.Fatalf("unwindowed hours = %v, want 10", got)
+	}
+}
+
+func TestCwLoggedHoursZeroBilledFallback(t *testing.T) {
+	te := map[string]any{"hoursBilled": num("0"), "actualHours": num("1.5")}
+	if got := cwLoggedHours(te); got != 1.5 {
+		t.Fatalf("zero-billed fallback = %v, want 1.5", got)
+	}
+	te2 := map[string]any{"hoursBilled": num("2"), "actualHours": num("9")}
+	if got := cwLoggedHours(te2); got != 2 {
+		t.Fatalf("billed-wins = %v, want 2", got)
+	}
+}

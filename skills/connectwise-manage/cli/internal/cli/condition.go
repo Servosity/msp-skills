@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// pp:data-source local
 func newNovelConditionCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "condition",
@@ -64,7 +65,7 @@ func newConditionBuildCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().StringArrayVar(&fields, "field", nil, "Field path, e.g. board/name or status/id (repeatable)")
 	cmd.Flags().StringArrayVar(&ops, "op", nil, `Operator: = != < <= > >= contains like in "not in" (repeatable)`)
-	cmd.Flags().StringArrayVar(&values, "value", nil, "Value; comma-separate the list for in/not in (repeatable)")
+	cmd.Flags().StringArrayVar(&values, "value", nil, "Value; comma-separate the list for in/not in (list elements cannot contain commas) (repeatable)")
 	cmd.Flags().StringVar(&join, "join", "and", "Join the clauses with and|or")
 	return cmd
 }
@@ -86,6 +87,9 @@ func newConditionExplainCmd(flags *rootFlags) *cobra.Command {
 			}
 			expr := strings.Join(args, " ")
 			clauses, jn := explainConditions(expr)
+			if clauses == nil {
+				clauses = []string{}
+			}
 			result := map[string]any{"conditions": expr, "join": jn, "clauses": clauses, "clause_count": len(clauses)}
 			if flags.asJSON || flags.compact || flags.csv || flags.quiet || (!isTerminal(cmd.OutOrStdout()) && !humanFriendly) {
 				return flags.printJSON(cmd, result)
