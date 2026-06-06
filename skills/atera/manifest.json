@@ -1,0 +1,45 @@
+{
+  "manifest_version": "0.3",
+  "name": "atera-pp-mcp",
+  "display_name": "Atera",
+  "version": "4.22.0",
+  "description": "Every Atera RMM + PSA endpoint, plus a local SQLite mirror that answers fleet-health, SLA, and book-of-business questions no single API call can.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/atera-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/atera-pp-mcp",
+      "args": [],
+      "env": {
+        "ATERA_ACCOUNT_API": "${user_config.atera_account_api}",
+        "ATERA_API_KEY": "${user_config.atera_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "atera_account_api": {
+      "type": "string",
+      "title": "ATERA_ACCOUNT_API",
+      "description": "Optional. Sets ATERA_ACCOUNT_API for the Atera MCP server.",
+      "sensitive": true
+    },
+    "atera_api_key": {
+      "type": "string",
+      "title": "ATERA_API_KEY",
+      "description": "Optional. Sets ATERA_API_KEY for the Atera MCP server.",
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}
