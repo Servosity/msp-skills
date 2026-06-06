@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "quickbooks-pp-mcp",
+  "display_name": "QuickBooks Online",
+  "version": "4.22.0",
+  "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/quickbooks-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/quickbooks-pp-mcp",
+      "args": [],
+      "env": {
+        "QUICKBOOKS_ACCESS_TOKEN": "${user_config.quickbooks_access_token}"
+      }
+    }
+  },
+  "user_config": {
+    "quickbooks_access_token": {
+      "type": "string",
+      "title": "QUICKBOOKS_ACCESS_TOKEN",
+      "description": "OAuth 2.0 bearer access token sent as `Authorization: Bearer <token>`. Obtain one\nfrom the Intuit OAuth 2.0 Playground or mint it from a refresh token. Also set the\ncompany scope via QUICKBOOKS_REALM_ID (+ QUICKBOOKS_ENVIRONMENT=production|sandbox)\nor the full QUICKBOOKS_BASE_URL. Required scope: com.intuit.quickbooks.accounting.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

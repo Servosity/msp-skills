@@ -376,6 +376,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "quickbooks",
+      "source": "./skills/quickbooks",
+      "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
+      "version": "0.1.0",
+      "category": "billing",
+      "tags": [
+        "quickbooks",
+        "quickbooks online",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
