@@ -1,0 +1,109 @@
+{
+  "outcome_intro": "Ask in plain English which clients have the worst documentation, which vault passwords are overdue for rotation, and what SSL certs, domains, or warranties expire next - across every company at once. Hudu plus your AI agent reads a local mirror of your whole instance, so the hygiene questions the portal makes you click through company by company become one instant, reproducible answer.",
+  "instead_of_say": [
+    {
+      "instead": "Open each client's asset layouts in the Hudu portal and eyeball which assets are missing required fields",
+      "say": "Which clients have the worst documentation completeness right now?",
+      "cli": "hudu-cli audit completeness --agent"
+    },
+    {
+      "instead": "Click into every company's password vault to find credentials nobody has rotated in months",
+      "say": "Show me vault passwords that haven't been rotated in 180 days, grouped by company",
+      "cli": "hudu-cli audit stale-passwords --older-than 180d --agent"
+    },
+    {
+      "instead": "Reconcile SSL, domain, and warranty expiry dates across tenants in a spreadsheet before they lapse",
+      "say": "What expires in the next 30 days across all my clients?",
+      "cli": "hudu-cli audit expirations --within 30d --agent"
+    }
+  ],
+  "pain_points": [
+    "Documentation rots silently: assets get created with half their required fields blank, and nobody notices until a tech needs the missing detail mid-incident.",
+    "Hudu has no native password-expiration tracking, so stale vault credentials pile up unseen across dozens of client vaults.",
+    "Expiring SSL certificates, domains, and warranties hide one company at a time in the portal - you find the lapse when the client's site goes down, not before."
+  ],
+  "outcomes": [
+    {
+      "question": "Which clients have the worst documentation completeness?",
+      "command": "hudu-cli audit completeness --agent"
+    },
+    {
+      "question": "What's expiring in the next 30 days across every client?",
+      "command": "hudu-cli audit expirations --within 30d --agent"
+    },
+    {
+      "question": "Which vault passwords are overdue for rotation?",
+      "command": "hudu-cli audit stale-passwords --older-than 180d --agent"
+    },
+    {
+      "question": "Which knowledge-base articles are stale and probably out of date?",
+      "command": "hudu-cli audit stale-articles --older-than 365d --agent"
+    },
+    {
+      "question": "Which assets have drifted from their layout's current schema?",
+      "command": "hudu-cli audit layout-drift --agent"
+    },
+    {
+      "question": "Give me one worst-first hygiene scorecard across every company.",
+      "command": "hudu-cli audit summary --agent"
+    },
+    {
+      "question": "Find everything matching a keyword across all synced docs.",
+      "command": "hudu-cli search \"vpn gateway\" --agent"
+    },
+    {
+      "question": "Resolve this Hudu link to its asset, company, and relations.",
+      "command": "hudu-cli resolve \"https://docs.example.huducloud.com/a/dc01-abc123\" --agent"
+    },
+    {
+      "question": "Which PSA/RMM records don't map to a live Hudu asset?",
+      "command": "hudu-cli reconcile --agent"
+    },
+    {
+      "question": "Scaffold a new client's docs from our house template.",
+      "command": "hudu-cli onboard --company 42 --template msp-standard"
+    }
+  ],
+  "different_vs_wrappers": "Most Hudu integrations and MCP servers proxy each question into a live API call - fine for one lookup, useless when you ask about every client at once. This skill syncs your whole Hudu instance into a local SQLite mirror, so cross-tenant hygiene questions become one offline query: instant, fully paginated, and reproducible later as a snapshot you can diff against.",
+  "different_vs_vendor": "The Hudu portal answers one company on one page at a time; this skill answers across every client at once and hands the result to the AI agent you already work in. It complements the web app you still use for editing and day-to-day documentation - it doesn't replace it.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Hudu MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Hudu data safe?",
+      "a": "Your data stays on your machine - the CLI, MCP server, and the local mirror are all local. The password audit never reads or stores secret values; it uses only each entry's name, username, and last-updated date. Credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Will a company-scoped Hudu API key work?",
+      "a": "Mostly. Audits and search run over whatever you've synced, so they work with any key. The one limit: Hudu's global asset-list endpoint requires a global (not company-scoped) key - with a scoped key, use 'assets list-by-company <company_id>' instead. The 'onboard --apply' write path also needs a global key."
+    }
+  ],
+  "governance_summary": "The skill reads everything over a local mirror - audits, search, resolve, and reconcile are always safe to run and cannot change anything. Writes (creating or updating assets, articles, companies, and asset layouts, plus 'onboard --apply') send to your live Hudu instance, so the recommended agent policy is preview-then-approve. Reading or changing password-vault entries and managing the API credential are credential-tier; deletes and archives are destructive - keep both human-in-the-loop.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "audit completeness, audit stale-passwords, audit expirations, audit summary, search, resolve, reconcile, companies list, assets list-by-company, sync, doctor",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "assets create, assets update, articles create, articles update, companies create, companies update, asset-layouts create, onboard --apply",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / credential",
+      "examples": "assets delete, articles delete, companies delete, asset-passwords delete, asset-passwords get, asset-passwords list, auth set-token, auth logout",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

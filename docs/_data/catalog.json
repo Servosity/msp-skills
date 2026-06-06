@@ -66,6 +66,14 @@
       "url": "/skills/hubspot/"
     },
     {
+      "slug": "hudu",
+      "display_name": "Hudu",
+      "tagline": "Audit Hudu documentation hygiene, find stale passwords and expiring certs, and search every company offline.",
+      "category": "Documentation",
+      "verification": "awaiting",
+      "url": "/skills/hudu/"
+    },
+    {
       "slug": "microsoft-graph",
       "display_name": "Microsoft Graph",
       "tagline": "Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking.",

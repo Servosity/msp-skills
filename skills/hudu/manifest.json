@@ -1,0 +1,46 @@
+{
+  "manifest_version": "0.3",
+  "name": "hudu-mcp",
+  "display_name": "Hudu",
+  "version": "0.1.0",
+  "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/hudu-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/hudu-mcp",
+      "args": [],
+      "env": {
+        "HUDU_API_KEY": "${user_config.hudu_api_key}",
+        "HUDU_BASE_URL": "${user_config.hudu_base_url}"
+      }
+    }
+  },
+  "user_config": {
+    "hudu_api_key": {
+      "type": "string",
+      "title": "HUDU_API_KEY",
+      "description": "Raw Hudu API key sent as the `x-api-key` header (no Bearer prefix). Create it in\nthe Hudu portal: Admin -> API Keys. Keys may be global or company-scoped; company-scoped keys cannot\ncall the global `assets list` endpoint (use `assets list-by-company`).",
+      "sensitive": true,
+      "required": true
+    },
+    "hudu_base_url": {
+      "type": "string",
+      "title": "HUDU_BASE_URL",
+      "description": "Your Hudu instance's API base URL, including the /api/v1 path, e.g.\nhttps://your-subdomain.huducloud.com/api/v1 (self-hosted, *.huducloud.com, or a custom domain).",
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

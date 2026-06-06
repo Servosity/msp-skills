@@ -337,6 +337,40 @@ A: It works against any portal that issues a Private App access token with the r
 
 Governance: The skill drives the hubspot-cli and hubspot-mcp binaries, authenticating only with HUBSPOT_ACCESS_TOKEN read from the environment - never written to disk, logged, or sent anywhere except the HubSpot API. Read commands (reports, rollups, search) are always safe and can change nothing. Writes are not gated by default: --dry-run is an opt-in flag (default off) that previews a request without sending, so raw create/update/delete commands send immediately on first run unless your agent passes --dry-run first. The one built-in mutation gate is on contacts bulk-update, and it only fires above 100 rows (smaller batches dispatch immediately with a one-line bypass warning). The recommended policy is an agent-level rule: require the agent to show the exact command and get human approval before any mutation, and require a human for any destructive or credential-touching command. The strongest control is the scope you grant the Private App token.
 
+### Hudu (Documentation)
+
+Page: https://msp-skills.compoundingteams.com/skills/hudu/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hudu/install.sh)
+
+Ask in plain English which clients have the worst documentation, which vault passwords are overdue for rotation, and what SSL certs, domains, or warranties expire next - across every company at once. Hudu plus your AI agent reads a local mirror of your whole instance, so the hygiene questions the portal makes you click through company by company become one instant, reproducible answer.
+
+Outcomes (question -> command your AI agent runs):
+- Which clients have the worst documentation completeness? -> hudu-cli audit completeness --agent
+- What's expiring in the next 30 days across every client? -> hudu-cli audit expirations --within 30d --agent
+- Which vault passwords are overdue for rotation? -> hudu-cli audit stale-passwords --older-than 180d --agent
+- Which knowledge-base articles are stale and probably out of date? -> hudu-cli audit stale-articles --older-than 365d --agent
+- Which assets have drifted from their layout's current schema? -> hudu-cli audit layout-drift --agent
+- Give me one worst-first hygiene scorecard across every company. -> hudu-cli audit summary --agent
+- Find everything matching a keyword across all synced docs. -> hudu-cli search "vpn gateway" --agent
+- Resolve this Hudu link to its asset, company, and relations. -> hudu-cli resolve "https://docs.example.huducloud.com/a/dc01-abc123" --agent
+- Which PSA/RMM records don't map to a live Hudu asset? -> hudu-cli reconcile --agent
+- Scaffold a new client's docs from our house template. -> hudu-cli onboard --company 42 --template msp-standard
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Hudu MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Hudu data safe?
+A: Your data stays on your machine - the CLI, MCP server, and the local mirror are all local. The password audit never reads or stores secret values; it uses only each entry's name, username, and last-updated date. Credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will a company-scoped Hudu API key work?
+A: Mostly. Audits and search run over whatever you've synced, so they work with any key. The one limit: Hudu's global asset-list endpoint requires a global (not company-scoped) key - with a scoped key, use 'assets list-by-company <company_id>' instead. The 'onboard --apply' write path also needs a global key.
+
+Governance: The skill reads everything over a local mirror - audits, search, resolve, and reconcile are always safe to run and cannot change anything. Writes (creating or updating assets, articles, companies, and asset layouts, plus 'onboard --apply') send to your live Hudu instance, so the recommended agent policy is preview-then-approve. Reading or changing password-vault entries and managing the API credential are credential-tier; deletes and archives are destructive - keep both human-in-the-loop.
+
 ### Microsoft Graph (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/microsoft-graph/

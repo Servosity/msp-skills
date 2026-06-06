@@ -175,6 +175,25 @@
       "tagline": "Pipeline health, stale deals, and owner workload for every client by asking."
     },
     {
+      "name": "hudu",
+      "system": "IT documentation and knowledge-base platform for MSPs",
+      "status": "beta",
+      "skill_path": "skills/hudu",
+      "cli_binary": "hudu-cli",
+      "mcp_binary": "hudu-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Hudu",
+      "vendor_trademark_owner": "Hudu Technologies, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hudu/install.sh)",
+      "install_mcp_doc": "skills/hudu/mcp-install.md",
+      "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
+      "verification": "awaiting",
+      "category": "Documentation",
+      "tagline": "Audit Hudu documentation hygiene, find stale passwords and expiring certs, and search every company offline."
+    },
+    {
       "name": "microsoft-graph",
       "system": "Microsoft 365 / Entra tenant administration via Microsoft Graph",
       "status": "beta",
