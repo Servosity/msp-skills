@@ -189,6 +189,46 @@ A: Yes - pull, export, snapshot, describe, and registry add all accept --type wi
 
 Governance: The skill drives the mspbots-cli and mspbots-mcp binaries, authenticating with an API key read from MSPBOTS_API_KEY or saved locally via auth set-token - never logged and never sent anywhere except the MSPbots API. The Public API is read-only, so no command can change anything in your MSPbots tenant; the only writes are local (alias registry, snapshot store, sync cache in your own SQLite file). The permission boundary is which datasets and widgets an admin binds to the key.
 
+### N-able N-central (RMM)
+
+Page: https://msp-skills.compoundingteams.com/skills/n-central/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/n-central/install.sh)
+
+N-central knows every device you manage - and answering "where is that machine" still means walking the console's org tree. Ask your AI "what's red right now", "where is EXCHANGE01", or "which devices have no maintenance window before Saturday's patch wave" and get rollups the console can't compose: cross-tenant search from an offline mirror, severity-ranked triage, coverage audits, and a guardian that catches the JWT before it silently dies.
+
+Outcomes (question -> command your AI agent runs):
+- What's red right now, grouped by customer and ranked by severity? -> n-central-cli triage --by customer
+- Where is EXCHANGE01 - server, service org, customer, site? -> n-central-cli whereis EXCHANGE01
+- Find anything named acme across every server we run -> n-central-cli fanout "acme"
+- Which devices are missing the Backup Plan custom property, by customer? -> n-central-cli props audit --required "Backup Plan"
+- Which devices have no maintenance window before the June 15 patch wave? -> n-central-cli maint coverage --before 2026-06-15
+- Is the JWT healthy, and when does the API user's password kill it? -> n-central-cli guardian --password-set 2026-03-01
+- Hardware and software inventory for one device -> n-central-cli devices assets 987654321
+- Every device, exported for the QBR or your documentation tool -> n-central-cli export "devices" --format jsonl
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local N-central MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my N-central data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: What credentials do I need?
+A: A JSON Web Token for an API-only user: in N-central, go to Administration > User Management > Users > select the API user > API Access > Generate JSON Web Token. MFA must be off on that user, and the user's password expiry (90 days by default) silently invalidates the JWT - guardian tracks that countdown. Set NCENTRAL_JWT and N_CENTRAL_BASE_URL (e.g. https://yourmsp.ncod.n-able.com/api).
+Q: Can this make changes in N-central?
+A: Almost everything is read-only. Two commands can change things: scheduled-tasks run executes an API-enabled Automation Policy or Script on a device, and import POSTs records from a JSONL file. --dry-run is an opt-in preview, not a default - the recommended agent policy is preview first, a human approves, then run. Keep scheduled-tasks run human-in-the-loop.
+Q: We run more than one N-central server - does this handle that?
+A: Yes. Each server syncs to its own local mirror, and fanout unions them: one query returns matches across every server's mirror, each row tagged with the server it came from.
+Q: Will this hit N-central API rate limits?
+A: N-able documents per-endpoint concurrency caps - 429 responses beyond roughly 3 to 50 concurrent calls depending on the endpoint. The CLI ships a --rate-limit throttle, and the heaviest questions (whereis, fanout, search) run against the local mirror with zero API calls.
+Q: Does this work with N-able N-sight?
+A: No. This skill targets the N-central REST API specifically. N-sight is a separate N-able product with a separate API.
+
+Governance: The skill drives the n-central-cli and n-central-mcp binaries, authenticating with an API-only user's JWT (NCENTRAL_JWT) exchanged for short-lived access tokens - never logged and never sent anywhere except your N-central server. Nearly all commands are read-only; the exceptions are scheduled-tasks run (executes an API-enabled script or automation policy on a live device) and import (POSTs records), both previewable with the opt-in --dry-run flag. Registration tokens enroll new devices - treat them like credentials. The API user's role in N-central is the real permission boundary.
+
 ### Servosity (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/servosity/

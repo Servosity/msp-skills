@@ -115,6 +115,29 @@
         "evidence": null
       }
     },
+    "n-central": {
+      "system": "N-able N-central RMM: devices, org tree, issue triage, cross-tenant search",
+      "status": "beta",
+      "cli_binary": "n-central-cli",
+      "mcp_binary": "n-central-mcp",
+      "vendor": "N-able N-central",
+      "vendor_trademark_owner": "N-able, Inc.",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "N-able N-central",
+      "tagline": "Find any device, triage issues, and search across every client by asking.",
+      "cli_hash": "sha256:201711890131225f157b48bbe856281d97a695cd8384b8578dfe8020aa4c73f3",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "servosity": {
       "system": "Servosity backup and DR",
       "status": "beta",

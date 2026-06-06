@@ -99,6 +99,25 @@
       "tagline": "Pull datasets, snapshot KPIs, and track ticket backlog trends by asking."
     },
     {
+      "name": "n-central",
+      "system": "N-able N-central RMM: devices, org tree, issue triage, cross-tenant search",
+      "status": "beta",
+      "skill_path": "skills/n-central",
+      "cli_binary": "n-central-cli",
+      "mcp_binary": "n-central-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "N-able N-central",
+      "vendor_trademark_owner": "N-able, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/n-central/install.sh)",
+      "install_mcp_doc": "skills/n-central/mcp-install.md",
+      "description": "Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, issue-triage rollups, and a JWT-expiry guardian no other N-central tool has.",
+      "verification": "awaiting",
+      "category": "RMM",
+      "tagline": "Find any device, triage issues, and search across every client by asking."
+    },
+    {
       "name": "servosity",
       "system": "Servosity backup and DR",
       "status": "beta",

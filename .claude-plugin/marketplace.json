@@ -9,24 +9,6 @@
   },
   "plugins": [
     {
-      "name": "msp-skills-concierge",
-      "source": "./skills/_meta",
-      "description": "Tell it your MSP stack and it recommends the msp-skills connectors that fit, then installs only the ones you approve. Reads the live catalog, states an honest verification badge per connector, and reports install receipts. Markdown-only, no binary.",
-      "version": "0.1.0",
-      "category": "meta",
-      "tags": [
-        "msp-skills",
-        "concierge",
-        "connector-recommendations",
-        "guided-install",
-        "msp",
-        "catalog",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
       "name": "connectwise-manage",
       "source": "./skills/connectwise-manage",
       "description": "Every ConnectWise PSA workflow from the terminal  -  with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.",
@@ -73,15 +55,18 @@
       ]
     },
     {
-      "name": "servosity",
-      "source": "./skills/servosity",
-      "description": "Add fleet-wide backup triage, stale-backup detection, and cross-engine analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local fleet mirror with snapshot history so the partner portal's per-page views become one query.",
-      "version": "0.1.1",
-      "category": "backup-dr",
+      "name": "msp-skills-concierge",
+      "source": "./skills/_meta",
+      "description": "Tell it your MSP stack and it recommends the msp-skills connectors that fit, then installs only the ones you approve. Reads the live catalog, states an honest verification badge per connector, and reports install receipts. Markdown-only, no binary.",
+      "version": "0.1.0",
+      "category": "meta",
       "tags": [
-        "servosity",
-        "backup-dr",
+        "msp-skills",
+        "concierge",
+        "connector-recommendations",
+        "guided-install",
         "msp",
+        "catalog",
         "mcp",
         "claude-code",
         "claude-mcp"
@@ -96,6 +81,37 @@
       "tags": [
         "mspbots",
         "analytics",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "n-central",
+      "source": "./skills/n-central",
+      "description": "Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, issue-triage rollups, and a JWT-expiry guardian no other N-central tool has.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "n-central",
+        "n-able n-central",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "servosity",
+      "source": "./skills/servosity",
+      "description": "Add fleet-wide backup triage, stale-backup detection, and cross-engine analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local fleet mirror with snapshot history so the partner portal's per-page views become one query.",
+      "version": "0.1.1",
+      "category": "backup-dr",
+      "tags": [
+        "servosity",
+        "backup-dr",
         "msp",
         "mcp",
         "claude-code",

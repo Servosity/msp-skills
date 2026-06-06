@@ -1,5 +1,5 @@
 {
-  "count": 5,
+  "count": 6,
   "connectors": [
     {
       "slug": "connectwise-manage",
@@ -32,6 +32,14 @@
       "category": "Analytics",
       "verification": "awaiting",
       "url": "/skills/mspbots/"
+    },
+    {
+      "slug": "n-central",
+      "display_name": "N-able N-central",
+      "tagline": "Find any device, triage issues, and search across every client by asking.",
+      "category": "RMM",
+      "verification": "awaiting",
+      "url": "/skills/n-central/"
     },
     {
       "slug": "servosity",
