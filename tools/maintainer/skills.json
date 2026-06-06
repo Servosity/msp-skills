@@ -73,6 +73,29 @@
         "evidence": null
       }
     },
+    "datto-rmm": {
+      "system": "Datto RMM: devices, alerts, patch and AV gaps, warranty, agent drift, and fleet QBR scorecards from a local mirror",
+      "status": "beta",
+      "cli_binary": "datto-rmm-cli",
+      "mcp_binary": "datto-rmm-mcp",
+      "vendor": "Datto RMM",
+      "vendor_trademark_owner": "Datto, Inc.",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "Datto RMM",
+      "tagline": "Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask.",
+      "cli_hash": "sha256:a013e2d6c3503f228fba1379e54e8d1c46a2f58c92e83852bd90e8872221b4da",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "halopsa": {
       "system": "HaloPSA, HaloITSM, HaloCRM",
       "status": "beta",

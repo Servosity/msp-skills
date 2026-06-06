@@ -1,0 +1,21 @@
+{
+  "name": "datto-rmm",
+  "version": "0.1.0",
+  "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/datto-rmm",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "datto-rmm",
+    "datto rmm",
+    "rmm",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

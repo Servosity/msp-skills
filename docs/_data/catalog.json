@@ -1,5 +1,5 @@
 {
-  "count": 14,
+  "count": 15,
   "connectors": [
     {
       "slug": "autotask",
@@ -24,6 +24,14 @@
       "category": "PSA",
       "verification": "awaiting",
       "url": "/skills/connectwise-manage/"
+    },
+    {
+      "slug": "datto-rmm",
+      "display_name": "Datto RMM",
+      "tagline": "Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask.",
+      "category": "RMM",
+      "verification": "awaiting",
+      "url": "/skills/datto-rmm/"
     },
     {
       "slug": "halopsa",
