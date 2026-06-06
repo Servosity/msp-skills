@@ -64,6 +64,14 @@
       "category": "PSA",
       "verification": "awaiting",
       "url": "/skills/superops/"
+    },
+    {
+      "slug": "threatlocker",
+      "display_name": "ThreatLocker",
+      "tagline": "Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking.",
+      "category": "Security",
+      "verification": "awaiting",
+      "url": "/skills/threatlocker/"
     }
   ],
   "featured": [

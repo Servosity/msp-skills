@@ -75,7 +75,7 @@
     {
       "name": "mspbots",
       "source": "./skills/mspbots",
-      "description": "The first MSPbots tool anywhere \u2014 readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
+      "description": "The first MSPbots tool anywhere — readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
       "version": "0.1.0",
       "category": "analytics",
       "tags": [
@@ -106,7 +106,7 @@
     {
       "name": "servosity",
       "source": "./skills/servosity",
-      "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
+      "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't — across your whole book of clients.",
       "version": "0.2.0",
       "category": "backup-dr",
       "tags": [
@@ -142,6 +142,21 @@
       "tags": [
         "pax8",
         "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "threatlocker",
+      "source": "./skills/threatlocker",
+      "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
+      "version": "4.22.0",
+      "category": "security",
+      "tags": [
+        "threatlocker",
+        "security",
         "msp",
         "mcp",
         "claude-code",

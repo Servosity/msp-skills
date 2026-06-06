@@ -208,6 +208,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "threatlocker": {
+      "system": "ThreatLocker Portal: approvals, audit log, device health, and policy across customer tenants",
+      "status": "beta",
+      "cli_binary": "threatlocker-cli",
+      "mcp_binary": "threatlocker-mcp",
+      "vendor": "ThreatLocker",
+      "vendor_trademark_owner": "ThreatLocker, Inc.",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "ThreatLocker",
+      "tagline": "Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking.",
+      "cli_hash": "sha256:dc7d5e1d3826df0cdd561990769bcdc05827adf7d71cdcd38ae14d62f57f1147",
+      "template_version": 3,
+      "version": "4.22.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }
