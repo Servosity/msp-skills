@@ -5,12 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"halopsa-pp-cli/internal/store"
 )
 
+// pp:data-source local
 func newSQLCmd(flags *rootFlags) *cobra.Command {
 	var (
 		dbPath  string
@@ -41,15 +43,12 @@ are rejected. Run 'halopsa-cli sync' first to populate the store.`,
 			if dryRunOK(flags) {
 				return nil
 			}
-			// SELECT-only gate.
-			lower := strings.ToLower(query)
-			for _, banned := range []string{"insert ", "update ", "delete ", "drop ", "create ", "alter ", "attach ", "replace ", "reindex "} {
-				if strings.Contains(lower, banned) {
-					return fmt.Errorf("only SELECT statements are allowed (found %q)", strings.TrimSpace(banned))
-				}
-			}
-			if !strings.HasPrefix(lower, "select") && !strings.HasPrefix(lower, "with") && !strings.HasPrefix(lower, "explain") {
-				return fmt.Errorf("query must start with SELECT, WITH, or EXPLAIN")
+			// SELECT-only gate. Word-boundary matching (a tab or newline
+			// after DELETE must not slip past), no multi-statement input
+			// (the driver executes every ;-separated statement), and no
+			// PRAGMA/VACUUM side channels.
+			if err := validateSelectOnly(query); err != nil {
+				return err
 			}
 			if dbPath == "" {
 				dbPath = defaultDBPath("halopsa-cli")
@@ -139,4 +138,24 @@ func normalizeSQLValue(v any) any {
 		return nil
 	}
 	return v
+}
+
+var sqlBannedKeywordRE = regexp.MustCompile(`(?i)\b(insert|update|delete|drop|create|alter|attach|detach|replace|reindex|pragma|vacuum)\b`)
+
+// validateSelectOnly enforces the read-only contract: one statement, starting
+// with SELECT/WITH/EXPLAIN, containing no mutating or side-channel keywords
+// on any word boundary. The local store is the user's synced data; `sql` must
+// never be able to corrupt it.
+func validateSelectOnly(query string) error {
+	lower := strings.ToLower(strings.TrimSpace(query))
+	if i := strings.IndexByte(strings.TrimRight(lower, "; \t\n"), ';'); i >= 0 {
+		return fmt.Errorf("multi-statement queries are not allowed (found ';' mid-query)")
+	}
+	if m := sqlBannedKeywordRE.FindString(query); m != "" {
+		return fmt.Errorf("only SELECT statements are allowed (found %q)", strings.ToUpper(m))
+	}
+	if !strings.HasPrefix(lower, "select") && !strings.HasPrefix(lower, "with") && !strings.HasPrefix(lower, "explain") {
+		return fmt.Errorf("query must start with SELECT, WITH, or EXPLAIN")
+	}
+	return nil
 }

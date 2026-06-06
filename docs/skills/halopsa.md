@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "HaloPSA MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "Add HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local SQLite mirror so cross-entity queries the live API can't return are fast and offline."
+description: "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return."
 permalink: /skills/halopsa/
 skill_name: "HaloPSA MCP"
 image: /assets/social/halopsa/wide-1200x630.png

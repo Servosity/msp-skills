@@ -11,7 +11,8 @@ import (
 	"halopsa-pp-cli/internal/store"
 )
 
-func newAssetHistoryCmd(flags *rootFlags) *cobra.Command {
+// pp:data-source local
+func newNovelAssetHistoryCmd(flags *rootFlags) *cobra.Command {
 	var (
 		dbPath string
 		limit  int

@@ -1,6 +1,6 @@
 ---
 name: halopsa
-description: "Use when the user asks to triage their HaloPSA queue, audit SLA breaches, build a per-client situational-awareness card, reconcile contract hours, check agent workload, or run any cross-client analytic question against HaloPSA, HaloITSM, or HaloCRM. Wraps the full HaloPSA REST API plus a local SQLite mirror so cross-entity queries the live API can't return in one shot are fast and offline. Trigger phrases: `triage my Halo queue`, `check SLA breaches in HaloPSA`, `who's overloaded in Halo`, `client card for Acme`, `Halo contract burn-down`, `what changed in Halo since this morning`, `HaloPSA + ChatGPT`, `HaloPSA + Claude`, `use halopsa`, `run halopsa`."
+description: "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return. Trigger phrases: `triage my Halo queue`, `check SLA breaches in HaloPSA`, `who is overloaded in Halo`, `client card for Acme in Halo`, `Halo contract burn-down`, `what changed in Halo since this morning`, `find time gaps in my Halo timesheet`, `use halopsa`, `run halopsa`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "HaloPSA"
@@ -11,39 +11,38 @@ metadata:
     requires:
       bins:
         - halopsa-cli
+    install:
+      - kind: go
+        bins: [halopsa-cli]
+        module: github.com/mvanhorn/printing-press-library/library/project-management/halopsa/cmd/halopsa-cli
 ---
 
-# HaloPSA Claude Code Skill
+# HaloPSA  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `halopsa-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)
+   npx -y @mvanhorn/printing-press-library install halopsa --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.ps1 | iex
-   ```
-3. Verify: `halopsa-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `halopsa-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/project-management/halopsa/cmd/halopsa-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Wraps the full Halo REST API (952 endpoints across tickets, clients, assets, contracts, time, KB, and workflows) with offline-first search, agent-native JSON output, and cross-entity commands like `triage`, `client card`, and `contracts burn` that join tables Halo's UI scatters across five tabs.
 
 ## When to Use This CLI
 
 Reach for halopsa-cli when an agent needs to triage, dispatch, or report against a HaloPSA / HaloITSM / HaloCRM tenant without clicking through the web UI. It is the right tool for cross-entity questions ("who's overloaded", "which tickets are about to breach", "which client is burning their contract"), bulk operations (stale-ticket close, batch action posts, batch time entries), and ETLs that previously required hand-rolled scripts. It is NOT the right tool for end-user portal browsing or for tenants you don't have API credentials to.
-
-## Don't reach for this CLI when
-
-- End-user portal browsing (raising a ticket as an end-user, browsing your own tickets). Use Halo's web portal.
-- The tenant has no API application configured, or no `HALOPSA_CLIENT_ID` / `HALOPSA_CLIENT_SECRET` available to the agent.
-- The task is on a non-Halo PSA (Autotask, ConnectWise, etc.)  -  this CLI is Halo-specific even though several integration modules surface foreign-system data.
-- Third-party integration sub-commands (e.g. `addigy`, `aws`, `connectwise-rmm`) when the corresponding Halo integration module isn't enabled on the tenant  -  the commands will return empty / 404 because the integration isn't wired upstream.
 
 ## Unique Capabilities
 
@@ -146,6 +145,40 @@ These capabilities aren't available in any other tool for this API.
   halopsa-cli client overlay --metric open_tickets --top 10 --json
   ```
 
+### Local state that compounds
+- **`time leaks`**  -  Billable time entries not yet attached to any invoice, summed by client and agent  -  the revenue sitting un-invoiced.
+
+  _Reach for this in Monday billing prep to catch revenue leaks before invoices go out._
+
+  ```bash
+  halopsa-cli time leaks --month current --json
+  ```
+
+### Reporting that writes itself
+- **`sla scorecard`**  -  Historical SLA pass-rate for closed tickets  -  % met resolution targets, by team or agent.
+
+  _Reach for this for the weekly leadership report instead of a brittle export pipeline._
+
+  ```bash
+  halopsa-cli sla scorecard --since 30d --by team
+  ```
+
+### Cross-entity intelligence
+- **`assets expiring`**  -  Assets whose linked contract ends in the next N days, joined to the owning client and sorted by days-to-expiry.
+
+  _Reach for this in renewal prep and proactive replacement planning._
+
+  ```bash
+  halopsa-cli assets expiring --within 60
+  ```
+- **`tickets reopens`**  -  Tickets that bounced from closed back to open in the window, grouped by agent and client with reopen counts.
+
+  _Reach for this in quality audits to find boomerang patterns by agent or client._
+
+  ```bash
+  halopsa-cli tickets reopens --since 30d
+  ```
+
 ## Command Reference
 
 **actions**  -  Manage actions
@@ -154,8 +187,8 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli actions create-reaction`  -  Create reaction
 - `halopsa-cli actions create-review`  -  Create review
 - `halopsa-cli actions delete`  -  Delete
-- `halopsa-cli actions get`  -  Use this to return a single instance of Actions.<br> 				Requires authentication.
-- `halopsa-cli actions list`  -  Use this to return multiple Actions.<br> 				Requires authentication.
+- `halopsa-cli actions get`  -  Use this to return a single instance of Actions. 				Requires authentication.
+- `halopsa-cli actions list`  -  Use this to return multiple Actions. 				Requires authentication.
 
 **addigy**  -  Manage addigy
 
@@ -173,8 +206,8 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli address create`  -  Create
 - `halopsa-cli address delete`  -  Delete
-- `halopsa-cli address get`  -  Use this to return a single instance of AddressStore.<br> 				Requires authentication.
-- `halopsa-cli address list`  -  Use this to return multiple AddressStore.<br> 				Requires authentication.
+- `halopsa-cli address get`  -  Use this to return a single instance of AddressStore. 				Requires authentication.
+- `halopsa-cli address list`  -  Use this to return multiple AddressStore. 				Requires authentication.
 
 **addressbook**  -  Manage addressbook
 
@@ -207,15 +240,15 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli agent create`  -  Create
 - `halopsa-cli agent create-clearcache`  -  Create clearcache
 - `halopsa-cli agent delete`  -  Delete
-- `halopsa-cli agent get`  -  Use this to return a single instance of Uname.<br> 				Requires authentication.
-- `halopsa-cli agent list`  -  Use this to return multiple Uname.<br> 				Requires authentication.
+- `halopsa-cli agent get`  -  Use this to return a single instance of Uname. 				Requires authentication.
+- `halopsa-cli agent list`  -  Use this to return multiple Uname. 				Requires authentication.
 - `halopsa-cli agent list-me`  -  List me
 
 **agent-check-in**  -  Manage agent check in
 
 - `halopsa-cli agent-check-in create`  -  Create
-- `halopsa-cli agent-check-in get`  -  Use this to return a single instance of AgentCheckIn.<br> 				Requires authentication.
-- `halopsa-cli agent-check-in list`  -  Use this to return multiple AgentCheckIn.<br> 				Requires authentication.
+- `halopsa-cli agent-check-in get`  -  Use this to return a single instance of AgentCheckIn. 				Requires authentication.
+- `halopsa-cli agent-check-in list`  -  Use this to return multiple AgentCheckIn. 				Requires authentication.
 
 **agent-event-subscription**  -  Manage agent event subscription
 
@@ -226,7 +259,7 @@ These capabilities aren't available in any other tool for this API.
 
 **agent-image**  -  Manage agent image
 
-- `halopsa-cli agent-image <id>`  -  Use this to return a single instance of Uname.<br> 				Requires authentication.
+- `halopsa-cli agent-image <id>`  -  Use this to return a single instance of Uname. 				Requires authentication.
 
 **agent-presence-rule**  -  Manage agent presence rule
 
@@ -262,7 +295,7 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli application create`  -  Create
 - `halopsa-cli application create-federatedcredentials`  -  Create federatedcredentials
 - `halopsa-cli application delete`  -  Delete
-- `halopsa-cli application get`  -  Use this to return a single instance of NHD_Identity_Application.<br> 				Requires authentication.
+- `halopsa-cli application get`  -  Use this to return a single instance of NHD_Identity_Application. 				Requires authentication.
 - `halopsa-cli application list`  -  List
 
 **appointment**  -  Manage appointment
@@ -270,32 +303,32 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli appointment create`  -  Create
 - `halopsa-cli appointment create-booking`  -  Create booking
 - `halopsa-cli appointment create-generate`  -  Create generate
-- `halopsa-cli appointment delete`  -  Delete specific Appointment.<br> 				Requires authentication.
-- `halopsa-cli appointment get`  -  Use this to return a single instance of Appointment.<br> 				Requires authentication.
-- `halopsa-cli appointment list`  -  Use this to return multiple Appointment.<br> 				Requires authentication.
+- `halopsa-cli appointment delete`  -  Delete specific Appointment. 				Requires authentication.
+- `halopsa-cli appointment get`  -  Use this to return a single instance of Appointment. 				Requires authentication.
+- `halopsa-cli appointment list`  -  Use this to return multiple Appointment. 				Requires authentication.
 - `halopsa-cli appointment list-booking`  -  List booking
 
 **approval-process**  -  Manage approval process
 
 - `halopsa-cli approval-process create`  -  Create
 - `halopsa-cli approval-process delete`  -  Delete
-- `halopsa-cli approval-process get`  -  Use this to return a single instance of ApprovalProcess.<br> 				Requires authentication.
-- `halopsa-cli approval-process list`  -  Use this to return multiple ApprovalProcess.<br> 				Requires authentication.
+- `halopsa-cli approval-process get`  -  Use this to return a single instance of ApprovalProcess. 				Requires authentication.
+- `halopsa-cli approval-process list`  -  Use this to return multiple ApprovalProcess. 				Requires authentication.
 
 **approval-process-rule**  -  Manage approval process rule
 
 - `halopsa-cli approval-process-rule create`  -  Create
 - `halopsa-cli approval-process-rule delete`  -  Delete
-- `halopsa-cli approval-process-rule get`  -  Use this to return a single instance of ApprovalProcessRule.<br> 				Requires authentication.
-- `halopsa-cli approval-process-rule list`  -  Use this to return multiple ApprovalProcessRule.<br> 				Requires authentication.
+- `halopsa-cli approval-process-rule get`  -  Use this to return a single instance of ApprovalProcessRule. 				Requires authentication.
+- `halopsa-cli approval-process-rule list`  -  Use this to return multiple ApprovalProcessRule. 				Requires authentication.
 
 **area-azure-tenant**  -  Manage area azure tenant
 
-- `halopsa-cli area-azure-tenant`  -  Use this to return multiple AreaAzureTenant.<br> 				Requires authentication.
+- `halopsa-cli area-azure-tenant`  -  Use this to return multiple AreaAzureTenant. 				Requires authentication.
 
 **area-request-type**  -  Manage area request type
 
-- `halopsa-cli area-request-type get`  -  Use this to return a single instance of AreaRequestType.<br> 				Requires authentication.
+- `halopsa-cli area-request-type get`  -  Use this to return a single instance of AreaRequestType. 				Requires authentication.
 - `halopsa-cli area-request-type list`  -  List
 
 **armis**  -  Manage armis
@@ -320,41 +353,41 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli asset create`  -  Create
 - `halopsa-cli asset delete`  -  Delete
-- `halopsa-cli asset get`  -  Use this to return a single instance of Device.<br> 				Requires authentication.
-- `halopsa-cli asset list`  -  Use this to return multiple Device.<br> 				Requires authentication.
+- `halopsa-cli asset get`  -  Use this to return a single instance of Device. 				Requires authentication.
+- `halopsa-cli asset list`  -  Use this to return multiple Device. 				Requires authentication.
 - `halopsa-cli asset list-getallsoftwareversions`  -  List getallsoftwareversions
 - `halopsa-cli asset list-nexttag`  -  List nexttag
 
 **asset-change**  -  Manage asset change
 
 - `halopsa-cli asset-change create`  -  Create
-- `halopsa-cli asset-change list`  -  Use this to return multiple DeviceChange.<br> 				Requires authentication.
+- `halopsa-cli asset-change list`  -  Use this to return multiple DeviceChange. 				Requires authentication.
 
 **asset-group**  -  Manage asset group
 
 - `halopsa-cli asset-group create`  -  Create
 - `halopsa-cli asset-group delete`  -  Delete
-- `halopsa-cli asset-group get`  -  Use this to return a single instance of Generic.<br> 				Requires authentication.
-- `halopsa-cli asset-group list`  -  Use this to return multiple Generic.<br> 				Requires authentication.
+- `halopsa-cli asset-group get`  -  Use this to return a single instance of Generic. 				Requires authentication.
+- `halopsa-cli asset-group list`  -  Use this to return multiple Generic. 				Requires authentication.
 
 **asset-software**  -  Manage asset software
 
-- `halopsa-cli asset-software`  -  Use this to return multiple DeviceApplications.<br> 				Requires authentication.
+- `halopsa-cli asset-software`  -  Use this to return multiple DeviceApplications. 				Requires authentication.
 
 **asset-type**  -  Manage asset type
 
 - `halopsa-cli asset-type create`  -  Create
 - `halopsa-cli asset-type delete`  -  Delete
-- `halopsa-cli asset-type get`  -  Use this to return a single instance of Xtype.<br> 				Requires authentication.
-- `halopsa-cli asset-type list`  -  Use this to return multiple Xtype.<br> 				Requires authentication.
+- `halopsa-cli asset-type get`  -  Use this to return a single instance of Xtype. 				Requires authentication.
+- `halopsa-cli asset-type list`  -  Use this to return multiple Xtype. 				Requires authentication.
 
 **asset-type-info**  -  Manage asset type info
 
-- `halopsa-cli asset-type-info`  -  Use this to return multiple Xtype.<br> 				Requires authentication.
+- `halopsa-cli asset-type-info`  -  Use this to return multiple Xtype. 				Requires authentication.
 
 **asset-type-mappings**  -  Manage asset type mappings
 
-- `halopsa-cli asset-type-mappings get`  -  Use this to return a single instance of XTypeMapping.<br> 				Requires authentication.
+- `halopsa-cli asset-type-mappings get`  -  Use this to return a single instance of XTypeMapping. 				Requires authentication.
 - `halopsa-cli asset-type-mappings list`  -  List
 
 **att**  -  Manage att
@@ -371,18 +404,18 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli attachment delete`  -  Delete
 - `halopsa-cli attachment delete-document`  -  Delete document
 - `halopsa-cli attachment delete-image`  -  Delete image
-- `halopsa-cli attachment get`  -  Use this to return a single instance of Attachment.<br> 				Requires authentication.
+- `halopsa-cli attachment get`  -  Use this to return a single instance of Attachment. 				Requires authentication.
 - `halopsa-cli attachment get-document`  -  Get document
 - `halopsa-cli attachment get-image`  -  Get image
 - `halopsa-cli attachment get-nhserver`  -  Get nhserver
-- `halopsa-cli attachment list`  -  Use this to return multiple Attachment.<br> 				Requires authentication.
+- `halopsa-cli attachment list`  -  Use this to return multiple Attachment. 				Requires authentication.
 - `halopsa-cli attachment list-image`  -  List image
 
 **audit**  -  Manage audit
 
 - `halopsa-cli audit create`  -  Create
 - `halopsa-cli audit delete`  -  Delete
-- `halopsa-cli audit get`  -  Use this to return a single instance of Audit.<br> 				Requires authentication.
+- `halopsa-cli audit get`  -  Use this to return a single instance of Audit. 				Requires authentication.
 - `halopsa-cli audit list`  -  List
 
 **auth-info**  -  Manage auth info
@@ -426,7 +459,7 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli azure-dev-ops-details create`  -  Create
 - `halopsa-cli azure-dev-ops-details delete`  -  Delete
-- `halopsa-cli azure-dev-ops-details get`  -  Use this to return a single instance of AzureDevOpsDetails.<br> 				Requires authentication.
+- `halopsa-cli azure-dev-ops-details get`  -  Use this to return a single instance of AzureDevOpsDetails. 				Requires authentication.
 - `halopsa-cli azure-dev-ops-details list`  -  List
 
 **azure-translate**  -  Manage azure translate
@@ -438,12 +471,12 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli azureadconnection create`  -  Create
 - `halopsa-cli azureadconnection delete`  -  Delete
-- `halopsa-cli azureadconnection get`  -  Use this to return a single instance of AzureADConnection.<br> 				Requires authentication.
-- `halopsa-cli azureadconnection list`  -  Use this to return multiple AzureADConnection.<br> 				Requires authentication.
+- `halopsa-cli azureadconnection get`  -  Use this to return a single instance of AzureADConnection. 				Requires authentication.
+- `halopsa-cli azureadconnection list`  -  Use this to return multiple AzureADConnection. 				Requires authentication.
 
 **azureadmapping**  -  Manage azureadmapping
 
-- `halopsa-cli azureadmapping`  -  Use this to return multiple AzureADMapping.<br> 				Requires authentication.
+- `halopsa-cli azureadmapping`  -  Use this to return multiple AzureADMapping. 				Requires authentication.
 
 **background-task**  -  Manage background task
 
@@ -453,12 +486,12 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli billing-template create`  -  Create
 - `halopsa-cli billing-template delete`  -  Delete
-- `halopsa-cli billing-template get`  -  Use this to return a single instance of ContractTemplateHeader.<br> 				Requires authentication.
+- `halopsa-cli billing-template get`  -  Use this to return a single instance of ContractTemplateHeader. 				Requires authentication.
 - `halopsa-cli billing-template list`  -  List
 
 **booking-type**  -  Manage booking type
 
-- `halopsa-cli booking-type`  -  Use this to return multiple BookingType.<br> 				Requires authentication.
+- `halopsa-cli booking-type`  -  Use this to return multiple BookingType. 				Requires authentication.
 
 **bookmark**  -  Manage bookmark
 
@@ -469,27 +502,27 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli budget-type create`  -  Create
 - `halopsa-cli budget-type delete`  -  Delete
-- `halopsa-cli budget-type get`  -  Use this to return a single instance of BudgetType.<br> 				Requires authentication.
-- `halopsa-cli budget-type list`  -  Use this to return multiple BudgetType.<br> 				Requires authentication.
+- `halopsa-cli budget-type get`  -  Use this to return a single instance of BudgetType. 				Requires authentication.
+- `halopsa-cli budget-type list`  -  Use this to return multiple BudgetType. 				Requires authentication.
 
 **bulk-email**  -  Manage bulk email
 
-- `halopsa-cli bulk-email get`  -  Use this to return a single instance of BulkEmail.<br> 				Requires authentication.
+- `halopsa-cli bulk-email get`  -  Use this to return a single instance of BulkEmail. 				Requires authentication.
 - `halopsa-cli bulk-email list`  -  List
 
 **business-central-details**  -  Manage business central details
 
 - `halopsa-cli business-central-details create`  -  Create
 - `halopsa-cli business-central-details delete`  -  Delete
-- `halopsa-cli business-central-details get`  -  Use this to return a single instance of BusinessCentralDetails.<br> 				Requires authentication.
-- `halopsa-cli business-central-details list`  -  Use this to return multiple BusinessCentralDetails.<br> 				Requires authentication.
+- `halopsa-cli business-central-details get`  -  Use this to return a single instance of BusinessCentralDetails. 				Requires authentication.
+- `halopsa-cli business-central-details list`  -  Use this to return multiple BusinessCentralDetails. 				Requires authentication.
 
 **cab**  -  Manage cab
 
 - `halopsa-cli cab create`  -  Create
 - `halopsa-cli cab delete`  -  Delete
-- `halopsa-cli cab get`  -  Use this to return a single instance of CabHeader.<br> 				Requires authentication.
-- `halopsa-cli cab list`  -  Use this to return multiple CabHeader.<br> 				Requires authentication.
+- `halopsa-cli cab get`  -  Use this to return a single instance of CabHeader. 				Requires authentication.
+- `halopsa-cli cab list`  -  Use this to return multiple CabHeader. 				Requires authentication.
 
 **cabmember**  -  Manage cabmember
 
@@ -502,14 +535,14 @@ These capabilities aren't available in any other tool for this API.
 **call-log**  -  Manage call log
 
 - `halopsa-cli call-log create`  -  Create
-- `halopsa-cli call-log get`  -  Use this to return a single instance of CallLog.<br> 				Requires authentication.
-- `halopsa-cli call-log list`  -  Use this to return multiple CallLog.<br> 				Requires authentication.
+- `halopsa-cli call-log get`  -  Use this to return a single instance of CallLog. 				Requires authentication.
+- `halopsa-cli call-log list`  -  Use this to return multiple CallLog. 				Requires authentication.
 
 **call-script**  -  Manage call script
 
 - `halopsa-cli call-script create`  -  Create
 - `halopsa-cli call-script delete`  -  Delete
-- `halopsa-cli call-script get`  -  Use this to return a single instance of ScriptHeader.<br> 				Requires authentication.
+- `halopsa-cli call-script get`  -  Use this to return a single instance of ScriptHeader. 				Requires authentication.
 - `halopsa-cli call-script list`  -  List
 
 **canned-text**  -  Manage canned text
@@ -517,21 +550,21 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli canned-text create`  -  Create
 - `halopsa-cli canned-text create-cannedtext`  -  Create cannedtext
 - `halopsa-cli canned-text delete`  -  Delete
-- `halopsa-cli canned-text get`  -  Use this to return a single instance of CannedText.<br> 				Requires authentication.
-- `halopsa-cli canned-text list`  -  Use this to return multiple CannedText.<br> 				Requires authentication.
+- `halopsa-cli canned-text get`  -  Use this to return a single instance of CannedText. 				Requires authentication.
+- `halopsa-cli canned-text list`  -  Use this to return multiple CannedText. 				Requires authentication.
 
 **category**  -  Manage category
 
 - `halopsa-cli category create`  -  Create
 - `halopsa-cli category delete`  -  Delete
-- `halopsa-cli category get`  -  Use this to return a single instance of CategoryDetail.<br> 				Requires authentication.
-- `halopsa-cli category list`  -  Use this to return multiple CategoryDetail.<br> 				Requires authentication.
+- `halopsa-cli category get`  -  Use this to return a single instance of CategoryDetail. 				Requires authentication.
+- `halopsa-cli category list`  -  Use this to return multiple CategoryDetail. 				Requires authentication.
 
 **certificate**  -  Manage certificate
 
 - `halopsa-cli certificate create`  -  Create
 - `halopsa-cli certificate delete`  -  Delete
-- `halopsa-cli certificate get`  -  Use this to return a single instance of Certificate.<br> 				Requires authentication.
+- `halopsa-cli certificate get`  -  Use this to return a single instance of Certificate. 				Requires authentication.
 - `halopsa-cli certificate list`  -  List
 
 **change-calendar**  -  Manage change calendar
@@ -540,14 +573,14 @@ These capabilities aren't available in any other tool for this API.
 
 **charge-rate**  -  Manage charge rate
 
-- `halopsa-cli charge-rate get`  -  Use this to return a single instance of ChargeRate.<br> 				Requires authentication.
-- `halopsa-cli charge-rate list`  -  Use this to return multiple ChargeRate.<br> 				Requires authentication.
+- `halopsa-cli charge-rate get`  -  Use this to return a single instance of ChargeRate. 				Requires authentication.
+- `halopsa-cli charge-rate list`  -  Use this to return multiple ChargeRate. 				Requires authentication.
 
 **chat**  -  Manage chat
 
 - `halopsa-cli chat create`  -  Create
 - `halopsa-cli chat get`  -  Get
-- `halopsa-cli chat list`  -  Use this to return multiple LiveChatHeader.<br> 				Requires authentication.
+- `halopsa-cli chat list`  -  Use this to return multiple LiveChatHeader. 				Requires authentication.
 
 **chat-flow**  -  Manage chat flow
 
@@ -561,24 +594,14 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli chat-message create`  -  Create
 - `halopsa-cli chat-message create-chatmessage`  -  Create chatmessage
-- `halopsa-cli chat-message list`  -  Use this to return multiple LiveChatMsg.<br> 				Requires authentication.
+- `halopsa-cli chat-message list`  -  Use this to return multiple LiveChatMsg. 				Requires authentication.
 
 **chat-profile**  -  Manage chat profile
 
 - `halopsa-cli chat-profile create`  -  Create
 - `halopsa-cli chat-profile delete`  -  Delete
-- `halopsa-cli chat-profile get`  -  Use this to return a single instance of ChatProfile.<br> 				Requires authentication.
-- `halopsa-cli chat-profile list`  -  Use this to return multiple ChatProfile.<br> 				Requires authentication.
-
-**client**  -  Manage client
-
-- `halopsa-cli client create`  -  Create
-- `halopsa-cli client create-newaccountsid`  -  Create newaccountsid
-- `halopsa-cli client create-paymentmethodupdate`  -  Create paymentmethodupdate
-- `halopsa-cli client delete`  -  Delete
-- `halopsa-cli client get`  -  Use this to return a single instance of Area.<br> 				Requires authentication.
-- `halopsa-cli client list`  -  Use this to return multiple Area.<br> 				Requires authentication.
-- `halopsa-cli client list-me`  -  List me
+- `halopsa-cli chat-profile get`  -  Use this to return a single instance of ChatProfile. 				Requires authentication.
+- `halopsa-cli chat-profile list`  -  Use this to return multiple ChatProfile. 				Requires authentication.
 
 **client-cache**  -  Manage client cache
 
@@ -590,28 +613,38 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli client-contract create-clientcontract`  -  Create clientcontract
 - `halopsa-cli client-contract create-clientcontract-2`  -  Create clientcontract 2
 - `halopsa-cli client-contract delete`  -  Delete
-- `halopsa-cli client-contract get`  -  Use this to return a single instance of ContractHeader.<br> 				Requires authentication.
-- `halopsa-cli client-contract list`  -  Use this to return multiple ContractHeader.<br> 				Requires authentication.
+- `halopsa-cli client-contract get`  -  Use this to return a single instance of ContractHeader. 				Requires authentication.
+- `halopsa-cli client-contract list`  -  Use this to return multiple ContractHeader. 				Requires authentication.
 
 **client-prepay**  -  Manage client prepay
 
 - `halopsa-cli client-prepay create`  -  Create
 - `halopsa-cli client-prepay delete`  -  Delete
-- `halopsa-cli client-prepay get`  -  Use this to return a single instance of PrepayHistory.<br> 				Requires authentication.
-- `halopsa-cli client-prepay list`  -  Use this to return multiple PrepayHistory.<br> 				Requires authentication.
+- `halopsa-cli client-prepay get`  -  Use this to return a single instance of PrepayHistory. 				Requires authentication.
+- `halopsa-cli client-prepay list`  -  Use this to return multiple PrepayHistory. 				Requires authentication.
+
+**clients**  -  Manage clients
+
+- `halopsa-cli clients create`  -  Create
+- `halopsa-cli clients create-client`  -  Create client
+- `halopsa-cli clients create-client-2`  -  Create client 2
+- `halopsa-cli clients delete`  -  Delete
+- `halopsa-cli clients get`  -  Use this to return a single instance of Area. 				Requires authentication.
+- `halopsa-cli clients list`  -  Use this to return multiple Area. 				Requires authentication.
+- `halopsa-cli clients list-client`  -  List client
 
 **config-commit**  -  Manage config commit
 
 - `halopsa-cli config-commit create`  -  Create
 - `halopsa-cli config-commit delete`  -  Delete
-- `halopsa-cli config-commit get`  -  Use this to return a single instance of ConfigCommit.<br> 				Requires authentication.
-- `halopsa-cli config-commit list`  -  Use this to return multiple ConfigCommit.<br> 				Requires authentication.
+- `halopsa-cli config-commit get`  -  Use this to return a single instance of ConfigCommit. 				Requires authentication.
+- `halopsa-cli config-commit list`  -  Use this to return multiple ConfigCommit. 				Requires authentication.
 
 **confirm-closure**  -  Manage confirm closure
 
 - `halopsa-cli confirm-closure create`  -  Create
 - `halopsa-cli confirm-closure delete`  -  Delete
-- `halopsa-cli confirm-closure get`  -  Use this to return a single instance of ConfirmClosure.<br> 				Requires authentication.
+- `halopsa-cli confirm-closure get`  -  Use this to return a single instance of ConfirmClosure. 				Requires authentication.
 - `halopsa-cli confirm-closure list`  -  List
 
 **confluence-details**  -  Manage confluence details
@@ -625,15 +658,15 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli connected-instance create`  -  Create
 - `halopsa-cli connected-instance delete`  -  Delete
-- `halopsa-cli connected-instance get`  -  Use this to return a single instance of ConnectedInstance.<br> 				Requires authentication.
+- `halopsa-cli connected-instance get`  -  Use this to return a single instance of ConnectedInstance. 				Requires authentication.
 - `halopsa-cli connected-instance list`  -  List
 
 **consignment**  -  Manage consignment
 
 - `halopsa-cli consignment create`  -  Create
 - `halopsa-cli consignment delete`  -  Delete
-- `halopsa-cli consignment get`  -  Use this to return a single instance of ConsignmentHeader.<br> 				Requires authentication.
-- `halopsa-cli consignment list`  -  Use this to return multiple ConsignmentHeader.<br> 				Requires authentication.
+- `halopsa-cli consignment get`  -  Use this to return a single instance of ConsignmentHeader. 				Requires authentication.
+- `halopsa-cli consignment list`  -  Use this to return multiple ConsignmentHeader. 				Requires authentication.
 
 **contactgroup**  -  Manage contactgroup
 
@@ -660,21 +693,21 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli contract-schedule create`  -  Create
 - `halopsa-cli contract-schedule delete`  -  Delete
-- `halopsa-cli contract-schedule get`  -  Use this to return a single instance of ContractSchedule.<br> 				Requires authentication.
+- `halopsa-cli contract-schedule get`  -  Use this to return a single instance of ContractSchedule. 				Requires authentication.
 - `halopsa-cli contract-schedule list`  -  List
 
 **contract-schedule-plan**  -  Manage contract schedule plan
 
 - `halopsa-cli contract-schedule-plan create`  -  Create
 - `halopsa-cli contract-schedule-plan delete`  -  Delete
-- `halopsa-cli contract-schedule-plan get`  -  Use this to return a single instance of ContractSchedulePlan.<br> 				Requires authentication.
+- `halopsa-cli contract-schedule-plan get`  -  Use this to return a single instance of ContractSchedulePlan. 				Requires authentication.
 - `halopsa-cli contract-schedule-plan list`  -  List
 
 **cost-centres**  -  Manage cost centres
 
 - `halopsa-cli cost-centres create`  -  Create
 - `halopsa-cli cost-centres delete`  -  Delete
-- `halopsa-cli cost-centres get`  -  Use this to return a single instance of Costcentres.<br> 				Requires authentication.
+- `halopsa-cli cost-centres get`  -  Use this to return a single instance of Costcentres. 				Requires authentication.
 - `halopsa-cli cost-centres list`  -  List
 
 **criteria-group**  -  Manage criteria group
@@ -685,8 +718,8 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli crmnote create`  -  Create
 - `halopsa-cli crmnote delete`  -  Delete
-- `halopsa-cli crmnote get`  -  Use this to return a single instance of AreaNote.<br> 				Requires authentication.
-- `halopsa-cli crmnote list`  -  Use this to return multiple AreaNote.<br> 				Requires authentication.
+- `halopsa-cli crmnote get`  -  Use this to return a single instance of AreaNote. 				Requires authentication.
+- `halopsa-cli crmnote list`  -  Use this to return multiple AreaNote. 				Requires authentication.
 
 **cspconsumption-data**  -  Manage cspconsumption data
 
@@ -712,22 +745,22 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli csvtemplate create`  -  Create
 - `halopsa-cli csvtemplate delete`  -  Delete
-- `halopsa-cli csvtemplate get`  -  Use this to return a single instance of CSVTemplate.<br> 				Requires authentication.
+- `halopsa-cli csvtemplate get`  -  Use this to return a single instance of CSVTemplate. 				Requires authentication.
 - `halopsa-cli csvtemplate list`  -  List
 
 **currency**  -  Manage currency
 
 - `halopsa-cli currency create`  -  Create
 - `halopsa-cli currency delete`  -  Delete
-- `halopsa-cli currency get`  -  Use this to return a single instance of Currency.<br> 				Requires authentication.
+- `halopsa-cli currency get`  -  Use this to return a single instance of Currency. 				Requires authentication.
 - `halopsa-cli currency list`  -  List
 
 **custom-button**  -  Manage custom button
 
 - `halopsa-cli custom-button create`  -  Create
 - `halopsa-cli custom-button delete`  -  Delete
-- `halopsa-cli custom-button get`  -  Use this to return a single instance of CustomButton.<br> 				Requires authentication.
-- `halopsa-cli custom-button list`  -  Use this to return multiple CustomButton.<br> 				Requires authentication.
+- `halopsa-cli custom-button get`  -  Use this to return a single instance of CustomButton. 				Requires authentication.
+- `halopsa-cli custom-button list`  -  Use this to return multiple CustomButton. 				Requires authentication.
 
 **custom-button-audit**  -  Manage custom button audit
 
@@ -737,15 +770,15 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli custom-integration create`  -  Create
 - `halopsa-cli custom-integration delete`  -  Delete
-- `halopsa-cli custom-integration get`  -  Use this to return a single instance of OutboundIntegration.<br> 				Requires authentication.
+- `halopsa-cli custom-integration get`  -  Use this to return a single instance of OutboundIntegration. 				Requires authentication.
 - `halopsa-cli custom-integration list`  -  List
 
 **custom-integration-method**  -  Manage custom integration method
 
 - `halopsa-cli custom-integration-method create`  -  Create
 - `halopsa-cli custom-integration-method delete`  -  Delete
-- `halopsa-cli custom-integration-method get`  -  Use this to return a single instance of OutboundIntegrationMethod.<br> 				Requires authentication.
-- `halopsa-cli custom-integration-method list`  -  Use this to return multiple OutboundIntegrationMethod.<br> 				Requires authentication.
+- `halopsa-cli custom-integration-method get`  -  Use this to return a single instance of OutboundIntegrationMethod. 				Requires authentication.
+- `halopsa-cli custom-integration-method list`  -  Use this to return multiple OutboundIntegrationMethod. 				Requires authentication.
 
 **custom-integration-method-value**  -  Manage custom integration method value
 
@@ -753,7 +786,7 @@ These capabilities aren't available in any other tool for this API.
 
 **custom-integration-repository**  -  Manage custom integration repository
 
-- `halopsa-cli custom-integration-repository get`  -  Use this to return a single instance of OutboundIntegration.<br> 				Requires authentication.
+- `halopsa-cli custom-integration-repository get`  -  Use this to return a single instance of OutboundIntegration. 				Requires authentication.
 - `halopsa-cli custom-integration-repository list`  -  List
 
 **custom-query**  -  Manage custom query
@@ -767,29 +800,29 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli custom-table create`  -  Create
 - `halopsa-cli custom-table delete`  -  Delete
-- `halopsa-cli custom-table get`  -  Use this to return a single instance of CustomTable.<br> 				Requires authentication.
-- `halopsa-cli custom-table list`  -  Use this to return multiple CustomTable.<br> 				Requires authentication.
+- `halopsa-cli custom-table get`  -  Use this to return a single instance of CustomTable. 				Requires authentication.
+- `halopsa-cli custom-table list`  -  Use this to return multiple CustomTable. 				Requires authentication.
 
 **dashboard-links**  -  Manage dashboard links
 
 - `halopsa-cli dashboard-links create`  -  Create
 - `halopsa-cli dashboard-links delete`  -  Delete
-- `halopsa-cli dashboard-links get`  -  Use this to return a single instance of DashboardLinks.<br> 				Requires authentication.
-- `halopsa-cli dashboard-links list`  -  Use this to return multiple DashboardLinks.<br> 				Requires authentication.
+- `halopsa-cli dashboard-links get`  -  Use this to return a single instance of DashboardLinks. 				Requires authentication.
+- `halopsa-cli dashboard-links list`  -  Use this to return multiple DashboardLinks. 				Requires authentication.
 - `halopsa-cli dashboard-links list-dashboardlinks`  -  List dashboardlinks
 
 **dashboard-links-repository**  -  Manage dashboard links repository
 
-- `halopsa-cli dashboard-links-repository get`  -  Use this to return a single instance of DashboardLinks.<br> 				Requires authentication.
-- `halopsa-cli dashboard-links-repository list`  -  Use this to return multiple DashboardLinks.<br> 				Requires authentication.
+- `halopsa-cli dashboard-links-repository get`  -  Use this to return a single instance of DashboardLinks. 				Requires authentication.
+- `halopsa-cli dashboard-links-repository list`  -  Use this to return multiple DashboardLinks. 				Requires authentication.
 
 **database-lookup**  -  Manage database lookup
 
 - `halopsa-cli database-lookup create`  -  Create
 - `halopsa-cli database-lookup create-databaselookup`  -  Create databaselookup
 - `halopsa-cli database-lookup delete`  -  Delete
-- `halopsa-cli database-lookup get`  -  Use this to return a single instance of PartsLookup.<br> 				Requires authentication.
-- `halopsa-cli database-lookup list`  -  Use this to return multiple PartsLookup.<br> 				Requires authentication.
+- `halopsa-cli database-lookup get`  -  Use this to return a single instance of PartsLookup. 				Requires authentication.
+- `halopsa-cli database-lookup list`  -  Use this to return multiple PartsLookup. 				Requires authentication.
 
 **database-lookup-confirmation**  -  Manage database lookup confirmation
 
@@ -800,8 +833,8 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli datto-commerce-details create`  -  Create
 - `halopsa-cli datto-commerce-details delete`  -  Delete
-- `halopsa-cli datto-commerce-details get`  -  Use this to return a single instance of DattoCommerceDetails.<br> 				Requires authentication.
-- `halopsa-cli datto-commerce-details list`  -  Use this to return multiple DattoCommerceDetails.<br> 				Requires authentication.
+- `halopsa-cli datto-commerce-details get`  -  Use this to return a single instance of DattoCommerceDetails. 				Requires authentication.
+- `halopsa-cli datto-commerce-details list`  -  Use this to return multiple DattoCommerceDetails. 				Requires authentication.
 
 **datto-rmm-details**  -  Manage datto rmm details
 
@@ -867,20 +900,20 @@ These capabilities aren't available in any other tool for this API.
 
 **email-address-book**  -  Manage email address book
 
-- `halopsa-cli email-address-book`  -  Use this to return multiple Users.<br> 				Requires authentication.
+- `halopsa-cli email-address-book`  -  Use this to return multiple Users. 				Requires authentication.
 
 **email-rule**  -  Manage email rule
 
 - `halopsa-cli email-rule create`  -  Create
 - `halopsa-cli email-rule delete`  -  Delete
-- `halopsa-cli email-rule get`  -  Use this to return a single instance of EmailRule.<br> 				Requires authentication.
-- `halopsa-cli email-rule list`  -  Use this to return multiple EmailRule.<br> 				Requires authentication.
+- `halopsa-cli email-rule get`  -  Use this to return a single instance of EmailRule. 				Requires authentication.
+- `halopsa-cli email-rule list`  -  Use this to return multiple EmailRule. 				Requires authentication.
 
 **email-store**  -  Manage email store
 
 - `halopsa-cli email-store create`  -  Create
 - `halopsa-cli email-store delete`  -  Delete
-- `halopsa-cli email-store get`  -  Use this to return a single instance of EmailStore.<br> 				Requires authentication.
+- `halopsa-cli email-store get`  -  Use this to return a single instance of EmailStore. 				Requires authentication.
 - `halopsa-cli email-store list`  -  List
 
 **email-template**  -  Manage email template
@@ -888,8 +921,8 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli email-template create`  -  Create
 - `halopsa-cli email-template create-emailtemplate`  -  Create emailtemplate
 - `halopsa-cli email-template delete`  -  Delete
-- `halopsa-cli email-template get`  -  Use this to return a single instance of MessageContent.<br> 				Requires authentication.
-- `halopsa-cli email-template list`  -  Use this to return multiple MessageContent.<br> 				Requires authentication.
+- `halopsa-cli email-template get`  -  Use this to return a single instance of MessageContent. 				Requires authentication.
+- `halopsa-cli email-template list`  -  Use this to return multiple MessageContent. 				Requires authentication.
 
 **email-template-variable**  -  Manage email template variable
 
@@ -927,8 +960,8 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli exact-details create`  -  Create
 - `halopsa-cli exact-details delete`  -  Delete
-- `halopsa-cli exact-details get`  -  Use this to return a single instance of ExactDetails.<br> 				Requires authentication.
-- `halopsa-cli exact-details list`  -  Use this to return multiple ExactDetails.<br> 				Requires authentication.
+- `halopsa-cli exact-details get`  -  Use this to return a single instance of ExactDetails. 				Requires authentication.
+- `halopsa-cli exact-details list`  -  Use this to return multiple ExactDetails. 				Requires authentication.
 
 **example**  -  Manage example
 
@@ -951,22 +984,22 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli external-link create`  -  Create
 - `halopsa-cli external-link create-externallink`  -  Create externallink
 - `halopsa-cli external-link delete`  -  Delete
-- `halopsa-cli external-link get`  -  Use this to return a single instance of ExternalLink.<br> 				Requires authentication.
-- `halopsa-cli external-link list`  -  Use this to return multiple ExternalLink.<br> 				Requires authentication.
+- `halopsa-cli external-link get`  -  Use this to return a single instance of ExternalLink. 				Requires authentication.
+- `halopsa-cli external-link list`  -  Use this to return multiple ExternalLink. 				Requires authentication.
 
 **facebook-details**  -  Manage facebook details
 
 - `halopsa-cli facebook-details create`  -  Create
 - `halopsa-cli facebook-details delete`  -  Delete
-- `halopsa-cli facebook-details get`  -  Use this to return a single instance of FacebookDetails.<br> 				Requires authentication.
-- `halopsa-cli facebook-details list`  -  Use this to return multiple FacebookDetails.<br> 				Requires authentication.
+- `halopsa-cli facebook-details get`  -  Use this to return a single instance of FacebookDetails. 				Requires authentication.
+- `halopsa-cli facebook-details list`  -  Use this to return multiple FacebookDetails. 				Requires authentication.
 
 **faqlists**  -  Manage faqlists
 
 - `halopsa-cli faqlists create`  -  Create
 - `halopsa-cli faqlists delete`  -  Delete
-- `halopsa-cli faqlists get`  -  Use this to return a single instance of FAQListHead.<br> 				Requires authentication.
-- `halopsa-cli faqlists list`  -  Use this to return multiple FAQListHead.<br> 				Requires authentication.
+- `halopsa-cli faqlists get`  -  Use this to return a single instance of FAQListHead. 				Requires authentication.
+- `halopsa-cli faqlists list`  -  Use this to return multiple FAQListHead. 				Requires authentication.
 
 **fault-view-log**  -  Manage fault view log
 
@@ -975,39 +1008,47 @@ These capabilities aren't available in any other tool for this API.
 **faults-forecasting**  -  Manage faults forecasting
 
 - `halopsa-cli faults-forecasting create`  -  Create
-- `halopsa-cli faults-forecasting get`  -  Use this to return a single instance of FaultsForecasting.<br> 				Requires authentication.
+- `halopsa-cli faults-forecasting get`  -  Use this to return a single instance of FaultsForecasting. 				Requires authentication.
 
 **features**  -  Manage features
 
 - `halopsa-cli features create`  -  Create
-- `halopsa-cli features get`  -  Use this to return a single instance of ModuleSetup.<br> 				Requires authentication.
-- `halopsa-cli features list`  -  Use this to return multiple ModuleSetup.<br> 				Requires authentication.
+- `halopsa-cli features get`  -  Use this to return a single instance of ModuleSetup. 				Requires authentication.
+- `halopsa-cli features list`  -  Use this to return multiple ModuleSetup. 				Requires authentication.
 
 **feed**  -  Manage feed
 
-- `halopsa-cli feed`  -  Use this to return multiple Feed.<br> 				Requires authentication.
+- `halopsa-cli feed`  -  Use this to return multiple Feed. 				Requires authentication.
+
+**feedback_items**  -  Manage feedback items
+
+- `halopsa-cli feedback-items create`  -  Create
+- `halopsa-cli feedback-items delete`  -  Delete
+- `halopsa-cli feedback-items get`  -  Use this to return a single instance of Feedback. 				Requires authentication.
+- `halopsa-cli feedback-items list`  -  List
+- `halopsa-cli feedback-items list-feedback`  -  List feedback
 
 **field**  -  Manage field
 
 - `halopsa-cli field create`  -  Create
 - `halopsa-cli field create-addfieldtoall`  -  Create addfieldtoall
-- `halopsa-cli field delete`  -  Delete specific Field.<br> 				Requires authentication.
-- `halopsa-cli field get`  -  Use this to return a single instance of Field.<br> 				Requires authentication.
-- `halopsa-cli field list`  -  Use this to return multiple Field.<br> 				Requires authentication.
+- `halopsa-cli field delete`  -  Delete specific Field. 				Requires authentication.
+- `halopsa-cli field get`  -  Use this to return a single instance of Field. 				Requires authentication.
+- `halopsa-cli field list`  -  Use this to return multiple Field. 				Requires authentication.
 
 **field-group**  -  Manage field group
 
 - `halopsa-cli field-group create`  -  Create
 - `halopsa-cli field-group delete`  -  Delete
-- `halopsa-cli field-group get`  -  Use this to return a single instance of FieldGroup.<br> 				Requires authentication.
-- `halopsa-cli field-group list`  -  Use this to return multiple FieldGroup.<br> 				Requires authentication.
+- `halopsa-cli field-group get`  -  Use this to return a single instance of FieldGroup. 				Requires authentication.
+- `halopsa-cli field-group list`  -  Use this to return multiple FieldGroup. 				Requires authentication.
 
 **field-info**  -  Manage field info
 
 - `halopsa-cli field-info create`  -  Create
 - `halopsa-cli field-info delete`  -  Delete
-- `halopsa-cli field-info get`  -  Use this to return a single instance of FieldInfo.<br> 				Requires authentication.
-- `halopsa-cli field-info list`  -  Use this to return multiple FieldInfo.<br> 				Requires authentication.
+- `halopsa-cli field-info get`  -  Use this to return a single instance of FieldInfo. 				Requires authentication.
+- `halopsa-cli field-info list`  -  Use this to return multiple FieldInfo. 				Requires authentication.
 
 **forecast-details**  -  Manage forecast details
 
@@ -1027,7 +1068,7 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli formattedemail create`  -  Create
 - `halopsa-cli formattedemail delete`  -  Delete
-- `halopsa-cli formattedemail get`  -  Use this to return a single instance of formattedemail.<br> 				Requires authentication.
+- `halopsa-cli formattedemail get`  -  Use this to return a single instance of formattedemail. 				Requires authentication.
 - `halopsa-cli formattedemail list`  -  List
 
 **fortnox-details**  -  Manage fortnox details
@@ -1062,22 +1103,9 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli halo-device-info delete`  -  Delete
 - `halopsa-cli halo-device-info get`  -  Get
 
-**halo-feedback**  -  Manage halo feedback
-
-- `halopsa-cli halo-feedback create`  -  Create
-- `halopsa-cli halo-feedback delete`  -  Delete
-- `halopsa-cli halo-feedback get`  -  Use this to return a single instance of Feedback.<br> 				Requires authentication.
-- `halopsa-cli halo-feedback list`  -  List
-- `halopsa-cli halo-feedback list-feedbackmessage`  -  List feedbackmessage
-
 **halo-field**  -  Manage halo field
 
 - `halopsa-cli halo-field`  -  List
-
-**halo-health**  -  Manage halo health
-
-- `halopsa-cli halo-health list`  -  List
-- `halopsa-cli halo-health list-hashing`  -  List hashing
 
 **halo-integration**  -  Manage halo integration
 
@@ -1090,19 +1118,17 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli halo-news create`  -  Create
 - `halopsa-cli halo-news create-halonews`  -  Create halonews
 - `halopsa-cli halo-news delete`  -  Delete
-- `halopsa-cli halo-news get`  -  Use this to return a single instance of HaloNews.<br> 				Requires authentication.
+- `halopsa-cli halo-news get`  -  Use this to return a single instance of HaloNews. 				Requires authentication.
 - `halopsa-cli halo-news list`  -  List
 
-**halo-search**  -  Manage halo search
+**halo_search**  -  Manage halo search
 
-- `halopsa-cli halo-search`  -  Use this to return multiple Search.<br> 				Requires authentication.
+- `halopsa-cli halo-search`  -  Use this to return multiple Search. 				Requires authentication.
 
-**halo-workflow**  -  Manage halo workflow
+**health**  -  Manage health
 
-- `halopsa-cli halo-workflow create`  -  Create
-- `halopsa-cli halo-workflow delete`  -  Delete
-- `halopsa-cli halo-workflow get`  -  Use this to return a single instance of FlowHeader.<br> 				Requires authentication.
-- `halopsa-cli halo-workflow list`  -  Use this to return multiple FlowHeader.<br> 				Requires authentication.
+- `halopsa-cli health list`  -  List
+- `halopsa-cli health list-hashing`  -  List hashing
 
 **historical-ticket-volumes**  -  Manage historical ticket volumes
 
@@ -1115,8 +1141,8 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli holiday create`  -  Create
 - `halopsa-cli holiday delete`  -  Delete
-- `halopsa-cli holiday get`  -  Use this to return a single instance of Holidays.<br> 				Requires authentication.
-- `halopsa-cli holiday list`  -  Use this to return multiple Holidays.<br> 				Requires authentication.
+- `halopsa-cli holiday get`  -  Use this to return a single instance of Holidays. 				Requires authentication.
+- `halopsa-cli holiday list`  -  Use this to return multiple Holidays. 				Requires authentication.
 
 **hopewiser**  -  Manage hopewiser
 
@@ -1130,8 +1156,8 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli import-csv create`  -  Create
 - `halopsa-cli import-csv delete`  -  Delete
-- `halopsa-cli import-csv get`  -  Use this to return a single instance of ImportCsv.<br> 				Requires authentication.
-- `halopsa-cli import-csv list`  -  Use this to return multiple ImportCsv.<br> 				Requires authentication.
+- `halopsa-cli import-csv get`  -  Use this to return a single instance of ImportCsv. 				Requires authentication.
+- `halopsa-cli import-csv list`  -  Use this to return multiple ImportCsv. 				Requires authentication.
 
 **incoming-event**  -  Manage incoming event
 
@@ -1158,14 +1184,14 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli incomingemail create`  -  Create
 - `halopsa-cli incomingemail create-addtoticket`  -  Create addtoticket
 - `halopsa-cli incomingemail delete`  -  Delete
-- `halopsa-cli incomingemail get`  -  Use this to return a single instance of IncomingEmail.<br> 				Requires authentication.
-- `halopsa-cli incomingemail list`  -  Use this to return multiple IncomingEmail.<br> 				Requires authentication.
+- `halopsa-cli incomingemail get`  -  Use this to return a single instance of IncomingEmail. 				Requires authentication.
+- `halopsa-cli incomingemail list`  -  Use this to return multiple IncomingEmail. 				Requires authentication.
 
 **ingram-micro-details**  -  Manage ingram micro details
 
 - `halopsa-cli ingram-micro-details create`  -  Create
 - `halopsa-cli ingram-micro-details delete`  -  Delete
-- `halopsa-cli ingram-micro-details get`  -  Use this to return a single instance of IngramMicroDetails.<br> 				Requires authentication.
+- `halopsa-cli ingram-micro-details get`  -  Use this to return a single instance of IngramMicroDetails. 				Requires authentication.
 - `halopsa-cli ingram-micro-details list`  -  List
 
 **ingram-micro-reseller**  -  Manage ingram micro reseller
@@ -1184,7 +1210,7 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli instance create`  -  Create
 - `halopsa-cli instance get`  -  Get
-- `halopsa-cli instance list`  -  Use this to return multiple Instance.<br> 				Requires authentication.
+- `halopsa-cli instance list`  -  Use this to return multiple Instance. 				Requires authentication.
 
 **instance-info**  -  Manage instance info
 
@@ -1193,7 +1219,7 @@ These capabilities aren't available in any other tool for this API.
 **integration-configuration**  -  Manage integration configuration
 
 - `halopsa-cli integration-configuration create`  -  Create
-- `halopsa-cli integration-configuration get`  -  Use this to return a single instance of IntegrationConfiguration.<br> 				Requires authentication.
+- `halopsa-cli integration-configuration get`  -  Use this to return a single instance of IntegrationConfiguration. 				Requires authentication.
 - `halopsa-cli integration-configuration list`  -  List
 
 **integration-data**  -  Manage integration data
@@ -1201,7 +1227,7 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli integration-data create`  -  Create
 - `halopsa-cli integration-data create-integrationdata`  -  Create integrationdata
 - `halopsa-cli integration-data create-integrationdata-10`  -  Create integrationdata 10
-- `halopsa-cli integration-data create-integrationdata-11`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data create-integrationdata-11`  -  . 				Requires authentication.
 - `halopsa-cli integration-data create-integrationdata-12`  -  Create integrationdata 12
 - `halopsa-cli integration-data create-integrationdata-13`  -  Create integrationdata 13
 - `halopsa-cli integration-data create-integrationdata-14`  -  Create integrationdata 14
@@ -1244,12 +1270,12 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli integration-data get`  -  Get
 - `halopsa-cli integration-data list`  -  List
 - `halopsa-cli integration-data list-integrationdata`  -  List integrationdata
-- `halopsa-cli integration-data list-integrationdata-10`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-10`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-100`  -  List integrationdata 100
 - `halopsa-cli integration-data list-integrationdata-101`  -  List integrationdata 101
 - `halopsa-cli integration-data list-integrationdata-102`  -  List integrationdata 102
-- `halopsa-cli integration-data list-integrationdata-103`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-104`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-103`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-104`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-105`  -  List integrationdata 105
 - `halopsa-cli integration-data list-integrationdata-106`  -  List integrationdata 106
 - `halopsa-cli integration-data list-integrationdata-107`  -  List integrationdata 107
@@ -1259,100 +1285,100 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli integration-data list-integrationdata-110`  -  List integrationdata 110
 - `halopsa-cli integration-data list-integrationdata-111`  -  List integrationdata 111
 - `halopsa-cli integration-data list-integrationdata-112`  -  List integrationdata 112
-- `halopsa-cli integration-data list-integrationdata-12`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-12`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-13`  -  List integrationdata 13
-- `halopsa-cli integration-data list-integrationdata-14`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-15`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-14`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-15`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-16`  -  List integrationdata 16
 - `halopsa-cli integration-data list-integrationdata-17`  -  List integrationdata 17
-- `halopsa-cli integration-data list-integrationdata-18`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-19`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-2`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-18`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-19`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-2`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-20`  -  List integrationdata 20
-- `halopsa-cli integration-data list-integrationdata-21`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-22`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-23`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-24`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-25`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-21`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-22`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-23`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-24`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-25`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-26`  -  List integrationdata 26
-- `halopsa-cli integration-data list-integrationdata-27`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-27`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-28`  -  List integrationdata 28
-- `halopsa-cli integration-data list-integrationdata-29`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-3`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-30`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-29`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-3`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-30`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-31`  -  List integrationdata 31
-- `halopsa-cli integration-data list-integrationdata-32`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-33`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-32`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-33`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-34`  -  List integrationdata 34
-- `halopsa-cli integration-data list-integrationdata-35`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-35`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-36`  -  List integrationdata 36
-- `halopsa-cli integration-data list-integrationdata-37`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-38`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-39`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-4`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-40`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-41`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-42`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-37`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-38`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-39`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-4`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-40`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-41`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-42`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-43`  -  List integrationdata 43
-- `halopsa-cli integration-data list-integrationdata-44`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-44`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-45`  -  List integrationdata 45
-- `halopsa-cli integration-data list-integrationdata-46`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-47`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-48`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-49`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-5`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-50`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-51`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-52`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-53`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-54`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-55`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-56`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-46`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-47`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-48`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-49`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-5`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-50`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-51`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-52`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-53`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-54`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-55`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-56`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-57`  -  List integrationdata 57
 - `halopsa-cli integration-data list-integrationdata-58`  -  List integrationdata 58
 - `halopsa-cli integration-data list-integrationdata-59`  -  List integrationdata 59
-- `halopsa-cli integration-data list-integrationdata-6`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-60`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-6`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-60`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-61`  -  List integrationdata 61
 - `halopsa-cli integration-data list-integrationdata-62`  -  List integrationdata 62
-- `halopsa-cli integration-data list-integrationdata-63`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-64`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-65`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-66`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-67`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-68`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-69`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-63`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-64`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-65`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-66`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-67`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-68`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-69`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-7`  -  List integrationdata 7
-- `halopsa-cli integration-data list-integrationdata-70`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-70`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-71`  -  List integrationdata 71
-- `halopsa-cli integration-data list-integrationdata-72`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-73`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-74`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-75`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-72`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-73`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-74`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-75`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-76`  -  List integrationdata 76
-- `halopsa-cli integration-data list-integrationdata-77`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-78`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-77`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-78`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-79`  -  List integrationdata 79
-- `halopsa-cli integration-data list-integrationdata-8`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-80`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-81`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-8`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-80`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-81`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-82`  -  List integrationdata 82
 - `halopsa-cli integration-data list-integrationdata-83`  -  List integrationdata 83
 - `halopsa-cli integration-data list-integrationdata-84`  -  List integrationdata 84
-- `halopsa-cli integration-data list-integrationdata-85`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-85`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-86`  -  List integrationdata 86
-- `halopsa-cli integration-data list-integrationdata-87`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-88`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-87`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-88`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-89`  -  List integrationdata 89
-- `halopsa-cli integration-data list-integrationdata-9`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-90`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-9`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-90`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-91`  -  List integrationdata 91
 - `halopsa-cli integration-data list-integrationdata-92`  -  List integrationdata 92
-- `halopsa-cli integration-data list-integrationdata-93`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-93`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-94`  -  List integrationdata 94
 - `halopsa-cli integration-data list-integrationdata-95`  -  List integrationdata 95
-- `halopsa-cli integration-data list-integrationdata-96`  -  .<br> 				Requires authentication.
-- `halopsa-cli integration-data list-integrationdata-97`  -  .<br> 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-96`  -  . 				Requires authentication.
+- `halopsa-cli integration-data list-integrationdata-97`  -  . 				Requires authentication.
 - `halopsa-cli integration-data list-integrationdata-98`  -  List integrationdata 98
 - `halopsa-cli integration-data list-integrationdata-99`  -  List integrationdata 99
 
@@ -1367,14 +1393,14 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli integration-error create`  -  Create
 - `halopsa-cli integration-error delete`  -  Delete
-- `halopsa-cli integration-error get`  -  Use this to return a single instance of IntegrationError.<br> 				Requires authentication.
-- `halopsa-cli integration-error list`  -  Use this to return multiple IntegrationError.<br> 				Requires authentication.
+- `halopsa-cli integration-error get`  -  Use this to return a single instance of IntegrationError. 				Requires authentication.
+- `halopsa-cli integration-error list`  -  Use this to return multiple IntegrationError. 				Requires authentication.
 
 **integration-export**  -  Manage integration export
 
 - `halopsa-cli integration-export create`  -  Create
 - `halopsa-cli integration-export delete`  -  Delete
-- `halopsa-cli integration-export list`  -  Use this to return multiple IntegrationExport.<br> 				Requires authentication.
+- `halopsa-cli integration-export list`  -  Use this to return multiple IntegrationExport. 				Requires authentication.
 
 **integration-field-data**  -  Manage integration field data
 
@@ -1385,7 +1411,7 @@ These capabilities aren't available in any other tool for this API.
 
 **integration-field-mapping**  -  Manage integration field mapping
 
-- `halopsa-cli integration-field-mapping`  -  Use this to return multiple IntegrationFieldMapping.<br> 				Requires authentication.
+- `halopsa-cli integration-field-mapping`  -  Use this to return multiple IntegrationFieldMapping. 				Requires authentication.
 
 **integration-look-up**  -  Manage integration look up
 
@@ -1396,25 +1422,25 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli integration-request create`  -  Create
 - `halopsa-cli integration-request delete`  -  Delete
-- `halopsa-cli integration-request get`  -  Use this to return a single instance of IntegrationRequest.<br> 				Requires authentication.
-- `halopsa-cli integration-request list`  -  Use this to return multiple IntegrationRequest.<br> 				Requires authentication.
+- `halopsa-cli integration-request get`  -  Use this to return a single instance of IntegrationRequest. 				Requires authentication.
+- `halopsa-cli integration-request list`  -  Use this to return multiple IntegrationRequest. 				Requires authentication.
 
 **integration-runbook-variable-group**  -  Manage integration runbook variable group
 
-- `halopsa-cli integration-runbook-variable-group get`  -  Use this to return a single instance of IntegrationRunbookVariableGroup.<br> 				Requires authentication.
-- `halopsa-cli integration-runbook-variable-group list`  -  Use this to return multiple IntegrationRunbookVariableGroup.<br> 				Requires authentication.
+- `halopsa-cli integration-runbook-variable-group get`  -  Use this to return a single instance of IntegrationRunbookVariableGroup. 				Requires authentication.
+- `halopsa-cli integration-runbook-variable-group list`  -  Use this to return multiple IntegrationRunbookVariableGroup. 				Requires authentication.
 
 **integration-site-mapping**  -  Manage integration site mapping
 
-- `halopsa-cli integration-site-mapping`  -  Use this to return multiple IntegrationSiteMapping.<br> 				Requires authentication.
+- `halopsa-cli integration-site-mapping`  -  Use this to return multiple IntegrationSiteMapping. 				Requires authentication.
 
 **integrator-log**  -  Manage integrator log
 
-- `halopsa-cli integrator-log`  -  Use this to return multiple IntegratorLog.<br> 				Requires authentication.
+- `halopsa-cli integrator-log`  -  Use this to return multiple IntegratorLog. 				Requires authentication.
 
 **integrator-schedule**  -  Manage integrator schedule
 
-- `halopsa-cli integrator-schedule`  -  Use this to return multiple IntegratorSchedule.<br> 				Requires authentication.
+- `halopsa-cli integrator-schedule`  -  Use this to return multiple IntegratorSchedule. 				Requires authentication.
 
 **integrator-trace**  -  Manage integrator trace
 
@@ -1427,15 +1453,15 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli invoice create-pdf`  -  Create pdf
 - `halopsa-cli invoice create-updatelines`  -  Create updatelines
 - `halopsa-cli invoice create-view`  -  Create view
-- `halopsa-cli invoice delete`  -  Delete specific InvoiceHeader.<br> 				Requires authentication.
-- `halopsa-cli invoice get`  -  Use this to return a single instance of InvoiceHeader.<br> 				Requires authentication.
-- `halopsa-cli invoice list`  -  Use this to return multiple InvoiceHeader.<br> 				Requires authentication.
+- `halopsa-cli invoice delete`  -  Delete specific InvoiceHeader. 				Requires authentication.
+- `halopsa-cli invoice get`  -  Use this to return a single instance of InvoiceHeader. 				Requires authentication.
+- `halopsa-cli invoice list`  -  Use this to return multiple InvoiceHeader. 				Requires authentication.
 - `halopsa-cli invoice list-lines`  -  List lines
 
 **invoice-change**  -  Manage invoice change
 
 - `halopsa-cli invoice-change create`  -  Create
-- `halopsa-cli invoice-change list`  -  Use this to return multiple InvoiceChange.<br> 				Requires authentication.
+- `halopsa-cli invoice-change list`  -  Use this to return multiple InvoiceChange. 				Requires authentication.
 
 **invoice-detail-pro-rata**  -  Manage invoice detail pro rata
 
@@ -1445,8 +1471,8 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli invoice-payment create`  -  Create
 - `halopsa-cli invoice-payment delete`  -  Delete
-- `halopsa-cli invoice-payment get`  -  Use this to return a single instance of InvoicePayment.<br> 				Requires authentication.
-- `halopsa-cli invoice-payment list`  -  Use this to return multiple InvoicePayment.<br> 				Requires authentication.
+- `halopsa-cli invoice-payment get`  -  Use this to return a single instance of InvoicePayment. 				Requires authentication.
+- `halopsa-cli invoice-payment list`  -  Use this to return multiple InvoicePayment. 				Requires authentication.
 
 **islonline**  -  Manage islonline
 
@@ -1458,8 +1484,8 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli item create`  -  Create
 - `halopsa-cli item create-newaccountsid`  -  Create newaccountsid
 - `halopsa-cli item delete`  -  Delete
-- `halopsa-cli item get`  -  Use this to return a single instance of Item.<br> 				Requires authentication.
-- `halopsa-cli item list`  -  Use this to return multiple Item.<br> 				Requires authentication.
+- `halopsa-cli item get`  -  Use this to return a single instance of Item. 				Requires authentication.
+- `halopsa-cli item list`  -  Use this to return multiple Item. 				Requires authentication.
 
 **item-accounts-link**  -  Manage item accounts link
 
@@ -1473,26 +1499,26 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli item-group create`  -  Create
 - `halopsa-cli item-group delete`  -  Delete
-- `halopsa-cli item-group get`  -  Use this to return a single instance of ItemGroup.<br> 				Requires authentication.
+- `halopsa-cli item-group get`  -  Use this to return a single instance of ItemGroup. 				Requires authentication.
 - `halopsa-cli item-group list`  -  List
 
 **item-stock**  -  Manage item stock
 
 - `halopsa-cli item-stock create`  -  Create
 - `halopsa-cli item-stock delete`  -  Delete
-- `halopsa-cli item-stock get`  -  Use this to return a single instance of ItemStock.<br> 				Requires authentication.
-- `halopsa-cli item-stock list`  -  Use this to return multiple ItemStock.<br> 				Requires authentication.
+- `halopsa-cli item-stock get`  -  Use this to return a single instance of ItemStock. 				Requires authentication.
+- `halopsa-cli item-stock list`  -  Use this to return multiple ItemStock. 				Requires authentication.
 
 **item-stock-history**  -  Manage item stock history
 
 - `halopsa-cli item-stock-history get`  -  Get
-- `halopsa-cli item-stock-history list`  -  Use this to return multiple ItemStockHistory.<br> 				Requires authentication.
+- `halopsa-cli item-stock-history list`  -  Use this to return multiple ItemStockHistory. 				Requires authentication.
 
 **itemsupplier**  -  Manage itemsupplier
 
 - `halopsa-cli itemsupplier create`  -  Create
 - `halopsa-cli itemsupplier delete`  -  Delete
-- `halopsa-cli itemsupplier get`  -  Use this to return a single instance of ItemSupplier.<br> 				Requires authentication.
+- `halopsa-cli itemsupplier get`  -  Use this to return a single instance of ItemSupplier. 				Requires authentication.
 - `halopsa-cli itemsupplier list`  -  List
 
 **jamf-details**  -  Manage jamf details
@@ -1513,7 +1539,7 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli journey create`  -  Create
 - `halopsa-cli journey delete`  -  Delete
-- `halopsa-cli journey get`  -  Use this to return a single instance of Journey.<br> 				Requires authentication.
+- `halopsa-cli journey get`  -  Use this to return a single instance of Journey. 				Requires authentication.
 - `halopsa-cli journey list`  -  List
 
 **kandji**  -  Manage kandji
@@ -1544,16 +1570,16 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli kashflow-details create`  -  Create
 - `halopsa-cli kashflow-details delete`  -  Delete
-- `halopsa-cli kashflow-details get`  -  Use this to return a single instance of KashflowDetails.<br> 				Requires authentication.
-- `halopsa-cli kashflow-details list`  -  Use this to return multiple KashflowDetails.<br> 				Requires authentication.
+- `halopsa-cli kashflow-details get`  -  Use this to return a single instance of KashflowDetails. 				Requires authentication.
+- `halopsa-cli kashflow-details list`  -  Use this to return multiple KashflowDetails. 				Requires authentication.
 
 **kbarticle**  -  Manage kbarticle
 
 - `halopsa-cli kbarticle create`  -  Create
 - `halopsa-cli kbarticle create-vote`  -  Create vote
 - `halopsa-cli kbarticle delete`  -  Delete
-- `halopsa-cli kbarticle get`  -  Use this to return a single instance of KBEntry.<br> 				Requires authentication.
-- `halopsa-cli kbarticle list`  -  Use this to return multiple KBEntry.<br> 				Requires authentication.
+- `halopsa-cli kbarticle get`  -  Use this to return a single instance of KBEntry. 				Requires authentication.
+- `halopsa-cli kbarticle list`  -  Use this to return multiple KBEntry. 				Requires authentication.
 
 **kbarticle-anon**  -  Manage kbarticle anon
 
@@ -1571,8 +1597,8 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli languages create`  -  Create
 - `halopsa-cli languages delete`  -  Delete
-- `halopsa-cli languages get`  -  Use this to return a single instance of LanguagePack.<br> 				Requires authentication.
-- `halopsa-cli languages list`  -  Use this to return multiple LanguagePack.<br> 				Requires authentication.
+- `halopsa-cli languages get`  -  Use this to return a single instance of LanguagePack. 				Requires authentication.
+- `halopsa-cli languages list`  -  Use this to return multiple LanguagePack. 				Requires authentication.
 
 **lap-safe**  -  Manage lap safe
 
@@ -1584,17 +1610,17 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli ldapconnection create`  -  Create
 - `halopsa-cli ldapconnection delete`  -  Delete
-- `halopsa-cli ldapconnection get`  -  Use this to return a single instance of LDAPConnection.<br> 				Requires authentication.
-- `halopsa-cli ldapconnection list`  -  Use this to return multiple LDAPConnection.<br> 				Requires authentication.
+- `halopsa-cli ldapconnection get`  -  Use this to return a single instance of LDAPConnection. 				Requires authentication.
+- `halopsa-cli ldapconnection list`  -  Use this to return multiple LDAPConnection. 				Requires authentication.
 
 **licence-change**  -  Manage licence change
 
-- `halopsa-cli licence-change`  -  Use this to return multiple LicenceChange.<br> 				Requires authentication.
+- `halopsa-cli licence-change`  -  Use this to return multiple LicenceChange. 				Requires authentication.
 
 **license-info**  -  Manage license info
 
 - `halopsa-cli license-info create`  -  Create
-- `halopsa-cli license-info list`  -  Use this to return multiple LicenceInfo.<br> 				Requires authentication.
+- `halopsa-cli license-info list`  -  Use this to return multiple LicenceInfo. 				Requires authentication.
 - `halopsa-cli license-info list-licenseinfo`  -  List licenseinfo
 
 **login-token**  -  Manage login token
@@ -1606,8 +1632,8 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli lookup create`  -  Create
 - `halopsa-cli lookup create-clearcache`  -  Create clearcache
 - `halopsa-cli lookup delete`  -  Delete
-- `halopsa-cli lookup get`  -  Use this to return a single instance of Lookup.<br> 				Requires authentication.
-- `halopsa-cli lookup list`  -  Use this to return multiple Lookup.<br> 				Requires authentication.
+- `halopsa-cli lookup get`  -  Use this to return a single instance of Lookup. 				Requires authentication.
+- `halopsa-cli lookup list`  -  Use this to return multiple Lookup. 				Requires authentication.
 
 **mail**  -  Manage mail
 
@@ -1641,8 +1667,8 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli mailbox create`  -  Create
 - `halopsa-cli mailbox delete`  -  Delete
-- `halopsa-cli mailbox get`  -  Use this to return a single instance of Mailbox.<br> 				Requires authentication.
-- `halopsa-cli mailbox list`  -  Use this to return multiple Mailbox.<br> 				Requires authentication.
+- `halopsa-cli mailbox get`  -  Use this to return a single instance of Mailbox. 				Requires authentication.
+- `halopsa-cli mailbox list`  -  Use this to return multiple Mailbox. 				Requires authentication.
 
 **mailbox-credential**  -  Manage mailbox credential
 
@@ -1693,8 +1719,8 @@ These capabilities aren't available in any other tool for this API.
 **meter-reading**  -  Manage meter reading
 
 - `halopsa-cli meter-reading create`  -  Create
-- `halopsa-cli meter-reading get`  -  Use this to return a single instance of DeviceMeterReading.<br> 				Requires authentication.
-- `halopsa-cli meter-reading list`  -  Use this to return multiple DeviceMeterReading.<br> 				Requires authentication.
+- `halopsa-cli meter-reading get`  -  Use this to return a single instance of DeviceMeterReading. 				Requires authentication.
+- `halopsa-cli meter-reading list`  -  Use this to return multiple DeviceMeterReading. 				Requires authentication.
 
 **microsoft-subscription-mapping**  -  Manage microsoft subscription mapping
 
@@ -1734,22 +1760,22 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli ncentral-details create`  -  Create
 - `halopsa-cli ncentral-details delete`  -  Delete
-- `halopsa-cli ncentral-details get`  -  Use this to return a single instance of NCentralDetails.<br> 				Requires authentication.
-- `halopsa-cli ncentral-details list`  -  Use this to return multiple NCentralDetails.<br> 				Requires authentication.
+- `halopsa-cli ncentral-details get`  -  Use this to return a single instance of NCentralDetails. 				Requires authentication.
+- `halopsa-cli ncentral-details list`  -  Use this to return multiple NCentralDetails. 				Requires authentication.
 
 **nhserverconfig**  -  Manage nhserverconfig
 
 - `halopsa-cli nhserverconfig create`  -  Create
 - `halopsa-cli nhserverconfig delete`  -  Delete
-- `halopsa-cli nhserverconfig get`  -  Use this to return a single instance of NHServerConfig.<br> 				Requires authentication.
+- `halopsa-cli nhserverconfig get`  -  Use this to return a single instance of NHServerConfig. 				Requires authentication.
 - `halopsa-cli nhserverconfig list`  -  List
 
 **notification**  -  Manage notification
 
 - `halopsa-cli notification create`  -  Create
 - `halopsa-cli notification delete`  -  Delete
-- `halopsa-cli notification get`  -  Use this to return a single instance of UnameNotification.<br> 				Requires authentication.
-- `halopsa-cli notification list`  -  Use this to return multiple UnameNotification.<br> 				Requires authentication.
+- `halopsa-cli notification get`  -  Use this to return a single instance of UnameNotification. 				Requires authentication.
+- `halopsa-cli notification list`  -  Use this to return multiple UnameNotification. 				Requires authentication.
 
 **notification-log**  -  Manage notification log
 
@@ -1759,7 +1785,7 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli notification-message create`  -  Create
 - `halopsa-cli notification-message delete`  -  Delete
-- `halopsa-cli notification-message get`  -  Use this to return a single instance of NotificationContent.<br> 				Requires authentication.
+- `halopsa-cli notification-message get`  -  Use this to return a single instance of NotificationContent. 				Requires authentication.
 - `halopsa-cli notification-message list`  -  List
 
 **notifications**  -  Manage notifications
@@ -1767,8 +1793,8 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli notifications create`  -  Create
 - `halopsa-cli notifications create-process`  -  Create process
 - `halopsa-cli notifications delete`  -  Delete
-- `halopsa-cli notifications get`  -  Use this to return a single instance of EscMsg.<br> 				Requires authentication.
-- `halopsa-cli notifications list`  -  Use this to return multiple EscMsg.<br> 				Requires authentication.
+- `halopsa-cli notifications get`  -  Use this to return a single instance of EscMsg. 				Requires authentication.
+- `halopsa-cli notifications list`  -  Use this to return multiple EscMsg. 				Requires authentication.
 
 **object-mapping-profile**  -  Manage object mapping profile
 
@@ -1783,9 +1809,9 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli opportunities create`  -  Create
 - `halopsa-cli opportunities create-view`  -  Create view
-- `halopsa-cli opportunities delete`  -  Delete specific Faults.<br> 				Requires authentication.
-- `halopsa-cli opportunities get`  -  Use this to return a single instance of Faults.<br> 				Requires authentication.
-- `halopsa-cli opportunities list`  -  Use this to return multiple Faults.<br> 				Requires authentication.
+- `halopsa-cli opportunities delete`  -  Delete specific Faults. 				Requires authentication.
+- `halopsa-cli opportunities get`  -  Use this to return a single instance of Faults. 				Requires authentication.
+- `halopsa-cli opportunities list`  -  Use this to return multiple Faults. 				Requires authentication.
 
 **order-line**  -  Manage order line
 
@@ -1795,42 +1821,42 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli organisation create`  -  Create
 - `halopsa-cli organisation delete`  -  Delete
-- `halopsa-cli organisation get`  -  Use this to return a single instance of Organisation.<br> 				Requires authentication.
+- `halopsa-cli organisation get`  -  Use this to return a single instance of Organisation. 				Requires authentication.
 - `halopsa-cli organisation list`  -  List
 
 **outcome**  -  Manage outcome
 
 - `halopsa-cli outcome create`  -  Create
 - `halopsa-cli outcome delete`  -  Delete
-- `halopsa-cli outcome get`  -  Use this to return a single instance of TOutcome.<br> 				Requires authentication.
-- `halopsa-cli outcome list`  -  Use this to return multiple TOutcome.<br> 				Requires authentication.
+- `halopsa-cli outcome get`  -  Use this to return a single instance of TOutcome. 				Requires authentication.
+- `halopsa-cli outcome list`  -  Use this to return multiple TOutcome. 				Requires authentication.
 
 **outgoing**  -  Manage outgoing
 
 - `halopsa-cli outgoing create`  -  Create
 - `halopsa-cli outgoing delete`  -  Delete
-- `halopsa-cli outgoing get`  -  Use this to return a single instance of Outgoing.<br> 				Requires authentication.
-- `halopsa-cli outgoing list`  -  Use this to return multiple Outgoing.<br> 				Requires authentication.
+- `halopsa-cli outgoing get`  -  Use this to return a single instance of Outgoing. 				Requires authentication.
+- `halopsa-cli outgoing list`  -  Use this to return multiple Outgoing. 				Requires authentication.
 
 **outgoing-attempt**  -  Manage outgoing attempt
 
-- `halopsa-cli outgoing-attempt get`  -  Use this to return a single instance of OutgoingAttempt.<br> 				Requires authentication.
-- `halopsa-cli outgoing-attempt list`  -  Use this to return multiple OutgoingAttempt.<br> 				Requires authentication.
+- `halopsa-cli outgoing-attempt get`  -  Use this to return a single instance of OutgoingAttempt. 				Requires authentication.
+- `halopsa-cli outgoing-attempt list`  -  Use this to return multiple OutgoingAttempt. 				Requires authentication.
 
 **outgoingemail**  -  Manage outgoingemail
 
 - `halopsa-cli outgoingemail create`  -  Create
 - `halopsa-cli outgoingemail delete`  -  Delete
-- `halopsa-cli outgoingemail list`  -  Use this to return multiple Outgoingemail.<br> 				Requires authentication.
+- `halopsa-cli outgoingemail list`  -  Use this to return multiple Outgoingemail. 				Requires authentication.
 
 **pagerdutymapping**  -  Manage pagerdutymapping
 
-- `halopsa-cli pagerdutymapping`  -  Use this to return multiple PagerDutyMapping.<br> 				Requires authentication.
+- `halopsa-cli pagerdutymapping`  -  Use this to return multiple PagerDutyMapping. 				Requires authentication.
 
 **password-field**  -  Manage password field
 
 - `halopsa-cli password-field create`  -  Create
-- `halopsa-cli password-field get`  -  Use this to return a single instance of AuditPasswordField.<br> 				Requires authentication.
+- `halopsa-cli password-field get`  -  Use this to return a single instance of AuditPasswordField. 				Requires authentication.
 - `halopsa-cli password-field list`  -  List
 
 **pax8-details**  -  Manage pax8 details
@@ -1844,64 +1870,64 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli pdf-template create`  -  Create
 - `halopsa-cli pdf-template delete`  -  Delete
-- `halopsa-cli pdf-template get`  -  Use this to return a single instance of PdfTemplate.<br> 				Requires authentication.
-- `halopsa-cli pdf-template list`  -  Use this to return multiple PdfTemplate.<br> 				Requires authentication.
+- `halopsa-cli pdf-template get`  -  Use this to return a single instance of PdfTemplate. 				Requires authentication.
+- `halopsa-cli pdf-template list`  -  Use this to return multiple PdfTemplate. 				Requires authentication.
 
 **pdf-template-repository**  -  Manage pdf template repository
 
-- `halopsa-cli pdf-template-repository get`  -  Use this to return a single instance of PdfTemplate.<br> 				Requires authentication.
-- `halopsa-cli pdf-template-repository list`  -  Use this to return multiple PdfTemplate.<br> 				Requires authentication.
+- `halopsa-cli pdf-template-repository get`  -  Use this to return a single instance of PdfTemplate. 				Requires authentication.
+- `halopsa-cli pdf-template-repository list`  -  Use this to return multiple PdfTemplate. 				Requires authentication.
 
 **popup-note**  -  Manage popup note
 
 - `halopsa-cli popup-note create`  -  Create
-- `halopsa-cli popup-note list`  -  Use this to return multiple AreaPopup.<br> 				Requires authentication.
+- `halopsa-cli popup-note list`  -  Use this to return multiple AreaPopup. 				Requires authentication.
 
 **power-shell-script**  -  Manage power shell script
 
 - `halopsa-cli power-shell-script create`  -  Create
 - `halopsa-cli power-shell-script delete`  -  Delete
-- `halopsa-cli power-shell-script get`  -  Use this to return a single instance of PowerShellScript.<br> 				Requires authentication.
-- `halopsa-cli power-shell-script list`  -  Use this to return multiple PowerShellScript.<br> 				Requires authentication.
+- `halopsa-cli power-shell-script get`  -  Use this to return a single instance of PowerShellScript. 				Requires authentication.
+- `halopsa-cli power-shell-script list`  -  Use this to return multiple PowerShellScript. 				Requires authentication.
 
 **power-shell-script-criteria**  -  Manage power shell script criteria
 
 - `halopsa-cli power-shell-script-criteria create`  -  Create
 - `halopsa-cli power-shell-script-criteria delete`  -  Delete
-- `halopsa-cli power-shell-script-criteria get`  -  Use this to return a single instance of PowerShellScriptCriteria.<br> 				Requires authentication.
-- `halopsa-cli power-shell-script-criteria list`  -  Use this to return multiple PowerShellScriptCriteria.<br> 				Requires authentication.
+- `halopsa-cli power-shell-script-criteria get`  -  Use this to return a single instance of PowerShellScriptCriteria. 				Requires authentication.
+- `halopsa-cli power-shell-script-criteria list`  -  Use this to return multiple PowerShellScriptCriteria. 				Requires authentication.
 
 **power-shell-script-processing**  -  Manage power shell script processing
 
 - `halopsa-cli power-shell-script-processing create`  -  Create
 - `halopsa-cli power-shell-script-processing delete`  -  Delete
-- `halopsa-cli power-shell-script-processing get`  -  Use this to return a single instance of PowerShellScriptProcessing.<br> 				Requires authentication.
-- `halopsa-cli power-shell-script-processing list`  -  Use this to return multiple PowerShellScriptProcessing.<br> 				Requires authentication.
+- `halopsa-cli power-shell-script-processing get`  -  Use this to return a single instance of PowerShellScriptProcessing. 				Requires authentication.
+- `halopsa-cli power-shell-script-processing list`  -  Use this to return multiple PowerShellScriptProcessing. 				Requires authentication.
 
 **priority**  -  Manage priority
 
 - `halopsa-cli priority create`  -  Create
 - `halopsa-cli priority delete`  -  Delete
-- `halopsa-cli priority get`  -  Use this to return a single instance of Policy.<br> 				Requires authentication.
-- `halopsa-cli priority list`  -  Use this to return multiple Policy.<br> 				Requires authentication.
+- `halopsa-cli priority get`  -  Use this to return a single instance of Policy. 				Requires authentication.
+- `halopsa-cli priority list`  -  Use this to return multiple Policy. 				Requires authentication.
 
 **product**  -  Manage product
 
 - `halopsa-cli product create`  -  Create
 - `halopsa-cli product delete`  -  Delete
-- `halopsa-cli product get`  -  Use this to return a single instance of ReleaseProduct.<br> 				Requires authentication.
-- `halopsa-cli product list`  -  Use this to return multiple ReleaseProduct.<br> 				Requires authentication.
+- `halopsa-cli product get`  -  Use this to return a single instance of ReleaseProduct. 				Requires authentication.
+- `halopsa-cli product list`  -  Use this to return multiple ReleaseProduct. 				Requires authentication.
 
 **product-branch**  -  Manage product branch
 
-- `halopsa-cli product-branch`  -  Use this to return multiple ReleaseBranch.<br> 				Requires authentication.
+- `halopsa-cli product-branch`  -  Use this to return multiple ReleaseBranch. 				Requires authentication.
 
 **product-component**  -  Manage product component
 
 - `halopsa-cli product-component create`  -  Create
 - `halopsa-cli product-component delete`  -  Delete
-- `halopsa-cli product-component get`  -  Use this to return a single instance of ReleaseComponent.<br> 				Requires authentication.
-- `halopsa-cli product-component list`  -  Use this to return multiple ReleaseComponent.<br> 				Requires authentication.
+- `halopsa-cli product-component get`  -  Use this to return a single instance of ReleaseComponent. 				Requires authentication.
+- `halopsa-cli product-component list`  -  Use this to return multiple ReleaseComponent. 				Requires authentication.
 
 **project-setup-lines**  -  Manage project setup lines
 
@@ -1911,9 +1937,9 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli projects create`  -  Create
 - `halopsa-cli projects create-view`  -  Create view
-- `halopsa-cli projects delete`  -  Delete specific Faults.<br> 				Requires authentication.
-- `halopsa-cli projects get`  -  Use this to return a single instance of Faults.<br> 				Requires authentication.
-- `halopsa-cli projects list`  -  Use this to return multiple Faults.<br> 				Requires authentication.
+- `halopsa-cli projects delete`  -  Delete specific Faults. 				Requires authentication.
+- `halopsa-cli projects get`  -  Use this to return a single instance of Faults. 				Requires authentication.
+- `halopsa-cli projects list`  -  Use this to return multiple Faults. 				Requires authentication.
 
 **prtgdetails**  -  Manage prtgdetails
 
@@ -1935,22 +1961,22 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli purchase-order create-purchaseorder`  -  Create purchaseorder
 - `halopsa-cli purchase-order create-purchaseorder-2`  -  Create purchaseorder 2
 - `halopsa-cli purchase-order delete`  -  Delete
-- `halopsa-cli purchase-order get`  -  Use this to return a single instance of SupplierOrderHeader.<br> 				Requires authentication.
-- `halopsa-cli purchase-order list`  -  Use this to return multiple SupplierOrderHeader.<br> 				Requires authentication.
+- `halopsa-cli purchase-order get`  -  Use this to return a single instance of SupplierOrderHeader. 				Requires authentication.
+- `halopsa-cli purchase-order list`  -  Use this to return multiple SupplierOrderHeader. 				Requires authentication.
 
 **qualification**  -  Manage qualification
 
 - `halopsa-cli qualification create`  -  Create
 - `halopsa-cli qualification delete`  -  Delete
-- `halopsa-cli qualification get`  -  Use this to return a single instance of Qualification.<br> 				Requires authentication.
-- `halopsa-cli qualification list`  -  Use this to return multiple Qualification.<br> 				Requires authentication.
+- `halopsa-cli qualification get`  -  Use this to return a single instance of Qualification. 				Requires authentication.
+- `halopsa-cli qualification list`  -  Use this to return multiple Qualification. 				Requires authentication.
 
 **quick-books-details**  -  Manage quick books details
 
 - `halopsa-cli quick-books-details create`  -  Create
 - `halopsa-cli quick-books-details delete`  -  Delete
-- `halopsa-cli quick-books-details get`  -  Use this to return a single instance of QuickBooksDetails.<br> 				Requires authentication.
-- `halopsa-cli quick-books-details list`  -  Use this to return multiple QuickBooksDetails.<br> 				Requires authentication.
+- `halopsa-cli quick-books-details get`  -  Use this to return a single instance of QuickBooksDetails. 				Requires authentication.
+- `halopsa-cli quick-books-details list`  -  Use this to return multiple QuickBooksDetails. 				Requires authentication.
 
 **quotation**  -  Manage quotation
 
@@ -1959,8 +1985,8 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli quotation create-lines`  -  Create lines
 - `halopsa-cli quotation create-view`  -  Create view
 - `halopsa-cli quotation delete`  -  Delete
-- `halopsa-cli quotation get`  -  Use this to return a single instance of QuotationHeader.<br> 				Requires authentication.
-- `halopsa-cli quotation list`  -  Use this to return multiple QuotationHeader.<br> 				Requires authentication.
+- `halopsa-cli quotation get`  -  Use this to return a single instance of QuotationHeader. 				Requires authentication.
+- `halopsa-cli quotation list`  -  Use this to return multiple QuotationHeader. 				Requires authentication.
 
 **raynet**  -  Manage raynet
 
@@ -1979,26 +2005,26 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli recurring-invoice create-recurringinvoice`  -  Create recurringinvoice
 - `halopsa-cli recurring-invoice create-recurringinvoice-2`  -  Create recurringinvoice 2
 - `halopsa-cli recurring-invoice create-recurringinvoice-3`  -  Create recurringinvoice 3
-- `halopsa-cli recurring-invoice delete`  -  Delete specific InvoiceHeader.<br> 				Requires authentication.
-- `halopsa-cli recurring-invoice get`  -  Use this to return a single instance of InvoiceHeader.<br> 				Requires authentication.
-- `halopsa-cli recurring-invoice list`  -  Use this to return multiple InvoiceHeader.<br> 				Requires authentication.
+- `halopsa-cli recurring-invoice delete`  -  Delete specific InvoiceHeader. 				Requires authentication.
+- `halopsa-cli recurring-invoice get`  -  Use this to return a single instance of InvoiceHeader. 				Requires authentication.
+- `halopsa-cli recurring-invoice list`  -  Use this to return multiple InvoiceHeader. 				Requires authentication.
 
 **recurring-item**  -  Manage recurring item
 
-- `halopsa-cli recurring-item`  -  Use this to return multiple AreaItem.<br> 				Requires authentication.
+- `halopsa-cli recurring-item`  -  Use this to return multiple AreaItem. 				Requires authentication.
 
 **release**  -  Manage release
 
 - `halopsa-cli release create`  -  Create
 - `halopsa-cli release delete`  -  Delete
-- `halopsa-cli release get`  -  Use this to return a single instance of Release.<br> 				Requires authentication.
-- `halopsa-cli release list`  -  .<br> 				Requires authentication.
+- `halopsa-cli release get`  -  Use this to return a single instance of Release. 				Requires authentication.
+- `halopsa-cli release list`  -  . 				Requires authentication.
 
 **release-note-group**  -  Manage release note group
 
 - `halopsa-cli release-note-group create`  -  Create
 - `halopsa-cli release-note-group delete`  -  Delete
-- `halopsa-cli release-note-group get`  -  Use this to return a single instance of ReleaseNoteGroup.<br> 				Requires authentication.
+- `halopsa-cli release-note-group get`  -  Use this to return a single instance of ReleaseNoteGroup. 				Requires authentication.
 - `halopsa-cli release-note-group list`  -  List
 
 **release-pipeline**  -  Manage release pipeline
@@ -2012,19 +2038,19 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli release-type create`  -  Create
 - `halopsa-cli release-type delete`  -  Delete
-- `halopsa-cli release-type get`  -  Use this to return a single instance of ReleaseType.<br> 				Requires authentication.
+- `halopsa-cli release-type get`  -  Use this to return a single instance of ReleaseType. 				Requires authentication.
 - `halopsa-cli release-type list`  -  List
 
 **remote-session**  -  Manage remote session
 
 - `halopsa-cli remote-session create`  -  Create
 - `halopsa-cli remote-session delete`  -  Delete
-- `halopsa-cli remote-session get`  -  Use this to return a single instance of RemoteSessionData.<br> 				Requires authentication.
-- `halopsa-cli remote-session list`  -  Use this to return multiple RemoteSessionData.<br> 				Requires authentication.
+- `halopsa-cli remote-session get`  -  Use this to return a single instance of RemoteSessionData. 				Requires authentication.
+- `halopsa-cli remote-session list`  -  Use this to return multiple RemoteSessionData. 				Requires authentication.
 
 **remote-session-teams**  -  Manage remote session teams
 
-- `halopsa-cli remote-session-teams`  -  Use this to return multiple RemoteSessionTeams.<br> 				Requires authentication.
+- `halopsa-cli remote-session-teams`  -  Use this to return multiple RemoteSessionTeams. 				Requires authentication.
 
 **report**  -  Manage report
 
@@ -2033,8 +2059,8 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli report create-createpdf`  -  Create createpdf
 - `halopsa-cli report create-print`  -  Create print
 - `halopsa-cli report delete`  -  Delete
-- `halopsa-cli report get`  -  Use this to return a single instance of AnalyzerProfile.<br> 				Requires authentication.
-- `halopsa-cli report list`  -  Use this to return multiple AnalyzerProfile.<br> 				Requires authentication.
+- `halopsa-cli report get`  -  Use this to return a single instance of AnalyzerProfile. 				Requires authentication.
+- `halopsa-cli report list`  -  Use this to return multiple AnalyzerProfile. 				Requires authentication.
 
 **report-data**  -  Manage report data
 
@@ -2042,9 +2068,9 @@ These capabilities aren't available in any other tool for this API.
 
 **report-repository**  -  Manage report repository
 
-- `halopsa-cli report-repository get`  -  Use this to return a single instance of AnalyzerProfile.<br> 				Requires authentication.
-- `halopsa-cli report-repository list`  -  Use this to return multiple AnalyzerProfile.<br> 				Requires authentication.
-- `halopsa-cli report-repository list-reportrepository`  -  Use this to return multiple Lookup.<br> 				Requires authentication.
+- `halopsa-cli report-repository get`  -  Use this to return a single instance of AnalyzerProfile. 				Requires authentication.
+- `halopsa-cli report-repository list`  -  Use this to return multiple AnalyzerProfile. 				Requires authentication.
+- `halopsa-cli report-repository list-reportrepository`  -  Use this to return multiple Lookup. 				Requires authentication.
 
 **resource-type**  -  Manage resource type
 
@@ -2053,21 +2079,21 @@ These capabilities aren't available in any other tool for this API.
 
 **roadmap**  -  Manage roadmap
 
-- `halopsa-cli roadmap`  -  .<br> 				Requires authentication.
+- `halopsa-cli roadmap`  -  . 				Requires authentication.
 
 **roles**  -  Manage roles
 
 - `halopsa-cli roles create`  -  Create
 - `halopsa-cli roles delete`  -  Delete
-- `halopsa-cli roles get`  -  Use this to return a single instance of NHD_Roles.<br> 				Requires authentication.
-- `halopsa-cli roles list`  -  Use this to return multiple NHD_Roles.<br> 				Requires authentication.
+- `halopsa-cli roles get`  -  Use this to return a single instance of NHD_Roles. 				Requires authentication.
+- `halopsa-cli roles list`  -  Use this to return multiple NHD_Roles. 				Requires authentication.
 
 **sage-business-cloud-details**  -  Manage sage business cloud details
 
 - `halopsa-cli sage-business-cloud-details create`  -  Create
 - `halopsa-cli sage-business-cloud-details delete`  -  Delete
-- `halopsa-cli sage-business-cloud-details get`  -  Use this to return a single instance of SageBusinessCloudDetails.<br> 				Requires authentication.
-- `halopsa-cli sage-business-cloud-details list`  -  Use this to return multiple SageBusinessCloudDetails.<br> 				Requires authentication.
+- `halopsa-cli sage-business-cloud-details get`  -  Use this to return a single instance of SageBusinessCloudDetails. 				Requires authentication.
+- `halopsa-cli sage-business-cloud-details list`  -  Use this to return multiple SageBusinessCloudDetails. 				Requires authentication.
 
 **sail-point-details**  -  Manage sail point details
 
@@ -2088,7 +2114,7 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli sales-mailbox create`  -  Create
 - `halopsa-cli sales-mailbox delete`  -  Delete
-- `halopsa-cli sales-mailbox get`  -  Use this to return a single instance of SalesMailbox.<br> 				Requires authentication.
+- `halopsa-cli sales-mailbox get`  -  Use this to return a single instance of SalesMailbox. 				Requires authentication.
 - `halopsa-cli sales-mailbox list`  -  List
 
 **sales-mailbox-detail**  -  Manage sales mailbox detail
@@ -2101,8 +2127,8 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli sales-order create`  -  Create
 - `halopsa-cli sales-order create-salesorder`  -  Create salesorder
 - `halopsa-cli sales-order delete`  -  Delete
-- `halopsa-cli sales-order get`  -  Use this to return a single instance of OrderHead.<br> 				Requires authentication.
-- `halopsa-cli sales-order list`  -  Use this to return multiple OrderHead.<br> 				Requires authentication.
+- `halopsa-cli sales-order get`  -  Use this to return a single instance of OrderHead. 				Requires authentication.
+- `halopsa-cli sales-order list`  -  Use this to return multiple OrderHead. 				Requires authentication.
 
 **saved-forecast**  -  Manage saved forecast
 
@@ -2114,8 +2140,8 @@ These capabilities aren't available in any other tool for this API.
 **schedule**  -  Manage schedule
 
 - `halopsa-cli schedule create`  -  Create
-- `halopsa-cli schedule get`  -  Use this to return a single instance of Schedule.<br> 				Requires authentication.
-- `halopsa-cli schedule list`  -  Use this to return multiple Schedule.<br> 				Requires authentication.
+- `halopsa-cli schedule get`  -  Use this to return a single instance of Schedule. 				Requires authentication.
+- `halopsa-cli schedule list`  -  Use this to return multiple Schedule. 				Requires authentication.
 
 **schedule-occurrence**  -  Manage schedule occurrence
 
@@ -2127,8 +2153,8 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli screen-layout create`  -  Create
 - `halopsa-cli screen-layout delete`  -  Delete
-- `halopsa-cli screen-layout get`  -  Use this to return a single instance of ScreenLayout.<br> 				Requires authentication.
-- `halopsa-cli screen-layout list`  -  Use this to return multiple ScreenLayout.<br> 				Requires authentication.
+- `halopsa-cli screen-layout get`  -  Use this to return a single instance of ScreenLayout. 				Requires authentication.
+- `halopsa-cli screen-layout list`  -  Use this to return multiple ScreenLayout. 				Requires authentication.
 
 **secure-secret-link**  -  Manage secure secret link
 
@@ -2147,7 +2173,7 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli security-question create`  -  Create
 - `halopsa-cli security-question delete`  -  Delete
-- `halopsa-cli security-question get`  -  Use this to return a single instance of SecurityQuestion.<br> 				Requires authentication.
+- `halopsa-cli security-question get`  -  Use this to return a single instance of SecurityQuestion. 				Requires authentication.
 - `halopsa-cli security-question list`  -  List
 
 **security-question-validate**  -  Manage security question validate
@@ -2171,8 +2197,8 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli service create`  -  Create
 - `halopsa-cli service create-unsubscribe`  -  Create unsubscribe
 - `halopsa-cli service delete`  -  Delete
-- `halopsa-cli service get`  -  Use this to return a single instance of ServSite.<br> 				Requires authentication.
-- `halopsa-cli service list`  -  Use this to return multiple ServSite.<br> 				Requires authentication.
+- `halopsa-cli service get`  -  Use this to return a single instance of ServSite. 				Requires authentication.
+- `halopsa-cli service list`  -  Use this to return multiple ServSite. 				Requires authentication.
 
 **service-availability**  -  Manage service availability
 
@@ -2185,36 +2211,36 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli service-category create`  -  Create
 - `halopsa-cli service-category delete`  -  Delete
-- `halopsa-cli service-category get`  -  Use this to return a single instance of ServiceCategory.<br> 				Requires authentication.
-- `halopsa-cli service-category list`  -  Use this to return multiple ServiceCategory.<br> 				Requires authentication.
+- `halopsa-cli service-category get`  -  Use this to return a single instance of ServiceCategory. 				Requires authentication.
+- `halopsa-cli service-category list`  -  Use this to return multiple ServiceCategory. 				Requires authentication.
 
 **service-request-details**  -  Manage service request details
 
-- `halopsa-cli service-request-details get`  -  Use this to return a single instance of ServiceRequestDetails.<br> 				Requires authentication.
-- `halopsa-cli service-request-details list`  -  Use this to return multiple ServiceRequestDetails.<br> 				Requires authentication.
+- `halopsa-cli service-request-details get`  -  Use this to return a single instance of ServiceRequestDetails. 				Requires authentication.
+- `halopsa-cli service-request-details list`  -  Use this to return multiple ServiceRequestDetails. 				Requires authentication.
 
 **service-restriction**  -  Manage service restriction
 
-- `halopsa-cli service-restriction`  -  Use this to return multiple ServiceRestriction.<br> 				Requires authentication.
+- `halopsa-cli service-restriction`  -  Use this to return multiple ServiceRestriction. 				Requires authentication.
 
 **service-status**  -  Manage service status
 
 - `halopsa-cli service-status create`  -  Create
 - `halopsa-cli service-status create-servicestatus`  -  Create servicestatus
 - `halopsa-cli service-status delete`  -  Delete
-- `halopsa-cli service-status get`  -  Use this to return a single instance of ServStatus.<br> 				Requires authentication.
+- `halopsa-cli service-status get`  -  Use this to return a single instance of ServStatus. 				Requires authentication.
 - `halopsa-cli service-status get-servicestatus`  -  Get servicestatus
-- `halopsa-cli service-status list`  -  Use this to return multiple ServStatus.<br> 				Requires authentication.
+- `halopsa-cli service-status list`  -  Use this to return multiple ServStatus. 				Requires authentication.
 
 **setup-tab**  -  Manage setup tab
 
 - `halopsa-cli setup-tab create`  -  Create
-- `halopsa-cli setup-tab get`  -  Use this to return a single instance of SetupTab.<br> 				Requires authentication.
+- `halopsa-cli setup-tab get`  -  Use this to return a single instance of SetupTab. 				Requires authentication.
 - `halopsa-cli setup-tab list`  -  List
 
 **setup-tab-group**  -  Manage setup tab group
 
-- `halopsa-cli setup-tab-group get`  -  Use this to return a single instance of SetupTabGroup.<br> 				Requires authentication.
+- `halopsa-cli setup-tab-group get`  -  Use this to return a single instance of SetupTabGroup. 				Requires authentication.
 - `halopsa-cli setup-tab-group list`  -  List
 
 **share-point**  -  Manage share point
@@ -2245,16 +2271,16 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli site create`  -  Create
 - `halopsa-cli site delete`  -  Delete
-- `halopsa-cli site get`  -  Use this to return a single instance of Site.<br> 				Requires authentication.
-- `halopsa-cli site list`  -  Use this to return multiple Site.<br> 				Requires authentication.
+- `halopsa-cli site get`  -  Use this to return a single instance of Site. 				Requires authentication.
+- `halopsa-cli site list`  -  Use this to return multiple Site. 				Requires authentication.
 - `halopsa-cli site list-stockbins`  -  List stockbins
 
 **sla**  -  Manage sla
 
 - `halopsa-cli sla create`  -  Create
 - `halopsa-cli sla delete`  -  Delete
-- `halopsa-cli sla get`  -  Use this to return a single instance of SlaHead.<br> 				Requires authentication.
-- `halopsa-cli sla list`  -  Use this to return multiple SlaHead.<br> 				Requires authentication.
+- `halopsa-cli sla get`  -  Use this to return a single instance of SlaHead. 				Requires authentication.
+- `halopsa-cli sla list`  -  Use this to return multiple SlaHead. 				Requires authentication.
 
 **slack**  -  Manage slack
 
@@ -2275,8 +2301,8 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli slack-details create`  -  Create
 - `halopsa-cli slack-details create-slackdetails`  -  Create slackdetails
 - `halopsa-cli slack-details delete`  -  Delete
-- `halopsa-cli slack-details get`  -  Use this to return a single instance of SlackDetails.<br> 				Requires authentication.
-- `halopsa-cli slack-details list`  -  Use this to return multiple SlackDetails.<br> 				Requires authentication.
+- `halopsa-cli slack-details get`  -  Use this to return a single instance of SlackDetails. 				Requires authentication.
+- `halopsa-cli slack-details list`  -  Use this to return multiple SlackDetails. 				Requires authentication.
 
 **snipe-itdetails**  -  Manage snipe itdetails
 
@@ -2289,19 +2315,19 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli snow-details create`  -  Create
 - `halopsa-cli snow-details delete`  -  Delete
-- `halopsa-cli snow-details get`  -  Use this to return a single instance of SnowDetails.<br> 				Requires authentication.
-- `halopsa-cli snow-details list`  -  Use this to return multiple SnowDetails.<br> 				Requires authentication.
+- `halopsa-cli snow-details get`  -  Use this to return a single instance of SnowDetails. 				Requires authentication.
+- `halopsa-cli snow-details list`  -  Use this to return multiple SnowDetails. 				Requires authentication.
 
 **software-licence**  -  Manage software licence
 
 - `halopsa-cli software-licence create`  -  Create
 - `halopsa-cli software-licence delete`  -  Delete
-- `halopsa-cli software-licence get`  -  Use this to return a single instance of Licence.<br> 				Requires authentication.
-- `halopsa-cli software-licence list`  -  Use this to return multiple Licence.<br> 				Requires authentication.
+- `halopsa-cli software-licence get`  -  Use this to return a single instance of Licence. 				Requires authentication.
+- `halopsa-cli software-licence list`  -  Use this to return multiple Licence. 				Requires authentication.
 
 **software-licence-role**  -  Manage software licence role
 
-- `halopsa-cli software-licence-role`  -  Use this to return multiple LicenceRole.<br> 				Requires authentication.
+- `halopsa-cli software-licence-role`  -  Use this to return multiple LicenceRole. 				Requires authentication.
 
 **sophos**  -  Manage sophos
 
@@ -2318,15 +2344,15 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli sqlimport create`  -  Create
 - `halopsa-cli sqlimport delete`  -  Delete
-- `halopsa-cli sqlimport get`  -  Use this to return a single instance of SQLImport.<br> 				Requires authentication.
-- `halopsa-cli sqlimport list`  -  Use this to return multiple SQLImport.<br> 				Requires authentication.
+- `halopsa-cli sqlimport get`  -  Use this to return a single instance of SQLImport. 				Requires authentication.
+- `halopsa-cli sqlimport list`  -  Use this to return multiple SQLImport. 				Requires authentication.
 
 **status**  -  Manage status
 
 - `halopsa-cli status create`  -  Create
 - `halopsa-cli status delete`  -  Delete
-- `halopsa-cli status get`  -  Use this to return a single instance of TStatus.<br> 				Requires authentication.
-- `halopsa-cli status list`  -  Use this to return multiple TStatus.<br> 				Requires authentication.
+- `halopsa-cli status get`  -  Use this to return a single instance of TStatus. 				Requires authentication.
+- `halopsa-cli status list`  -  Use this to return multiple TStatus. 				Requires authentication.
 
 **stock-bin**  -  Manage stock bin
 
@@ -2358,36 +2384,36 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli supplier create`  -  Create
 - `halopsa-cli supplier delete`  -  Delete
-- `halopsa-cli supplier get`  -  Use this to return a single instance of Company.<br> 				Requires authentication.
-- `halopsa-cli supplier list`  -  Use this to return multiple Company.<br> 				Requires authentication.
+- `halopsa-cli supplier get`  -  Use this to return a single instance of Company. 				Requires authentication.
+- `halopsa-cli supplier list`  -  Use this to return multiple Company. 				Requires authentication.
 
 **supplier-contract**  -  Manage supplier contract
 
 - `halopsa-cli supplier-contract create`  -  Create
 - `halopsa-cli supplier-contract create-suppliercontract`  -  Create suppliercontract
 - `halopsa-cli supplier-contract delete`  -  Delete
-- `halopsa-cli supplier-contract get`  -  Use this to return a single instance of Contract.<br> 				Requires authentication.
-- `halopsa-cli supplier-contract list`  -  Use this to return multiple Contract.<br> 				Requires authentication.
+- `halopsa-cli supplier-contract get`  -  Use this to return a single instance of Contract. 				Requires authentication.
+- `halopsa-cli supplier-contract list`  -  Use this to return multiple Contract. 				Requires authentication.
 
 **synnex-details**  -  Manage synnex details
 
 - `halopsa-cli synnex-details create`  -  Create
 - `halopsa-cli synnex-details delete`  -  Delete
-- `halopsa-cli synnex-details get`  -  Use this to return a single instance of IngramMicroDetails.<br> 				Requires authentication.
+- `halopsa-cli synnex-details get`  -  Use this to return a single instance of IngramMicroDetails. 				Requires authentication.
 - `halopsa-cli synnex-details list`  -  List
 
 **tabs**  -  Manage tabs
 
 - `halopsa-cli tabs create`  -  Create
 - `halopsa-cli tabs delete`  -  Delete
-- `halopsa-cli tabs get`  -  Use this to return a single instance of Tabname.<br> 				Requires authentication.
-- `halopsa-cli tabs list`  -  Use this to return multiple Tabname.<br> 				Requires authentication.
+- `halopsa-cli tabs get`  -  Use this to return a single instance of Tabname. 				Requires authentication.
+- `halopsa-cli tabs list`  -  Use this to return multiple Tabname. 				Requires authentication.
 
 **tags**  -  Manage tags
 
 - `halopsa-cli tags create`  -  Create
 - `halopsa-cli tags delete`  -  Delete
-- `halopsa-cli tags get`  -  Use this to return a single instance of Tag.<br> 				Requires authentication.
+- `halopsa-cli tags get`  -  Use this to return a single instance of Tag. 				Requires authentication.
 - `halopsa-cli tags list`  -  List
 
 **take-control**  -  Manage take control
@@ -2419,8 +2445,8 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli tax create`  -  Create
 - `halopsa-cli tax delete`  -  Delete
-- `halopsa-cli tax get`  -  Use this to return a single instance of Tax.<br> 				Requires authentication.
-- `halopsa-cli tax list`  -  Use this to return multiple Tax.<br> 				Requires authentication.
+- `halopsa-cli tax get`  -  Use this to return a single instance of Tax. 				Requires authentication.
+- `halopsa-cli tax list`  -  Use this to return multiple Tax. 				Requires authentication.
 
 **tax-rule**  -  Manage tax rule
 
@@ -2433,8 +2459,8 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli team create`  -  Create
 - `halopsa-cli team delete`  -  Delete
-- `halopsa-cli team get`  -  Use this to return a single instance of SectionDetail.<br> 				Requires authentication.
-- `halopsa-cli team list`  -  Use this to return multiple SectionDetail.<br> 				Requires authentication.
+- `halopsa-cli team get`  -  Use this to return a single instance of SectionDetail. 				Requires authentication.
+- `halopsa-cli team list`  -  Use this to return multiple SectionDetail. 				Requires authentication.
 - `halopsa-cli team list-tree`  -  List tree
 
 **team-image**  -  Manage team image
@@ -2452,8 +2478,8 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli template create`  -  Create
 - `halopsa-cli template delete`  -  Delete
-- `halopsa-cli template get`  -  Use this to return a single instance of StdRequest.<br> 				Requires authentication.
-- `halopsa-cli template list`  -  Use this to return multiple StdRequest.<br> 				Requires authentication.
+- `halopsa-cli template get`  -  Use this to return a single instance of StdRequest. 				Requires authentication.
+- `halopsa-cli template list`  -  Use this to return multiple StdRequest. 				Requires authentication.
 
 **tenable**  -  Manage tenable
 
@@ -2494,39 +2520,39 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli ticket-approval create`  -  Create
 - `halopsa-cli ticket-approval delete`  -  Delete
-- `halopsa-cli ticket-approval get`  -  Use this to return a single instance of FaultApproval.<br> 				Requires authentication.
-- `halopsa-cli ticket-approval list`  -  Use this to return multiple FaultApproval.<br> 				Requires authentication.
+- `halopsa-cli ticket-approval get`  -  Use this to return a single instance of FaultApproval. 				Requires authentication.
+- `halopsa-cli ticket-approval list`  -  Use this to return multiple FaultApproval. 				Requires authentication.
 
 **ticket-area**  -  Manage ticket area
 
 - `halopsa-cli ticket-area create`  -  Create
 - `halopsa-cli ticket-area delete`  -  Delete
-- `halopsa-cli ticket-area get`  -  Use this to return a single instance of TicketArea.<br> 				Requires authentication.
+- `halopsa-cli ticket-area get`  -  Use this to return a single instance of TicketArea. 				Requires authentication.
 - `halopsa-cli ticket-area list`  -  List
 
 **ticket-rules**  -  Manage ticket rules
 
 - `halopsa-cli ticket-rules create`  -  Create
 - `halopsa-cli ticket-rules delete`  -  Delete
-- `halopsa-cli ticket-rules get`  -  Use this to return a single instance of Autoassign.<br> 				Requires authentication.
-- `halopsa-cli ticket-rules list`  -  Use this to return multiple Autoassign.<br> 				Requires authentication.
+- `halopsa-cli ticket-rules get`  -  Use this to return a single instance of Autoassign. 				Requires authentication.
+- `halopsa-cli ticket-rules list`  -  Use this to return multiple Autoassign. 				Requires authentication.
 
 **ticket-type**  -  Manage ticket type
 
 - `halopsa-cli ticket-type create`  -  Create
 - `halopsa-cli ticket-type delete`  -  Delete
-- `halopsa-cli ticket-type get`  -  Use this to return a single instance of RequestType.<br> 				Requires authentication.
-- `halopsa-cli ticket-type list`  -  Use this to return multiple RequestType.<br> 				Requires authentication.
+- `halopsa-cli ticket-type get`  -  Use this to return a single instance of RequestType. 				Requires authentication.
+- `halopsa-cli ticket-type list`  -  Use this to return multiple RequestType. 				Requires authentication.
 
 **ticket-type-field**  -  Manage ticket type field
 
-- `halopsa-cli ticket-type-field`  -  Use this to return multiple RequestTypeField.<br> 				Requires authentication.
+- `halopsa-cli ticket-type-field`  -  Use this to return multiple RequestTypeField. 				Requires authentication.
 
 **ticket-type-group**  -  Manage ticket type group
 
 - `halopsa-cli ticket-type-group create`  -  Create
 - `halopsa-cli ticket-type-group delete`  -  Delete
-- `halopsa-cli ticket-type-group get`  -  Use this to return a single instance of RequestTypeGroup.<br> 				Requires authentication.
+- `halopsa-cli ticket-type-group get`  -  Use this to return a single instance of RequestTypeGroup. 				Requires authentication.
 - `halopsa-cli ticket-type-group list`  -  List
 
 **tickets**  -  Manage tickets
@@ -2537,16 +2563,16 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli tickets create-setbillableproject`  -  Create setbillableproject
 - `halopsa-cli tickets create-view`  -  Create view
 - `halopsa-cli tickets create-vote`  -  Create vote
-- `halopsa-cli tickets delete`  -  Delete specific Faults.<br> 				Requires authentication.
-- `halopsa-cli tickets get`  -  Use this to return a single instance of Faults.<br> 				Requires authentication.
-- `halopsa-cli tickets list`  -  Use this to return multiple Faults.<br> 				Requires authentication.
+- `halopsa-cli tickets delete`  -  Delete specific Faults. 				Requires authentication.
+- `halopsa-cli tickets get`  -  Use this to return a single instance of Faults. 				Requires authentication.
+- `halopsa-cli tickets list`  -  Use this to return multiple Faults. 				Requires authentication.
 - `halopsa-cli tickets list-salesmailbox`  -  List salesmailbox
 - `halopsa-cli tickets list-zapier`  -  List zapier
 
 **timesheet**  -  Manage timesheet
 
 - `halopsa-cli timesheet create`  -  Create
-- `halopsa-cli timesheet get`  -  Use this to return a single instance of Timesheet.<br> 				Requires authentication.
+- `halopsa-cli timesheet get`  -  Use this to return a single instance of Timesheet. 				Requires authentication.
 - `halopsa-cli timesheet list`  -  List
 - `halopsa-cli timesheet list-forecasting`  -  List forecasting
 - `halopsa-cli timesheet list-mine`  -  List mine
@@ -2555,18 +2581,18 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli timesheet-event create`  -  Create
 - `halopsa-cli timesheet-event delete`  -  Delete
-- `halopsa-cli timesheet-event get`  -  Use this to return a single instance of TimesheetEvent.<br> 				Requires authentication.
-- `halopsa-cli timesheet-event list`  -  Use this to return multiple TimesheetEvent.<br> 				Requires authentication.
+- `halopsa-cli timesheet-event get`  -  Use this to return a single instance of TimesheetEvent. 				Requires authentication.
+- `halopsa-cli timesheet-event list`  -  Use this to return multiple TimesheetEvent. 				Requires authentication.
 - `halopsa-cli timesheet-event list-timesheetevent`  -  List timesheetevent
 
 **timeslot**  -  Manage timeslot
 
-- `halopsa-cli timeslot`  -  Use this to return multiple Timeslot.<br> 				Requires authentication.
+- `halopsa-cli timeslot`  -  Use this to return multiple Timeslot. 				Requires authentication.
 
 **to-do**  -  Manage to do
 
 - `halopsa-cli to-do create`  -  Create
-- `halopsa-cli to-do list`  -  Use this to return multiple FaultToDo.<br> 				Requires authentication.
+- `halopsa-cli to-do list`  -  Use this to return multiple FaultToDo. 				Requires authentication.
 
 **to-do-group**  -  Manage to do group
 
@@ -2579,8 +2605,8 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli top-level create`  -  Create
 - `halopsa-cli top-level delete`  -  Delete
-- `halopsa-cli top-level get`  -  Use this to return a single instance of Tree.<br> 				Requires authentication.
-- `halopsa-cli top-level list`  -  Use this to return multiple Tree.<br> 				Requires authentication.
+- `halopsa-cli top-level get`  -  Use this to return a single instance of Tree. 				Requires authentication.
+- `halopsa-cli top-level list`  -  Use this to return multiple Tree. 				Requires authentication.
 
 **transcription-store**  -  Manage transcription store
 
@@ -2614,25 +2640,25 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli twitter-details create`  -  Create
 - `halopsa-cli twitter-details delete`  -  Delete
-- `halopsa-cli twitter-details get`  -  Use this to return a single instance of TwitterDetails.<br> 				Requires authentication.
-- `halopsa-cli twitter-details list`  -  Use this to return multiple TwitterDetails.<br> 				Requires authentication.
+- `halopsa-cli twitter-details get`  -  Use this to return a single instance of TwitterDetails. 				Requires authentication.
+- `halopsa-cli twitter-details list`  -  Use this to return multiple TwitterDetails. 				Requires authentication.
 
 **unsub-service-emails**  -  Manage unsub service emails
 
 - `halopsa-cli unsub-service-emails create`  -  Create
 - `halopsa-cli unsub-service-emails delete`  -  Delete
-- `halopsa-cli unsub-service-emails get`  -  Use this to return a single instance of UnsubEmailServiceUsers.<br> 				Requires authentication.
+- `halopsa-cli unsub-service-emails get`  -  Use this to return a single instance of UnsubEmailServiceUsers. 				Requires authentication.
 - `halopsa-cli unsub-service-emails list`  -  List
 
 **user-change**  -  Manage user change
 
-- `halopsa-cli user-change`  -  Use this to return multiple UserChange.<br> 				Requires authentication.
+- `halopsa-cli user-change`  -  Use this to return multiple UserChange. 				Requires authentication.
 
 **user-roles**  -  Manage user roles
 
 - `halopsa-cli user-roles create`  -  Create
 - `halopsa-cli user-roles delete`  -  Delete
-- `halopsa-cli user-roles get`  -  Use this to return a single instance of UserRoles.<br> 				Requires authentication.
+- `halopsa-cli user-roles get`  -  Use this to return a single instance of UserRoles. 				Requires authentication.
 - `halopsa-cli user-roles list`  -  List
 
 **users**  -  Manage users
@@ -2640,46 +2666,46 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli users create`  -  Create
 - `halopsa-cli users create-prefs`  -  Create prefs
 - `halopsa-cli users delete`  -  Delete
-- `halopsa-cli users get`  -  Use this to return a single instance of Users.<br> 				Requires authentication.
-- `halopsa-cli users list`  -  Use this to return multiple Users.<br> 				Requires authentication.
+- `halopsa-cli users get`  -  Use this to return a single instance of Users. 				Requires authentication.
+- `halopsa-cli users list`  -  Use this to return multiple Users. 				Requires authentication.
 - `halopsa-cli users list-me`  -  List me
 
 **version-info**  -  Manage version info
 
-- `halopsa-cli version-info get`  -  Use this to return a single instance of Release.<br> 				Requires authentication.
+- `halopsa-cli version-info get`  -  Use this to return a single instance of Release. 				Requires authentication.
 - `halopsa-cli version-info get-versioninfo`  -  Get versioninfo
-- `halopsa-cli version-info list`  -  .<br> 				Requires authentication.
+- `halopsa-cli version-info list`  -  . 				Requires authentication.
 - `halopsa-cli version-info list-versioninfo`  -  List versioninfo
-- `halopsa-cli version-info list-versioninfo-2`  -  .<br> 				Requires authentication.
-- `halopsa-cli version-info list-versioninfo-3`  -  .<br> 				Requires authentication.
+- `halopsa-cli version-info list-versioninfo-2`  -  . 				Requires authentication.
+- `halopsa-cli version-info list-versioninfo-3`  -  . 				Requires authentication.
 
 **view-columns**  -  Manage view columns
 
 - `halopsa-cli view-columns create`  -  Create
 - `halopsa-cli view-columns delete`  -  Delete
-- `halopsa-cli view-columns get`  -  Use this to return a single instance of ViewColumns.<br> 				Requires authentication.
-- `halopsa-cli view-columns list`  -  Use this to return multiple ViewColumns.<br> 				Requires authentication.
+- `halopsa-cli view-columns get`  -  Use this to return a single instance of ViewColumns. 				Requires authentication.
+- `halopsa-cli view-columns list`  -  Use this to return multiple ViewColumns. 				Requires authentication.
 
 **view-filter**  -  Manage view filter
 
 - `halopsa-cli view-filter create`  -  Create
 - `halopsa-cli view-filter delete`  -  Delete
-- `halopsa-cli view-filter get`  -  Use this to return a single instance of ViewFilter.<br> 				Requires authentication.
-- `halopsa-cli view-filter list`  -  Use this to return multiple ViewFilter.<br> 				Requires authentication.
+- `halopsa-cli view-filter get`  -  Use this to return a single instance of ViewFilter. 				Requires authentication.
+- `halopsa-cli view-filter list`  -  Use this to return multiple ViewFilter. 				Requires authentication.
 
 **view-list-group**  -  Manage view list group
 
 - `halopsa-cli view-list-group create`  -  Create
 - `halopsa-cli view-list-group delete`  -  Delete
-- `halopsa-cli view-list-group get`  -  Use this to return a single instance of ViewListGroup.<br> 				Requires authentication.
-- `halopsa-cli view-list-group list`  -  Use this to return multiple ViewListGroup.<br> 				Requires authentication.
+- `halopsa-cli view-list-group get`  -  Use this to return a single instance of ViewListGroup. 				Requires authentication.
+- `halopsa-cli view-list-group list`  -  Use this to return multiple ViewListGroup. 				Requires authentication.
 
 **view-lists**  -  Manage view lists
 
 - `halopsa-cli view-lists create`  -  Create
 - `halopsa-cli view-lists delete`  -  Delete
-- `halopsa-cli view-lists get`  -  Use this to return a single instance of ViewLists.<br> 				Requires authentication.
-- `halopsa-cli view-lists list`  -  Use this to return multiple ViewLists.<br> 				Requires authentication.
+- `halopsa-cli view-lists get`  -  Use this to return a single instance of ViewLists. 				Requires authentication.
+- `halopsa-cli view-lists list`  -  Use this to return multiple ViewLists. 				Requires authentication.
 
 **virima**  -  Manage virima
 
@@ -2714,19 +2740,19 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli webhook create`  -  Create
 - `halopsa-cli webhook delete`  -  Delete
-- `halopsa-cli webhook get`  -  Use this to return a single instance of Webhook.<br> 				Requires authentication.
-- `halopsa-cli webhook list`  -  Use this to return multiple Webhook.<br> 				Requires authentication.
+- `halopsa-cli webhook get`  -  Use this to return a single instance of Webhook. 				Requires authentication.
+- `halopsa-cli webhook list`  -  Use this to return multiple Webhook. 				Requires authentication.
 
 **webhook-event**  -  Manage webhook event
 
 - `halopsa-cli webhook-event create`  -  Create
-- `halopsa-cli webhook-event get`  -  Use this to return a single instance of WebhookEvent.<br> 				Requires authentication.
-- `halopsa-cli webhook-event list`  -  Use this to return multiple WebhookEvent.<br> 				Requires authentication.
+- `halopsa-cli webhook-event get`  -  Use this to return a single instance of WebhookEvent. 				Requires authentication.
+- `halopsa-cli webhook-event list`  -  Use this to return multiple WebhookEvent. 				Requires authentication.
 
 **webhook-repository**  -  Manage webhook repository
 
-- `halopsa-cli webhook-repository get`  -  Use this to return a single instance of Webhook.<br> 				Requires authentication.
-- `halopsa-cli webhook-repository list`  -  Use this to return multiple Webhook.<br> 				Requires authentication.
+- `halopsa-cli webhook-repository get`  -  Use this to return a single instance of Webhook. 				Requires authentication.
+- `halopsa-cli webhook-repository list`  -  Use this to return multiple Webhook. 				Requires authentication.
 
 **whats-app**  -  Manage whats app
 
@@ -2751,8 +2777,8 @@ These capabilities aren't available in any other tool for this API.
 
 - `halopsa-cli workday create`  -  Create
 - `halopsa-cli workday delete`  -  Delete
-- `halopsa-cli workday get`  -  Use this to return a single instance of Workdays.<br> 				Requires authentication.
-- `halopsa-cli workday list`  -  Use this to return multiple Workdays.<br> 				Requires authentication.
+- `halopsa-cli workday get`  -  Use this to return a single instance of Workdays. 				Requires authentication.
+- `halopsa-cli workday list`  -  Use this to return multiple Workdays. 				Requires authentication.
 
 **workflow-target**  -  Manage workflow target
 
@@ -2761,20 +2787,27 @@ These capabilities aren't available in any other tool for this API.
 - `halopsa-cli workflow-target get`  -  Get
 - `halopsa-cli workflow-target list`  -  List
 
+**workflows**  -  Manage workflows
+
+- `halopsa-cli workflows create`  -  Create
+- `halopsa-cli workflows delete`  -  Delete
+- `halopsa-cli workflows get`  -  Use this to return a single instance of FlowHeader. 				Requires authentication.
+- `halopsa-cli workflows list`  -  Use this to return multiple FlowHeader. 				Requires authentication.
+
 **workflowstep**  -  Manage workflowstep
 
-- `halopsa-cli workflowstep`  -  Use this to return multiple FlowDetail.<br> 				Requires authentication.
+- `halopsa-cli workflowstep`  -  Use this to return multiple FlowDetail. 				Requires authentication.
 
 **xero-details**  -  Manage xero details
 
 - `halopsa-cli xero-details create`  -  Create
 - `halopsa-cli xero-details delete`  -  Delete
-- `halopsa-cli xero-details get`  -  Use this to return a single instance of XeroDetails.<br> 				Requires authentication.
-- `halopsa-cli xero-details list`  -  Use this to return multiple XeroDetails.<br> 				Requires authentication.
+- `halopsa-cli xero-details get`  -  Use this to return a single instance of XeroDetails. 				Requires authentication.
+- `halopsa-cli xero-details list`  -  Use this to return multiple XeroDetails. 				Requires authentication.
 
 **xtype-role**  -  Manage xtype role
 
-- `halopsa-cli xtype-role`  -  Use this to return multiple XTypeRole.<br> 				Requires authentication.
+- `halopsa-cli xtype-role`  -  Use this to return multiple XTypeRole. 				Requires authentication.
 
 **zendesk**  -  Manage zendesk
 
@@ -2796,7 +2829,6 @@ halopsa-cli which "<capability in your own words>"
 `which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query.
 
 ## Recipes
-
 
 ### Monday queue cleanse
 
@@ -2840,7 +2872,7 @@ See current hours consumed vs. bank with projected overage so the contract conve
 
 ## Auth Setup
 
-Halo uses OAuth2 client_credentials. Create an API application in your tenant under Configuration > Integrations > Halo PSA API (Authentication Method: Client ID and Secret  -  Services), then run `HALOPSA_TENANT=<yoursub> halopsa-cli auth login --client-id <id> --client-secret <secret>`. The CLI exchanges the credentials at https://<tenant>.halopsa.com/auth/token and caches the access token (auto-refreshed before expiry).
+Halo uses OAuth2 client_credentials. Create an API application in your tenant under Configuration > Integrations > Halo PSA API (Authentication Method: Client ID and Secret  -  Services), then run `halopsa-cli auth login --client-id <id> --client-secret <secret> --tenant <yoursub>`. The CLI exchanges the credentials at https://<tenant>.halopsa.com/auth/token and caches the access token (auto-refreshed before expiry).
 
 Run `halopsa-cli doctor` to verify setup.
 
@@ -2882,7 +2914,7 @@ halopsa-cli feedback --stdin < notes.txt
 halopsa-cli feedback list --json --limit 10
 ```
 
-Entries are stored locally at `~/.halopsa-cli/feedback.jsonl`. They are never POSTed unless `HALOPSA_FEEDBACK_ENDPOINT` is set AND either `--send` is passed or `HALOPSA_FEEDBACK_AUTO_SEND=true`. Default behavior is local-only.
+Entries are stored locally at `~/.local/share/halopsa-cli/feedback.jsonl`. They are never POSTed unless `HALOPSA_FEEDBACK_ENDPOINT` is set AND either `--send` is passed or `HALOPSA_FEEDBACK_AUTO_SEND=true`. Default behavior is local-only.
 
 Write what *surprised* you, not a bug report. Short, specific, one line: that is the part that compounds.
 
@@ -2934,13 +2966,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-Install the MCP binary from this CLI's published public-library entry or pre-built release, then register it:
-
-```bash
-claude mcp add halopsa-mcp -- halopsa-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/project-management/halopsa/cmd/halopsa-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add halopsa-mcp -- halopsa-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

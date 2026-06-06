@@ -58,7 +58,7 @@
       "vendor": "HaloPSA",
       "vendor_trademark_owner": "Halo Service Solutions Ltd.",
       "first_party": false,
-      "cli_hash": "sha256:c56723a048fe5d2a5b7f9167d4239f04af6efa23c6369a349885013fd8034712",
+      "cli_hash": "sha256:68415b40e97284f38a352bb2b1cba65d33d58d34d42bf67aedd40d533c016d44",
       "template_version": 3,
       "version": "0.1.1",
       "cli_hash_at_release": "sha256:c56723a048fe5d2a5b7f9167d4239f04af6efa23c6369a349885013fd8034712",

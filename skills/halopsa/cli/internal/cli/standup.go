@@ -12,6 +12,7 @@ import (
 	"halopsa-pp-cli/internal/store"
 )
 
+// pp:data-source local
 func newStandupCmd(flags *rootFlags) *cobra.Command {
 	var (
 		dbPath string
@@ -167,6 +168,13 @@ func parseSince(s string) (time.Time, error) {
 	for _, layout := range []string{time.RFC3339, "2006-01-02 15:04", "2006-01-02 15:04:05", "2006-01-02"} {
 		if t, err := time.Parse(layout, s); err == nil {
 			return t, nil
+		}
+	}
+	// Bare clock time (e.g. "09:00", "9:30:15") means today at that time.
+	for _, layout := range []string{"15:04", "15:04:05"} {
+		if hm, err := time.Parse(layout, s); err == nil {
+			y, mo, d := now.Date()
+			return time.Date(y, mo, d, hm.Hour(), hm.Minute(), hm.Second(), 0, now.Location()), nil
 		}
 	}
 	return time.Time{}, fmt.Errorf("unrecognized time")

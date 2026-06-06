@@ -42,7 +42,7 @@
     {
       "name": "halopsa",
       "source": "./skills/halopsa",
-      "description": "Add HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics to Claude, ChatGPT, Codex, or any AI that speaks MCP. Local SQLite mirror so cross-entity queries the live API can't return are fast and offline.",
+      "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
       "version": "0.1.1",
       "category": "psa",
       "tags": [

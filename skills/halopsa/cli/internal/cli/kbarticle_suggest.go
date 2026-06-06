@@ -9,7 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newKBArticleSuggestCmd(flags *rootFlags) *cobra.Command {
+// pp:data-source live
+func newNovelKbarticleSuggestCmd(flags *rootFlags) *cobra.Command {
 	var (
 		ticketID string
 		query    string
@@ -41,7 +42,7 @@ body, then queries the live /KBArticle endpoint and returns the top N matches.`,
 			}
 			searchText := query
 			if searchText == "" {
-				raw, err := c.Get("/Tickets/"+ticketID, map[string]string{"includedetails": "true"})
+				raw, err := c.Get(cmd.Context(), "/Tickets/"+ticketID, map[string]string{"includedetails": "true"})
 				if err != nil {
 					return fmt.Errorf("fetching ticket %s: %w", ticketID, err)
 				}
@@ -67,7 +68,7 @@ body, then queries the live /KBArticle endpoint and returns the top N matches.`,
 			if strings.TrimSpace(searchText) == "" {
 				return fmt.Errorf("no searchable text from ticket %s; pass --query explicitly", ticketID)
 			}
-			kbRaw, err := c.Get("/KBArticle", map[string]string{
+			kbRaw, err := c.Get(cmd.Context(), "/KBArticle", map[string]string{
 				"search":    searchText,
 				"page_size": fmt.Sprintf("%d", limit),
 			})

@@ -12,7 +12,8 @@ import (
 	"halopsa-pp-cli/internal/store"
 )
 
-func newTicketsAgeOutCmd(flags *rootFlags) *cobra.Command {
+// pp:data-source auto
+func newNovelTicketsAgeOutCmd(flags *rootFlags) *cobra.Command {
 	var (
 		dbPath     string
 		status     string
@@ -99,7 +100,7 @@ through the API per ticket.`,
 						"note":           actionNote,
 						"hiddenfromuser": false,
 					}
-					if _, _, err := c.Post("/Actions", []any{body}); err != nil {
+					if _, _, err := c.Post(cmd.Context(), "/Actions", []any{body}); err != nil {
 						out[i].ApplyResult = "error: " + err.Error()
 					} else {
 						out[i].ApplyResult = "closed"
@@ -148,7 +149,7 @@ through the API per ticket.`,
 	return cmd
 }
 
-func newTicketsChangedSinceCmd(flags *rootFlags) *cobra.Command {
+func newNovelTicketsChangedSinceCmd(flags *rootFlags) *cobra.Command {
 	var (
 		dbPath string
 		since  string

@@ -12,7 +12,8 @@ import (
 	"halopsa-pp-cli/internal/store"
 )
 
-func newAgentWorkloadCmd(flags *rootFlags) *cobra.Command {
+// pp:data-source local
+func newNovelAgentWorkloadCmd(flags *rootFlags) *cobra.Command {
 	var (
 		dbPath string
 		team   string
