@@ -1,0 +1,5 @@
+{
+  "descriptions": {
+    "health_search": "Check the Blumira Public API's health and report its build metadata. Takes no parameters beyond auth. Returns a status field (\"OK\" on any non-error response) plus the API name, version/commit hash, and build time. Use this to confirm connectivity and the deployed API version before running other commands; it does not read any organization or finding data."
+  }
+}

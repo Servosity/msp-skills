@@ -71,6 +71,29 @@
         "evidence": null
       }
     },
+    "blumira": {
+      "system": "cloud SIEM and automated detection and response platform",
+      "status": "beta",
+      "cli_binary": "blumira-cli",
+      "mcp_binary": "blumira-mcp",
+      "vendor": "Blumira",
+      "vendor_trademark_owner": "Blumira, Inc.",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Blumira",
+      "tagline": "Triage every Blumira finding across all your MSP client accounts from one ranked queue",
+      "cli_hash": "sha256:9a313a7db46e6b3da6cd5cf788afab7beafab2ec371f4697b5182a363b25bc05",
+      "template_version": 3,
+      "version": "4.22.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "cipp": {
       "system": "the CyberDrain Improved Partner Portal (CIPP), the open-source Microsoft 365 multi-tenant management platform for MSPs",
       "status": "beta",

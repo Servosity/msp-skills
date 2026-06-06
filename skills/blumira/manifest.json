@@ -1,0 +1,51 @@
+{
+  "manifest_version": "0.3",
+  "name": "blumira-pp-mcp",
+  "display_name": "Blumira",
+  "version": "4.22.0",
+  "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account  -  in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/blumira-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/blumira-pp-mcp",
+      "args": [],
+      "env": {
+        "BLUMIRA_API_TOKEN": "${user_config.blumira_api_token}",
+        "BLUMIRA_CLIENT_ID": "${user_config.blumira_client_id}",
+        "BLUMIRA_CLIENT_SECRET": "${user_config.blumira_client_secret}"
+      }
+    }
+  },
+  "user_config": {
+    "blumira_api_token": {
+      "type": "string",
+      "title": "BLUMIRA_API_TOKEN",
+      "description": "Optional. Blumira JWT bearer token. Minted+cached by `auth login`, or set directly. Set this OR BLUMIRA_CLIENT_ID + BLUMIRA_CLIENT_SECRET.",
+      "sensitive": true
+    },
+    "blumira_client_id": {
+      "type": "string",
+      "title": "BLUMIRA_CLIENT_ID",
+      "description": "Optional. Blumira API Client ID (Settings > Organization > Generate API Credentials). Used with BLUMIRA_CLIENT_SECRET by `auth login` to mint a JWT."
+    },
+    "blumira_client_secret": {
+      "type": "string",
+      "title": "BLUMIRA_CLIENT_SECRET",
+      "description": "Optional. Blumira API Client Secret. Used with BLUMIRA_CLIENT_ID by `auth login` to mint a JWT (client_credentials, audience=public-api).",
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

@@ -80,6 +80,25 @@
       "tagline": "Triage tickets, surface unbilled time, and project retainer burn by asking."
     },
     {
+      "name": "blumira",
+      "system": "cloud SIEM and automated detection and response platform",
+      "status": "beta",
+      "skill_path": "skills/blumira",
+      "cli_binary": "blumira-cli",
+      "mcp_binary": "blumira-mcp",
+      "version": "4.22.0",
+      "license": "Apache-2.0",
+      "vendor": "Blumira",
+      "vendor_trademark_owner": "Blumira, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blumira/install.sh)",
+      "install_mcp_doc": "skills/blumira/mcp-install.md",
+      "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account  -  in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Triage every Blumira finding across all your MSP client accounts from one ranked queue"
+    },
+    {
       "name": "cipp",
       "system": "the CyberDrain Improved Partner Portal (CIPP), the open-source Microsoft 365 multi-tenant management platform for MSPs",
       "status": "beta",

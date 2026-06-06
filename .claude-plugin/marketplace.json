@@ -422,6 +422,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "blumira",
+      "source": "./skills/blumira",
+      "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account  -  in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "blumira",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
