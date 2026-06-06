@@ -1,4 +1,11 @@
 {
+  "acronis": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:5aee353c2bab50f319fa4768e4461ea0bda3fdb6fa8eeda8b3fa921fb283bee6",
+    "released_hash": null
+  },
   "autotask": {
     "state": "up-to-date",
     "version": "0.1.0",
