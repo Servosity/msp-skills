@@ -1,6 +1,6 @@
 ---
 name: betterstack
-description: "Every Better Stack Uptime feature Trigger phrases: `which monitors are down`, `find unprotected monitors`, `incident MTTR report`, `who is on call`, `noisy monitors`, `use betterstack`, `run betterstack-cli`."
+description: "Use when the user asks to check what's down in Better Stack, find monitors that would page nobody, report incident MTTA/MTTR, see who's on call or where on-call has gaps, rank noisy or flapping monitors, audit status-page drift, or run any Better Stack Uptime command (monitors, heartbeats, incidents, on-call, escalation policies, groups, status pages) - backed by a local SQLite mirror so cross-resource questions answer offline. Trigger phrases: `which monitors are down`, `find unprotected monitors`, `incident MTTR report`, `who is on call`, `noisy monitors`, `use betterstack`, `run betterstack-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Better Stack"
@@ -11,32 +11,26 @@ metadata:
     requires:
       bins:
         - betterstack-cli
-    install:
-      - kind: go
-        bins: [betterstack-cli]
-        module: github.com/mvanhorn/printing-press-library/library/monitoring/betterstack/cmd/betterstack-cli
 ---
 
-# Better Stack  -  Printing Press CLI
+# Better Stack Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `betterstack-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install betterstack --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/betterstack/install.sh)
    ```
-2. Verify: `betterstack-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/betterstack/install.ps1 | iex
+   ```
+3. Verify: `betterstack-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/monitoring/betterstack/cmd/betterstack-cli@latest
-```
-
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 betterstack-cli mirrors your whole Better Stack Uptime account (monitors, heartbeats, incidents, on-call, escalation policies, status pages) into a local SQLite store, then answers operational questions no single API call can: `coverage` finds monitors that won't page anyone, `mttr` rolls up incident response times, `flapping` ranks your noisiest monitors, and `fleet` shows the whole account on one screen. Covers the official Terraform provider's resource surface (full create/update/delete on monitors and heartbeats; create/delete on groups, policies, and status pages), with agent-native output and typed exit codes throughout.
 
@@ -211,38 +205,30 @@ Covered paths:
 - `betterstack-cli heartbeat-groups`
 - `betterstack-cli heartbeat-groups get`
 - `betterstack-cli heartbeat-groups list`
-- `betterstack-cli heartbeat-groups search`
 - `betterstack-cli heartbeat-risk`
 - `betterstack-cli heartbeats`
 - `betterstack-cli heartbeats get`
 - `betterstack-cli heartbeats list`
-- `betterstack-cli heartbeats search`
 - `betterstack-cli incidents`
 - `betterstack-cli incidents get`
 - `betterstack-cli incidents list`
-- `betterstack-cli incidents search`
 - `betterstack-cli monitor-groups`
 - `betterstack-cli monitor-groups get`
 - `betterstack-cli monitor-groups list`
-- `betterstack-cli monitor-groups search`
 - `betterstack-cli monitors`
 - `betterstack-cli monitors get`
 - `betterstack-cli monitors list`
-- `betterstack-cli monitors search`
 - `betterstack-cli mttr`
 - `betterstack-cli on-calls`
 - `betterstack-cli on-calls get`
 - `betterstack-cli on-calls list`
-- `betterstack-cli on-calls search`
 - `betterstack-cli oncall-gaps`
 - `betterstack-cli policies`
 - `betterstack-cli policies get`
 - `betterstack-cli policies list`
-- `betterstack-cli policies search`
 - `betterstack-cli status-pages`
 - `betterstack-cli status-pages get`
 - `betterstack-cli status-pages list`
-- `betterstack-cli status-pages search`
 - `betterstack-cli statuspage-audit`
 - `betterstack-cli triage`
 
@@ -394,15 +380,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/monitoring/betterstack/cmd/betterstack-mcp@latest
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add betterstack-mcp -- betterstack-mcp
-   ```
-3. Verify: `claude mcp list`
+The installer above drops `betterstack-mcp` alongside the CLI. Register it:
+
+```bash
+claude mcp add betterstack-mcp -- betterstack-mcp
+```
+
+Verify: `claude mcp list`
 
 ## Direct Use
 
