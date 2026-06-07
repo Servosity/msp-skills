@@ -1,5 +1,5 @@
 {
-  "count": 37,
+  "count": 38,
   "connectors": [
     {
       "slug": "acronis",
@@ -208,6 +208,14 @@
       "category": "Billing",
       "verification": "awaiting",
       "url": "/skills/pax8/"
+    },
+    {
+      "slug": "pipedrive",
+      "display_name": "Pipedrive",
+      "tagline": "Surface stale deals, weighted forecasts, and overdue follow-ups across your pipeline by asking.",
+      "category": "CRM",
+      "verification": "awaiting",
+      "url": "/skills/pipedrive/"
     },
     {
       "slug": "quickbooks",

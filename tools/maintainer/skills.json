@@ -876,6 +876,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "pipedrive": {
+      "system": "Pipedrive CRM: deals, pipelines, persons, organizations, activities",
+      "status": "beta",
+      "cli_binary": "pipedrive-cli",
+      "mcp_binary": "pipedrive-mcp",
+      "vendor": "Pipedrive",
+      "vendor_trademark_owner": "Pipedrive O\u00dc",
+      "first_party": false,
+      "category": "CRM",
+      "display_name": "Pipedrive",
+      "tagline": "Surface stale deals, weighted forecasts, and overdue follow-ups across your pipeline by asking.",
+      "cli_hash": "sha256:5994571211bea81b5d2bae4f29df861ac81da96556bf6fc081956ee17a8126cc",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }
