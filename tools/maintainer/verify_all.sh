@@ -16,6 +16,14 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
+# Authenticate the GitHub API calls the install.sh dry-runs make below.
+# Unauthenticated = 60 req/hr; the fleet (19 skills today, 40-50 planned) each
+# paginating the releases API trips 403s on any fresh run - and gets worse as
+# the catalog grows. install.sh honors GITHUB_TOKEN (Bearer header); keep a
+# caller-provided token, else fall back to the gh CLI's if available.
+GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token 2>/dev/null)}"
+export GITHUB_TOKEN
+
 hard_fail=0
 pass() { printf '  PASS  %s\n' "$1"; }
 fail() { printf '  FAIL  %s\n' "$1"; hard_fail=1; }
@@ -122,7 +130,11 @@ if reg and not reg.get('markdown_only') and reg.get('cli_hash_at_release') in (N
     if echo "$out" | grep -q 'github.com/servosity/msp-skills' && ! echo "$out" | grep -qi 'PLACEHOLDER'; then
       pass "$slug install.sh URLs resolve (first release pending - pinned ${slug}-v${pin})"
     else
-      echo "$out"; fail "$(dirname "$sh") install.sh URL"
+      echo "$out"
+      if echo "$out" | grep -qiE '403|rate limit'; then
+        echo "  hint: GitHub API rate limit - run 'gh auth login' or export GITHUB_TOKEN, then re-run"
+      fi
+      fail "$(dirname "$sh") install.sh URL"
     fi
   else
     # Released skill: prefer pinning to the newest LOCAL <slug>-v* tag. The
@@ -139,7 +151,11 @@ if reg and not reg.get('markdown_only') and reg.get('cli_hash_at_release') in (N
     if echo "$out" | grep -q 'github.com/servosity/msp-skills' && ! echo "$out" | grep -qi 'PLACEHOLDER'; then
       pass "$slug install.sh URLs resolve${local_tag:+ (pinned from local tag ${local_tag})}"
     else
-      echo "$out"; fail "$(dirname "$sh") install.sh URL"
+      echo "$out"
+      if echo "$out" | grep -qiE '403|rate limit'; then
+        echo "  hint: GitHub API rate limit - run 'gh auth login' or export GITHUB_TOKEN, then re-run"
+      fi
+      fail "$(dirname "$sh") install.sh URL"
     fi
   fi
 done
