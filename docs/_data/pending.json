@@ -209,6 +209,13 @@
     "current_hash": "sha256:5994571211bea81b5d2bae4f29df861ac81da96556bf6fc081956ee17a8126cc",
     "released_hash": "sha256:5994571211bea81b5d2bae4f29df861ac81da96556bf6fc081956ee17a8126cc"
   },
+  "proofpoint": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:549b1204f509069acff9511a9727d5b7b7776feaeb494641aaba543637b55be1",
+    "released_hash": null
+  },
   "quickbooks": {
     "state": "up-to-date",
     "version": "0.1.0",
