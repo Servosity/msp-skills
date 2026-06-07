@@ -1,0 +1,121 @@
+{
+  "outcome_intro": "MSPs run Axcient x360Recover across dozens of clients, but the portal answers one entity at a time and the public API famously won't tell you which client a device belongs to. Ask your AI \"whose backups failed last night,\" \"who's breaching RPO,\" or \"what do I bill each client this month,\" and get the fleet-wide answer in one table - computed offline from a local mirror that joins the device, job, restore-point, and client data the raw API leaves unconnected.",
+  "instead_of_say": [
+    {
+      "instead": "Opening the x360Recover console and checking each appliance and device one at a time every morning to find the backups that failed or silently went stale overnight",
+      "say": "Whose backups failed or went stale last night?",
+      "cli": "axcient-cli health --agent"
+    },
+    {
+      "instead": "Screenshotting restore-point ages and AutoVerify boot results device by device to assemble backup-compliance evidence for a client's QBR or an audit",
+      "say": "Give me backup-compliance evidence for this client - restore-point age, AutoVerify, and an RPO pass/fail",
+      "cli": "axcient-cli compliance --client 42 --hours 24 --csv"
+    },
+    {
+      "instead": "Visiting each client's usage page at month-end and reconciling protected-system counts and storage against the invoice by hand",
+      "say": "What does each client consume this month for invoice reconciliation?",
+      "cli": "axcient-cli billing --csv"
+    }
+  ],
+  "pain_points": [
+    "Axcient's x360Recover Public API is built around per-entity endpoints - one call for appliances, another for a device, another for that device's jobs - and it does not hand you the client-to-device mapping directly. So the question every MSP asks each morning, \"whose backups failed,\" has no single fleet-wide endpoint; you walk each appliance and device by hand or click through the portal.",
+    "A backup that \"succeeded\" can still be out of compliance: the job ran, but the newest restore point is hours stale, or AutoVerify never booted the image. MSPs on r/msp keep describing the same trap - finding out a recovery point wasn't there only when a restore is needed - because job-success and restore-point-age are different questions the console shows on different screens.",
+    "Month-end reconciliation - matching protected-system counts and storage to what each client is invoiced - means opening each client's usage view and stitching it into a spreadsheet, since the portal reports one client at a time and the API exposes usage per client, not as a fleet rollup."
+  ],
+  "outcomes": [
+    {
+      "question": "Whose backups failed or went stale across every client last night?",
+      "command": "axcient-cli health"
+    },
+    {
+      "question": "Give me one row per client: devices total, failing, stale, RPO-breach, and AutoVerify-fail counts",
+      "command": "axcient-cli client-rollup"
+    },
+    {
+      "question": "Which devices are past their recovery-point objective, grouped by client?",
+      "command": "axcient-cli rpo --hours 24"
+    },
+    {
+      "question": "Only show the devices actually breaching RPO at the cloud tier",
+      "command": "axcient-cli rpo --hours 24 --target cloud"
+    },
+    {
+      "question": "Produce backup-compliance evidence for one client (restore-point age + AutoVerify + RPO verdict)",
+      "command": "axcient-cli compliance --client 42 --hours 24 --csv"
+    },
+    {
+      "question": "Only the compliance rows that fail RPO or AutoVerify",
+      "command": "axcient-cli compliance --failing-only"
+    },
+    {
+      "question": "What does each client consume for invoice reconciliation this month?",
+      "command": "axcient-cli billing --csv"
+    },
+    {
+      "question": "Which devices does each appliance protect, and what state are those backups in?",
+      "command": "axcient-cli appliance-map"
+    },
+    {
+      "question": "Find everything matching a client or device name across synced data",
+      "command": "axcient-cli search \"Acme Corp\""
+    },
+    {
+      "question": "Refresh the local mirror, then run the morning sweep",
+      "command": "axcient-cli sync && axcient-cli health --agent"
+    }
+  ],
+  "different_vs_wrappers": "Most Axcient integrations and MCP wrappers proxy each question into a live API call - fine for one device, but a fleet-wide question becomes a token-burning loop of per-entity calls (appliance, then device, then each device's jobs) because the API has no rollup endpoint and won't join client to device for you. This skill syncs appliances, devices, jobs, restore points, AutoVerify results, and usage into a local SQLite mirror, then answers health, client-rollup, rpo, compliance, and billing as one offline join - instant, and the AI sees the answer table, not pages of nested JSON.",
+  "different_vs_vendor": "It complements the x360Portal rather than replacing it: the portal and the appliance/vault UI stay best for configuring protection and running actual restores, while this skill brings every client into one place for the cross-fleet questions - whose backups failed, who's breaching RPO, where billing and protection diverge - that the per-entity API and one-client-at-a-time portal can't answer in a single view.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Axcient MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Axcient data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Will this hit my Axcient API rate limits?",
+      "a": "The local mirror exists so reads stop hitting the API. After the first sync, the fleet views (health, client-rollup, rpo, compliance, billing, appliance-map) run against local SQLite with zero API calls. Live calls respect a --rate-limit throttle, and sync is incremental - it only fetches what changed since the last checkpoint."
+    },
+    {
+      "q": "What kind of Axcient credential do I need?",
+      "a": "An organization-scoped API key created in the x360Portal (Settings > API Keys, admin role required). The CLI sends it as the X-Api-Key header and can only see what that key is scoped to. Set it as AXCIENT_API_KEY; nothing is written to disk."
+    },
+    {
+      "q": "Can I try it without a real tenant?",
+      "a": "Yes. Axcient hosts a public mock server - set AXCIENT_BASE_URL=https://ax-pub-recover.wiremockapi.cloud/x360recover with any non-empty AXCIENT_API_KEY and the whole CLI runs against fixtures, no real credentials needed."
+    },
+    {
+      "q": "Does this cover x360Sync or x360Cloud?",
+      "a": "No. This skill is the x360Recover (BCDR) public API only - vaults, appliances, devices, jobs, restore points, AutoVerify, and usage. x360Sync and x360Cloud are separate products with separate APIs."
+    }
+  ],
+  "governance_summary": "The skill drives the axcient-cli and axcient-mcp binaries, authenticating with an organization-scoped API key (AXCIENT_API_KEY) read from the environment and sent as the X-Api-Key header - never written to disk, never logged, never sent anywhere except the Axcient API. The surface is overwhelmingly read-only: every fleet view (health, client-rollup, rpo, compliance, billing, appliance-map) and every resource read cannot change anything. Only three commands write - vault threshold set-by-vault-id and the bulk import <resource> mutate or create data, and client vault get-d2c-agent-token-by-client-and-ids mints a direct-to-cloud agent install token - so the recommended policy is read plus previewed (--dry-run) writes, with a human in the loop for the token mint. The strongest control is the scope of the API key you create in the x360Portal.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "axcient-cli health; axcient-cli client-rollup; axcient-cli rpo --hours 24; axcient-cli compliance --client 42 --hours 24 --csv; axcient-cli billing; axcient-cli appliance-map; axcient-cli clients get; axcient-cli vault get; axcient-cli device get-by-org-id-org-level; axcient-cli organization; axcient-cli search \"Acme Corp\"",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "axcient-cli vault threshold set-by-vault-id <vault_id> --threshold 60 (change a vault connectivity threshold); axcient-cli import <resource> --input data.jsonl (bulk - one create/upsert POST per JSONL record) - writes send immediately; --dry-run is an opt-in preview, not a default",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "axcient-cli client vault get-d2c-agent-token-by-client-and-ids <client_id> <vault_id> (mints a direct-to-cloud agent install token - a deployment credential)",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}
