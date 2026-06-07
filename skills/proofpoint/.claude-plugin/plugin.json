@@ -1,0 +1,20 @@
+{
+  "name": "proofpoint",
+  "version": "0.1.0",
+  "description": "Every Proofpoint TAP Threat Insight endpoint plus a local threat store that answers cross-endpoint questions - who is both attacked and clicking, what touched a given user - without re-spending the limited daily API quota.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/proofpoint",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "proofpoint",
+    "security",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

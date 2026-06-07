@@ -1,5 +1,5 @@
 {
-  "count": 42,
+  "count": 43,
   "connectors": [
     {
       "slug": "acronis",
@@ -232,6 +232,14 @@
       "category": "CRM",
       "verification": "awaiting",
       "url": "/skills/pipedrive/"
+    },
+    {
+      "slug": "proofpoint",
+      "display_name": "Proofpoint TAP",
+      "tagline": "Investigate Proofpoint TAP threats, VAPs, and top clickers from your terminal without burning the daily API quota.",
+      "category": "Security",
+      "verification": "awaiting",
+      "url": "/skills/proofpoint/"
     },
     {
       "slug": "quickbooks",

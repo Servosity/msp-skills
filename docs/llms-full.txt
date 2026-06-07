@@ -1118,6 +1118,42 @@ A: Day-to-day questions answer from the local mirror after a `sync`, so they mak
 
 Governance: The skill can read your whole pipeline and can create, update, and delete CRM records, so treat it like any account with write access. Reads - the reports, the analytics rollups, and search - are always safe. Routine writes such as `deals add`, `deals update`, and the bulk `import` should be previewed with `--dry-run` and approved before they run. Deletes and token commands are human-in-the-loop only. The recommended agent policy is read plus previewed writes, with a human approving anything that mutates or removes data.
 
+### Proofpoint TAP (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/proofpoint/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proofpoint/install.sh)
+
+Proofpoint TAP's dashboard answers one threat, one clicker, one campaign at a time, and every SIEM pull spends against a hard daily quota. This skill backfills clicks, messages, campaigns, Very Attacked People, and clickers into a local SQLite store, then answers the questions the console can't: who is both heavily attacked and clicking, every event that touched one user, and a full incident brief from a single threatId - offline, in seconds.
+
+Outcomes (question -> command your AI agent runs):
+- What malicious clicks and messages got through overnight? -> proofpoint-cli backfill --since 12h
+- Who is both Very Attacked and a top clicker? -> proofpoint-cli risk-overlap --window 30
+- Give me the full incident brief for a threatId -> proofpoint-cli incident "threat-abc123"
+- What indicators should I block from this threat? -> proofpoint-cli iocs --threat-id "threat-abc123" --csv
+- Show me every event that touched one user -> proofpoint-cli user "jane.doe@example.com"
+- Who are my Very Attacked People this month? -> proofpoint-cli people list-vap --window 30
+- Which permitted clicks and delivered threats still need a response? -> proofpoint-cli siem list-issues
+- What threats are inside this campaign? -> proofpoint-cli campaign-threats "campaign-xyz789"
+- Decode this urldefense-rewritten link to its real target -> proofpoint-cli url --urls "https://urldefense.com/v3/__https://example.com__;!!abc"
+- Is my synced threat data fresh enough to trust an offline query? -> proofpoint-cli workflow status
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Proofpoint MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Proofpoint data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the bundled MCP server exposes read-only threat-intelligence tools only. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this blow through my Proofpoint TAP API limits?
+A: No - avoiding that is the point. TAP caps you at 1,800 SIEM requests and 50 campaign-id lookups per rolling 24 hours. The skill backfills once into a local SQLite store, then answers repeat and cross-endpoint questions from that mirror, so re-querying a window or looping over users costs zero additional API calls. Live calls fire only when you ask for fresh data.
+Q: Do I need a special Proofpoint partner API or Essentials admin access?
+A: No. It uses your standard TAP (Targeted Attack Protection) Service Principal and Secret, created under Settings then Connected Applications in the TAP dashboard. It reads the Threat Insight endpoints your account already exposes; it does not require Proofpoint Essentials administration or a separate partner program.
+
+Governance: The skill reads your Proofpoint TAP threat data - SIEM click and message events, campaigns, Very Attacked People, top clickers, and forensic evidence - and can sync it into a local SQLite mirror; all of that is read-only and safe to let an agent run, and the bundled MCP server exposes only those read tools. The one API write path is CLI-only bulk import, which supports --dry-run - preview it and keep it human-reviewed. The local auth commands (auth set-token, auth logout) manage your stored TAP credentials and should stay operator-only.
+
 ### QuickBooks Online (Billing)
 
 Page: https://msp-skills.compoundingteams.com/skills/quickbooks/
