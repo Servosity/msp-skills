@@ -54,6 +54,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - IT Glue (Documentation) - Find any device, audit stale passwords, and rank thin client docs by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/itglue/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/install.sh)
+- KnowBe4 (Security) - Hunt repeat clickers, track risk drift, and close training-coverage gaps across every KnowBe4 client from your terminal.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/knowbe4/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/knowbe4/install.sh)
 - Level (RMM) - Rank your riskiest endpoints, patch posture, and stale devices across your Level RMM fleet from one command.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/levelio/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/levelio/install.sh)

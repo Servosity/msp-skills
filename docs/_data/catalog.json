@@ -1,5 +1,5 @@
 {
-  "count": 36,
+  "count": 37,
   "connectors": [
     {
       "slug": "acronis",
@@ -128,6 +128,14 @@
       "category": "Documentation",
       "verification": "awaiting",
       "url": "/skills/itglue/"
+    },
+    {
+      "slug": "knowbe4",
+      "display_name": "KnowBe4",
+      "tagline": "Hunt repeat clickers, track risk drift, and close training-coverage gaps across every KnowBe4 client from your terminal.",
+      "category": "Security",
+      "verification": "awaiting",
+      "url": "/skills/knowbe4/"
     },
     {
       "slug": "levelio",
