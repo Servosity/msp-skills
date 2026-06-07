@@ -1,5 +1,5 @@
 {
-  "count": 34,
+  "count": 35,
   "connectors": [
     {
       "slug": "acronis",
@@ -8,6 +8,14 @@
       "category": "Backup/DR",
       "verification": "awaiting",
       "url": "/skills/acronis/"
+    },
+    {
+      "slug": "action1",
+      "display_name": "Action1",
+      "tagline": "Patch every client's endpoints and triage CVEs fleet-wide from your terminal.",
+      "category": "RMM",
+      "verification": "awaiting",
+      "url": "/skills/action1/"
     },
     {
       "slug": "atera",
