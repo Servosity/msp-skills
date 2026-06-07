@@ -1,8 +1,8 @@
 # Proofpoint TAP CLI
 
-**Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions  -  who is both attacked and clicking, what touched this user  -  inside Proofpoint's punishing daily quotas.**
+**Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions - who is both attacked and clicking, what touched this user - inside Proofpoint's punishing daily quotas.**
 
-Existing TAP tools are thin per-endpoint wrappers or one-way SIEM shovels. This CLI syncs clicks, messages, campaigns, VAPs, and clickers into SQLite, then answers joined questions locally  -  incident briefs, flat IOC tables, risk overlaps, per-user timelines  -  without re-spending the 1800-per-day SIEM quota or the 50-per-day campaign-ids quota.
+Existing TAP tools are thin per-endpoint wrappers or one-way SIEM shovels. This CLI syncs clicks, messages, campaigns, VAPs, and clickers into SQLite, then answers joined questions locally - incident briefs, flat IOC tables, risk overlaps, per-user timelines - without re-spending the 1800-per-day SIEM quota or the 50-per-day campaign-ids quota.
 
 Learn more at [Proofpoint TAP](https://help.proofpoint.com/Threat_Insight_Dashboard/API_Documentation).
 
@@ -22,13 +22,13 @@ For CLI only (no skill):
 npx -y @mvanhorn/printing-press-library install proofpoint --cli-only
 ```
 
-For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+For skill only - installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
 npx -y @mvanhorn/printing-press-library install proofpoint --skill-only
 ```
 
-To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+To constrain the skill install to one or more specific agents (repeatable - agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
 npx -y @mvanhorn/printing-press-library install proofpoint --agent claude-code
@@ -43,7 +43,7 @@ If `npx` isn't available (no Node, offline), install the CLI directly via Go (re
 go install github.com/mvanhorn/printing-press-library/library/monitoring/proofpoint/cmd/proofpoint-cli@latest
 ```
 
-This installs the CLI only  -  no skill.
+This installs the CLI only - no skill.
 
 ### Pre-built binary
 
@@ -85,7 +85,7 @@ Restart the OpenClaw session or gateway if the newly installed skill is not visi
 
 ## Use with Claude Desktop
 
-This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle - Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
 
 To install:
 
@@ -138,7 +138,7 @@ proofpoint-cli sync --since 1h
 # Reconstruct a full day of events by auto-looping the API's 1-hour window limit
 proofpoint-cli backfill --since 24h
 
-# Who is both Very Attacked and a top clicker  -  the highest-risk people
+# Who is both Very Attacked and a top clicker - the highest-risk people
 proofpoint-cli risk-overlap --window 30 --agent
 
 # Full-text search the synced events offline
@@ -151,46 +151,46 @@ proofpoint-cli search "phish" --limit 10
 These capabilities aren't available in any other tool for this API.
 
 ### Quota-aware threat ops
-- **`backfill`**  -  Reconstruct up to 7 days of SIEM threat events in one command  -  the CLI auto-loops the API's mandatory 1-hour windows and persists every page locally.
+- **`backfill`** - Reconstruct up to 7 days of SIEM threat events in one command - the CLI auto-loops the API's mandatory 1-hour windows and persists every page locally.
 
   _Reach for this when an agent needs more than the last hour of click/message events; single API calls cannot exceed a 1-hour window._
 
   ```bash
   proofpoint-cli backfill --since 48h --agent
   ```
-- **`campaign-threats`**  -  Expand one campaign into the threats inside it, enriched with severity and family from the local threat store.
+- **`campaign-threats`** - Expand one campaign into the threats inside it, enriched with severity and family from the local threat store.
 
-  _Use this to pivot from a campaign to its member threats when quota is tight  -  campaign detail is the one unlimited TAP endpoint._
+  _Use this to pivot from a campaign to its member threats when quota is tight - campaign detail is the one unlimited TAP endpoint._
 
   ```bash
   proofpoint-cli campaign-threats "campaign-xyz789" --agent
   ```
 
 ### Incident response
-- **`incident`**  -  Turn a threatId into a single incident brief: severity, actors, malware, techniques, forensic evidence, and every local event that touched it.
+- **`incident`** - Turn a threatId into a single incident brief: severity, actors, malware, techniques, forensic evidence, and every local event that touched it.
 
   _Use this for alert triage when you have a threatId and need the full picture in one shot instead of three separate calls._
 
   ```bash
   proofpoint-cli incident "threat-abc123" --agent
   ```
-- **`iocs`**  -  Flatten TAP's nested forensic evidence tree into a paste-ready indicator table: hashes, URLs, domains, IPs, files, registry keys, processes.
+- **`iocs`** - Flatten TAP's nested forensic evidence tree into a paste-ready indicator table: hashes, URLs, domains, IPs, files, registry keys, processes.
 
-  _Use this when the goal is indicators for blocking or hunting, not a narrative brief  -  output pipes straight into an EDR or blocklist._
+  _Use this when the goal is indicators for blocking or hunting, not a narrative brief - output pipes straight into an EDR or blocklist._
 
   ```bash
   proofpoint-cli iocs --threat-id "threat-abc123" --csv
   ```
 
 ### People risk
-- **`risk-overlap`**  -  List the people who are both Very Attacked AND top clickers  -  attack index beside click count  -  your highest-risk humans.
+- **`risk-overlap`** - List the people who are both Very Attacked AND top clickers - attack index beside click count - your highest-risk humans.
 
   _The single best list for security-awareness targeting: highly attacked people who also click._
 
   ```bash
   proofpoint-cli risk-overlap --window 30 --agent
   ```
-- **`user`**  -  Everything the local store knows about one person: clicks, threat messages, VAP status, and clicker status in one view.
+- **`user`** - Everything the local store knows about one person: clicks, threat messages, VAP status, and clicker status in one view.
 
   _Use this during investigations to answer 'show me every event touching this user' without burning SIEM quota on re-queries._
 
@@ -274,7 +274,7 @@ Time-windowed threat event feeds (clicks and messages)
 - **`proofpoint-cli siem list-all-events`** - Fetch all click and message threat events in the window
 - **`proofpoint-cli siem list-clicks-blocked`** - Fetch clicks to malicious URLs that were blocked in the window
 - **`proofpoint-cli siem list-clicks-permitted`** - Fetch clicks to malicious URLs that were permitted in the window
-- **`proofpoint-cli siem list-issues`** - Events for clicks to malicious URLs permitted and messages delivered containing a known threat within the window  -  the subset that got through and needs response.
+- **`proofpoint-cli siem list-issues`** - Events for clicks to malicious URLs permitted and messages delivered containing a known threat within the window - the subset that got through and needs response.
 - **`proofpoint-cli siem list-messages-blocked`** - Fetch blocked messages that contained a known threat
 - **`proofpoint-cli siem list-messages-delivered`** - Fetch delivered messages that contained a known threat
 
@@ -303,10 +303,10 @@ proofpoint-cli campaign get mock-value --json
 # Filter to specific fields
 proofpoint-cli campaign get mock-value --json --select id,name,status
 
-# Dry run  -  show the request without sending
+# Dry run - show the request without sending
 proofpoint-cli campaign get mock-value --dry-run
 
-# Agent mode  -  JSON + compact + no prompts in one flag
+# Agent mode - JSON + compact + no prompts in one flag
 proofpoint-cli campaign get mock-value --agent
 ```
 
@@ -358,20 +358,20 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Run the `list` command to see available items
 
 ### API-specific
-- **401 Service Id / Credentials authentication failed**  -  Re-export PROOFPOINT_SERVICE_PRINCIPAL and PROOFPOINT_API_SECRET; verify the pair in TAP Dashboard Settings under Connected Applications, then run doctor
-- **HTTP 429 on siem or campaign commands**  -  You hit a rolling 24h quota (SIEM 1800/day, campaign ids 50/day). Query the local store instead  -  sync once, then use search, sql, user, or risk-overlap offline
-- **400 when requesting more than an hour of SIEM data**  -  The API caps each request at a 1-hour window. Use backfill --since 24h to auto-loop windows instead of widening sinceSeconds
-- **risk-overlap or user returns nothing**  -  The local store is empty for those tables. Run sync first (people resources sync with window 30 by default)
+- **401 Service Id / Credentials authentication failed** - Re-export PROOFPOINT_SERVICE_PRINCIPAL and PROOFPOINT_API_SECRET; verify the pair in TAP Dashboard Settings under Connected Applications, then run doctor
+- **HTTP 429 on siem or campaign commands** - You hit a rolling 24h quota (SIEM 1800/day, campaign ids 50/day). Query the local store instead - sync once, then use search, sql, user, or risk-overlap offline
+- **400 when requesting more than an hour of SIEM data** - The API caps each request at a 1-hour window. Use backfill --since 24h to auto-loop windows instead of widening sinceSeconds
+- **risk-overlap or user returns nothing** - The local store is empty for those tables. Run sync first (people resources sync with window 30 by default)
 
 ## Sources & Inspiration
 
 This CLI was built by studying these projects and resources:
 
-- [**tap-api-cli**](https://github.com/pfptcommunity/tap-api-cli)  -  Python
-- [**tap-api-python**](https://github.com/pfptcommunity/tap-api-python)  -  Python
-- [**proofpoint_tap**](https://github.com/drizzo-tech/proofpoint_tap)  -  Python
-- [**ProofpointTAP**](https://github.com/lambdac0de/ProofpointTAP)  -  PowerShell
-- [**proofpoint-mcp**](https://github.com/wyre-technology/proofpoint-mcp)  -  TypeScript
-- [**TA-proofpoint_TAP**](https://github.com/wcmc-its/TA-proofpoint_TAP)  -  Python
+- [**tap-api-cli**](https://github.com/pfptcommunity/tap-api-cli) - Python
+- [**tap-api-python**](https://github.com/pfptcommunity/tap-api-python) - Python
+- [**proofpoint_tap**](https://github.com/drizzo-tech/proofpoint_tap) - Python
+- [**ProofpointTAP**](https://github.com/lambdac0de/ProofpointTAP) - PowerShell
+- [**proofpoint-mcp**](https://github.com/wyre-technology/proofpoint-mcp) - TypeScript
+- [**TA-proofpoint_TAP**](https://github.com/wcmc-its/TA-proofpoint_TAP) - Python
 
 Generated by [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press)

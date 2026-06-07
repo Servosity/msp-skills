@@ -657,7 +657,7 @@
       "tagline": "Investigate Proofpoint TAP threats, VAPs, and top clickers from your terminal without burning the daily API quota.",
       "cli_hash": "sha256:549b1204f509069acff9511a9727d5b7b7776feaeb494641aaba543637b55be1",
       "template_version": 3,
-      "version": "4.22.0",
+      "version": "0.1.0",
       "cli_hash_at_release": null,
       "has_video": true,
       "live_verified": {

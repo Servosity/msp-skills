@@ -1,18 +1,18 @@
 {
   "manifest_version": "0.3",
-  "name": "proofpoint-pp-mcp",
+  "name": "proofpoint-mcp",
   "display_name": "Proofpoint TAP",
-  "version": "4.22.0",
-  "description": "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions  -  who is both attacked and clicking, what touched this user  -  inside Proofpoint's punishing daily quotas.",
+  "version": "0.1.0",
+  "description": "Every Proofpoint TAP Threat Insight endpoint plus a local threat store that answers cross-endpoint questions - who is both attacked and clicking, what touched a given user - without re-spending the limited daily API quota.",
   "author": {
     "name": "Servosity Inc."
   },
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/proofpoint-pp-mcp",
+    "entry_point": "bin/proofpoint-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/proofpoint-pp-mcp",
+      "command": "${__dirname}/bin/proofpoint-mcp",
       "args": [],
       "env": {
         "PROOFPOINT_API_SECRET": "${user_config.proofpoint_api_secret}",
@@ -43,5 +43,6 @@
       "linux",
       "win32"
     ]
-  }
+  },
+  "short_description": "Proofpoint TAP threats, VAPs, clickers, and IOCs from your terminal, with a local threat store."
 }

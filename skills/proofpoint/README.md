@@ -12,7 +12,7 @@
 <p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/proofpoint/">Full skill page</a> - install, outcomes, safety model.</sub></p>
 <!-- media:end -->
 
-Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions  -  who is both attacked and clicking, what touched this user  -  inside Proofpoint's punishing daily quotas. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Every Proofpoint TAP Threat Insight endpoint plus a local threat store that answers cross-endpoint questions - who is both attacked and clicking, what touched a given user - without re-spending the limited daily API quota. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Proofpoint MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/proofpoint-v4.22.0/proofpoint-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Proofpoint release on the [releases page](https://github.com/servosity/msp-skills/releases?q=proofpoint).)
+[**Download Proofpoint MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/proofpoint-v0.1.0/proofpoint-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Proofpoint release on the [releases page](https://github.com/servosity/msp-skills/releases?q=proofpoint).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

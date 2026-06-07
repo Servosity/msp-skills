@@ -17,7 +17,7 @@ metadata:
         module: github.com/mvanhorn/printing-press-library/library/monitoring/proofpoint/cmd/proofpoint-cli
 ---
 
-# Proofpoint TAP  -  Printing Press CLI
+# Proofpoint TAP - Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
@@ -38,65 +38,65 @@ go install github.com/mvanhorn/printing-press-library/library/monitoring/proofpo
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-Existing TAP tools are thin per-endpoint wrappers or one-way SIEM shovels. This CLI syncs clicks, messages, campaigns, VAPs, and clickers into SQLite, then answers joined questions locally  -  incident briefs, flat IOC tables, risk overlaps, per-user timelines  -  without re-spending the 1800-per-day SIEM quota or the 50-per-day campaign-ids quota.
+Existing TAP tools are thin per-endpoint wrappers or one-way SIEM shovels. This CLI syncs clicks, messages, campaigns, VAPs, and clickers into SQLite, then answers joined questions locally - incident briefs, flat IOC tables, risk overlaps, per-user timelines - without re-spending the 1800-per-day SIEM quota or the 50-per-day campaign-ids quota.
 
 ## When to Use This CLI
 
-Use this CLI when an agent needs Proofpoint TAP threat data: pulling SIEM click/message events, identifying Very Attacked People and top clickers, investigating a threatId or campaign, extracting IOCs for blocking, or decoding urldefense-rewritten links. It shines when questions repeat or cross endpoints  -  the local store answers joins and re-queries without burning daily API quota.
+Use this CLI when an agent needs Proofpoint TAP threat data: pulling SIEM click/message events, identifying Very Attacked People and top clickers, investigating a threatId or campaign, extracting IOCs for blocking, or decoding urldefense-rewritten links. It shines when questions repeat or cross endpoints - the local store answers joins and re-queries without burning daily API quota.
 
 ## Anti-triggers
 
 Do not use this CLI for:
-- Do not use this CLI for Proofpoint Essentials administration (orgs, users, licensing)  -  that is a different API with different credentials
-- Do not use this CLI to stream PoD message logs  -  the PoD Log API is a WebSocket service not covered here
-- Do not use this CLI to release or manage quarantined messages  -  quarantine actions live in the PPS admin interface, not the TAP API
-- Do not use this CLI to send or simulate phishing tests  -  TAP is read-only threat intelligence
+- Do not use this CLI for Proofpoint Essentials administration (orgs, users, licensing) - that is a different API with different credentials
+- Do not use this CLI to stream PoD message logs - the PoD Log API is a WebSocket service not covered here
+- Do not use this CLI to release or manage quarantined messages - quarantine actions live in the PPS admin interface, not the TAP API
+- Do not use this CLI to send or simulate phishing tests - TAP is read-only threat intelligence
 
 ## Unique Capabilities
 
 These capabilities aren't available in any other tool for this API.
 
 ### Quota-aware threat ops
-- **`backfill`**  -  Reconstruct up to 7 days of SIEM threat events in one command  -  the CLI auto-loops the API's mandatory 1-hour windows and persists every page locally.
+- **`backfill`** - Reconstruct up to 7 days of SIEM threat events in one command - the CLI auto-loops the API's mandatory 1-hour windows and persists every page locally.
 
   _Reach for this when an agent needs more than the last hour of click/message events; single API calls cannot exceed a 1-hour window._
 
   ```bash
   proofpoint-cli backfill --since 48h --agent
   ```
-- **`campaign-threats`**  -  Expand one campaign into the threats inside it, enriched with severity and family from the local threat store.
+- **`campaign-threats`** - Expand one campaign into the threats inside it, enriched with severity and family from the local threat store.
 
-  _Use this to pivot from a campaign to its member threats when quota is tight  -  campaign detail is the one unlimited TAP endpoint._
+  _Use this to pivot from a campaign to its member threats when quota is tight - campaign detail is the one unlimited TAP endpoint._
 
   ```bash
   proofpoint-cli campaign-threats "campaign-xyz789" --agent
   ```
 
 ### Incident response
-- **`incident`**  -  Turn a threatId into a single incident brief: severity, actors, malware, techniques, forensic evidence, and every local event that touched it.
+- **`incident`** - Turn a threatId into a single incident brief: severity, actors, malware, techniques, forensic evidence, and every local event that touched it.
 
   _Use this for alert triage when you have a threatId and need the full picture in one shot instead of three separate calls._
 
   ```bash
   proofpoint-cli incident "threat-abc123" --agent
   ```
-- **`iocs`**  -  Flatten TAP's nested forensic evidence tree into a paste-ready indicator table: hashes, URLs, domains, IPs, files, registry keys, processes.
+- **`iocs`** - Flatten TAP's nested forensic evidence tree into a paste-ready indicator table: hashes, URLs, domains, IPs, files, registry keys, processes.
 
-  _Use this when the goal is indicators for blocking or hunting, not a narrative brief  -  output pipes straight into an EDR or blocklist._
+  _Use this when the goal is indicators for blocking or hunting, not a narrative brief - output pipes straight into an EDR or blocklist._
 
   ```bash
   proofpoint-cli iocs --threat-id "threat-abc123" --csv
   ```
 
 ### People risk
-- **`risk-overlap`**  -  List the people who are both Very Attacked AND top clickers  -  attack index beside click count  -  your highest-risk humans.
+- **`risk-overlap`** - List the people who are both Very Attacked AND top clickers - attack index beside click count - your highest-risk humans.
 
   _The single best list for security-awareness targeting: highly attacked people who also click._
 
   ```bash
   proofpoint-cli risk-overlap --window 30 --agent
   ```
-- **`user`**  -  Everything the local store knows about one person: clicks, threat messages, VAP status, and clicker status in one view.
+- **`user`** - Everything the local store knows about one person: clicks, threat messages, VAP status, and clicker status in one view.
 
   _Use this during investigations to answer 'show me every event touching this user' without burning SIEM quota on re-queries._
 
@@ -106,36 +106,36 @@ These capabilities aren't available in any other tool for this API.
 
 ## Command Reference
 
-**campaign**  -  Campaign intelligence (actors, malware, families, techniques)
+**campaign** - Campaign intelligence (actors, malware, families, techniques)
 
-- `proofpoint-cli campaign get`  -  Get campaign detail (actors, malware, techniques, members)
-- `proofpoint-cli campaign list-ids`  -  Heavily rate limited (50 requests per rolling 24 hours). Prefer the local synced store for repeated queries.
+- `proofpoint-cli campaign get` - Get campaign detail (actors, malware, techniques, members)
+- `proofpoint-cli campaign list-ids` - Heavily rate limited (50 requests per rolling 24 hours). Prefer the local synced store for repeated queries.
 
-**forensics**  -  Forensic evidence (IOCs) for threats and campaigns
+**forensics** - Forensic evidence (IOCs) for threats and campaigns
 
-- `proofpoint-cli forensics`  -  Provide exactly one of threatId or campaignId.
+- `proofpoint-cli forensics` - Provide exactly one of threatId or campaignId.
 
-**people**  -  Very Attacked People and top clickers
+**people** - Very Attacked People and top clickers
 
-- `proofpoint-cli people list-top-clickers`  -  List users who clicked the most malicious links in a window
-- `proofpoint-cli people list-vap`  -  List Very Attacked People (highest attack index) for a window
+- `proofpoint-cli people list-top-clickers` - List users who clicked the most malicious links in a window
+- `proofpoint-cli people list-vap` - List Very Attacked People (highest attack index) for a window
 
-**siem**  -  Time-windowed threat event feeds (clicks and messages)
+**siem** - Time-windowed threat event feeds (clicks and messages)
 
-- `proofpoint-cli siem list-all-events`  -  Fetch all click and message threat events in the window
-- `proofpoint-cli siem list-clicks-blocked`  -  Fetch clicks to malicious URLs that were blocked in the window
-- `proofpoint-cli siem list-clicks-permitted`  -  Fetch clicks to malicious URLs that were permitted in the window
-- `proofpoint-cli siem list-issues`  -  Fetch permitted clicks and delivered threat messages  -  the subset that got through and needs response
-- `proofpoint-cli siem list-messages-blocked`  -  Fetch blocked messages that contained a known threat
-- `proofpoint-cli siem list-messages-delivered`  -  Fetch delivered messages that contained a known threat
+- `proofpoint-cli siem list-all-events` - Fetch all click and message threat events in the window
+- `proofpoint-cli siem list-clicks-blocked` - Fetch clicks to malicious URLs that were blocked in the window
+- `proofpoint-cli siem list-clicks-permitted` - Fetch clicks to malicious URLs that were permitted in the window
+- `proofpoint-cli siem list-issues` - Fetch permitted clicks and delivered threat messages - the subset that got through and needs response
+- `proofpoint-cli siem list-messages-blocked` - Fetch blocked messages that contained a known threat
+- `proofpoint-cli siem list-messages-delivered` - Fetch delivered messages that contained a known threat
 
-**threat**  -  Per-threat summaries
+**threat** - Per-threat summaries
 
-- `proofpoint-cli threat <threatId>`  -  Get a threat summary (severity, spread, actors, malware, techniques)
+- `proofpoint-cli threat <threatId>` - Get a threat summary (severity, spread, actors, malware, techniques)
 
-**url**  -  Decode TAP-rewritten (urldefense) URLs
+**url** - Decode TAP-rewritten (urldefense) URLs
 
-- `proofpoint-cli url`  -  Decode TAP-rewritten (urldefense) URLs to their original targets
+- `proofpoint-cli url` - Decode TAP-rewritten (urldefense) URLs to their original targets
 
 
 ### Finding the right command
@@ -146,7 +146,7 @@ When you know what you want to do but not which command does it, ask the CLI dir
 proofpoint-cli which "<capability in your own words>"
 ```
 
-`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query.
+`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match - fall back to `--help` or use a narrower query.
 
 ## Recipes
 
@@ -200,16 +200,16 @@ Run `proofpoint-cli doctor` to verify setup.
 
 Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color --yes`.
 
-- **Pipeable**  -  JSON on stdout, errors on stderr
-- **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
+- **Pipeable** - JSON on stdout, errors on stderr
+- **Filterable** - `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
   proofpoint-cli campaign get mock-value --agent --select id,name,status
   ```
-- **Previewable**  -  `--dry-run` shows the request without sending
-- **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
-- **Non-interactive**  -  never prompts, every input is a flag
-- **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success
+- **Previewable** - `--dry-run` shows the request without sending
+- **Offline-friendly** - sync/search commands can use the local SQLite store when available
+- **Non-interactive** - never prompts, every input is a flag
+- **Explicit retries** - use `--idempotent` only when an already-existing create should count as success
 
 ### Response envelope
 
@@ -222,7 +222,7 @@ Commands that read from the local store or the API wrap output in a provenance e
 }
 ```
 
-Parse `.results` for data and `.meta.source` to know whether it's live or local. A human-readable `N results (live)` summary is printed to stderr only when stdout is a terminal AND no machine-format flag (`--json`, `--csv`, `--compact`, `--quiet`, `--plain`, `--select`) is set  -  piped/agent consumers and explicit-format runs get pure JSON on stdout.
+Parse `.results` for data and `.meta.source` to know whether it's live or local. A human-readable `N results (live)` summary is printed to stderr only when stdout is a terminal AND no machine-format flag (`--json`, `--csv`, `--compact`, `--quiet`, `--plain`, `--select`) is set - piped/agent consumers and explicit-format runs get pure JSON on stdout.
 
 ## Agent Feedback
 
