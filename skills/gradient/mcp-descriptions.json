@@ -1,0 +1,5 @@
+{
+  "descriptions": {
+    "vendor_get": "Fetch the authenticated vendor's own partner profile from Gradient. Takes no parameters; the API key identifies the vendor. Returns the vendor record: name, description, integrationType, the vendor's SKUs, isDistributor flag, externalIntegrationStatus, mappingResponsibilities, and enabled modules. Use this to read your vendor identity and SKU catalog; use vendor_update to change these fields."
+  }
+}

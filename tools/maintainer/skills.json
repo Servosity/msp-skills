@@ -1175,6 +1175,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "gradient": {
+      "system": "the Gradient MSP Synthesize billing-reconciliation vendor API",
+      "status": "beta",
+      "cli_binary": "gradient-cli",
+      "mcp_binary": "gradient-mcp",
+      "vendor": "Gradient MSP",
+      "vendor_trademark_owner": "Gradient MSP, Inc",
+      "first_party": false,
+      "category": "Billing",
+      "display_name": "Gradient MSP",
+      "tagline": "Push usage counts, catch billing drift, and trace alerts to PSA tickets in Gradient MSP Synthesize from your terminal.",
+      "cli_hash": "sha256:0e9b53fef8e8c6d4811a118ec56f55c6aff8384adc854cca1ee3d765d2de6829",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }

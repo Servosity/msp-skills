@@ -667,6 +667,40 @@ A: No add-on is required - you generate an API Key from the Domotz Portal under 
 
 Governance: The skill reads your Domotz fleet - Collectors, devices, variables, alerts, and topology - and can also create and delete monitoring objects, control device power outlets, and change SNMP credentials. Reads are safe to run unattended with one exception: reading SNMP authentication returns community strings and keys, so treat it like a secret. Keep an autonomous agent to reads plus previewed writes, and require a human for anything that deletes, controls hardware, or touches credentials.
 
+### Gradient MSP (Billing)
+
+Page: https://msp-skills.compoundingteams.com/skills/gradient/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/gradient/install.sh)
+
+Ask your AI to push tonight's usage counts, tell you which accounts' billing changed since the last push, and confirm an alert actually became a PSA ticket - and it runs the real Gradient MSP Synthesize commands and shows you the receipts. The full vendor API from your terminal, plus a local push ledger and offline mirror that Gradient's PowerShell SDK cannot give you.
+
+Outcomes (question -> command your AI agent runs):
+- Push a whole file of usage counts and rebuild billing exactly once? -> gradient-cli usage push --file ./counts.csv --agent
+- Which accounts' usage changed between my last two pushes? -> gradient-cli usage drift --agent
+- Send an alert and confirm the PSA ticket was actually created? -> gradient-cli alert send --account "123456789" --title "Backup failure" --wait --agent
+- Which of my dispatched alerts never became tickets? -> gradient-cli alert trace --stuck --agent
+- Which accounts are unmapped or missing a vendor SKU? -> gradient-cli hygiene unmapped --agent
+- Is my integration ready to flip to active? -> gradient-cli status ready --agent
+- Add a single ad-hoc unit count for one account and service? -> gradient-cli billing <serviceId> --account-id "123456789" --unit-count 42
+- Are my credentials valid and what's my integration status? -> gradient-cli integration get --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Gradient MSP MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Gradient MSP data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Which credentials do I need, and how do I set them?
+A: A Synthesize vendor token. Set GRADIENT_TOKEN to the base64 of <vendorApiKey>:<partnerApiKey>, or set GRADIENT_VENDOR_API_KEY and GRADIENT_PARTNER_API_KEY and the CLI derives the token for you. Run gradient-cli integration get to confirm the credential works.
+Q: Does this replace the Synthesize portal or Managed Billing Reconciliation?
+A: No. Mapping approval and reconciliation review still happen in the Synthesize portal (or are handled by Gradient's MBR service). This CLI is the vendor and integration side: it pushes accounts, services, and usage counts in, audits what was pushed, and traces alerts to PSA tickets. It complements the portal, it does not log into it.
+
+Governance: The skill reads your Synthesize accounts, services, mappings, integration status, and local push ledger, and it can write: push usage counts, create or update accounts, services, and mappings, dispatch alerts, and flip integration status. There are no vendor-side delete commands. Keep an autonomous agent to reads plus previewed (--dry-run) writes, and require a human to approve any count push, mapping change, or status flip.
+
 ### HaloPSA (PSA)
 
 Page: https://msp-skills.compoundingteams.com/skills/halopsa/

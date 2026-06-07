@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "gradient-mcp",
+  "display_name": "Gradient MSP",
+  "version": "0.1.0",
+  "description": "The Gradient MSP Synthesize vendor API from your terminal: bulk usage pushes with a single billing rebuild, a local push-drift ledger, and alert-to-ticket tracing the portal and SDK don't offer.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/gradient-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/gradient-mcp",
+      "args": [],
+      "env": {
+        "GRADIENT_TOKEN": "${user_config.gradient_token}"
+      }
+    }
+  },
+  "user_config": {
+    "gradient_token": {
+      "type": "string",
+      "title": "GRADIENT_TOKEN",
+      "description": "Sets GRADIENT_TOKEN for the Gradient MSP MCP server.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

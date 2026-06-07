@@ -1,0 +1,105 @@
+{
+  "outcome_intro": "Ask your AI to push tonight's usage counts, tell you which accounts' billing changed since the last push, and confirm an alert actually became a PSA ticket - and it runs the real Gradient MSP Synthesize commands and shows you the receipts. The full vendor API from your terminal, plus a local push ledger and offline mirror that Gradient's PowerShell SDK cannot give you.",
+  "instead_of_say": [
+    {
+      "instead": "Write a PowerShell script that loops the count endpoint once per account and hope you didn't kick off a billing rebuild on every single call",
+      "say": "Push tonight's usage counts from this file in one shot",
+      "cli": "gradient-cli usage push --file ./counts.csv --agent"
+    },
+    {
+      "instead": "Export the last two pushes to spreadsheets and eyeball which accounts moved before you invoice",
+      "say": "Show me which accounts' usage changed since my last push",
+      "cli": "gradient-cli usage drift --agent"
+    },
+    {
+      "instead": "Fire an alert into Synthesize and click into the PSA later to see whether a ticket ever showed up",
+      "say": "Send this alert and tell me when the PSA ticket actually exists",
+      "cli": "gradient-cli alert send --account \"123456789\" --title \"Backup failure\" --wait --agent"
+    }
+  ],
+  "pain_points": [
+    "Billing reconciliation is a monthly fire drill: pull a CSV from each vendor, hand-map the fields to your PSA, and hope you caught every seat that drifted. r/msp threads return to it every cycle, and Gradient's own data puts the manual version at up to 90% more time than automating it.",
+    "The only programmatic path Synthesize ships is a PowerShell SDK that wants a script project per integration, so usage pushes end up living in brittle one-off scripts with no record of what was sent or what changed between runs.",
+    "Fire-and-forget alerting means you never know whether an alert became a PSA ticket until someone goes looking, and a count push with no audit trail makes 'why did this invoice change?' unanswerable."
+  ],
+  "outcomes": [
+    {
+      "question": "Push a whole file of usage counts and rebuild billing exactly once?",
+      "command": "gradient-cli usage push --file ./counts.csv --agent"
+    },
+    {
+      "question": "Which accounts' usage changed between my last two pushes?",
+      "command": "gradient-cli usage drift --agent"
+    },
+    {
+      "question": "Send an alert and confirm the PSA ticket was actually created?",
+      "command": "gradient-cli alert send --account \"123456789\" --title \"Backup failure\" --wait --agent"
+    },
+    {
+      "question": "Which of my dispatched alerts never became tickets?",
+      "command": "gradient-cli alert trace --stuck --agent"
+    },
+    {
+      "question": "Which accounts are unmapped or missing a vendor SKU?",
+      "command": "gradient-cli hygiene unmapped --agent"
+    },
+    {
+      "question": "Is my integration ready to flip to active?",
+      "command": "gradient-cli status ready --agent"
+    },
+    {
+      "question": "Add a single ad-hoc unit count for one account and service?",
+      "command": "gradient-cli billing <serviceId> --account-id \"123456789\" --unit-count 42"
+    },
+    {
+      "question": "Are my credentials valid and what's my integration status?",
+      "command": "gradient-cli integration get --agent"
+    }
+  ],
+  "different_vs_wrappers": "Most ways to script the Synthesize API proxy each question straight to a live call and remember nothing, so 'what changed since last night?' is unanswerable without exporting and diffing spreadsheets yourself. This CLI keeps a local push ledger and an offline SQLite mirror of your accounts, so usage drift, mapping-hygiene rollups, and stuck-alert traces are one command instead of a data-export project. Bulk pushes defer the billing rebuild to a single call at the end rather than firing one per row.",
+  "different_vs_vendor": "Gradient's Synthesize portal is where MSPs review and approve mappings; it has no terminal, no bulk-push-with-one-rebuild primitive, and no scriptable alert-to-ticket confirmation. This CLI complements the portal: it is the agent-native way to feed and audit the data the portal reconciles, not a replacement for the approval workflow.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Gradient MSP MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Gradient MSP data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Which credentials do I need, and how do I set them?",
+      "a": "A Synthesize vendor token. Set GRADIENT_TOKEN to the base64 of <vendorApiKey>:<partnerApiKey>, or set GRADIENT_VENDOR_API_KEY and GRADIENT_PARTNER_API_KEY and the CLI derives the token for you. Run gradient-cli integration get to confirm the credential works."
+    },
+    {
+      "q": "Does this replace the Synthesize portal or Managed Billing Reconciliation?",
+      "a": "No. Mapping approval and reconciliation review still happen in the Synthesize portal (or are handled by Gradient's MBR service). This CLI is the vendor and integration side: it pushes accounts, services, and usage counts in, audits what was pushed, and traces alerts to PSA tickets. It complements the portal, it does not log into it."
+    }
+  ],
+  "governance_summary": "The skill reads your Synthesize accounts, services, mappings, integration status, and local push ledger, and it can write: push usage counts, create or update accounts, services, and mappings, dispatch alerts, and flip integration status. There are no vendor-side delete commands. Keep an autonomous agent to reads plus previewed (--dry-run) writes, and require a human to approve any count push, mapping change, or status flip.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "integration get, vendor get, services get, accounts list, usage drift, alert trace, hygiene unmapped, status ready, analytics",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "usage push, billing, alert send, alerting, import, accounts create, accounts update, accounts update-one, services create, mappings create, mappings update, mappings update-bulk, integration update-status, vendor update",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "auth set-token and auth logout (local credential file only); the Synthesize vendor API exposes no delete commands",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}
