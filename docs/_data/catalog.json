@@ -1,5 +1,5 @@
 {
-  "count": 27,
+  "count": 28,
   "connectors": [
     {
       "slug": "acronis",
@@ -184,6 +184,14 @@
       "category": "Backup/DR",
       "verification": "live-verified",
       "url": "/skills/servosity/"
+    },
+    {
+      "slug": "sherweb",
+      "display_name": "Sherweb",
+      "tagline": "Reconcile what you owe Sherweb against what customers owe you and surface true net margin per customer.",
+      "category": "Billing",
+      "verification": "awaiting",
+      "url": "/skills/sherweb/"
     },
     {
       "slug": "superops",
