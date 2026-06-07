@@ -704,7 +704,7 @@ Governance: The skill reads your Synthesize accounts, services, mappings, integr
 ### HaloPSA (PSA)
 
 Page: https://msp-skills.compoundingteams.com/skills/halopsa/
-Badge: Awaiting live verification
+Badge: Live-verified
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)
 
 MSPs run HaloPSA as the service desk - tickets, SLAs, contracts, and the queue that never stops. Ask your AI "what's about to breach SLA," "who's overloaded," or "what's the whole story for this client," and get an answer the portal can't compose in one shot: cross-entity rollups across tickets, clients, contracts, time, and assets, joined offline in one query instead of clicking through five tabs. A local SQLite mirror means QBR-time questions don't hit rate limits.
@@ -740,7 +740,7 @@ Governance: The skill drives the halopsa-cli and halopsa-mcp binaries, authentic
 ### HubSpot (CRM)
 
 Page: https://msp-skills.compoundingteams.com/skills/hubspot/
-Badge: Awaiting live verification
+Badge: Live-verified
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)
 
 MSPs run HubSpot as the sales CRM - pipeline, deals, quote-chasing. Ask your AI "which deals went cold," "what's my pipeline health," or "who do I call today," and get an answer the portal can't compose: cross-object rollups across deals, contacts, owners, and engagements, computed offline in one query instead of a dozen exports and saved views.
@@ -1620,7 +1620,7 @@ Governance: The skill drives the sentinelone-cli and sentinelone-mcp binaries, a
 ### Servosity (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/servosity/
-Badge: Awaiting live verification
+Badge: Live-verified
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
 
 MSPs run Servosity as the backup and DR platform - M365, DR Server, and DR Desktop protection across a whole book of clients. Ask your AI "where is my attention needed today", "which backups went stale this week", or "build Acme's QBR backup section" and get fleet-wide answers the per-client dashboard can't compose: ranked attention sweeps, day-over-day drift, ready-to-send stale-backup follow-ups, and the whole book's QBR reports in one pass.

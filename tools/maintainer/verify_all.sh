@@ -47,6 +47,7 @@ echo "== CLI claims vs built binary =="
 if run python3 tools/maintainer/check_cli_claims.py --warn; then pass "CLI claims (warn)"; else warn "CLI claims reported findings"; fi
 
 echo "== Repo gates =="
+if run python3 tools/maintainer/check_registry_state.py;  then pass "registry state";      else fail "registry state";      fi
 if run python3 tools/maintainer/check_skill_contract.py;  then pass "skill contract";      else fail "skill contract";      fi
 if run python3 tools/maintainer/check_md_links.py;        then pass "markdown links";      else fail "markdown links";      fi
 if run python3 tools/maintainer/check_release_contract.py; then pass "release contract";   else fail "release contract";    fi

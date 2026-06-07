@@ -504,7 +504,12 @@
       "tagline": "Tell it your stack - it recommends and installs the right connectors.",
       "template_version": 2,
       "has_video": false,
-      "live_verified": null
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     },
     "mspbots": {
       "system": "MSPbots BI: datasets, KPI snapshots, ticket analytics, exports",
