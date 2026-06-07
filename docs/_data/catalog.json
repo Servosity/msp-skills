@@ -1,5 +1,5 @@
 {
-  "count": 30,
+  "count": 31,
   "connectors": [
     {
       "slug": "acronis",
@@ -184,6 +184,14 @@
       "category": "Billing",
       "verification": "awaiting",
       "url": "/skills/quickbooks/"
+    },
+    {
+      "slug": "rootly",
+      "display_name": "Rootly",
+      "tagline": "Every Rootly incident, alert, and on-call object as a typed command, plus offline MTTR and coverage-gap answers.",
+      "category": "Incident Response",
+      "verification": "awaiting",
+      "url": "/skills/rootly/"
     },
     {
       "slug": "sentinelone",
