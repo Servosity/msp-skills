@@ -453,6 +453,39 @@ A: Yes. CW_SITE accepts your own server's hostname as well as the cloud region h
 
 Governance: The skill drives the connectwise-manage-cli and connectwise-manage-mcp binaries, authenticating with API Member keys read from the environment (CW_COMPANY_ID, CW_PUBLIC_KEY, CW_PRIVATE_KEY, CW_CLIENT_ID) - never logged and never sent anywhere except your ConnectWise Manage instance. Read commands (boards, cross-entity views, search, reports) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep delete and member-administration commands human-only. The strongest control is the security role on the API Member you create.
 
+### Cove Data Protection (Backup/DR)
+
+Page: https://msp-skills.compoundingteams.com/skills/cove/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cove/install.sh)
+
+Ask which Cove backups failed last night and get every failed, aborted, or never-started device across all your customers in one sweep, the status codes decoded to plain names. Cove's console scopes to one partner at a time and forgets yesterday; this skill speaks the whole JSON-RPC API and keeps a local snapshot history, so storage-growth and what-changed-since-Friday trends exist at all.
+
+Outcomes (question -> command your AI agent runs):
+- Which devices failed their last backup since yesterday? -> cove-cli devices failures --since 24h --json
+- Which devices have had no successful backup in 3 days? -> cove-cli devices stale --days 3 --json
+- What is the fleet-wide health rollup, broken down per customer? -> cove-cli fleet health --by partner --json
+- Which devices and customers grew their storage fastest this week? -> cove-cli storage growth --since 7d --json
+- What is the month-end billing usage per device, with codes decoded? -> cove-cli billing usage --csv
+- Which device SKUs or seat counts changed since last month? -> cove-cli billing changes --json
+- Which backup statuses flipped since my last snapshot? -> cove-cli devices changes --since 7d --json
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Cove Data Protection MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Cove Data Protection data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: What kind of Cove account does it need?
+A: An API-enabled backup.management user: a Security Officer service account with the API flag set. Interactive two-factor logins cannot use the JSON-RPC API. You set COVE_USERNAME and COVE_PASSWORD once; the skill exchanges them for a cached session visa and refreshes it automatically.
+Q: Can it restore files or browse backed-up data?
+A: No. This skill speaks the Cove management API: fleet health, billing, storage trends, and enumeration. Restores and per-session file browsing run through the Backup Manager client and the storage-node Reporting Service, which this CLI does not cover.
+
+Governance: The skill is read-first: every command that touches Cove reads (failure sweeps, health rollups, billing, storage, enumeration) and changes nothing in your tenant. The local commands (sync, snapshot, auth) write only to your machine's SQLite mirror and session cache. The one escape hatch, call, can invoke any JSON-RPC method including the few that mutate, so keep it human-reviewed. Recommended policy: allow reads freely; gate call and anything that writes behind a human.
+
 ### CrowdStrike Falcon (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/crowdstrike/

@@ -232,6 +232,25 @@
       "tagline": "Triage boards, catch unbilled time, and prep QBRs by asking."
     },
     {
+      "name": "cove",
+      "system": "N-able Cove Data Protection cloud backup and recovery",
+      "status": "beta",
+      "skill_path": "skills/cove",
+      "cli_binary": "cove-cli",
+      "mcp_binary": "cove-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Cove Data Protection",
+      "vendor_trademark_owner": "N-able",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cove/install.sh)",
+      "install_mcp_doc": "skills/cove/mcp-install.md",
+      "description": "The first CLI and MCP server for Cove Data Protection: fleet-wide backup health, billing usage, and storage trends from your terminal, with the local history the vendor console doesn't keep.",
+      "verification": "awaiting",
+      "category": "Backup/DR",
+      "tagline": "Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal."
+    },
+    {
       "name": "crowdstrike",
       "system": "CrowdStrike Falcon EDR: alerts, devices, Spotlight vulnerabilities, prevention policies, and MSSP Flight Control across every tenant",
       "status": "beta",

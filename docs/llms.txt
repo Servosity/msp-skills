@@ -39,6 +39,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - ConnectWise PSA (Manage) (PSA) - Triage boards, catch unbilled time, and prep QBRs by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/connectwise-manage/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-manage/install.sh)
+- Cove Data Protection (Backup/DR) - Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/cove/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cove/install.sh)
 - CrowdStrike Falcon (Security) - Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/crowdstrike/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/crowdstrike/install.sh)

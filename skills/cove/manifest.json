@@ -1,0 +1,63 @@
+{
+  "manifest_version": "0.3",
+  "name": "cove-mcp",
+  "display_name": "Cove Data Protection",
+  "version": "0.1.0",
+  "description": "The first CLI and MCP server for Cove Data Protection: fleet-wide backup health, billing usage, and storage trends from your terminal, with the local history the vendor console doesn't keep.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/cove-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/cove-mcp",
+      "args": [],
+      "env": {
+        "COVE_USERNAME": "${user_config.cove_username}",
+        "COVE_PASSWORD": "${user_config.cove_password}",
+        "COVE_PARTNER": "${user_config.cove_partner}",
+        "COVE_BASE_URL": "${user_config.cove_base_url}"
+      }
+    }
+  },
+  "user_config": {
+    "cove_username": {
+      "type": "string",
+      "title": "COVE_USERNAME",
+      "description": "Backup.management user with API access enabled (Security Officer + API flag; a service account, not an interactive-2FA login). Exchanged via the Cove JSON-RPC Login method for a cached session visa.",
+      "sensitive": true,
+      "required": true
+    },
+    "cove_password": {
+      "type": "string",
+      "title": "COVE_PASSWORD",
+      "description": "Password for COVE_USERNAME. Exchanged once for a cached session visa; never written to disk beyond the local visa cache, never logged.",
+      "sensitive": true,
+      "required": true
+    },
+    "cove_partner": {
+      "type": "string",
+      "title": "COVE_PARTNER",
+      "description": "Optional partner name to scope queries to a specific reseller or customer level. Defaults to the partner resolved from the login.",
+      "sensitive": false,
+      "required": false
+    },
+    "cove_base_url": {
+      "type": "string",
+      "title": "COVE_BASE_URL",
+      "description": "Optional override for the Cove JSON-RPC endpoint. Defaults to the standard backup.management API host; set only for a regional or mock endpoint.",
+      "sensitive": false,
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}
