@@ -452,6 +452,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "pandadoc",
+      "source": "./skills/pandadoc",
+      "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has  -  stalled deals, aging, recipient engagement, and open quote value from a local store.",
+      "version": "0.1.0",
+      "category": "documentation",
+      "tags": [
+        "pandadoc",
+        "documentation",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

@@ -1,0 +1,20 @@
+{
+  "name": "pandadoc",
+  "version": "4.22.0",
+  "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has  -  stalled deals, aging, recipient engagement, and open quote value from a local store.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/pandadoc",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "pandadoc",
+    "documentation",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}
