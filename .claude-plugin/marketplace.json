@@ -619,6 +619,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "nerdio",
+      "source": "./skills/nerdio",
+      "description": "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "nerdio",
+        "nerdio manager",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

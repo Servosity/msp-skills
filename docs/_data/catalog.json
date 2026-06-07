@@ -178,6 +178,14 @@
       "url": "/skills/n-central/"
     },
     {
+      "slug": "nerdio",
+      "display_name": "Nerdio Manager",
+      "tagline": "Audit autoscale, sweep idle session hosts, and reconcile per-customer billing across every Nerdio Manager account from your terminal.",
+      "category": "RMM",
+      "verification": "awaiting",
+      "url": "/skills/nerdio/"
+    },
+    {
       "slug": "ninjaone",
       "display_name": "NinjaOne",
       "tagline": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.",

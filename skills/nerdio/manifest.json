@@ -1,0 +1,71 @@
+{
+  "manifest_version": "0.3",
+  "name": "nerdio-pp-mcp",
+  "display_name": "Nerdio Manager",
+  "version": "4.22.0",
+  "description": "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/nerdio-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/nerdio-pp-mcp",
+      "args": [],
+      "env": {
+        "NERDIO_BASE_URL": "${user_config.nerdio_base_url}",
+        "NERDIO_TOKEN_URL": "${user_config.nerdio_token_url}",
+        "NERDIO_CLIENT_ID": "${user_config.nerdio_client_id}",
+        "NERDIO_CLIENT_SECRET": "${user_config.nerdio_client_secret}",
+        "NERDIO_OAUTH_SCOPE": "${user_config.nerdio_oauth_scope}"
+      }
+    }
+  },
+  "user_config": {
+    "nerdio_base_url": {
+      "type": "string",
+      "title": "NERDIO_BASE_URL",
+      "description": "Your NMM instance root URL (per-MSP install), e.g. https://nmm.contoso.com. Required - there is no vendor-global endpoint.",
+      "sensitive": false,
+      "required": true
+    },
+    "nerdio_token_url": {
+      "type": "string",
+      "title": "NERDIO_TOKEN_URL",
+      "description": "Entra ID token endpoint for your tenant: https://login.microsoftonline.com/<TENANT_ID>/oauth2/v2.0/token",
+      "sensitive": false,
+      "required": true
+    },
+    "nerdio_client_id": {
+      "type": "string",
+      "title": "NERDIO_CLIENT_ID",
+      "description": "Sets NERDIO_CLIENT_ID for the Nerdio Manager MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "nerdio_client_secret": {
+      "type": "string",
+      "title": "NERDIO_CLIENT_SECRET",
+      "description": "Sets NERDIO_CLIENT_SECRET for the Nerdio Manager MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "nerdio_oauth_scope": {
+      "type": "string",
+      "title": "NERDIO_OAUTH_SCOPE",
+      "description": "Sets NERDIO_OAUTH_SCOPE for the Nerdio Manager MCP server. Required by the generated client for credential refresh or hand-written auth flow.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}
