@@ -1083,6 +1083,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "afi": {
+      "system": "SaaS backup for Microsoft 365 and Google Workspace",
+      "status": "beta",
+      "cli_binary": "afi-cli",
+      "mcp_binary": "afi-mcp",
+      "vendor": "Afi",
+      "vendor_trademark_owner": "Afi",
+      "first_party": false,
+      "category": "Backup-DR",
+      "display_name": "Afi",
+      "tagline": "Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.",
+      "cli_hash": "sha256:6a24526f190823c2faf1b8631d900484d8662f8f8044cb6468c7e799e92d5dce",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }
