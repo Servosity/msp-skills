@@ -1,15 +1,15 @@
 # Nerdio Manager + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the Nerdio Manager
-> API. Not affiliated with, endorsed by, or sponsored by Nerdio, Inc..
+> API. Not affiliated with, endorsed by, or sponsored by Nerdio, Inc.
 
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/nerdio/">
-    <img src="../../docs/assets/social/nerdio/wide-1200x630.png" alt="Nerdio Manager - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/nerdio/animated-og.gif" alt="Nerdio Manager demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/nerdio/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/nerdio/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Nerdio Manager MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/nerdio-v4.22.0/nerdio-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Nerdio Manager release on the [releases page](https://github.com/servosity/msp-skills/releases?q=nerdio).)
+[**Download Nerdio Manager MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/nerdio-v0.1.0/nerdio-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Nerdio Manager release on the [releases page](https://github.com/servosity/msp-skills/releases?q=nerdio).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -145,25 +145,38 @@ NERDIO_BASE_URL=<value> NERDIO_TOKEN_URL=<value> NERDIO_CLIENT_ID=<value> NERDIO
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `nerdio-cli ...` |
-
--->
+| Which host pools have autoscale off or drifting across every customer? | `nerdio-cli fleet autoscale-audit` |
+| What is running right now across all accounts, and where? | `nerdio-cli fleet host-estate` |
+| What did each customer get billed this period, and who is unpaid? | `nerdio-cli fleet billing-rollup --period 2026-05-01:2026-05-31 --unpaid-only` |
+| Which customers' Azure usage spiked month-over-month? | `nerdio-cli usages drift --from 2026-04-01:2026-04-30 --to 2026-05-01:2026-05-31` |
+| List every customer account I manage | `nerdio-cli accounts` |
+| Show the host pools for one account | `nerdio-cli host-pools list <account_id>` |
+| Which Intune devices does this account have? | `nerdio-cli devices list <account_id>` |
+| Did that backup or provisioning job actually finish? | `nerdio-cli job wait <job_id>` |
+| Run one scripted action across many accounts and wait for all of them | `nerdio-cli scripted-actions fan-run <script_id> --accounts 101,102,103 --wait` |
+| Search everything I have synced, offline | `nerdio-cli search <query>` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Nerdio Manager integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Nerdio Manager integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "which host pools across all 40 of my customers have autoscale turned off this quarter" - because the NMM API only returns one account, or one billing period, per call.
 
-This skill syncs Nerdio Manager into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs Nerdio Manager into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `fleet autoscale-audit`, `fleet billing-rollup`, and `usages drift` join across customer accounts, host pools, invoices, and usage windows - work a stateless API wrapper can't do. And because every NMM change is async, `job wait` turns "did it finish?" into a scriptable primitive that exits non-zero when the job actually failed.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+On r/msp, the recurring Nerdio refrain is that autoscale is the whole reason to buy it - and the hardest thing to keep honest across a fleet. There's no single view of which host pools, in which customer tenants, actually have scaling enabled, so idle session hosts quietly bleed Azure spend until the invoice lands. Every NMM install is per-tenant, so even "how many hosts are running right now across all clients" means logging into each portal one at a time. And because every change is async, the portal makes you babysit the Jobs page to know whether anything finished.
+
+This skill answers those at the fleet level:
+
+- **`nerdio-cli fleet autoscale-audit`** - every pool across every account whose autoscale is off or drifting from your baseline.
+- **`nerdio-cli fleet host-estate`** - one table of every session host, its pool, account, and power state.
+- **`nerdio-cli fleet billing-rollup --period <start>:<end>`** - per-customer billed, unpaid, and usage totals, PSA-reconciliation-ready.
+- **`nerdio-cli usages drift --from <start>:<end> --to <start>:<end>`** - which customers' consumption spiked month-over-month.
+- **`nerdio-cli job wait <job_id>`** - poll any NMM job to a terminal state and exit non-zero if it failed.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +198,17 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Do I need to be a Nerdio partner, or run Nerdio Manager for MSP (NMM)?
+
+Yes - this targets the NMM Partner REST API, which is the MSP edition (not Nerdio Manager for Enterprise). You create an API client in your own NMM portal under **Settings > Integrations > REST API**. There is no vendor-global endpoint; the CLI talks to your own instance URL, which you set as `NERDIO_BASE_URL`.
+
+### Will this replace the Nerdio Manager portal?
+
+No. It's a read-first, cross-account companion. Day-to-day operating still happens in NMM; this is for the fleet-wide questions and scripted automation the portal makes tedious.
+
+### Why does a change only return a job ID?
+
+Every NMM mutation (provisioning, scripted actions, backup, host power) is async and returns a job ID. Run `nerdio-cli job wait <job_id>` to poll it to a terminal state and exit non-zero if it failed - so your agent never reports "done" on a job that actually errored.
 
 ### What does it cost?
 
@@ -198,15 +216,13 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| **Read** | `accounts`, `fleet autoscale-audit`, `fleet host-estate`, `fleet billing-rollup`, `usages drift`, `host-pools list`, `devices list`, `job wait`, `search`, `sync`, and the other `list`/`get` commands | Allow |
+| **Write (routine)** | `host-pools create`, `host-pools set-autoscale`, `reservations create`/`update`, `recovery-vaults create`/`link`/`unlink`, `resource-groups link`/`set-default`, `networks link`, `provisioning link-network`/`link-tenant`, `workspaces create`, `backup enable`/`disable`, `job retry`, `import` | Preview with `--dry-run`, then a reviewed write |
+| **Endpoint / infrastructure control** | `hosts start`/`stop`/`restart`, `desktop-images start`/`stop`, `devices sync`, `scripted-actions run`/`run-account`/`fan-run`, `backup run`/`restore` | Human-in-the-loop - these power, restart, or execute code on live VMs and devices |
+| **Credential / security** | `secure-variables list`/`create`/`update`/`delete` (and `account-*` variants), `devices bitlocker-keys`, `devices laps` | Human-in-the-loop only - these read or write stored secrets, BitLocker keys, and LAPS passwords |
+| **Destructive** | `host-pools delete`, `reservations delete`, `recovery-vaults delete-policy`, `resource-groups unlink`/`account-unlink`, `scripted-actions unschedule` | Human-in-the-loop only, explicit confirmation |
 
 The strongest control is the **scope you grant the Nerdio Manager credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +234,4 @@ Beta. Validated against the Nerdio Manager API surface and being validated with 
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-07._

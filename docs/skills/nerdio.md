@@ -15,8 +15,12 @@ faqs:
     a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
-  - q: "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Nerdio Manager portal)"
-    a: "TODO"
+  - q: "Do I need to be a Nerdio partner, or run Nerdio Manager for MSP (NMM)?"
+    a: "Yes - this targets the NMM Partner REST API, which is the MSP edition (not Nerdio Manager for Enterprise). You create an API client in your own NMM portal under Settings > Integrations > REST API. There is no vendor-global endpoint; the CLI talks to your own instance URL, which you set as NERDIO_BASE_URL."
+  - q: "Will this replace the Nerdio Manager portal?"
+    a: "No. It is a read-first, cross-account companion. Day-to-day operating still happens in NMM; this is for the fleet-wide questions and scripted automation the portal makes tedious."
+  - q: "Why does a change only return a job ID?"
+    a: "Every NMM mutation (provisioning, scripted actions, backup, host power) is async and returns a job ID. Run nerdio-cli job wait <job_id> to poll it to a terminal state and exit non-zero if it failed - so your agent never reports \"done\" on a job that actually errored."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/nerdio/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/nerdio/install.ps1 | iex"
@@ -29,11 +33,11 @@ howto:
 # Nerdio Manager + AI in 60 seconds
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the Nerdio Manager
-> API. Not affiliated with, endorsed by, or sponsored by Nerdio, Inc..
+> API. Not affiliated with, endorsed by, or sponsored by Nerdio, Inc.
 
 **Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
 
-TODO: <=70 words, MSP-owner language, leads with the outcome. What does Nerdio Manager + your AI answer in one sentence that the portal cannot?
+Ask "which host pools have autoscale off across all my customers?" and get one table - not 30 portal logins. Every MSP runs its own Nerdio Manager (NMM) install, so each answer normally means clicking through one tenant at a time. This skill pulls your whole NMM fleet into a local mirror and answers cross-account autoscale, power-state, billing, and Intune questions in a single command.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -41,17 +45,17 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Nerdio M
 
 ## Instead of clicking through Nerdio Manager, just ask
 
-**Instead of** TODO: the painful manual workflow (exporting reports, clicking through the portal)
-**just ask:** *"TODO: the natural-language question the MSP owner asks instead"*
-<sub>Your agent runs: <code>nerdio-cli TODO</code></sub>
+**Instead of** Log into each customer's Nerdio Manager portal and click through Autoscale settings to find the host pools you never turned scaling on for
+**just ask:** *"Which host pools have autoscale disabled or drifting across all my customers?"*
+<sub>Your agent runs: <code>nerdio-cli fleet autoscale-audit</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>nerdio-cli TODO</code></sub>
+**Instead of** Export each account's usage and invoices and reconcile them in a spreadsheet before the QBR
+**just ask:** *"Give me a per-customer billing and unpaid-balance rollup for May"*
+<sub>Your agent runs: <code>nerdio-cli fleet billing-rollup --period 2026-05-01:2026-05-31 --unpaid-only</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>nerdio-cli TODO</code></sub>
+**Instead of** Kick off a scripted action in one tenant, then refresh the Jobs page over and over to see if it finished
+**just ask:** *"Run script 42 on these three accounts and tell me when all of them are done"*
+<sub>Your agent runs: <code>nerdio-cli scripted-actions fan-run <script_id> --accounts 101,102,103 --wait</code></sub>
 
 
 ## See it in 30 seconds
@@ -64,20 +68,30 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Nerdio M
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| TODO: question an MSP keeps asking | `nerdio-cli TODO` |
+| Which host pools have autoscale off or drifting across every customer? | `nerdio-cli fleet autoscale-audit` |
+| What is running right now across all accounts, and where? | `nerdio-cli fleet host-estate` |
+| What did each customer get billed this period, and who is unpaid? | `nerdio-cli fleet billing-rollup --period 2026-05-01:2026-05-31 --unpaid-only` |
+| Which customers' Azure usage spiked month-over-month? | `nerdio-cli usages drift --from 2026-04-01:2026-04-30 --to 2026-05-01:2026-05-31` |
+| List every customer account I manage | `nerdio-cli accounts` |
+| Show the host pools for one account | `nerdio-cli host-pools list <account_id>` |
+| Which Intune devices does this account have? | `nerdio-cli devices list <account_id>` |
+| Did that backup or provisioning job actually finish? | `nerdio-cli job wait <job_id>` |
+| Run one scripted action across many accounts and wait for all of them | `nerdio-cli scripted-actions fan-run <script_id> --accounts 101,102,103 --wait` |
+| Search everything I have synced, offline | `nerdio-cli search <query>` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/nerdio/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/nerdio/guide.md).
 
 ## What makes this one different
 
-TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most Nerdio Manager integrations proxy each question into a live API call ...
+Most Nerdio Manager MCP servers proxy each question into a single live API call - fine for one record, useless for "across all my customers," because the NMM API only returns one account or one period per call. This skill syncs your whole fleet into a local SQLite mirror with full-text search, so cross-account audits (autoscale, host estate, billing, usage drift) are one offline join the AI reads as a finished answer.
 
-TODO: one sentence vs Nerdio Manager's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.
+Nerdio Manager's portal is built for operating one tenant at a time. This skill adds the cross-customer, terminal-and-agent surface the portal lacks - fleet-wide autoscale audits, a scriptable "wait until the job finishes" primitive, and offline search - without replacing NMM or changing how it runs your AVD.
 
 ## The pain this closes
 
-- TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread
-- TODO: pain 2
+- AVD autoscale is the main reason to buy Nerdio, but there is no single view of which host pools across which customers actually have it enabled - so idle session hosts quietly bleed Azure spend until someone notices the bill.
+- Every NMM install is per-tenant, so a basic question like "how many session hosts are running right now across all clients" means logging into each portal one at a time.
+- NMM mutations return a job ID and the portal makes you babysit the Jobs page - there is no scriptable "wait until done" for backup, provisioning, or scripted actions.
 
 ## Install
 
@@ -111,11 +125,13 @@ After install, authenticate once with your Nerdio Manager credentials, then veri
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | TODO: read commands | Allow |
-| Write (routine) | TODO | Preview with --dry-run, then a reviewed write |
-| Destructive / config | TODO | Human-in-the-loop only |
+| Read | accounts, fleet autoscale-audit, fleet host-estate, fleet billing-rollup, usages drift, host-pools list, devices list, job wait, search, sync | Allow |
+| Write (routine) | host-pools create, host-pools set-autoscale, reservations create / update, recovery-vaults create / link, resource-groups link / set-default, networks link, workspaces create, backup enable / disable, job retry, import | Preview with --dry-run, then a reviewed write |
+| Endpoint / infrastructure control | hosts start / stop / restart, desktop-images start / stop, devices sync, scripted-actions run / run-account / fan-run, backup run / restore | Human-in-the-loop - these power, restart, or execute code on live VMs and devices |
+| Credential / security | secure-variables list / create / update / delete (and account-* variants), devices bitlocker-keys, devices laps | Human-in-the-loop only - these read or write stored secrets, BitLocker keys, and LAPS passwords |
+| Destructive | host-pools delete, reservations delete, recovery-vaults delete-policy, resource-groups unlink / account-unlink, scripted-actions unschedule | Human-in-the-loop only, explicit confirmation |
 
-TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/nerdio/governance.md).
+The skill reads your whole NMM fleet - accounts, host pools, session hosts, Intune devices, billing - and can also make changes: create or delete host pools and reservations, power and restart session hosts, run scripted actions across accounts, and manage secure variables. Reads are safe to automate. Anything that powers, executes, deletes, or touches a stored secret should be previewed with --dry-run and approved by a human. The credential's NMM role is the real ceiling - scope it to only what your workflow needs. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/nerdio/governance.md).
 
 ## Frequently asked questions
 
@@ -135,9 +151,17 @@ Your data stays on your machine. The CLI, MCP server, and the local mirror are a
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-### TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Nerdio Manager portal)
+### Do I need to be a Nerdio partner, or run Nerdio Manager for MSP (NMM)?
 
-TODO
+Yes - this targets the NMM Partner REST API, which is the MSP edition (not Nerdio Manager for Enterprise). You create an API client in your own NMM portal under Settings > Integrations > REST API. There is no vendor-global endpoint; the CLI talks to your own instance URL, which you set as NERDIO_BASE_URL.
+
+### Will this replace the Nerdio Manager portal?
+
+No. It is a read-first, cross-account companion. Day-to-day operating still happens in NMM; this is for the fleet-wide questions and scripted automation the portal makes tedious.
+
+### Why does a change only return a job ID?
+
+Every NMM mutation (provisioning, scripted actions, backup, host power) is async and returns a job ID. Run nerdio-cli job wait <job_id> to poll it to a terminal state and exit non-zero if it failed - so your agent never reports "done" on a job that actually errored.
 
 
 ## Status

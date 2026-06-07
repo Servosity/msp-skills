@@ -23,15 +23,17 @@ never written to disk, never logged, never sent anywhere except the Nerdio Manag
 ## Permission tiers
 
 The safe default for an autonomous agent is **read plus planned (dry-run) writes**;
-require a human for anything below the line.
+require a human for anything below the line. Note that several reads expose secrets
+and several writes power or run code on live infrastructure - those are pulled up
+into their own tiers below rather than left in Read or routine Write.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `host-pools create`, `host-pools set-autoscale`, `recovery-vaults create`, `reservations create`, `reservations update`, `resource-groups account-set-default`, `resource-groups set-default`, `secure-variables account-create`, ... (12 total) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
-| **Credential / security** | Touches tokens, keys, MFA. | `users mfa` | Human-in-the-loop only |
-| **Destructive** | Irreversible data or config loss. | `host-pools delete`, `recovery-vaults delete-policy`, `reservations delete`, `secure-variables account-delete`, `secure-variables delete` | Human-in-the-loop only, explicit confirmation |
-| **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
+| **Read** | Reports, rollups, fleet audits, search. No change. | `accounts`, `fleet autoscale-audit`, `fleet host-estate`, `fleet billing-rollup`, `usages drift`, `host-pools list`, `devices list`, `job wait`, `search`, `sync`, and the other `list`/`get` commands | Allow |
+| **Write (routine)** | Reversible config/resource changes. | `host-pools create`, `host-pools set-autoscale`, `reservations create`/`update`, `recovery-vaults create`/`link`/`unlink`, `resource-groups link`/`account-link`/`set-default`/`account-set-default`, `networks link`, `provisioning link-network`/`link-tenant`, `workspaces create`, `backup enable`/`disable`, `job retry`, `import` | Preview with `--dry-run`, then an approved write |
+| **Endpoint / infrastructure control** | Powers, restarts, or executes code on live VMs and devices. | `hosts start`/`stop`/`restart`, `desktop-images start`/`stop`, `devices sync`, `scripted-actions run`/`run-account`/`fan-run`, `backup run`/`restore` | Human-in-the-loop - real effect on running infrastructure |
+| **Credential / security** | Reads or writes stored secrets, BitLocker keys, LAPS passwords. | `secure-variables list`/`account-list` (may return secret values), `secure-variables create`/`update`/`delete`/`account-create`/`account-update`/`account-delete`, `devices bitlocker-keys`, `devices laps` | Human-in-the-loop only |
+| **Destructive** | Irreversible delete or unlink of resources/config. | `host-pools delete`, `reservations delete`, `recovery-vaults delete-policy`, `resource-groups unlink`/`account-unlink`, `scripted-actions unschedule` | Human-in-the-loop only, explicit confirmation |
 
 ## How to lock it down
 
@@ -40,8 +42,9 @@ require a human for anything below the line.
 - **Keep autonomous agents to Read + previewed writes.** Have a human approve the
   actual write for Write tier and above - the gate lives in your agent's policy,
   not in the binary's defaults.
-- **Never let an agent run Credential, Destructive, or Admin tier commands
-  unattended.** Treat them like a production database drop: human, reviewed, logged.
+- **Never let an agent run Endpoint-control, Credential, or Destructive tier
+  commands unattended.** Powering hosts, running scripted actions, reading LAPS or
+  BitLocker keys, and deleting resources all belong to a human: reviewed and logged.
 - **Rotate the credential if it is ever exposed** (for example after bridging the
   MCP server to a public endpoint for ChatGPT - see mcp-install.md).
 

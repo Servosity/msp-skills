@@ -856,6 +856,44 @@ A: No. This skill targets the N-central REST API specifically. N-sight is a sepa
 
 Governance: The skill drives the n-central-cli and n-central-mcp binaries, authenticating with an API-only user's JWT (NCENTRAL_JWT) exchanged for short-lived access tokens - never logged and never sent anywhere except your N-central server. Nearly all commands are read-only; the exceptions are scheduled-tasks run (executes an API-enabled script or automation policy on a live device) and import (POSTs records), both previewable with the opt-in --dry-run flag. Registration tokens enroll new devices - treat them like credentials. The API user's role in N-central is the real permission boundary.
 
+### Nerdio Manager (RMM)
+
+Page: https://msp-skills.compoundingteams.com/skills/nerdio/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/nerdio/install.sh)
+
+Ask "which host pools have autoscale off across all my customers?" and get one table - not 30 portal logins. Every MSP runs its own Nerdio Manager (NMM) install, so each answer normally means clicking through one tenant at a time. This skill pulls your whole NMM fleet into a local mirror and answers cross-account autoscale, power-state, billing, and Intune questions in a single command.
+
+Outcomes (question -> command your AI agent runs):
+- Which host pools have autoscale off or drifting across every customer? -> nerdio-cli fleet autoscale-audit
+- What is running right now across all accounts, and where? -> nerdio-cli fleet host-estate
+- What did each customer get billed this period, and who is unpaid? -> nerdio-cli fleet billing-rollup --period 2026-05-01:2026-05-31 --unpaid-only
+- Which customers' Azure usage spiked month-over-month? -> nerdio-cli usages drift --from 2026-04-01:2026-04-30 --to 2026-05-01:2026-05-31
+- List every customer account I manage -> nerdio-cli accounts
+- Show the host pools for one account -> nerdio-cli host-pools list <account_id>
+- Which Intune devices does this account have? -> nerdio-cli devices list <account_id>
+- Did that backup or provisioning job actually finish? -> nerdio-cli job wait <job_id>
+- Run one scripted action across many accounts and wait for all of them -> nerdio-cli scripted-actions fan-run <script_id> --accounts 101,102,103 --wait
+- Search everything I have synced, offline -> nerdio-cli search <query>
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Nerdio Manager MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Nerdio Manager data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need to be a Nerdio partner, or run Nerdio Manager for MSP (NMM)?
+A: Yes - this targets the NMM Partner REST API, which is the MSP edition (not Nerdio Manager for Enterprise). You create an API client in your own NMM portal under Settings > Integrations > REST API. There is no vendor-global endpoint; the CLI talks to your own instance URL, which you set as NERDIO_BASE_URL.
+Q: Will this replace the Nerdio Manager portal?
+A: No. It is a read-first, cross-account companion. Day-to-day operating still happens in NMM; this is for the fleet-wide questions and scripted automation the portal makes tedious.
+Q: Why does a change only return a job ID?
+A: Every NMM mutation (provisioning, scripted actions, backup, host power) is async and returns a job ID. Run nerdio-cli job wait <job_id> to poll it to a terminal state and exit non-zero if it failed - so your agent never reports "done" on a job that actually errored.
+
+Governance: The skill reads your whole NMM fleet - accounts, host pools, session hosts, Intune devices, billing - and can also make changes: create or delete host pools and reservations, power and restart session hosts, run scripted actions across accounts, and manage secure variables. Reads are safe to automate. Anything that powers, executes, deletes, or touches a stored secret should be previewed with --dry-run and approved by a human. The credential's NMM role is the real ceiling - scope it to only what your workflow needs.
+
 ### NinjaOne (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/ninjaone/
