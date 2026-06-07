@@ -1,0 +1,55 @@
+{
+  "manifest_version": "0.3",
+  "name": "skykick-pp-mcp",
+  "display_name": "SkyKick",
+  "version": "4.22.0",
+  "description": "Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots, and coverage gaps no portal or wrapper can show.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/skykick-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/skykick-pp-mcp",
+      "args": [],
+      "env": {
+        "SKYKICK_CLIENT_ID": "${user_config.skykick_client_id}",
+        "SKYKICK_CLIENT_SECRET": "${user_config.skykick_client_secret}",
+        "SKYKICK_OAUTH_SCOPE": "${user_config.skykick_oauth_scope}"
+      }
+    }
+  },
+  "user_config": {
+    "skykick_client_id": {
+      "type": "string",
+      "title": "SKYKICK_CLIENT_ID",
+      "description": "Sets SKYKICK_CLIENT_ID for the SkyKick MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "skykick_client_secret": {
+      "type": "string",
+      "title": "SKYKICK_CLIENT_SECRET",
+      "description": "Sets SKYKICK_CLIENT_SECRET for the SkyKick MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "skykick_oauth_scope": {
+      "type": "string",
+      "title": "SKYKICK_OAUTH_SCOPE",
+      "description": "Sets SKYKICK_OAUTH_SCOPE for the SkyKick MCP server. Required by the generated client for credential refresh or hand-written auth flow.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

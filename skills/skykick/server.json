@@ -1,0 +1,52 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/skykick-mcp",
+  "title": "SkyKick MCP",
+  "description": "Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots, and coverage",
+  "version": "4.22.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/skykick/skykick-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/skykick"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/skykick-v4.22.0/skykick-mcp.mcpb",
+      "version": "4.22.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SKYKICK_CLIENT_ID",
+          "description": "Set the SKYKICK_CLIENT_ID credential for the SkyKick MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SKYKICK_CLIENT_SECRET",
+          "description": "Set the SKYKICK_CLIENT_SECRET credential for the SkyKick MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SKYKICK_OAUTH_SCOPE",
+          "description": "Set the SKYKICK_OAUTH_SCOPE credential for the SkyKick MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
