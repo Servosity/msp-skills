@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Afi MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "The first CLI for Afi SaaS backup  -  full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live."
+description: "The first CLI for Afi SaaS backup - full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live."
 permalink: /skills/afi/
 skill_name: "Afi MCP"
 image: /assets/social/afi/wide-1200x630.png
@@ -15,8 +15,12 @@ faqs:
     a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
-  - q: "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Afi portal)"
-    a: "TODO"
+  - q: "Will this trip Afi's API rate limits?"
+    a: "Not if you use it as designed. Afi throttles - and may suspend - applications that poll continuously, so this skill walks the fleet into a local store in one respectful, rate-limited pass with fleet-sync, then answers every question offline against that store. You sync on a schedule, not on every question."
+  - q: "Do I need to be an Afi customer, and what access does the key need?"
+    a: "Yes - you need an Afi account and an Application API key (created in the Afi portal: org level under Configuration to Apps, or tenant level under Service to Settings to Apps). The key inherits the Application's installation scope, so the CLI sees exactly the orgs and tenants that Application is installed on. Each Application supports two keys for rotation."
+  - q: "Will this replace the Afi portal?"
+    a: "No. Restores, exports, and policy editing still happen in the Afi portal - the public API does not expose them. This skill is the read, report, and guarded-offboard layer: it answers fleet questions and runs the verified archive-then-release, then hands you back to the portal for the actions only it can do."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/afi/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/afi/install.ps1 | iex"
@@ -33,7 +37,7 @@ howto:
 
 **Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
 
-TODO: <=70 words, MSP-owner language, leads with the outcome. What does Afi + your AI answer in one sentence that the portal cannot?
+Ask your AI 'which mailboxes aren't backed up in Afi?' and get the answer across every tenant at once. This skill walks your whole Afi fleet into a local store, then answers coverage gaps, stale backups, license drift, and per-tenant posture offline - no per-tenant portal clicking, no tripping Afi's rate limits - and runs a verified archive-then-release when someone leaves.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -41,17 +45,17 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Afi + yo
 
 ## Instead of clicking through Afi, just ask
 
-**Instead of** TODO: the painful manual workflow (exporting reports, clicking through the portal)
-**just ask:** *"TODO: the natural-language question the MSP owner asks instead"*
-<sub>Your agent runs: <code>afi-cli TODO</code></sub>
+**Instead of** Open the Afi portal, click into each client tenant, and eyeball which users actually have a backup policy attached.
+**just ask:** *"Which resources across the whole fleet have no backup protection?"*
+<sub>Your agent runs: <code>afi-cli coverage-gaps --agent</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>afi-cli TODO</code></sub>
+**Instead of** Tab through every tenant's task history hunting for the nightly backups that quietly stopped landing.
+**just ask:** *"Show me protected resources whose newest backup is older than 48 hours."*
+<sub>Your agent runs: <code>afi-cli backup-stale --max-age 48h --agent</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>afi-cli TODO</code></sub>
+**Instead of** Stitch two portal screens into a spreadsheet to compare licenses purchased against seats actually protected.
+**just ask:** *"Where am I over- or under-provisioned on Afi licenses?"*
+<sub>Your agent runs: <code>afi-cli reconcile-licenses --agent</code></sub>
 
 
 ## See it in 30 seconds
@@ -64,20 +68,27 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Afi + yo
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| TODO: question an MSP keeps asking | `afi-cli TODO` |
+| Which resources have no backup protection at all? | `afi-cli coverage-gaps --agent` |
+| Which protected resources have a stale backup (silent failures)? | `afi-cli backup-stale --max-age 48h --agent` |
+| Is the whole fleet green this morning, or who failed? | `afi-cli fleet-health --failed-only --agent` |
+| What is one tenant's full backup posture for a QBR or ticket? | `afi-cli tenant-scorecard <tenant-id> --agent` |
+| Am I over- or under-licensed on Afi seats? | `afi-cli reconcile-licenses --agent` |
+| Who is jane.doe@example.com in Afi, across Multi-Geo tenants? | `afi-cli resolve <email-or-id> --agent` |
+| Safely back up then release a departing employee's mailbox? | `afi-cli offboard <resource-id> --tenant <tenant-id> --reason "employee departure"` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/afi/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/afi/guide.md).
 
 ## What makes this one different
 
-TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most Afi integrations proxy each question into a live API call ...
+Most Afi integrations proxy each question into a live API call - fine for one lookup, but it falls over when you ask a fleet-wide question across dozens of tenants, and Afi's rate limits punish the polling. This skill syncs the whole hierarchy into a local SQLite mirror once, then answers coverage, staleness, and licensing as offline SQL joins: instant, and gentle on the API.
 
-TODO: one sentence vs Afi's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.
+The Afi portal answers one tenant at a time and has no cross-tenant rollup or coverage-gap report. This skill adds the fleet-wide views - coverage gaps, stale backups, license reconciliation, and a verified archive-then-release offboard - that neither the portal nor the rate-limited public API serves directly.
 
 ## The pain this closes
 
-- TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread
-- TODO: pain 2
+- A new mailbox or site gets created in Microsoft 365 or Google Workspace but never gets a backup policy attached - and nobody notices until a restore request arrives and the data was never being protected.
+- A backup quietly stops landing on a protected resource; the portal still shows the policy attached, so the silent failure stays invisible until the day you actually need that archive.
+- Verifying backup coverage across dozens of client tenants means walking the Afi portal one tenant tab at a time, and the public API throttles you for polling.
 
 ## Install
 
@@ -111,11 +122,11 @@ After install, authenticate once with your Afi credentials, then verify with `af
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | TODO: read commands | Allow |
-| Write (routine) | TODO | Preview with --dry-run, then a reviewed write |
-| Destructive / config | TODO | Human-in-the-loop only |
+| Read | coverage-gaps, backup-stale, fleet-health, tenant-scorecard, reconcile-licenses, resolve, fleet-sync, and every list/get command | Allow |
+| Write (routine) | orgs create, import, tenants resources protections-protect, tenants jobs tasks-trigger | Preview with --dry-run, then a reviewed write |
+| Destructive / config | offboard (releases protection), tenants resources protections-unprotect, tenants archives delete | Human-in-the-loop only |
 
-TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/afi/governance.md).
+The skill reads your Afi fleet (installations, orgs, tenants, resources, protections, policies, archives, quotas, and task stats) and can run a small set of writes: create a child org, import records, trigger a backup, and add a protection. Three commands are genuinely destructive - offboard, protections-unprotect, and archives delete - because they release backup coverage or delete an archive. Let an agent run reads freely; require a human to approve every write, and especially the destructive tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/afi/governance.md).
 
 ## Frequently asked questions
 
@@ -135,9 +146,17 @@ Your data stays on your machine. The CLI, MCP server, and the local mirror are a
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-### TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Afi portal)
+### Will this trip Afi's API rate limits?
 
-TODO
+Not if you use it as designed. Afi throttles - and may suspend - applications that poll continuously, so this skill walks the fleet into a local store in one respectful, rate-limited pass with fleet-sync, then answers every question offline against that store. You sync on a schedule, not on every question.
+
+### Do I need to be an Afi customer, and what access does the key need?
+
+Yes - you need an Afi account and an Application API key (created in the Afi portal: org level under Configuration to Apps, or tenant level under Service to Settings to Apps). The key inherits the Application's installation scope, so the CLI sees exactly the orgs and tenants that Application is installed on. Each Application supports two keys for rotation.
+
+### Will this replace the Afi portal?
+
+No. Restores, exports, and policy editing still happen in the Afi portal - the public API does not expose them. This skill is the read, report, and guarded-offboard layer: it answers fleet questions and runs the verified archive-then-release, then hands you back to the portal for the actions only it can do.
 
 
 ## Status

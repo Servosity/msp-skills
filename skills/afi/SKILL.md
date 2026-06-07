@@ -1,6 +1,6 @@
 ---
 name: afi
-description: "The first CLI for Afi SaaS backup (M365/Google Workspace)  -  full public-API coverage plus fleet-wide coverage gaps, backup staleness, license reconciliation, and a guarded offboard workflow from a local SQLite store. Trigger phrases: `check afi backup coverage`, `which mailboxes aren't backed up in afi`, `afi fleet health`, `offboard a user from afi backup`, `afi backup stale check`, `use afi`, `run afi-cli`."
+description: "Use when the user asks to check Afi SaaS backup coverage across Microsoft 365 / Google Workspace tenants, find which mailboxes or sites aren't backed up, catch protected resources whose backups have gone stale, run a fleet-wide backup-and-quota health sweep, reconcile purchased licenses against protected seats, resolve an M365/GWS identity to its Afi resource, or safely offboard a departing user with a verified final backup - backed by a local SQLite mirror so fleet-wide questions answer offline without tripping Afi's rate limits. Trigger phrases: `check afi backup coverage`, `which mailboxes aren't backed up in afi`, `afi fleet health`, `offboard a user from afi backup`, `afi backup stale check`, `use afi`, `run afi-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Afi"
@@ -11,34 +11,28 @@ metadata:
     requires:
       bins:
         - afi-cli
-    install:
-      - kind: go
-        bins: [afi-cli]
-        module: github.com/mvanhorn/printing-press-library/library/monitoring/afi/cmd/afi-cli
 ---
 
-# Afi  -  Printing Press CLI
+# Afi Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `afi-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install afi --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/afi/install.sh)
    ```
-2. Verify: `afi-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/afi/install.ps1 | iex
+   ```
+3. Verify: `afi-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-```bash
-go install github.com/mvanhorn/printing-press-library/library/monitoring/afi/cmd/afi-cli@latest
-```
-
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
-
-Afi has no other CLI, SDK, or MCP server  -  the only alternative is the web portal, and the vendor explicitly discourages API polling. This CLI walks the whole hierarchy into local SQLite once (fleet-sync), then answers fleet-wide questions (coverage-gaps, fleet-health, backup-stale, reconcile-licenses) offline. A guarded offboard command runs the vendor's own archive-then-release sequence with a verification gate the portal lacks.
+Afi has no other CLI, SDK, or MCP server - the only alternative is the web portal, and the vendor explicitly discourages API polling. This CLI walks the whole hierarchy into local SQLite once (fleet-sync), then answers fleet-wide questions (coverage-gaps, fleet-health, backup-stale, reconcile-licenses) offline. A guarded offboard command runs the vendor's own archive-then-release sequence with a verification gate the portal lacks.
 
 ## When to Use This CLI
 
@@ -198,7 +192,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  afi-cli orgs get mock-value --agent --select id,name,status
+  afi-cli orgs get <org-id> --agent --select id,name,status
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
@@ -250,7 +244,7 @@ A profile is a saved set of flag values, reused across invocations. Use it when 
 
 ```
 afi-cli profile save briefing --json
-afi-cli --profile briefing orgs get mock-value
+afi-cli --profile briefing orgs get <org-id>
 afi-cli profile list --json
 afi-cli profile show briefing
 afi-cli profile delete briefing --yes
@@ -280,15 +274,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/monitoring/afi/cmd/afi-mcp@latest
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add afi-mcp -- afi-mcp
-   ```
-3. Verify: `claude mcp list`
+The installer above drops `afi-mcp` alongside the CLI. Register it:
+
+```bash
+claude mcp add afi-mcp -- afi-mcp
+```
+
+Verify: `claude mcp list`
 
 ## Direct Use
 

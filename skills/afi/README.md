@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/afi/">
-    <img src="../../docs/assets/social/afi/wide-1200x630.png" alt="Afi - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/afi/animated-og.gif" alt="Afi demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/afi/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/afi/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 The first CLI for Afi SaaS backup  -  full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Afi MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/afi-v4.22.0/afi-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Afi release on the [releases page](https://github.com/servosity/msp-skills/releases?q=afi).)
+[**Download Afi MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/afi-v0.1.0/afi-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Afi release on the [releases page](https://github.com/servosity/msp-skills/releases?q=afi).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -145,25 +145,35 @@ AFI_API_KEY=<value> afi-cli doctor
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `afi-cli ...` |
-
--->
+| Which resources have no backup protection at all? | `afi-cli coverage-gaps --agent` |
+| Which protected resources have a stale backup (silent failures)? | `afi-cli backup-stale --max-age 48h --agent` |
+| Is the whole fleet green this morning, or who failed? | `afi-cli fleet-health --failed-only --agent` |
+| What is one tenant's full backup posture for a QBR or ticket? | `afi-cli tenant-scorecard <tenant-id> --agent` |
+| Am I over- or under-licensed on Afi seats? | `afi-cli reconcile-licenses --agent` |
+| Who is jane.doe@example.com in Afi, across Multi-Geo tenants? | `afi-cli resolve <email-or-id> --agent` |
+| Safely back up then release a departing employee's mailbox? | `afi-cli offboard <resource-id> --tenant <tenant-id> --reason "employee departure"` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Afi integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Afi integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "which mailboxes across all 47 client tenants have no backup policy attached?" - and Afi's public API throttles you for polling.
 
-This skill syncs Afi into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs Afi into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `coverage-gaps`, `backup-stale`, and `reconcile-licenses` join resources against protections, archives, and purchased subscriptions across every tenant at once - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+SaaS backup has a quiet failure mode MSP owners raise again and again on r/msp: the backup you *think* is running isn't. A mailbox or site gets created in Microsoft 365 or Google Workspace, the onboarding ticket closes, and nobody confirms a backup policy was ever attached - or a policy *is* attached but the nightly archive quietly stops landing, and the portal still shows it "protected." The gap stays invisible until a client asks for a restore and the data was never there. The recurring refrain: *"how do you actually verify your M365 backups are running across every client?"* Afi has the data, but only one tenant at a time, through a portal that forces a per-client walk, behind an API the vendor asks you not to poll.
+
+This skill closes that gap from the local mirror:
+
+- **`afi-cli coverage-gaps --agent`** - every resource with no backup protection, fleet-wide. The blind spots, named.
+- **`afi-cli backup-stale --max-age 48h --agent`** - protected resources whose newest archive has gone stale: the silent-failure class.
+- **`afi-cli fleet-health --failed-only --agent`** - the Monday "is the fleet green" sweep in one table.
+- **`afi-cli reconcile-licenses --agent`** - seats purchased vs seats actually protected.
+- **`afi-cli offboard <resource-id> --tenant <tenant-id> --reason "employee departure"`** - a guarded archive-then-release that refuses to drop protection until a fresh backup is verified.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +195,17 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Will this trip Afi's API rate limits?
+
+Not if you use it as designed. Afi throttles - and may suspend - applications that poll continuously, so this skill walks the fleet into a local store in one respectful, rate-limited pass (`afi-cli fleet-sync`), then answers every question offline against that store. You sync on a schedule, not on every question.
+
+### Do I need to be an Afi customer, and what access does the key need?
+
+Yes - you need an Afi account and an Application API key, created in the Afi portal (org level under **Configuration > Apps**, or tenant level under **Service > Settings > Apps**). The key inherits the Application's installation scope, so the CLI sees exactly the orgs and tenants that Application is installed on. Each Application supports two keys for rotation.
+
+### Will this replace the Afi portal?
+
+No. Restores, exports, and policy editing still happen in the Afi portal - the public API doesn't expose them. This skill is the read, report, and guarded-offboard layer: it answers fleet-wide questions and runs the verified archive-then-release, then hands you back to the portal for the actions only it can do.
 
 ### What does it cost?
 
@@ -198,15 +213,12 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `coverage-gaps`, `backup-stale`, `fleet-health`, `tenant-scorecard`, `reconcile-licenses`, `resolve`, `fleet-sync`, and every `list`/`get` | Allow |
+| Write (routine) | `orgs create`, `import`, `tenants resources protections-protect`, `tenants jobs tasks-trigger` | Preview with `--dry-run`, then a reviewed write |
+| Credential / security | `auth set-token`, `auth logout` | Human-in-the-loop only |
+| Destructive / config | `offboard` (releases protection), `tenants resources protections-unprotect`, `tenants archives delete` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Afi credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +230,4 @@ Beta. Validated against the Afi API surface and being validated with MSPs runnin
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-07._

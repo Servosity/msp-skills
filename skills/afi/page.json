@@ -1,34 +1,59 @@
 {
-  "outcome_intro": "TODO: <=70 words, MSP-owner language, leads with the outcome. What does Afi + your AI answer in one sentence that the portal cannot?",
+  "outcome_intro": "Ask your AI 'which mailboxes aren't backed up in Afi?' and get the answer across every tenant at once. This skill walks your whole Afi fleet into a local store, then answers coverage gaps, stale backups, license drift, and per-tenant posture offline - no per-tenant portal clicking, no tripping Afi's rate limits - and runs a verified archive-then-release when someone leaves.",
   "instead_of_say": [
     {
-      "instead": "TODO: the painful manual workflow (exporting reports, clicking through the portal)",
-      "say": "TODO: the natural-language question the MSP owner asks instead",
-      "cli": "afi-cli TODO"
+      "instead": "Open the Afi portal, click into each client tenant, and eyeball which users actually have a backup policy attached.",
+      "say": "Which resources across the whole fleet have no backup protection?",
+      "cli": "afi-cli coverage-gaps --agent"
     },
     {
-      "instead": "TODO",
-      "say": "TODO",
-      "cli": "afi-cli TODO"
+      "instead": "Tab through every tenant's task history hunting for the nightly backups that quietly stopped landing.",
+      "say": "Show me protected resources whose newest backup is older than 48 hours.",
+      "cli": "afi-cli backup-stale --max-age 48h --agent"
     },
     {
-      "instead": "TODO",
-      "say": "TODO",
-      "cli": "afi-cli TODO"
+      "instead": "Stitch two portal screens into a spreadsheet to compare licenses purchased against seats actually protected.",
+      "say": "Where am I over- or under-provisioned on Afi licenses?",
+      "cli": "afi-cli reconcile-licenses --agent"
     }
   ],
   "pain_points": [
-    "TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread",
-    "TODO: pain 2"
+    "A new mailbox or site gets created in Microsoft 365 or Google Workspace but never gets a backup policy attached - and nobody notices until a restore request arrives and the data was never being protected.",
+    "A backup quietly stops landing on a protected resource; the portal still shows the policy attached, so the silent failure stays invisible until the day you actually need that archive.",
+    "Verifying backup coverage across dozens of client tenants means walking the Afi portal one tenant tab at a time, and the public API throttles you for polling."
   ],
   "outcomes": [
     {
-      "question": "TODO: question an MSP keeps asking",
-      "command": "afi-cli TODO"
+      "question": "Which resources have no backup protection at all?",
+      "command": "afi-cli coverage-gaps --agent"
+    },
+    {
+      "question": "Which protected resources have a stale backup (silent failures)?",
+      "command": "afi-cli backup-stale --max-age 48h --agent"
+    },
+    {
+      "question": "Is the whole fleet green this morning, or who failed?",
+      "command": "afi-cli fleet-health --failed-only --agent"
+    },
+    {
+      "question": "What is one tenant's full backup posture for a QBR or ticket?",
+      "command": "afi-cli tenant-scorecard <tenant-id> --agent"
+    },
+    {
+      "question": "Am I over- or under-licensed on Afi seats?",
+      "command": "afi-cli reconcile-licenses --agent"
+    },
+    {
+      "question": "Who is jane.doe@example.com in Afi, across Multi-Geo tenants?",
+      "command": "afi-cli resolve <email-or-id> --agent"
+    },
+    {
+      "question": "Safely back up then release a departing employee's mailbox?",
+      "command": "afi-cli offboard <resource-id> --tenant <tenant-id> --reason \"employee departure\""
     }
   ],
-  "different_vs_wrappers": "TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most Afi integrations proxy each question into a live API call ...",
-  "different_vs_vendor": "TODO: one sentence vs Afi's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.",
+  "different_vs_wrappers": "Most Afi integrations proxy each question into a live API call - fine for one lookup, but it falls over when you ask a fleet-wide question across dozens of tenants, and Afi's rate limits punish the polling. This skill syncs the whole hierarchy into a local SQLite mirror once, then answers coverage, staleness, and licensing as offline SQL joins: instant, and gentle on the API.",
+  "different_vs_vendor": "The Afi portal answers one tenant at a time and has no cross-tenant rollup or coverage-gap report. This skill adds the fleet-wide views - coverage gaps, stale backups, license reconciliation, and a verified archive-then-release offboard - that neither the portal nor the rate-limited public API serves directly.",
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
@@ -47,25 +72,33 @@
       "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
     },
     {
-      "q": "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Afi portal)",
-      "a": "TODO"
+      "q": "Will this trip Afi's API rate limits?",
+      "a": "Not if you use it as designed. Afi throttles - and may suspend - applications that poll continuously, so this skill walks the fleet into a local store in one respectful, rate-limited pass with fleet-sync, then answers every question offline against that store. You sync on a schedule, not on every question."
+    },
+    {
+      "q": "Do I need to be an Afi customer, and what access does the key need?",
+      "a": "Yes - you need an Afi account and an Application API key (created in the Afi portal: org level under Configuration to Apps, or tenant level under Service to Settings to Apps). The key inherits the Application's installation scope, so the CLI sees exactly the orgs and tenants that Application is installed on. Each Application supports two keys for rotation."
+    },
+    {
+      "q": "Will this replace the Afi portal?",
+      "a": "No. Restores, exports, and policy editing still happen in the Afi portal - the public API does not expose them. This skill is the read, report, and guarded-offboard layer: it answers fleet questions and runs the verified archive-then-release, then hands you back to the portal for the actions only it can do."
     }
   ],
-  "governance_summary": "TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier.",
+  "governance_summary": "The skill reads your Afi fleet (installations, orgs, tenants, resources, protections, policies, archives, quotas, and task stats) and can run a small set of writes: create a child org, import records, trigger a backup, and add a protection. Three commands are genuinely destructive - offboard, protections-unprotect, and archives delete - because they release backup coverage or delete an archive. Let an agent run reads freely; require a human to approve every write, and especially the destructive tier.",
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "TODO: read commands",
+      "examples": "coverage-gaps, backup-stale, fleet-health, tenant-scorecard, reconcile-licenses, resolve, fleet-sync, and every list/get command",
       "policy": "Allow"
     },
     {
       "tier": "Write (routine)",
-      "examples": "TODO",
+      "examples": "orgs create, import, tenants resources protections-protect, tenants jobs tasks-trigger",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {
       "tier": "Destructive / config",
-      "examples": "TODO",
+      "examples": "offboard (releases protection), tenants resources protections-unprotect, tenants archives delete",
       "policy": "Human-in-the-loop only"
     }
   ]

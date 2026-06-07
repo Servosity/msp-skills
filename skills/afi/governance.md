@@ -27,11 +27,18 @@ require a human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `orgs create`, `tenants archives`, `tenants archives list` | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
-| **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
-| **Destructive** | Irreversible data or config loss. | `tenants archives delete` | Human-in-the-loop only, explicit confirmation |
+| **Read** | Reports, rollups, search, and the local fleet walk. No remote change. | `coverage-gaps`, `backup-stale`, `fleet-health`, `tenant-scorecard`, `reconcile-licenses`, `resolve`, `fleet-sync`, and every `list`/`get` (e.g. `tenants archives list`, `tenants protections list`) | Allow |
+| **Write (routine)** | Day-to-day mutations against the Afi API. | `orgs create`, `import`, `tenants resources protections-protect`, `tenants jobs tasks-trigger` | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
+| **Credential / security** | Touches stored tokens and credentials. | `auth set-token`, `auth logout` | Human-in-the-loop only |
+| **Destructive** | Releases backup coverage or deletes an archive - irreversible. | `offboard` (final-backup-then-release a resource), `tenants resources protections-unprotect`, `tenants archives delete` | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
+
+> **`offboard` is guarded but destructive.** It triggers a final backup, waits,
+> verifies a fresh archive exists, and only then removes the protection so the
+> Microsoft 365 / Google Workspace seat can be released. It refuses the
+> irreversible unprotect step until the backup is verified (`--no-wait` /
+> `--skip-backup` override that gate - do not let an agent pass them). Treat the
+> whole command as human-in-the-loop.
 
 ## How to lock it down
 
