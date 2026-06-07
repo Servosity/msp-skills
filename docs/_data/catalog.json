@@ -1,5 +1,5 @@
 {
-  "count": 45,
+  "count": 46,
   "connectors": [
     {
       "slug": "abnormal",
@@ -40,6 +40,14 @@
       "category": "PSA",
       "verification": "awaiting",
       "url": "/skills/autotask/"
+    },
+    {
+      "slug": "axcient",
+      "display_name": "Axcient x360Recover",
+      "tagline": "Catch failed and stale Axcient backups, RPO breaches, and unbilled usage across every client by asking.",
+      "category": "Backup/DR",
+      "verification": "awaiting",
+      "url": "/skills/axcient/"
     },
     {
       "slug": "betterstack",
