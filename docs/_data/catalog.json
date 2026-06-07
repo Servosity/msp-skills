@@ -1,5 +1,5 @@
 {
-  "count": 26,
+  "count": 27,
   "connectors": [
     {
       "slug": "acronis",
@@ -24,6 +24,14 @@
       "category": "PSA",
       "verification": "awaiting",
       "url": "/skills/autotask/"
+    },
+    {
+      "slug": "blumira",
+      "display_name": "Blumira",
+      "tagline": "Triage every Blumira finding across all your MSP client accounts from one ranked queue",
+      "category": "Security",
+      "verification": "awaiting",
+      "url": "/skills/blumira/"
     },
     {
       "slug": "cipp",

@@ -153,6 +153,43 @@ A: Same product. Autotask PSA is now branded Datto Autotask PSA under Kaseya; th
 
 Governance: The skill drives the autotask-cli and autotask-mcp binaries, authenticating with an Autotask API user's credentials read from the environment (AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, AUTOTASK_PSA_API_INTEGRATION_CODE) - never logged and never sent anywhere except your own Autotask zone. Read commands (the cross-entity views, search, picklist) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the delete commands and any security-level administration human-only. The strongest control is the security level on the API user you create.
 
+### Blumira (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/blumira/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blumira/install.sh)
+
+Running Blumira across a book of client accounts? Ask your AI "what are the worst open findings everywhere," "which detections fell out of coverage this week," or "which domain controllers went dark," and get one cross-account answer the Blumira portal can't compose. Every sub-account is mirrored into a local store, so one ranked triage queue, one MTTR rollup, and one coverage-drift report replace dozens of one-account-at-a-time portal logins.
+
+Outcomes (question -> command your AI agent runs):
+- What are the worst open findings across all my client accounts right now? -> blumira-cli triage --status open
+- What changed since my last sync, new, resolved, or status-changed findings? -> blumira-cli drift
+- What's my mean-time-to-resolve per account over the last month? -> blumira-cli velocity --by account --window 30d
+- Which open findings are about to breach my age-based SLA? -> blumira-cli sla --breach-in 4h
+- Which detection rules are missing or disabled versus our basis ruleset? -> blumira-cli coverage --against basis
+- Which domain controllers are stale or unprotected across every account? -> blumira-cli exposure --flag-dc-stale
+- Which findings were resolved and then re-fired? -> blumira-cli audit --min-reopens 1
+- Which detections keep firing over and over across accounts? -> blumira-cli recurring --window 90d
+- Give me one per-account rollup of open findings, age, and agent health? -> blumira-cli overview
+- Which findings mention this IOC, hostname, or user in their evidence? -> blumira-cli evidence-search "<ioc>"
+- Pull every account's Blumira data into a local mirror for offline questions? -> blumira-cli sync
+- Give me a flat finding-to-owner-to-status table to reconcile against my PSA? -> blumira-cli reconcile --status open
+- Which analyst is carrying the most open findings, and how old are they? -> blumira-cli workload
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Blumira MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Blumira data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need a Blumira partner account for the cross-account views?
+A: The cross-account commands (triage, overview, coverage across every client) read Blumira's MSP sub-account API, so they need partner API credentials with sub-account access. A single-org account still gets every direct-org command, findings, evidence search, and agent and detection rollups, plus offline sync. Generate credentials under Settings > Organization > Generate API Credentials, then run `blumira-cli auth login`.
+
+Governance: The skill reads findings, detections, agents, and evidence through your Blumira API credential and mirrors them into a local store. It can add comments, resolve findings, and assign owners when you ask, but those writes are opt-in and best previewed with --dry-run first. The safe default for an autonomous agent is read plus planned (dry-run) writes; keep a human on anything that resolves a finding or reassigns ownership.
+
 ### CIPP (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/cipp/
