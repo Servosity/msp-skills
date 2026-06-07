@@ -194,6 +194,25 @@
       "tagline": "Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask."
     },
     {
+      "name": "domotz",
+      "system": "Domotz network monitoring and device discovery platform",
+      "status": "beta",
+      "skill_path": "skills/domotz",
+      "cli_binary": "domotz-cli",
+      "mcp_binary": "domotz-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Domotz",
+      "vendor_trademark_owner": "Domotz Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domotz/install.sh)",
+      "install_mcp_doc": "skills/domotz/mcp-install.md",
+      "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
+      "verification": "awaiting",
+      "category": "Network Monitoring",
+      "tagline": "Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal."
+    },
+    {
       "name": "halopsa",
       "system": "HaloPSA, HaloITSM, HaloCRM",
       "status": "beta",

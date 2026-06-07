@@ -1,0 +1,52 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/domotz-mcp",
+  "title": "Domotz MCP",
+  "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/domotz/domotz-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/domotz"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/domotz-v0.1.0/domotz-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "DOMOTZ_API_KEY",
+          "description": "Set the DOMOTZ_API_KEY credential for the Domotz MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "DOMOTZ_PUBLIC_API_KEY",
+          "description": "Alternative to DOMOTZ_API_KEY; supply one or the other.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "DOMOTZ_REGION",
+          "description": "Selects the Domotz API cell for your portal (default us-east-1-cell-1).",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

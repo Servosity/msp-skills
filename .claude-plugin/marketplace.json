@@ -467,6 +467,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "domotz",
+      "source": "./skills/domotz",
+      "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
+      "version": "0.1.0",
+      "category": "network-monitoring",
+      "tags": [
+        "domotz",
+        "network-monitoring",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

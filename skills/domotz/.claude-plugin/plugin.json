@@ -1,0 +1,20 @@
+{
+  "name": "domotz",
+  "version": "0.1.0",
+  "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/domotz",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "domotz",
+    "network-monitoring",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "manifest_version": "0.3",
+  "name": "domotz-mcp",
+  "display_name": "Domotz",
+  "version": "0.1.0",
+  "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/domotz-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/domotz-mcp",
+      "args": [],
+      "env": {
+        "DOMOTZ_API_KEY": "${user_config.domotz_api_key}",
+        "DOMOTZ_PUBLIC_API_KEY": "${user_config.domotz_public_api_key}",
+        "DOMOTZ_REGION": "${user_config.domotz_region}"
+      }
+    }
+  },
+  "user_config": {
+    "domotz_api_key": {
+      "type": "string",
+      "title": "DOMOTZ_API_KEY",
+      "description": "Optional. Sets DOMOTZ_API_KEY for the Domotz MCP server. Get a credential from https://portal.domotz.com/portal/settings/services?selected_menu=api_keys.",
+      "sensitive": true
+    },
+    "domotz_public_api_key": {
+      "type": "string",
+      "title": "DOMOTZ_PUBLIC_API_KEY",
+      "description": "Optional. Sets DOMOTZ_PUBLIC_API_KEY for the Domotz MCP server. Get a credential from https://portal.domotz.com/portal/settings/services?selected_menu=api_keys.",
+      "sensitive": true
+    },
+    "domotz_region": {
+      "type": "string",
+      "title": "DOMOTZ_REGION",
+      "description": "Sets DOMOTZ_REGION for the endpoint template variable {region}.",
+      "default": "us-east-1-cell-1"
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}
