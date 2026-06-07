@@ -279,6 +279,13 @@
     "current_hash": "sha256:f00472cb9247d7604c10aae18e0cfbde60c66b5a9455fe3318c62daef874cad7",
     "released_hash": "sha256:f00472cb9247d7604c10aae18e0cfbde60c66b5a9455fe3318c62daef874cad7"
   },
+  "skykick": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:c642d7a7b9e5be25b87d79f90955aa6ac1b83d9b5f9a189db582501d44f94c2a",
+    "released_hash": null
+  },
   "superops": {
     "state": "up-to-date",
     "version": "0.1.0",
