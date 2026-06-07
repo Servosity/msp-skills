@@ -111,6 +111,13 @@
     "current_hash": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29",
     "released_hash": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29"
   },
+  "knowbe4": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:d143f3d41a7565f0bd2102c46beb5fc72744c602eca72b4724576745944aa42a",
+    "released_hash": null
+  },
   "levelio": {
     "state": "never-released",
     "version": "0.1.0",
