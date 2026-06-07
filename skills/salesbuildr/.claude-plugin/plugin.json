@@ -1,0 +1,20 @@
+{
+  "name": "salesbuildr",
+  "version": "0.1.0",
+  "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/salesbuildr",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "salesbuildr",
+    "crm",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

@@ -593,6 +593,25 @@
       "tagline": "Find every asset on your attack surface, diff it over time, and trace any CVE to the machines it hits."
     },
     {
+      "name": "salesbuildr",
+      "system": "Salesbuildr MSP quoting and CPQ: quotes, opportunities, products, companies, pricing books",
+      "status": "beta",
+      "skill_path": "skills/salesbuildr",
+      "cli_binary": "salesbuildr-cli",
+      "mcp_binary": "salesbuildr-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Salesbuildr",
+      "vendor_trademark_owner": "Salesbuildr",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/salesbuildr/install.sh)",
+      "install_mcp_doc": "skills/salesbuildr/mcp-install.md",
+      "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics.",
+      "verification": "awaiting",
+      "category": "CRM",
+      "tagline": "Surface stale quotes, thin-margin lines, and pipeline velocity across your Salesbuildr quoting by asking."
+    },
+    {
       "name": "sentinelone",
       "system": "SentinelOne Singularity: threat triage, mitigation, agent fleet health, and protection-coverage gaps across customer sites",
       "status": "beta",

@@ -1,5 +1,5 @@
 {
-  "count": 38,
+  "count": 39,
   "connectors": [
     {
       "slug": "acronis",
@@ -240,6 +240,14 @@
       "category": "Security",
       "verification": "awaiting",
       "url": "/skills/runzero/"
+    },
+    {
+      "slug": "salesbuildr",
+      "display_name": "Salesbuildr",
+      "tagline": "Surface stale quotes, thin-margin lines, and pipeline velocity across your Salesbuildr quoting by asking.",
+      "category": "CRM",
+      "verification": "awaiting",
+      "url": "/skills/salesbuildr/"
     },
     {
       "slug": "sentinelone",

@@ -98,6 +98,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - runZero (Security) - Find every asset on your attack surface, diff it over time, and trace any CVE to the machines it hits.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/runzero/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/runzero/install.sh)
+- Salesbuildr (CRM) - Surface stale quotes, thin-margin lines, and pipeline velocity across your Salesbuildr quoting by asking.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/salesbuildr/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/salesbuildr/install.sh)
 - SentinelOne (Security) - Triage threats, find protection gaps, and catch overnight fleet drift across every SentinelOne tenant by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/sentinelone/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sentinelone/install.sh)
