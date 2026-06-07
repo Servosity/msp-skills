@@ -384,6 +384,25 @@
       "tagline": "Triage PagerDuty incidents, on-call schedules, and escalation policies from the terminal."
     },
     {
+      "name": "pandadoc",
+      "system": "PandaDoc proposal, quote, and e-signature document automation",
+      "status": "beta",
+      "skill_path": "skills/pandadoc",
+      "cli_binary": "pandadoc-cli",
+      "mcp_binary": "pandadoc-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "PandaDoc",
+      "vendor_trademark_owner": "PandaDoc, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pandadoc/install.sh)",
+      "install_mcp_doc": "skills/pandadoc/mcp-install.md",
+      "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has  -  stalled deals, aging, recipient engagement, and open quote value from a local store.",
+      "verification": "awaiting",
+      "category": "Documentation",
+      "tagline": "Find stalled proposals, aging quotes, and unsigned PandaDoc documents from the terminal."
+    },
+    {
       "name": "pax8",
       "system": "Pax8 cloud marketplace billing, subscriptions, reconciliation, MRR, and usage overages",
       "status": "beta",

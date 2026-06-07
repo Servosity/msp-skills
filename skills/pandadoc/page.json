@@ -1,0 +1,117 @@
+{
+  "outcome_intro": "Ask your AI \"which proposals are stalled?\" or \"what's our open quote value?\" and get the answer in seconds. PandaDoc's portal shows one document at a time and has no rollup for these. This skill syncs your documents, templates, and contacts into a local mirror, so cross-document questions - stalled deals, aging quotes, recipient engagement, dollars in-flight - become one instant query instead of a manual export-and-pivot.",
+  "instead_of_say": [
+    {
+      "instead": "Export the documents report and pivot it in a spreadsheet to spot which proposals went quiet",
+      "say": "Which proposals are stalled?",
+      "cli": "pandadoc-cli stalled --days 14"
+    },
+    {
+      "instead": "Click through every open quote in the portal adding up the dollar amounts by hand",
+      "say": "How much money is tied up in open quotes right now?",
+      "cli": "pandadoc-cli value"
+    },
+    {
+      "instead": "Scroll the documents list trying to remember which clients haven't signed anything lately",
+      "say": "Which clients have gone cold?",
+      "cli": "pandadoc-cli cold-clients --days 30"
+    }
+  ],
+  "pain_points": [
+    "Proposals, SOWs, and MSAs go out, then go quiet - and nobody notices a deal is dying until the renewal slips. The r/msp community trades follow-up scripts for exactly this, because the proposal tool itself never tells you a deal stalled.",
+    "There is no single view of how much revenue is sitting in unsigned quotes, so the forecast is a guess and the QBR slide is built by hand.",
+    "Chasing unsigned documents means clicking through the PandaDoc portal one record at a time - there is no 'who do I nudge today' list."
+  ],
+  "outcomes": [
+    {
+      "question": "Which documents were sent but never completed?",
+      "command": "pandadoc-cli stalled --days 14"
+    },
+    {
+      "question": "How much money is tied up in open quotes?",
+      "command": "pandadoc-cli value"
+    },
+    {
+      "question": "What does my whole document funnel look like right now?",
+      "command": "pandadoc-cli pipeline"
+    },
+    {
+      "question": "How long has each document sat in its current status?",
+      "command": "pandadoc-cli aging"
+    },
+    {
+      "question": "Which clients haven't signed anything in a month?",
+      "command": "pandadoc-cli cold-clients --days 30"
+    },
+    {
+      "question": "Who should I follow up with today?",
+      "command": "pandadoc-cli followup --days 7"
+    },
+    {
+      "question": "Which recipients actually open and sign vs. let documents sit?",
+      "command": "pandadoc-cli engagement"
+    },
+    {
+      "question": "Which templates actually close?",
+      "command": "pandadoc-cli template-stats"
+    },
+    {
+      "question": "Which sent documents have no auto-reminder set?",
+      "command": "pandadoc-cli reminder-gaps"
+    },
+    {
+      "question": "What changed in the last day?",
+      "command": "pandadoc-cli since 24h"
+    }
+  ],
+  "different_vs_wrappers": "Most PandaDoc integrations proxy each question into a live API call - fine for one record, useless when you ask \"across every open document, how much is unsigned and how old is it?\" This skill syncs PandaDoc into a local SQLite mirror with full-text search, so aggregate questions become one instant offline join. Compound commands like `followup` and `forecast` join stalled documents to recipient emails and bucket open quote dollars by deal age - work a stateless API wrapper can't do, and your AI sees the answer, not a dump of raw documents.",
+  "different_vs_vendor": "PandaDoc's portal shows you one document at a time and has no rollup for \"every stalled deal\" or \"total open quote value.\" This skill adds the cross-document reporting and follow-up worklists the portal lacks, from the terminal or your AI agent - it complements PandaDoc, it doesn't replace it.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local PandaDoc MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my PandaDoc data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Will this hit my PandaDoc API rate limits?",
+      "a": "Day-to-day questions read the local mirror, so they never touch the API. Only `sync`, `tail`, and a few live commands (such as `reminder-gaps`) call PandaDoc directly, and the CLI honors a configurable `--rate-limit` so you stay inside your plan's limits."
+    },
+    {
+      "q": "Do I need to be a PandaDoc partner or customer?",
+      "a": "You need your own PandaDoc account with API access (included on PandaDoc's paid plans). The skill authenticates with your own `PANDADOC_API_KEY` - there is no Servosity or PandaDoc partner requirement."
+    },
+    {
+      "q": "Will this replace my PandaDoc portal?",
+      "a": "No. You still create, send, and sign documents in PandaDoc. This adds the cross-document reporting and follow-up rollups the portal doesn't surface, so you can ask your AI instead of exporting spreadsheets."
+    }
+  ],
+  "governance_summary": "Reads (pipeline, stalled, aging, value, search, list commands) are always safe and cannot change anything, so an agent can run them freely. Routine writes (create or update contacts, documents, and templates; send a document; add recipients) should be previewed with `--dry-run` and approved before they run. Credential-issuing commands (issue a workspace API key, create a member token, set the webhook shared key) and destructive deletes (delete or bulk-delete documents, remove recipients) are human-in-the-loop only. The strongest control is scoping the API key you grant the CLI.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "`pipeline`, `stalled`, `aging`, `value`, `engagement`, `search`, `documents list`",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "`contacts create`, `contacts update`, `documents create`, `documents send document`, `documents recipients add-document`, `templates create`",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Credential / destructive",
+      "examples": "`workspaces api-keys create`, `members token create-member`, `documents delete`, `documents bulk-delete`, `documents recipients delete-document`",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

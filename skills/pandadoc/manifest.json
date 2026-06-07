@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "pandadoc-mcp",
+  "display_name": "PandaDoc",
+  "version": "0.1.0",
+  "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has  -  stalled deals, aging, recipient engagement, and open quote value from a local store.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/pandadoc-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/pandadoc-mcp",
+      "args": [],
+      "env": {
+        "PANDADOC_API_KEY": "${user_config.pandadoc_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "pandadoc_api_key": {
+      "type": "string",
+      "title": "PANDADOC_API_KEY",
+      "description": "Sets PANDADOC_API_KEY for the PandaDoc MCP server.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

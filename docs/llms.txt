@@ -65,6 +65,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - PagerDuty (Incident Response) - Triage PagerDuty incidents, on-call schedules, and escalation policies from the terminal.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pagerduty/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pagerduty/install.sh)
+- PandaDoc (Documentation) - Find stalled proposals, aging quotes, and unsigned PandaDoc documents from the terminal.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pandadoc/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pandadoc/install.sh)
 - Pax8 (Billing) - Reconcile Pax8 billing, track MRR, and catch usage overages before they hit the customer invoice
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pax8/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pax8/install.sh)

@@ -669,6 +669,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "pandadoc": {
+      "system": "PandaDoc proposal, quote, and e-signature document automation",
+      "status": "beta",
+      "cli_binary": "pandadoc-cli",
+      "mcp_binary": "pandadoc-mcp",
+      "vendor": "PandaDoc",
+      "vendor_trademark_owner": "PandaDoc, Inc.",
+      "first_party": false,
+      "category": "Documentation",
+      "display_name": "PandaDoc",
+      "tagline": "Find stalled proposals, aging quotes, and unsigned PandaDoc documents from the terminal.",
+      "cli_hash": "sha256:913d7eff405b41a66333b195d7e4352969e99ecd097e60d175d2780362279156",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }
