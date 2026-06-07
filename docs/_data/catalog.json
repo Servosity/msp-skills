@@ -1,5 +1,5 @@
 {
-  "count": 25,
+  "count": 26,
   "connectors": [
     {
       "slug": "acronis",
@@ -200,6 +200,14 @@
       "category": "Security",
       "verification": "awaiting",
       "url": "/skills/threatlocker/"
+    },
+    {
+      "slug": "xero",
+      "display_name": "Xero",
+      "tagline": "Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal - offline, in one call.",
+      "category": "Billing",
+      "verification": "awaiting",
+      "url": "/skills/xero/"
     }
   ],
   "featured": [
