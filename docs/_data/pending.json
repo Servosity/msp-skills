@@ -167,6 +167,13 @@
     "current_hash": "sha256:a09af51adc8d48806b4ded23bf2bb7ec4fa434ebaf50f6d4a8672dc7bd8e4a43",
     "released_hash": "sha256:a09af51adc8d48806b4ded23bf2bb7ec4fa434ebaf50f6d4a8672dc7bd8e4a43"
   },
+  "sherweb": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:f00472cb9247d7604c10aae18e0cfbde60c66b5a9455fe3318c62daef874cad7",
+    "released_hash": null
+  },
   "superops": {
     "state": "up-to-date",
     "version": "0.1.0",
