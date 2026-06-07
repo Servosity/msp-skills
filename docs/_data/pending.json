@@ -216,6 +216,13 @@
     "current_hash": "sha256:82ac4c8e457a26f244687d5448262a9f3361318164f6e52c173ca0345046223b",
     "released_hash": "sha256:82ac4c8e457a26f244687d5448262a9f3361318164f6e52c173ca0345046223b"
   },
+  "salesbuildr": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:82997bc4519b31883ce1357119edeb72718f205d2e2c3783a73c3e276474e15e",
+    "released_hash": null
+  },
   "sentinelone": {
     "state": "up-to-date",
     "version": "0.1.0",
