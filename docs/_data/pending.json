@@ -180,5 +180,12 @@
     "latest_tag": "threatlocker-v0.1.0",
     "current_hash": "sha256:dc7d5e1d3826df0cdd561990769bcdc05827adf7d71cdcd38ae14d62f57f1147",
     "released_hash": "sha256:dc7d5e1d3826df0cdd561990769bcdc05827adf7d71cdcd38ae14d62f57f1147"
+  },
+  "xero": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:894e49c7bbc421702afcd551687fbdb0b355cd863ed8dbf5c440e452333189d6",
+    "released_hash": null
   }
 }
