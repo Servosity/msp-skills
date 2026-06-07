@@ -209,6 +209,13 @@
     "current_hash": "sha256:88fccde7356fb69b6a650d2d6b48020340af6cb11e17e134646ed0ea95b7556a",
     "released_hash": "sha256:88fccde7356fb69b6a650d2d6b48020340af6cb11e17e134646ed0ea95b7556a"
   },
+  "tactical-rmm": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:531d4614a72206ebfbcd546719b1ba3e598e1f71defa7e7c827b7255d58cb75e",
+    "released_hash": null
+  },
   "threatlocker": {
     "state": "up-to-date",
     "version": "0.1.0",
