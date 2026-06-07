@@ -21,11 +21,11 @@
     "released_hash": "sha256:c35fe70e19882732f38eac567b5ed2d9f994f0260a7dc0137914bcd1fe7d0681"
   },
   "blumira": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "blumira-v0.1.0",
     "current_hash": "sha256:9a313a7db46e6b3da6cd5cf788afab7beafab2ec371f4697b5182a363b25bc05",
-    "released_hash": null
+    "released_hash": "sha256:9a313a7db46e6b3da6cd5cf788afab7beafab2ec371f4697b5182a363b25bc05"
   },
   "cipp": {
     "state": "up-to-date",
@@ -63,11 +63,11 @@
     "released_hash": "sha256:a013e2d6c3503f228fba1379e54e8d1c46a2f58c92e83852bd90e8872221b4da"
   },
   "domotz": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "domotz-v0.1.0",
     "current_hash": "sha256:6ebb43673929dadad8e073419e6eebf447563ebc7f70ef22e1fed294d8a73f3d",
-    "released_hash": null
+    "released_hash": "sha256:6ebb43673929dadad8e073419e6eebf447563ebc7f70ef22e1fed294d8a73f3d"
   },
   "halopsa": {
     "state": "up-to-date",
@@ -147,11 +147,11 @@
     "released_hash": "sha256:36391dfbded332a0db48405fe8151efffbe19324716653e518a5cae354ed15ce"
   },
   "pandadoc": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "pandadoc-v0.1.0",
     "current_hash": "sha256:913d7eff405b41a66333b195d7e4352969e99ecd097e60d175d2780362279156",
-    "released_hash": null
+    "released_hash": "sha256:913d7eff405b41a66333b195d7e4352969e99ecd097e60d175d2780362279156"
   },
   "pax8": {
     "state": "up-to-date",
@@ -182,11 +182,11 @@
     "released_hash": "sha256:a09af51adc8d48806b4ded23bf2bb7ec4fa434ebaf50f6d4a8672dc7bd8e4a43"
   },
   "sherweb": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "sherweb-v0.1.0",
     "current_hash": "sha256:f00472cb9247d7604c10aae18e0cfbde60c66b5a9455fe3318c62daef874cad7",
-    "released_hash": null
+    "released_hash": "sha256:f00472cb9247d7604c10aae18e0cfbde60c66b5a9455fe3318c62daef874cad7"
   },
   "superops": {
     "state": "up-to-date",
@@ -210,10 +210,10 @@
     "released_hash": "sha256:dc7d5e1d3826df0cdd561990769bcdc05827adf7d71cdcd38ae14d62f57f1147"
   },
   "xero": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "xero-v0.1.0",
     "current_hash": "sha256:894e49c7bbc421702afcd551687fbdb0b355cd863ed8dbf5c440e452333189d6",
-    "released_hash": null
+    "released_hash": "sha256:894e49c7bbc421702afcd551687fbdb0b355cd863ed8dbf5c440e452333189d6"
   }
 }
