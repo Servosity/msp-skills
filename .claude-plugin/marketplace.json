@@ -543,6 +543,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "action1",
+      "source": "./skills/action1",
+      "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "action1",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

@@ -1,0 +1,52 @@
+{
+  "manifest_version": "0.3",
+  "name": "action1-mcp",
+  "display_name": "Action1",
+  "version": "0.1.0",
+  "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/action1-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/action1-mcp",
+      "args": [],
+      "env": {
+        "ACTION1_CLIENT_ID": "${user_config.action1_client_id}",
+        "ACTION1_CLIENT_SECRET": "${user_config.action1_client_secret}",
+        "ACTION1_REGION": "${user_config.action1_region}"
+      }
+    }
+  },
+  "user_config": {
+    "action1_client_id": {
+      "type": "string",
+      "title": "ACTION1_CLIENT_ID",
+      "description": "Client ID from the Action1 console's API Credentials page. With ACTION1_CLIENT_SECRET, the CLI mints a bearer token automatically. Create credentials at https://www.action1.com/api-documentation/.",
+      "sensitive": true
+    },
+    "action1_client_secret": {
+      "type": "string",
+      "title": "ACTION1_CLIENT_SECRET",
+      "description": "Client Secret paired with ACTION1_CLIENT_ID, from the Action1 console's API Credentials page.",
+      "sensitive": true
+    },
+    "action1_region": {
+      "type": "string",
+      "title": "ACTION1_REGION",
+      "description": "Data-center shortcut: us (default), eu, or au. Match the region of your Action1 console URL.",
+      "default": "us"
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}
