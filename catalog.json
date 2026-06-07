@@ -593,6 +593,25 @@
       "tagline": "Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking."
     },
     {
+      "name": "rocketcyber",
+      "system": "RocketCyber managed SOC: incidents, agents, detection events, Defender and Microsoft 365 posture, and suppression rules",
+      "status": "beta",
+      "skill_path": "skills/rocketcyber",
+      "cli_binary": "rocketcyber-cli",
+      "mcp_binary": "rocketcyber-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "RocketCyber",
+      "vendor_trademark_owner": "Kaseya",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rocketcyber/install.sh)",
+      "install_mcp_doc": "skills/rocketcyber/mcp-install.md",
+      "description": "The first CLI and MCP server for RocketCyber Managed SOC: triage, incident MTTR, device risk ranking, and posture analytics the console doesn't compute.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Triage your managed SOC, rank devices at risk, and audit suppression rules from the terminal - no console logins."
+    },
+    {
       "name": "rootly",
       "system": "Rootly incident management, alerting, and on-call response platform",
       "status": "beta",

@@ -1,0 +1,96 @@
+{
+  "outcome_intro": "Ask your AI \"what broke across all my RocketCyber clients overnight?\" and get one ranked board - open incidents, malicious event counts, and offline agents - instead of clicking through a per-client console. The same skill ranks devices at risk, computes incident MTTR for QBRs, trends Microsoft 365 secure scores, and flags stale suppression rules that quietly hide real detections. All from the terminal.",
+  "instead_of_say": [
+    {
+      "instead": "Logging into the RocketCyber console for each client and eyeballing the incidents tab to see what fired overnight",
+      "say": "What broke across all my RocketCyber clients in the last 24 hours?",
+      "cli": "rocketcyber-cli triage --since 24h --agent"
+    },
+    {
+      "instead": "Exporting Defender detections to a spreadsheet and sorting by count to find the worst machines",
+      "say": "Which devices are most at risk right now?",
+      "cli": "rocketcyber-cli defender riskiest --account-id 2 --top 10 --json"
+    },
+    {
+      "instead": "Scrolling the suppression-rules list by hand to find old rules that might be hiding live detections",
+      "say": "Which suppression rules are stale and could be masking alerts?",
+      "cli": "rocketcyber-cli suppression audit --stale-after 90d --json"
+    }
+  ],
+  "pain_points": [
+    "SOC alert fatigue: open incidents, detection events, and offline agents each live on a different console tab, and you switch tabs per client account to answer one question.",
+    "QBR and SLA prep means hand-computing MTTR and screenshotting secure-score charts, because the console shows the dashboard but won't hand you the trend or the number."
+  ],
+  "outcomes": [
+    {
+      "question": "What broke across all my clients overnight?",
+      "command": "rocketcyber-cli triage --since 24h"
+    },
+    {
+      "question": "Which devices went dark this week?",
+      "command": "rocketcyber-cli agents stale --since 7d"
+    },
+    {
+      "question": "How fast is my SOC actually resolving incidents?",
+      "command": "rocketcyber-cli incidents mttr --since 90d"
+    },
+    {
+      "question": "Which machines are riskiest in Defender right now?",
+      "command": "rocketcyber-cli defender riskiest --top 10"
+    },
+    {
+      "question": "Is this client's Microsoft 365 posture improving?",
+      "command": "rocketcyber-cli office trend --account-id 2"
+    },
+    {
+      "question": "Which suppression rules are stale and may hide detections?",
+      "command": "rocketcyber-cli suppression audit --stale-after 90d"
+    },
+    {
+      "question": "What detection events fired, by verdict?",
+      "command": "rocketcyber-cli events summary --account-id 2"
+    }
+  ],
+  "different_vs_wrappers": "Most RocketCyber integrations proxy each question into a single live API call - fine for one record, useless for \"across all 47 clients last quarter.\" This skill syncs RocketCyber into a local SQLite mirror with full-text search, so cross-account rollups like triage, MTTR, and secure-score trends become one offline query. Your agent sees the computed answer, not pages of raw JSON.",
+  "different_vs_vendor": "The RocketCyber console shows you live dashboards one client at a time. This skill doesn't replace the SOC - it gives your AI agent a terminal-native, multi-account read of the same data plus analytics the console won't compute for you: incident MTTR, device risk ranking, secure-score trend, and suppression-rule hygiene.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local RocketCyber MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your RocketCyber API token once."
+    },
+    {
+      "q": "Is my RocketCyber data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local SQLite mirror are all local. The AI sees query results, not raw bulk data, and your API token is never bundled or transmitted by MSP Skills - only sent to the RocketCyber API you point it at."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "What RocketCyber access do I need?",
+      "a": "A RocketCyber provider account and an API token you generate in the RocketCyber app. The skill talks to the RocketCyber Customer API v3 (US region by default; set ROCKETCYBER_BASE_URL for the EU endpoint) and reads your own SOC data - incidents, agents, detection events, Defender, Microsoft 365 posture, and suppression rules - scoped to the accounts your token can see."
+    }
+  ],
+  "governance_summary": "The skill reads your RocketCyber SOC data - incidents, agents, detection events, Defender and Microsoft 365 posture, and suppression rules - and computes the analytics locally. The only command that writes to the API is `import` (create/upsert from a JSONL file), and it supports `--dry-run` to preview every request before sending. `auth set-token` and `auth logout` manage your stored credential. Keep autonomous agents on read plus previewed imports, and require a human for credential changes.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "triage, incidents, agents (+ stale), defender (+ riskiest), events list/summary, office trend, suppression rules/audit, reports, search, sync",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "import <resource> (create/upsert from a JSONL file)",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Credential / config",
+      "examples": "auth set-token, auth logout",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}
