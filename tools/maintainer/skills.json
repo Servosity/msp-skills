@@ -761,6 +761,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "runzero": {
+      "system": "runZero",
+      "status": "beta",
+      "cli_binary": "runzero-cli",
+      "mcp_binary": "runzero-mcp",
+      "vendor": "runZero",
+      "vendor_trademark_owner": "runZero, Inc.",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "runZero",
+      "tagline": "Find every asset on your attack surface, diff it over time, and trace any CVE to the machines it hits.",
+      "cli_hash": "sha256:82ac4c8e457a26f244687d5448262a9f3361318164f6e52c173ca0345046223b",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }

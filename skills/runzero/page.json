@@ -1,0 +1,87 @@
+{
+  "outcome_intro": "runZero's API answers one entity at a time; it cannot join assets to services to vulnerabilities in a single call. This skill syncs your whole attack surface into a local SQLite copy, then ranks exposure, diffs what changed since the last sync, and traces any CVE to the exact assets it hits - offline, at zero API quota. Ask in plain language; your agent runs the command and reads back the answer.",
+  "instead_of_say": [
+    {
+      "instead": "Export the asset inventory to CSV, pivot it against the services export, then cross-reference a third export for vulnerabilities just to see what is actually exposed",
+      "say": "Which of our assets are most exposed right now?",
+      "cli": "runzero-cli triage --agent"
+    },
+    {
+      "instead": "Kick off a fresh discovery scan and eyeball two reports side by side trying to spot what changed on the network",
+      "say": "What appeared or disappeared on our attack surface since last week?",
+      "cli": "runzero-cli diff --since 7d"
+    },
+    {
+      "instead": "Open the CVE bulletin, then hand-search the asset inventory hostname by hostname to find what it actually hits",
+      "say": "Which of our assets are affected by CVE-2024-3094?",
+      "cli": "runzero-cli affected \"CVE-2024-3094\" --agent"
+    }
+  ],
+  "pain_points": [
+    "Asset inventory is always stale: r/msp threads return again and again to unknown devices, shadow IT, and 'you cannot secure what you cannot see' - the portal shows assets, but answering a real security question means exporting reports and joining them in a spreadsheet.",
+    "The questions that matter are cross-entity - which critical assets run a vulnerable service, what newly became exposed, which machines a CVE lands on - and runZero's API is scoped per entity (/org, /account, /export), so each one is several calls plus a manual join.",
+    "Point-in-time is invisible: the console shows the surface now, not what changed since last week, so drift, newly-opened ports, and expiring certificates slip by until something breaks."
+  ],
+  "outcomes": [
+    { "question": "Which of our assets are most exposed right now?", "command": "runzero-cli triage --agent" },
+    { "question": "Only the internet-facing ones?", "command": "runzero-cli triage --internet-facing --agent" },
+    { "question": "What changed on our attack surface since last week?", "command": "runzero-cli diff --since 7d" },
+    { "question": "What newly became exposed or vulnerable since the last sync?", "command": "runzero-cli exposure-delta --agent" },
+    { "question": "Which assets are affected by a given CVE?", "command": "runzero-cli affected \"CVE-2024-3094\" --agent" },
+    { "question": "Where are risky services concentrated in a subnet?", "command": "runzero-cli exposure-map \"10.0.0.0/8\" --agent" },
+    { "question": "Which TLS certificates are expiring soon or using weak crypto?", "command": "runzero-cli certs-expiring --days 90 --weak" },
+    { "question": "Which assets are stale, end-of-life, or unowned?", "command": "runzero-cli stale --days 90 --json" },
+    { "question": "How many assets run a given software product, by version?", "command": "runzero-cli software rollup \"openssl\" --agent" },
+    { "question": "Scan a subnet on a site and wait for the result?", "command": "runzero-cli scan-watch \"<site_id>\" --targets \"10.0.0.0/24\"" }
+  ],
+  "different_vs_wrappers": "Most runZero integrations proxy each question straight into a live API call. That works for one lookup and falls apart at scale: the API is scoped per entity, so 'which critical assets run a vulnerable service' is three calls and a manual join. This skill syncs the whole surface into a local SQLite copy once, then answers cross-entity questions with a single offline join - instant, repeatable, and free of API quota. Because every sync is a snapshot, it can also diff two points in time, which a stateless wrapper cannot do at all.",
+  "different_vs_vendor": "runZero's console and API stay the source of truth for discovery; this skill does not replace them. It adds the offline cross-entity layer the API cannot return in one call - point-in-time diffs, CVE-to-asset blast radius, and exposure ranking - so an AI agent answers a security question in one step instead of stitching three exports together.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local runZero MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your runZero API key once."
+    },
+    {
+      "q": "Is my runZero data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local SQLite copy are all local. The AI sees query results, not raw bulk data, and your API key is never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Does this burn my runZero API quota?",
+      "a": "Only 'inventory sync' and live queries call the API. The cross-entity analysis - triage, diff, affected, exposure-map, exposure-delta, certs-expiring, software rollup - runs entirely against the local SQLite copy, so re-slicing your attack surface a hundred ways costs zero additional API calls."
+    },
+    {
+      "q": "Does it work with self-hosted runZero?",
+      "a": "Yes. It defaults to the hosted console at console.runzero.com; point it at your own console with RUNZERO_BASE_URL. The same API-token scopes apply."
+    },
+    {
+      "q": "What token scope do I need?",
+      "a": "A read/Export token (Export ET, Organization OT, or Account CT key) covers sync and every analysis command. Launching a scan with scan-watch or org create-scan needs a token with scan permission. Scope the credential to only what your workflow uses."
+    }
+  ],
+  "governance_summary": "The skill reads your runZero attack surface - assets, services, software, vulnerabilities, and certificates - and keeps a local copy you can query offline. It can also write: launch network scans, create sites, manage account users and keys, and import data, all opt-in. Most read commands are safe, but the credential, token, and key reads (e.g. account get-apitoken, get-credentials, get-keys) return or mint secrets, so treat them like writes. Keep an autonomous agent to non-secret reads plus previewed (--dry-run) writes, and require a human for scan launches, any credential / token / key operation, and any delete.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "triage, diff, affected, exposure-delta, exposure-map, stale, certs-expiring, software rollup, search, inventory list / status, and the non-secret account / org get-* reports (assets, sites, services, tasks, organizations, users) - NOT the credential/token/key reads below",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "inventory sync (writes the local copy), org create-site, org create-scan and scan-watch (these launch a real network scan against your targets), import / runzero-import, and asset tag/owner updates",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Credential / destructive / config",
+      "examples": "the secret-returning reads (account get-apitoken which mints a token, get-credential / get-credentials, get-key / get-keys, get-organization-export-token / -tokens), all credential and key writes (create-credential, create-key, rotate-key, reset-user-password / reset-user-mfa), and every delete-* / remove-* plus the org bulk-clear operations",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}
