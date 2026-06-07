@@ -830,6 +830,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "levelio": {
+      "system": "Level RMM and endpoint monitoring platform",
+      "status": "beta",
+      "cli_binary": "levelio-cli",
+      "mcp_binary": "levelio-mcp",
+      "vendor": "Level",
+      "vendor_trademark_owner": "Level",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "Level",
+      "tagline": "Rank your riskiest endpoints, patch posture, and stale devices across your Level RMM fleet from one command.",
+      "cli_hash": "sha256:0f22eb3494544354f3ebe675454733497f59fe6aa7c7a396ff4ac97d4c720fd0",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }

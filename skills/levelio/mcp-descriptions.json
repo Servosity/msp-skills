@@ -1,0 +1,8 @@
+{
+  "descriptions": {
+    "custom-fields_delete": "Permanently delete a custom field definition from the Level workspace by its id. Required: id (path). Returns no content on success (HTTP 204); a missing id yields 404. This removes the field and its values from all devices  -  irreversible. Use custom-fields_update to rename or re-scope a field instead of deleting it.",
+    "devices_delete": "Permanently remove a device (agent/endpoint) from the Level workspace by its id. Required: id (path). Returns no content on success (HTTP 204); an unknown id yields 404. This deletes the device record and detaches it from groups and alerts  -  irreversible. Prefer this only for decommissioned endpoints; to move a device between groups, update its group assignment rather than deleting.",
+    "groups_delete": "Permanently delete a device group from the Level workspace by its id. Required: id (path). Returns no content on success (HTTP 204); a missing id yields 404. Removes the group container  -  member devices are not deleted, only ungrouped. Irreversible. Use groups_update to rename a group instead of recreating it.",
+    "tags_delete": "Permanently delete a tag from the Level workspace by its id. Required: id (path). Returns no content on success (HTTP 204); a missing id yields 404. Removes the tag and unassigns it from every device it was applied to  -  irreversible. Use tags_update to rename a tag rather than deleting and recreating."
+  }
+}

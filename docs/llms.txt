@@ -54,6 +54,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - IT Glue (Documentation) - Find any device, audit stale passwords, and rank thin client docs by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/itglue/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/install.sh)
+- Level (RMM) - Rank your riskiest endpoints, patch posture, and stale devices across your Level RMM fleet from one command.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/levelio/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/levelio/install.sh)
 - Liongard (Documentation) - See every config change, stale collector, and offline agent across your whole Liongard estate from one command.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/liongard/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/liongard/install.sh)

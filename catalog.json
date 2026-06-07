@@ -327,6 +327,25 @@
       "tagline": "Find any device, audit stale passwords, and rank thin client docs by asking."
     },
     {
+      "name": "levelio",
+      "system": "Level RMM and endpoint monitoring platform",
+      "status": "beta",
+      "skill_path": "skills/levelio",
+      "cli_binary": "levelio-cli",
+      "mcp_binary": "levelio-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Level",
+      "vendor_trademark_owner": "Level",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/levelio/install.sh)",
+      "install_mcp_doc": "skills/levelio/mcp-install.md",
+      "description": "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command.",
+      "verification": "awaiting",
+      "category": "RMM",
+      "tagline": "Rank your riskiest endpoints, patch posture, and stale devices across your Level RMM fleet from one command."
+    },
+    {
       "name": "liongard",
       "system": "Liongard automated documentation and configuration change-detection platform for MSPs",
       "status": "beta",

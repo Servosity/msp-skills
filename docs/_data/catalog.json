@@ -130,6 +130,14 @@
       "url": "/skills/itglue/"
     },
     {
+      "slug": "levelio",
+      "display_name": "Level",
+      "tagline": "Rank your riskiest endpoints, patch posture, and stale devices across your Level RMM fleet from one command.",
+      "category": "RMM",
+      "verification": "awaiting",
+      "url": "/skills/levelio/"
+    },
+    {
       "slug": "liongard",
       "display_name": "Liongard",
       "tagline": "See every config change, stale collector, and offline agent across your whole Liongard estate from one command.",
