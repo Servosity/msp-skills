@@ -1,5 +1,5 @@
 {
-  "count": 46,
+  "count": 47,
   "connectors": [
     {
       "slug": "abnormal",
@@ -24,6 +24,14 @@
       "category": "RMM",
       "verification": "awaiting",
       "url": "/skills/action1/"
+    },
+    {
+      "slug": "afi",
+      "display_name": "Afi",
+      "tagline": "Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.",
+      "category": "Backup-DR",
+      "verification": "awaiting",
+      "url": "/skills/afi/"
     },
     {
       "slug": "atera",
