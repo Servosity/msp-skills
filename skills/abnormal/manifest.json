@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "abnormal-mcp",
+  "display_name": "Abnormal Security",
+  "version": "0.1.0",
+  "description": "The full Abnormal Security REST API in your terminal and your agents - with a local threat store, ranked SOC triage, blocking remediation, and one-shot client reporting.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/abnormal-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/abnormal-mcp",
+      "args": [],
+      "env": {
+        "ABNORMAL_API_TOKEN": "${user_config.abnormal_api_token}"
+      }
+    }
+  },
+  "user_config": {
+    "abnormal_api_token": {
+      "type": "string",
+      "title": "ABNORMAL_API_TOKEN",
+      "description": "Sets ABNORMAL_API_TOKEN for the Abnormal Security MCP server. Get a credential from the Abnormal Security portal under Settings, Integrations, Abnormal REST API.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

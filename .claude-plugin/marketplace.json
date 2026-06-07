@@ -681,6 +681,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "abnormal",
+      "source": "./skills/abnormal",
+      "description": "The full Abnormal Security REST API in your terminal and your agents - with a local threat store, ranked SOC triage, blocking remediation, and one-shot client reporting.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "abnormal",
+        "abnormal security",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

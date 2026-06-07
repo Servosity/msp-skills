@@ -1,0 +1,113 @@
+{
+  "outcome_intro": "Abnormal Security plus your AI answers the SOC questions the portal makes you click for: what new email threats are still unremediated right now, what numbers go in this quarter's client security report, and an employee's full account-takeover risk picture - each in one command. It syncs your tenant to a local store, ranks the threat queue, and confirms remediations actually completed.",
+  "instead_of_say": [
+    {
+      "instead": "Logging into the Abnormal portal every morning and scrolling the Threat Log to find what is new and not yet remediated",
+      "say": "What new email threats hit us in the last 24 hours that nobody has remediated yet?",
+      "cli": "abnormal-cli triage --since 24h --top 20 --agent"
+    },
+    {
+      "instead": "Screenshotting dashboard tiles into a client QBR deck by hand every quarter",
+      "say": "Pull last quarter's attacks-stopped and impersonation numbers for the client report",
+      "cli": "abnormal-cli report-snapshot --since 90d --csv"
+    },
+    {
+      "instead": "Clicking through the account-takeover case, then the employee profile, then their logins across three portal screens",
+      "say": "Give me the full account-takeover risk picture for jane@acme.com",
+      "cli": "abnormal-cli employee-risk \"jane@acme.com\""
+    }
+  ],
+  "pain_points": [
+    "Email threat triage means living in the portal - every shift starts by manually scrolling the Threat Log to spot what is new and still unremediated, with no ranked queue.",
+    "Client security reporting is a copy-paste chore - screenshotting dashboard tiles into a QBR deck instead of pulling attacks-seen, attacks-stopped, and impersonation numbers once.",
+    "Confirming a remediation actually finished means refreshing the portal and hoping - there is no terminal receipt that the action reached a terminal state."
+  ],
+  "outcomes": [
+    {
+      "question": "What new, unremediated email threats need attention right now?",
+      "command": "abnormal-cli triage --since 24h --top 20"
+    },
+    {
+      "question": "Pull a client-ready security report for the quarter",
+      "command": "abnormal-cli report-snapshot --since 90d --csv"
+    },
+    {
+      "question": "What is the account-takeover risk picture for this employee?",
+      "command": "abnormal-cli employee-risk \"vip@acme.com\""
+    },
+    {
+      "question": "Is this vendor showing email-compromise signs?",
+      "command": "abnormal-cli vendor-risk \"acme-supplies.com\""
+    },
+    {
+      "question": "Remediate a threat and block until it actually completes",
+      "command": "abnormal-cli remediate-watch <threat|case> <id>"
+    },
+    {
+      "question": "List the latest Abnormal cases",
+      "command": "abnormal-cli cases retrieve --all"
+    },
+    {
+      "question": "How many attacks did we stop this week?",
+      "command": "abnormal-cli aggregations attack-stopped-retrieve"
+    },
+    {
+      "question": "Find threats from a spoofed sender",
+      "command": "abnormal-cli threats retrieve --sender \"ceo@spoofed.com\""
+    }
+  ],
+  "different_vs_wrappers": "Most Abnormal Security integrations proxy each question into a live API call - fine for one record, but it falls over the moment you ask across a quarter of threats or every employee at once. This skill syncs your tenant into a local SQLite mirror with full-text search, so cross-entity questions - a threat joined to its messages, an employee joined to their open cases and 30-day logins - resolve as one offline query, and your AI sees the answer instead of raw bulk data.",
+  "different_vs_vendor": "Abnormal's own portal and AI detection stay the system of record and the place detection policy lives. This skill adds a terminal-and-agent surface the portal does not: a ranked triage queue, blocking remediation receipts, and one-shot client reporting your AI can drive without a human clicking through screens.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Abnormal Security MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Abnormal Security data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Will this hit my Abnormal API rate limits?",
+      "a": "It does not have to. A sync pulls your tenant into a local SQLite mirror once, then triage, search, and reporting answer from disk - so repeat questions never touch the API. For live calls you can cap throughput with --rate-limit and page large pulls."
+    },
+    {
+      "q": "Do I need to be an Abnormal partner or customer?",
+      "a": "You need API access to an Abnormal Security tenant and a token generated from the portal's integration settings. The REST API does not require a separate partner tier - just a credential scoped to what you want the skill to do."
+    },
+    {
+      "q": "Can it actually remediate, or only read?",
+      "a": "It can remediate threats and delete or move malicious messages through the remediation commands, and remediate-watch blocks until Abnormal reports the action reached a terminal state. Those actions are gated behind a human-in-the-loop policy - see the safety model below."
+    },
+    {
+      "q": "Will it replace the Abnormal portal?",
+      "a": "No. Detection tuning, policy, and configuration stay in the portal. This is a read-first, action-on-approval surface for your terminal and your agents, not a replacement UI."
+    }
+  ],
+  "governance_summary": "The skill authenticates with a single ABNORMAL_API_TOKEN scoped to your tenant. Read commands - triage, reporting, threat/case/vendor/employee lookups, and API-token metadata - are always safe and can run unattended. Routine writes such as updating a case status, submitting a misclassification report, or managing API resources should be previewed with --dry-run and approved. Remediation actions that delete or move mail, remediate threats, or bulk-import records are human-in-the-loop only.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "triage, report-snapshot, threats/cases/vendors/employee retrieve, employee-risk, vendor-risk, aggregations, soar (API-token metadata only), search",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "cases create (update case status), detection360 reports-create, api-resources resources-create-create / resources-update-partial-update / resources-actions-create",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Remediation / destructive",
+      "examples": "threats create (remediate/unremediate), email-search search-remediate-create (delete/move mail), remediate-watch, import",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

@@ -23,6 +23,25 @@
       "markdown_only": true
     },
     {
+      "name": "abnormal",
+      "system": "cloud email security platform that detects and remediates phishing, business email compromise, account takeover, and vendor email compromise",
+      "status": "beta",
+      "skill_path": "skills/abnormal",
+      "cli_binary": "abnormal-cli",
+      "mcp_binary": "abnormal-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Abnormal Security",
+      "vendor_trademark_owner": "Abnormal Security Corporation",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/abnormal/install.sh)",
+      "install_mcp_doc": "skills/abnormal/mcp-install.md",
+      "description": "The full Abnormal Security REST API in your terminal and your agents - with a local threat store, ranked SOC triage, blocking remediation, and one-shot client reporting.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Triage Abnormal email threats, confirm remediations, and pull client-ready security reports from your terminal."
+    },
+    {
       "name": "acronis",
       "system": "Acronis Cyber Protect Cloud",
       "status": "beta",

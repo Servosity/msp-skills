@@ -6,6 +6,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 
 ## Connectors
 
+- Abnormal Security (Security) - Triage Abnormal email threats, confirm remediations, and pull client-ready security reports from your terminal.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/abnormal/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/abnormal/install.sh)
 - Acronis Cyber Protect Cloud (Backup/DR) - Spot failed backups, offline agents, and unbilled usage across every Acronis tenant by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/acronis/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/acronis/install.sh)

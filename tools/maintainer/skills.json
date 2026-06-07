@@ -1014,6 +1014,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "abnormal": {
+      "system": "cloud email security platform that detects and remediates phishing, business email compromise, account takeover, and vendor email compromise",
+      "status": "beta",
+      "cli_binary": "abnormal-cli",
+      "mcp_binary": "abnormal-mcp",
+      "vendor": "Abnormal Security",
+      "vendor_trademark_owner": "Abnormal Security Corporation",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Abnormal Security",
+      "tagline": "Triage Abnormal email threats, confirm remediations, and pull client-ready security reports from your terminal.",
+      "cli_hash": "sha256:0d191ba709e169fab33b53f7edd2b8480b4f24d4f6be75365f380967efb3eb6f",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }
