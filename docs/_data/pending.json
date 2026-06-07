@@ -105,11 +105,11 @@
     "released_hash": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29"
   },
   "liongard": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "liongard-v0.1.0",
     "current_hash": "sha256:1cb9d0b4b3883d2cb552cd2d65423f1dbb4b3f4f92bee75b236150a78d3fa676",
-    "released_hash": null
+    "released_hash": "sha256:1cb9d0b4b3883d2cb552cd2d65423f1dbb4b3f4f92bee75b236150a78d3fa676"
   },
   "microsoft-graph": {
     "state": "up-to-date",
@@ -175,18 +175,18 @@
     "released_hash": "sha256:2dbc4bffec016aeda87ce7165ee9a16bbb044b944095daf2aaa5b9c9154ea4c8"
   },
   "rootly": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "rootly-v0.1.0",
     "current_hash": "sha256:d8bf95fa7318e99db5fa6bdc6d84e1b55ea2e553494b6e19034c9ab39ec4e726",
-    "released_hash": null
+    "released_hash": "sha256:d8bf95fa7318e99db5fa6bdc6d84e1b55ea2e553494b6e19034c9ab39ec4e726"
   },
   "runzero": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "runzero-v0.1.0",
     "current_hash": "sha256:82ac4c8e457a26f244687d5448262a9f3361318164f6e52c173ca0345046223b",
-    "released_hash": null
+    "released_hash": "sha256:82ac4c8e457a26f244687d5448262a9f3361318164f6e52c173ca0345046223b"
   },
   "sentinelone": {
     "state": "up-to-date",
@@ -224,11 +224,11 @@
     "released_hash": "sha256:88fccde7356fb69b6a650d2d6b48020340af6cb11e17e134646ed0ea95b7556a"
   },
   "tactical-rmm": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "tactical-rmm-v0.1.0",
     "current_hash": "sha256:531d4614a72206ebfbcd546719b1ba3e598e1f71defa7e7c827b7255d58cb75e",
-    "released_hash": null
+    "released_hash": "sha256:531d4614a72206ebfbcd546719b1ba3e598e1f71defa7e7c827b7255d58cb75e"
   },
   "threatlocker": {
     "state": "up-to-date",
