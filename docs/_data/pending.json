@@ -27,6 +27,13 @@
     "current_hash": "sha256:6a24526f190823c2faf1b8631d900484d8662f8f8044cb6468c7e799e92d5dce",
     "released_hash": null
   },
+  "appdirect": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:da05b9a0d23a5214804687dfe8170c56f00babc8c7fa956d94e59c8aab28134b",
+    "released_hash": null
+  },
   "atera": {
     "state": "up-to-date",
     "version": "0.1.0",
