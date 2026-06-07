@@ -94,6 +94,29 @@
         "evidence": null
       }
     },
+    "axcient": {
+      "system": "Axcient x360Recover BCDR: fleet backup health, restore-point and RPO checks, AutoVerify boot-proof evidence, and per-client usage from a local mirror",
+      "status": "beta",
+      "cli_binary": "axcient-cli",
+      "mcp_binary": "axcient-mcp",
+      "vendor": "Axcient",
+      "vendor_trademark_owner": "Axcient, Inc",
+      "first_party": false,
+      "category": "Backup/DR",
+      "display_name": "Axcient x360Recover",
+      "tagline": "Catch failed and stale Axcient backups, RPO breaches, and unbilled usage across every client by asking.",
+      "cli_hash": "sha256:3689d836c162863a104b72186dcac80543a918651740fcdc4d1f0aec3d795b5e",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "blumira": {
       "system": "cloud SIEM and automated detection and response platform",
       "status": "beta",

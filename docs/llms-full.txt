@@ -227,6 +227,46 @@ A: Same product. Autotask PSA is now branded Datto Autotask PSA under Kaseya; th
 
 Governance: The skill drives the autotask-cli and autotask-mcp binaries, authenticating with an Autotask API user's credentials read from the environment (AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, AUTOTASK_PSA_API_INTEGRATION_CODE) - never logged and never sent anywhere except your own Autotask zone. Read commands (the cross-entity views, search, picklist) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the delete commands and any security-level administration human-only. The strongest control is the security level on the API user you create.
 
+### Axcient x360Recover (Backup/DR)
+
+Page: https://msp-skills.compoundingteams.com/skills/axcient/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/axcient/install.sh)
+
+MSPs run Axcient x360Recover across dozens of clients, but the portal answers one entity at a time and the public API famously won't tell you which client a device belongs to. Ask your AI "whose backups failed last night," "who's breaching RPO," or "what do I bill each client this month," and get the fleet-wide answer in one table - computed offline from a local mirror that joins the device, job, restore-point, and client data the raw API leaves unconnected.
+
+Outcomes (question -> command your AI agent runs):
+- Whose backups failed or went stale across every client last night? -> axcient-cli health
+- Give me one row per client: devices total, failing, stale, RPO-breach, and AutoVerify-fail counts -> axcient-cli client-rollup
+- Which devices are past their recovery-point objective, grouped by client? -> axcient-cli rpo --hours 24
+- Only show the devices actually breaching RPO at the cloud tier -> axcient-cli rpo --hours 24 --target cloud
+- Produce backup-compliance evidence for one client (restore-point age + AutoVerify + RPO verdict) -> axcient-cli compliance --client 42 --hours 24 --csv
+- Only the compliance rows that fail RPO or AutoVerify -> axcient-cli compliance --failing-only
+- What does each client consume for invoice reconciliation this month? -> axcient-cli billing --csv
+- Which devices does each appliance protect, and what state are those backups in? -> axcient-cli appliance-map
+- Find everything matching a client or device name across synced data -> axcient-cli search "Acme Corp"
+- Refresh the local mirror, then run the morning sweep -> axcient-cli sync && axcient-cli health --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Axcient MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Axcient data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this hit my Axcient API rate limits?
+A: The local mirror exists so reads stop hitting the API. After the first sync, the fleet views (health, client-rollup, rpo, compliance, billing, appliance-map) run against local SQLite with zero API calls. Live calls respect a --rate-limit throttle, and sync is incremental - it only fetches what changed since the last checkpoint.
+Q: What kind of Axcient credential do I need?
+A: An organization-scoped API key created in the x360Portal (Settings > API Keys, admin role required). The CLI sends it as the X-Api-Key header and can only see what that key is scoped to. Set it as AXCIENT_API_KEY; nothing is written to disk.
+Q: Can I try it without a real tenant?
+A: Yes. Axcient hosts a public mock server - set AXCIENT_BASE_URL=https://ax-pub-recover.wiremockapi.cloud/x360recover with any non-empty AXCIENT_API_KEY and the whole CLI runs against fixtures, no real credentials needed.
+Q: Does this cover x360Sync or x360Cloud?
+A: No. This skill is the x360Recover (BCDR) public API only - vaults, appliances, devices, jobs, restore points, AutoVerify, and usage. x360Sync and x360Cloud are separate products with separate APIs.
+
+Governance: The skill drives the axcient-cli and axcient-mcp binaries, authenticating with an organization-scoped API key (AXCIENT_API_KEY) read from the environment and sent as the X-Api-Key header - never written to disk, never logged, never sent anywhere except the Axcient API. The surface is overwhelmingly read-only: every fleet view (health, client-rollup, rpo, compliance, billing, appliance-map) and every resource read cannot change anything. Only three commands write - vault threshold set-by-vault-id and the bulk import <resource> mutate or create data, and client vault get-d2c-agent-token-by-client-and-ids mints a direct-to-cloud agent install token - so the recommended policy is read plus previewed (--dry-run) writes, with a human in the loop for the token mint. The strongest control is the scope of the API key you create in the x360Portal.
+
 ### Better Stack (Monitoring)
 
 Page: https://msp-skills.compoundingteams.com/skills/betterstack/

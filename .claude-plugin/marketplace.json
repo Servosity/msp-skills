@@ -712,6 +712,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "axcient",
+      "source": "./skills/axcient",
+      "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give  -  offline, joined, and agent-ready.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "axcient",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
