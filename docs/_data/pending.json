@@ -1,4 +1,11 @@
 {
+  "abnormal": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:0d191ba709e169fab33b53f7edd2b8480b4f24d4f6be75365f380967efb3eb6f",
+    "released_hash": null
+  },
   "acronis": {
     "state": "up-to-date",
     "version": "0.1.0",
