@@ -1,6 +1,14 @@
 {
-  "count": 43,
+  "count": 44,
   "connectors": [
+    {
+      "slug": "abnormal",
+      "display_name": "Abnormal Security",
+      "tagline": "Triage Abnormal email threats, confirm remediations, and pull client-ready security reports from your terminal.",
+      "category": "Security",
+      "verification": "awaiting",
+      "url": "/skills/abnormal/"
+    },
     {
       "slug": "acronis",
       "display_name": "Acronis Cyber Protect Cloud",
