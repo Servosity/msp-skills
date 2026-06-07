@@ -1,10 +1,10 @@
 {
   "abnormal": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "abnormal-v0.1.0",
     "current_hash": "sha256:0d191ba709e169fab33b53f7edd2b8480b4f24d4f6be75365f380967efb3eb6f",
-    "released_hash": null
+    "released_hash": "sha256:0d191ba709e169fab33b53f7edd2b8480b4f24d4f6be75365f380967efb3eb6f"
   },
   "acronis": {
     "state": "up-to-date",
@@ -35,11 +35,11 @@
     "released_hash": "sha256:c35fe70e19882732f38eac567b5ed2d9f994f0260a7dc0137914bcd1fe7d0681"
   },
   "axcient": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "axcient-v0.1.0",
     "current_hash": "sha256:3689d836c162863a104b72186dcac80543a918651740fcdc4d1f0aec3d795b5e",
-    "released_hash": null
+    "released_hash": "sha256:3689d836c162863a104b72186dcac80543a918651740fcdc4d1f0aec3d795b5e"
   },
   "betterstack": {
     "state": "up-to-date",
@@ -224,11 +224,11 @@
     "released_hash": "sha256:5994571211bea81b5d2bae4f29df861ac81da96556bf6fc081956ee17a8126cc"
   },
   "proofpoint": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "proofpoint-v0.1.0",
     "current_hash": "sha256:549b1204f509069acff9511a9727d5b7b7776feaeb494641aaba543637b55be1",
-    "released_hash": null
+    "released_hash": "sha256:549b1204f509069acff9511a9727d5b7b7776feaeb494641aaba543637b55be1"
   },
   "quickbooks": {
     "state": "up-to-date",
@@ -287,11 +287,11 @@
     "released_hash": "sha256:f00472cb9247d7604c10aae18e0cfbde60c66b5a9455fe3318c62daef874cad7"
   },
   "skykick": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "skykick-v0.1.0",
     "current_hash": "sha256:c642d7a7b9e5be25b87d79f90955aa6ac1b83d9b5f9a189db582501d44f94c2a",
-    "released_hash": null
+    "released_hash": "sha256:c642d7a7b9e5be25b87d79f90955aa6ac1b83d9b5f9a189db582501d44f94c2a"
   },
   "superops": {
     "state": "up-to-date",
