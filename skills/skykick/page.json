@@ -1,0 +1,100 @@
+{
+  "outcome_intro": "Run one fleet-sync, then ask your AI which SkyKick customers have a backup gap right now. It reads every subscription's Exchange/SharePoint posture, snapshot recency, coverage, and retention from a local copy and answers across all your tenants at once - the cross-customer view the per-tenant SkyKick portal never rolls up.",
+  "instead_of_say": [
+    {
+      "instead": "Log into the SkyKick partner portal and open each customer one at a time to eyeball whether Exchange and SharePoint backup are on and recent.",
+      "say": "Which of my SkyKick customers has a backup gap right now?",
+      "cli": "skykick-cli fleet-health --flag-gaps --agent"
+    },
+    {
+      "instead": "Export per-tenant snapshot reports and scan them by hand for mailboxes that quietly stopped backing up.",
+      "say": "Show me every mailbox that hasn't been snapshotted in the last two days.",
+      "cli": "skykick-cli stale-snapshots --hours 48 --agent"
+    },
+    {
+      "instead": "Manually reconcile each tenant's discovered mailboxes and sites against what's actually enabled after onboarding a new client.",
+      "say": "What's discovered but not protected across all my tenants?",
+      "cli": "skykick-cli coverage-gaps --type all --agent"
+    }
+  ],
+  "pain_points": [
+    "Microsoft 365 backup is set-and-forget until it silently fails - a mailbox stops snapshotting, a new hire never enrolls, retention drifts below your compliance floor - and the worst time to find out is when a customer asks for a restore.",
+    "The SkyKick portal shows one customer at a time. With 30-50 tenants there is no single screen that answers 'who is not fully protected today', so backup verification quietly falls off the weekly routine."
+  ],
+  "outcomes": [
+    {
+      "question": "Which customers have a protection gap right now?",
+      "command": "skykick-cli fleet-health --flag-gaps --agent"
+    },
+    {
+      "question": "Whose mailboxes haven't been snapshotted in 48 hours?",
+      "command": "skykick-cli stale-snapshots --hours 48 --agent"
+    },
+    {
+      "question": "What's discovered but not actually being backed up?",
+      "command": "skykick-cli coverage-gaps --type all --agent"
+    },
+    {
+      "question": "Which tenants fall below our retention floor?",
+      "command": "skykick-cli retention-audit --floor-days 365 --agent"
+    },
+    {
+      "question": "Where is autodiscover off, so new mailboxes silently never enroll?",
+      "command": "skykick-cli autodiscover-audit --only-off --agent"
+    },
+    {
+      "question": "What protection changed since my last review?",
+      "command": "skykick-cli drift --agent"
+    },
+    {
+      "question": "What open alerts exist across the whole fleet, worst first?",
+      "command": "skykick-cli alert-sweep --agent"
+    },
+    {
+      "question": "How does backup posture roll up by partner?",
+      "command": "skykick-cli partner-rollup --agent"
+    }
+  ],
+  "different_vs_wrappers": "Most SkyKick MCP wrappers proxy each question into a live API call, and the SkyKick API only serves data one subscription at a time - no fleet endpoint, no skip paging on alerts. Asking 'which of my 50 tenants has a gap' becomes 50+ sequential calls every single time. This skill runs fleet-sync once into a local SQLite store, then fleet-health, stale-snapshots, coverage-gaps, and drift are instant local queries the API cannot answer directly.",
+  "different_vs_vendor": "The SkyKick portal is per-customer and has no AI surface; this skill adds the cross-tenant posture, staleness, coverage, retention-compliance, and partner roll-up views the portal never aggregates, and hands them to whatever agent you already use. It complements the portal - restores and configuration still happen there.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local SkyKick MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my SkyKick data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Do I need to be a SkyKick partner, and will this hit my API rate limits?",
+      "a": "Yes - it authenticates with SkyKick Partner API client credentials (your API user ID and partner subscription key) from your SkyKick / ConnectWise Cloud Services partner account, and reads only what those credentials already permit. On rate limits: fleet-sync fans out per subscription with bounded concurrency and caches results in local SQLite, and SkyKick rate-limits the token endpoint aggressively, so the CLI mints and reuses cached tokens. Day-to-day questions run against the local store and never re-hit the API; you control --workers and --rate-limit."
+    }
+  ],
+  "governance_summary": "The skill is read-first: every posture, staleness, coverage, retention, autodiscover, drift, alert, and partner view only reads. It can change a small, explicit set of things, all of which POST to the live SkyKick API: marking alerts complete (one at a time, or in bulk only with --apply), triggering Exchange mailbox and SharePoint site discovery, and bulk import from JSONL. There are no delete, credential, or admin commands. Keep an autonomous agent to read plus previewed writes, and require a human to approve the completion, discovery, and import commands.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "fleet-health, stale-snapshots, coverage-gaps, retention-audit, autodiscover-audit, drift, partner-rollup, alert-sweep (without --apply), backup list / mailboxes / sites / storage-settings / subscription-settings, alerts list, identity",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "alerts complete, alert-sweep --complete <ids> --apply, backup discover-mailboxes, backup discover-sites, import",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "none - the wrapped SkyKick API surface has no delete, credential-rotation, or admin commands",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "count": 44,
+  "count": 45,
   "connectors": [
     {
       "slug": "abnormal",
@@ -312,6 +312,14 @@
       "category": "Billing",
       "verification": "awaiting",
       "url": "/skills/sherweb/"
+    },
+    {
+      "slug": "skykick",
+      "display_name": "SkyKick",
+      "tagline": "Catch silently-failing Microsoft 365 backups across every SkyKick tenant before a customer needs a restore.",
+      "category": "Backup/DR",
+      "verification": "awaiting",
+      "url": "/skills/skykick/"
     },
     {
       "slug": "superops",

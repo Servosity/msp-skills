@@ -830,6 +830,29 @@
         "evidence": null
       }
     },
+    "skykick": {
+      "system": "SkyKick Cloud Backup - Microsoft 365 Exchange and SharePoint backup assurance across every customer tenant",
+      "status": "beta",
+      "cli_binary": "skykick-cli",
+      "mcp_binary": "skykick-mcp",
+      "vendor": "SkyKick",
+      "vendor_trademark_owner": "ConnectWise, LLC",
+      "first_party": false,
+      "category": "Backup/DR",
+      "display_name": "SkyKick",
+      "tagline": "Catch silently-failing Microsoft 365 backups across every SkyKick tenant before a customer needs a restore.",
+      "cli_hash": "sha256:c642d7a7b9e5be25b87d79f90955aa6ac1b83d9b5f9a189db582501d44f94c2a",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "superops": {
       "system": "SuperOps PSA+RMM: tickets, SLAs, assets, alerts, clients, contracts, invoices, worklogs",
       "status": "beta",
