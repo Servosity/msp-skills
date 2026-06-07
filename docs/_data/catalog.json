@@ -1,5 +1,5 @@
 {
-  "count": 40,
+  "count": 41,
   "connectors": [
     {
       "slug": "acronis",
@@ -32,6 +32,14 @@
       "category": "PSA",
       "verification": "awaiting",
       "url": "/skills/autotask/"
+    },
+    {
+      "slug": "betterstack",
+      "display_name": "Better Stack",
+      "tagline": "Ask what's down, who's paged, where coverage is missing, and your MTTA/MTTR across your Better Stack account",
+      "category": "Monitoring",
+      "verification": "awaiting",
+      "url": "/skills/betterstack/"
     },
     {
       "slug": "blumira",

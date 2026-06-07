@@ -18,6 +18,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Autotask PSA (PSA) - Triage tickets, surface unbilled time, and project retainer burn by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/autotask/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/install.sh)
+- Better Stack (Monitoring) - Ask what's down, who's paged, where coverage is missing, and your MTTA/MTTR across your Better Stack account
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/betterstack/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/betterstack/install.sh)
 - Blumira (Security) - Triage every Blumira finding across all your MSP client accounts from one ranked queue
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/blumira/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blumira/install.sh)

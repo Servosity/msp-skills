@@ -945,6 +945,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "betterstack": {
+      "system": "Better Stack Uptime monitoring, incident management, on-call scheduling, and status pages",
+      "status": "beta",
+      "cli_binary": "betterstack-cli",
+      "mcp_binary": "betterstack-mcp",
+      "vendor": "Better Stack",
+      "vendor_trademark_owner": "Better Stack",
+      "first_party": false,
+      "category": "Monitoring",
+      "display_name": "Better Stack",
+      "tagline": "Ask what's down, who's paged, where coverage is missing, and your MTTA/MTTR across your Better Stack account",
+      "cli_hash": "sha256:ed25b0355abbed564f43ae63695e076a566928f340121e7c2f3b1279080df46b",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }
