@@ -139,6 +139,13 @@
     "current_hash": "sha256:36391dfbded332a0db48405fe8151efffbe19324716653e518a5cae354ed15ce",
     "released_hash": "sha256:36391dfbded332a0db48405fe8151efffbe19324716653e518a5cae354ed15ce"
   },
+  "pandadoc": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:913d7eff405b41a66333b195d7e4352969e99ecd097e60d175d2780362279156",
+    "released_hash": null
+  },
   "pax8": {
     "state": "up-to-date",
     "version": "0.1.0",
