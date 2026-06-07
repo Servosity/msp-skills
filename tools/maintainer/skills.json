@@ -108,7 +108,7 @@
       "cli_hash": "sha256:3689d836c162863a104b72186dcac80543a918651740fcdc4d1f0aec3d795b5e",
       "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:3689d836c162863a104b72186dcac80543a918651740fcdc4d1f0aec3d795b5e",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -681,7 +681,7 @@
       "cli_hash": "sha256:549b1204f509069acff9511a9727d5b7b7776feaeb494641aaba543637b55be1",
       "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:549b1204f509069acff9511a9727d5b7b7776feaeb494641aaba543637b55be1",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -867,7 +867,7 @@
       "cli_hash": "sha256:c642d7a7b9e5be25b87d79f90955aa6ac1b83d9b5f9a189db582501d44f94c2a",
       "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:c642d7a7b9e5be25b87d79f90955aa6ac1b83d9b5f9a189db582501d44f94c2a",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1075,7 +1075,7 @@
       "cli_hash": "sha256:0d191ba709e169fab33b53f7edd2b8480b4f24d4f6be75365f380967efb3eb6f",
       "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:0d191ba709e169fab33b53f7edd2b8480b4f24d4f6be75365f380967efb3eb6f",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
