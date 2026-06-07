@@ -1,0 +1,56 @@
+# nerdio skill - governance and safety model
+
+> Unofficial. Community-built skill for the Nerdio Manager API. Not affiliated with,
+> endorsed by, or sponsored by the vendor.
+> This page tells an MSP owner exactly what the nerdio skill can touch and how to
+> scope it, so you can decide what to let an AI agent do.
+
+## What it authenticates as
+
+The skill drives the `nerdio-cli` binary (and `nerdio-mcp`),
+authenticating with `NERDIO_BASE_URL`, `NERDIO_CLIENT_ID`, `NERDIO_CLIENT_SECRET`, `NERDIO_OAUTH_SCOPE`, `NERDIO_TOKEN_URL`. Credentials are read from the environment only -
+never written to disk, never logged, never sent anywhere except the Nerdio Manager API.
+
+## Default-safe behavior
+
+- **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Make your agent's policy: preview, show the exact command, get approval, then run the write.
+- **Read commands are always safe to run** (reports, rollups, search); they cannot
+  change anything.
+- **Agent mode is explicit.** `--agent` produces JSON for scripting but does not
+  add any write gating - the preview-then-approve policy above still applies. See
+  AGENTS.md.
+
+## Permission tiers
+
+The safe default for an autonomous agent is **read plus planned (dry-run) writes**;
+require a human for anything below the line. Note that several reads expose secrets
+and several writes power or run code on live infrastructure - those are pulled up
+into their own tiers below rather than left in Read or routine Write.
+
+| Tier | What it does | Examples | Recommended agent policy |
+| --- | --- | --- | --- |
+| **Read** | Reports, rollups, fleet audits, search. No change. | `accounts`, `fleet autoscale-audit`, `fleet host-estate`, `fleet billing-rollup`, `usages drift`, `host-pools list`, `devices list`, `job wait`, `search`, `sync`, and the other `list`/`get` commands | Allow |
+| **Write (routine)** | Reversible config/resource changes. | `host-pools create`, `host-pools set-autoscale`, `reservations create`/`update`, `recovery-vaults create`/`link`/`unlink`, `resource-groups link`/`account-link`/`set-default`/`account-set-default`, `networks link`, `provisioning link-network`/`link-tenant`, `workspaces create`, `backup enable`/`disable`, `job retry`, `import` | Preview with `--dry-run`, then an approved write |
+| **Endpoint / infrastructure control** | Powers, restarts, or executes code on live VMs and devices. | `hosts start`/`stop`/`restart`, `desktop-images start`/`stop`, `devices sync`, `scripted-actions run`/`run-account`/`fan-run`, `backup run`/`restore` | Human-in-the-loop - real effect on running infrastructure |
+| **Credential / security** | Reads or writes stored secrets, BitLocker keys, LAPS passwords. | `secure-variables list`/`account-list` (may return secret values), `secure-variables create`/`update`/`delete`/`account-create`/`account-update`/`account-delete`, `devices bitlocker-keys`, `devices laps` | Human-in-the-loop only |
+| **Destructive** | Irreversible delete or unlink of resources/config. | `host-pools delete`, `reservations delete`, `recovery-vaults delete-policy`, `resource-groups unlink`/`account-unlink`, `scripted-actions unschedule` | Human-in-the-loop only, explicit confirmation |
+
+## How to lock it down
+
+- **Scope the credential** to only what your workflow needs. A read/report workflow
+  does not need a credential that can run the Destructive or Credential tiers.
+- **Keep autonomous agents to Read + previewed writes.** Have a human approve the
+  actual write for Write tier and above - the gate lives in your agent's policy,
+  not in the binary's defaults.
+- **Never let an agent run Endpoint-control, Credential, or Destructive tier
+  commands unattended.** Powering hosts, running scripted actions, reading LAPS or
+  BitLocker keys, and deleting resources all belong to a human: reviewed and logged.
+- **Rotate the credential if it is ever exposed** (for example after bridging the
+  MCP server to a public endpoint for ChatGPT - see mcp-install.md).
+
+## Why an MSP owner can be comfortable
+
+The full source of the CLI and MCP server is in this repository under
+[`cli/`](./cli) (Apache-2.0). You supply the credential, the binary uses it against
+the Nerdio Manager API, and you can read every line of how it does so. The skill is
+read-first, plan-by-default, and scoped to your own account.

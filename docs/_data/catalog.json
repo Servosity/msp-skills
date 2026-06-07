@@ -1,5 +1,5 @@
 {
-  "count": 39,
+  "count": 40,
   "connectors": [
     {
       "slug": "acronis",
@@ -176,6 +176,14 @@
       "category": "RMM",
       "verification": "awaiting",
       "url": "/skills/n-central/"
+    },
+    {
+      "slug": "nerdio",
+      "display_name": "Nerdio Manager",
+      "tagline": "Audit autoscale, sweep idle session hosts, and reconcile per-customer billing across every Nerdio Manager account from your terminal.",
+      "category": "RMM",
+      "verification": "awaiting",
+      "url": "/skills/nerdio/"
     },
     {
       "slug": "ninjaone",

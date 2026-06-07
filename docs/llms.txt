@@ -74,6 +74,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - N-able N-central (RMM) - Find any device, triage issues, and search across every client by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/n-central/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/n-central/install.sh)
+- Nerdio Manager (RMM) - Audit autoscale, sweep idle session hosts, and reconcile per-customer billing across every Nerdio Manager account from your terminal.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/nerdio/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/nerdio/install.sh)
 - NinjaOne (RMM) - Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/ninjaone/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ninjaone/install.sh)

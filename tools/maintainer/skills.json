@@ -922,6 +922,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "nerdio": {
+      "system": "Nerdio Manager for MSP: Azure Virtual Desktop fleets, host pools, autoscale, desktop images, Intune devices, and cross-account billing",
+      "status": "beta",
+      "cli_binary": "nerdio-cli",
+      "mcp_binary": "nerdio-mcp",
+      "vendor": "Nerdio Manager",
+      "vendor_trademark_owner": "Nerdio, Inc",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "Nerdio Manager",
+      "tagline": "Audit autoscale, sweep idle session hosts, and reconcile per-customer billing across every Nerdio Manager account from your terminal.",
+      "cli_hash": "sha256:bce25ac130f946ac84cd0e7b83525a441d051170cf3037828dbce758c41d49fb",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }
