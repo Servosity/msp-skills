@@ -789,6 +789,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "gradient",
+      "source": "./skills/gradient",
+      "description": "The Gradient MSP Synthesize vendor API from your terminal: bulk usage pushes with a single billing rebuild, a local push-drift ledger, and alert-to-ticket tracing the portal and SDK don't offer.",
+      "version": "0.1.0",
+      "category": "billing",
+      "tags": [
+        "gradient",
+        "gradient msp",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
