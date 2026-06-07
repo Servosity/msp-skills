@@ -813,6 +813,42 @@ A: No. The CLI reads, and creates or updates contacts, passwords, configurations
 
 Governance: The skill drives the itglue-cli and itglue-mcp binaries, authenticating with an IT Glue API key read from the environment (ITGLUE_API_KEY) - never logged and never sent anywhere except the IT Glue API. Most read commands (search, coverage, changes, contacts dupes, org show, orphans, and the organization/configuration/contact/document list and get) change nothing and run against the local mirror. The exceptions are passwords get and passwords list: when the API key has password access they can return the stored secret, so treat them as credential-tier, not routine reads (passwords stale is metadata-only and stays safe). Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. The CLI exposes no delete for any IT Glue resource; the most sensitive operations are credential reads and writes (passwords get/list/create/update), which should stay human-approved. The real permission boundary is the scope of the IT Glue account whose key you use.
 
+### Kaseya BMS (PSA)
+
+Page: https://msp-skills.compoundingteams.com/skills/kaseya-bms/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-bms/install.sh)
+
+Run the Kaseya BMS service desk, contracts, and billing from your terminal - or let your AI agent do it. Ask in plain English which queues are underwater, which tickets are going stale, who's overloaded, how much of each contract you've burned, and what billable time is sitting unbilled - and get the answer instantly from a local mirror, without exporting a single report.
+
+Outcomes (question -> command your AI agent runs):
+- Which queues are underwater and what's going stale before standup? -> kaseya-bms-cli queue-health --agent
+- Which open tickets haven't been touched in a week, oldest first? -> kaseya-bms-cli stale-tickets --days 7 --agent
+- Who's overloaded and who can take the next ticket? -> kaseya-bms-cli workload --agent
+- How much of each contract have we burned this quarter? -> kaseya-bms-cli contract-burn --window-days 90 --agent
+- What approved billable time is ready to invoice, by account? -> kaseya-bms-cli unbilled --agent
+- What's the open sales pipeline by stage, and which deals have slipped? -> kaseya-bms-cli pipeline --agent
+- Find every ticket mentioning a phrase across the whole tenant -> kaseya-bms-cli search "VPN outage"
+- Sync the tenant into a local mirror for instant offline queries -> kaseya-bms-cli sync
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Kaseya BMS MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Kaseya BMS data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this hit my Kaseya BMS API rate limits?
+A: Rarely. BMS allows 1,500 requests per hour per endpoint. Reads default to the local SQLite mirror (--data-source auto), so day-to-day questions cost zero API calls; you only spend the budget when you sync or query live.
+Q: Do I need to be a Kaseya customer, and how do I authenticate?
+A: Yes - you need a Kaseya BMS tenant and an API user. The skill authenticates as that user with 'kaseya-bms-cli auth login' (your BMS username, password, and tenant name), and can only do what that user is permitted to do. You can also paste a pre-minted JWT via KASEYA_BMS_TOKEN.
+Q: Will this replace my Kaseya BMS portal?
+A: No. It's a faster path for the questions you ask every day - queue health, unbilled time, pipeline - and for letting an AI agent drive the service desk. The BMS portal stays your system of record.
+
+Governance: The skill reads everything - tickets, CRM, contracts, finance, projects - and can create and update records across the service desk, CRM, finance, and projects, so keep an autonomous agent to reads plus previewed (--dry-run) writes with a human approving each write. Deletes, the back-office 'admin' group, and any command that returns stored credentials (ITGlue or VSA access info) are human-in-the-loop only. The strongest control is the scope of the BMS API user you authenticate as.
+
 ### KnowBe4 (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/knowbe4/

@@ -1129,6 +1129,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "kaseya-bms": {
+      "system": "Kaseya BMS PSA - tickets, CRM, contracts, finance, and projects",
+      "status": "beta",
+      "cli_binary": "kaseya-bms-cli",
+      "mcp_binary": "kaseya-bms-mcp",
+      "vendor": "Kaseya BMS",
+      "vendor_trademark_owner": "Kaseya US LLC",
+      "first_party": false,
+      "category": "PSA",
+      "display_name": "Kaseya BMS",
+      "tagline": "Run the Kaseya BMS service desk, contracts, and billing from your terminal - with offline analytics the web grid can't compute.",
+      "cli_hash": "sha256:80414aa7baeaef4afccd1f96a35096f35c44538b50cc7ec1e20bd10c719e62e5",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }
