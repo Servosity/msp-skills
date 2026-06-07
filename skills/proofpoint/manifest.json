@@ -1,0 +1,47 @@
+{
+  "manifest_version": "0.3",
+  "name": "proofpoint-pp-mcp",
+  "display_name": "Proofpoint TAP",
+  "version": "4.22.0",
+  "description": "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions  -  who is both attacked and clicking, what touched this user  -  inside Proofpoint's punishing daily quotas.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/proofpoint-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/proofpoint-pp-mcp",
+      "args": [],
+      "env": {
+        "PROOFPOINT_API_SECRET": "${user_config.proofpoint_api_secret}",
+        "PROOFPOINT_SERVICE_PRINCIPAL": "${user_config.proofpoint_service_principal}"
+      }
+    }
+  },
+  "user_config": {
+    "proofpoint_api_secret": {
+      "type": "string",
+      "title": "PROOFPOINT_API_SECRET",
+      "description": "Sets PROOFPOINT_API_SECRET for the Proofpoint TAP MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "proofpoint_service_principal": {
+      "type": "string",
+      "title": "PROOFPOINT_SERVICE_PRINCIPAL",
+      "description": "Sets PROOFPOINT_SERVICE_PRINCIPAL for the Proofpoint TAP MCP server.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

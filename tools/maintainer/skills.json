@@ -644,6 +644,29 @@
         "evidence": null
       }
     },
+    "proofpoint": {
+      "system": "Proofpoint Targeted Attack Protection (TAP) email security and threat intelligence",
+      "status": "beta",
+      "cli_binary": "proofpoint-cli",
+      "mcp_binary": "proofpoint-mcp",
+      "vendor": "Proofpoint",
+      "vendor_trademark_owner": "Proofpoint, Inc",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Proofpoint TAP",
+      "tagline": "Investigate Proofpoint TAP threats, VAPs, and top clickers from your terminal without burning the daily API quota.",
+      "cli_hash": "sha256:549b1204f509069acff9511a9727d5b7b7776feaeb494641aaba543637b55be1",
+      "template_version": 3,
+      "version": "4.22.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "quickbooks": {
       "system": "QuickBooks Online accounting: invoices, bills, payments, customers, vendors, AR/AP aging, DSO, cash forecast",
       "status": "beta",

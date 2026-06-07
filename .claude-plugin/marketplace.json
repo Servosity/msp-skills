@@ -666,6 +666,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "proofpoint",
+      "source": "./skills/proofpoint",
+      "description": "Every Proofpoint TAP Threat Insight endpoint plus a local threat store that answers cross-endpoint questions - who is both attacked and clicking, what touched a given user - without re-spending the limited daily API quota.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "proofpoint",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

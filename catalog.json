@@ -574,6 +574,25 @@
       "tagline": "Surface stale deals, weighted forecasts, and overdue follow-ups across your pipeline by asking."
     },
     {
+      "name": "proofpoint",
+      "system": "Proofpoint Targeted Attack Protection (TAP) email security and threat intelligence",
+      "status": "beta",
+      "skill_path": "skills/proofpoint",
+      "cli_binary": "proofpoint-cli",
+      "mcp_binary": "proofpoint-mcp",
+      "version": "4.22.0",
+      "license": "Apache-2.0",
+      "vendor": "Proofpoint",
+      "vendor_trademark_owner": "Proofpoint, Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proofpoint/install.sh)",
+      "install_mcp_doc": "skills/proofpoint/mcp-install.md",
+      "description": "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions  -  who is both attacked and clicking, what touched this user  -  inside Proofpoint's punishing daily quotas.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Investigate Proofpoint TAP threats, VAPs, and top clickers from your terminal without burning the daily API quota."
+    },
+    {
       "name": "quickbooks",
       "system": "QuickBooks Online accounting: invoices, bills, payments, customers, vendors, AR/AP aging, DSO, cash forecast",
       "status": "beta",
