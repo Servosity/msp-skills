@@ -900,6 +900,40 @@ A: No. You need a QuickBooks Online company and an OAuth access token scoped to 
 
 Governance: The skill reads everything - aging, balances, DSO, cash forecast, reconciliation, search - and read commands cannot change anything. Writes are explicit create/update/delete commands on invoices, bills, payments, customers, vendors, accounts, items, and journal entries, and `--dry-run` is opt-in, so the recommended agent policy is: read freely, preview every write, and keep a human on deletes. Credentials are read from the environment only and are never written to disk or logged.
 
+### Rootly (Incident Response)
+
+Page: https://msp-skills.compoundingteams.com/skills/rootly/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rootly/install.sh)
+
+Ask "who's on call for this service right now?" or "what's our MTTR by service this quarter?" and get the answer in one command. Rootly syncs to a local SQLite mirror, so incident-similarity, resolution mining, on-call coverage audits, and MTTA/MTTR analytics run instantly and offline - no portal clicking, no per-question API call.
+
+Outcomes (question -> command your AI agent runs):
+- Who's on call right now across every service and schedule? -> rootly-cli oncall-now
+- What past incidents are most similar to this one? -> rootly-cli related <incident-id>
+- What actually fixed this service the last time it broke? -> rootly-cli fixed-last-time <service>
+- What's our MTTA and MTTR by service this quarter? -> rootly-cli mttr --by service --since 90d
+- Where does an on-call schedule have an unstaffed gap? -> rootly-cli coverage-gaps --days 14
+- Is it safe to deploy this service right now? -> rootly-cli deploy-guard <service>
+- Give me one screen for this active incident. -> rootly-cli war-room <incident-id>
+- Which incidents are breaching or about to breach SLA? -> rootly-cli sla-breach --within 2h
+- Which open action items are overdue, grouped by owner? -> rootly-cli action-items-overdue --group-by owner
+- Draft a paste-ready post-mortem skeleton for this incident. -> rootly-cli postmortem-skeleton <incident-id>
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Rootly MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Rootly data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this hit my Rootly API rate limits?
+A: Rarely. Read questions run against the local SQLite mirror, not the API - you sync once, then analytics, search, and the on-call views are offline. Only sync and live writes call Rootly.
+
+Governance: The skill reads incidents, alerts, schedules, and on-call data, and can create or update incidents and related objects - but never changes anything unless you ask. Reads are always safe to run; routine writes should be previewed with --dry-run and then approved; credential, destructive, and config commands (secrets, deletes, key rotation) are human-in-the-loop only.
+
 ### SentinelOne (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/sentinelone/

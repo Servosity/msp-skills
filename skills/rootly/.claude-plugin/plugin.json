@@ -1,0 +1,20 @@
+{
+  "name": "rootly",
+  "version": "0.1.0",
+  "description": "Every Rootly incident, alert, and on-call object as a typed command \u2014 plus a local SQLite mirror that answers related-incident, MTTR, coverage-gap, and on-call questions offline and instantly.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/rootly",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "rootly",
+    "incident-response",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

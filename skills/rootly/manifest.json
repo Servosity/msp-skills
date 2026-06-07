@@ -1,0 +1,46 @@
+{
+  "manifest_version": "0.3",
+  "name": "rootly-mcp",
+  "display_name": "Rootly",
+  "version": "0.1.0",
+  "description": "Every Rootly incident, alert, and on-call object as a typed command - plus a local SQLite mirror that answers related-incident, MTTR, coverage-gap, and on-call questions offline and instantly.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/rootly-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/rootly-mcp",
+      "args": [],
+      "env": {
+        "ROOTLY_API_KEY": "${user_config.rootly_api_key}",
+        "ROOTLY_API_TOKEN": "${user_config.rootly_api_token}"
+      }
+    }
+  },
+  "user_config": {
+    "rootly_api_key": {
+      "type": "string",
+      "title": "ROOTLY_API_KEY",
+      "description": "Rootly API key, sent as a Bearer token (JSON:API). Create one at Rootly > Settings > API Keys. Set this OR ROOTLY_API_TOKEN.",
+      "sensitive": true,
+      "required": true
+    },
+    "rootly_api_token": {
+      "type": "string",
+      "title": "ROOTLY_API_TOKEN",
+      "description": "Optional. Accepted as an alias for ROOTLY_API_KEY (the variable the Rootly MCP server uses).",
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

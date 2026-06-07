@@ -1,0 +1,114 @@
+{
+  "outcome_intro": "Ask \"who's on call for this service right now?\" or \"what's our MTTR by service this quarter?\" and get the answer in one command. Rootly syncs to a local SQLite mirror, so incident-similarity, resolution mining, on-call coverage audits, and MTTA/MTTR analytics run instantly and offline - no portal clicking, no per-question API call.",
+  "instead_of_say": [
+    {
+      "instead": "Clicking through Rootly service by service the night before a reliability review to stitch together an MTTR report",
+      "say": "What's our mean time to acknowledge and resolve by service over the last quarter?",
+      "cli": "rootly-cli mttr --by service --since 90d"
+    },
+    {
+      "instead": "Opening every on-call schedule by hand to find which weekends and holidays have nobody covering",
+      "say": "Where does an on-call schedule have an unstaffed gap in the next two weeks?",
+      "cli": "rootly-cli coverage-gaps --days 14"
+    },
+    {
+      "instead": "Pinging the team in Slack to find out who is actually on call for a service mid-incident",
+      "say": "Who's on call right now across every service, escalation tier included?",
+      "cli": "rootly-cli oncall-now"
+    }
+  ],
+  "pain_points": [
+    "On-call responders drown in alerts and burn out - the predictable result when most pages don't matter and the real incident hides in the noise (Catchpoint SRE Report).",
+    "The reliability numbers leadership asks for at the review - MTTA, MTTR, who is carrying the on-call load - get hand-assembled from exports the night before.",
+    "Nobody notices the hole in next week's on-call schedule until an incident finds it first."
+  ],
+  "outcomes": [
+    {
+      "question": "Who's on call right now across every service and schedule?",
+      "command": "rootly-cli oncall-now"
+    },
+    {
+      "question": "What past incidents are most similar to this one?",
+      "command": "rootly-cli related <incident-id>"
+    },
+    {
+      "question": "What actually fixed this service the last time it broke?",
+      "command": "rootly-cli fixed-last-time <service>"
+    },
+    {
+      "question": "What's our MTTA and MTTR by service this quarter?",
+      "command": "rootly-cli mttr --by service --since 90d"
+    },
+    {
+      "question": "Where does an on-call schedule have an unstaffed gap?",
+      "command": "rootly-cli coverage-gaps --days 14"
+    },
+    {
+      "question": "Is it safe to deploy this service right now?",
+      "command": "rootly-cli deploy-guard <service>"
+    },
+    {
+      "question": "Give me one screen for this active incident.",
+      "command": "rootly-cli war-room <incident-id>"
+    },
+    {
+      "question": "Which incidents are breaching or about to breach SLA?",
+      "command": "rootly-cli sla-breach --within 2h"
+    },
+    {
+      "question": "Which open action items are overdue, grouped by owner?",
+      "command": "rootly-cli action-items-overdue --group-by owner"
+    },
+    {
+      "question": "Draft a paste-ready post-mortem skeleton for this incident.",
+      "command": "rootly-cli postmortem-skeleton <incident-id>"
+    }
+  ],
+  "different_vs_wrappers": "Most Rootly integrations and MCP servers proxy each question into a live API call - fine for reading one incident, costly for \"MTTR by service across the quarter\" or \"find the incidents most similar to this one,\" which otherwise means a call per object. This skill syncs Rootly into a local SQLite mirror, so cross-incident analytics (mttr, related, fixed-last-time, coverage-gaps, service-health) become one offline join: instant, rate-limit-free, and the AI sees the computed answer, not a raw data dump.",
+  "different_vs_vendor": "Rootly's own AI and analytics live in the web app; this skill puts the post-incident math - MTTA/MTTR, incident similarity, resolution mining, on-call coverage and escalation-gap checks - in your terminal and your AI agent, computed offline from data any API key can read. It complements the Rootly portal; it does not replace your account.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Rootly MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Rootly data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Will this hit my Rootly API rate limits?",
+      "a": "Rarely. Read questions run against the local SQLite mirror, not the API - you sync once, then analytics, search, and the on-call views are offline. Only sync and live writes call Rootly."
+    }
+  ],
+  "governance_summary": "The skill reads incidents, alerts, schedules, and on-call data, and can create or update incidents and related objects - but never changes anything unless you ask. Reads are always safe to run; routine writes should be previewed with --dry-run and then approved; credential, destructive, and config commands (secrets, deletes, key rotation) are human-in-the-loop only.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "oncall-now, mttr, related, coverage-gaps, sla-breach, service-health, search, and any non-secret list/get (not secrets/api-keys, which return stored credentials)",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "incidents create, incidents update, incidents resolve, schedules update, import (bulk create/upsert from JSONL)",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Credential / security",
+      "examples": "secrets, api-keys rotate",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "incidents delete, schedules delete",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

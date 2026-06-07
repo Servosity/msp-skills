@@ -482,6 +482,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "rootly",
+      "source": "./skills/rootly",
+      "description": "Every Rootly incident, alert, and on-call object as a typed command \u2014 plus a local SQLite mirror that answers related-incident, MTTR, coverage-gap, and on-call questions offline and instantly.",
+      "version": "0.1.0",
+      "category": "incident-response",
+      "tags": [
+        "rootly",
+        "incident-response",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
