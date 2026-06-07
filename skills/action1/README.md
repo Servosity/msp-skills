@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/action1/">
-    <img src="../../docs/assets/social/action1/wide-1200x630.png" alt="Action1 - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/action1/animated-og.gif" alt="Action1 demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/action1/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/action1/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
@@ -145,25 +145,36 @@ ACTION1_CLIENT_ID=<value> ACTION1_CLIENT_SECRET=<value> ACTION1_REGION=<value> a
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `action1-cli ...` |
-
--->
+| Which endpoints across all clients are missing the most patches? | `action1-cli fleet patch-posture` |
+| Which CVEs hit the most machines, severity- and KEV-weighted? | `action1-cli fleet vuln-triage --kev-only` |
+| Which agents have stopped checking in across the fleet? | `action1-cli fleet stale --days 14` |
+| What is the patch-and-vulnerability posture per client organization? | `action1-cli fleet org-scorecard` |
+| Which endpoints are waiting on a reboot to finish a patch cycle? | `action1-cli fleet reboot-pending` |
+| Rank every endpoint by overall risk (updates, CVEs, reboot, staleness) | `action1-cli fleet health-score` |
+| What software is installed across the whole fleet, deduped by version? | `action1-cli fleet software-rollup` |
+| List the managed endpoints in one client organization | `action1-cli endpoints managed <orgId>` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Action1 integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Action1 integrations and MCP servers proxy each question into a live API call, one organization at a time. That's fine for one record. It dies at scale, when you're asking "which endpoint across all 40 of my clients is most behind on patches, and which CVE is on the most machines this quarter" - questions the org-siloed API cannot answer in a single call.
 
-This skill syncs Action1 into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs every organization into a **local SQLite mirror** with full-text search. Aggregate questions become one local query: instant, offline, and the AI sees the answer, not the raw data. Cross-org rollups like `fleet patch-posture`, `fleet vuln-triage`, and `fleet org-scorecard` join across every organization's endpoints, updates, and vulnerabilities at once - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+Patch-management threads on r/msp keep surfacing the same gap with multi-tenant patch tools: the console is organized one client organization at a time, but the questions an MSP owner has to answer are fleet-wide - "which endpoints are most behind?", "which CVE is everywhere?", "what posture number goes in this client's QBR?" In Action1 that means switching organizations one by one, or exporting per-org and merging spreadsheets. The data is there per client; it just doesn't roll up across every organization in one view.
+
+This skill closes that gap:
+
+- `action1-cli fleet patch-posture` - every endpoint, all orgs, ranked by missing updates.
+- `action1-cli fleet vuln-triage --kev-only` - CVEs ranked by blast radius (CVSS + CISA KEV).
+- `action1-cli fleet org-scorecard` - one posture row per client organization, the QBR number in a line.
+- `action1-cli fleet stale --days 14` - dark agents across every org, before they fall out of coverage.
+- `action1-cli fleet reboot-pending` - the fleet-wide action queue that closes out a patch cycle.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +196,13 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Which Action1 region and credentials do I need?
+
+An API client (Client ID + Client Secret) from your Action1 console's API Credentials page, plus `ACTION1_REGION` set to `us`, `eu`, or `au` to match your console URL. The CLI POSTs them to `/oauth2/token` and mints and refreshes the bearer token for you. Scope the client to read-only permission templates if you only need reporting - see [governance.md](./governance.md).
+
+### Does this replace the Action1 console?
+
+No. The console stays your place to configure automations and approve patches interactively. This skill answers the cross-organization questions the console shows one org at a time - fleet patch posture, CVE blast-radius, per-client scorecards - and lets your AI agent run them from the terminal.
 
 ### What does it cost?
 
@@ -198,15 +210,13 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `fleet patch-posture`, `fleet vuln-triage`, `endpoints managed <orgId>`, `search`, `export`, `doctor` | Allow |
+| Write (routine) | `endpoints groups`, `endpoints managed-id-patch`, `settings org-id-post`, `automations policies-schedules-org-id-post`, `import` | Preview with `--dry-run`, then a reviewed write |
+| Endpoint / patch execution | `automations policies-instances-org-id-post` (run an automation), `updates approvals updates-org-id`, `endpoints managed-id-remote-sessions-post`, `scripts org-id-post` | Human-in-the-loop; never unattended |
+| Credential / security | `oauth2` (mints a token), `users post`, `roles post`, `roles id-patch` | Human-in-the-loop only |
+| Destructive / account | `endpoints managed-id-delete`, `organizations org-id-delete`, `users id-delete`, `enterprise request-closure` | Human-in-the-loop only, explicit confirmation |
 
 The strongest control is the **scope you grant the Action1 credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +228,4 @@ Beta. Validated against the Action1 API surface and being validated with MSPs ru
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-06._

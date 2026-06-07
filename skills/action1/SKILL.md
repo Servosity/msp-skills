@@ -1,6 +1,6 @@
 ---
 name: action1
-description: "Every Action1 endpoint, plus the fleet-wide patch and vulnerability views the org-siloed API cannot give you. Trigger phrases: `action1 patch posture`, `which endpoints are missing patches`, `triage action1 vulnerabilities`, `find stale action1 agents`, `action1 fleet view across organizations`, `use action1`, `run action1-cli`."
+description: "Use when the user asks to check Action1 patch status, triage vulnerabilities, find stale or offline agents, score endpoint risk, or report patch posture across one or many client organizations. Adds fleet-wide views the org-siloed Action1 API cannot return in a single call. Trigger phrases: `action1 patch posture`, `which endpoints are missing patches`, `triage action1 vulnerabilities`, `find stale action1 agents`, `action1 fleet view across organizations`, `use action1`, `run action1-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Action1"
@@ -11,28 +11,26 @@ metadata:
     requires:
       bins:
         - action1-cli
-    install:
-      - kind: go
-        bins: [action1-cli]
-        module: github.com/mvanhorn/printing-press-library/library/monitoring/action1/cmd/action1-cli
 ---
 
-# Action1  -  Printing Press CLI
+# Action1 Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `action1-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install action1 --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/action1/install.sh)
    ```
-2. Verify: `action1-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/action1/install.ps1 | iex
+   ```
+3. Verify: `action1-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails before this CLI has a public-library category, install Node or use the category-specific Go fallback after publish.
-
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Action1's REST API is organization-siloed  -  every call is scoped to one org and nothing is kept over time. This CLI mirrors the full API, then fans out across all your organizations into a local SQLite store so you can rank the worst-patched endpoints fleet-wide (fleet patch-posture), triage CVEs by blast radius and CISA KEV status (fleet vuln-triage), find dark agents (fleet stale), and diff patch drift week over week (fleet patch-drift). Agent-native output, typed exit codes, and offline search throughout.
 
@@ -42,7 +40,7 @@ Use this CLI when an agent or technician needs to query Action1 patch, vulnerabi
 
 ## When NOT to Use This CLI
 
-- One client's **live** data → use the per-org commands (e.g. `endpoints managed <orgId>`, `vulnerabilities list <orgId>`), not the `fleet` views.
+- One client's **live** data → use the per-org commands (e.g. `endpoints managed <orgId>`, `vulnerabilities org-id-get <orgId>`), not the `fleet` views.
 - A single CVE's detail → `cve-descriptions <cveId>`, not `fleet vuln-triage`.
 - Fleet views before a `sync` → they read the local store and return `[]` until `sync --full` has populated it.
 - Real-time interactive remediation/remote control → launch automations via the `automations` commands and check results afterwards; there is no live remote-control surface beyond what the Action1 API exposes.
@@ -449,15 +447,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/monitoring/action1/cmd/action1-mcp@latest
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add action1-mcp -- action1-mcp
-   ```
-3. Verify: `claude mcp list`
+The installer above drops `action1-mcp` alongside the CLI. Register it:
+
+```bash
+claude mcp add action1-mcp -- action1-mcp
+```
+
+Verify: `claude mcp list`
 
 ## Direct Use
 
