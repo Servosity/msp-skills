@@ -1,5 +1,5 @@
 {
-  "count": 29,
+  "count": 30,
   "connectors": [
     {
       "slug": "acronis",
@@ -72,6 +72,14 @@
       "category": "RMM",
       "verification": "awaiting",
       "url": "/skills/datto-rmm/"
+    },
+    {
+      "slug": "domotz",
+      "display_name": "Domotz",
+      "tagline": "Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal.",
+      "category": "Network Monitoring",
+      "verification": "awaiting",
+      "url": "/skills/domotz/"
     },
     {
       "slug": "halopsa",
