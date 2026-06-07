@@ -118,6 +118,13 @@
     "current_hash": "sha256:6ebb43673929dadad8e073419e6eebf447563ebc7f70ef22e1fed294d8a73f3d",
     "released_hash": "sha256:6ebb43673929dadad8e073419e6eebf447563ebc7f70ef22e1fed294d8a73f3d"
   },
+  "gradient": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:0e9b53fef8e8c6d4811a118ec56f55c6aff8384adc854cca1ee3d765d2de6829",
+    "released_hash": null
+  },
   "halopsa": {
     "state": "up-to-date",
     "version": "0.2.0",
