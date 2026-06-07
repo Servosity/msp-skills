@@ -460,6 +460,25 @@
       "tagline": "Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking."
     },
     {
+      "name": "rootly",
+      "system": "Rootly incident management, alerting, and on-call response platform",
+      "status": "beta",
+      "skill_path": "skills/rootly",
+      "cli_binary": "rootly-cli",
+      "mcp_binary": "rootly-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Rootly",
+      "vendor_trademark_owner": "Rootly, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rootly/install.sh)",
+      "install_mcp_doc": "skills/rootly/mcp-install.md",
+      "description": "Every Rootly incident, alert, and on-call object as a typed command - plus a local SQLite mirror that answers related-incident, MTTR, coverage-gap, and on-call questions offline and instantly.",
+      "verification": "awaiting",
+      "category": "Incident Response",
+      "tagline": "Every Rootly incident, alert, and on-call object as a typed command, plus offline MTTR and coverage-gap answers."
+    },
+    {
       "name": "sentinelone",
       "system": "SentinelOne Singularity: threat triage, mitigation, agent fleet health, and protection-coverage gaps across customer sites",
       "status": "beta",

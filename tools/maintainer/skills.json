@@ -284,6 +284,52 @@
         "evidence": null
       }
     },
+    "huntress": {
+      "system": "managed endpoint detection and response (EDR) security platform",
+      "status": "beta",
+      "cli_binary": "huntress-cli",
+      "mcp_binary": "huntress-mcp",
+      "vendor": "Huntress",
+      "vendor_trademark_owner": "Huntress Labs, Inc",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Huntress",
+      "tagline": "Triage Huntress incidents and coverage gaps across every client org from one queue.",
+      "cli_hash": "sha256:cabbf61ddeb69ab20e999dc45ce8d720fb9ae26b15ff74131c986f3080c50f3c",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:cabbf61ddeb69ab20e999dc45ce8d720fb9ae26b15ff74131c986f3080c50f3c",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "itglue": {
+      "system": "IT Glue documentation platform",
+      "status": "beta",
+      "cli_binary": "itglue-cli",
+      "mcp_binary": "itglue-mcp",
+      "vendor": "IT Glue",
+      "vendor_trademark_owner": "Kaseya US LLC",
+      "first_party": false,
+      "category": "Documentation",
+      "display_name": "IT Glue",
+      "tagline": "Find any device, audit stale passwords, and rank thin client docs by asking.",
+      "cli_hash": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "microsoft-graph": {
       "system": "Microsoft 365 / Entra tenant administration via Microsoft Graph",
       "status": "beta",
@@ -460,6 +506,29 @@
         "evidence": null
       }
     },
+    "rootly": {
+      "system": "Rootly incident management, alerting, and on-call response platform",
+      "status": "beta",
+      "cli_binary": "rootly-cli",
+      "mcp_binary": "rootly-mcp",
+      "vendor": "Rootly",
+      "vendor_trademark_owner": "Rootly, Inc.",
+      "first_party": false,
+      "category": "Incident Response",
+      "display_name": "Rootly",
+      "tagline": "Every Rootly incident, alert, and on-call object as a typed command, plus offline MTTR and coverage-gap answers.",
+      "cli_hash": "sha256:d8bf95fa7318e99db5fa6bdc6d84e1b55ea2e553494b6e19034c9ab39ec4e726",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "sentinelone": {
       "system": "SentinelOne Singularity: threat triage, mitigation, agent fleet health, and protection-coverage gaps across customer sites",
       "status": "beta",
@@ -577,52 +646,6 @@
         "evidence": null
       },
       "install_auth_hint": "Then set `THREATLOCKER_API_KEY` (Portal > Administrators > API Users > Generate API Token) and run `threatlocker-cli doctor`"
-    },
-    "itglue": {
-      "system": "IT Glue documentation platform",
-      "status": "beta",
-      "cli_binary": "itglue-cli",
-      "mcp_binary": "itglue-mcp",
-      "vendor": "IT Glue",
-      "vendor_trademark_owner": "Kaseya US LLC",
-      "first_party": false,
-      "category": "Documentation",
-      "display_name": "IT Glue",
-      "tagline": "Find any device, audit stale passwords, and rank thin client docs by asking.",
-      "cli_hash": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "huntress": {
-      "system": "managed endpoint detection and response (EDR) security platform",
-      "status": "beta",
-      "cli_binary": "huntress-cli",
-      "mcp_binary": "huntress-mcp",
-      "vendor": "Huntress",
-      "vendor_trademark_owner": "Huntress Labs, Inc",
-      "first_party": false,
-      "category": "Security",
-      "display_name": "Huntress",
-      "tagline": "Triage Huntress incidents and coverage gaps across every client org from one queue.",
-      "cli_hash": "sha256:cabbf61ddeb69ab20e999dc45ce8d720fb9ae26b15ff74131c986f3080c50f3c",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:cabbf61ddeb69ab20e999dc45ce8d720fb9ae26b15ff74131c986f3080c50f3c",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
     },
     "xero": {
       "system": "the Xero cloud accounting platform",
