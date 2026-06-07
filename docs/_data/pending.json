@@ -188,6 +188,13 @@
     "current_hash": "sha256:e2809dda5dece4cfd4241cfe38305249d3b5b98eb4ae5dd6259f85f1cb2ea738",
     "released_hash": "sha256:e2809dda5dece4cfd4241cfe38305249d3b5b98eb4ae5dd6259f85f1cb2ea738"
   },
+  "pipedrive": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:5994571211bea81b5d2bae4f29df861ac81da96556bf6fc081956ee17a8126cc",
+    "released_hash": null
+  },
   "quickbooks": {
     "state": "up-to-date",
     "version": "0.1.0",
