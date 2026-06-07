@@ -7,11 +7,11 @@
     "released_hash": "sha256:5aee353c2bab50f319fa4768e4461ea0bda3fdb6fa8eeda8b3fa921fb283bee6"
   },
   "atera": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:f41285fdec8985ba8d97780fdec6c66b3d6863147abab3a4cbc8be0fbca651f8",
-    "released_hash": null
+    "released_hash": "sha256:f41285fdec8985ba8d97780fdec6c66b3d6863147abab3a4cbc8be0fbca651f8"
   },
   "autotask": {
     "state": "up-to-date",
@@ -42,11 +42,11 @@
     "released_hash": "sha256:232b3a19180ae6955758434e88d786d9c683eb17ba45f98761b26c063574c7b3"
   },
   "datto-bcdr": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:305bd912e613b78f8b33e1ca1488d27a03c5c2e4a37f26cfc8df357a4de0ffa0",
-    "released_hash": null
+    "released_hash": "sha256:305bd912e613b78f8b33e1ca1488d27a03c5c2e4a37f26cfc8df357a4de0ffa0"
   },
   "datto-rmm": {
     "state": "up-to-date",
@@ -70,25 +70,25 @@
     "released_hash": "sha256:4ec274f47091f317aff6a1c2f816410df2f18d6d270de4a4892d7fedb616fd7d"
   },
   "hudu": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:0fda7c0ab5e2f9450b73920b61807e8af2f398c489c89e4145d07039a384fdca",
-    "released_hash": null
+    "released_hash": "sha256:0fda7c0ab5e2f9450b73920b61807e8af2f398c489c89e4145d07039a384fdca"
   },
   "huntress": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:cabbf61ddeb69ab20e999dc45ce8d720fb9ae26b15ff74131c986f3080c50f3c",
-    "released_hash": null
+    "released_hash": "sha256:cabbf61ddeb69ab20e999dc45ce8d720fb9ae26b15ff74131c986f3080c50f3c"
   },
   "itglue": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29",
-    "released_hash": null
+    "released_hash": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29"
   },
   "microsoft-graph": {
     "state": "up-to-date",
@@ -126,11 +126,11 @@
     "released_hash": "sha256:78c736dbe18ce38fe022df3ecf340b7c717b6bd7cc469eaf647b187b47c66791"
   },
   "pagerduty": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:36391dfbded332a0db48405fe8151efffbe19324716653e518a5cae354ed15ce",
-    "released_hash": null
+    "released_hash": "sha256:36391dfbded332a0db48405fe8151efffbe19324716653e518a5cae354ed15ce"
   },
   "pax8": {
     "state": "up-to-date",
@@ -140,11 +140,11 @@
     "released_hash": "sha256:e2809dda5dece4cfd4241cfe38305249d3b5b98eb4ae5dd6259f85f1cb2ea738"
   },
   "quickbooks": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:2dbc4bffec016aeda87ce7165ee9a16bbb044b944095daf2aaa5b9c9154ea4c8",
-    "released_hash": null
+    "released_hash": "sha256:2dbc4bffec016aeda87ce7165ee9a16bbb044b944095daf2aaa5b9c9154ea4c8"
   },
   "sentinelone": {
     "state": "up-to-date",
@@ -168,11 +168,11 @@
     "released_hash": "sha256:fdd78076d4955dddd2e4d4c42a66c3b66bece8005d59c5d10944465d525e12a0"
   },
   "syncro": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:88fccde7356fb69b6a650d2d6b48020340af6cb11e17e134646ed0ea95b7556a",
-    "released_hash": null
+    "released_hash": "sha256:88fccde7356fb69b6a650d2d6b48020340af6cb11e17e134646ed0ea95b7556a"
   },
   "threatlocker": {
     "state": "up-to-date",
