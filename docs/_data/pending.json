@@ -146,6 +146,13 @@
     "current_hash": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29",
     "released_hash": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29"
   },
+  "kaseya-bms": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:80414aa7baeaef4afccd1f96a35096f35c44538b50cc7ec1e20bd10c719e62e5",
+    "released_hash": null
+  },
   "knowbe4": {
     "state": "up-to-date",
     "version": "0.1.0",
