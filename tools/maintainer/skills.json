@@ -600,6 +600,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "xero": {
+      "system": "the Xero cloud accounting platform",
+      "status": "beta",
+      "cli_binary": "xero-cli",
+      "mcp_binary": "xero-mcp",
+      "vendor": "Xero",
+      "vendor_trademark_owner": "Xero Limited",
+      "first_party": false,
+      "category": "Billing",
+      "display_name": "Xero",
+      "tagline": "Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal - offline, in one call.",
+      "cli_hash": "sha256:894e49c7bbc421702afcd551687fbdb0b355cd863ed8dbf5c440e452333189d6",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }

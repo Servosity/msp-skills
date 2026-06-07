@@ -979,3 +979,41 @@ Q: Does it replace the ThreatLocker Portal?
 A: No. The Portal stays best for authoring policies and the interactive approve/deny workflow. This skill adds cross-tenant queries and scriptable writes to your AI agent so you stop logging into each tenant to answer book-wide questions.
 
 Governance: The skill drives the threatlocker-cli and threatlocker-mcp binaries, authenticating with a THREATLOCKER_API_KEY read from the environment, never logged and never sent anywhere except the ThreatLocker API. Read commands (approvals triage, audit drift, audit export, audit retention-check, devices health, applications hunt, search) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule, preview with --dry-run, show the exact command, get approval, then run the write. Keep computers delete and policies delete human-only. The strongest control is the scope of the API key you mint in the Portal.
+
+### Xero (Billing)
+
+Page: https://msp-skills.compoundingteams.com/skills/xero/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/xero/install.sh)
+
+Ask in plain English who owes you and how overdue, which authorised invoices still have no payment applied, and whether the general ledger ties to outstanding invoices at close - for a Xero organisation, in one call. Xero plus your AI agent reads a local mirror of the org, so the aging, reconciliation, and tie-out questions the web reports make you export and pivot become one instant, offline answer.
+
+Outcomes (question -> command your AI agent runs):
+- Who owes us, and how overdue is each invoice? -> xero-cli aging --agent
+- What do we owe suppliers, bucketed by age? -> xero-cli aging --payable --agent
+- Which contacts carry the most receivable risk? -> xero-cli exposure --agent
+- Which authorised invoices are still owed with no applied payment? -> xero-cli reconcile --agent
+- Which bank transactions are unreconciled, and what might they match? -> xero-cli bank-recon --agent
+- Do the GL control accounts tie to outstanding invoices at close? -> xero-cli tie-out --agent
+- What posted to a single account, as a running balance? -> xero-cli ledger 200 --agent
+- What changed in the organisation since last week? -> xero-cli since 7d --agent
+- Give me one state-of-the-org summary in a single call. -> xero-cli snapshot --agent
+- Find every synced record matching a keyword. -> xero-cli search "overdue" --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Xero MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Xero data safe?
+A: Your data stays on your machine - the CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this hit my Xero API rate limits?
+A: Rarely. After one sync into the local mirror, aging, reconciliation, tie-out, exposure, ledger, and search run entirely offline - zero API calls. Only sync, explicit live reads, and writes touch the API, which Xero caps at 60 calls per minute and 5,000 per day per organisation; the local-first design is built around that limit.
+Q: Which Xero credentials does it need, and does it create them?
+A: You mint an OAuth2 token in the Xero developer portal - a Custom Connection is the simplest for machine-to-machine use - then pass it plus your organisation's tenant id via XERO_ACCESS_TOKEN and XERO_TENANT_ID. The CLI never creates or rotates tokens; it only uses the one you give it. Run xero-cli doctor to confirm both are set before syncing.
+Q: Does it cover one organisation or several?
+A: One organisation per XERO_TENANT_ID. The local mirror holds a single tenant; for a multi-entity portfolio, point the tenant id at each organisation in turn and loop.
+
+Governance: Everything analytical reads from a local mirror - aging, exposure, reconcile, bank-recon, tie-out, ledger, snapshot, since, and search are always safe to run and cannot change anything. Writes (creating or updating invoices, contacts, accounts, payments, bank transactions, and items, plus the bulk import) send to your live Xero organisation, so the recommended agent policy is preview-then-approve. Deletes of accounts, items, and payments are destructive and removing stored auth tokens is credential-tier - keep both human-in-the-loop. The strongest control is the scope of the OAuth2 token you grant.

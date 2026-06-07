@@ -1,0 +1,5 @@
+{
+  "descriptions": {
+    "items_delete": "Permanently delete an inventory or sales/purchase item from the Xero organisation. Required: ItemID (the item's Xero GUID; resolve a human name to its id with items_list or the items name-resolution path first). Returns 204 No Content on success  -  there is no response body, so confirm by re-querying items_list. Destructive and irreversible: an item that has been used on invoices or transactions cannot be deleted and the API returns a 400. Prefer items_update to deactivate or amend an item; use this only when the item should be removed entirely."
+  }
+}

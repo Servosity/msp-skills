@@ -407,6 +407,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "xero",
+      "source": "./skills/xero",
+      "description": "Every Xero Accounting read plus a local SQLite ledger  -  aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
+      "version": "0.1.0",
+      "category": "billing",
+      "tags": [
+        "xero",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
