@@ -15,6 +15,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Action1 (RMM) - Patch every client's endpoints and triage CVEs fleet-wide from your terminal.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/action1/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/action1/install.sh)
+- Afi (Backup-DR) - Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/afi/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/afi/install.sh)
 - Atera (RMM) - Answer fleet-health, SLA, and book-of-business questions across your Atera estate from the terminal.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/atera/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/atera/install.sh)

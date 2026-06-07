@@ -148,6 +148,41 @@ A: No. The console stays your place to configure automations and approve patches
 
 Governance: The skill reads freely - fleet rollups, lists, reports, search, export - and those reads change nothing. Routine writes (config edits, including the read-named import command) should be previewed with --dry-run, then approved. Endpoint-level actions like running an automation, approving updates for deployment, or opening a remote session, plus token-minting, user/role management, and deletes, are endpoint-execution, credential, or destructive tier - keep them human-in-the-loop and scope your API client to only the permissions your workflow needs.
 
+### Afi (Backup-DR)
+
+Page: https://msp-skills.compoundingteams.com/skills/afi/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/afi/install.sh)
+
+Ask your AI 'which mailboxes aren't backed up in Afi?' and get the answer across every tenant at once. This skill walks your whole Afi fleet into a local store, then answers coverage gaps, stale backups, license drift, and per-tenant posture offline - no per-tenant portal clicking, no tripping Afi's rate limits - and runs a verified archive-then-release when someone leaves.
+
+Outcomes (question -> command your AI agent runs):
+- Which resources have no backup protection at all? -> afi-cli coverage-gaps --agent
+- Which protected resources have a stale backup (silent failures)? -> afi-cli backup-stale --max-age 48h --agent
+- Is the whole fleet green this morning, or who failed? -> afi-cli fleet-health --failed-only --agent
+- What is one tenant's full backup posture for a QBR or ticket? -> afi-cli tenant-scorecard <tenant-id> --agent
+- Am I over- or under-licensed on Afi seats? -> afi-cli reconcile-licenses --agent
+- Who is jane.doe@example.com in Afi, across Multi-Geo tenants? -> afi-cli resolve <email-or-id> --agent
+- Safely back up then release a departing employee's mailbox? -> afi-cli offboard <resource-id> --tenant <tenant-id> --reason "employee departure"
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Afi MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Afi data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this trip Afi's API rate limits?
+A: Not if you use it as designed. Afi throttles - and may suspend - applications that poll continuously, so this skill walks the fleet into a local store in one respectful, rate-limited pass with fleet-sync, then answers every question offline against that store. You sync on a schedule, not on every question.
+Q: Do I need to be an Afi customer, and what access does the key need?
+A: Yes - you need an Afi account and an Application API key (created in the Afi portal: org level under Configuration to Apps, or tenant level under Service to Settings to Apps). The key inherits the Application's installation scope, so the CLI sees exactly the orgs and tenants that Application is installed on. Each Application supports two keys for rotation.
+Q: Will this replace the Afi portal?
+A: No. Restores, exports, and policy editing still happen in the Afi portal - the public API does not expose them. This skill is the read, report, and guarded-offboard layer: it answers fleet questions and runs the verified archive-then-release, then hands you back to the portal for the actions only it can do.
+
+Governance: The skill reads your Afi fleet (installations, orgs, tenants, resources, protections, policies, archives, quotas, and task stats) and can run a small set of writes: create a child org, import records, trigger a backup, and add a protection. Three commands are genuinely destructive - offboard, protections-unprotect, and archives delete - because they release backup coverage or delete an archive. Let an agent run reads freely; require a human to approve every write, and especially the destructive tier.
+
 ### Atera (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/atera/

@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "afi-mcp",
+  "display_name": "Afi",
+  "version": "0.1.0",
+  "description": "The first CLI for Afi SaaS backup - full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/afi-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/afi-mcp",
+      "args": [],
+      "env": {
+        "AFI_API_KEY": "${user_config.afi_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "afi_api_key": {
+      "type": "string",
+      "title": "AFI_API_KEY",
+      "description": "Sets AFI_API_KEY for the Afi MCP server.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}
