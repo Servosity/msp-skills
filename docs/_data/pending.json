@@ -21,18 +21,18 @@
     "released_hash": "sha256:cd15f01a694393e81caeba156e88e0274c9baa0985bc187618acc0d7e42b2d80"
   },
   "afi": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "afi-v0.1.0",
     "current_hash": "sha256:6a24526f190823c2faf1b8631d900484d8662f8f8044cb6468c7e799e92d5dce",
-    "released_hash": null
+    "released_hash": "sha256:6a24526f190823c2faf1b8631d900484d8662f8f8044cb6468c7e799e92d5dce"
   },
   "appdirect": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "appdirect-v0.1.0",
     "current_hash": "sha256:da05b9a0d23a5214804687dfe8170c56f00babc8c7fa956d94e59c8aab28134b",
-    "released_hash": null
+    "released_hash": "sha256:da05b9a0d23a5214804687dfe8170c56f00babc8c7fa956d94e59c8aab28134b"
   },
   "atera": {
     "state": "up-to-date",
@@ -84,11 +84,11 @@
     "released_hash": "sha256:a0617e8133dbdfbb42b9da1f1412fa9b6eb0ad684af373cfa7d540d58decd602"
   },
   "cove": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "cove-v0.1.0",
     "current_hash": "sha256:c5d9a8473fe8419502e1c39bf9d9c7fe8c37201647f2c84d280a5e7994b2844d",
-    "released_hash": null
+    "released_hash": "sha256:c5d9a8473fe8419502e1c39bf9d9c7fe8c37201647f2c84d280a5e7994b2844d"
   },
   "crowdstrike": {
     "state": "up-to-date",
@@ -119,11 +119,11 @@
     "released_hash": "sha256:6ebb43673929dadad8e073419e6eebf447563ebc7f70ef22e1fed294d8a73f3d"
   },
   "gradient": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "gradient-v0.1.0",
     "current_hash": "sha256:0e9b53fef8e8c6d4811a118ec56f55c6aff8384adc854cca1ee3d765d2de6829",
-    "released_hash": null
+    "released_hash": "sha256:0e9b53fef8e8c6d4811a118ec56f55c6aff8384adc854cca1ee3d765d2de6829"
   },
   "halopsa": {
     "state": "up-to-date",
@@ -161,11 +161,11 @@
     "released_hash": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29"
   },
   "kaseya-bms": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "kaseya-bms-v0.1.0",
     "current_hash": "sha256:80414aa7baeaef4afccd1f96a35096f35c44538b50cc7ec1e20bd10c719e62e5",
-    "released_hash": null
+    "released_hash": "sha256:80414aa7baeaef4afccd1f96a35096f35c44538b50cc7ec1e20bd10c719e62e5"
   },
   "knowbe4": {
     "state": "up-to-date",
