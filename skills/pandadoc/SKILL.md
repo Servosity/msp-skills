@@ -1,6 +1,6 @@
 ---
 name: pandadoc
-description: "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has  -  stalled deals, aging Trigger phrases: `check my pandadoc pipeline`, `which proposals are stalled`, `list pandadoc documents`, `create a document from a template`, `how much quote value is open`, `use pandadoc`, `run pandadoc`."
+description: "Use when the user asks which PandaDoc proposals are stalled, how much quote value is open, who to follow up with, which clients have gone cold, what changed recently, or to create/send/track documents, templates, and contacts. Wraps the PandaDoc API plus an offline SQLite mirror with cross-document analytics. Trigger phrases: `check my pandadoc pipeline`, `which proposals are stalled`, `how much quote value is open`, `who should I follow up with in pandadoc`, `which pandadoc clients have gone cold`, `list pandadoc documents`, `create a pandadoc document`, `PandaDoc + ChatGPT`, `PandaDoc + Claude`, `use pandadoc`, `run pandadoc-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "PandaDoc"
@@ -11,32 +11,26 @@ metadata:
     requires:
       bins:
         - pandadoc-cli
-    install:
-      - kind: go
-        bins: [pandadoc-cli]
-        module: github.com/mvanhorn/printing-press-library/library/sales-and-crm/pandadoc/cmd/pandadoc-cli
 ---
 
-# PandaDoc  -  Printing Press CLI
+# PandaDoc Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `pandadoc-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install pandadoc --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pandadoc/install.sh)
    ```
-2. Verify: `pandadoc-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pandadoc/install.ps1 | iex
+   ```
+3. Verify: `pandadoc-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/pandadoc/cmd/pandadoc-cli@latest
-```
-
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 pandadoc-cli wraps the full PandaDoc Public API and syncs documents, templates, contacts, content library, and webhooks into a local SQLite store. On top of that it answers questions the API can't: which documents are stalled (stalled), how long they've aged (aging), which recipients never sign (engagement), and how much quote value is in flight (value).
 
@@ -422,15 +416,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/pandadoc/cmd/pandadoc-mcp@latest
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add pandadoc-mcp -- pandadoc-mcp
-   ```
-3. Verify: `claude mcp list`
+The installer above drops `pandadoc-mcp` alongside the CLI. Register it:
+
+```bash
+claude mcp add pandadoc-mcp -- pandadoc-mcp
+```
+
+Verify: `claude mcp list`
 
 ## Direct Use
 

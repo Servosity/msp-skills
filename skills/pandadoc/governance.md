@@ -29,7 +29,7 @@ require a human for anything below the line.
 | --- | --- | --- | --- |
 | **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
 | **Write (routine)** | Day-to-day mutations. | `contacts create`, `contacts update`, `content-library-items create`, `documents attachments create-document`, `documents attachments-upload create-document-attachment-from-file-upload`, `documents auto-reminders get-document-settings`, `documents auto-reminders update-document-settings`, `documents create`, ... (35 total) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
-| **Credential / security** | Touches tokens, keys, MFA. | `members token`, `members token create-member` | Human-in-the-loop only |
+| **Credential / security** | Touches tokens, keys, signing secrets. | `members token create-member` (issues a member API token), `workspaces api-keys create` (issues a new workspace API key), `webhook-subscriptions shared-key update-webhook-subscription` (sets the webhook signing secret) | Human-in-the-loop only |
 | **Destructive** | Irreversible data or config loss. | `contacts delete`, `documents attachments delete-document`, `documents bulk-delete`, `documents delete`, `documents linked-objects delete`, `documents recipients delete-document`, `documents sections delete`, `public delete-catalog-item`, ... (11 total) | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
 

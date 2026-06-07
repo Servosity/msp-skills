@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/pandadoc/">
-    <img src="../../docs/assets/social/pandadoc/wide-1200x630.png" alt="PandaDoc - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/pandadoc/animated-og.gif" alt="PandaDoc demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/pandadoc/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/pandadoc/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has  -  stalled deals, aging, recipient engagement, and open quote value from a local store. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download PandaDoc MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/pandadoc-v4.22.0/pandadoc-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every PandaDoc release on the [releases page](https://github.com/servosity/msp-skills/releases?q=pandadoc).)
+[**Download PandaDoc MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/pandadoc-v0.1.0/pandadoc-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every PandaDoc release on the [releases page](https://github.com/servosity/msp-skills/releases?q=pandadoc).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -145,25 +145,36 @@ PANDADOC_API_KEY=<value> pandadoc-cli doctor
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `pandadoc-cli ...` |
-
--->
+| Which documents were sent but never completed? | `pandadoc-cli stalled --days 14` |
+| How much money is tied up in open quotes? | `pandadoc-cli value` |
+| What does my whole document funnel look like? | `pandadoc-cli pipeline` |
+| How long has each document sat in its current status? | `pandadoc-cli aging` |
+| Which clients haven't signed anything in a month? | `pandadoc-cli cold-clients --days 30` |
+| Who should I follow up with today? | `pandadoc-cli followup --days 7` |
+| Which recipients open and sign vs. let documents sit? | `pandadoc-cli engagement` |
+| Which templates actually close? | `pandadoc-cli template-stats` |
+| Which sent documents have no auto-reminder set? | `pandadoc-cli reminder-gaps` |
+| What changed in the last day? | `pandadoc-cli since 24h` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most PandaDoc integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most PandaDoc integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "across every open document, how much is unsigned and how old is it?" at QBR time.
 
-This skill syncs PandaDoc into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs PandaDoc into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `followup`, `forecast`, and `cold-clients` join across documents, recipients, and quote pricing - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+You send proposals, SOWs, and MSAs through PandaDoc and then they go quiet. The deal isn't dead - it's just sitting, unsigned, and nothing tells you. On r/msp the recurring thread is some version of "how do you follow up on quotes that never get signed?" - owners trade reminder cadences precisely because the proposal tool surfaces one document at a time and never says *this deal stalled* or *you have this much in quotes nobody has touched in three weeks*. So follow-up depends on memory and the forecast is a guess.
+
+- `pandadoc-cli stalled --days 14` - sent but never completed: the deals quietly dying.
+- `pandadoc-cli value` - total open quote dollars across every in-flight document.
+- `pandadoc-cli followup --days 7` - a ranked nudge worklist joined to recipient emails.
+- `pandadoc-cli cold-clients --days 30` - accounts that have gone quiet, ranked by days since last signature.
+- `pandadoc-cli forecast` - open quote dollars bucketed into healthy, aging, and stalled tiers.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +196,17 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Will this hit my PandaDoc API rate limits?
+
+Day-to-day questions read the local mirror, so they never touch the API. Only `sync`, `tail`, and a few live commands (such as `reminder-gaps`) call PandaDoc directly, and the CLI honors a configurable `--rate-limit` so you stay inside your plan's limits.
+
+### Do I need to be a PandaDoc partner or customer?
+
+You need your own PandaDoc account with API access (included on PandaDoc's paid plans). The skill authenticates with your own `PANDADOC_API_KEY` - there is no Servosity or PandaDoc partner requirement.
+
+### Will this replace my PandaDoc portal?
+
+No. You still create, send, and sign documents in PandaDoc. This adds the cross-document reporting and follow-up rollups the portal doesn't surface, so you can ask your AI instead of exporting spreadsheets.
 
 ### What does it cost?
 
@@ -198,15 +214,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `pipeline`, `stalled`, `aging`, `value`, `engagement`, `search`, `documents list` | Allow |
+| Write (routine) | `contacts create`, `contacts update`, `documents create`, `documents send document`, `documents recipients add-document`, `templates create` | Preview with `--dry-run`, then a reviewed write |
+| Credential / destructive | `workspaces api-keys create`, `members token create-member`, `documents delete`, `documents bulk-delete`, `documents recipients delete-document` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the PandaDoc credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +230,4 @@ Beta. Validated against the PandaDoc API surface and being validated with MSPs r
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-06._
