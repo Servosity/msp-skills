@@ -497,6 +497,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "tactical-rmm",
+      "source": "./skills/tactical-rmm",
+      "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "tactical-rmm",
+        "tactical rmm",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

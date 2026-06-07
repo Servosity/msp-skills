@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "tactical-rmm-pp-mcp",
+  "display_name": "Tactical RMM",
+  "version": "4.22.0",
+  "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/tactical-rmm-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/tactical-rmm-pp-mcp",
+      "args": [],
+      "env": {
+        "TRMM_API_KEY": "${user_config.trmm_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "trmm_api_key": {
+      "type": "string",
+      "title": "TRMM_API_KEY",
+      "description": "Tactical RMM API key (Settings > Global Settings > API Keys). Bypasses 2FA.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}
