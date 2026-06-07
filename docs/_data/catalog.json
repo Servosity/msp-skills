@@ -1,5 +1,5 @@
 {
-  "count": 47,
+  "count": 48,
   "connectors": [
     {
       "slug": "abnormal",
@@ -88,6 +88,14 @@
       "category": "PSA",
       "verification": "awaiting",
       "url": "/skills/connectwise-manage/"
+    },
+    {
+      "slug": "cove",
+      "display_name": "Cove Data Protection",
+      "tagline": "Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal.",
+      "category": "Backup/DR",
+      "verification": "awaiting",
+      "url": "/skills/cove/"
     },
     {
       "slug": "crowdstrike",
