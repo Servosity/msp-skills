@@ -1,5 +1,5 @@
 {
-  "count": 48,
+  "count": 49,
   "connectors": [
     {
       "slug": "abnormal",
@@ -168,6 +168,14 @@
       "category": "Documentation",
       "verification": "awaiting",
       "url": "/skills/itglue/"
+    },
+    {
+      "slug": "kaseya-bms",
+      "display_name": "Kaseya BMS",
+      "tagline": "Run the Kaseya BMS service desk, contracts, and billing from your terminal - with offline analytics the web grid can't compute.",
+      "category": "PSA",
+      "verification": "awaiting",
+      "url": "/skills/kaseya-bms/"
     },
     {
       "slug": "knowbe4",
