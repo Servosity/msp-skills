@@ -25,6 +25,29 @@
         "evidence": null
       }
     },
+    "action1": {
+      "system": "Patch management and vulnerability remediation across managed endpoints in every client organization",
+      "status": "beta",
+      "cli_binary": "action1-cli",
+      "mcp_binary": "action1-mcp",
+      "vendor": "Action1",
+      "vendor_trademark_owner": "Action1 Corporation",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "Action1",
+      "tagline": "Patch every client's endpoints and triage CVEs fleet-wide from your terminal.",
+      "cli_hash": "sha256:cd15f01a694393e81caeba156e88e0274c9baa0985bc187618acc0d7e42b2d80",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:cd15f01a694393e81caeba156e88e0274c9baa0985bc187618acc0d7e42b2d80",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "atera": {
       "system": "all-in-one RMM, PSA, and remote-access platform for MSPs and internal IT teams",
       "status": "beta",
@@ -211,6 +234,29 @@
         "evidence": null
       }
     },
+    "domotz": {
+      "system": "Domotz network monitoring and device discovery platform",
+      "status": "beta",
+      "cli_binary": "domotz-cli",
+      "mcp_binary": "domotz-mcp",
+      "vendor": "Domotz",
+      "vendor_trademark_owner": "Domotz Inc.",
+      "first_party": false,
+      "category": "Network Monitoring",
+      "display_name": "Domotz",
+      "tagline": "Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal.",
+      "cli_hash": "sha256:6ebb43673929dadad8e073419e6eebf447563ebc7f70ef22e1fed294d8a73f3d",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:6ebb43673929dadad8e073419e6eebf447563ebc7f70ef22e1fed294d8a73f3d",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "halopsa": {
       "system": "HaloPSA, HaloITSM, HaloCRM",
       "status": "beta",
@@ -322,6 +368,75 @@
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "knowbe4": {
+      "system": "KnowBe4 KMSAT security awareness training and phishing-simulation reporting",
+      "status": "beta",
+      "cli_binary": "knowbe4-cli",
+      "mcp_binary": "knowbe4-mcp",
+      "vendor": "KnowBe4",
+      "vendor_trademark_owner": "KnowBe4, Inc",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "KnowBe4",
+      "tagline": "Hunt repeat clickers, track risk drift, and close training-coverage gaps across every KnowBe4 client from your terminal.",
+      "cli_hash": "sha256:d143f3d41a7565f0bd2102c46beb5fc72744c602eca72b4724576745944aa42a",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:d143f3d41a7565f0bd2102c46beb5fc72744c602eca72b4724576745944aa42a",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "levelio": {
+      "system": "Level RMM and endpoint monitoring platform",
+      "status": "beta",
+      "cli_binary": "levelio-cli",
+      "mcp_binary": "levelio-mcp",
+      "vendor": "Level",
+      "vendor_trademark_owner": "Level",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "Level",
+      "tagline": "Rank your riskiest endpoints, patch posture, and stale devices across your Level RMM fleet from one command.",
+      "cli_hash": "sha256:0f22eb3494544354f3ebe675454733497f59fe6aa7c7a396ff4ac97d4c720fd0",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:0f22eb3494544354f3ebe675454733497f59fe6aa7c7a396ff4ac97d4c720fd0",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "liongard": {
+      "system": "Liongard automated documentation and configuration change-detection platform for MSPs",
+      "status": "beta",
+      "cli_binary": "liongard-cli",
+      "mcp_binary": "liongard-mcp",
+      "vendor": "Liongard",
+      "vendor_trademark_owner": "Liongard, Inc.",
+      "first_party": false,
+      "category": "Documentation",
+      "display_name": "Liongard",
+      "tagline": "See every config change, stale collector, and offline agent across your whole Liongard estate from one command.",
+      "cli_hash": "sha256:1cb9d0b4b3883d2cb552cd2d65423f1dbb4b3f4f92bee75b236150a78d3fa676",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:1cb9d0b4b3883d2cb552cd2d65423f1dbb4b3f4f92bee75b236150a78d3fa676",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -460,6 +575,29 @@
         "evidence": null
       }
     },
+    "pandadoc": {
+      "system": "PandaDoc proposal, quote, and e-signature document automation",
+      "status": "beta",
+      "cli_binary": "pandadoc-cli",
+      "mcp_binary": "pandadoc-mcp",
+      "vendor": "PandaDoc",
+      "vendor_trademark_owner": "PandaDoc, Inc.",
+      "first_party": false,
+      "category": "Documentation",
+      "display_name": "PandaDoc",
+      "tagline": "Find stalled proposals, aging quotes, and unsigned PandaDoc documents from the terminal.",
+      "cli_hash": "sha256:913d7eff405b41a66333b195d7e4352969e99ecd097e60d175d2780362279156",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:913d7eff405b41a66333b195d7e4352969e99ecd097e60d175d2780362279156",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "pax8": {
       "system": "Pax8 cloud marketplace billing, subscriptions, reconciliation, MRR, and usage overages",
       "status": "beta",
@@ -475,6 +613,29 @@
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": "sha256:e2809dda5dece4cfd4241cfe38305249d3b5b98eb4ae5dd6259f85f1cb2ea738",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "pipedrive": {
+      "system": "Pipedrive CRM: deals, pipelines, persons, organizations, activities",
+      "status": "beta",
+      "cli_binary": "pipedrive-cli",
+      "mcp_binary": "pipedrive-mcp",
+      "vendor": "Pipedrive",
+      "vendor_trademark_owner": "Pipedrive O\u00dc",
+      "first_party": false,
+      "category": "CRM",
+      "display_name": "Pipedrive",
+      "tagline": "Surface stale deals, weighted forecasts, and overdue follow-ups across your pipeline by asking.",
+      "cli_hash": "sha256:5994571211bea81b5d2bae4f29df861ac81da96556bf6fc081956ee17a8126cc",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:5994571211bea81b5d2bae4f29df861ac81da96556bf6fc081956ee17a8126cc",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -521,6 +682,52 @@
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": "sha256:d8bf95fa7318e99db5fa6bdc6d84e1b55ea2e553494b6e19034c9ab39ec4e726",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "runzero": {
+      "system": "runZero",
+      "status": "beta",
+      "cli_binary": "runzero-cli",
+      "mcp_binary": "runzero-mcp",
+      "vendor": "runZero",
+      "vendor_trademark_owner": "runZero, Inc.",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "runZero",
+      "tagline": "Find every asset on your attack surface, diff it over time, and trace any CVE to the machines it hits.",
+      "cli_hash": "sha256:82ac4c8e457a26f244687d5448262a9f3361318164f6e52c173ca0345046223b",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:82ac4c8e457a26f244687d5448262a9f3361318164f6e52c173ca0345046223b",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "salesbuildr": {
+      "system": "Salesbuildr MSP quoting and CPQ: quotes, opportunities, products, companies, pricing books",
+      "status": "beta",
+      "cli_binary": "salesbuildr-cli",
+      "mcp_binary": "salesbuildr-mcp",
+      "vendor": "Salesbuildr",
+      "vendor_trademark_owner": "Salesbuildr",
+      "first_party": false,
+      "category": "CRM",
+      "display_name": "Salesbuildr",
+      "tagline": "Surface stale quotes, thin-margin lines, and pipeline velocity across your Salesbuildr quoting by asking.",
+      "cli_hash": "sha256:82997bc4519b31883ce1357119edeb72718f205d2e2c3783a73c3e276474e15e",
+      "template_version": 3,
+      "version": "4.22.0",
+      "cli_hash_at_release": null,
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -576,6 +783,29 @@
       "category": "Backup/DR",
       "tagline": "Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.",
       "display_name": "Servosity"
+    },
+    "sherweb": {
+      "system": "Sherweb cloud marketplace billing, subscriptions, customers, and margin across Microsoft CSP and cloud services",
+      "status": "beta",
+      "cli_binary": "sherweb-cli",
+      "mcp_binary": "sherweb-mcp",
+      "vendor": "Sherweb",
+      "vendor_trademark_owner": "Sherweb Inc.",
+      "first_party": false,
+      "category": "Billing",
+      "display_name": "Sherweb",
+      "tagline": "Reconcile what you owe Sherweb against what customers owe you and surface true net margin per customer.",
+      "cli_hash": "sha256:f00472cb9247d7604c10aae18e0cfbde60c66b5a9455fe3318c62daef874cad7",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:f00472cb9247d7604c10aae18e0cfbde60c66b5a9455fe3318c62daef874cad7",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     },
     "superops": {
       "system": "SuperOps PSA+RMM: tickets, SLAs, assets, alerts, clients, contracts, invoices, worklogs",
@@ -685,213 +915,6 @@
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": "sha256:894e49c7bbc421702afcd551687fbdb0b355cd863ed8dbf5c440e452333189d6",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "sherweb": {
-      "system": "Sherweb cloud marketplace billing, subscriptions, customers, and margin across Microsoft CSP and cloud services",
-      "status": "beta",
-      "cli_binary": "sherweb-cli",
-      "mcp_binary": "sherweb-mcp",
-      "vendor": "Sherweb",
-      "vendor_trademark_owner": "Sherweb Inc.",
-      "first_party": false,
-      "category": "Billing",
-      "display_name": "Sherweb",
-      "tagline": "Reconcile what you owe Sherweb against what customers owe you and surface true net margin per customer.",
-      "cli_hash": "sha256:f00472cb9247d7604c10aae18e0cfbde60c66b5a9455fe3318c62daef874cad7",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:f00472cb9247d7604c10aae18e0cfbde60c66b5a9455fe3318c62daef874cad7",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "pandadoc": {
-      "system": "PandaDoc proposal, quote, and e-signature document automation",
-      "status": "beta",
-      "cli_binary": "pandadoc-cli",
-      "mcp_binary": "pandadoc-mcp",
-      "vendor": "PandaDoc",
-      "vendor_trademark_owner": "PandaDoc, Inc.",
-      "first_party": false,
-      "category": "Documentation",
-      "display_name": "PandaDoc",
-      "tagline": "Find stalled proposals, aging quotes, and unsigned PandaDoc documents from the terminal.",
-      "cli_hash": "sha256:913d7eff405b41a66333b195d7e4352969e99ecd097e60d175d2780362279156",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:913d7eff405b41a66333b195d7e4352969e99ecd097e60d175d2780362279156",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "domotz": {
-      "system": "Domotz network monitoring and device discovery platform",
-      "status": "beta",
-      "cli_binary": "domotz-cli",
-      "mcp_binary": "domotz-mcp",
-      "vendor": "Domotz",
-      "vendor_trademark_owner": "Domotz Inc.",
-      "first_party": false,
-      "category": "Network Monitoring",
-      "display_name": "Domotz",
-      "tagline": "Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal.",
-      "cli_hash": "sha256:6ebb43673929dadad8e073419e6eebf447563ebc7f70ef22e1fed294d8a73f3d",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:6ebb43673929dadad8e073419e6eebf447563ebc7f70ef22e1fed294d8a73f3d",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "runzero": {
-      "system": "runZero",
-      "status": "beta",
-      "cli_binary": "runzero-cli",
-      "mcp_binary": "runzero-mcp",
-      "vendor": "runZero",
-      "vendor_trademark_owner": "runZero, Inc.",
-      "first_party": false,
-      "category": "Security",
-      "display_name": "runZero",
-      "tagline": "Find every asset on your attack surface, diff it over time, and trace any CVE to the machines it hits.",
-      "cli_hash": "sha256:82ac4c8e457a26f244687d5448262a9f3361318164f6e52c173ca0345046223b",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:82ac4c8e457a26f244687d5448262a9f3361318164f6e52c173ca0345046223b",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "liongard": {
-      "system": "Liongard automated documentation and configuration change-detection platform for MSPs",
-      "status": "beta",
-      "cli_binary": "liongard-cli",
-      "mcp_binary": "liongard-mcp",
-      "vendor": "Liongard",
-      "vendor_trademark_owner": "Liongard, Inc.",
-      "first_party": false,
-      "category": "Documentation",
-      "display_name": "Liongard",
-      "tagline": "See every config change, stale collector, and offline agent across your whole Liongard estate from one command.",
-      "cli_hash": "sha256:1cb9d0b4b3883d2cb552cd2d65423f1dbb4b3f4f92bee75b236150a78d3fa676",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:1cb9d0b4b3883d2cb552cd2d65423f1dbb4b3f4f92bee75b236150a78d3fa676",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "action1": {
-      "system": "Patch management and vulnerability remediation across managed endpoints in every client organization",
-      "status": "beta",
-      "cli_binary": "action1-cli",
-      "mcp_binary": "action1-mcp",
-      "vendor": "Action1",
-      "vendor_trademark_owner": "Action1 Corporation",
-      "first_party": false,
-      "category": "RMM",
-      "display_name": "Action1",
-      "tagline": "Patch every client's endpoints and triage CVEs fleet-wide from your terminal.",
-      "cli_hash": "sha256:cd15f01a694393e81caeba156e88e0274c9baa0985bc187618acc0d7e42b2d80",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:cd15f01a694393e81caeba156e88e0274c9baa0985bc187618acc0d7e42b2d80",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "levelio": {
-      "system": "Level RMM and endpoint monitoring platform",
-      "status": "beta",
-      "cli_binary": "levelio-cli",
-      "mcp_binary": "levelio-mcp",
-      "vendor": "Level",
-      "vendor_trademark_owner": "Level",
-      "first_party": false,
-      "category": "RMM",
-      "display_name": "Level",
-      "tagline": "Rank your riskiest endpoints, patch posture, and stale devices across your Level RMM fleet from one command.",
-      "cli_hash": "sha256:0f22eb3494544354f3ebe675454733497f59fe6aa7c7a396ff4ac97d4c720fd0",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:0f22eb3494544354f3ebe675454733497f59fe6aa7c7a396ff4ac97d4c720fd0",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "knowbe4": {
-      "system": "KnowBe4 KMSAT security awareness training and phishing-simulation reporting",
-      "status": "beta",
-      "cli_binary": "knowbe4-cli",
-      "mcp_binary": "knowbe4-mcp",
-      "vendor": "KnowBe4",
-      "vendor_trademark_owner": "KnowBe4, Inc",
-      "first_party": false,
-      "category": "Security",
-      "display_name": "KnowBe4",
-      "tagline": "Hunt repeat clickers, track risk drift, and close training-coverage gaps across every KnowBe4 client from your terminal.",
-      "cli_hash": "sha256:d143f3d41a7565f0bd2102c46beb5fc72744c602eca72b4724576745944aa42a",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:d143f3d41a7565f0bd2102c46beb5fc72744c602eca72b4724576745944aa42a",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "pipedrive": {
-      "system": "Pipedrive CRM: deals, pipelines, persons, organizations, activities",
-      "status": "beta",
-      "cli_binary": "pipedrive-cli",
-      "mcp_binary": "pipedrive-mcp",
-      "vendor": "Pipedrive",
-      "vendor_trademark_owner": "Pipedrive O\u00dc",
-      "first_party": false,
-      "category": "CRM",
-      "display_name": "Pipedrive",
-      "tagline": "Surface stale deals, weighted forecasts, and overdue follow-ups across your pipeline by asking.",
-      "cli_hash": "sha256:5994571211bea81b5d2bae4f29df861ac81da96556bf6fc081956ee17a8126cc",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:5994571211bea81b5d2bae4f29df861ac81da96556bf6fc081956ee17a8126cc",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
