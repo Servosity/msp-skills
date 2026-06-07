@@ -1,0 +1,117 @@
+{
+  "outcome_intro": "Ask \"what changed across all my clients this week,\" \"which Liongard collectors went stale,\" or \"which agents are offline,\" and get the answer in one command instead of clicking through the portal environment by environment. The skill syncs your whole Liongard estate into a local mirror, then drift-checks, searches, and rolls it up across every environment - so the visibility you already pay for finally reaches you.",
+  "instead_of_say": [
+    {
+      "instead": "Log into the Liongard portal and click environment by environment to see what changed this week.",
+      "say": "What changed across all my clients in the last 7 days?",
+      "cli": "liongard-cli drift --since 7d"
+    },
+    {
+      "instead": "Export each client's launchpoints to hunt for collectors that quietly stopped running.",
+      "say": "Which Liongard collectors have gone stale?",
+      "cli": "liongard-cli launchpoints stale --older-than 7d"
+    },
+    {
+      "instead": "Write an API script to pull one metric across every system for the QBR deck.",
+      "say": "Give me the MFA-enabled count for every system as a CSV.",
+      "cli": "liongard-cli metrics pivot \"MFA Enabled Count\" --csv"
+    }
+  ],
+  "pain_points": [
+    "Liongard is data-rich but hard to operationalize: the answers live in the portal, but seeing 'what changed across every client' means opening each environment one at a time.",
+    "Collectors and agents go quiet silently - a stale launchpoint or an offline agent stops collecting, and the documentation rots until a QBR or an audit exposes the gap.",
+    "Cross-client reporting - one metric across every system, estate-wide failed inspections, who is missing an inspector - means manual portal work or a custom API script every time."
+  ],
+  "outcomes": [
+    {
+      "question": "What changed across all my clients in the last 24 hours?",
+      "command": "liongard-cli drift --since 24h"
+    },
+    {
+      "question": "Which collectors (launchpoints) have gone stale?",
+      "command": "liongard-cli launchpoints stale --older-than 7d"
+    },
+    {
+      "question": "Which agents are offline right now, and whose environment do they serve?",
+      "command": "liongard-cli agents offline"
+    },
+    {
+      "question": "Give me one health scorecard for the whole estate.",
+      "command": "liongard-cli health --agent"
+    },
+    {
+      "question": "Show me one client's complete picture in a single command.",
+      "command": "liongard-cli environments overview 42"
+    },
+    {
+      "question": "Which inspections failed or errored across the estate?",
+      "command": "liongard-cli detections failures --since 7d"
+    },
+    {
+      "question": "Pull one metric across every system, CSV-ready for a report.",
+      "command": "liongard-cli metrics pivot \"MFA Enabled Count\" --csv"
+    },
+    {
+      "question": "Which systems breach a threshold, like patch age over 30 days?",
+      "command": "liongard-cli metrics breach \"Patch Age Days\" --op gt --value 30"
+    },
+    {
+      "question": "Where are my monitoring gaps (systems with no launchpoint, environments with no systems)?",
+      "command": "liongard-cli coverage"
+    },
+    {
+      "question": "Which environments are still missing a given inspector?",
+      "command": "liongard-cli inspectors coverage --inspector \"Microsoft 365\""
+    },
+    {
+      "question": "What is the full change history for one system?",
+      "command": "liongard-cli systems history 4821"
+    },
+    {
+      "question": "Search everything I've synced for a term.",
+      "command": "liongard-cli search \"domain admin\""
+    }
+  ],
+  "different_vs_wrappers": "Most Liongard integrations and MCP servers proxy each question into a live API call. That is fine for one record and falls apart the moment you ask an estate-wide question - 'what changed across all 40 clients this week' becomes 40+ paginated calls. This skill syncs Liongard into a local SQLite mirror with full-text search, so cross-client questions become one local join: instant, offline, and the agent sees the answer, not the raw bulk data.",
+  "different_vs_vendor": "It complements the Liongard portal rather than replacing it. The portal is built for clicking into one environment at a time; this skill answers the cross-estate questions - drift, stale collectors, offline agents, coverage gaps, one metric across every system - in a single command you can pipe into a report or hand to your AI agent.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Liongard MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Liongard data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Do I need to be a Liongard customer, and will this hit my API limits?",
+      "a": "Yes - you use your own Liongard instance and access keys, so the skill only reaches data your credentials already permit. Because it syncs once into a local mirror and answers most questions from there, it makes far fewer API calls than a per-question live wrapper, which keeps you well clear of rate limits during reporting and QBR prep."
+    }
+  ],
+  "governance_summary": "Read commands (drift, health, coverage, the stale/offline/failure rollups, search, and every get/list) cannot change anything and are safe to allow. Writes are explicit and named - creating or updating environments, launchpoints, metrics, users, and agents, plus importing data and triggering inspection runs - and should be previewed before they send. Deletes, minting access keys, and the auth/token commands are human-in-the-loop only. The strongest control is the scope of the Liongard access keys you supply: the CLI can only do what those keys are permitted to do.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "drift, health, coverage, launchpoints stale, agents offline, detections failures, inspectors coverage, metrics pivot, metrics breach, systems history, environments overview, search, and every get/list/count",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "environments create / update, launchpoints launchpoint / update / update-bulk, metrics create / update, users create / update, agents update, import, and inspection triggers (launchpoints run / bulk-run / run-stale, agents flush job-queue)",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / credential",
+      "examples": "environments delete, launchpoints delete / bulk-delete, metrics delete, users delete, agents delete, access-keys create / delete, and the authentication / auth token commands",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

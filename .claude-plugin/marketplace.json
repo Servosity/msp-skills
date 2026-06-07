@@ -528,6 +528,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "liongard",
+      "source": "./skills/liongard",
+      "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
+      "version": "0.1.0",
+      "category": "documentation",
+      "tags": [
+        "liongard",
+        "documentation",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

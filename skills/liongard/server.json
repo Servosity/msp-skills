@@ -1,0 +1,52 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/liongard-mcp",
+  "title": "Liongard MCP",
+  "description": "Liongard config visibility: sync your estate offline, then drift-check and search it from one CLI.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/liongard/liongard-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/liongard"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/liongard-v0.1.0/liongard-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "LIONGARD_INSTANCE",
+          "description": "Your Liongard subdomain (the 'acme' in acme.app.liongard.com); builds the API URL.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "LIONGARD_API_KEY",
+          "description": "Base64 X-ROAR-API-KEY for the Liongard API (or use LIONGARD_ACCESS_KEY_ID + LIONGARD_ACCESS_KEY_SECRET).",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "LIONGARD_ENDPOINTS_API_KEY",
+          "description": "Optional. Only needed for the Liongard Endpoints API surface.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

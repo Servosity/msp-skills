@@ -784,6 +784,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "liongard": {
+      "system": "Liongard automated documentation and configuration change-detection platform for MSPs",
+      "status": "beta",
+      "cli_binary": "liongard-cli",
+      "mcp_binary": "liongard-mcp",
+      "vendor": "Liongard",
+      "vendor_trademark_owner": "Liongard, Inc.",
+      "first_party": false,
+      "category": "Documentation",
+      "display_name": "Liongard",
+      "tagline": "See every config change, stale collector, and offline agent across your whole Liongard estate from one command.",
+      "cli_hash": "sha256:1cb9d0b4b3883d2cb552cd2d65423f1dbb4b3f4f92bee75b236150a78d3fa676",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }

@@ -1,5 +1,5 @@
 {
-  "count": 33,
+  "count": 34,
   "connectors": [
     {
       "slug": "acronis",
@@ -120,6 +120,14 @@
       "category": "Documentation",
       "verification": "awaiting",
       "url": "/skills/itglue/"
+    },
+    {
+      "slug": "liongard",
+      "display_name": "Liongard",
+      "tagline": "See every config change, stale collector, and offline agent across your whole Liongard estate from one command.",
+      "category": "Documentation",
+      "verification": "awaiting",
+      "url": "/skills/liongard/"
     },
     {
       "slug": "microsoft-graph",

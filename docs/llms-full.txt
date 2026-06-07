@@ -593,6 +593,42 @@ A: No. The CLI reads, and creates or updates contacts, passwords, configurations
 
 Governance: The skill drives the itglue-cli and itglue-mcp binaries, authenticating with an IT Glue API key read from the environment (ITGLUE_API_KEY) - never logged and never sent anywhere except the IT Glue API. Most read commands (search, coverage, changes, contacts dupes, org show, orphans, and the organization/configuration/contact/document list and get) change nothing and run against the local mirror. The exceptions are passwords get and passwords list: when the API key has password access they can return the stored secret, so treat them as credential-tier, not routine reads (passwords stale is metadata-only and stays safe). Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. The CLI exposes no delete for any IT Glue resource; the most sensitive operations are credential reads and writes (passwords get/list/create/update), which should stay human-approved. The real permission boundary is the scope of the IT Glue account whose key you use.
 
+### Liongard (Documentation)
+
+Page: https://msp-skills.compoundingteams.com/skills/liongard/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/liongard/install.sh)
+
+Ask "what changed across all my clients this week," "which Liongard collectors went stale," or "which agents are offline," and get the answer in one command instead of clicking through the portal environment by environment. The skill syncs your whole Liongard estate into a local mirror, then drift-checks, searches, and rolls it up across every environment - so the visibility you already pay for finally reaches you.
+
+Outcomes (question -> command your AI agent runs):
+- What changed across all my clients in the last 24 hours? -> liongard-cli drift --since 24h
+- Which collectors (launchpoints) have gone stale? -> liongard-cli launchpoints stale --older-than 7d
+- Which agents are offline right now, and whose environment do they serve? -> liongard-cli agents offline
+- Give me one health scorecard for the whole estate. -> liongard-cli health --agent
+- Show me one client's complete picture in a single command. -> liongard-cli environments overview 42
+- Which inspections failed or errored across the estate? -> liongard-cli detections failures --since 7d
+- Pull one metric across every system, CSV-ready for a report. -> liongard-cli metrics pivot "MFA Enabled Count" --csv
+- Which systems breach a threshold, like patch age over 30 days? -> liongard-cli metrics breach "Patch Age Days" --op gt --value 30
+- Where are my monitoring gaps (systems with no launchpoint, environments with no systems)? -> liongard-cli coverage
+- Which environments are still missing a given inspector? -> liongard-cli inspectors coverage --inspector "Microsoft 365"
+- What is the full change history for one system? -> liongard-cli systems history 4821
+- Search everything I've synced for a term. -> liongard-cli search "domain admin"
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Liongard MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Liongard data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need to be a Liongard customer, and will this hit my API limits?
+A: Yes - you use your own Liongard instance and access keys, so the skill only reaches data your credentials already permit. Because it syncs once into a local mirror and answers most questions from there, it makes far fewer API calls than a per-question live wrapper, which keeps you well clear of rate limits during reporting and QBR prep.
+
+Governance: Read commands (drift, health, coverage, the stale/offline/failure rollups, search, and every get/list) cannot change anything and are safe to allow. Writes are explicit and named - creating or updating environments, launchpoints, metrics, users, and agents, plus importing data and triggering inspection runs - and should be previewed before they send. Deletes, minting access keys, and the auth/token commands are human-in-the-loop only. The strongest control is the scope of the Liongard access keys you supply: the CLI can only do what those keys are permitted to do.
+
 ### Microsoft Graph (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/microsoft-graph/
