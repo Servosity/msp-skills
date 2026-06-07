@@ -1,0 +1,113 @@
+{
+  "outcome_intro": "Ask \"which Level endpoints are most at risk right now?\" and get one ranked list across active alerts, missing patches, low security scores, and dark devices - not four portal tabs. levelio-cli syncs your whole Level fleet into a local mirror, then answers portfolio-wide questions the portal shows one device at a time: patch exposure, stale agents, alert clusters, and per-client QBR scorecards. Offline, instant, and read-only-safe.",
+  "instead_of_say": [
+    {
+      "instead": "Clicking through Level device by device to work out which endpoints need attention first across alerts, patches, and security scores",
+      "say": "Which Level devices are most at risk right now?",
+      "cli": "levelio-cli at-risk --top 20 --agent"
+    },
+    {
+      "instead": "Filtering the device list by last-seen date to catch the machines that quietly stopped checking in",
+      "say": "Which Level devices have gone dark in the last 30 days?",
+      "cli": "levelio-cli stale --days 30 --agent"
+    },
+    {
+      "instead": "Opening each client's group and tallying patch exposure and open criticals by hand for the QBR deck",
+      "say": "Give me a per-client posture scorecard for my Level fleet",
+      "cli": "levelio-cli client-scorecard --agent"
+    }
+  ],
+  "pain_points": [
+    "The Level portal answers one device at a time - there is no single screen for 'which endpoints across every client need attention first.'",
+    "Patch exposure and reboot debt live per-device; rolling them up across the whole fleet for a QBR means tallying by hand.",
+    "Dark devices and alert noise hide in the queue, so the systemic fires never separate themselves from one-off blips."
+  ],
+  "outcomes": [
+    {
+      "question": "Which devices are most at risk across alerts, patches, score, and staleness?",
+      "command": "levelio-cli at-risk --top 20"
+    },
+    {
+      "question": "Which devices have gone dark and stopped checking in?",
+      "command": "levelio-cli stale --days 30"
+    },
+    {
+      "question": "What is my fleet-wide patch exposure, by category?",
+      "command": "levelio-cli patch-posture --category security"
+    },
+    {
+      "question": "How is my fleet broken down by OS, platform, or group?",
+      "command": "levelio-cli fleet --by os"
+    },
+    {
+      "question": "Where are my active critical fires, clustered by group?",
+      "command": "levelio-cli alert-triage --severity critical"
+    },
+    {
+      "question": "Give me a per-client posture scorecard for QBRs.",
+      "command": "levelio-cli client-scorecard"
+    },
+    {
+      "question": "Which devices are below my security-score threshold?",
+      "command": "levelio-cli security-posture --below 70"
+    },
+    {
+      "question": "Which devices are waiting on a reboot to finish patching?",
+      "command": "levelio-cli reboot-due"
+    },
+    {
+      "question": "Which monitors fire most often across the fleet?",
+      "command": "levelio-cli alert-recurrence --top 15"
+    },
+    {
+      "question": "What changed since yesterday - new alerts, updates, device activity?",
+      "command": "levelio-cli since --days 1"
+    }
+  ],
+  "different_vs_wrappers": "Most Level integrations and MCP servers proxy each question into a single live API call - fine for one device, useless for 'across the whole fleet.' This skill syncs Level into a local SQLite mirror with full-text search, so a portfolio-wide question becomes one offline join: instant, rate-limit-free, and the AI sees the answer, not raw bulk data.",
+  "different_vs_vendor": "Level's portal surfaces devices one at a time and does not roll exposure up across every client at once; this skill answers the cross-entity, time-windowed questions - at-risk ranking, fleet-wide patch posture, dark-device sweeps, and per-client QBR scorecards - from one local mirror you can read every line of.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Level MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Level data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Will this hit my Level API rate limits?",
+      "a": "Only 'sync' calls the Level API, and it paginates politely. Every report, rollup, and search after that runs against the local SQLite mirror - zero API calls, no rate-limit pressure. Re-sync when you want fresh data."
+    },
+    {
+      "q": "Do I need a paid Level plan or to be a Level partner?",
+      "a": "You need a Level account and an API key (Settings > API keys). A read-only key is enough for every report and rollup here, and you can scope it tighter than your portal login. The skill itself is free and open source."
+    }
+  ],
+  "governance_summary": "The skill reads everything - reports, rollups, search, and a sync to a local mirror that never writes back to Level. It can also change Level records when you let it: update devices, manage groups, tags, and custom fields, resolve alerts, import data, and trigger automations that run on real endpoints. Recommended policy: give autonomous agents a read-only API key, preview every write with --dry-run, and keep a human in the loop for automations, deletes, and credential changes.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "at-risk, patch-posture, fleet, alert-triage, stale, client-scorecard, security-posture, every list/show, search, sync",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "devices update, groups/tags/custom-fields create and update, custom-field-values update, alerts resolve, import",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / device actions",
+      "examples": "devices/groups/tags/custom-fields delete, automations (runs scripts on endpoints), auth set-token",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

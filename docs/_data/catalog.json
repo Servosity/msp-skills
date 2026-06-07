@@ -1,5 +1,5 @@
 {
-  "count": 35,
+  "count": 36,
   "connectors": [
     {
       "slug": "acronis",
@@ -128,6 +128,14 @@
       "category": "Documentation",
       "verification": "awaiting",
       "url": "/skills/itglue/"
+    },
+    {
+      "slug": "levelio",
+      "display_name": "Level",
+      "tagline": "Rank your riskiest endpoints, patch posture, and stale devices across your Level RMM fleet from one command.",
+      "category": "RMM",
+      "verification": "awaiting",
+      "url": "/skills/levelio/"
     },
     {
       "slug": "liongard",

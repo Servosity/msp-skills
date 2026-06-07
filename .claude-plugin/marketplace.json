@@ -558,6 +558,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "levelio",
+      "source": "./skills/levelio",
+      "description": "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "levelio",
+        "level",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
