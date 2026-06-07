@@ -42,6 +42,25 @@
       "tagline": "Spot failed backups, offline agents, and unbilled usage across every Acronis tenant by asking."
     },
     {
+      "name": "action1",
+      "system": "Patch management and vulnerability remediation across managed endpoints in every client organization",
+      "status": "beta",
+      "skill_path": "skills/action1",
+      "cli_binary": "action1-cli",
+      "mcp_binary": "action1-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Action1",
+      "vendor_trademark_owner": "Action1 Corporation",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/action1/install.sh)",
+      "install_mcp_doc": "skills/action1/mcp-install.md",
+      "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
+      "verification": "awaiting",
+      "category": "RMM",
+      "tagline": "Patch every client's endpoints and triage CVEs fleet-wide from your terminal."
+    },
+    {
       "name": "atera",
       "system": "all-in-one RMM, PSA, and remote-access platform for MSPs and internal IT teams",
       "status": "beta",

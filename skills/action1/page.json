@@ -1,0 +1,122 @@
+{
+  "outcome_intro": "Ask \"which endpoints across all my clients are missing the most patches?\" and get one ranked list - no clicking org by org. Action1's API and console are siloed per client organization; this skill syncs every org into a local mirror so patch posture, CVE blast-radius, stale agents, and a per-client scorecard become single fleet-wide commands your AI agent runs from the terminal.",
+  "instead_of_say": [
+    {
+      "instead": "Logging into Action1 and switching to each client organization one at a time to read its missing-updates count off the dashboard",
+      "say": "Which endpoints across all my clients are missing the most patches?",
+      "cli": "action1-cli fleet patch-posture"
+    },
+    {
+      "instead": "Exporting each org's vulnerability list and merging spreadsheets to find which CVE hits the most machines",
+      "say": "Rank our CVEs by how many endpoints they hit, known-exploited ones first",
+      "cli": "action1-cli fleet vuln-triage --kev-only"
+    },
+    {
+      "instead": "Hunting through every organization for agents that quietly stopped checking in",
+      "say": "Which agents have gone dark across the whole fleet in the last two weeks?",
+      "cli": "action1-cli fleet stale --days 14 --include-offline"
+    }
+  ],
+  "pain_points": [
+    "Action1 organizes everything one client organization at a time, but the questions that matter at patch-review time - who is most behind, which CVE is everywhere - are fleet-wide, so MSPs end up clicking through every org or exporting and merging spreadsheets to answer them.",
+    "At QBR time there is no single per-client posture number to hand an account manager; you assemble it by hand from each organization's dashboard."
+  ],
+  "outcomes": [
+    {
+      "question": "Which endpoints across all clients are missing the most patches?",
+      "command": "action1-cli fleet patch-posture"
+    },
+    {
+      "question": "Which CVEs hit the most machines, weighted by severity and known-exploited status?",
+      "command": "action1-cli fleet vuln-triage --kev-only"
+    },
+    {
+      "question": "Which agents have stopped checking in across the fleet?",
+      "command": "action1-cli fleet stale --days 14"
+    },
+    {
+      "question": "What is the patch-and-vulnerability posture for each client organization?",
+      "command": "action1-cli fleet org-scorecard"
+    },
+    {
+      "question": "Which endpoints are waiting on a reboot to finish a patch cycle?",
+      "command": "action1-cli fleet reboot-pending"
+    },
+    {
+      "question": "Rank every endpoint by overall risk (missing updates, open CVEs, reboot, staleness)",
+      "command": "action1-cli fleet health-score"
+    },
+    {
+      "question": "What software is installed across the whole fleet, deduped by version?",
+      "command": "action1-cli fleet software-rollup"
+    },
+    {
+      "question": "What changed since the last sync - what got remediated, what is newly missing?",
+      "command": "action1-cli fleet patch-drift"
+    },
+    {
+      "question": "List the managed endpoints in one client organization",
+      "command": "action1-cli endpoints managed <orgId>"
+    },
+    {
+      "question": "What updates are available or missing for one organization?",
+      "command": "action1-cli updates org-id-get <orgId>"
+    }
+  ],
+  "different_vs_wrappers": "Most Action1 integrations proxy each question into a live API call, one organization at a time - fine for a single record, useless when you need a number that spans every client. This skill syncs all your organizations into a local SQLite mirror, so cross-org rollups (patch-posture, vuln-triage, org-scorecard) are one offline query the org-siloed API cannot answer in a single call.",
+  "different_vs_vendor": "Action1's console shows you one organization at a time; this skill adds the fleet-wide view across every client organization at once - in your terminal or your AI agent, as a number you can pipe into a report instead of a dashboard you click through. It complements the console, it does not replace it.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Action1 MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Action1 data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Which Action1 region and credentials do I need?",
+      "a": "An API client (Client ID + Client Secret) from your Action1 console's API Credentials page, plus ACTION1_REGION set to us, eu, or au to match your console URL. The CLI mints and refreshes the bearer token for you. Scope the client to read-only permissions if you only need reporting."
+    },
+    {
+      "q": "Does this replace the Action1 console?",
+      "a": "No. The console stays your place to configure automations and approve patches interactively. This skill answers the cross-organization questions the console shows one org at a time - fleet patch posture, CVE blast-radius, per-client scorecards - and lets your AI agent run them."
+    }
+  ],
+  "governance_summary": "The skill reads freely - fleet rollups, lists, reports, search, export - and those reads change nothing. Routine writes (config edits, including the read-named import command) should be previewed with --dry-run, then approved. Endpoint-level actions like running an automation, approving updates for deployment, or opening a remote session, plus token-minting, user/role management, and deletes, are endpoint-execution, credential, or destructive tier - keep them human-in-the-loop and scope your API client to only the permissions your workflow needs.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "fleet patch-posture, fleet vuln-triage, fleet org-scorecard, endpoints managed <orgId>, search, analytics, export, doctor",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "endpoints groups, endpoints managed-id-patch, reports org-id-custom-post, settings org-id-post, automations policies-schedules-org-id-post, import",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Endpoint / patch execution",
+      "examples": "automations policies-instances-org-id-post (run an automation), updates approvals updates-org-id, endpoints managed-id-remote-sessions-post, scripts org-id-post",
+      "policy": "Human-in-the-loop; never unattended"
+    },
+    {
+      "tier": "Credential / security",
+      "examples": "oauth2, users post, roles post, roles id-patch",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Destructive / account",
+      "examples": "endpoints managed-id-delete, organizations org-id-delete, users id-delete, scripts org-id-id-delete, enterprise request-closure",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    }
+  ]
+}

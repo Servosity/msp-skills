@@ -1,0 +1,52 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/action1-mcp",
+  "title": "Action1 MCP",
+  "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/action1/action1-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/action1"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/action1-v0.1.0/action1-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ACTION1_CLIENT_ID",
+          "description": "Set the ACTION1_CLIENT_ID credential for the Action1 MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "ACTION1_CLIENT_SECRET",
+          "description": "Set the ACTION1_CLIENT_SECRET credential for the Action1 MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "ACTION1_REGION",
+          "description": "Set the ACTION1_REGION credential for the Action1 MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

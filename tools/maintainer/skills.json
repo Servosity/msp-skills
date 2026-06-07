@@ -807,6 +807,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "action1": {
+      "system": "Patch management and vulnerability remediation across managed endpoints in every client organization",
+      "status": "beta",
+      "cli_binary": "action1-cli",
+      "mcp_binary": "action1-mcp",
+      "vendor": "Action1",
+      "vendor_trademark_owner": "Action1 Corporation",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "Action1",
+      "tagline": "Patch every client's endpoints and triage CVEs fleet-wide from your terminal.",
+      "cli_hash": "sha256:cd15f01a694393e81caeba156e88e0274c9baa0985bc187618acc0d7e42b2d80",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }
