@@ -1,0 +1,52 @@
+{
+  "manifest_version": "0.3",
+  "name": "liongard-mcp",
+  "display_name": "Liongard",
+  "version": "0.1.0",
+  "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/liongard-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/liongard-mcp",
+      "args": [],
+      "env": {
+        "LIONGARD_API_KEY": "${user_config.liongard_api_key}",
+        "LIONGARD_ENDPOINTS_API_KEY": "${user_config.liongard_endpoints_api_key}",
+        "LIONGARD_INSTANCE": "${user_config.liongard_instance}"
+      }
+    }
+  },
+  "user_config": {
+    "liongard_api_key": {
+      "type": "string",
+      "title": "LIONGARD_API_KEY",
+      "description": "Required. Base64 X-ROAR-API-KEY for the Liongard API (or set LIONGARD_ACCESS_KEY_ID + LIONGARD_ACCESS_KEY_SECRET instead).",
+      "sensitive": true
+    },
+    "liongard_endpoints_api_key": {
+      "type": "string",
+      "title": "LIONGARD_ENDPOINTS_API_KEY",
+      "description": "Optional. Only needed for the Liongard Endpoints API surface.",
+      "sensitive": true
+    },
+    "liongard_instance": {
+      "type": "string",
+      "title": "LIONGARD_INSTANCE",
+      "description": "Required. Your Liongard subdomain (the 'acme' in acme.app.liongard.com); builds the API URL.",
+      "default": "example"
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

@@ -308,6 +308,25 @@
       "tagline": "Find any device, audit stale passwords, and rank thin client docs by asking."
     },
     {
+      "name": "liongard",
+      "system": "Liongard automated documentation and configuration change-detection platform for MSPs",
+      "status": "beta",
+      "skill_path": "skills/liongard",
+      "cli_binary": "liongard-cli",
+      "mcp_binary": "liongard-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Liongard",
+      "vendor_trademark_owner": "Liongard, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/liongard/install.sh)",
+      "install_mcp_doc": "skills/liongard/mcp-install.md",
+      "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
+      "verification": "awaiting",
+      "category": "Documentation",
+      "tagline": "See every config change, stale collector, and offline agent across your whole Liongard estate from one command."
+    },
+    {
       "name": "microsoft-graph",
       "system": "Microsoft 365 / Entra tenant administration via Microsoft Graph",
       "status": "beta",
