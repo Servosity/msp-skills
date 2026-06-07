@@ -646,6 +646,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "sherweb": {
+      "system": "Sherweb cloud marketplace billing, subscriptions, customers, and margin across Microsoft CSP and cloud services",
+      "status": "beta",
+      "cli_binary": "sherweb-cli",
+      "mcp_binary": "sherweb-mcp",
+      "vendor": "Sherweb",
+      "vendor_trademark_owner": "Sherweb Inc.",
+      "first_party": false,
+      "category": "Billing",
+      "display_name": "Sherweb",
+      "tagline": "Reconcile what you owe Sherweb against what customers owe you and surface true net margin per customer.",
+      "cli_hash": "sha256:f00472cb9247d7604c10aae18e0cfbde60c66b5a9455fe3318c62daef874cad7",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }

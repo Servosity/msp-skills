@@ -77,6 +77,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Servosity (Backup/DR) - Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/servosity/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
+- Sherweb (Billing) - Reconcile what you owe Sherweb against what customers owe you and surface true net margin per customer.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/sherweb/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sherweb/install.sh)
 - SuperOps (PSA) - Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/superops/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/superops/install.sh)

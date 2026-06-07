@@ -1,0 +1,58 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/sherweb-mcp",
+  "title": "Sherweb MCP",
+  "description": "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/sherweb/sherweb-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/sherweb"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/sherweb-v0.1.0/sherweb-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SHERWEB_CLIENT_ID",
+          "description": "Set the SHERWEB_CLIENT_ID credential for the Sherweb MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SHERWEB_CLIENT_SECRET",
+          "description": "Set the SHERWEB_CLIENT_SECRET credential for the Sherweb MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SHERWEB_OAUTH_SCOPE",
+          "description": "Set the SHERWEB_OAUTH_SCOPE credential for the Sherweb MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SHERWEB_SUBSCRIPTION_KEY",
+          "description": "Set the SHERWEB_SUBSCRIPTION_KEY credential for the Sherweb MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
