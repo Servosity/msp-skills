@@ -28,11 +28,11 @@
     "released_hash": "sha256:c35fe70e19882732f38eac567b5ed2d9f994f0260a7dc0137914bcd1fe7d0681"
   },
   "betterstack": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "betterstack-v0.1.0",
     "current_hash": "sha256:ed25b0355abbed564f43ae63695e076a566928f340121e7c2f3b1279080df46b",
-    "released_hash": null
+    "released_hash": "sha256:ed25b0355abbed564f43ae63695e076a566928f340121e7c2f3b1279080df46b"
   },
   "blumira": {
     "state": "up-to-date",
@@ -168,11 +168,11 @@
     "released_hash": "sha256:201711890131225f157b48bbe856281d97a695cd8384b8578dfe8020aa4c73f3"
   },
   "nerdio": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "nerdio-v0.1.0",
     "current_hash": "sha256:bce25ac130f946ac84cd0e7b83525a441d051170cf3037828dbce758c41d49fb",
-    "released_hash": null
+    "released_hash": "sha256:bce25ac130f946ac84cd0e7b83525a441d051170cf3037828dbce758c41d49fb"
   },
   "ninjaone": {
     "state": "up-to-date",
@@ -217,11 +217,11 @@
     "released_hash": "sha256:2dbc4bffec016aeda87ce7165ee9a16bbb044b944095daf2aaa5b9c9154ea4c8"
   },
   "rocketcyber": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "rocketcyber-v0.1.0",
     "current_hash": "sha256:015cf5ac20bab0a4ae186e05bd4445ef5a82265c9ab2c083b9639a86eba755e9",
-    "released_hash": null
+    "released_hash": "sha256:015cf5ac20bab0a4ae186e05bd4445ef5a82265c9ab2c083b9639a86eba755e9"
   },
   "rootly": {
     "state": "up-to-date",
@@ -238,11 +238,11 @@
     "released_hash": "sha256:82ac4c8e457a26f244687d5448262a9f3361318164f6e52c173ca0345046223b"
   },
   "salesbuildr": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "salesbuildr-v0.1.0",
     "current_hash": "sha256:82997bc4519b31883ce1357119edeb72718f205d2e2c3783a73c3e276474e15e",
-    "released_hash": null
+    "released_hash": "sha256:82997bc4519b31883ce1357119edeb72718f205d2e2c3783a73c3e276474e15e"
   },
   "sentinelone": {
     "state": "up-to-date",
