@@ -968,6 +968,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "rocketcyber": {
+      "system": "RocketCyber managed SOC: incidents, agents, detection events, Defender and Microsoft 365 posture, and suppression rules",
+      "status": "beta",
+      "cli_binary": "rocketcyber-cli",
+      "mcp_binary": "rocketcyber-mcp",
+      "vendor": "RocketCyber",
+      "vendor_trademark_owner": "Kaseya",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "RocketCyber",
+      "tagline": "Triage your managed SOC, rank devices at risk, and audit suppression rules from the terminal - no console logins.",
+      "cli_hash": "sha256:015cf5ac20bab0a4ae186e05bd4445ef5a82265c9ab2c083b9639a86eba755e9",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }

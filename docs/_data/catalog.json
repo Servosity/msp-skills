@@ -1,5 +1,5 @@
 {
-  "count": 41,
+  "count": 42,
   "connectors": [
     {
       "slug": "acronis",
@@ -240,6 +240,14 @@
       "category": "Billing",
       "verification": "awaiting",
       "url": "/skills/quickbooks/"
+    },
+    {
+      "slug": "rocketcyber",
+      "display_name": "RocketCyber",
+      "tagline": "Triage your managed SOC, rank devices at risk, and audit suppression rules from the terminal - no console logins.",
+      "category": "Security",
+      "verification": "awaiting",
+      "url": "/skills/rocketcyber/"
     },
     {
       "slug": "rootly",

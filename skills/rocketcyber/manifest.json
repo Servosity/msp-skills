@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "rocketcyber-pp-mcp",
+  "display_name": "RocketCyber",
+  "version": "0.1.0",
+  "description": "The first CLI and MCP server for RocketCyber Managed SOC: triage, incident MTTR, device risk ranking, and posture analytics the console doesn't compute.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/rocketcyber-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/rocketcyber-pp-mcp",
+      "args": [],
+      "env": {
+        "ROCKETCYBER_API_TOKEN": "${user_config.rocketcyber_api_token}"
+      }
+    }
+  },
+  "user_config": {
+    "rocketcyber_api_token": {
+      "type": "string",
+      "title": "ROCKETCYBER_API_TOKEN",
+      "description": "Sets ROCKETCYBER_API_TOKEN for the RocketCyber MCP server.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}
