@@ -422,6 +422,25 @@
       "tagline": "Find any device, audit stale passwords, and rank thin client docs by asking."
     },
     {
+      "name": "kaseya-bms",
+      "system": "Kaseya BMS PSA - tickets, CRM, contracts, finance, and projects",
+      "status": "beta",
+      "skill_path": "skills/kaseya-bms",
+      "cli_binary": "kaseya-bms-cli",
+      "mcp_binary": "kaseya-bms-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Kaseya BMS",
+      "vendor_trademark_owner": "Kaseya US LLC",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-bms/install.sh)",
+      "install_mcp_doc": "skills/kaseya-bms/mcp-install.md",
+      "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-time analytics the web grid can't compute.",
+      "verification": "awaiting",
+      "category": "PSA",
+      "tagline": "Run the Kaseya BMS service desk, contracts, and billing from your terminal - with offline analytics the web grid can't compute."
+    },
+    {
       "name": "knowbe4",
       "system": "KnowBe4 KMSAT security awareness training and phishing-simulation reporting",
       "status": "beta",

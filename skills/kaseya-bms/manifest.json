@@ -1,0 +1,45 @@
+{
+  "manifest_version": "0.3",
+  "name": "kaseya-bms-mcp",
+  "display_name": "Kaseya BMS",
+  "version": "0.1.0",
+  "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-time analytics the web grid can't compute.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/kaseya-bms-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/kaseya-bms-mcp",
+      "args": [],
+      "env": {
+        "KASEYA_BMS_BEARER_AUTH": "${user_config.kaseya_bms_bearer_auth}",
+        "KASEYA_BMS_TOKEN": "${user_config.kaseya_bms_token}"
+      }
+    }
+  },
+  "user_config": {
+    "kaseya_bms_bearer_auth": {
+      "type": "string",
+      "title": "KASEYA_BMS_BEARER_AUTH",
+      "description": "Optional. Sets KASEYA_BMS_BEARER_AUTH for the Kaseya BMS MCP server.",
+      "sensitive": true
+    },
+    "kaseya_bms_token": {
+      "type": "string",
+      "title": "KASEYA_BMS_TOKEN",
+      "description": "Optional. Sets KASEYA_BMS_TOKEN for the Kaseya BMS MCP server.",
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}
