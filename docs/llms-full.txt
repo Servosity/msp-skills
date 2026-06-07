@@ -183,6 +183,40 @@ A: No. Restores, exports, and policy editing still happen in the Afi portal - th
 
 Governance: The skill reads your Afi fleet (installations, orgs, tenants, resources, protections, policies, archives, quotas, and task stats) and can run a small set of writes: create a child org, import records, trigger a backup, and add a protection. Three commands are genuinely destructive - offboard, protections-unprotect, and archives delete - because they release backup coverage or delete an archive. Let an agent run reads freely; require a human to approve every write, and especially the destructive tier.
 
+### AppDirect (Billing)
+
+Page: https://msp-skills.compoundingteams.com/skills/appdirect/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/appdirect/install.sh)
+
+Ask 'which AppDirect payments failed this week?' or 'reconcile billing before month-close' and get an answer across every reseller company in one call. The skill syncs your whole AppDirect marketplace - subscriptions, invoices, payments, companies, pipeline - into a local mirror, so cross-company billing questions that take hundreds of console clicks return instantly, offline, from your terminal or your AI agent.
+
+Outcomes (question -> command your AI agent runs):
+- Which payments failed or stalled in the last week, across every company? -> appdirect-cli payments unpaid --since 7d --json
+- What's active-but-unbilled, overdue, or failed before month-close? -> appdirect-cli reconcile --since 30d --agent
+- What changed in subscriptions this week - new, ended, or suspended? -> appdirect-cli subs changed --since 7d --json
+- Show one customer's full picture - users, subscriptions, invoices, opportunities. -> appdirect-cli company show <companyId>
+- What does my assisted-sales pipeline look like by status? -> appdirect-cli pipeline --group-by status --agent
+- Which open opportunities have gone stale? -> appdirect-cli pipeline stale --days 14 --json
+- Find any company, subscription, invoice, or opportunity by keyword. -> appdirect-cli search "<text>"
+- Pull the whole marketplace into a local mirror for offline analysis. -> appdirect-cli sync
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local AppDirect MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my AppDirect data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need to be an AppDirect partner?
+A: Yes. The skill authenticates with partner API credentials (OAuth2 client_credentials) for a marketplace you operate or resell on - it is not for end-user purchases on a marketplace you don't control. Point it at your own marketplace with APPDIRECT_BASE_URL if you run a white-label domain.
+Q: Will this hit AppDirect's API rate limits?
+A: It is built to avoid them. The marketplace REST API uses leaky-bucket rate limits (for example, 20-request buckets that refill a few per second); because this skill syncs to a local mirror and answers most questions offline, your day-to-day queries make almost no live calls. Sync itself respects the limits and you can cap request rate with --rate-limit.
+
+Governance: The skill reads marketplace data - companies, users, subscriptions, invoices, payments, and the assisted-sales pipeline - and those reads are always safe. It can also write: create and update companies, users, memberships, and opportunities; touch money-moving operations like purchases and payment instruments; and delete or expire records. Keep an autonomous agent to reads plus previewed (--dry-run) writes, and require a human for payment/credential and destructive (delete, cancel, expire) operations.
+
 ### Atera (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/atera/

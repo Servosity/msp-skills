@@ -18,6 +18,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Afi (Backup-DR) - Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/afi/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/afi/install.sh)
+- AppDirect (Billing) - Reconcile AppDirect marketplace billing and chase failed payments across every reseller company before month-close.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/appdirect/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/appdirect/install.sh)
 - Atera (RMM) - Answer fleet-health, SLA, and book-of-business questions across your Atera estate from the terminal.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/atera/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/atera/install.sh)
