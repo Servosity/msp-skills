@@ -34,6 +34,13 @@
     "current_hash": "sha256:c35fe70e19882732f38eac567b5ed2d9f994f0260a7dc0137914bcd1fe7d0681",
     "released_hash": "sha256:c35fe70e19882732f38eac567b5ed2d9f994f0260a7dc0137914bcd1fe7d0681"
   },
+  "axcient": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:3689d836c162863a104b72186dcac80543a918651740fcdc4d1f0aec3d795b5e",
+    "released_hash": null
+  },
   "betterstack": {
     "state": "up-to-date",
     "version": "0.1.0",
