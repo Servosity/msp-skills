@@ -111,6 +111,13 @@
     "current_hash": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29",
     "released_hash": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29"
   },
+  "levelio": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:0f22eb3494544354f3ebe675454733497f59fe6aa7c7a396ff4ac97d4c720fd0",
+    "released_hash": null
+  },
   "liongard": {
     "state": "up-to-date",
     "version": "0.1.0",
