@@ -1,5 +1,5 @@
 {
-  "count": 32,
+  "count": 33,
   "connectors": [
     {
       "slug": "acronis",
@@ -192,6 +192,14 @@
       "category": "Incident Response",
       "verification": "awaiting",
       "url": "/skills/rootly/"
+    },
+    {
+      "slug": "runzero",
+      "display_name": "runZero",
+      "tagline": "Find every asset on your attack surface, diff it over time, and trace any CVE to the machines it hits.",
+      "category": "Security",
+      "verification": "awaiting",
+      "url": "/skills/runzero/"
     },
     {
       "slug": "sentinelone",
