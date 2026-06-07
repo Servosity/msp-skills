@@ -609,7 +609,7 @@
       "name": "salesbuildr",
       "source": "./skills/salesbuildr",
       "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics.",
-      "version": "4.22.0",
+      "version": "0.1.0",
       "category": "crm",
       "tags": [
         "salesbuildr",

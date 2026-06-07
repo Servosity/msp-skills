@@ -4,8 +4,15 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [4.22.0]
+## [0.1.0]
 
 ### Added
-- Initial msp-skills release: Salesbuildr CLI + MCP server, offline mirror, and
-  cross-object analytics. <!-- TODO: replace with the real highlight list. -->
+- Initial msp-skills release: `salesbuildr-cli` + `salesbuildr-mcp` covering the
+  full Salesbuildr Public API - companies, contacts, products, opportunities,
+  quotes, pricing books, and templates.
+- Offline SQLite mirror with full-text `search`, `sql`, `export`, and `sync`.
+- Cross-object analytics with no portal equivalent: `quote stale`, `quote thin`,
+  `quote funnel`, `pricing drift`, `opportunity velocity`/`winrate`/`mrr-forecast`,
+  `product velocity`, `company whitespace`, and `reconcile-psa`.
+- Agent-native output (`--agent`, `--json`, `--dry-run`) and MCP server for any
+  MCP-capable agent.

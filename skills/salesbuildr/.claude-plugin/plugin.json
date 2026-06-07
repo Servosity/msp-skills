@@ -1,6 +1,6 @@
 {
   "name": "salesbuildr",
-  "version": "4.22.0",
+  "version": "0.1.0",
   "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics.",
   "author": {
     "name": "Servosity",

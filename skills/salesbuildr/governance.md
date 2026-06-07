@@ -27,11 +27,10 @@ require a human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `company public-create`, `company public-update`, `contact company-public-create`, `contact company-public-update`, `field public-update-values`, `pricing-book public-create`, `pricing-book public-update`, `product public-create`, ... (19 total) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
-| **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
-| **Destructive** | Irreversible data or config loss. | `company public-delete`, `company public-delete-by-external-identifier`, `contact company-public-delete`, `contact company-public-delete-by-id`, `contact company-public-undelete-by-ext-id`, `contact undelete`, `contact undelete company-contact-public-contact-by-id`, `product public-delete`, ... (9 total) | Human-in-the-loop only, explicit confirmation |
-| **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
+| **Read** | Reports, rollups, search. No change. | every `public-get` / `public-get-list`, the analytics (`quote stale`, `quote thin`, `quote funnel`, `pricing drift`, `opportunity velocity` / `winrate` / `mrr-forecast`, `product velocity`, `company whitespace`), `reconcile-psa`, `field public-get-values`, the template `public-validate-*` checks, `search`, `sql`, `export`, and `sync` (writes the local mirror only) | Allow |
+| **Write (routine)** | Day-to-day mutations through the Public API. | `company` / `contact` / `product` / `pricing-book` / `quote` / `quote-template` / `quote-widget-template` / `quote-discount-group` create & update, the `public-upsert*` commands, `opportunity public-win` / `public-lose` / `public-upsert`, `field public-update-values`, `product inventory`, `product public-create-batch`, the contact undeletes (which **restore** soft-deleted records, not delete them), and the bulk `import` - 30 routine-write commands in all | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
+| **Destructive** | Irreversible data loss. | the 6 delete commands: `company public-delete`, `company public-delete-by-external-identifier`, `contact company-public-delete`, `contact company-public-delete-by-id`, `product public-delete`, `product public-delete-by-external-identifier` | Human-in-the-loop only, explicit confirmation |
+| **Credential / config** | Sets or clears the local API credential. | `auth setup`, `auth set-token`, `auth logout` (these touch the local token store, never vendor data) | Human-in-the-loop only |
 
 ## How to lock it down
 

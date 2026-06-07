@@ -1,6 +1,6 @@
 ---
 name: salesbuildr
-description: "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics. Trigger phrases: `salesbuildr stale quotes`, `check quote margins`, `salesbuildr pipeline velocity`, `sync salesbuildr catalog`, `company whitespace salesbuildr`, `use salesbuildr`, `run salesbuildr`."
+description: "Use when the user asks to find stale or aging Salesbuildr quotes, catch thin-margin quote lines, see quote-funnel conversion, forecast weighted recurring revenue, spot pricing drift between per-company books and the master catalog, find cross-sell whitespace, reconcile records missing a PSA external ID, or run any Salesbuildr CRUD (companies, contacts, products, opportunities, quotes, pricing books, templates) - backed by a local SQLite mirror so cross-quote questions answer offline. Trigger phrases: `which salesbuildr quotes are going stale`, `check quote margins`, `salesbuildr pipeline velocity`, `where has my pricing drifted`, `company whitespace salesbuildr`, `use salesbuildr`, `run salesbuildr-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Salesbuildr"
@@ -11,32 +11,26 @@ metadata:
     requires:
       bins:
         - salesbuildr-cli
-    install:
-      - kind: go
-        bins: [salesbuildr-cli]
-        module: github.com/mvanhorn/printing-press-library/library/sales-and-crm/salesbuildr/cmd/salesbuildr-cli
 ---
 
-# Salesbuildr  -  Printing Press CLI
+# Salesbuildr Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `salesbuildr-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install salesbuildr --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/salesbuildr/install.sh)
    ```
-2. Verify: `salesbuildr-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/salesbuildr/install.ps1 | iex
+   ```
+3. Verify: `salesbuildr-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/salesbuildr/cmd/salesbuildr-cli@latest
-```
-
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 salesbuildr-cli mirrors the full Salesbuildr Public API  -  companies, contacts, products, opportunities, quotes, pricing books, templates and more  -  with agent-native JSON output and a local SQLite store. The local store is what unlocks the commands no other Salesbuildr tool has: stale-quote radar, low-margin line detection, pricing drift, pipeline velocity, win-rate, MRR forecast, and company whitespace.
 
@@ -375,15 +369,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/salesbuildr/cmd/salesbuildr-mcp@latest
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add salesbuildr-mcp -- salesbuildr-mcp
-   ```
-3. Verify: `claude mcp list`
+The installer above drops `salesbuildr-mcp` alongside the CLI. Register it:
+
+```bash
+claude mcp add salesbuildr-mcp -- salesbuildr-mcp
+```
+
+Verify: `claude mcp list`
 
 ## Direct Use
 

@@ -599,7 +599,7 @@
       "skill_path": "skills/salesbuildr",
       "cli_binary": "salesbuildr-cli",
       "mcp_binary": "salesbuildr-mcp",
-      "version": "4.22.0",
+      "version": "0.1.0",
       "license": "Apache-2.0",
       "vendor": "Salesbuildr",
       "vendor_trademark_owner": "Salesbuildr",

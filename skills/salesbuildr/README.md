@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/salesbuildr/">
-    <img src="../../docs/assets/social/salesbuildr/wide-1200x630.png" alt="Salesbuildr - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/salesbuildr/animated-og.gif" alt="Salesbuildr demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/salesbuildr/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/salesbuildr/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Salesbuildr MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/salesbuildr-v4.22.0/salesbuildr-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Salesbuildr release on the [releases page](https://github.com/servosity/msp-skills/releases?q=salesbuildr).)
+[**Download Salesbuildr MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/salesbuildr-v0.1.0/salesbuildr-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Salesbuildr release on the [releases page](https://github.com/servosity/msp-skills/releases?q=salesbuildr).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -145,25 +145,36 @@ SALESBUILDR_API_KEY=<value> SALESBUILDR_TENANT=<value> salesbuildr-cli doctor
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `salesbuildr-cli ...` |
-
--->
+| Which sent or approved quotes are aging, and how much is at risk? | `salesbuildr-cli quote stale --days 14` |
+| Which quote line items are priced below my markup floor? | `salesbuildr-cli quote thin --floor 20` |
+| How does my quote pipeline convert stage by stage, in count and dollars? | `salesbuildr-cli quote funnel` |
+| Where have per-company pricing-book prices drifted from the master catalog? | `salesbuildr-cli pricing drift` |
+| What's my win rate by owner, stage, or category? | `salesbuildr-cli opportunity winrate --by owner` |
+| What's my probability-weighted recurring-revenue forecast? | `salesbuildr-cli opportunity mrr-forecast` |
+| Which catalog products have I never quoted to a given company? | `salesbuildr-cli company whitespace "Acme Managed IT"` |
+| Which records are missing the external ID my PSA sync depends on? | `salesbuildr-cli reconcile-psa` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Salesbuildr integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Salesbuildr integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "which of the 80 quotes I sent this quarter are still open, aging, and worth following up before they expire?".
 
-This skill syncs Salesbuildr into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs Salesbuildr into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `quote stale`, `quote thin`, and `company whitespace` join across quotes, line items, products, and pricing books - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+Quotes go out and then go quiet. On a lean MSP nobody has time to babysit every sent proposal, so deals worth real money quietly age past their expiry - a recurring r/msp complaint about quote follow-up. Meanwhile margin leaks one line at a time: a tech swaps in a part at cost, forgets the markup, and you don't catch it until the QBR. And per-company pricing books drift from the master catalog until two clients pay different prices for the same SKU.
+
+This skill turns those into one-line questions:
+
+- **`salesbuildr-cli quote stale --days 14`** - every sent/approved quote aging past your cutoff, with the dollar value still at risk.
+- **`salesbuildr-cli quote thin --floor 20`** - every open line priced below your markup floor, before it ships.
+- **`salesbuildr-cli pricing drift`** - per-company prices that have diverged from the master catalog cost or price.
+- **`salesbuildr-cli company whitespace "Acme Managed IT"`** - catalog products a client has never been quoted: the cross-sell you keep meaning to make.
+- **`salesbuildr-cli reconcile-psa`** - records missing the external ID your Autotask/ConnectWise sync needs.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +196,13 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Will this hammer my Salesbuildr API rate limits?
+
+No. The analytics read a **local SQLite mirror**, not the live API - you `sync` once, then ask as many questions as you want offline with zero further API calls. The sync itself honors a configurable `--rate-limit`, and you control how often it runs.
+
+### Do I need to be a Salesbuildr customer, and will this replace my PSA sync?
+
+You need a Salesbuildr account, a Public API key from your portal, and your tenant subdomain. It does **not** replace your Autotask/ConnectWise sync - it reads your Salesbuildr data and flags the records missing the external ID that sync depends on (`reconcile-psa`), so you can fix the gaps. It never writes to your PSA.
 
 ### What does it cost?
 
@@ -198,15 +210,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | every `public-get`/`public-get-list`, the analytics (`quote stale`, `quote thin`, `quote funnel`, `pricing drift`, `opportunity velocity`/`winrate`/`mrr-forecast`, `product velocity`, `company whitespace`), `reconcile-psa`, `search`, `sql`, `export`, and `sync` (local mirror only) | Allow |
+| Write (routine) | company/contact/product/pricing-book/quote/quote-template create & update, the upserts, `opportunity public-win`/`public-lose`/`public-upsert`, `field public-update-values`, `product inventory`, the contact undeletes, and the bulk `import` - 30 routine-write commands in all | Preview with `--dry-run`, then a reviewed write |
+| Destructive / config | the 6 delete commands (`company`/`contact`/`product public-delete*`), plus the local credential commands (`auth set-token`, `auth setup`, `auth logout`) | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Salesbuildr credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +226,4 @@ Beta. Validated against the Salesbuildr API surface and being validated with MSP
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-07._

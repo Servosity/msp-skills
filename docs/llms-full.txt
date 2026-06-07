@@ -1150,6 +1150,40 @@ A: A read/Export token (Export ET, Organization OT, or Account CT key) covers sy
 
 Governance: The skill reads your runZero attack surface - assets, services, software, vulnerabilities, and certificates - and keeps a local copy you can query offline. It can also write: launch network scans, create sites, manage account users and keys, and import data, all opt-in. Most read commands are safe, but the credential, token, and key reads (e.g. account get-apitoken, get-credentials, get-keys) return or mint secrets, so treat them like writes. Keep an autonomous agent to non-secret reads plus previewed (--dry-run) writes, and require a human for scan launches, any credential / token / key operation, and any delete.
 
+### Salesbuildr (CRM)
+
+Page: https://msp-skills.compoundingteams.com/skills/salesbuildr/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/salesbuildr/install.sh)
+
+Ask your AI which quotes are aging, which lines are bleeding margin, and where your pipeline is stalling - and get the answer from your own Salesbuildr data in seconds. salesbuildr-cli syncs your quotes, opportunities, products, and pricing books into a local mirror, so the cross-quote questions the portal can't answer in one click become a single command.
+
+Outcomes (question -> command your AI agent runs):
+- Which sent or approved quotes are aging, and how much is at risk? -> salesbuildr-cli quote stale --days 14
+- Which quote line items are priced below my markup floor? -> salesbuildr-cli quote thin --floor 20
+- How does my quote pipeline convert stage by stage, in count and dollars? -> salesbuildr-cli quote funnel
+- Where have per-company pricing-book prices drifted from the master catalog? -> salesbuildr-cli pricing drift
+- What's my win rate by owner, stage, or category? -> salesbuildr-cli opportunity winrate --by owner
+- What's my probability-weighted recurring-revenue forecast on the open pipeline? -> salesbuildr-cli opportunity mrr-forecast
+- Which catalog products have I never quoted to a given company? -> salesbuildr-cli company whitespace "Acme Managed IT"
+- Which records are missing the external ID my PSA sync depends on? -> salesbuildr-cli reconcile-psa
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Salesbuildr MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Salesbuildr data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this hammer my Salesbuildr API rate limits?
+A: No. The analytics read a local SQLite mirror, not the live API - you sync once, then ask as many questions as you want offline with zero further API calls. The sync itself honors a configurable --rate-limit, and you control how often it runs.
+Q: Do I need to be a Salesbuildr customer, and will this replace my PSA sync?
+A: You need a Salesbuildr account, a Public API key from your portal, and your tenant subdomain. It does not replace your Autotask/ConnectWise sync - it reads your Salesbuildr data and flags the records missing the external ID that sync depends on, so you can fix the gaps. It never writes to your PSA.
+
+Governance: The skill reads your Salesbuildr quotes, opportunities, products, companies, and pricing books, and can create, update, or delete those records through the Public API. Reads - every get/list, the analytics rollups, search, sql, export, and sync - are safe to run unattended. Routine writes (create/update/upsert, the bulk import, winning or losing an opportunity) should be previewed with --dry-run and approved. The delete commands and the local auth/credential commands are human-in-the-loop only.
+
 ### SentinelOne (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/sentinelone/
