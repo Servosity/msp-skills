@@ -95,6 +95,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Pipedrive (CRM) - Surface stale deals, weighted forecasts, and overdue follow-ups across your pipeline by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pipedrive/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pipedrive/install.sh)
+- Proofpoint TAP (Security) - Investigate Proofpoint TAP threats, VAPs, and top clickers from your terminal without burning the daily API quota.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/proofpoint/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proofpoint/install.sh)
 - QuickBooks Online (Billing) - Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/quickbooks/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/install.sh)

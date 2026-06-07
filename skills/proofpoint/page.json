@@ -104,7 +104,7 @@
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {
-      "tier": "Destructive / config",
+      "tier": "Credential / security",
       "examples": "auth set-token, auth logout",
       "policy": "Human-in-the-loop only"
     }

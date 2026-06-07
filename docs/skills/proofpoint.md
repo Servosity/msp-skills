@@ -124,7 +124,7 @@ After install, authenticate once with your Proofpoint TAP credentials, then veri
 | --- | --- | --- |
 | Read | siem list-issues, siem list-clicks-permitted, people list-vap, people list-top-clickers, campaign get, campaign-threats, threat, incident, iocs, forensics, risk-overlap, user, url, search, export, sync, workflow status | Allow |
 | Write (routine) | import | Preview with --dry-run, then a reviewed write |
-| Destructive / config | auth set-token, auth logout | Human-in-the-loop only |
+| Credential / security | auth set-token, auth logout | Human-in-the-loop only |
 
 The skill reads your Proofpoint TAP threat data - SIEM click and message events, campaigns, Very Attacked People, top clickers, and forensic evidence - and can sync it into a local SQLite mirror; all of that is read-only and safe to let an agent run, and the bundled MCP server exposes only those read tools. The one API write path is CLI-only bulk import, which supports --dry-run - preview it and keep it human-reviewed. The local auth commands (auth set-token, auth logout) manage your stored TAP credentials and should stay operator-only. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/proofpoint/governance.md).
 

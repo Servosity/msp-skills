@@ -1,6 +1,6 @@
 ---
 name: proofpoint
-description: "Every TAP Threat Insight endpoint Trigger phrases: `pull proofpoint siem events`, `who are my VAPs`, `decode this urldefense link`, `proofpoint incident brief`, `top clickers this month`, `use proofpoint`, `run proofpoint-cli`."
+description: "Every Proofpoint TAP Threat Insight endpoint, plus a local threat store for the cross-endpoint questions the dashboard cannot answer. Use when the user asks to pull Proofpoint SIEM click or message events, find Very Attacked People or top clickers, build an incident brief from a threatId, extract IOCs for blocking, or decode a urldefense link. Trigger phrases: `pull proofpoint siem events`, `who are my VAPs`, `decode this urldefense link`, `proofpoint incident brief`, `top clickers this month`, `use proofpoint`, `run proofpoint-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Proofpoint"
@@ -11,32 +11,26 @@ metadata:
     requires:
       bins:
         - proofpoint-cli
-    install:
-      - kind: go
-        bins: [proofpoint-cli]
-        module: github.com/mvanhorn/printing-press-library/library/monitoring/proofpoint/cmd/proofpoint-cli
 ---
 
-# Proofpoint TAP - Printing Press CLI
+# Proofpoint TAP Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `proofpoint-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install proofpoint --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proofpoint/install.sh)
    ```
-2. Verify: `proofpoint-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proofpoint/install.ps1 | iex
+   ```
+3. Verify: `proofpoint-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/monitoring/proofpoint/cmd/proofpoint-cli@latest
-```
-
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Existing TAP tools are thin per-endpoint wrappers or one-way SIEM shovels. This CLI syncs clicks, messages, campaigns, VAPs, and clickers into SQLite, then answers joined questions locally - incident briefs, flat IOC tables, risk overlaps, per-user timelines - without re-spending the 1800-per-day SIEM quota or the 50-per-day campaign-ids quota.
 
@@ -161,7 +155,7 @@ Backfill loops the 1-hour windows for you; afterwards search and user answer que
 ### One-shot incident brief from an alert
 
 ```bash
-proofpoint-cli incident "threat-abc123" --agent --select summary.severity,summary.malware,iocs
+proofpoint-cli incident "threat-abc123" --agent --select summary.severity,summary.malware,ioc_count
 ```
 
 Severity, attribution, and evidence for a threatId in a single agent-shaped payload.
@@ -204,7 +198,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable** - `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  proofpoint-cli campaign get mock-value --agent --select id,name,status
+  proofpoint-cli campaign get "campaign-xyz789" --agent --select id,name,status
   ```
 - **Previewable** - `--dry-run` shows the request without sending
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
@@ -256,7 +250,7 @@ A profile is a saved set of flag values, reused across invocations. Use it when 
 
 ```
 proofpoint-cli profile save briefing --json
-proofpoint-cli --profile briefing campaign get mock-value
+proofpoint-cli --profile briefing campaign get "campaign-xyz789"
 proofpoint-cli profile list --json
 proofpoint-cli profile show briefing
 proofpoint-cli profile delete briefing --yes
@@ -287,15 +281,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/monitoring/proofpoint/cmd/proofpoint-mcp@latest
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add proofpoint-mcp -- proofpoint-mcp
-   ```
-3. Verify: `claude mcp list`
+The installer above drops `proofpoint-mcp` alongside the CLI. Register it:
+
+```bash
+claude mcp add proofpoint-mcp -- proofpoint-mcp
+```
+
+Then verify: `claude mcp list`
 
 ## Direct Use
 

@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/proofpoint/">
-    <img src="../../docs/assets/social/proofpoint/wide-1200x630.png" alt="Proofpoint TAP - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/proofpoint/animated-og.gif" alt="Proofpoint TAP demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/proofpoint/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/proofpoint/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Every Proofpoint TAP Threat Insight endpoint plus a local threat store that answers cross-endpoint questions - who is both attacked and clicking, what touched a given user - without re-spending the limited daily API quota. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
@@ -145,25 +145,37 @@ PROOFPOINT_API_SECRET=<value> PROOFPOINT_SERVICE_PRINCIPAL=<value> proofpoint-cl
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `proofpoint-cli ...` |
-
--->
+| What malicious clicks and messages got through overnight? | `proofpoint-cli backfill --since 12h` |
+| Who is both Very Attacked and a top clicker? | `proofpoint-cli risk-overlap --window 30` |
+| Give me the full incident brief for a threatId | `proofpoint-cli incident "threat-abc123"` |
+| What indicators should I block from this threat? | `proofpoint-cli iocs --threat-id "threat-abc123" --csv` |
+| Show me every event that touched one user | `proofpoint-cli user "jane.doe@example.com"` |
+| Who are my Very Attacked People this month? | `proofpoint-cli people list-vap --window 30` |
+| Which permitted clicks and delivered threats still need a response? | `proofpoint-cli siem list-issues` |
+| What threats are inside this campaign? | `proofpoint-cli campaign-threats "campaign-xyz789"` |
+| Decode this urldefense-rewritten link | `proofpoint-cli url --urls "https://urldefense.com/v3/..."` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Proofpoint integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Proofpoint integrations and MCP servers proxy each question into a live API call. That's fine for one lookup. It dies at scale, when you're asking "who is both Very Attacked and clicking" or "every event that touched this user" - and every one of those calls spends against TAP's hard daily quota of 1,800 SIEM requests and 50 campaign-id lookups.
 
-This skill syncs Proofpoint into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill backfills Proofpoint TAP into a **local SQLite mirror** with full-text search. Cross-endpoint questions become one local join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `risk-overlap`, `incident`, and `user` join across SIEM clicks, threat messages, VAP status, clicker status, and forensic evidence - work a stateless API wrapper can't do, and re-queries cost zero additional API calls.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+On r/msp and the Proofpoint community forums the recurring TAP complaint isn't detection quality - it's the API and the dashboard around it. The Threat Insight SIEM endpoints cap you at 1,800 requests per rolling 24 hours and a single call can't span more than a one-hour window, so reconstructing even a day of clicks and messages means looping the API by hand; the campaign-ids endpoint is throttled to just 50 requests a day. And the dashboard answers one screen at a time, so the questions you actually ask during response - who is both attacked and clicking, every event that touched this user, what's inside this campaign - cross endpoints the console never joins. The pattern is the same one teams describe everywhere: export the feeds, re-pull the same windows, rebuild the correlation in a spreadsheet, burn quota every time.
+
+This skill backfills once, then answers offline:
+
+- `proofpoint-cli backfill --since 12h` - reconstruct overnight clicks and messages in one command, auto-looping the API's 1-hour windows.
+- `proofpoint-cli risk-overlap --window 30` - the people who are both Very Attacked and top clickers, attack index beside click count.
+- `proofpoint-cli incident "threat-abc123"` - one incident brief from a threatId: severity, attribution, evidence, and every local event that touched it.
+- `proofpoint-cli iocs --threat-id "threat-abc123" --csv` - the nested forensic tree flattened into a paste-ready indicator table for an EDR or blocklist.
+- `proofpoint-cli user "jane.doe@example.com"` - every click, threat message, VAP status, and clicker status for one person, without re-spending SIEM quota.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +197,17 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Will this blow through my Proofpoint TAP API limits?
+
+No - avoiding that is the point. TAP caps you at 1,800 SIEM requests and 50 campaign-id lookups per rolling 24 hours. The skill backfills once into a local SQLite store, then answers repeat and cross-endpoint questions from that mirror, so re-querying a window or looping over users costs zero additional API calls. Live calls fire only when you ask for fresh data.
+
+### Do I need a special Proofpoint partner API or Essentials admin access?
+
+No. It uses your standard TAP (Targeted Attack Protection) Service Principal and Secret, created under **Settings > Connected Applications** in the TAP dashboard. It reads the Threat Insight endpoints your account already exposes; it does not require Proofpoint Essentials administration or a separate partner program.
+
+### Will this replace my Proofpoint TAP dashboard?
+
+No - it complements it. The dashboard stays your place for configuration and per-threat drill-down. This skill adds the cross-endpoint rollups the portal never exposes - attacked-and-clicking overlap, per-user timelines, one-shot incident briefs - pointed at by your AI agent and answered from your own synced data.
 
 ### What does it cost?
 
@@ -198,15 +215,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `siem list-issues`, `people list-vap`, `campaign-threats`, `threat`, `incident`, `iocs`, `forensics`, `risk-overlap`, `user`, `url`, `search`, `export`, `sync`, `workflow status` | Allow |
+| Write (routine) | `import` (bulk data import via API create/upsert) | Preview with `--dry-run`, then a reviewed write |
+| Credential / security | `auth set-token`, `auth logout` (manage the locally stored TAP credential) | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Proofpoint credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +231,4 @@ Beta. Validated against the Proofpoint API surface and being validated with MSPs
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-07._
