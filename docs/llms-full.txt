@@ -934,6 +934,44 @@ A: Rarely. Read questions run against the local SQLite mirror, not the API - you
 
 Governance: The skill reads incidents, alerts, schedules, and on-call data, and can create or update incidents and related objects - but never changes anything unless you ask. Reads are always safe to run; routine writes should be previewed with --dry-run and then approved; credential, destructive, and config commands (secrets, deletes, key rotation) are human-in-the-loop only.
 
+### runZero (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/runzero/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/runzero/install.sh)
+
+runZero's API answers one entity at a time; it cannot join assets to services to vulnerabilities in a single call. This skill syncs your whole attack surface into a local SQLite copy, then ranks exposure, diffs what changed since the last sync, and traces any CVE to the exact assets it hits - offline, at zero API quota. Ask in plain language; your agent runs the command and reads back the answer.
+
+Outcomes (question -> command your AI agent runs):
+- Which of our assets are most exposed right now? -> runzero-cli triage --agent
+- Only the internet-facing ones? -> runzero-cli triage --internet-facing --agent
+- What changed on our attack surface since last week? -> runzero-cli diff --since 7d
+- What newly became exposed or vulnerable since the last sync? -> runzero-cli exposure-delta --agent
+- Which assets are affected by a given CVE? -> runzero-cli affected "CVE-2024-3094" --agent
+- Where are risky services concentrated in a subnet? -> runzero-cli exposure-map "10.0.0.0/8" --agent
+- Which TLS certificates are expiring soon or using weak crypto? -> runzero-cli certs-expiring --days 90 --weak
+- Which assets are stale, end-of-life, or unowned? -> runzero-cli stale --days 90 --json
+- How many assets run a given software product, by version? -> runzero-cli software rollup "openssl" --agent
+- Scan a subnet on a site and wait for the result? -> runzero-cli scan-watch "<site_id>" --targets "10.0.0.0/24"
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local runZero MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your runZero API key once.
+Q: Is my runZero data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local SQLite copy are all local. The AI sees query results, not raw bulk data, and your API key is never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Does this burn my runZero API quota?
+A: Only 'inventory sync' and live queries call the API. The cross-entity analysis - triage, diff, affected, exposure-map, exposure-delta, certs-expiring, software rollup - runs entirely against the local SQLite copy, so re-slicing your attack surface a hundred ways costs zero additional API calls.
+Q: Does it work with self-hosted runZero?
+A: Yes. It defaults to the hosted console at console.runzero.com; point it at your own console with RUNZERO_BASE_URL. The same API-token scopes apply.
+Q: What token scope do I need?
+A: A read/Export token (Export ET, Organization OT, or Account CT key) covers sync and every analysis command. Launching a scan with scan-watch or org create-scan needs a token with scan permission. Scope the credential to only what your workflow uses.
+
+Governance: The skill reads your runZero attack surface - assets, services, software, vulnerabilities, and certificates - and keeps a local copy you can query offline. It can also write: launch network scans, create sites, manage account users and keys, and import data, all opt-in. Most read commands are safe, but the credential, token, and key reads (e.g. account get-apitoken, get-credentials, get-keys) return or mint secrets, so treat them like writes. Keep an autonomous agent to non-secret reads plus previewed (--dry-run) writes, and require a human for scan launches, any credential / token / key operation, and any delete.
+
 ### SentinelOne (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/sentinelone/

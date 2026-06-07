@@ -479,6 +479,25 @@
       "tagline": "Every Rootly incident, alert, and on-call object as a typed command, plus offline MTTR and coverage-gap answers."
     },
     {
+      "name": "runzero",
+      "system": "runZero",
+      "status": "beta",
+      "skill_path": "skills/runzero",
+      "cli_binary": "runzero-cli",
+      "mcp_binary": "runzero-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "runZero",
+      "vendor_trademark_owner": "runZero, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/runzero/install.sh)",
+      "install_mcp_doc": "skills/runzero/mcp-install.md",
+      "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Find every asset on your attack surface, diff it over time, and trace any CVE to the machines it hits."
+    },
+    {
       "name": "sentinelone",
       "system": "SentinelOne Singularity: threat triage, mitigation, agent fleet health, and protection-coverage gaps across customer sites",
       "status": "beta",

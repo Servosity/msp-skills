@@ -80,6 +80,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Rootly (Incident Response) - Every Rootly incident, alert, and on-call object as a typed command, plus offline MTTR and coverage-gap answers.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/rootly/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rootly/install.sh)
+- runZero (Security) - Find every asset on your attack surface, diff it over time, and trace any CVE to the machines it hits.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/runzero/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/runzero/install.sh)
 - SentinelOne (Security) - Triage threats, find protection gaps, and catch overnight fleet drift across every SentinelOne tenant by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/sentinelone/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sentinelone/install.sh)
