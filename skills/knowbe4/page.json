@@ -1,0 +1,108 @@
+{
+  "outcome_intro": "KnowBe4's console reports one tenant, one phishing test, one chart at a time. This skill syncs your KMSAT data into a local SQLite mirror and answers the questions the portal can't: which users clicked the bait in multiple phishing tests, whose risk score is deteriorating this quarter, and who clicked a phish but finished zero training - across every client, in seconds, from your terminal.",
+  "instead_of_say": [
+    {
+      "instead": "Exporting a phishing-test CSV from every client tenant and pivot-tabling to find who failed more than once",
+      "say": "Which users clicked the bait in two or more phishing tests in the last 90 days?",
+      "cli": "knowbe4-cli repeat-clickers --min-clicks 2 --since 90d --top 25"
+    },
+    {
+      "instead": "Clicking through each user's risk-score chart in the console to guess who is getting worse",
+      "say": "Rank the users whose risk score worsened the most this quarter",
+      "cli": "knowbe4-cli risk-drift --window 90d --worsened --top 20"
+    },
+    {
+      "instead": "Cross-referencing the phishing report against the training report by hand to find people who failed and never trained",
+      "say": "Who clicked a phish but has no passed training to show for it?",
+      "cli": "knowbe4-cli untrained-clickers --since 180d"
+    }
+  ],
+  "pain_points": [
+    "MSPs running KnowBe4 across dozens of client tenants live in CSV exports: the console answers one account and one phishing test at a time, so 'who are my repeat clickers across all clients' becomes an afternoon of spreadsheets.",
+    "At QBR time a vCISO needs the short list - who is deteriorating, who never reports, who failed and never trained - but the portal shows risk numbers without the why, and nothing correlates phishing results against training completion."
+  ],
+  "outcomes": [
+    {
+      "question": "Who clicked the bait in more than one phishing test?",
+      "command": "knowbe4-cli repeat-clickers --min-clicks 2 --since 90d"
+    },
+    {
+      "question": "Whose risk score is getting worse this quarter?",
+      "command": "knowbe4-cli risk-drift --window 90d --worsened --top 20"
+    },
+    {
+      "question": "Who clicked a phish but never passed training?",
+      "command": "knowbe4-cli untrained-clickers --since 180d"
+    },
+    {
+      "question": "Which active users have zero training or zero phishing coverage?",
+      "command": "knowbe4-cli coverage-gaps"
+    },
+    {
+      "question": "Is training actually working for the Finance group?",
+      "command": "knowbe4-cli phish-prone-trend --group \"Finance\" --since 12mo"
+    },
+    {
+      "question": "Who are my highest-risk users, with the why behind the score?",
+      "command": "knowbe4-cli risk-leaderboard --top 25"
+    },
+    {
+      "question": "Which departments are driving our risk up?",
+      "command": "knowbe4-cli group-risk-contribution --window 90d --top 10"
+    },
+    {
+      "question": "Assemble the full client quarterly review in one command",
+      "command": "knowbe4-cli qbr --since 90d"
+    },
+    {
+      "question": "Who never reports a simulated phish?",
+      "command": "knowbe4-cli report-rate --bottom 25"
+    },
+    {
+      "question": "Is my synced data fresh enough to trust a clicker hunt?",
+      "command": "knowbe4-cli freshness"
+    }
+  ],
+  "different_vs_wrappers": "Most KnowBe4 integrations and MCP servers proxy each question into a single live API call - fine for one user, one test. But repeat-clicker hunts, risk drift, and untrained-clicker anti-joins need data fused across many phishing tests and against the training records the console keeps in a separate report. This skill syncs KnowBe4 into a local SQLite mirror, so those cross-test, cross-report questions become one instant offline join instead of a wall of API pulls.",
+  "different_vs_vendor": "KnowBe4's console and Virtual Risk Officer give you per-tenant dashboards; this skill adds the cross-client, cross-test rollups and anti-joins the portal never exposes - repeat clickers across every phishing test, risk drift ranked across all users, and clicked-but-untrained remediation lists - all from your own synced data and pointed at by your AI agent.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local KnowBe4 MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my KnowBe4 data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the bundled MCP server exposes read-only reporting tools only. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Does this replace the KnowBe4 console or need a special partner API?",
+      "a": "Neither. It uses your standard KMSAT Reporting API key (Account Settings - API - enable Reporting API) and your region (us, eu, ca, uk, or de). It reads what your account already exposes and adds the cross-client rollups the console doesn't. The one write path that needs extra setup is pushing custom risk events, which uses a separate, opt-in User Event API key."
+    }
+  ],
+  "governance_summary": "The skill reads your KnowBe4 reporting data - accounts, users, groups, phishing tests, training, risk scores - and can sync it to a local SQLite mirror; all of that is read-only and safe to let an agent run, and the bundled MCP server exposes only those read tools. The only write paths are CLI-only: pushing or deleting custom risk events on a user's timeline (a separate, opt-in User Event API key) and bulk import. Keep those human-reviewed and preview them with --dry-run first.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "account info, users list, groups list, phishing-tests list, training-enrollments list, risk-leaderboard, repeat-clickers, sync, search, qbr",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "events create, import",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "events delete",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}
