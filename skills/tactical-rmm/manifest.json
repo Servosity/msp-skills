@@ -1,8 +1,8 @@
 {
   "manifest_version": "0.3",
-  "name": "tactical-rmm-pp-mcp",
+  "name": "tactical-rmm-mcp",
   "display_name": "Tactical RMM",
-  "version": "4.22.0",
+  "version": "0.1.0",
   "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express.",
   "author": {
     "name": "Servosity Inc."
@@ -10,12 +10,13 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/tactical-rmm-pp-mcp",
+    "entry_point": "bin/tactical-rmm-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/tactical-rmm-pp-mcp",
+      "command": "${__dirname}/bin/tactical-rmm-mcp",
       "args": [],
       "env": {
-        "TRMM_API_KEY": "${user_config.trmm_api_key}"
+        "TRMM_API_KEY": "${user_config.trmm_api_key}",
+        "TACTICAL_RMM_BASE_URL": "${user_config.tactical_rmm_base_url}"
       }
     }
   },
@@ -25,6 +26,12 @@
       "title": "TRMM_API_KEY",
       "description": "Tactical RMM API key (Settings > Global Settings > API Keys). Bypasses 2FA.",
       "sensitive": true,
+      "required": true
+    },
+    "tactical_rmm_base_url": {
+      "type": "string",
+      "title": "TACTICAL_RMM_BASE_URL",
+      "description": "Your self-hosted Tactical RMM API base URL, e.g. https://api.yourdomain.com.",
       "required": true
     }
   },

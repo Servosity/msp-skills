@@ -636,7 +636,7 @@
       "tagline": "Triage every agent, sweep patch posture, and run a script across a filtered cohort by asking.",
       "cli_hash": "sha256:531d4614a72206ebfbcd546719b1ba3e598e1f71defa7e7c827b7255d58cb75e",
       "template_version": 3,
-      "version": "4.22.0",
+      "version": "0.1.0",
       "cli_hash_at_release": null,
       "has_video": true,
       "live_verified": {

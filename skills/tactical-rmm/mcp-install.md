@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "tactical-rmm": {
       "command": "tactical-rmm-mcp",
       "env": {
-        "TRMM_API_KEY": "<your-trmm_api_key>"
+        "TRMM_API_KEY": "<your-trmm_api_key>",
+        "TACTICAL_RMM_BASE_URL": "https://api.yourdomain.com"
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "tactical-rmm-mcp",
       "env": {
-        "TRMM_API_KEY": "<your-trmm_api_key>"
+        "TRMM_API_KEY": "<your-trmm_api_key>",
+        "TACTICAL_RMM_BASE_URL": "https://api.yourdomain.com"
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "tactical-rmm": {
       "command": "tactical-rmm-mcp",
       "env": {
-        "TRMM_API_KEY": "<your-trmm_api_key>"
+        "TRMM_API_KEY": "<your-trmm_api_key>",
+        "TACTICAL_RMM_BASE_URL": "https://api.yourdomain.com"
       }
     }
   }
@@ -101,7 +104,7 @@ All remote agents need `tactical-rmm-mcp` reachable as a public **HTTPS** endpoi
 in HTTP mode with your credentials in the environment:
 
 ```bash
-TRMM_API_KEY=<value> tactical-rmm-mcp --transport http --addr :7777
+TACTICAL_RMM_BASE_URL=https://api.yourdomain.com TRMM_API_KEY=<value> tactical-rmm-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

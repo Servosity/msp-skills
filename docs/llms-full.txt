@@ -1122,6 +1122,47 @@ A: No. It reads from your Syncro account and is for the cross-customer questions
 
 Governance: The skill is read-first: reporting, rollups, and cross-entity views can't change anything in Syncro. Mutating commands (create/update/delete tickets, invoices, customers, and the like) send immediately unless you pass `--dry-run` to preview first, so the safe agent policy is read plus previewed writes, with a human approving anything that creates, updates, or deletes. The CLI can only ever do what the API token you supply is scoped to do.
 
+### Tactical RMM (RMM)
+
+Page: https://msp-skills.compoundingteams.com/skills/tactical-rmm/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/install.sh)
+
+Ask plain-English questions about your whole self-hosted Tactical RMM fleet and get answers the web UI can't assemble in one view: which agents went dark, where patches and reboots are pending across every client, what changed overnight, and which endpoints are unmonitored. `tactical-rmm-cli` mirrors your fleet into local SQLite, then answers cross-client rollups instantly and offline - and can fan a command across a filtered cohort, preview-first.
+
+Outcomes (question -> command your AI agent runs):
+- What's the overall health of my fleet right now? -> tactical-rmm-cli fleet health
+- Which agents need attention first? -> tactical-rmm-cli triage --limit 20
+- Which agents have gone dark or stopped checking in? -> tactical-rmm-cli agents stale --days 7
+- Where are patches and reboots pending across every client? -> tactical-rmm-cli patch posture --by client
+- What changed across the fleet in the last few hours? -> tactical-rmm-cli since "2h"
+- Which endpoints have no checks configured (monitoring gaps)? -> tactical-rmm-cli coverage
+- What's each client's posture in a single row? -> tactical-rmm-cli clients scorecard
+- Which checks are failing on the most agents? -> tactical-rmm-cli checks worst
+- Which agents have a given software package installed? -> tactical-rmm-cli software find --name openssl
+- Summarize alerts by severity over the last day -> tactical-rmm-cli alerts digest --since 24h --by severity
+- Which agents have a named Windows service stopped? -> tactical-rmm-cli services down --name Spooler
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Tactical RMM MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Tactical RMM data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: It's self-hosted - how does it find my server?
+A: You point it at your own instance: set TACTICAL_RMM_BASE_URL to your Tactical RMM API URL (for example https://api.yourdomain.com) and TRMM_API_KEY to a key from Settings > Global Settings > API Keys. Both are set once; nothing is hard-coded to a vendor cloud.
+Q: Do I need to be a Tactical RMM customer or partner?
+A: No. Tactical RMM is free and open source and you self-host it. You only need an API key on your own instance; any Tactical RMM server with API access works.
+Q: Will this hit my server's rate limits?
+A: Rarely. Most questions run against the local SQLite mirror after a one-time sync, so they make zero API calls. The few commands that fan out live (like services down or actions pending) are paced and capped with --max-scan-agents.
+Q: Will this replace my Tactical RMM web UI?
+A: No - it complements it. The UI stays your system of record and remote-access console; this skill adds the cross-client query-and-automation layer it doesn't offer.
+
+Governance: The skill reads everything across your fleet - agents, clients, sites, checks, alerts, patches, software, services, and the cross-client rollups - and through the API it can also create and update config, delete records, run scripts and commands on endpoints, reboot or shut machines down, install Windows updates, and manage users, roles, and API keys. Reads are safe to run unattended, with one exception: listing API keys or reading the keystore, codesign token, or core settings can return stored secrets, so treat those as credential-tier. Keep an autonomous agent to reads plus previewed writes; require a human for anything that runs on an endpoint, deletes, or touches credentials. The CLI can only do what your API key is permitted to do, so scope the key to the workflow.
+
 ### ThreatLocker (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/threatlocker/

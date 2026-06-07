@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/tactical-rmm/">
-    <img src="../../docs/assets/social/tactical-rmm/wide-1200x630.png" alt="Tactical RMM - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/tactical-rmm/animated-og.gif" alt="Tactical RMM demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/tactical-rmm/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/tactical-rmm/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Tactical RMM MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/tactical-rmm-v4.22.0/tactical-rmm-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Tactical RMM release on the [releases page](https://github.com/servosity/msp-skills/releases?q=tactical-rmm).)
+[**Download Tactical RMM MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/tactical-rmm-v0.1.0/tactical-rmm-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Tactical RMM release on the [releases page](https://github.com/servosity/msp-skills/releases?q=tactical-rmm).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -134,36 +134,48 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 
 ### Authenticate
 
-Set the credentials the CLI needs (from your Tactical RMM portal):
+Tactical RMM is self-hosted, so point the CLI at **your** instance and give it an API key from **Settings > Global Settings > API Keys**:
 
 ```bash
-TRMM_API_KEY=<value> tactical-rmm-cli doctor
+TACTICAL_RMM_BASE_URL=https://api.yourdomain.com TRMM_API_KEY=<value> tactical-rmm-cli doctor
 ```
 
-`doctor` confirms the credentials work before you run anything that touches data.
+`doctor` confirms the base URL and credentials work before you run anything that touches data.
 
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `tactical-rmm-cli ...` |
-
--->
+| What's the overall health of my fleet right now? | `tactical-rmm-cli fleet health` |
+| Which agents need attention first? | `tactical-rmm-cli triage --limit 20` |
+| Which agents have gone dark or stopped checking in? | `tactical-rmm-cli agents stale --days 7` |
+| Where are patches and reboots pending across every client? | `tactical-rmm-cli patch posture --by client` |
+| What changed across the fleet in the last few hours? | `tactical-rmm-cli since "2h"` |
+| Which endpoints have no checks configured (monitoring gaps)? | `tactical-rmm-cli coverage` |
+| Which checks are failing on the most agents? | `tactical-rmm-cli checks worst` |
+| Which agents have a given software package installed? | `tactical-rmm-cli software find --name openssl` |
+| Run a command across a filtered cohort (preview first) | `tactical-rmm-cli agents bulk-run --command whoami --filter "os=windows,online=true"` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Tactical RMM integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Tactical RMM integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "how many of my 40 clients have machines pending a reboot tonight, across every site" and the answer would page through every endpoint on your server.
 
-This skill syncs Tactical RMM into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs Tactical RMM into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `fleet health`, `triage`, and `clients scorecard` join across agents, checks, alerts, and Windows-update state per client and site - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+Tactical RMM is the budget-friendly, self-hosted favorite on r/msp and in the MSPGeek community - you own the data and pay nothing per endpoint. The recurring gripe is reporting: the web UI shows you one agent or one client at a time, with no built-in fleet-wide view of health, patch posture, or "what changed overnight" across every client. Everything is in the API, but a cross-client rollup means scripting against it yourself - so the questions that matter at a Monday stand-up or a QBR go unanswered.
+
+This skill closes that gap:
+
+- **`fleet health`** - whole-fleet posture (online/offline/overdue, failing checks, pending reboots, outstanding patches, active alerts) in one command.
+- **`triage --limit 20`** - the agents that need attention first, ranked across offline state, failing checks, reboots, and patches.
+- **`patch posture --by client`** - pending Windows updates and reboots rolled up per client or site, before patch night.
+- **`since "2h"`** - what moved across the fleet since you last looked: new alerts, newly-offline agents.
+- **`agents bulk-run --command whoami --filter "os=windows,online=true"`** - fan a command across a filtered cohort, previewed by default and run only with `--execute`.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +197,21 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### It's self-hosted - how does it find my server?
+
+You point it at your own instance: set `TACTICAL_RMM_BASE_URL` to your Tactical RMM API URL (for example `https://api.yourdomain.com`) and `TRMM_API_KEY` to a key from **Settings > Global Settings > API Keys**. Both are set once; nothing is hard-coded to a vendor cloud.
+
+### Do I need to be a Tactical RMM customer or partner?
+
+No. Tactical RMM is free and open source, and you self-host it. You only need an API key on your own instance; any Tactical RMM server with API access works.
+
+### Will this hit my server's rate limits?
+
+Rarely. Most questions run against the local SQLite mirror after a one-time `sync`, so they make zero API calls. The few commands that fan out live (like `services down` or `actions pending`) are paced and capped with `--max-scan-agents`.
+
+### Will this replace my Tactical RMM web UI?
+
+No - it complements it. The UI stays your system of record and remote-access console; this skill adds the cross-client query-and-automation layer it doesn't offer.
 
 ### What does it cost?
 
@@ -198,15 +219,15 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
+Tactical RMM is a remote-control plane: beyond reading and editing config, it can run scripts on endpoints, reboot machines, install Windows updates, and manage credentials. The tiers below reflect that. The safe default for an autonomous agent is **reads plus previewed writes**; require a human for anything that runs on an endpoint, deletes, or touches credentials.
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| **Read** | Fleet rollups (`fleet health`, `triage`, `patch posture`, `clients scorecard`, `coverage`, `since`, `checks worst`/`flapping`, `alerts digest`, `services down`, `software find`), get/list, `search`, `sync`, `analytics`. *Exception: listing API keys or reading the keystore, codesign token, or core settings returns stored secrets - those are credential-tier.* | Allow |
+| **Write (routine config)** | Create/update clients, sites, checks, alerts & templates, scripts & snippets, automation & patch policies, autotasks, custom fields, schedules, agent notes, deployments, software/service records; `import`. | Preview with `--dry-run`, then a reviewed write |
+| **Endpoint & script execution** | `agents bulk-run`, `scripts test`, autotasks/automation run, reboot/shutdown/wake/recover agents, install/scan Windows updates, uninstall software, reset checks, `maintenance set`, remote sessions (meshcentral, webvnc), server test actions. *Runs code on managed machines.* | Human-in-the-loop only - never unattended |
+| **Credential & identity** | API keys (create/list/delete/update), keystore & codesign tokens, core settings, users, roles, sessions, password/2FA/TOTP resets. *Several of these return stored secrets.* | Human-in-the-loop only |
+| **Destructive** | Delete agents, clients, sites, checks, scripts & snippets, alerts & templates, automation & patch policies, autotasks, custom fields, schedules, deployments, agent processes, pending actions. | Human-in-the-loop only, explicit confirmation |
 
 The strongest control is the **scope you grant the Tactical RMM credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +239,4 @@ Beta. Validated against the Tactical RMM API surface and being validated with MS
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-06._

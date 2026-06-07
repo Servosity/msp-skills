@@ -1,6 +1,6 @@
 ---
 name: tactical-rmm
-description: "Every Tactical RMM endpoint as a typed command Trigger phrases: `tactical rmm fleet health`, `which agents are offline`, `triage my rmm fleet`, `patch posture by client`, `run a script on all windows agents`, `use tactical-rmm`, `run tactical-rmm`."
+description: "Use when the user asks to check Tactical RMM fleet health, triage the agents that need attention first, sweep patch posture across every client, find agents that have gone dark, see what changed across the fleet, run a command or script across a filtered cohort of agents, or pull clean JSON from a self-hosted Tactical RMM instance. Wraps the Tactical RMM REST API plus an offline SQLite mirror with cross-entity fleet queries. Trigger phrases: `tactical rmm fleet health`, `which agents are offline`, `triage my rmm fleet`, `patch posture by client`, `run a command on all windows agents`, `Tactical RMM + ChatGPT`, `Tactical RMM + Claude`, `use tactical-rmm`, `run tactical-rmm-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Tactical RMM"
@@ -11,32 +11,26 @@ metadata:
     requires:
       bins:
         - tactical-rmm-cli
-    install:
-      - kind: go
-        bins: [tactical-rmm-cli]
-        module: github.com/mvanhorn/printing-press-library/library/monitoring/tactical-rmm/cmd/tactical-rmm-cli
 ---
 
-# Tactical RMM  -  Printing Press CLI
+# Tactical RMM Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `tactical-rmm-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install tactical-rmm --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/install.sh)
    ```
-2. Verify: `tactical-rmm-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/install.ps1 | iex
+   ```
+3. Verify: `tactical-rmm-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/monitoring/tactical-rmm/cmd/tactical-rmm-cli@latest
-```
-
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 A terminal-native, agent-native control plane for self-hosted Tactical RMM. Mirror your fleet into local SQLite, run cross-entity queries (fleet health, triage, patch posture, coverage) that no single API call returns, fan scripts out across a filtered cohort, and pipe clean JSON anywhere.
 
@@ -98,7 +92,7 @@ These capabilities aren't available in any other tool for this API.
   _Answer who is exposed during a CVE scramble._
 
   ```bash
-  tactical-rmm-cli software find openssl
+  tactical-rmm-cli software find --name openssl
   ```
 - **`services down`**  -  Agents where a named Windows service is stopped, across the whole fleet. Live fan-out: requires TRMM_API_KEY (agent list comes from the local store).
 
@@ -389,7 +383,7 @@ Ranked attention list across offline state, failing checks, reboots, patches.
 ### CVE exposure sweep
 
 ```bash
-tactical-rmm-cli software find openssl --select agent_id,name,version
+tactical-rmm-cli software find --name openssl --select agent_id,name,version
 ```
 
 Which agents carry a package, narrowed to the fields that matter.
@@ -513,15 +507,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/monitoring/tactical-rmm/cmd/tactical-rmm-mcp@latest
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add tactical-rmm-mcp -- tactical-rmm-mcp
-   ```
-3. Verify: `claude mcp list`
+The installer above drops `tactical-rmm-mcp` alongside the CLI. Register it:
+
+```bash
+claude mcp add tactical-rmm-mcp -- tactical-rmm-mcp
+```
+
+Verify: `claude mcp list`
 
 ## Direct Use
 

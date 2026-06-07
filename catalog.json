@@ -580,7 +580,7 @@
       "skill_path": "skills/tactical-rmm",
       "cli_binary": "tactical-rmm-cli",
       "mcp_binary": "tactical-rmm-mcp",
-      "version": "4.22.0",
+      "version": "0.1.0",
       "license": "Apache-2.0",
       "vendor": "Tactical RMM",
       "vendor_trademark_owner": "AmidaWare LLC",
