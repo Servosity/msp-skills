@@ -27,10 +27,10 @@ require a human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `heartbeat-groups create`, `heartbeats create`, `heartbeats update`, `monitor-groups create`, `monitors create`, `monitors update`, `policies create`, `status-page-sections create`, ... (10 total) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
-| **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
-| **Destructive** | Irreversible data or config loss. | `heartbeat-groups delete`, `heartbeats delete`, `incidents delete`, `monitor-groups delete`, `monitors delete`, `policies delete`, `status-page-resources delete`, `status-page-sections delete`, ... (9 total) | Human-in-the-loop only, explicit confirmation |
+| **Read** | Reports, rollups, search. No change. | the cross-entity views (`fleet`, `down`, `coverage`, `mttr`, `flapping`, `oncall-gaps`, `heartbeat-risk`, `statuspage-audit`, `group-health`, `triage`), `search`, every `list` / `get`, plus the local-only `sync`, `export`, `workflow archive`, and `workflow status` | Allow |
+| **Write (routine)** | Day-to-day mutations to your Better Stack account. | `monitors create`, `monitors update`, `heartbeats create`, `heartbeats update`, `monitor-groups create`, `heartbeat-groups create`, `policies create`, `status-pages create`, `status-page-sections create`, `incidents acknowledge`, `incidents resolve`, and `import` (bulk create/upsert from JSONL) - 12 total | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
+| **Credential / security** | Touches the stored API token. | `auth set-token` / `auth setup` (operator setup, not an agent action) | Human-in-the-loop only |
+| **Destructive** | Irreversible data or config loss. | `monitors delete`, `heartbeats delete`, `incidents delete`, `policies delete`, `status-pages delete`, `status-page-sections delete`, `status-page-resources delete`, `monitor-groups delete`, `heartbeat-groups delete` - 9 total | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
 
 ## How to lock it down

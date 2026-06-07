@@ -145,25 +145,36 @@ BETTERSTACK_API_TOKEN=<value> betterstack-cli doctor
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `betterstack-cli ...` |
-
--->
+| What's down right now and is anyone actually paged? | `betterstack-cli down` |
+| Which monitors would page nobody if they failed? | `betterstack-cli coverage` |
+| What's our MTTA and MTTR over the last 30 days, by monitor? | `betterstack-cli mttr --days 30 --by-monitor --top 10` |
+| Which monitors are the noisiest over the last week? | `betterstack-cli flapping --days 7 --top 10` |
+| Is anyone actually on call right now, or is there a gap? | `betterstack-cli oncall-gaps` |
+| Which heartbeats are most at risk of a silent miss? | `betterstack-cli heartbeat-risk --top 10` |
+| Are any status pages green while a monitor has an open incident? | `betterstack-cli statuspage-audit` |
+| How healthy is each client group right now? | `betterstack-cli group-health` |
+| Give me one health board for the whole account. | `betterstack-cli fleet` |
+| Which open incidents are oldest and still unacknowledged? | `betterstack-cli triage` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Better Stack integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Better Stack integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "which of my 200 monitors across every client would page nobody if they failed?" or "what was our real MTTA/MTTR last quarter, by monitor?".
 
-This skill syncs Better Stack into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs Better Stack into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `coverage`, `mttr`, and `statuspage-audit` join across monitors, heartbeats, incidents, escalation policies, on-call calendars, and status pages - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+Monitoring sprawl and alert fatigue are a standing complaint in MSP communities - r/msp and MSPGeek threads on "monitoring noise," "alert fatigue," and "who's actually getting paged" recur constantly. Across dozens of client accounts:
+
+- A monitor with no escalation policy goes down at 2am and pages nobody. You find out when the client calls. `betterstack-cli coverage` lists every monitor that would page nobody if it failed.
+- Flapping monitors wake the on-call tech night after night until alerts get ignored. `betterstack-cli flapping --days 7 --top 10` ranks the noisiest sources.
+- A rotation has nobody on call right now. `betterstack-cli oncall-gaps` flags it.
+- Your status page reads "operational" while a backing monitor has an open incident. `betterstack-cli statuspage-audit` catches the drift.
+- QBR time, and you need real numbers. `betterstack-cli mttr --days 30 --by-monitor` computes MTTA/MTTR from the local mirror.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +196,17 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Will this hit my Better Stack API rate limits?
+
+No. The skill syncs once into a local SQLite mirror, then answers from local data, so repeated questions never touch the API. Only `sync`, live writes, and the status-page resource fan-out (used by `statuspage-audit`) call Better Stack.
+
+### Do I need a paid Better Stack plan?
+
+You need a Better Stack account with an API token. The analytics run against whatever monitors, heartbeats, incidents, on-call calendars, and status pages your plan includes - the skill reads what your token can see.
+
+### Will this replace the Better Stack portal?
+
+No, it complements it. The portal is still where you configure monitors and watch live. This skill answers the cross-account questions the portal makes you click through - coverage gaps, MTTA/MTTR, on-call gaps, status-page drift - from your AI.
 
 ### What does it cost?
 
@@ -198,15 +214,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `fleet`, `down`, `coverage`, `mttr`, `flapping`, `oncall-gaps`, `heartbeat-risk`, `statuspage-audit`, `group-health`, `triage`, `search`, every `list` / `get` | Allow |
+| Write (routine) | `monitors create/update`, `heartbeats create/update`, `monitor-groups create`, `heartbeat-groups create`, `policies create`, `status-pages create`, `status-page-sections create`, `incidents acknowledge/resolve`, `import` | Preview with `--dry-run`, then a reviewed write |
+| Destructive / config | `monitors delete`, `heartbeats delete`, `incidents delete`, `policies delete`, `status-pages delete`, `status-page-sections delete`, `status-page-resources delete`, `monitor-groups delete`, `heartbeat-groups delete` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Better Stack credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +230,4 @@ Beta. Validated against the Better Stack API surface and being validated with MS
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-07._

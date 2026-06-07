@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Better Stack MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics  -  what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift  -  that the API alone can't answer."
+description: "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics \u2014 what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift \u2014 that the API alone can't answer."
 permalink: /skills/betterstack/
 skill_name: "Better Stack MCP"
 image: /assets/social/betterstack/wide-1200x630.png
@@ -15,8 +15,12 @@ faqs:
     a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
-  - q: "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Better Stack portal)"
-    a: "TODO"
+  - q: "Will this hit my Better Stack API rate limits?"
+    a: "No. The skill syncs once into a local SQLite mirror, then answers from local data, so repeated questions never touch the API. Only sync, live writes, and the status-page resource fan-out (used by statuspage-audit) call Better Stack."
+  - q: "Do I need a paid Better Stack plan?"
+    a: "You need a Better Stack account with an API token. The analytics run against whatever monitors, heartbeats, incidents, on-call calendars, and status pages your plan includes - the skill reads what your token can see."
+  - q: "Will this replace the Better Stack portal?"
+    a: "No, it complements it. The portal is still where you configure monitors and watch live. This skill answers the cross-account questions the portal makes you click through - coverage gaps, MTTA/MTTR, on-call gaps, status-page drift - from your AI."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/betterstack/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/betterstack/install.ps1 | iex"
@@ -33,7 +37,7 @@ howto:
 
 **Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
 
-TODO: <=70 words, MSP-owner language, leads with the outcome. What does Better Stack + your AI answer in one sentence that the portal cannot?
+Ask your AI "what's down and is anyone actually paged?" and get a straight answer across your whole Better Stack account: every client's monitors, heartbeats, open incidents, and on-call rotation in one view. It surfaces the silent monitors that page nobody, the noisy ones waking techs at 3am, your real MTTA/MTTR, and status pages showing green while a monitor is down.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -41,17 +45,17 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Better S
 
 ## Instead of clicking through Better Stack, just ask
 
-**Instead of** TODO: the painful manual workflow (exporting reports, clicking through the portal)
-**just ask:** *"TODO: the natural-language question the MSP owner asks instead"*
-<sub>Your agent runs: <code>betterstack-cli TODO</code></sub>
+**Instead of** Open the Better Stack dashboard and click into each monitor by hand to check which ones actually have an escalation policy attached
+**just ask:** *"Which monitors would page nobody if they went down right now?"*
+<sub>Your agent runs: <code>betterstack-cli coverage</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>betterstack-cli TODO</code></sub>
+**Instead of** Export the last month of incidents to a spreadsheet to work out your average acknowledge and resolve times for the QBR
+**just ask:** *"What was our MTTA and MTTR over the last 30 days, by monitor?"*
+<sub>Your agent runs: <code>betterstack-cli mttr --days 30 --by-monitor --top 10</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>betterstack-cli TODO</code></sub>
+**Instead of** Keep the incident list open in one tab and the on-call calendar in another to see what's down and whether anyone is on for it
+**just ask:** *"What's down right now and is anyone actually paged?"*
+<sub>Your agent runs: <code>betterstack-cli down</code></sub>
 
 
 ## See it in 30 seconds
@@ -64,20 +68,30 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Better S
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| TODO: question an MSP keeps asking | `betterstack-cli TODO` |
+| What's down right now and is anyone actually paged? | `betterstack-cli down` |
+| Which monitors would page nobody if they failed? | `betterstack-cli coverage` |
+| What's our MTTA and MTTR over the last 30 days, by monitor? | `betterstack-cli mttr --days 30 --by-monitor --top 10` |
+| Which monitors are the noisiest over the last week? | `betterstack-cli flapping --days 7 --top 10` |
+| Is anyone actually on call right now, or is there a gap? | `betterstack-cli oncall-gaps` |
+| Which heartbeats are most at risk of a silent miss? | `betterstack-cli heartbeat-risk --top 10` |
+| Are any status pages green while a monitor has an open incident? | `betterstack-cli statuspage-audit` |
+| How healthy is each client group right now? | `betterstack-cli group-health` |
+| Give me one health board for the whole account. | `betterstack-cli fleet` |
+| Which open incidents are oldest and still unacknowledged? | `betterstack-cli triage` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/betterstack/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/betterstack/guide.md).
 
 ## What makes this one different
 
-TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most Better Stack integrations proxy each question into a live API call ...
+Most Better Stack integrations proxy each question into a live API call - fine for one monitor, useless when you ask about the whole fleet. This skill syncs Better Stack into a local SQLite mirror and answers cross-resource questions - coverage gaps, MTTA/MTTR, flapping, on-call gaps, status-page drift - as one offline join the live API can't express in a single call.
 
-TODO: one sentence vs Better Stack's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.
+The Better Stack dashboard shows one monitor, one incident, one status page at a time. This skill answers the questions that span all of them at once - what's down and who's paged, where coverage is missing, which monitors are noisy - from a local mirror your AI can query without clicking through the portal.
 
 ## The pain this closes
 
-- TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread
-- TODO: pain 2
+- A monitor with no escalation policy goes down at 2am and pages nobody. You find out when the client calls. Across dozens of client accounts, nobody can hand-check which monitors are actually wired to alert someone.
+- Flapping monitors wake the on-call tech for nothing, night after night, until alert fatigue sets in and a real outage gets ignored in the noise.
+- Your public status page still reads "all systems operational" while a backing monitor has an open incident, so the client sees green and then notices the outage themselves.
 
 ## Install
 
@@ -111,11 +125,11 @@ After install, authenticate once with your Better Stack credentials, then verify
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | TODO: read commands | Allow |
-| Write (routine) | TODO | Preview with --dry-run, then a reviewed write |
-| Destructive / config | TODO | Human-in-the-loop only |
+| Read | fleet, down, coverage, mttr, flapping, oncall-gaps, heartbeat-risk, statuspage-audit, group-health, triage, search, and every list/get command | Allow |
+| Write (routine) | monitors create/update, heartbeats create/update, monitor-groups create, heartbeat-groups create, policies create, status-pages create, status-page-sections create, incidents acknowledge/resolve, import | Preview with --dry-run, then a reviewed write |
+| Destructive / config | monitors delete, heartbeats delete, incidents delete, policies delete, status-pages delete, status-page-sections delete, status-page-resources delete, monitor-groups delete, heartbeat-groups delete | Human-in-the-loop only |
 
-TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/betterstack/governance.md).
+The skill reads your Better Stack monitors, heartbeats, incidents, on-call calendars, and status pages, and it can create or update monitors, heartbeats, groups, policies, and status-page sections, acknowledge or resolve incidents, bulk-import records, and delete resources. Reads are always safe to allow. Routine writes - creates, updates, incident acknowledge/resolve, and import - should be previewed with --dry-run and approved. Deletes are human-in-the-loop only. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/betterstack/governance.md).
 
 ## Frequently asked questions
 
@@ -135,9 +149,17 @@ Your data stays on your machine. The CLI, MCP server, and the local mirror are a
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-### TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Better Stack portal)
+### Will this hit my Better Stack API rate limits?
 
-TODO
+No. The skill syncs once into a local SQLite mirror, then answers from local data, so repeated questions never touch the API. Only sync, live writes, and the status-page resource fan-out (used by statuspage-audit) call Better Stack.
+
+### Do I need a paid Better Stack plan?
+
+You need a Better Stack account with an API token. The analytics run against whatever monitors, heartbeats, incidents, on-call calendars, and status pages your plan includes - the skill reads what your token can see.
+
+### Will this replace the Better Stack portal?
+
+No, it complements it. The portal is still where you configure monitors and watch live. This skill answers the cross-account questions the portal makes you click through - coverage gaps, MTTA/MTTR, on-call gaps, status-page drift - from your AI.
 
 
 ## Status
