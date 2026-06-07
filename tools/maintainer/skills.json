@@ -1152,6 +1152,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "appdirect": {
+      "system": "AppDirect cloud commerce marketplace",
+      "status": "beta",
+      "cli_binary": "appdirect-cli",
+      "mcp_binary": "appdirect-mcp",
+      "vendor": "AppDirect",
+      "vendor_trademark_owner": "AppDirect, Inc",
+      "first_party": false,
+      "category": "Billing",
+      "display_name": "AppDirect",
+      "tagline": "Reconcile AppDirect marketplace billing and chase failed payments across every reseller company before month-close.",
+      "cli_hash": "sha256:da05b9a0d23a5214804687dfe8170c56f00babc8c7fa956d94e59c8aab28134b",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }

@@ -1,0 +1,55 @@
+{
+  "manifest_version": "0.3",
+  "name": "appdirect-mcp",
+  "display_name": "AppDirect",
+  "version": "0.1.0",
+  "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/appdirect-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/appdirect-mcp",
+      "args": [],
+      "env": {
+        "APPDIRECT_CLIENT_ID": "${user_config.appdirect_client_id}",
+        "APPDIRECT_CLIENT_SECRET": "${user_config.appdirect_client_secret}",
+        "APPDIRECT_OAUTH_SCOPE": "${user_config.appdirect_oauth_scope}"
+      }
+    }
+  },
+  "user_config": {
+    "appdirect_client_id": {
+      "type": "string",
+      "title": "APPDIRECT_CLIENT_ID",
+      "description": "Sets APPDIRECT_CLIENT_ID for the AppDirect MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "appdirect_client_secret": {
+      "type": "string",
+      "title": "APPDIRECT_CLIENT_SECRET",
+      "description": "Sets APPDIRECT_CLIENT_SECRET for the AppDirect MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "appdirect_oauth_scope": {
+      "type": "string",
+      "title": "APPDIRECT_OAUTH_SCOPE",
+      "description": "Optional. Overrides the OAuth2 client_credentials scope sent to AppDirect (default: ROLE_PARTNER ROLE_PARTNER_READ). Leave blank unless your partner account needs a different scope.",
+      "sensitive": false,
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

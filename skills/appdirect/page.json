@@ -1,0 +1,110 @@
+{
+  "outcome_intro": "Ask 'which AppDirect payments failed this week?' or 'reconcile billing before month-close' and get an answer across every reseller company in one call. The skill syncs your whole AppDirect marketplace - subscriptions, invoices, payments, companies, pipeline - into a local mirror, so cross-company billing questions that take hundreds of console clicks return instantly, offline, from your terminal or your AI agent.",
+  "instead_of_say": [
+    {
+      "instead": "Open the AppDirect console and filter each company's billing screen one by one, copying failed payments into a spreadsheet for the weekly chase.",
+      "say": "Which AppDirect payments failed in the last 7 days, across every company?",
+      "cli": "appdirect-cli payments unpaid --since 7d --json"
+    },
+    {
+      "instead": "Export subscriptions and invoices separately, then VLOOKUP to find active subscriptions that were never invoiced before month-close.",
+      "say": "Reconcile AppDirect billing for the last 30 days - what's active but unbilled, overdue, or failed?",
+      "cli": "appdirect-cli reconcile --since 30d --agent"
+    },
+    {
+      "instead": "Click through four console screens - users, subscriptions, invoices, opportunities - to brief one customer before a renewal call.",
+      "say": "Show me everything on AppDirect company <companyId>.",
+      "cli": "appdirect-cli company show <companyId>"
+    }
+  ],
+  "pain_points": [
+    "Active subscriptions slip through un-invoiced and failed payments sit unnoticed for weeks, leaking margin every month-close - and the console has no cross-company view to catch them.",
+    "Briefing one customer means clicking through users, subscriptions, invoices, and open opportunities on separate screens; multiply that by hundreds of companies and the monthly reconciliation never gets done.",
+    "Every API call re-mints an hourly OAuth token and answers for one record at a time, so aggregate questions across the whole marketplace are effectively impossible from the portal."
+  ],
+  "outcomes": [
+    {
+      "question": "Which payments failed or stalled in the last week, across every company?",
+      "command": "appdirect-cli payments unpaid --since 7d --json"
+    },
+    {
+      "question": "What's active-but-unbilled, overdue, or failed before month-close?",
+      "command": "appdirect-cli reconcile --since 30d --agent"
+    },
+    {
+      "question": "What changed in subscriptions this week - new, ended, or suspended?",
+      "command": "appdirect-cli subs changed --since 7d --json"
+    },
+    {
+      "question": "Show one customer's full picture - users, subscriptions, invoices, opportunities.",
+      "command": "appdirect-cli company show <companyId>"
+    },
+    {
+      "question": "What does my assisted-sales pipeline look like by status?",
+      "command": "appdirect-cli pipeline --group-by status --agent"
+    },
+    {
+      "question": "Which open opportunities have gone stale?",
+      "command": "appdirect-cli pipeline stale --days 14 --json"
+    },
+    {
+      "question": "Find any company, subscription, invoice, or opportunity by keyword.",
+      "command": "appdirect-cli search \"<text>\""
+    },
+    {
+      "question": "Pull the whole marketplace into a local mirror for offline analysis.",
+      "command": "appdirect-cli sync"
+    }
+  ],
+  "different_vs_wrappers": "Most AppDirect integrations proxy each question into a live REST call and re-mint an hourly OAuth token every time - fine for one record, but it falls over the moment you ask something that spans every company. This skill syncs the marketplace into a local SQLite mirror, so cross-entity questions become one offline join: reconcile, subs changed, and pipeline answer in a single call what a stateless wrapper would need hundreds of paginated requests to attempt.",
+  "different_vs_vendor": "The AppDirect console shows one company, one screen at a time, with no cross-company billing-reconciliation view. This skill complements the portal by answering the aggregate, before-month-close questions the UI can't - from your terminal or your AI agent.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local AppDirect MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my AppDirect data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Do I need to be an AppDirect partner?",
+      "a": "Yes. The skill authenticates with partner API credentials (OAuth2 client_credentials) for a marketplace you operate or resell on - it is not for end-user purchases on a marketplace you don't control. Point it at your own marketplace with APPDIRECT_BASE_URL if you run a white-label domain."
+    },
+    {
+      "q": "Will this hit AppDirect's API rate limits?",
+      "a": "It is built to avoid them. The marketplace REST API uses leaky-bucket rate limits (for example, 20-request buckets that refill a few per second); because this skill syncs to a local mirror and answers most questions offline, your day-to-day queries make almost no live calls. Sync itself respects the limits and you can cap request rate with --rate-limit."
+    }
+  ],
+  "governance_summary": "The skill reads marketplace data - companies, users, subscriptions, invoices, payments, and the assisted-sales pipeline - and those reads are always safe. It can also write: create and update companies, users, memberships, and opportunities; touch money-moving operations like purchases and payment instruments; and delete or expire records. Keep an autonomous agent to reads plus previewed (--dry-run) writes, and require a human for payment/credential and destructive (delete, cancel, expire) operations.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "payments unpaid, reconcile, subs changed, company show, pipeline, search, and every GET (companies, users, subscriptions, invoices, opportunities)",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "create/update companies, users, memberships, groups, and opportunities; invite users; request a purchase; finalize or clone an opportunity; apply a discount",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Credential / financial",
+      "examples": "set a temporary password; create, update, or set a default payment method or payment instrument",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Destructive",
+      "examples": "delete a company membership, user group, subscription assignment, or shopping cart; cancel a subscription or add-on; expire a developer account",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

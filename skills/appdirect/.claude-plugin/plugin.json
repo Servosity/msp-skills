@@ -1,0 +1,20 @@
+{
+  "name": "appdirect",
+  "version": "0.1.0",
+  "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/appdirect",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "appdirect",
+    "billing",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

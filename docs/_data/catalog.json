@@ -1,5 +1,5 @@
 {
-  "count": 49,
+  "count": 50,
   "connectors": [
     {
       "slug": "abnormal",
@@ -32,6 +32,14 @@
       "category": "Backup-DR",
       "verification": "awaiting",
       "url": "/skills/afi/"
+    },
+    {
+      "slug": "appdirect",
+      "display_name": "AppDirect",
+      "tagline": "Reconcile AppDirect marketplace billing and chase failed payments across every reseller company before month-close.",
+      "category": "Billing",
+      "verification": "awaiting",
+      "url": "/skills/appdirect/"
     },
     {
       "slug": "atera",

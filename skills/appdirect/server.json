@@ -1,0 +1,52 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/appdirect-mcp",
+  "title": "AppDirect MCP",
+  "description": "AppDirect marketplace operations with an offline mirror and cross-company billing reconciliation.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/appdirect/appdirect-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/appdirect"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/appdirect-v0.1.0/appdirect-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "APPDIRECT_CLIENT_ID",
+          "description": "Set the APPDIRECT_CLIENT_ID credential for the AppDirect MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "APPDIRECT_CLIENT_SECRET",
+          "description": "Set the APPDIRECT_CLIENT_SECRET credential for the AppDirect MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "APPDIRECT_OAUTH_SCOPE",
+          "description": "Optional. Overrides the OAuth2 scope sent to AppDirect (default: ROLE_PARTNER ROLE_PARTNER_READ).",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

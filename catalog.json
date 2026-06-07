@@ -99,6 +99,25 @@
       "tagline": "Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store."
     },
     {
+      "name": "appdirect",
+      "system": "AppDirect cloud commerce marketplace",
+      "status": "beta",
+      "skill_path": "skills/appdirect",
+      "cli_binary": "appdirect-cli",
+      "mcp_binary": "appdirect-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "AppDirect",
+      "vendor_trademark_owner": "AppDirect, Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/appdirect/install.sh)",
+      "install_mcp_doc": "skills/appdirect/mcp-install.md",
+      "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.",
+      "verification": "awaiting",
+      "category": "Billing",
+      "tagline": "Reconcile AppDirect marketplace billing and chase failed payments across every reseller company before month-close."
+    },
+    {
       "name": "atera",
       "system": "all-in-one RMM, PSA, and remote-access platform for MSPs and internal IT teams",
       "status": "beta",

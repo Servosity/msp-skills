@@ -774,6 +774,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "appdirect",
+      "source": "./skills/appdirect",
+      "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.",
+      "version": "0.1.0",
+      "category": "billing",
+      "tags": [
+        "appdirect",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
