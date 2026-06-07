@@ -167,6 +167,13 @@
     "current_hash": "sha256:2dbc4bffec016aeda87ce7165ee9a16bbb044b944095daf2aaa5b9c9154ea4c8",
     "released_hash": "sha256:2dbc4bffec016aeda87ce7165ee9a16bbb044b944095daf2aaa5b9c9154ea4c8"
   },
+  "rootly": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:d8bf95fa7318e99db5fa6bdc6d84e1b55ea2e553494b6e19034c9ab39ec4e726",
+    "released_hash": null
+  },
   "sentinelone": {
     "state": "up-to-date",
     "version": "0.1.0",
