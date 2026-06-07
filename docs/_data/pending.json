@@ -20,6 +20,13 @@
     "current_hash": "sha256:c35fe70e19882732f38eac567b5ed2d9f994f0260a7dc0137914bcd1fe7d0681",
     "released_hash": "sha256:c35fe70e19882732f38eac567b5ed2d9f994f0260a7dc0137914bcd1fe7d0681"
   },
+  "blumira": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:9a313a7db46e6b3da6cd5cf788afab7beafab2ec371f4697b5182a363b25bc05",
+    "released_hash": null
+  },
   "cipp": {
     "state": "up-to-date",
     "version": "0.1.0",
