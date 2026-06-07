@@ -1006,6 +1006,42 @@ A: No. Provisioning, ordering, and support workflows stay in the portal. This sk
 
 Governance: The skill drives the pax8-cli and pax8-mcp binaries, authenticating with a Pax8 Partner API OAuth2 client ID and secret read from the environment (PAX8_CLIENT_ID, PAX8_CLIENT_SECRET) - never logged and never sent anywhere except Pax8's own API. Read commands (reconcile, mrr, overage, spend, since, company show, search, and the find/get queries) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep subscription cancellation, contact deletion, and order creation human-only. The strongest control is the permission scope on the API credential you create.
 
+### Pipedrive (CRM)
+
+Page: https://msp-skills.compoundingteams.com/skills/pipedrive/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pipedrive/install.sh)
+
+Ask your AI "which deals are dying and who do I call today," and get a ranked answer in seconds. The Pipedrive skill keeps a local copy of your pipeline so it can join deals, people, activities, and notes the portal shows on separate screens - surfacing stale deals by dollar at risk, a weighted forecast, stage bottlenecks, and rep leaderboards without exporting a single CSV.
+
+Outcomes (question -> command your AI agent runs):
+- Which open deals has nobody touched in two weeks, worst dollar value first? -> pipedrive-cli stale --quiet-days 14 --agent
+- What's my weighted forecast for this quarter, and what's expected to close? -> pipedrive-cli forecast --period this-quarter --agent
+- Which deals are stuck in a stage longer than that stage usually takes? -> pipedrive-cli aging --agent
+- Which open deals have no next activity scheduled? -> pipedrive-cli next-activity --missing --agent
+- Rank my reps by won value over the last 90 days. -> pipedrive-cli leaderboard --by won-value --window 90d --agent
+- What changed since yesterday, and who do I need to call today? -> pipedrive-cli digest --for-me --agent
+- Which deals did we lose in the last six months, with reasons, for a re-engagement push? -> pipedrive-cli lost --since 180d --agent
+- Find likely-duplicate organizations so I can clean up the CRM. -> pipedrive-cli dupes --entity organizations --agent
+- Search every synced deal, person, and organization for a name. -> pipedrive-cli search "Acme Corp" --agent
+- Pull my whole pipeline into a local copy for offline, zero-API-call analysis. -> pipedrive-cli sync --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Pipedrive MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Pipedrive data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Does this need a higher Pipedrive plan or the paid Insights tier?
+A: No. Any Pipedrive plan that issues an API token works - find it under Settings > Personal preferences > API. The skill talks to the standard Pipedrive API, and the cross-entity analytics (stale, forecast, aging, leaderboard) run locally on your synced data, so they are not gated behind a reporting add-on.
+Q: Will this burn through my Pipedrive API rate limits?
+A: Day-to-day questions answer from the local mirror after a `sync`, so they make zero API calls. `sync` itself paginates politely - tune `--rate-limit` and `--concurrency`, and use `--since 24h` to refresh only what changed - and live calls only happen when local data is missing or stale.
+
+Governance: The skill can read your whole pipeline and can create, update, and delete CRM records, so treat it like any account with write access. Reads - the reports, the analytics rollups, and search - are always safe. Routine writes such as `deals add`, `deals update`, and the bulk `import` should be previewed with `--dry-run` and approved before they run. Deletes and token commands are human-in-the-loop only. The recommended agent policy is read plus previewed writes, with a human approving anything that mutates or removes data.
+
 ### QuickBooks Online (Billing)
 
 Page: https://msp-skills.compoundingteams.com/skills/quickbooks/

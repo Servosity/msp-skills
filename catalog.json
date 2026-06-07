@@ -517,6 +517,25 @@
       "tagline": "Reconcile Pax8 billing, track MRR, and catch usage overages before they hit the customer invoice"
     },
     {
+      "name": "pipedrive",
+      "system": "Pipedrive CRM: deals, pipelines, persons, organizations, activities",
+      "status": "beta",
+      "skill_path": "skills/pipedrive",
+      "cli_binary": "pipedrive-cli",
+      "mcp_binary": "pipedrive-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Pipedrive",
+      "vendor_trademark_owner": "Pipedrive O\u00dc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pipedrive/install.sh)",
+      "install_mcp_doc": "skills/pipedrive/mcp-install.md",
+      "description": "Full Pipedrive CRUD plus a local SQLite pipeline copy: stale deals, forecasts, aging, dupes, rep leaderboards.",
+      "verification": "awaiting",
+      "category": "CRM",
+      "tagline": "Surface stale deals, weighted forecasts, and overdue follow-ups across your pipeline by asking."
+    },
+    {
       "name": "quickbooks",
       "system": "QuickBooks Online accounting: invoices, bills, payments, customers, vendors, AR/AP aging, DSO, cash forecast",
       "status": "beta",

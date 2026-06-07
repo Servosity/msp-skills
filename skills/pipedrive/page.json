@@ -1,0 +1,113 @@
+{
+  "outcome_intro": "Ask your AI \"which deals are dying and who do I call today,\" and get a ranked answer in seconds. The Pipedrive skill keeps a local copy of your pipeline so it can join deals, people, activities, and notes the portal shows on separate screens - surfacing stale deals by dollar at risk, a weighted forecast, stage bottlenecks, and rep leaderboards without exporting a single CSV.",
+  "instead_of_say": [
+    {
+      "instead": "Export the deals report to a spreadsheet every Monday and eyeball which ones have gone quiet.",
+      "say": "Which open deals has nobody touched in two weeks, worst dollar value first?",
+      "cli": "pipedrive-cli stale --quiet-days 14 --agent"
+    },
+    {
+      "instead": "Rebuild the weighted-pipeline math (deal value times stage probability) in a spreadsheet before every pipeline review.",
+      "say": "What's my weighted forecast for this quarter by pipeline?",
+      "cli": "pipedrive-cli forecast --period this-quarter --agent"
+    },
+    {
+      "instead": "Click through five screens - person, org, deals, activities, notes - to prep for one call.",
+      "say": "Give me the full picture on Jane Smith before my call.",
+      "cli": "pipedrive-cli who \"Jane Smith\" --agent"
+    }
+  ],
+  "pain_points": [
+    "Reporting is Pipedrive's single most-cited complaint across G2, Capterra, and Trustpilot. Insights covers the basics, but anything cross-entity - value at risk by organization, a weighted forecast by pipeline, rep contribution over a window - means exporting to a spreadsheet and rebuilding the math by hand.",
+    "Deals die quietly. CRM contact data decays roughly 30% a year, and a deal nobody has logged an activity against just sits in the pipeline. By the time it surfaces in a review it is already cold.",
+    "\"Great for managing deals, not for managing customers.\" Prepping for one call means opening the person, their organization, their open deals, the last and next activity, and recent notes on separate screens and stitching them together yourself."
+  ],
+  "outcomes": [
+    {
+      "question": "Which open deals has nobody touched in two weeks, worst dollar value first?",
+      "command": "pipedrive-cli stale --quiet-days 14 --agent"
+    },
+    {
+      "question": "What's my weighted forecast for this quarter, and what's expected to close?",
+      "command": "pipedrive-cli forecast --period this-quarter --agent"
+    },
+    {
+      "question": "Which deals are stuck in a stage longer than that stage usually takes?",
+      "command": "pipedrive-cli aging --agent"
+    },
+    {
+      "question": "Which open deals have no next activity scheduled?",
+      "command": "pipedrive-cli next-activity --missing --agent"
+    },
+    {
+      "question": "Rank my reps by won value over the last 90 days.",
+      "command": "pipedrive-cli leaderboard --by won-value --window 90d --agent"
+    },
+    {
+      "question": "What changed since yesterday, and who do I need to call today?",
+      "command": "pipedrive-cli digest --for-me --agent"
+    },
+    {
+      "question": "Which deals did we lose in the last six months, with reasons, for a re-engagement push?",
+      "command": "pipedrive-cli lost --since 180d --agent"
+    },
+    {
+      "question": "Find likely-duplicate organizations so I can clean up the CRM.",
+      "command": "pipedrive-cli dupes --entity organizations --agent"
+    },
+    {
+      "question": "Search every synced deal, person, and organization for a name.",
+      "command": "pipedrive-cli search \"Acme Corp\" --agent"
+    },
+    {
+      "question": "Pull my whole pipeline into a local copy for offline, zero-API-call analysis.",
+      "command": "pipedrive-cli sync --agent"
+    }
+  ],
+  "different_vs_wrappers": "Most Pipedrive integrations proxy each question straight into a live API call - one deal, one page, one entity at a time, rate-limited and shaped for single lookups. This skill keeps a local SQLite mirror of your pipeline (run `sync` once), so the high-value questions - stale deals ranked by dollar at risk, a weighted forecast, stage aging, a rep leaderboard, duplicate detection - are computed by joining deals, people, activities, and stages locally. That is analysis a thin wrapper cannot do without paging the entire API on every ask.",
+  "different_vs_vendor": "Pipedrive's Insights dashboards live in the portal and answer the questions Pipedrive pre-built. This skill answers the ones it did not - value at risk, next-activity gaps, lost-deal re-enrollment lists, a one-card contact view - in your terminal or AI agent, joined across entities, complementing the portal rather than replacing it.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Pipedrive MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Pipedrive data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Does this need a higher Pipedrive plan or the paid Insights tier?",
+      "a": "No. Any Pipedrive plan that issues an API token works - find it under Settings > Personal preferences > API. The skill talks to the standard Pipedrive API, and the cross-entity analytics (stale, forecast, aging, leaderboard) run locally on your synced data, so they are not gated behind a reporting add-on."
+    },
+    {
+      "q": "Will this burn through my Pipedrive API rate limits?",
+      "a": "Day-to-day questions answer from the local mirror after a `sync`, so they make zero API calls. `sync` itself paginates politely - tune `--rate-limit` and `--concurrency`, and use `--since 24h` to refresh only what changed - and live calls only happen when local data is missing or stale."
+    }
+  ],
+  "governance_summary": "The skill can read your whole pipeline and can create, update, and delete CRM records, so treat it like any account with write access. Reads - the reports, the analytics rollups, and search - are always safe. Routine writes such as `deals add`, `deals update`, and the bulk `import` should be previewed with `--dry-run` and approved before they run. Deletes and token commands are human-in-the-loop only. The recommended agent policy is read plus previewed writes, with a human approving anything that mutates or removes data.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "every `get`/`list` command, the local-join analytics (`stale`, `forecast`, `aging`, `digest`, `leaderboard`, `next-activity`, `lost`, `who`, `changes`, `dupes`), `search`, `export`, and `sync` (which writes only the local SQLite mirror, never Pipedrive)",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "`deals add`, `deals update`, `persons add`, `organizations update`, `notes add`, `activities add`, `leads add`, and the bulk `import` - 73 routine-write commands in all",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "`deals delete`, `persons delete`, `organizations delete` and the other 40 delete commands, plus the credential commands (`auth set-token`, `oauth get-tokens`, `oauth refresh-tokens`)",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

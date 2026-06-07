@@ -589,6 +589,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "pipedrive",
+      "source": "./skills/pipedrive",
+      "description": "Full Pipedrive CRUD plus a local SQLite pipeline copy: stale deals, forecasts, aging, dupes, rep leaderboards.",
+      "version": "0.1.0",
+      "category": "crm",
+      "tags": [
+        "pipedrive",
+        "crm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
