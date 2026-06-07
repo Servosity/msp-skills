@@ -843,7 +843,7 @@
       "tagline": "Catch silently-failing Microsoft 365 backups across every SkyKick tenant before a customer needs a restore.",
       "cli_hash": "sha256:c642d7a7b9e5be25b87d79f90955aa6ac1b83d9b5f9a189db582501d44f94c2a",
       "template_version": 3,
-      "version": "4.22.0",
+      "version": "0.1.0",
       "cli_hash_at_release": null,
       "has_video": true,
       "live_verified": {

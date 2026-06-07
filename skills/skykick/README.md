@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/skykick/">
-    <img src="../../docs/assets/social/skykick/wide-1200x630.png" alt="SkyKick - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/skykick/animated-og.gif" alt="SkyKick demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/skykick/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/skykick/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots, and coverage gaps no portal or wrapper can show. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download SkyKick MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/skykick-v4.22.0/skykick-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every SkyKick release on the [releases page](https://github.com/servosity/msp-skills/releases?q=skykick).)
+[**Download SkyKick MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/skykick-v0.1.0/skykick-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every SkyKick release on the [releases page](https://github.com/servosity/msp-skills/releases?q=skykick).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -145,25 +145,38 @@ SKYKICK_CLIENT_ID=<value> SKYKICK_CLIENT_SECRET=<value> SKYKICK_OAUTH_SCOPE=<val
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
+Run `skykick-cli fleet-sync` once to build the local copy, then ask:
 
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `skykick-cli ...` |
-
--->
+| Which customers have a protection gap right now? | `skykick-cli fleet-health --flag-gaps --agent` |
+| Whose mailboxes haven't been snapshotted in 48 hours? | `skykick-cli stale-snapshots --hours 48 --agent` |
+| What's discovered but not actually being backed up? | `skykick-cli coverage-gaps --type all --agent` |
+| Which tenants fall below our retention floor? | `skykick-cli retention-audit --floor-days 365 --agent` |
+| Where is autodiscover off, so new mailboxes silently never enroll? | `skykick-cli autodiscover-audit --only-off --agent` |
+| What protection changed since my last review? | `skykick-cli drift --agent` |
+| What open alerts exist across the whole fleet, worst first? | `skykick-cli alert-sweep --agent` |
+| How does backup posture roll up by partner? | `skykick-cli partner-rollup --agent` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most SkyKick integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most SkyKick integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "which of my 50 tenants has a backup gap right now" - because the SkyKick API only serves data one subscription at a time, with no fleet endpoint and no skip paging on alerts, so that one question becomes 50+ sequential calls every time you ask it.
 
-This skill syncs SkyKick into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs SkyKick into a **local SQLite mirror** with full-text search. Aggregate questions become one local query: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `fleet-health`, `stale-snapshots`, and `drift` join across every subscription's settings, retention, snapshot stats, mailboxes, and sites - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+On r/msp, the recurring refrain about Microsoft 365 backup is "trust but verify" - operators warn each other that the worst time to learn a mailbox stopped backing up, a new hire's mailbox never enrolled, or retention quietly dropped below contract is during a restore request. SkyKick Cloud Backup is set-and-forget by design, and the partner portal shows one customer at a time, so across 30-50 tenants the daily "is everyone actually protected?" check is the thing that silently falls off the routine.
+
+This skill turns that check into a few seconds:
+
+- `skykick-cli fleet-health --flag-gaps --agent` - every tenant with at least one protection gap, in one table.
+- `skykick-cli stale-snapshots --hours 48 --agent` - mailboxes that silently stopped snapshotting, fleet-wide.
+- `skykick-cli coverage-gaps --type all --agent` - discovered-but-unprotected mailboxes and sites, the post-onboarding reconciliation gap.
+- `skykick-cli retention-audit --floor-days 365 --agent` - tenants below your compliance retention floor.
+- `skykick-cli drift --agent` - what protection changed since your last review.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +198,21 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Do I need to be a SkyKick partner?
+
+Yes. The CLI authenticates with SkyKick Partner API client credentials - your API user ID and partner subscription key from your SkyKick / ConnectWise Cloud Services partner account (Partner Portal > Settings > User Profile > Developer API Access). It reads only what those credentials are already permitted to see. Set `SKYKICK_OAUTH_SCOPE=Distributor` for distributor accounts; the default scope is `Partner`.
+
+### Will this hit my SkyKick API rate limits?
+
+`fleet-sync` fans out per subscription with bounded concurrency (you set `--workers` and `--rate-limit`) and caches everything in the local SQLite store, so your day-to-day posture, staleness, and coverage questions run offline and never re-hit the API. SkyKick rate-limits the OAuth token endpoint aggressively, so the CLI mints and reuses cached tokens rather than re-authenticating per call.
+
+### Will this replace the SkyKick portal?
+
+No. It's a read-first fleet overlay for posture, staleness, coverage, retention compliance, and alert triage. Restores, subscription changes, and configuration still happen in the SkyKick portal.
+
+### Does this still work after the ConnectWise migration?
+
+Yes. SkyKick Cloud Backup moved to the `apis.cloudservices.connectwise.com` host (the old `apis.skykick.com` host was retired). This CLI targets the current host by default - no `SKYKICK_BASE_URL` override needed.
 
 ### What does it cost?
 
@@ -198,15 +220,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| **Read** | `fleet-health`, `stale-snapshots`, `coverage-gaps`, `retention-audit`, `autodiscover-audit`, `drift`, `partner-rollup`, `alert-sweep` (without `--apply`), `backup list` / `mailboxes` / `sites` / `storage-settings` / `subscription-settings`, `alerts list`, `identity` | Allow |
+| **Write (routine)** | `alerts complete`, `alert-sweep --complete <ids> --apply`, `backup discover-mailboxes`, `backup discover-sites`, `import` | Preview with `--dry-run`, then a reviewed write |
+| **Destructive / config** | None - the wrapped SkyKick API surface has no delete, credential-rotation, or admin commands | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the SkyKick credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +236,4 @@ Beta. Validated against the SkyKick API surface and being validated with MSPs ru
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-07._

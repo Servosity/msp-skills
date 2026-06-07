@@ -1,6 +1,6 @@
 ---
 name: skykick
-description: "Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots Trigger phrases: `check skykick backups`, `which customers aren't backed up`, `stale skykick snapshots`, `skykick fleet health`, `skykick backup alerts`, `audit m365 backup retention`, `use skykick`, `run skykick-cli`."
+description: "Use when the user asks to audit SkyKick Cloud Backup across customers - which Microsoft 365 tenants have a backup gap, which mailboxes silently stopped snapshotting, what's discovered but not protected, which tenants fall below a retention floor, where autodiscover is off, what changed since last review, or to sweep fleet-wide backup alerts - backed by a local SQLite fleet store so cross-tenant questions answer offline. Trigger phrases: `check skykick backups`, `which customers aren't backed up`, `stale skykick snapshots`, `skykick fleet health`, `skykick backup alerts`, `audit m365 backup retention`, `use skykick`, `run skykick-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "SkyKick"
@@ -11,34 +11,28 @@ metadata:
     requires:
       bins:
         - skykick-cli
-    install:
-      - kind: go
-        bins: [skykick-cli]
-        module: github.com/mvanhorn/printing-press-library/library/monitoring/skykick/cmd/skykick-cli
 ---
 
-# SkyKick  -  Printing Press CLI
+# SkyKick Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `skykick-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install skykick --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/skykick/install.sh)
    ```
-2. Verify: `skykick-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/skykick/install.ps1 | iex
+   ```
+3. Verify: `skykick-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-```bash
-go install github.com/mvanhorn/printing-press-library/library/monitoring/skykick/cmd/skykick-cli@latest
-```
-
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
-
-Every evidenced SkyKick (ConnectWise Cloud Services) Backup API operation as typed commands, plus a local SQLite fleet store that answers the questions the per-tenant API can't: which customers aren't fully protected (fleet-health), which mailboxes silently stopped snapshotting (stale-snapshots), and what changed since last review (drift). Built for the current apis.cloudservices.connectwise.com host - the only CLI that works post-migration.
+Every evidenced SkyKick (ConnectWise Cloud Services) Backup API operation as typed commands, plus a local SQLite fleet store that answers the questions the per-tenant API can't: which customers aren't fully protected (fleet-health), which mailboxes silently stopped snapshotting (stale-snapshots), and what changed since last review (drift). Built for the current `apis.cloudservices.connectwise.com` host that SkyKick Cloud Backup migrated to.
 
 ## When to Use This CLI
 
@@ -235,7 +229,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  skykick-cli alerts list mock-value --agent --select id,name,status
+  skykick-cli alerts list <serviceId> --agent --select id,name,status
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync commands can use the local SQLite store when available
@@ -283,11 +277,11 @@ Unknown schemes are refused with a structured error naming the supported set. We
 
 ## Named Profiles
 
-A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration - HeyGen's "Beacon" pattern.
+A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration.
 
 ```
 skykick-cli profile save briefing --json
-skykick-cli --profile briefing alerts list mock-value
+skykick-cli --profile briefing alerts list <serviceId>
 skykick-cli profile list --json
 skykick-cli profile show briefing
 skykick-cli profile delete briefing --yes
@@ -318,15 +312,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/monitoring/skykick/cmd/skykick-mcp@latest
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add skykick-mcp -- skykick-mcp
-   ```
-3. Verify: `claude mcp list`
+The installer above drops `skykick-mcp` alongside the CLI. Register it:
+
+```bash
+claude mcp add skykick-mcp -- skykick-mcp
+```
+
+Verify: `claude mcp list`
 
 ## Direct Use
 
