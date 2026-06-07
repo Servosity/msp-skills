@@ -104,6 +104,13 @@
     "current_hash": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29",
     "released_hash": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29"
   },
+  "liongard": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:1cb9d0b4b3883d2cb552cd2d65423f1dbb4b3f4f92bee75b236150a78d3fa676",
+    "released_hash": null
+  },
   "microsoft-graph": {
     "state": "up-to-date",
     "version": "0.1.0",
