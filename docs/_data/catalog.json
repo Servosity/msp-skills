@@ -1,5 +1,5 @@
 {
-  "count": 28,
+  "count": 29,
   "connectors": [
     {
       "slug": "acronis",
@@ -152,6 +152,14 @@
       "category": "Incident Response",
       "verification": "awaiting",
       "url": "/skills/pagerduty/"
+    },
+    {
+      "slug": "pandadoc",
+      "display_name": "PandaDoc",
+      "tagline": "Find stalled proposals, aging quotes, and unsigned PandaDoc documents from the terminal.",
+      "category": "Documentation",
+      "verification": "awaiting",
+      "url": "/skills/pandadoc/"
     },
     {
       "slug": "pax8",
