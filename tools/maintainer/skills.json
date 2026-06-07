@@ -1106,6 +1106,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "cove": {
+      "system": "N-able Cove Data Protection cloud backup and recovery",
+      "status": "beta",
+      "cli_binary": "cove-cli",
+      "mcp_binary": "cove-mcp",
+      "vendor": "Cove Data Protection",
+      "vendor_trademark_owner": "N-able",
+      "first_party": false,
+      "category": "Backup/DR",
+      "display_name": "Cove Data Protection",
+      "tagline": "Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal.",
+      "cli_hash": "sha256:c5d9a8473fe8419502e1c39bf9d9c7fe8c37201647f2c84d280a5e7994b2844d",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }

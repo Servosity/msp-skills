@@ -742,6 +742,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "cove",
+      "source": "./skills/cove",
+      "description": "The first CLI and MCP server for Cove Data Protection: fleet-wide backup health, billing usage, and storage trends from your terminal, with the local history the vendor console doesn't keep.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "cove",
+        "cove data protection",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

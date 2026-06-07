@@ -1,0 +1,58 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/cove-mcp",
+  "title": "Cove Data Protection MCP",
+  "description": "Fleet-wide Cove Data Protection backup health, billing, and storage trends from your terminal.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/cove/cove-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/cove"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/cove-v0.1.0/cove-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "COVE_USERNAME",
+          "description": "API-enabled backup.management user (Security Officer service account with the API flag). Exchanged via the Cove JSON-RPC Login method for a cached session visa.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "COVE_PASSWORD",
+          "description": "Password for COVE_USERNAME. Exchanged once for a cached session visa; never written to disk beyond the local visa cache.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "COVE_PARTNER",
+          "description": "Optional partner name to scope queries to a specific reseller or customer level. Defaults to the partner resolved from the login.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "COVE_BASE_URL",
+          "description": "Optional override for the Cove JSON-RPC endpoint. Defaults to the standard backup.management API host; set only for a regional or mock endpoint.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

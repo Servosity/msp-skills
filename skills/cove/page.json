@@ -1,0 +1,101 @@
+{
+  "outcome_intro": "Ask which Cove backups failed last night and get every failed, aborted, or never-started device across all your customers in one sweep, the status codes decoded to plain names. Cove's console scopes to one partner at a time and forgets yesterday; this skill speaks the whole JSON-RPC API and keeps a local snapshot history, so storage-growth and what-changed-since-Friday trends exist at all.",
+  "instead_of_say": [
+    {
+      "instead": "Log into backup.management, switch into each customer one at a time, and eyeball the dashboard for red devices every single morning.",
+      "say": "Which devices failed their last backup across all my customers since yesterday?",
+      "cli": "cove-cli devices failures --since 24h --agent"
+    },
+    {
+      "instead": "Export the monthly usage report, then decode SKU and M365 seat counts by hand with the column-code legend open in another tab.",
+      "say": "Give me the month-end billing usage for every device as a CSV.",
+      "cli": "cove-cli billing usage --csv"
+    },
+    {
+      "instead": "Wonder whether a customer's backup storage is creeping up, with no way to tell because the console only ever shows today's number.",
+      "say": "Which devices and customers grew their backup storage the most this week?",
+      "cli": "cove-cli storage growth --since 7d --agent"
+    }
+  ],
+  "pain_points": [
+    "Cove's dashboard scopes to one customer at a time. To answer \"what failed last night across all 40 clients\" you open each customer separately, every morning. The N-able/Cove community on r/msp and MSPGeek repeatedly asks for a single cross-tenant failure list the console does not provide.",
+    "The console shows today's status and storage but keeps no history, so \"is this customer's backup growing?\" and \"did Friday's failures clear?\" have no data behind them.",
+    "Month-end billing means exporting usage and decoding cryptic column codes (SKU, used storage, seat counts) by hand against a legend in another tab."
+  ],
+  "outcomes": [
+    {
+      "question": "Which devices failed their last backup since yesterday?",
+      "command": "cove-cli devices failures --since 24h --json"
+    },
+    {
+      "question": "Which devices have had no successful backup in 3 days?",
+      "command": "cove-cli devices stale --days 3 --json"
+    },
+    {
+      "question": "What is the fleet-wide health rollup, broken down per customer?",
+      "command": "cove-cli fleet health --by partner --json"
+    },
+    {
+      "question": "Which devices and customers grew their storage fastest this week?",
+      "command": "cove-cli storage growth --since 7d --json"
+    },
+    {
+      "question": "What is the month-end billing usage per device, with codes decoded?",
+      "command": "cove-cli billing usage --csv"
+    },
+    {
+      "question": "Which device SKUs or seat counts changed since last month?",
+      "command": "cove-cli billing changes --json"
+    },
+    {
+      "question": "Which backup statuses flipped since my last snapshot?",
+      "command": "cove-cli devices changes --since 7d --json"
+    }
+  ],
+  "different_vs_wrappers": "Most Cove integrations proxy each question into a single live JSON-RPC call: fine for one device, useless for \"show me every failure across 40 customers\" or any trend. This skill sweeps the whole partner tree in one command, decodes the status and SKU column codes to plain names, and keeps a timestamped local snapshot history in SQLite. So cross-customer rollups and storage-growth trends are answerable at all, not just today's single number.",
+  "different_vs_vendor": "Cove's backup.management console has no AI and answers one customer at a time with no history. This skill adds the cross-tenant sweep and the local trend layer the console structurally withholds; it complements the console for restores and per-session detail, which still live in the Backup Manager client and the storage-node Reporting Service.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Cove Data Protection MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Cove Data Protection data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "What kind of Cove account does it need?",
+      "a": "An API-enabled backup.management user: a Security Officer service account with the API flag set. Interactive two-factor logins cannot use the JSON-RPC API. You set COVE_USERNAME and COVE_PASSWORD once; the skill exchanges them for a cached session visa and refreshes it automatically."
+    },
+    {
+      "q": "Can it restore files or browse backed-up data?",
+      "a": "No. This skill speaks the Cove management API: fleet health, billing, storage trends, and enumeration. Restores and per-session file browsing run through the Backup Manager client and the storage-node Reporting Service, which this CLI does not cover."
+    }
+  ],
+  "governance_summary": "The skill is read-first: every command that touches Cove reads (failure sweeps, health rollups, billing, storage, enumeration) and changes nothing in your tenant. The local commands (sync, snapshot, auth) write only to your machine's SQLite mirror and session cache. The one escape hatch, call, can invoke any JSON-RPC method including the few that mutate, so keep it human-reviewed. Recommended policy: allow reads freely; gate call and anything that writes behind a human.",
+  "safety_tiers": [
+    {
+      "tier": "Read (tenant)",
+      "examples": "devices failures, devices stale, fleet health, billing usage, storage growth, and every enumerate command",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Local-only writes",
+      "examples": "sync, snapshot, auth login/logout - write to your machine's SQLite mirror and visa cache, never the tenant",
+      "policy": "Allow (no tenant change)"
+    },
+    {
+      "tier": "Generic API call",
+      "examples": "call <method> reaches any of the 251 JSON-RPC methods, including the few that mutate",
+      "policy": "Human-in-the-loop; preview with --dry-run first"
+    }
+  ]
+}
