@@ -33,6 +33,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Datto RMM (RMM) - Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/datto-rmm/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-rmm/install.sh)
+- Domotz (Network Monitoring) - Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/domotz/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domotz/install.sh)
 - HaloPSA (PSA) - Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/halopsa/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)

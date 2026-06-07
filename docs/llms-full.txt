@@ -379,6 +379,40 @@ A: You need an API key and secret key from Setup > Users in your Datto RMM porta
 
 Governance: The skill reads your Datto RMM fleet and writes only when you ask it to - creating or updating variables, warranty and UDF data, sites, and quick jobs. Every fleet rollup, search, and lookup is read-only and always safe to run. Deleting variables or site proxy settings, bulk-resolving alert storms, and resetting your API keys are gated as destructive or credential operations and should stay human-in-the-loop.
 
+### Domotz (Network Monitoring)
+
+Page: https://msp-skills.compoundingteams.com/skills/domotz/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domotz/install.sh)
+
+Ask your AI "which client sites have devices down right now?" and get one answer instead of clicking through the Domotz portal Collector by Collector. domotz-cli syncs every Collector into a local mirror, so cross-site rollups - fleet health, every offline device, overnight new-device sweeps, one unified asset inventory - come back as single offline queries your agent can run in seconds.
+
+Outcomes (question -> command your AI agent runs):
+- Is anything on fire across all my sites? -> domotz-cli fleet health --agent
+- Which Collectors (sites) are offline or degraded right now? -> domotz-cli fleet agents --agent
+- What devices are offline across every client? -> domotz-cli fleet offline --agent
+- What new devices appeared on any network in the last day? -> domotz-cli fleet new --since 24h --agent
+- Give me one asset inventory across every site -> domotz-cli fleet inventory --csv
+- Where are IP conflicts across the fleet? -> domotz-cli fleet ip-conflicts --agent
+- Which devices can't be fully monitored (auth or SNMP gaps)? -> domotz-cli fleet unmonitored --agent
+- How many devices of each vendor do we manage? -> domotz-cli fleet breakdown --by vendor --agent
+- Which Collectors have gone quiet (stale sync)? -> domotz-cli fleet stale --agent
+- Find a hostname or IP anywhere in the synced fleet -> domotz-cli search "<query>"
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Domotz MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Domotz data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need a special Domotz plan to use the API?
+A: No add-on is required - you generate an API Key from the Domotz Portal under Settings > Services > API Keys on your existing account. A handful of endpoints (company areas, team moves, some RBAC) are Enterprise-plan only; everything else works on standard accounts, and the CLI returns a clear error when a plan gates an endpoint.
+
+Governance: The skill reads your Domotz fleet - Collectors, devices, variables, alerts, and topology - and can also create and delete monitoring objects, control device power outlets, and change SNMP credentials. Reads are safe to run unattended with one exception: reading SNMP authentication returns community strings and keys, so treat it like a secret. Keep an autonomous agent to reads plus previewed writes, and require a human for anything that deletes, controls hardware, or touches credentials.
+
 ### HaloPSA (PSA)
 
 Page: https://msp-skills.compoundingteams.com/skills/halopsa/

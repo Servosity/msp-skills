@@ -692,6 +692,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "domotz": {
+      "system": "Domotz network monitoring and device discovery platform",
+      "status": "beta",
+      "cli_binary": "domotz-cli",
+      "mcp_binary": "domotz-mcp",
+      "vendor": "Domotz",
+      "vendor_trademark_owner": "Domotz Inc.",
+      "first_party": false,
+      "category": "Network Monitoring",
+      "display_name": "Domotz",
+      "tagline": "Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal.",
+      "cli_hash": "sha256:6ebb43673929dadad8e073419e6eebf447563ebc7f70ef22e1fed294d8a73f3d",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }
