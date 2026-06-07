@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-06",
+  "generated_at": "2026-06-07",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -325,6 +325,25 @@
       "verification": "awaiting",
       "category": "Documentation",
       "tagline": "Find any device, audit stale passwords, and rank thin client docs by asking."
+    },
+    {
+      "name": "knowbe4",
+      "system": "KnowBe4 KMSAT security awareness training and phishing-simulation reporting",
+      "status": "beta",
+      "skill_path": "skills/knowbe4",
+      "cli_binary": "knowbe4-cli",
+      "mcp_binary": "knowbe4-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "KnowBe4",
+      "vendor_trademark_owner": "KnowBe4, Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/knowbe4/install.sh)",
+      "install_mcp_doc": "skills/knowbe4/mcp-install.md",
+      "description": "Every KnowBe4 KMSAT reporting feature plus a local SQLite store that answers the cross-client questions the console can't \u2014 repeat-clicker hunts and training-coverage anti-joins.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Hunt repeat clickers, track risk drift, and close training-coverage gaps across every KnowBe4 client from your terminal."
     },
     {
       "name": "levelio",

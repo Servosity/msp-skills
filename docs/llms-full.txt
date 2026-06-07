@@ -629,6 +629,40 @@ A: No. The CLI reads, and creates or updates contacts, passwords, configurations
 
 Governance: The skill drives the itglue-cli and itglue-mcp binaries, authenticating with an IT Glue API key read from the environment (ITGLUE_API_KEY) - never logged and never sent anywhere except the IT Glue API. Most read commands (search, coverage, changes, contacts dupes, org show, orphans, and the organization/configuration/contact/document list and get) change nothing and run against the local mirror. The exceptions are passwords get and passwords list: when the API key has password access they can return the stored secret, so treat them as credential-tier, not routine reads (passwords stale is metadata-only and stays safe). Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. The CLI exposes no delete for any IT Glue resource; the most sensitive operations are credential reads and writes (passwords get/list/create/update), which should stay human-approved. The real permission boundary is the scope of the IT Glue account whose key you use.
 
+### KnowBe4 (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/knowbe4/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/knowbe4/install.sh)
+
+KnowBe4's console reports one tenant, one phishing test, one chart at a time. This skill syncs your KMSAT data into a local SQLite mirror and answers the questions the portal can't: which users clicked the bait in multiple phishing tests, whose risk score is deteriorating this quarter, and who clicked a phish but finished zero training - across every client, in seconds, from your terminal.
+
+Outcomes (question -> command your AI agent runs):
+- Who clicked the bait in more than one phishing test? -> knowbe4-cli repeat-clickers --min-clicks 2 --since 90d
+- Whose risk score is getting worse this quarter? -> knowbe4-cli risk-drift --window 90d --worsened --top 20
+- Who clicked a phish but never passed training? -> knowbe4-cli untrained-clickers --since 180d
+- Which active users have zero training or zero phishing coverage? -> knowbe4-cli coverage-gaps
+- Is training actually working for the Finance group? -> knowbe4-cli phish-prone-trend --group "Finance" --since 12mo
+- Who are my highest-risk users, with the why behind the score? -> knowbe4-cli risk-leaderboard --top 25
+- Which departments are driving our risk up? -> knowbe4-cli group-risk-contribution --window 90d --top 10
+- Assemble the full client quarterly review in one command -> knowbe4-cli qbr --since 90d
+- Who never reports a simulated phish? -> knowbe4-cli report-rate --bottom 25
+- Is my synced data fresh enough to trust a clicker hunt? -> knowbe4-cli freshness
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local KnowBe4 MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my KnowBe4 data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the bundled MCP server exposes read-only reporting tools only. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Does this replace the KnowBe4 console or need a special partner API?
+A: Neither. It uses your standard KMSAT Reporting API key (Account Settings - API - enable Reporting API) and your region (us, eu, ca, uk, or de). It reads what your account already exposes and adds the cross-client rollups the console doesn't. The one write path that needs extra setup is pushing custom risk events, which uses a separate, opt-in User Event API key.
+
+Governance: The skill reads your KnowBe4 reporting data - accounts, users, groups, phishing tests, training, risk scores - and can sync it to a local SQLite mirror; all of that is read-only and safe to let an agent run, and the bundled MCP server exposes only those read tools. The only write paths are CLI-only: pushing or deleting custom risk events on a user's timeline (a separate, opt-in User Event API key) and bulk import. Keep those human-reviewed and preview them with --dry-run first.
+
 ### Level (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/levelio/

@@ -853,6 +853,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "knowbe4": {
+      "system": "KnowBe4 KMSAT security awareness training and phishing-simulation reporting",
+      "status": "beta",
+      "cli_binary": "knowbe4-cli",
+      "mcp_binary": "knowbe4-mcp",
+      "vendor": "KnowBe4",
+      "vendor_trademark_owner": "KnowBe4, Inc",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "KnowBe4",
+      "tagline": "Hunt repeat clickers, track risk drift, and close training-coverage gaps across every KnowBe4 client from your terminal.",
+      "cli_hash": "sha256:d143f3d41a7565f0bd2102c46beb5fc72744c602eca72b4724576745944aa42a",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }

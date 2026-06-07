@@ -574,6 +574,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "knowbe4",
+      "source": "./skills/knowbe4",
+      "description": "Every KnowBe4 KMSAT reporting feature plus a local SQLite store that answers the cross-client questions the console can't \u2014 repeat-clicker hunts and training-coverage anti-joins.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "knowbe4",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

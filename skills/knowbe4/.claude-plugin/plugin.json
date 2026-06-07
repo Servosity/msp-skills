@@ -1,0 +1,20 @@
+{
+  "name": "knowbe4",
+  "version": "0.1.0",
+  "description": "Every KnowBe4 KMSAT reporting feature plus a local SQLite store that answers the cross-client questions the console can't \u2014 repeat-clicker hunts and training-coverage anti-joins.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/knowbe4",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "knowbe4",
+    "security",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}
