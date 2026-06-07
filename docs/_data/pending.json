@@ -76,6 +76,13 @@
     "current_hash": "sha256:a0617e8133dbdfbb42b9da1f1412fa9b6eb0ad684af373cfa7d540d58decd602",
     "released_hash": "sha256:a0617e8133dbdfbb42b9da1f1412fa9b6eb0ad684af373cfa7d540d58decd602"
   },
+  "cove": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:c5d9a8473fe8419502e1c39bf9d9c7fe8c37201647f2c84d280a5e7994b2844d",
+    "released_hash": null
+  },
   "crowdstrike": {
     "state": "up-to-date",
     "version": "0.1.0",
