@@ -1,0 +1,135 @@
+{
+  "outcome_intro": "Ask plain-English questions about your whole self-hosted Tactical RMM fleet and get answers the web UI can't assemble in one view: which agents went dark, where patches and reboots are pending across every client, what changed overnight, and which endpoints are unmonitored. `tactical-rmm-cli` mirrors your fleet into local SQLite, then answers cross-client rollups instantly and offline - and can fan a command across a filtered cohort, preview-first.",
+  "instead_of_say": [
+    {
+      "instead": "Clicking through each client's agent list to find the machines that quietly stopped checking in",
+      "say": "Which agents across all my clients have gone dark in the last week?",
+      "cli": "tactical-rmm-cli agents stale --days 7 --agent"
+    },
+    {
+      "instead": "Opening every client and site before patch night to tally pending Windows updates and the reboots they'll need",
+      "say": "Where do I stand on pending patches and reboots across every client?",
+      "cli": "tactical-rmm-cli patch posture --by client --agent"
+    },
+    {
+      "instead": "Remoting into each machine one by one to run the same quick command across a group",
+      "say": "Run whoami on every online Windows agent - show me the cohort before it executes",
+      "cli": "tactical-rmm-cli agents bulk-run --command whoami --filter \"os=windows,online=true\""
+    }
+  ],
+  "pain_points": [
+    "Tactical RMM is the budget-friendly, self-hosted favorite on r/msp and in the MSPGeek community - but the recurring gripe is reporting: the web UI shows you one agent or one client at a time, with no built-in fleet-wide view of health, patch posture, or 'what changed overnight' across every client at once.",
+    "Everything is in the API, but pulling a cross-client rollup means scripting against it yourself - so the questions that matter at a Monday stand-up or a QBR are the ones nobody has time to assemble by hand, portal tab by portal tab.",
+    "Self-hosting means you own all the data and pay nothing per endpoint - and also that there's no built-in analytics or BI layer to fall back on. The data is right there; the cross-fleet views aren't."
+  ],
+  "outcomes": [
+    {
+      "question": "What's the overall health of my fleet right now?",
+      "command": "tactical-rmm-cli fleet health"
+    },
+    {
+      "question": "Which agents need attention first?",
+      "command": "tactical-rmm-cli triage --limit 20"
+    },
+    {
+      "question": "Which agents have gone dark or stopped checking in?",
+      "command": "tactical-rmm-cli agents stale --days 7"
+    },
+    {
+      "question": "Where are patches and reboots pending across every client?",
+      "command": "tactical-rmm-cli patch posture --by client"
+    },
+    {
+      "question": "What changed across the fleet in the last few hours?",
+      "command": "tactical-rmm-cli since \"2h\""
+    },
+    {
+      "question": "Which endpoints have no checks configured (monitoring gaps)?",
+      "command": "tactical-rmm-cli coverage"
+    },
+    {
+      "question": "What's each client's posture in a single row?",
+      "command": "tactical-rmm-cli clients scorecard"
+    },
+    {
+      "question": "Which checks are failing on the most agents?",
+      "command": "tactical-rmm-cli checks worst"
+    },
+    {
+      "question": "Which agents have a given software package installed?",
+      "command": "tactical-rmm-cli software find --name openssl"
+    },
+    {
+      "question": "Summarize alerts by severity over the last day",
+      "command": "tactical-rmm-cli alerts digest --since 24h --by severity"
+    },
+    {
+      "question": "Which agents have a named Windows service stopped?",
+      "command": "tactical-rmm-cli services down --name Spooler"
+    }
+  ],
+  "different_vs_wrappers": "Most Tactical RMM integrations and MCP servers proxy each question into a live API call - fine for one agent, useless for a fleet-wide rollup that would page through every endpoint against your own server. This skill syncs Tactical RMM into a local SQLite mirror, so cross-entity questions - fleet health, triage, patch posture, what-changed-since - become one offline join: instant, and the AI sees the answer, not the raw dump.",
+  "different_vs_vendor": "Tactical RMM's web UI is your system of record and remote-control console, and it shows one agent or one client at a time. This skill adds the cross-client, time-windowed layer the UI leaves you to assemble by hand - dark-agent sweeps, patch-posture rollups, blast-radius check rankings, and preview-first cohort runs - from one local mirror whose every line you can read.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Tactical RMM MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Tactical RMM data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "It's self-hosted - how does it find my server?",
+      "a": "You point it at your own instance: set TACTICAL_RMM_BASE_URL to your Tactical RMM API URL (for example https://api.yourdomain.com) and TRMM_API_KEY to a key from Settings > Global Settings > API Keys. Both are set once; nothing is hard-coded to a vendor cloud."
+    },
+    {
+      "q": "Do I need to be a Tactical RMM customer or partner?",
+      "a": "No. Tactical RMM is free and open source and you self-host it. You only need an API key on your own instance; any Tactical RMM server with API access works."
+    },
+    {
+      "q": "Will this hit my server's rate limits?",
+      "a": "Rarely. Most questions run against the local SQLite mirror after a one-time sync, so they make zero API calls. The few commands that fan out live (like services down or actions pending) are paced and capped with --max-scan-agents."
+    },
+    {
+      "q": "Will this replace my Tactical RMM web UI?",
+      "a": "No - it complements it. The UI stays your system of record and remote-access console; this skill adds the cross-client query-and-automation layer it doesn't offer."
+    }
+  ],
+  "governance_summary": "The skill reads everything across your fleet - agents, clients, sites, checks, alerts, patches, software, services, and the cross-client rollups - and through the API it can also create and update config, delete records, run scripts and commands on endpoints, reboot or shut machines down, install Windows updates, and manage users, roles, and API keys. Reads are safe to run unattended, with one exception: listing API keys or reading the keystore, codesign token, or core settings can return stored secrets, so treat those as credential-tier. Keep an autonomous agent to reads plus previewed writes; require a human for anything that runs on an endpoint, deletes, or touches credentials. The CLI can only do what your API key is permitted to do, so scope the key to the workflow.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "Fleet rollups (fleet health, triage, patch posture, clients scorecard, coverage, since, checks worst/flapping, alerts digest, services down, software find), agent/client/site/check/alert get & list, search, sync, analytics. (Listing API keys or reading the keystore, codesign token, or core settings is the exception - those return stored secrets and are credential-tier.)",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine config)",
+      "examples": "Create/update clients, sites, checks, alerts & templates, scripts & snippets, automation policies & patch policies, autotasks, custom fields, schedules, agent notes, deployments, and software/service records; import (bulk create/upsert from JSONL).",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Endpoint & script execution",
+      "examples": "Run scripts/commands on endpoints (agents bulk-run, scripts test, autotasks/automation run), reboot/shutdown/wake/recover agents, install or scan Windows updates, uninstall software, reset checks, put cohorts into maintenance, open remote sessions (meshcentral, webvnc), and server actions (test SMS/email, generate via OpenAI). These execute code on managed machines.",
+      "policy": "Human-in-the-loop only - never unattended"
+    },
+    {
+      "tier": "Credential & identity",
+      "examples": "API keys (create/list/delete/update - listing returns key values), keystore and codesign tokens, core settings, users, roles, sessions, and password/2FA/TOTP resets. Listing or reading several of these returns stored secrets.",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Destructive",
+      "examples": "Delete agents, clients, sites, checks, scripts & snippets, alerts & templates, automation policies & patch policies, autotasks, custom fields, schedules, deployments, agent processes, and pending actions.",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    }
+  ]
+}

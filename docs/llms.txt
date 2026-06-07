@@ -95,6 +95,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Syncro (PSA) - Run every Syncro PSA and RMM workflow from your terminal: tickets, billing, and patch gaps in one ask.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/syncro/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/syncro/install.sh)
+- Tactical RMM (RMM) - Triage every agent, sweep patch posture, and run a script across a filtered cohort by asking.
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/tactical-rmm/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/install.sh)
 - ThreatLocker (Security) - Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/threatlocker/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/install.sh)

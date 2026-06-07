@@ -1,5 +1,5 @@
 {
-  "count": 31,
+  "count": 32,
   "connectors": [
     {
       "slug": "acronis",
@@ -232,6 +232,14 @@
       "category": "PSA",
       "verification": "awaiting",
       "url": "/skills/syncro/"
+    },
+    {
+      "slug": "tactical-rmm",
+      "display_name": "Tactical RMM",
+      "tagline": "Triage every agent, sweep patch posture, and run a script across a filtered cohort by asking.",
+      "category": "RMM",
+      "verification": "awaiting",
+      "url": "/skills/tactical-rmm/"
     },
     {
       "slug": "threatlocker",

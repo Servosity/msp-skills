@@ -574,6 +574,25 @@
       "tagline": "Run every Syncro PSA and RMM workflow from your terminal: tickets, billing, and patch gaps in one ask."
     },
     {
+      "name": "tactical-rmm",
+      "system": "Self-hosted Tactical RMM: agent triage, patch posture, fleet-wide queries, and cohort script execution",
+      "status": "beta",
+      "skill_path": "skills/tactical-rmm",
+      "cli_binary": "tactical-rmm-cli",
+      "mcp_binary": "tactical-rmm-mcp",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "vendor": "Tactical RMM",
+      "vendor_trademark_owner": "AmidaWare LLC",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/install.sh)",
+      "install_mcp_doc": "skills/tactical-rmm/mcp-install.md",
+      "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express.",
+      "verification": "awaiting",
+      "category": "RMM",
+      "tagline": "Triage every agent, sweep patch posture, and run a script across a filtered cohort by asking."
+    },
+    {
       "name": "threatlocker",
       "system": "ThreatLocker Portal: approvals, audit log, device health, and policy across customer tenants",
       "status": "beta",
