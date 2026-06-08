@@ -148,7 +148,7 @@ A: No. The console stays your place to configure automations and approve patches
 
 Governance: The skill reads freely - fleet rollups, lists, reports, search, export - and those reads change nothing. Routine writes (config edits, including the read-named import command) should be previewed with --dry-run, then approved. Endpoint-level actions like running an automation, approving updates for deployment, or opening a remote session, plus token-minting, user/role management, and deletes, are endpoint-execution, credential, or destructive tier - keep them human-in-the-loop and scope your API client to only the permissions your workflow needs.
 
-### Afi (Backup-DR)
+### Afi (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/afi/
 Badge: Awaiting live verification

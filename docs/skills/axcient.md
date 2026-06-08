@@ -89,6 +89,8 @@ Most Axcient integrations and MCP wrappers proxy each question into a live API c
 
 It complements the x360Portal rather than replacing it: the portal and the appliance/vault UI stay best for configuring protection and running actual restores, while this skill brings every client into one place for the cross-fleet questions - whose backups failed, who's breaching RPO, where billing and protection diverge - that the per-entity API and one-client-at-a-time portal can't answer in a single view.
 
+> **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](/skills/servosity/) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
+
 ## The pain this closes
 
 - Axcient's x360Recover Public API is built around per-entity endpoints - one call for appliances, another for a device, another for that device's jobs - and it does not hand you the client-to-device mapping directly. So the question every MSP asks each morning, "whose backups failed," has no single fleet-wide endpoint; you walk each appliance and device by hand or click through the portal.

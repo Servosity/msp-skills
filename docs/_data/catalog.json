@@ -29,7 +29,7 @@
       "slug": "afi",
       "display_name": "Afi",
       "tagline": "Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.",
-      "category": "Backup-DR",
+      "category": "Backup/DR",
       "verification": "awaiting",
       "url": "/skills/afi/"
     },

@@ -145,6 +145,29 @@ def status_badge(verification: str) -> str:
     return "![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308)"
 
 
+def render_first_party_callout(skills: list[dict]) -> str:
+    """One-line callout above the catalog table pointing at Servosity's own
+    (first-party) skills. Rendered from the registry (the `first_party` flag)
+    so it can never go stale as first-party skills are added or renamed. The
+    ⭐ matches the per-row star in render_catalog_table()."""
+    fp = [s for s in skills if s.get("first_party")]
+    if not fp:
+        return ""
+    connectors = [
+        f"the [{s['name']}](./{s['skill_path']}) "
+        + ("backup & DR connector" if s["name"] == "servosity" else "connector")
+        for s in fp
+        if not s.get("markdown_only")
+    ]
+    metas = [
+        f"the guided [concierge](./{s['skill_path']})"
+        for s in fp
+        if s.get("markdown_only")
+    ]
+    groups = [g for g in (_oxford(connectors), _oxford(metas)) if g]
+    return f"> ⭐ **First-party, by Servosity:** {' + '.join(groups)}."
+
+
 def render_catalog_table(skills: list[dict]) -> str:
     rows = [
         "| Skill | System | Status | Install |",
@@ -159,12 +182,17 @@ def render_catalog_table(skills: list[dict]) -> str:
             if s.get("markdown_only")
             else "Install"
         )
+        # First-party (Servosity's own) skills get a ⭐ so they stand out in the
+        # otherwise alphabetical table. Driven by the registry `first_party` flag.
+        star = "⭐ " if s.get("first_party") else ""
         rows.append(
-            f"| [{s['name']}](./{path}) | {s['system']} | "
+            f"| {star}[{s['name']}](./{path}) | {s['system']} | "
             f"{status_badge(s.get('verification', 'awaiting'))} | "
             f"[{install}](./{path}/README.md) |"
         )
-    return "\n".join(rows)
+    table = "\n".join(rows)
+    callout = render_first_party_callout(skills)
+    return f"{callout}\n\n{table}" if callout else table
 
 
 def replace_block(content: str, marker_start: str, marker_end: str, block: str) -> str:

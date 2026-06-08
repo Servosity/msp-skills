@@ -1097,7 +1097,7 @@
       "vendor": "Afi",
       "vendor_trademark_owner": "Afi",
       "first_party": false,
-      "category": "Backup-DR",
+      "category": "Backup/DR",
       "display_name": "Afi",
       "tagline": "Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.",
       "cli_hash": "sha256:6a24526f190823c2faf1b8631d900484d8662f8f8044cb6468c7e799e92d5dce",

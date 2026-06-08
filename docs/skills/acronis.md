@@ -89,6 +89,8 @@ Most Acronis integrations and MCP servers proxy each question into a live API ca
 
 It complements the Acronis console rather than replacing it: the portal stays best for configuring protection plans and running restores, while this skill brings every customer tenant into one place for the cross-tenant questions - whose backups failed, which agents are offline, where billing and protection diverge - that partner-level dashboards, scoped to a single tenant, can't answer in one view.
 
+> **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](/skills/servosity/) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
+
 ## The pain this closes
 
 - Acronis's own Management Portal Administrator Guide states that partner-level dashboards and reports work only inside one partner tenant - so the question every MSP asks each morning, "whose backups failed," has no single cross-customer view. You drill into each tenant, or you export and stitch in Excel.

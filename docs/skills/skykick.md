@@ -81,6 +81,8 @@ Most SkyKick MCP wrappers proxy each question into a live API call, and the SkyK
 
 The SkyKick portal is per-customer and has no AI surface; this skill adds the cross-tenant posture, staleness, coverage, retention-compliance, and partner roll-up views the portal never aggregates, and hands them to whatever agent you already use. It complements the portal - restores and configuration still happen there.
 
+> **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](/skills/servosity/) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
+
 ## The pain this closes
 
 - Microsoft 365 backup is set-and-forget until it silently fails - a mailbox stops snapshotting, a new hire never enrolls, retention drifts below your compliance floor - and the worst time to find out is when a customer asks for a restore.

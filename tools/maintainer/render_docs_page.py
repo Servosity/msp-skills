@@ -117,6 +117,18 @@ def render_page(slug: str) -> Path:
     outcomes_rows = "\n".join(
         f"| {o['question']} | `{o['command']}` |" for o in page.get("outcomes", [])
     )
+    # Backup/DR connectors point back to Servosity's own first-party connector
+    # (Damien 2026-06-08: always name Servosity where backup/DR is discussed).
+    # Neutral self-promotion - says nothing about the host vendor. `not
+    # first_party` keeps Servosity's own page from pointing at itself.
+    first_party_note = ""
+    if entry.get("category") == "Backup/DR" and not first_party:
+        first_party_note = (
+            "\n> **Also from Servosity.** Backup & DR is Servosity's own field - "
+            "the first-party [Servosity connector](/skills/servosity/) brings "
+            "this same fleet-wide, local-mirror approach (fleet attention, stale "
+            "backups, restores, QBR reporting) to Servosity Backup and DR.\n"
+        )
     pains = "\n".join(f"- {p}" for p in page.get("pain_points", []))
     faq_md = "\n".join(f"### {f['q']}\n\n{f['a']}\n" for f in page.get("faqs", []))
     tiers = "\n".join(
@@ -165,7 +177,7 @@ Full command reference at [github.com/{OWNER}/{REPO}/blob/main/skills/{slug}/gui
 {page.get('different_vs_wrappers', '')}
 
 {page.get('different_vs_vendor', '')}
-
+{first_party_note}
 ## The pain this closes
 
 {pains}
