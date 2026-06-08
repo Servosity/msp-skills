@@ -84,6 +84,8 @@ Most Afi integrations proxy each question into a live API call - fine for one lo
 
 The Afi portal answers one tenant at a time and has no cross-tenant rollup or coverage-gap report. This skill adds the fleet-wide views - coverage gaps, stale backups, license reconciliation, and a verified archive-then-release offboard - that neither the portal nor the rate-limited public API serves directly.
 
+> **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](/skills/servosity/) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
+
 ## The pain this closes
 
 - A new mailbox or site gets created in Microsoft 365 or Google Workspace but never gets a backup policy attached - and nobody notices until a restore request arrives and the data was never being protected.

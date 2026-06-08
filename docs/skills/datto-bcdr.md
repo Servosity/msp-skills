@@ -88,6 +88,8 @@ Most Datto BCDR integrations and MCP servers proxy each question into a single l
 
 The Datto Partner Portal answers backup-health questions one appliance at a time and has no cross-client recoverability rollup; this skill answers them across every client at once and hands the result to the AI agent you already work in - it complements the portal you still use for restores and device config, it doesn't replace it.
 
+> **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](/skills/servosity/) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
+
 ## The pain this closes
 
 - A backup that fails screenshot verification is silently unbootable - you find out at restore time, when the client is already down, because the Partner Portal makes you check bootability one appliance at a time.

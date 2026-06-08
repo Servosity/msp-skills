@@ -9,7 +9,7 @@
     <img src="../../docs/assets/video/liongard/animated-og.gif" alt="Liongard demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/liongard/">Watch the 30-second demo with sound</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/liongard/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.

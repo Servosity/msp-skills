@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-07",
+  "generated_at": "2026-06-08",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -95,7 +95,7 @@
       "install_mcp_doc": "skills/afi/mcp-install.md",
       "description": "The first CLI for Afi SaaS backup - full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
       "verification": "awaiting",
-      "category": "Backup-DR",
+      "category": "Backup/DR",
       "tagline": "Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store."
     },
     {

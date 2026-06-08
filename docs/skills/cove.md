@@ -82,6 +82,8 @@ Most Cove integrations proxy each question into a single live JSON-RPC call: fin
 
 Cove's backup.management console has no AI and answers one customer at a time with no history. This skill adds the cross-tenant sweep and the local trend layer the console structurally withholds; it complements the console for restores and per-session detail, which still live in the Backup Manager client and the storage-node Reporting Service.
 
+> **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](/skills/servosity/) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
+
 ## The pain this closes
 
 - Cove's dashboard scopes to one customer at a time. To answer "what failed last night across all 40 clients" you open each customer separately, every morning. The N-able/Cove community on r/msp and MSPGeek repeatedly asks for a single cross-tenant failure list the console does not provide.
