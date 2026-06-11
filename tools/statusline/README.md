@@ -4,7 +4,7 @@
 > RMM, or backup workflows - it just makes Claude Code nicer to work in. It lives
 > under `tools/` (outside `skills/`) for that reason.
 
-Two-line status line for Claude Code that shows model, cwd, git branch, date/time, and accurate context-window usage with a progress bar.
+Two-line status line for Claude Code that shows model, cwd, git branch, date/time, accurate context-window usage as a window-scaled gradient bar (200k or 1M auto-detected), and session cost / tokens / duration.
 
 The canonical source for this statusline is its own repository:
 
