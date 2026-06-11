@@ -4,6 +4,17 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.0] - unreleased
+
+### Fixed
+- MCP numeric path/query parameters (e.g. 7-digit `device_id` / `appliance_id`)
+  no longer serialize to scientific notation (`1.234567e+06`), which previously
+  returned HTTP 404 and broke every per-device and per-appliance by-id command,
+  plus restore_point sync, through the MCP server.
+- `sync --dry-run` no longer mutates the local sync-state for dependent
+  (cascaded) resources. A preview is now fully side-effect-free, where it
+  previously stamped a zero count and a fresh timestamp.
+
 ## [0.1.0]
 
 ### Added
