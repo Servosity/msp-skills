@@ -49,11 +49,11 @@
     "released_hash": "sha256:c35fe70e19882732f38eac567b5ed2d9f994f0260a7dc0137914bcd1fe7d0681"
   },
   "axcient": {
-    "state": "up-to-date",
-    "version": "0.1.0",
+    "state": "version-pending",
+    "version": "0.2.0",
     "latest_tag": "axcient-v0.1.0",
-    "current_hash": "sha256:3689d836c162863a104b72186dcac80543a918651740fcdc4d1f0aec3d795b5e",
-    "released_hash": "sha256:3689d836c162863a104b72186dcac80543a918651740fcdc4d1f0aec3d795b5e"
+    "current_hash": "sha256:b0ef6957d5327ad14373c5fd46c6b364e6df9fe229d1b26773937d461af54b28",
+    "released_hash": "sha256:b0ef6957d5327ad14373c5fd46c6b364e6df9fe229d1b26773937d461af54b28"
   },
   "betterstack": {
     "state": "up-to-date",
