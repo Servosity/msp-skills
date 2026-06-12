@@ -70,7 +70,7 @@
       "summary": "flat sync enqueue drops dependent-resource names (autoverify/restore_point/client_device) so `--resources ...,autoverify` does not fail as a flat resource",
       "why": "Dependent resources have no flat list endpoint (syncResourcePath returns 'unknown sync resource'); they sync per-parent via syncDependentResources. The connector's own help text suggests `--resources clients,device,autoverify`, so without flatSyncResources a named dependent ran once correctly (dependent pass) and once failing (flat pass) - 'two resources, one fails' - and under --strict the spurious flat failure aborted the run. Systemic press behavior, not axcient-specific; a printing-press-retro tracks the upstream fix.",
       "status": "active",
-      "spec_encode_followup": "Fix belongs in the press: the flat-sync enqueue should never include a name it also declares as a dependent/walker resource. Filed via printing-press-retro; until a reprint absorbs it, flatSyncResources guards it here.",
+      "spec_encode_followup": "Fix belongs in the press: the flat-sync enqueue should never include a name it also declares as a dependent/walker resource. Filed upstream as mvanhorn/cli-printing-press#2953; until a reprint absorbs it, flatSyncResources guards it here.",
       "asserts": [
         {"file": "cli/internal/cli/sync.go", "contains": "flatSyncResources", "min_count": 2}
       ]
@@ -80,7 +80,7 @@
       "summary": "--strict / all-failed sync errors name the failing resource(s), not just a count",
       "why": "The sync exit-policy errors emitted only 'N resource(s) failed to sync' with no resource name, so a --strict failure was undiagnosable (the retester could not tell which resource failed). describeFailedResources appends the captured names. Systemic press behavior; a printing-press-retro tracks the upstream fix.",
       "status": "active",
-      "spec_encode_followup": "Fix belongs in the press sync template (name failed resources in the exit-policy errors). Filed via printing-press-retro; until a reprint absorbs it, describeFailedResources guards it here.",
+      "spec_encode_followup": "Fix belongs in the press sync template (name failed resources in the exit-policy errors). Filed upstream as mvanhorn/cli-printing-press#2953; until a reprint absorbs it, describeFailedResources guards it here.",
       "asserts": [
         {"file": "cli/internal/cli/sync.go", "contains": "describeFailedResources", "min_count": 2}
       ]
