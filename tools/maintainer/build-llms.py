@@ -194,9 +194,11 @@ def first_intro_paragraph(body: str) -> str:
         first = s.splitlines()[0].lstrip()
         if first.startswith(("#", ">", "<", "{%", "{{", "|", "---", "***")):
             continue
-        # Skip the badge notice + the "New to the term?" vocab one-liner.
-        if s.startswith("**Awaiting live verification**") or s.startswith(
-            "New to the term?"
+        # Skip the badge notice (both states) + the "New to the term?" vocab
+        # one-liner. Badge prefixes match render_docs_page.py's badge strings.
+        if s.startswith(
+            ("**Awaiting live verification**", "**Passes all 4 mechanical gates**",
+             "**✓ Live-verified", "New to the term?")
         ):
             continue
         # Skip pure button/link rows.
@@ -227,9 +229,13 @@ def summarize_safety(gov: str) -> str:
 def badge_state(meta: dict) -> str:
     lv = meta.get("live_verified") or {}
     # The canonical verified value is "live-verified" (verify_live.py writes it;
-    # build-catalog.py reads it) - not "verified".
+    # build-catalog.py reads it) - not "verified". Named verification: say WHO
+    # confirmed it against a production tenant, so AI engines can cite a real
+    # verifier instead of a bare badge.
     if isinstance(lv, dict) and lv.get("status") == "live-verified":
-        return "Live-verified"
+        by = lv.get("verified_by") or "a real MSP"
+        date = lv.get("date")
+        return f"Live-verified by {by}" + (f" ({date})" if date else "")
     return "Awaiting live verification"
 
 
@@ -292,8 +298,17 @@ def render_index(pages: list[dict]) -> str:
         "",
     ]
     for p in pages:
-        lines.append(f"- {p['name']} ({p['category']}) - {p['tagline']}")
-        lines.append(f"  Badge: {p['badge']}. Page: {p['url']}")
+        # Outcome-led: lead with the first real question the connector answers
+        # (outcomes[0] from page.json) - the concrete ask is what AI search
+        # engines match against; the tagline is the supporting summary.
+        q0 = p["outcomes"][0][0] if p["outcomes"] else ""
+        if q0:
+            lines.append(
+                f"- {p['name']} ({p['category']}) - ask \"{q0}\" - {p['tagline']}"
+            )
+        else:
+            lines.append(f"- {p['name']} ({p['category']}) - {p['tagline']}")
+        lines.append(f"  Verification: {p['badge']}. Page: {p['url']}")
         if p["install"]:
             lines.append(f"  Install: {p['install']}")
     lines += [
@@ -342,7 +357,7 @@ def render_full(pages: list[dict]) -> str:
         lines.append(f"### {p['name']} ({p['category']})")
         lines.append("")
         lines.append(f"Page: {p['url']}")
-        lines.append(f"Badge: {p['badge']}")
+        lines.append(f"Verification: {p['badge']}")
         if p["install"]:
             lines.append(f"Install: {p['install']}")
         lines.append("")

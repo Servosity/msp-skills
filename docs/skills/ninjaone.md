@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "NinjaOne MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "NinjaOne MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift."
 permalink: /skills/ninjaone/
 skill_name: "NinjaOne MCP"
 image: /assets/social/ninjaone/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for NinjaOne?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for NinjaOne, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the NinjaOne MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local NinjaOne MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -32,12 +36,15 @@ howto:
     text: "Ask your AI agent a NinjaOne question in plain language; it runs ninjaone-cli for you."
 ---
 
-# NinjaOne + AI in 60 seconds
+# The NinjaOne MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the NinjaOne
-> API. Not affiliated with, endorsed by, or sponsored by NinjaOne, LLC.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by NinjaOne, LLC.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for NinjaOne. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects NinjaOne to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 NinjaOne is built for real-time, per-device RMM, but its reporting answers one organization at a time. Ask your AI "which clients are below 95% patched," "which endpoints across the fleet have no backup," or "how far did this threat spread" and get fleet-wide rollups computed offline from a local SQLite mirror of your estate - one query instead of a per-org report re-totaled in a spreadsheet or a third-party BI overlay.
 
@@ -135,6 +142,14 @@ The skill drives the ninjaone-cli and ninjaone-mcp binaries, authenticating with
 
 ## Frequently asked questions
 
+### Is there an MCP server for NinjaOne?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for NinjaOne, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the NinjaOne MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local NinjaOne MCP server via a secure bridge. Step-by-step in the install guide.
@@ -168,9 +183,15 @@ The headline fleet views are read-only. The CLI also wraps NinjaOne's write surf
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 
+## More RMM connectors
+
+Run more than one RMM tool, or comparing options? These connectors work the same way: [Action1](/skills/action1/) · [Atera](/skills/atera/) · [Datto RMM](/skills/datto-rmm/) · [Level](/skills/levelio/) · [N-able N-central](/skills/n-central/) · [Nerdio Manager](/skills/nerdio/) · [Tactical RMM](/skills/tactical-rmm/)
+
 ## Status
 
 Beta. Validated against the NinjaOne API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

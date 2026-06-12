@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Afi MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Afi MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "The first CLI for Afi SaaS backup - full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live."
 permalink: /skills/afi/
 skill_name: "Afi MCP"
 image: /assets/social/afi/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for Afi?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Afi, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Afi MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Afi MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -30,12 +34,15 @@ howto:
     text: "Ask your AI agent a Afi question in plain language; it runs afi-cli for you."
 ---
 
-# Afi + AI in 60 seconds
+# The Afi MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Afi
-> API. Not affiliated with, endorsed by, or sponsored by Afi.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Afi.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Afi. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Afi to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask your AI 'which mailboxes aren't backed up in Afi?' and get the answer across every tenant at once. This skill walks your whole Afi fleet into a local store, then answers coverage gaps, stale backups, license drift, and per-tenant posture offline - no per-tenant portal clicking, no tripping Afi's rate limits - and runs a verified archive-then-release when someone leaves.
 
@@ -132,6 +139,14 @@ The skill reads your Afi fleet (installations, orgs, tenants, resources, protect
 
 ## Frequently asked questions
 
+### Is there an MCP server for Afi?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Afi, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Afi MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Afi MCP server via a secure bridge. Step-by-step in the install guide.
@@ -161,9 +176,15 @@ Yes - you need an Afi account and an Application API key (created in the Afi por
 No. Restores, exports, and policy editing still happen in the Afi portal - the public API does not expose them. This skill is the read, report, and guarded-offboard layer: it answers fleet questions and runs the verified archive-then-release, then hands you back to the portal for the actions only it can do.
 
 
+## More Backup/DR connectors
+
+Run more than one Backup/DR tool, or comparing options? These connectors work the same way: [Acronis Cyber Protect Cloud](/skills/acronis/) · [Axcient x360Recover](/skills/axcient/) · [Cove Data Protection](/skills/cove/) · [Datto BCDR](/skills/datto-bcdr/) · [Servosity](/skills/servosity/) · [SkyKick](/skills/skykick/)
+
 ## Status
 
 Beta. Validated against the Afi API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

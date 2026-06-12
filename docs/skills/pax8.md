@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Pax8 MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Pax8 MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces."
 permalink: /skills/pax8/
 skill_name: "Pax8 MCP"
 image: /assets/social/pax8/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for Pax8?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Pax8, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Pax8 MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Pax8 MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -30,12 +34,15 @@ howto:
     text: "Ask your AI agent a Pax8 question in plain language; it runs pax8-cli for you."
 ---
 
-# Pax8 + AI in 60 seconds
+# The Pax8 MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Pax8
-> API. Not affiliated with, endorsed by, or sponsored by Pax8, Inc..
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Pax8, Inc..
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Pax8. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Pax8 to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 MSPs resell Microsoft, security, and backup through Pax8, then lose days each month reconciling its invoices against subscriptions and their PSA. Ask your AI "where is billing leaking this month," "what's my MRR and margin," or "which usage is about to overage," and get answers the Pax8 portal can't compose: invoices joined to subscriptions joined to usage, computed offline from a local mirror in one query instead of a CSV export and a spreadsheet.
 
@@ -131,6 +138,14 @@ The skill drives the pax8-cli and pax8-mcp binaries, authenticating with a Pax8 
 
 ## Frequently asked questions
 
+### Is there an MCP server for Pax8?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Pax8, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Pax8 MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Pax8 MCP server via a secure bridge. Step-by-step in the install guide.
@@ -160,9 +175,15 @@ After the first sync, the analytics commands (reconcile, mrr, overage, spend, si
 No. Provisioning, ordering, and support workflows stay in the portal. This skill answers the cross-entity billing and revenue questions the portal cannot compose in one place, from your terminal or agent.
 
 
+## More Billing connectors
+
+Run more than one Billing tool, or comparing options? These connectors work the same way: [AppDirect](/skills/appdirect/) · [Gradient MSP](/skills/gradient/) · [QuickBooks Online](/skills/quickbooks/) · [Sherweb](/skills/sherweb/) · [Xero](/skills/xero/)
+
 ## Status
 
 Beta. Validated against the Pax8 API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

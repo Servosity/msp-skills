@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Domotz MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Domotz MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions."
 permalink: /skills/domotz/
 skill_name: "Domotz MCP"
 image: /assets/social/domotz/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for Domotz?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Domotz, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Domotz MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Domotz MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -26,12 +30,15 @@ howto:
     text: "Ask your AI agent a Domotz question in plain language; it runs domotz-cli for you."
 ---
 
-# Domotz + AI in 60 seconds
+# The Domotz MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Domotz
-> API. Not affiliated with, endorsed by, or sponsored by Domotz Inc..
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Domotz Inc..
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Domotz. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Domotz to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask your AI "which client sites have devices down right now?" and get one answer instead of clicking through the Domotz portal Collector by Collector. domotz-cli syncs every Collector into a local mirror, so cross-site rollups - fleet health, every offline device, overnight new-device sweeps, one unified asset inventory - come back as single offline queries your agent can run in seconds.
 
@@ -129,6 +136,14 @@ The skill reads your Domotz fleet - Collectors, devices, variables, alerts, and 
 
 ## Frequently asked questions
 
+### Is there an MCP server for Domotz?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Domotz, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Domotz MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Domotz MCP server via a secure bridge. Step-by-step in the install guide.
@@ -153,6 +168,8 @@ No add-on is required - you generate an API Key from the Domotz Portal under Set
 ## Status
 
 Beta. Validated against the Domotz API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "SkyKick MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "SkyKick MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots, and coverage gaps no portal or wrapper can show."
 permalink: /skills/skykick/
 skill_name: "SkyKick MCP"
 image: /assets/social/skykick/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for SkyKick?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for SkyKick, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the SkyKick MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local SkyKick MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -26,12 +30,15 @@ howto:
     text: "Ask your AI agent a SkyKick question in plain language; it runs skykick-cli for you."
 ---
 
-# SkyKick + AI in 60 seconds
+# The SkyKick MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the SkyKick
-> API. Not affiliated with, endorsed by, or sponsored by ConnectWise, LLC.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by ConnectWise, LLC.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for SkyKick. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects SkyKick to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Run one fleet-sync, then ask your AI which SkyKick customers have a backup gap right now. It reads every subscription's Exchange/SharePoint posture, snapshot recency, coverage, and retention from a local copy and answers across all your tenants at once - the cross-customer view the per-tenant SkyKick portal never rolls up.
 
@@ -128,6 +135,14 @@ The skill is read-first: every posture, staleness, coverage, retention, autodisc
 
 ## Frequently asked questions
 
+### Is there an MCP server for SkyKick?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for SkyKick, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the SkyKick MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local SkyKick MCP server via a secure bridge. Step-by-step in the install guide.
@@ -149,9 +164,15 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Yes - it authenticates with SkyKick Partner API client credentials (your API user ID and partner subscription key) from your SkyKick / ConnectWise Cloud Services partner account, and reads only what those credentials already permit. On rate limits: fleet-sync fans out per subscription with bounded concurrency and caches results in local SQLite, and SkyKick rate-limits the token endpoint aggressively, so the CLI mints and reuses cached tokens. Day-to-day questions run against the local store and never re-hit the API; you control --workers and --rate-limit.
 
 
+## More Backup/DR connectors
+
+Run more than one Backup/DR tool, or comparing options? These connectors work the same way: [Acronis Cyber Protect Cloud](/skills/acronis/) · [Afi](/skills/afi/) · [Axcient x360Recover](/skills/axcient/) · [Cove Data Protection](/skills/cove/) · [Datto BCDR](/skills/datto-bcdr/) · [Servosity](/skills/servosity/)
+
 ## Status
 
 Beta. Validated against the SkyKick API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

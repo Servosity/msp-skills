@@ -113,6 +113,17 @@ else
   fail "llms drift - regenerated; re-run was not a no-op (run build-llms.py and commit)"
 fi
 
+echo "== question-book idempotency =="
+cp docs/question-book.md /tmp/qbook.bak 2>/dev/null || : > /tmp/qbook.bak
+if ! python3 tools/maintainer/build-question-book.py >/tmp/qbook.out 2>&1; then
+  cat /tmp/qbook.out
+  fail "build-question-book.py failed during the idempotency check"
+elif diff -q docs/question-book.md /tmp/qbook.bak >/dev/null; then
+  pass "question-book already in sync (no drift)"
+else
+  fail "question-book drift - regenerated; re-run was not a no-op (run build-question-book.py and commit)"
+fi
+
 echo "== Install scripts resolve cleanly (dry run) =="
 for sh in skills/*/install.sh; do
   slug="$(basename "$(dirname "$sh")")"

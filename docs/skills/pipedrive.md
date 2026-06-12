@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Pipedrive MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Pipedrive MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Full Pipedrive CRUD plus a local SQLite pipeline copy: stale deals, forecasts, aging, dupes, rep leaderboards."
 permalink: /skills/pipedrive/
 skill_name: "Pipedrive MCP"
 image: /assets/social/pipedrive/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for Pipedrive?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Pipedrive, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Pipedrive MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Pipedrive MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -28,12 +32,15 @@ howto:
     text: "Ask your AI agent a Pipedrive question in plain language; it runs pipedrive-cli for you."
 ---
 
-# Pipedrive + AI in 60 seconds
+# The Pipedrive MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Pipedrive
-> API. Not affiliated with, endorsed by, or sponsored by Pipedrive OÜ.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Pipedrive OÜ.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Pipedrive. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Pipedrive to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask your AI "which deals are dying and who do I call today," and get a ranked answer in seconds. The Pipedrive skill keeps a local copy of your pipeline so it can join deals, people, activities, and notes the portal shows on separate screens - surfacing stale deals by dollar at risk, a weighted forecast, stage bottlenecks, and rep leaderboards without exporting a single CSV.
 
@@ -131,6 +138,14 @@ The skill can read your whole pipeline and can create, update, and delete CRM re
 
 ## Frequently asked questions
 
+### Is there an MCP server for Pipedrive?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Pipedrive, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Pipedrive MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Pipedrive MCP server via a secure bridge. Step-by-step in the install guide.
@@ -156,9 +171,15 @@ No. Any Pipedrive plan that issues an API token works - find it under Settings >
 Day-to-day questions answer from the local mirror after a `sync`, so they make zero API calls. `sync` itself paginates politely - tune `--rate-limit` and `--concurrency`, and use `--since 24h` to refresh only what changed - and live calls only happen when local data is missing or stale.
 
 
+## More CRM connectors
+
+Run more than one CRM tool, or comparing options? These connectors work the same way: [HubSpot](/skills/hubspot/) · [Salesbuildr](/skills/salesbuildr/)
+
 ## Status
 
 Beta. Validated against the Pipedrive API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

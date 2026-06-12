@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "HaloPSA MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "HaloPSA MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return."
 permalink: /skills/halopsa/
 skill_name: "HaloPSA MCP"
 image: /assets/social/halopsa/wide-1200x630.png
 verification: live-verified
 faqs:
+  - q: "Is there an MCP server for HaloPSA?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for HaloPSA, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the HaloPSA MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on Plus, Pro, Team, Business, Enterprise, and Education plans (the Free tier does not yet expose Developer Mode). ChatGPT connects to remote MCP servers over HTTPS, not local stdio binaries, so you expose the local HaloPSA MCP server via the mcp-remote bridge or your own HTTPS endpoint. Step-by-step in mcp-install.md."
   - q: "Do I need to know how to code?"
@@ -30,12 +34,15 @@ howto:
     text: "Ask your AI agent a HaloPSA question in plain language; it runs halopsa-cli for you."
 ---
 
-# HaloPSA + AI in 60 seconds
+# The HaloPSA MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the HaloPSA
-> API. Not affiliated with, endorsed by, or sponsored by Halo Service Solutions Ltd..
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Halo Service Solutions Ltd..
 
-**Live-verified** - confirmed by a real MSP against a live HaloPSA tenant (2026-06-05).
+**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-06-05.
+
+Yes - there is an MCP server for HaloPSA. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects HaloPSA to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 MSPs run HaloPSA as the service desk - tickets, SLAs, contracts, and the queue that never stops. Ask your AI "what's about to breach SLA," "who's overloaded," or "what's the whole story for this client," and get an answer the portal can't compose in one shot: cross-entity rollups across tickets, clients, contracts, time, and assets, joined offline in one query instead of clicking through five tabs. A local SQLite mirror means QBR-time questions don't hit rate limits.
 
@@ -132,6 +139,14 @@ The skill drives the halopsa-cli and halopsa-mcp binaries, authenticating to you
 
 ## Frequently asked questions
 
+### Is there an MCP server for HaloPSA?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for HaloPSA, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the HaloPSA MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on Plus, Pro, Team, Business, Enterprise, and Education plans (the Free tier does not yet expose Developer Mode). ChatGPT connects to remote MCP servers over HTTPS, not local stdio binaries, so you expose the local HaloPSA MCP server via the mcp-remote bridge or your own HTTPS endpoint. Step-by-step in mcp-install.md.
@@ -161,9 +176,15 @@ Yes. The PowerShell installer is the Windows path, and the CLI and MCP binaries 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use (Claude, ChatGPT, Codex, and so on), billed by your AI provider, not by us.
 
 
+## More PSA connectors
+
+Run more than one PSA tool, or comparing options? These connectors work the same way: [Autotask PSA](/skills/autotask/) · [ConnectWise PSA (Manage)](/skills/connectwise-manage/) · [Kaseya BMS](/skills/kaseya-bms/) · [SuperOps](/skills/superops/) · [Syncro](/skills/syncro/)
+
 ## Status
 
 Beta. Validated against the HaloPSA API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

@@ -22,7 +22,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "action1": {
@@ -45,7 +47,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "atera": {
@@ -68,7 +72,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "autotask": {
@@ -91,7 +97,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "axcient": {
@@ -114,7 +122,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "blumira": {
@@ -137,7 +147,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "cipp": {
@@ -160,7 +172,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "connectwise-manage": {
@@ -185,7 +199,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "crowdstrike": {
@@ -208,7 +224,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "datto-bcdr": {
@@ -231,7 +249,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "datto-rmm": {
@@ -254,7 +274,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "domotz": {
@@ -277,7 +299,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "halopsa": {
@@ -299,7 +323,9 @@
         "status": "live-verified",
         "date": "2026-06-05",
         "source": "self",
-        "evidence": "Damien: verified live (2026-06-05)"
+        "evidence": "Damien: verified live (2026-06-05)",
+        "verified_by": "Servosity (maintainer)",
+        "issue_url": null
       },
       "category": "PSA",
       "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.",
@@ -327,7 +353,9 @@
         "status": "live-verified",
         "date": "2026-06-05",
         "source": "self",
-        "evidence": "Damien: verified live against the Servosity HubSpot portal (2026-06-05)"
+        "evidence": "Damien: verified live against the Servosity HubSpot portal (2026-06-05)",
+        "verified_by": "Servosity (maintainer)",
+        "issue_url": null
       }
     },
     "hudu": {
@@ -350,7 +378,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "huntress": {
@@ -373,7 +403,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "itglue": {
@@ -396,7 +428,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "knowbe4": {
@@ -419,7 +453,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "levelio": {
@@ -442,7 +478,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "liongard": {
@@ -465,7 +503,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "microsoft-graph": {
@@ -488,7 +528,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "msp-skills-concierge": {
@@ -508,7 +550,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "mspbots": {
@@ -531,7 +575,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "n-central": {
@@ -554,7 +600,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "ninjaone": {
@@ -577,7 +625,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "pagerduty": {
@@ -600,7 +650,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "pandadoc": {
@@ -623,7 +675,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "pax8": {
@@ -646,7 +700,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "pipedrive": {
@@ -669,7 +725,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "proofpoint": {
@@ -692,7 +750,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "quickbooks": {
@@ -715,7 +775,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "rootly": {
@@ -738,7 +800,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "runzero": {
@@ -761,7 +825,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "salesbuildr": {
@@ -784,7 +850,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "sentinelone": {
@@ -807,7 +875,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "servosity": {
@@ -829,7 +899,9 @@
         "status": "live-verified",
         "date": "2026-06-05",
         "source": "self",
-        "evidence": "Damien: verified live against the Servosity partner tenant (2026-06-05)"
+        "evidence": "Damien: verified live against the Servosity partner tenant (2026-06-05)",
+        "verified_by": "Servosity (maintainer)",
+        "issue_url": null
       },
       "category": "Backup/DR",
       "tagline": "Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.",
@@ -855,7 +927,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "skykick": {
@@ -878,7 +952,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "superops": {
@@ -901,7 +977,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "syncro": {
@@ -924,7 +1002,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "tactical-rmm": {
@@ -947,7 +1027,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "threatlocker": {
@@ -970,7 +1052,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       },
       "install_auth_hint": "Then set `THREATLOCKER_API_KEY` (Portal > Administrators > API Users > Generate API Token) and run `threatlocker-cli doctor`"
     },
@@ -994,7 +1078,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "nerdio": {
@@ -1017,7 +1103,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "betterstack": {
@@ -1040,7 +1128,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "rocketcyber": {
@@ -1063,7 +1153,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "abnormal": {
@@ -1086,7 +1178,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "afi": {
@@ -1109,7 +1203,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "cove": {
@@ -1132,7 +1228,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "kaseya-bms": {
@@ -1155,7 +1253,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "appdirect": {
@@ -1178,7 +1278,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     },
     "gradient": {
@@ -1201,7 +1303,9 @@
         "status": "awaiting",
         "date": null,
         "source": null,
-        "evidence": null
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
       }
     }
   }

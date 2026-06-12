@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Level MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Level MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command."
 permalink: /skills/levelio/
 skill_name: "Level MCP"
 image: /assets/social/levelio/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for Level?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Level, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Level MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Level MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -28,12 +32,15 @@ howto:
     text: "Ask your AI agent a Level question in plain language; it runs levelio-cli for you."
 ---
 
-# Level + AI in 60 seconds
+# The Level MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Level
-> API. Not affiliated with, endorsed by, or sponsored by Level.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Level.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Level. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Level to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask "which Level endpoints are most at risk right now?" and get one ranked list across active alerts, missing patches, low security scores, and dark devices - not four portal tabs. levelio-cli syncs your whole Level fleet into a local mirror, then answers portfolio-wide questions the portal shows one device at a time: patch exposure, stale agents, alert clusters, and per-client QBR scorecards. Offline, instant, and read-only-safe.
 
@@ -131,6 +138,14 @@ The skill reads everything - reports, rollups, search, and a sync to a local mir
 
 ## Frequently asked questions
 
+### Is there an MCP server for Level?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Level, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Level MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Level MCP server via a secure bridge. Step-by-step in the install guide.
@@ -156,9 +171,15 @@ Only 'sync' calls the Level API, and it paginates politely. Every report, rollup
 You need a Level account and an API key (Settings > API keys). A read-only key is enough for every report and rollup here, and you can scope it tighter than your portal login. The skill itself is free and open source.
 
 
+## More RMM connectors
+
+Run more than one RMM tool, or comparing options? These connectors work the same way: [Action1](/skills/action1/) · [Atera](/skills/atera/) · [Datto RMM](/skills/datto-rmm/) · [N-able N-central](/skills/n-central/) · [Nerdio Manager](/skills/nerdio/) · [NinjaOne](/skills/ninjaone/) · [Tactical RMM](/skills/tactical-rmm/)
+
 ## Status
 
 Beta. Validated against the Level API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

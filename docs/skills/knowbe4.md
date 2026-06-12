@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "KnowBe4 MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "KnowBe4 MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every KnowBe4 KMSAT reporting feature plus a local SQLite store that answers the cross-client questions the console can't \u2014 repeat-clicker hunts and training-coverage anti-joins."
 permalink: /skills/knowbe4/
 skill_name: "KnowBe4 MCP"
 image: /assets/social/knowbe4/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for KnowBe4?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for KnowBe4, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the KnowBe4 MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local KnowBe4 MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -26,12 +30,15 @@ howto:
     text: "Ask your AI agent a KnowBe4 question in plain language; it runs knowbe4-cli for you."
 ---
 
-# KnowBe4 + AI in 60 seconds
+# The KnowBe4 MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the KnowBe4
-> API. Not affiliated with, endorsed by, or sponsored by KnowBe4, Inc.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by KnowBe4, Inc.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for KnowBe4. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects KnowBe4 to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 KnowBe4's console reports one tenant, one phishing test, one chart at a time. This skill syncs your KMSAT data into a local SQLite mirror and answers the questions the portal can't: which users clicked the bait in multiple phishing tests, whose risk score is deteriorating this quarter, and who clicked a phish but finished zero training - across every client, in seconds, from your terminal.
 
@@ -128,6 +135,14 @@ The skill reads your KnowBe4 reporting data - accounts, users, groups, phishing 
 
 ## Frequently asked questions
 
+### Is there an MCP server for KnowBe4?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for KnowBe4, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the KnowBe4 MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local KnowBe4 MCP server via a secure bridge. Step-by-step in the install guide.
@@ -149,9 +164,15 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Neither. It uses your standard KMSAT Reporting API key (Account Settings - API - enable Reporting API) and your region (us, eu, ca, uk, or de). It reads what your account already exposes and adds the cross-client rollups the console doesn't. The one write path that needs extra setup is pushing custom risk events, which uses a separate, opt-in User Event API key.
 
 
+## More Security connectors
+
+Run more than one Security tool, or comparing options? These connectors work the same way: [Abnormal Security](/skills/abnormal/) · [Blumira](/skills/blumira/) · [CIPP](/skills/cipp/) · [CrowdStrike Falcon](/skills/crowdstrike/) · [Huntress](/skills/huntress/) · [Microsoft Graph](/skills/microsoft-graph/) · [Proofpoint TAP](/skills/proofpoint/) · [RocketCyber](/skills/rocketcyber/) · [runZero](/skills/runzero/) · [SentinelOne](/skills/sentinelone/) · [ThreatLocker](/skills/threatlocker/)
+
 ## Status
 
 Beta. Validated against the KnowBe4 API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

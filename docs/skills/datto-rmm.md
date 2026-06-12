@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Datto RMM MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Datto RMM MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has."
 permalink: /skills/datto-rmm/
 skill_name: "Datto RMM MCP"
 image: /assets/social/datto-rmm/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for Datto RMM?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Datto RMM, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Datto RMM MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Datto RMM MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -28,12 +32,15 @@ howto:
     text: "Ask your AI agent a Datto RMM question in plain language; it runs datto-rmm-cli for you."
 ---
 
-# Datto RMM + AI in 60 seconds
+# The Datto RMM MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Datto RMM
-> API. Not affiliated with, endorsed by, or sponsored by Datto, Inc..
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Datto, Inc..
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Datto RMM. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Datto RMM to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask in plain English which endpoints across every client have gone dark, lost antivirus, fallen behind on patches, or are about to drop out of warranty - and get the list in seconds. Datto RMM plus your AI agent reads a local mirror of your whole multi-site fleet, so the cross-customer questions the portal makes you click through site by site become one instant, reproducible answer.
 
@@ -129,6 +136,14 @@ The skill reads your Datto RMM fleet and writes only when you ask it to - creati
 
 ## Frequently asked questions
 
+### Is there an MCP server for Datto RMM?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Datto RMM, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Datto RMM MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Datto RMM MCP server via a secure bridge. Step-by-step in the install guide.
@@ -154,9 +169,15 @@ It's gentle by design. The skill syncs your fleet into a local mirror once, then
 You need an API key and secret key from Setup > Users in your Datto RMM portal (the OAuth API user). The skill can only do what that API user is allowed to do, so scope the user to the access your workflow actually needs.
 
 
+## More RMM connectors
+
+Run more than one RMM tool, or comparing options? These connectors work the same way: [Action1](/skills/action1/) · [Atera](/skills/atera/) · [Level](/skills/levelio/) · [N-able N-central](/skills/n-central/) · [Nerdio Manager](/skills/nerdio/) · [NinjaOne](/skills/ninjaone/) · [Tactical RMM](/skills/tactical-rmm/)
+
 ## Status
 
 Beta. Validated against the Datto RMM API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

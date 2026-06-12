@@ -6,160 +6,160 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 
 ## Connectors
 
-- Abnormal Security (Security) - Triage Abnormal email threats, confirm remediations, and pull client-ready security reports from your terminal.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/abnormal/
+- Abnormal Security (Security) - ask "What new, unremediated email threats need attention right now?" - Triage Abnormal email threats, confirm remediations, and pull client-ready security reports from your terminal.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/abnormal/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/abnormal/install.sh)
-- Acronis Cyber Protect Cloud (Backup/DR) - Spot failed backups, offline agents, and unbilled usage across every Acronis tenant by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/acronis/
+- Acronis Cyber Protect Cloud (Backup/DR) - ask "Whose backups succeeded, failed, or went stale across every customer last night?" - Spot failed backups, offline agents, and unbilled usage across every Acronis tenant by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/acronis/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/acronis/install.sh)
-- Action1 (RMM) - Patch every client's endpoints and triage CVEs fleet-wide from your terminal.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/action1/
+- Action1 (RMM) - ask "Which endpoints across all clients are missing the most patches?" - Patch every client's endpoints and triage CVEs fleet-wide from your terminal.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/action1/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/action1/install.sh)
-- Afi (Backup/DR) - Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/afi/
+- Afi (Backup/DR) - ask "Which resources have no backup protection at all?" - Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/afi/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/afi/install.sh)
-- AppDirect (Billing) - Reconcile AppDirect marketplace billing and chase failed payments across every reseller company before month-close.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/appdirect/
+- AppDirect (Billing) - ask "Which payments failed or stalled in the last week, across every company?" - Reconcile AppDirect marketplace billing and chase failed payments across every reseller company before month-close.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/appdirect/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/appdirect/install.sh)
-- Atera (RMM) - Answer fleet-health, SLA, and book-of-business questions across your Atera estate from the terminal.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/atera/
+- Atera (RMM) - ask "Which agents have gone offline or stopped checking in?" - Answer fleet-health, SLA, and book-of-business questions across your Atera estate from the terminal.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/atera/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/atera/install.sh)
-- Autotask PSA (PSA) - Triage tickets, surface unbilled time, and project retainer burn by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/autotask/
+- Autotask PSA (PSA) - ask "Which approved time entries haven't been invoiced yet?" - Triage tickets, surface unbilled time, and project retainer burn by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/autotask/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/install.sh)
-- Axcient x360Recover (Backup/DR) - Catch failed and stale Axcient backups, RPO breaches, and unbilled usage across every client by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/axcient/
+- Axcient x360Recover (Backup/DR) - ask "Whose backups failed or went stale across every client last night?" - Catch failed and stale Axcient backups, RPO breaches, and unbilled usage across every client by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/axcient/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/axcient/install.sh)
-- Better Stack (Monitoring) - Ask what's down, who's paged, where coverage is missing, and your MTTA/MTTR across your Better Stack account
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/betterstack/
+- Better Stack (Monitoring) - ask "What's down right now and is anyone actually paged?" - Ask what's down, who's paged, where coverage is missing, and your MTTA/MTTR across your Better Stack account
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/betterstack/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/betterstack/install.sh)
-- Blumira (Security) - Triage every Blumira finding across all your MSP client accounts from one ranked queue
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/blumira/
+- Blumira (Security) - ask "What are the worst open findings across all my client accounts right now?" - Triage every Blumira finding across all your MSP client accounts from one ranked queue
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/blumira/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blumira/install.sh)
-- CIPP (Security) - Every client tenant's M365 posture, license waste, and stale accounts in one cross-tenant rollup.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/cipp/
+- CIPP (Security) - ask "Which tenants still have users without MFA registered?" - Every client tenant's M365 posture, license waste, and stale accounts in one cross-tenant rollup.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/cipp/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cipp/install.sh)
-- ConnectWise PSA (Manage) (PSA) - Triage boards, catch unbilled time, and prep QBRs by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/connectwise-manage/
+- ConnectWise PSA (Manage) (PSA) - ask "Which tickets did we touch this week that have zero time logged against them?" - Triage boards, catch unbilled time, and prep QBRs by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/connectwise-manage/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-manage/install.sh)
-- Cove Data Protection (Backup/DR) - Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/cove/
+- Cove Data Protection (Backup/DR) - ask "Which devices failed their last backup since yesterday?" - Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/cove/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cove/install.sh)
-- CrowdStrike Falcon (Security) - Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/crowdstrike/
+- CrowdStrike Falcon (Security) - ask "What should I triage first across all my client tenants right now?" - Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/crowdstrike/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/crowdstrike/install.sh)
-- Datto BCDR (Backup/DR) - Fleet-wide Datto BCDR answers - failed screenshots, stale backups, at-risk clients - from a local mirror in one ask.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/datto-bcdr/
+- Datto BCDR (Backup/DR) - ask "Which protected machines failed their last backup screenshot verification?" - Fleet-wide Datto BCDR answers - failed screenshots, stale backups, at-risk clients - from a local mirror in one ask.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/datto-bcdr/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-bcdr/install.sh)
-- Datto RMM (RMM) - Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/datto-rmm/
+- Datto RMM (RMM) - ask "Which devices haven't checked in for 30 days, across every client?" - Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/datto-rmm/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-rmm/install.sh)
-- Domotz (Network Monitoring) - Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/domotz/
+- Domotz (Network Monitoring) - ask "Is anything on fire across all my sites?" - Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/domotz/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domotz/install.sh)
-- Gradient MSP (Billing) - Push usage counts, catch billing drift, and trace alerts to PSA tickets in Gradient MSP Synthesize from your terminal.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/gradient/
+- Gradient MSP (Billing) - ask "Push a whole file of usage counts and rebuild billing exactly once?" - Push usage counts, catch billing drift, and trace alerts to PSA tickets in Gradient MSP Synthesize from your terminal.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/gradient/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/gradient/install.sh)
-- HaloPSA (PSA) - Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.
-  Badge: Live-verified. Page: https://msp-skills.compoundingteams.com/skills/halopsa/
+- HaloPSA (PSA) - ask "What's about to breach SLA in the next 24 hours?" - Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.
+  Verification: Live-verified by Servosity (maintainer) (2026-06-05). Page: https://msp-skills.compoundingteams.com/skills/halopsa/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)
-- HubSpot (CRM) - Pipeline health, stale deals, and owner workload for every client by asking.
-  Badge: Live-verified. Page: https://msp-skills.compoundingteams.com/skills/hubspot/
+- HubSpot (CRM) - ask "Which open deals have gone cold with no engagement in the last three weeks?" - Pipeline health, stale deals, and owner workload for every client by asking.
+  Verification: Live-verified by Servosity (maintainer) (2026-06-05). Page: https://msp-skills.compoundingteams.com/skills/hubspot/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)
-- Hudu (Documentation) - Audit Hudu documentation hygiene, find stale passwords and expiring certs, and search every company offline.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/hudu/
+- Hudu (Documentation) - ask "Which clients have the worst documentation completeness?" - Audit Hudu documentation hygiene, find stale passwords and expiring certs, and search every company offline.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/hudu/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hudu/install.sh)
-- Huntress (Security) - Triage Huntress incidents and coverage gaps across every client org from one queue.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/huntress/
+- Huntress (Security) - ask "Which incidents are oldest across every client org?" - Triage Huntress incidents and coverage gaps across every client org from one queue.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/huntress/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/huntress/install.sh)
-- IT Glue (Documentation) - Find any device, audit stale passwords, and rank thin client docs by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/itglue/
+- IT Glue (Documentation) - ask "Which client owns this device, serial number, or contact?" - Find any device, audit stale passwords, and rank thin client docs by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/itglue/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/install.sh)
-- Kaseya BMS (PSA) - Run the Kaseya BMS service desk, contracts, and billing from your terminal - with offline analytics the web grid can't compute.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/kaseya-bms/
+- Kaseya BMS (PSA) - ask "Which queues are underwater and what's going stale before standup?" - Run the Kaseya BMS service desk, contracts, and billing from your terminal - with offline analytics the web grid can't compute.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/kaseya-bms/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-bms/install.sh)
-- KnowBe4 (Security) - Hunt repeat clickers, track risk drift, and close training-coverage gaps across every KnowBe4 client from your terminal.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/knowbe4/
+- KnowBe4 (Security) - ask "Who clicked the bait in more than one phishing test?" - Hunt repeat clickers, track risk drift, and close training-coverage gaps across every KnowBe4 client from your terminal.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/knowbe4/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/knowbe4/install.sh)
-- Level (RMM) - Rank your riskiest endpoints, patch posture, and stale devices across your Level RMM fleet from one command.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/levelio/
+- Level (RMM) - ask "Which devices are most at risk across alerts, patches, score, and staleness?" - Rank your riskiest endpoints, patch posture, and stale devices across your Level RMM fleet from one command.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/levelio/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/levelio/install.sh)
-- Liongard (Documentation) - See every config change, stale collector, and offline agent across your whole Liongard estate from one command.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/liongard/
+- Liongard (Documentation) - ask "What changed across all my clients in the last 24 hours?" - See every config change, stale collector, and offline agent across your whole Liongard estate from one command.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/liongard/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/liongard/install.sh)
-- Microsoft Graph (Security) - Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/microsoft-graph/
+- Microsoft Graph (Security) - ask "Which SKUs are we paying for but not fully using, ranked by wasted seats?" - Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/microsoft-graph/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/microsoft-graph/install.sh)
 - Concierge (Meta) - Tell it your stack - it recommends and installs the right connectors.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/msp-skills-concierge/
-- MSPbots (Analytics) - Pull datasets, snapshot KPIs, and track ticket backlog trends by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/mspbots/
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/msp-skills-concierge/
+- MSPbots (Analytics) - ask "Is our open-ticket backlog up or down versus last week?" - Pull datasets, snapshot KPIs, and track ticket backlog trends by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/mspbots/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mspbots/install.sh)
-- N-able N-central (RMM) - Find any device, triage issues, and search across every client by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/n-central/
+- N-able N-central (RMM) - ask "What's red right now, grouped by customer and ranked by severity?" - Find any device, triage issues, and search across every client by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/n-central/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/n-central/install.sh)
-- Nerdio Manager (RMM) - Audit autoscale, sweep idle session hosts, and reconcile per-customer billing across every Nerdio Manager account from your terminal.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/nerdio/
+- Nerdio Manager (RMM) - ask "Which host pools have autoscale off or drifting across every customer?" - Audit autoscale, sweep idle session hosts, and reconcile per-customer billing across every Nerdio Manager account from your terminal.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/nerdio/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/nerdio/install.sh)
-- NinjaOne (RMM) - Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/ninjaone/
+- NinjaOne (RMM) - ask "Which organizations are below 95% patch compliance?" - Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/ninjaone/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ninjaone/install.sh)
-- PagerDuty (Incident Response) - Triage PagerDuty incidents, on-call schedules, and escalation policies from the terminal.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pagerduty/
+- PagerDuty (Incident Response) - ask "What's on fire right now, ranked by SLA risk?" - Triage PagerDuty incidents, on-call schedules, and escalation policies from the terminal.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pagerduty/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pagerduty/install.sh)
-- PandaDoc (Documentation) - Find stalled proposals, aging quotes, and unsigned PandaDoc documents from the terminal.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pandadoc/
+- PandaDoc (Documentation) - ask "Which documents were sent but never completed?" - Find stalled proposals, aging quotes, and unsigned PandaDoc documents from the terminal.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pandadoc/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pandadoc/install.sh)
-- Pax8 (Billing) - Reconcile Pax8 billing, track MRR, and catch usage overages before they hit the customer invoice
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pax8/
+- Pax8 (Billing) - ask "Where is my billing leaking - invoiced for a cancelled product, or active but never billed?" - Reconcile Pax8 billing, track MRR, and catch usage overages before they hit the customer invoice
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pax8/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pax8/install.sh)
-- Pipedrive (CRM) - Surface stale deals, weighted forecasts, and overdue follow-ups across your pipeline by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pipedrive/
+- Pipedrive (CRM) - ask "Which open deals has nobody touched in two weeks, worst dollar value first?" - Surface stale deals, weighted forecasts, and overdue follow-ups across your pipeline by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pipedrive/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pipedrive/install.sh)
-- Proofpoint TAP (Security) - Investigate Proofpoint TAP threats, VAPs, and top clickers from your terminal without burning the daily API quota.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/proofpoint/
+- Proofpoint TAP (Security) - ask "What malicious clicks and messages got through overnight?" - Investigate Proofpoint TAP threats, VAPs, and top clickers from your terminal without burning the daily API quota.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/proofpoint/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proofpoint/install.sh)
-- QuickBooks Online (Billing) - Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/quickbooks/
+- QuickBooks Online (Billing) - ask "Who owes us money, bucketed 0-30 / 31-60 / 61-90 / 90+?" - Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/quickbooks/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/install.sh)
-- RocketCyber (Security) - Triage your managed SOC, rank devices at risk, and audit suppression rules from the terminal - no console logins.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/rocketcyber/
+- RocketCyber (Security) - ask "What broke across all my clients overnight?" - Triage your managed SOC, rank devices at risk, and audit suppression rules from the terminal - no console logins.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/rocketcyber/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rocketcyber/install.sh)
-- Rootly (Incident Response) - Every Rootly incident, alert, and on-call object as a typed command, plus offline MTTR and coverage-gap answers.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/rootly/
+- Rootly (Incident Response) - ask "Who's on call right now across every service and schedule?" - Every Rootly incident, alert, and on-call object as a typed command, plus offline MTTR and coverage-gap answers.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/rootly/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rootly/install.sh)
-- runZero (Security) - Find every asset on your attack surface, diff it over time, and trace any CVE to the machines it hits.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/runzero/
+- runZero (Security) - ask "Which of our assets are most exposed right now?" - Find every asset on your attack surface, diff it over time, and trace any CVE to the machines it hits.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/runzero/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/runzero/install.sh)
-- Salesbuildr (CRM) - Surface stale quotes, thin-margin lines, and pipeline velocity across your Salesbuildr quoting by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/salesbuildr/
+- Salesbuildr (CRM) - ask "Which sent or approved quotes are aging, and how much is at risk?" - Surface stale quotes, thin-margin lines, and pipeline velocity across your Salesbuildr quoting by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/salesbuildr/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/salesbuildr/install.sh)
-- SentinelOne (Security) - Triage threats, find protection gaps, and catch overnight fleet drift across every SentinelOne tenant by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/sentinelone/
+- SentinelOne (Security) - ask "What should I triage first across all my client sites right now?" - Triage threats, find protection gaps, and catch overnight fleet drift across every SentinelOne tenant by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/sentinelone/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sentinelone/install.sh)
-- Servosity (Backup/DR) - Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.
-  Badge: Live-verified. Page: https://msp-skills.compoundingteams.com/skills/servosity/
+- Servosity (Backup/DR) - ask "Where is my attention needed today, ranked worst-first?" - Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.
+  Verification: Live-verified by Servosity (maintainer) (2026-06-05). Page: https://msp-skills.compoundingteams.com/skills/servosity/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
-- Sherweb (Billing) - Reconcile what you owe Sherweb against what customers owe you and surface true net margin per customer.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/sherweb/
+- Sherweb (Billing) - ask "What is my net margin per customer this month - receivable minus payable?" - Reconcile what you owe Sherweb against what customers owe you and surface true net margin per customer.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/sherweb/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sherweb/install.sh)
-- SkyKick (Backup/DR) - Catch silently-failing Microsoft 365 backups across every SkyKick tenant before a customer needs a restore.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/skykick/
+- SkyKick (Backup/DR) - ask "Which customers have a protection gap right now?" - Catch silently-failing Microsoft 365 backups across every SkyKick tenant before a customer needs a restore.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/skykick/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/skykick/install.sh)
-- SuperOps (PSA) - Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/superops/
+- SuperOps (PSA) - ask "Who's about to breach SLA, grouped by technician?" - Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/superops/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/superops/install.sh)
-- Syncro (PSA) - Run every Syncro PSA and RMM workflow from your terminal: tickets, billing, and patch gaps in one ask.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/syncro/
+- Syncro (PSA) - ask "Which customers have logged time we never invoiced?" - Run every Syncro PSA and RMM workflow from your terminal: tickets, billing, and patch gaps in one ask.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/syncro/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/syncro/install.sh)
-- Tactical RMM (RMM) - Triage every agent, sweep patch posture, and run a script across a filtered cohort by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/tactical-rmm/
+- Tactical RMM (RMM) - ask "What's the overall health of my fleet right now?" - Triage every agent, sweep patch posture, and run a script across a filtered cohort by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/tactical-rmm/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/install.sh)
-- ThreatLocker (Security) - Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/threatlocker/
+- ThreatLocker (Security) - ask "What application approvals are pending across all my clients right now?" - Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/threatlocker/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/install.sh)
-- Xero (Billing) - Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal - offline, in one call.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/xero/
+- Xero (Billing) - ask "Who owes us, and how overdue is each invoice?" - Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal - offline, in one call.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/xero/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/xero/install.sh)
 
 ## Key pages

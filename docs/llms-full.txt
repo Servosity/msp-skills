@@ -37,7 +37,7 @@ The vision is simple: one install pattern, every MSP tool. HaloPSA and Servosity
 ### Abnormal Security (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/abnormal/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/abnormal/install.sh)
 
 Abnormal Security plus your AI answers the SOC questions the portal makes you click for: what new email threats are still unremediated right now, what numbers go in this quarter's client security report, and an employee's full account-takeover risk picture - each in one command. It syncs your tenant to a local store, ranks the threat queue, and confirms remediations actually completed.
@@ -75,7 +75,7 @@ Governance: The skill authenticates with a single ABNORMAL_API_TOKEN scoped to y
 ### Acronis Cyber Protect Cloud (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/acronis/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/acronis/install.sh)
 
 MSPs run Acronis Cyber Protect Cloud across dozens of customer tenants, but its partner dashboards report one tenant at a time. Ask your AI "whose backups failed last night," "which agents went offline," or "where am I billing for protection that isn't running," and get the cross-tenant answer in one table - computed offline from a local mirror, not six console drill-downs or a month-end CSV export.
@@ -115,7 +115,7 @@ Governance: The skill drives the acronis-cli and acronis-mcp binaries, authentic
 ### Action1 (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/action1/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/action1/install.sh)
 
 Ask "which endpoints across all my clients are missing the most patches?" and get one ranked list - no clicking org by org. Action1's API and console are siloed per client organization; this skill syncs every org into a local mirror so patch posture, CVE blast-radius, stale agents, and a per-client scorecard become single fleet-wide commands your AI agent runs from the terminal.
@@ -151,7 +151,7 @@ Governance: The skill reads freely - fleet rollups, lists, reports, search, expo
 ### Afi (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/afi/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/afi/install.sh)
 
 Ask your AI 'which mailboxes aren't backed up in Afi?' and get the answer across every tenant at once. This skill walks your whole Afi fleet into a local store, then answers coverage gaps, stale backups, license drift, and per-tenant posture offline - no per-tenant portal clicking, no tripping Afi's rate limits - and runs a verified archive-then-release when someone leaves.
@@ -186,7 +186,7 @@ Governance: The skill reads your Afi fleet (installations, orgs, tenants, resour
 ### AppDirect (Billing)
 
 Page: https://msp-skills.compoundingteams.com/skills/appdirect/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/appdirect/install.sh)
 
 Ask 'which AppDirect payments failed this week?' or 'reconcile billing before month-close' and get an answer across every reseller company in one call. The skill syncs your whole AppDirect marketplace - subscriptions, invoices, payments, companies, pipeline - into a local mirror, so cross-company billing questions that take hundreds of console clicks return instantly, offline, from your terminal or your AI agent.
@@ -220,7 +220,7 @@ Governance: The skill reads marketplace data - companies, users, subscriptions, 
 ### Atera (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/atera/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/atera/install.sh)
 
 Ask plain-English questions about your whole Atera estate and get answers the portal can't assemble in one view: which agents went dark, which tickets are about to breach SLA, which customers are under-contracted, and what contracts expire next quarter. `atera-cli` syncs Atera into a local SQLite mirror, then answers cross-client rollups instantly and offline - from the terminal or any AI agent.
@@ -258,7 +258,7 @@ Governance: The skill reads everything - agents, tickets, customers, contracts, 
 ### Autotask PSA (PSA)
 
 Page: https://msp-skills.compoundingteams.com/skills/autotask/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/install.sh)
 
 MSPs run Autotask PSA as the system of record - tickets, time, contracts, billing. Ask your AI "what's gone stale on the service desk," "which approved time hasn't been invoiced," or "how burned is that block-hours contract," and get answers the portal can't compose: cross-entity rollups across tickets, time, contracts, and resources, computed offline from a local mirror in one query instead of a LiveReport and an Excel export.
@@ -299,7 +299,7 @@ Governance: The skill drives the autotask-cli and autotask-mcp binaries, authent
 ### Axcient x360Recover (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/axcient/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/axcient/install.sh)
 
 MSPs run Axcient x360Recover across dozens of clients, but the portal answers one entity at a time and the public API famously won't tell you which client a device belongs to. Ask your AI "whose backups failed last night," "who's breaching RPO," or "what do I bill each client this month," and get the fleet-wide answer in one table - computed offline from a local mirror that joins the device, job, restore-point, and client data the raw API leaves unconnected.
@@ -339,7 +339,7 @@ Governance: The skill drives the axcient-cli and axcient-mcp binaries, authentic
 ### Better Stack (Monitoring)
 
 Page: https://msp-skills.compoundingteams.com/skills/betterstack/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/betterstack/install.sh)
 
 Ask your AI "what's down and is anyone actually paged?" and get a straight answer across your whole Better Stack account: every client's monitors, heartbeats, open incidents, and on-call rotation in one view. It surfaces the silent monitors that page nobody, the noisy ones waking techs at 3am, your real MTTA/MTTR, and status pages showing green while a monitor is down.
@@ -377,7 +377,7 @@ Governance: The skill reads your Better Stack monitors, heartbeats, incidents, o
 ### Blumira (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/blumira/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blumira/install.sh)
 
 Running Blumira across a book of client accounts? Ask your AI "what are the worst open findings everywhere," "which detections fell out of coverage this week," or "which domain controllers went dark," and get one cross-account answer the Blumira portal can't compose. Every sub-account is mirrored into a local store, so one ranked triage queue, one MTTR rollup, and one coverage-drift report replace dozens of one-account-at-a-time portal logins.
@@ -414,7 +414,7 @@ Governance: The skill reads findings, detections, agents, and evidence through y
 ### CIPP (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/cipp/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cipp/install.sh)
 
 CIPP manages Microsoft 365 across all your client tenants, but its portal and API work one tenant at a time. Ask your AI "which tenants are off our security baseline" or "where are we paying for unused licenses" and get the cross-tenant answer the UI never renders: one fan-out pulls every tenant into a local store, then posture, license-waste, stale-account, and standards-drift rollups run instantly - offline, across the whole fleet.
@@ -452,7 +452,7 @@ Governance: The skill drives the cipp-cli and cipp-mcp binaries, authenticating 
 ### ConnectWise PSA (Manage) (PSA)
 
 Page: https://msp-skills.compoundingteams.com/skills/connectwise-manage/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-manage/install.sh)
 
 MSPs run ConnectWise PSA (Manage) as the system of record - tickets, time, agreements, billing. Ask your AI "what's rotting on the board," "which closed tickets have no time logged," or "how burned is that block-hours agreement," and get answers the portal can't compose: cross-entity joins across tickets, time, agreements, and configurations, computed offline from a local mirror in one query instead of five portal screens and an Excel export.
@@ -490,7 +490,7 @@ Governance: The skill drives the connectwise-manage-cli and connectwise-manage-m
 ### Cove Data Protection (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/cove/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cove/install.sh)
 
 Ask which Cove backups failed last night and get every failed, aborted, or never-started device across all your customers in one sweep, the status codes decoded to plain names. Cove's console scopes to one partner at a time and forgets yesterday; this skill speaks the whole JSON-RPC API and keeps a local snapshot history, so storage-growth and what-changed-since-Friday trends exist at all.
@@ -523,7 +523,7 @@ Governance: The skill is read-first: every command that touches Cove reads (fail
 ### CrowdStrike Falcon (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/crowdstrike/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/crowdstrike/install.sh)
 
 Running CrowdStrike Falcon across a book of client tenants? Ask your AI "what should I triage first across every CID," "which sensors went silent," or "where are the critical vulnerabilities," and get one cross-tenant answer the Falcon console can't compose. Every child CID is mirrored into one local store keyed by CID, so a single scorecard, vuln ranking, and stale-sensor sweep replace flipping Flight Control tenant by tenant.
@@ -563,7 +563,7 @@ Governance: The skill drives the crowdstrike-cli and crowdstrike-mcp binaries, a
 ### Datto BCDR (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/datto-bcdr/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-bcdr/install.sh)
 
 Ask in plain English which Datto backups failed their last screenshot verification, which clients are most at risk, and which appliance fills up first - and get the answer across your whole fleet in seconds. The Datto BCDR API answers one appliance at a time; this skill mirrors every device, agent, and alert locally, so the fleet-wide question the Partner Portal can't answer becomes one instant command.
@@ -602,7 +602,7 @@ Governance: The datto-bcdr skill is read-only for everyday use: it reads your Da
 ### Datto RMM (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/datto-rmm/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-rmm/install.sh)
 
 Ask in plain English which endpoints across every client have gone dark, lost antivirus, fallen behind on patches, or are about to drop out of warranty - and get the list in seconds. Datto RMM plus your AI agent reads a local mirror of your whole multi-site fleet, so the cross-customer questions the portal makes you click through site by site become one instant, reproducible answer.
@@ -636,7 +636,7 @@ Governance: The skill reads your Datto RMM fleet and writes only when you ask it
 ### Domotz (Network Monitoring)
 
 Page: https://msp-skills.compoundingteams.com/skills/domotz/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domotz/install.sh)
 
 Ask your AI "which client sites have devices down right now?" and get one answer instead of clicking through the Domotz portal Collector by Collector. domotz-cli syncs every Collector into a local mirror, so cross-site rollups - fleet health, every offline device, overnight new-device sweeps, one unified asset inventory - come back as single offline queries your agent can run in seconds.
@@ -670,7 +670,7 @@ Governance: The skill reads your Domotz fleet - Collectors, devices, variables, 
 ### Gradient MSP (Billing)
 
 Page: https://msp-skills.compoundingteams.com/skills/gradient/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/gradient/install.sh)
 
 Ask your AI to push tonight's usage counts, tell you which accounts' billing changed since the last push, and confirm an alert actually became a PSA ticket - and it runs the real Gradient MSP Synthesize commands and shows you the receipts. The full vendor API from your terminal, plus a local push ledger and offline mirror that Gradient's PowerShell SDK cannot give you.
@@ -704,7 +704,7 @@ Governance: The skill reads your Synthesize accounts, services, mappings, integr
 ### HaloPSA (PSA)
 
 Page: https://msp-skills.compoundingteams.com/skills/halopsa/
-Badge: Live-verified
+Verification: Live-verified by Servosity (maintainer) (2026-06-05)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)
 
 MSPs run HaloPSA as the service desk - tickets, SLAs, contracts, and the queue that never stops. Ask your AI "what's about to breach SLA," "who's overloaded," or "what's the whole story for this client," and get an answer the portal can't compose in one shot: cross-entity rollups across tickets, clients, contracts, time, and assets, joined offline in one query instead of clicking through five tabs. A local SQLite mirror means QBR-time questions don't hit rate limits.
@@ -740,7 +740,7 @@ Governance: The skill drives the halopsa-cli and halopsa-mcp binaries, authentic
 ### HubSpot (CRM)
 
 Page: https://msp-skills.compoundingteams.com/skills/hubspot/
-Badge: Live-verified
+Verification: Live-verified by Servosity (maintainer) (2026-06-05)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)
 
 MSPs run HubSpot as the sales CRM - pipeline, deals, quote-chasing. Ask your AI "which deals went cold," "what's my pipeline health," or "who do I call today," and get an answer the portal can't compose: cross-object rollups across deals, contacts, owners, and engagements, computed offline in one query instead of a dozen exports and saved views.
@@ -776,7 +776,7 @@ Governance: The skill drives the hubspot-cli and hubspot-mcp binaries, authentic
 ### Hudu (Documentation)
 
 Page: https://msp-skills.compoundingteams.com/skills/hudu/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hudu/install.sh)
 
 Ask in plain English which clients have the worst documentation, which vault passwords are overdue for rotation, and what SSL certs, domains, or warranties expire next - across every company at once. Hudu plus your AI agent reads a local mirror of your whole instance, so the hygiene questions the portal makes you click through company by company become one instant, reproducible answer.
@@ -810,7 +810,7 @@ Governance: The skill reads everything over a local mirror - audits, search, res
 ### Huntress (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/huntress/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/huntress/install.sh)
 
 Ask "which Huntress incidents are oldest across all my clients?" and get one age-sorted queue spanning every organization - the cross-tenant view the per-org portal never shows. Triage incidents fleet-wide, find coverage gaps and dark agents, reconcile invoiced seats against deployed agents, and trace an indicator's blast radius across your whole account, in plain English, from one local mirror.
@@ -846,7 +846,7 @@ Governance: The skill authenticates with your Huntress API key and secret and is
 ### IT Glue (Documentation)
 
 Page: https://msp-skills.compoundingteams.com/skills/itglue/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/install.sh)
 
 MSPs keep their whole client world in IT Glue - organizations, contacts, passwords, configurations, documents - but the API answers one record at a time under a 3000-request rate ceiling. Ask your AI "which clients are under-documented," "which credentials haven't rotated in a year," or "which client owns this serial number," and get fleet-wide answers from a local mirror in one query - no portal clicking, no rate-limit math.
@@ -884,7 +884,7 @@ Governance: The skill drives the itglue-cli and itglue-mcp binaries, authenticat
 ### Kaseya BMS (PSA)
 
 Page: https://msp-skills.compoundingteams.com/skills/kaseya-bms/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-bms/install.sh)
 
 Run the Kaseya BMS service desk, contracts, and billing from your terminal - or let your AI agent do it. Ask in plain English which queues are underwater, which tickets are going stale, who's overloaded, how much of each contract you've burned, and what billable time is sitting unbilled - and get the answer instantly from a local mirror, without exporting a single report.
@@ -920,7 +920,7 @@ Governance: The skill reads everything - tickets, CRM, contracts, finance, proje
 ### KnowBe4 (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/knowbe4/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/knowbe4/install.sh)
 
 KnowBe4's console reports one tenant, one phishing test, one chart at a time. This skill syncs your KMSAT data into a local SQLite mirror and answers the questions the portal can't: which users clicked the bait in multiple phishing tests, whose risk score is deteriorating this quarter, and who clicked a phish but finished zero training - across every client, in seconds, from your terminal.
@@ -954,7 +954,7 @@ Governance: The skill reads your KnowBe4 reporting data - accounts, users, group
 ### Level (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/levelio/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/levelio/install.sh)
 
 Ask "which Level endpoints are most at risk right now?" and get one ranked list across active alerts, missing patches, low security scores, and dark devices - not four portal tabs. levelio-cli syncs your whole Level fleet into a local mirror, then answers portfolio-wide questions the portal shows one device at a time: patch exposure, stale agents, alert clusters, and per-client QBR scorecards. Offline, instant, and read-only-safe.
@@ -990,7 +990,7 @@ Governance: The skill reads everything - reports, rollups, search, and a sync to
 ### Liongard (Documentation)
 
 Page: https://msp-skills.compoundingteams.com/skills/liongard/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/liongard/install.sh)
 
 Ask "what changed across all my clients this week," "which Liongard collectors went stale," or "which agents are offline," and get the answer in one command instead of clicking through the portal environment by environment. The skill syncs your whole Liongard estate into a local mirror, then drift-checks, searches, and rolls it up across every environment - so the visibility you already pay for finally reaches you.
@@ -1026,7 +1026,7 @@ Governance: Read commands (drift, health, coverage, the stale/offline/failure ro
 ### Microsoft Graph (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/microsoft-graph/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/microsoft-graph/install.sh)
 
 Microsoft retires the Graph CLI (mgc) on August 28, 2026 and points admins at the heavier PowerShell SDK. This is the lightweight successor: one cross-platform binary, no .NET or PowerShell runtime. Ask your AI "which M365 licenses are we wasting," "who holds privileged admin right now," or "what's new in Defender since yesterday," and get cross-tenant answers computed offline from a local SQLite mirror - one query instead of CSV exports and portal tab-hopping.
@@ -1062,12 +1062,12 @@ Governance: The skill drives the microsoft-graph-cli and microsoft-graph-mcp bin
 ### Concierge (Meta)
 
 Page: https://msp-skills.compoundingteams.com/skills/msp-skills-concierge/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 
 ### MSPbots (Analytics)
 
 Page: https://msp-skills.compoundingteams.com/skills/mspbots/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mspbots/install.sh)
 
 MSPbots aggregates your PSA, RMM, and finance data into KPI dashboards - then keeps it there. Ask your AI "is our ticket backlog up or down this week" and get the answer the dashboard can't give: point-in-time snapshots, week-over-week deltas, row-level diffs, and full CSV exports - through readable aliases and filters instead of 19-digit resource IDs and a comma-encoded query DSL.
@@ -1107,7 +1107,7 @@ Governance: The skill drives the mspbots-cli and mspbots-mcp binaries, authentic
 ### N-able N-central (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/n-central/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/n-central/install.sh)
 
 N-central knows every device you manage - and answering "where is that machine" still means walking the console's org tree. Ask your AI "what's red right now", "where is EXCHANGE01", or "which devices have no maintenance window before Saturday's patch wave" and get rollups the console can't compose: cross-tenant search from an offline mirror, severity-ranked triage, coverage audits, and a guardian that catches the JWT before it silently dies.
@@ -1147,7 +1147,7 @@ Governance: The skill drives the n-central-cli and n-central-mcp binaries, authe
 ### Nerdio Manager (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/nerdio/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/nerdio/install.sh)
 
 Ask "which host pools have autoscale off across all my customers?" and get one table - not 30 portal logins. Every MSP runs its own Nerdio Manager (NMM) install, so each answer normally means clicking through one tenant at a time. This skill pulls your whole NMM fleet into a local mirror and answers cross-account autoscale, power-state, billing, and Intune questions in a single command.
@@ -1185,7 +1185,7 @@ Governance: The skill reads your whole NMM fleet - accounts, host pools, session
 ### NinjaOne (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/ninjaone/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ninjaone/install.sh)
 
 NinjaOne is built for real-time, per-device RMM, but its reporting answers one organization at a time. Ask your AI "which clients are below 95% patched," "which endpoints across the fleet have no backup," or "how far did this threat spread" and get fleet-wide rollups computed offline from a local SQLite mirror of your estate - one query instead of a per-org report re-totaled in a spreadsheet or a third-party BI overlay.
@@ -1225,7 +1225,7 @@ Governance: The skill drives the ninjaone-cli and ninjaone-mcp binaries, authent
 ### PagerDuty (Incident Response)
 
 Page: https://msp-skills.compoundingteams.com/skills/pagerduty/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pagerduty/install.sh)
 
 Ask "who's on call for the payments service right now, and when do they hand off?" or "what's our MTTR by service this month?" and get the answer in one command. PagerDuty syncs to a local SQLite mirror, so post-incident analytics, on-call coverage audits, and escalation-gap checks run instantly and offline: no Analytics add-on, no portal clicking, no per-question API call.
@@ -1261,7 +1261,7 @@ Governance: The skill reads everything through your PagerDuty REST API key and w
 ### PandaDoc (Documentation)
 
 Page: https://msp-skills.compoundingteams.com/skills/pandadoc/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pandadoc/install.sh)
 
 Ask your AI "which proposals are stalled?" or "what's our open quote value?" and get the answer in seconds. PandaDoc's portal shows one document at a time and has no rollup for these. This skill syncs your documents, templates, and contacts into a local mirror, so cross-document questions - stalled deals, aging quotes, recipient engagement, dollars in-flight - become one instant query instead of a manual export-and-pivot.
@@ -1299,7 +1299,7 @@ Governance: Reads (pipeline, stalled, aging, value, search, list commands) are a
 ### Pax8 (Billing)
 
 Page: https://msp-skills.compoundingteams.com/skills/pax8/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pax8/install.sh)
 
 MSPs resell Microsoft, security, and backup through Pax8, then lose days each month reconciling its invoices against subscriptions and their PSA. Ask your AI "where is billing leaking this month," "what's my MRR and margin," or "which usage is about to overage," and get answers the Pax8 portal can't compose: invoices joined to subscriptions joined to usage, computed offline from a local mirror in one query instead of a CSV export and a spreadsheet.
@@ -1335,7 +1335,7 @@ Governance: The skill drives the pax8-cli and pax8-mcp binaries, authenticating 
 ### Pipedrive (CRM)
 
 Page: https://msp-skills.compoundingteams.com/skills/pipedrive/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pipedrive/install.sh)
 
 Ask your AI "which deals are dying and who do I call today," and get a ranked answer in seconds. The Pipedrive skill keeps a local copy of your pipeline so it can join deals, people, activities, and notes the portal shows on separate screens - surfacing stale deals by dollar at risk, a weighted forecast, stage bottlenecks, and rep leaderboards without exporting a single CSV.
@@ -1371,7 +1371,7 @@ Governance: The skill can read your whole pipeline and can create, update, and d
 ### Proofpoint TAP (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/proofpoint/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proofpoint/install.sh)
 
 Proofpoint TAP's dashboard answers one threat, one clicker, one campaign at a time, and every SIEM pull spends against a hard daily quota. This skill backfills clicks, messages, campaigns, Very Attacked People, and clickers into a local SQLite store, then answers the questions the console can't: who is both heavily attacked and clicking, every event that touched one user, and a full incident brief from a single threatId - offline, in seconds.
@@ -1407,7 +1407,7 @@ Governance: The skill reads your Proofpoint TAP threat data - SIEM click and mes
 ### QuickBooks Online (Billing)
 
 Page: https://msp-skills.compoundingteams.com/skills/quickbooks/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/install.sh)
 
 Ask your books a question and get the answer, not a CSV export. The skill syncs your QuickBooks Online company into a local SQLite mirror, then answers who owes you (ar-aging), what you owe (ap-aging), where the cash is (balances), which invoices to chase first (invoices stale), and whether the books are clean to close (reconcile) - instantly, offline, across the whole book. No portal clicking, no per-question API call.
@@ -1443,7 +1443,7 @@ Governance: The skill reads everything - aging, balances, DSO, cash forecast, re
 ### RocketCyber (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/rocketcyber/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rocketcyber/install.sh)
 
 Ask your AI "what broke across all my RocketCyber clients overnight?" and get one ranked board - open incidents, malicious event counts, and offline agents - instead of clicking through a per-client console. The same skill ranks devices at risk, computes incident MTTR for QBRs, trends Microsoft 365 secure scores, and flags stale suppression rules that quietly hide real detections. All from the terminal.
@@ -1474,7 +1474,7 @@ Governance: The skill reads your RocketCyber SOC data - incidents, agents, detec
 ### Rootly (Incident Response)
 
 Page: https://msp-skills.compoundingteams.com/skills/rootly/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rootly/install.sh)
 
 Ask "who's on call for this service right now?" or "what's our MTTR by service this quarter?" and get the answer in one command. Rootly syncs to a local SQLite mirror, so incident-similarity, resolution mining, on-call coverage audits, and MTTA/MTTR analytics run instantly and offline - no portal clicking, no per-question API call.
@@ -1508,7 +1508,7 @@ Governance: The skill reads incidents, alerts, schedules, and on-call data, and 
 ### runZero (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/runzero/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/runzero/install.sh)
 
 runZero's API answers one entity at a time; it cannot join assets to services to vulnerabilities in a single call. This skill syncs your whole attack surface into a local SQLite copy, then ranks exposure, diffs what changed since the last sync, and traces any CVE to the exact assets it hits - offline, at zero API quota. Ask in plain language; your agent runs the command and reads back the answer.
@@ -1546,7 +1546,7 @@ Governance: The skill reads your runZero attack surface - assets, services, soft
 ### Salesbuildr (CRM)
 
 Page: https://msp-skills.compoundingteams.com/skills/salesbuildr/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/salesbuildr/install.sh)
 
 Ask your AI which quotes are aging, which lines are bleeding margin, and where your pipeline is stalling - and get the answer from your own Salesbuildr data in seconds. salesbuildr-cli syncs your quotes, opportunities, products, and pricing books into a local mirror, so the cross-quote questions the portal can't answer in one click become a single command.
@@ -1580,7 +1580,7 @@ Governance: The skill reads your Salesbuildr quotes, opportunities, products, co
 ### SentinelOne (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/sentinelone/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sentinelone/install.sh)
 
 Running SentinelOne across a book of customer sites? Ask your AI "what should I triage first across every client," "which endpoints went dark or dropped to detect-only," or "where did this malicious file spread," and get one cross-site answer the console can't compose. Every site is mirrored into a local store, so one triage worklist, one fleet-health rollup, and one posture scorecard replace the morning ritual of flipping the console scope selector tenant by tenant.
@@ -1620,7 +1620,7 @@ Governance: The skill drives the sentinelone-cli and sentinelone-mcp binaries, a
 ### Servosity (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/servosity/
-Badge: Live-verified
+Verification: Live-verified by Servosity (maintainer) (2026-06-05)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
 
 MSPs run Servosity as the backup and DR platform - M365, DR Server, and DR Desktop protection across a whole book of clients. Ask your AI "where is my attention needed today", "which backups went stale this week", or "build Acme's QBR backup section" and get fleet-wide answers the per-client dashboard can't compose: ranked attention sweeps, day-over-day drift, ready-to-send stale-backup follow-ups, and the whole book's QBR reports in one pass.
@@ -1658,7 +1658,7 @@ Governance: First-party: published by Servosity for MSP partners. The skill driv
 ### Sherweb (Billing)
 
 Page: https://msp-skills.compoundingteams.com/skills/sherweb/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sherweb/install.sh)
 
 MSPs resell Microsoft 365, Azure, and security through Sherweb, then spend the monthly close reconciling what they owe Sherweb against what they bill customers. Ask your AI "what's my net margin per customer," "which subscriptions am I paying for but not billing," or "what will this seat change cost," and get answers the Sherweb portal cannot compose: payable charges joined to receivable charges and subscriptions, computed offline from a local mirror in one query instead of a CSV export and a spreadsheet.
@@ -1695,7 +1695,7 @@ Governance: The skill drives the sherweb-cli and sherweb-mcp binaries, authentic
 ### SkyKick (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/skykick/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/skykick/install.sh)
 
 Run one fleet-sync, then ask your AI which SkyKick customers have a backup gap right now. It reads every subscription's Exchange/SharePoint posture, snapshot recency, coverage, and retention from a local copy and answers across all your tenants at once - the cross-customer view the per-tenant SkyKick portal never rolls up.
@@ -1727,7 +1727,7 @@ Governance: The skill is read-first: every posture, staleness, coverage, retenti
 ### SuperOps (PSA)
 
 Page: https://msp-skills.compoundingteams.com/skills/superops/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/superops/install.sh)
 
 SuperOps unifies PSA and RMM on one database, but the console still answers one entity at a time. Ask your AI "who's about to breach SLA, and on whose queue," "what's the full picture on Acme before the QBR," or "which endpoints are unpatched and actively alerting," and get cross-entity answers computed offline from a local SQLite mirror of your tenant - one query instead of five console screens or a scheduled report.
@@ -1763,7 +1763,7 @@ Governance: The skill drives the superops-cli and superops-mcp binaries, authent
 ### Syncro (PSA)
 
 Page: https://msp-skills.compoundingteams.com/skills/syncro/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/syncro/install.sh)
 
 Ask your AI "which customers have logged time we never invoiced?" and get the unbilled hours ranked by customer in seconds - no report exports, no portal clicking. Syncro plus your agent answers billing-leakage, AR-aging, SLA-breach, and patch-gap questions across every customer at once, from one local mirror of your Syncro PSA and RMM data. Free, open source, runs on your laptop.
@@ -1800,7 +1800,7 @@ Governance: The skill is read-first: reporting, rollups, and cross-entity views 
 ### Tactical RMM (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/tactical-rmm/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/install.sh)
 
 Ask plain-English questions about your whole self-hosted Tactical RMM fleet and get answers the web UI can't assemble in one view: which agents went dark, where patches and reboots are pending across every client, what changed overnight, and which endpoints are unmonitored. `tactical-rmm-cli` mirrors your fleet into local SQLite, then answers cross-client rollups instantly and offline - and can fan a command across a filtered cohort, preview-first.
@@ -1841,7 +1841,7 @@ Governance: The skill reads everything across your fleet - agents, clients, site
 ### ThreatLocker (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/threatlocker/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/install.sh)
 
 Running ThreatLocker across a whole book of customer tenants? Ask your AI "what approvals are pending everywhere," "which agents went dark this week," or "which clients are about to lose audit evidence," and get one cross-tenant answer the Portal can't compose. Every tenant is mirrored into a local store, so one approval queue, one audit archive, and one health rollup replace dozens of one-tenant-at-a-time Portal logins.
@@ -1879,7 +1879,7 @@ Governance: The skill drives the threatlocker-cli and threatlocker-mcp binaries,
 ### Xero (Billing)
 
 Page: https://msp-skills.compoundingteams.com/skills/xero/
-Badge: Awaiting live verification
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/xero/install.sh)
 
 Ask in plain English who owes you and how overdue, which authorised invoices still have no payment applied, and whether the general ledger ties to outstanding invoices at close - for a Xero organisation, in one call. Xero plus your AI agent reads a local mirror of the org, so the aging, reconciliation, and tie-out questions the web reports make you export and pivot become one instant, offline answer.

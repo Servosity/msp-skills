@@ -36,6 +36,10 @@ ROOT = registry.ROOT
 OWNER, REPO = registry.owner_repo()
 OWNER_TITLE = OWNER[:1].upper() + OWNER[1:]
 
+# The 60-second receipt form every "awaiting" badge invites MSPs to. ONE
+# constant so the real form URL can be swapped in a single edit when it ships.
+RECEIPT_FORM_URL = "https://msp-skills.compoundingteams.com/verified/#receipt"
+
 
 def banner(vendor: str, owner: str, first_party: bool) -> str:
     if first_party:
@@ -44,8 +48,34 @@ def banner(vendor: str, owner: str, first_party: bool) -> str:
             f"> {owner}. Apache-2.0 licensed."
         )
     return (
-        f"> Unofficial. Community-built Claude Code Skill and MCP server for the {vendor}\n"
-        f"> API. Not affiliated with, endorsed by, or sponsored by {owner}."
+        "> Independent, open source, inspectable. Every line of code is on GitHub\n"
+        "> under Apache-2.0 - built for the MSP community, vendor-neutral by design.\n"
+        f"> Not affiliated with, endorsed by, or sponsored by {owner}."
+    )
+
+
+def sibling_links_block(slug: str, entry: dict) -> str:
+    """Internal-links block: every OTHER connector in this skill's category,
+    rendered from the registry so it can never go stale as connectors ship.
+    Empty when the skill has no category or no category siblings."""
+    cat = entry.get("category")
+    if not cat:
+        return ""
+    sibs = [
+        (s, m)
+        for s, m in registry.skills().items()  # slug-sorted: deterministic
+        if s != slug and not m.get("markdown_only") and m.get("category") == cat
+    ]
+    if not sibs:
+        return ""
+    links = " · ".join(
+        f"[{m.get('display_name', m.get('vendor', s))}](/skills/{s}/)"
+        for s, m in sibs
+    )
+    return (
+        f"\n## More {cat} connectors\n\n"
+        f"Run more than one {cat} tool, or comparing options? "
+        f"These connectors work the same way: {links}\n"
     )
 
 
@@ -78,17 +108,56 @@ def render_page(slug: str) -> Path:
         desc = json.loads(mf.read_text()).get("description", "")
     lv = entry.get("live_verified") or {}
     if lv.get("status") == "live-verified":
-        badge = (f"**Live-verified** - confirmed by a real MSP against a live "
-                 f"{display} tenant ({lv.get('date', '')}).")
+        verified_by = lv.get("verified_by") or "a real MSP"
+        badge = (f"**✓ Live-verified by {verified_by}** against a production "
+                 f"tenant · {lv.get('date', '')}")
+        if lv.get("issue_url"):
+            badge += f" · [receipt →]({lv['issue_url']})"
+        badge += "."
     else:
-        badge = ("**Awaiting live verification** - passes every mechanical gate "
-                 "(build, command-surface, claims, install). Be the first to confirm "
-                 "it against your tenant: "
-                 f"[report it works](https://github.com/{OWNER_TITLE}/{REPO}/issues/new?template=it-works.yml).")
+        badge = ("**Passes all 4 mechanical gates** (build · command-surface · "
+                 "claims · install). Awaiting its first MSP receipt - "
+                 f"[be the first, 60 seconds →]({RECEIPT_FORM_URL}).")
+
+    # The literal direct answer AI search engines (and skimming MSP owners)
+    # reward: the page answers its own title before anything else. Rendered as
+    # the FIRST prose paragraph; check_aeo asserts it on every skill page.
+    direct_answer = (
+        f"Yes - there is an MCP server for {display}. It's free, open source, "
+        "and runs on your own machine, so your client data never leaves your "
+        f"network. It connects {display} to Claude, ChatGPT, Copilot, or any "
+        "MCP-capable agent, and installs in about 60 seconds."
+    )
+
+    # Two generator-level FAQs every skill page carries (AEO: the exact
+    # questions MSPs type into AI search), ahead of the page.json FAQs.
+    gen_faqs = [
+        {
+            "q": f"Is there an MCP server for {display}?",
+            "a": (
+                f"Yes - this one. A free, open source MCP server and Claude Code "
+                f"Skill for {display}, built for MSPs. It runs locally on your "
+                "machine, works with Claude, ChatGPT, Copilot, and any "
+                "MCP-capable agent, and installs in about 60 seconds."
+            ),
+        },
+        {
+            "q": f"Is the {display} MCP server safe for client data?",
+            "a": (
+                "Yes, by design. The CLI, the MCP server, and any local data "
+                "mirror run on your own machine - nothing is sent to MSP Skills "
+                "or any third party. Credentials stay in your environment, and "
+                "every command is safety-tiered (read, write, destructive) so "
+                "your agent only gets the permissions you grant. Full policy in "
+                "the safety model on this page."
+            ),
+        },
+    ]
+    faqs = gen_faqs + page.get("faqs", [])
 
     fm_faqs = "".join(
         f"  - q: {json.dumps(f['q'])}\n    a: {json.dumps(f['a'])}\n"
-        for f in page.get("faqs", [])
+        for f in faqs
     )
     fm_howto = (
         f'  - name: "Run the one-line installer"\n'
@@ -130,15 +199,16 @@ def render_page(slug: str) -> Path:
             "backups, restores, QBR reporting) to Servosity Backup and DR.\n"
         )
     pains = "\n".join(f"- {p}" for p in page.get("pain_points", []))
-    faq_md = "\n".join(f"### {f['q']}\n\n{f['a']}\n" for f in page.get("faqs", []))
+    faq_md = "\n".join(f"### {f['q']}\n\n{f['a']}\n" for f in faqs)
     tiers = "\n".join(
         f"| {t['tier']} | {t['examples']} | {t['policy']} |"
         for t in page.get("safety_tiers", [])
     )
+    siblings = sibling_links_block(slug, entry)
 
     text = f"""---
 layout: default
-title: "{display} MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "{display} MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: {json.dumps(desc or f"Free Claude Code Skill and MCP server for {display}. Built for MSP owners.")}
 permalink: /skills/{slug}/
 skill_name: "{display} MCP"
@@ -148,11 +218,13 @@ faqs:
 {fm_faqs}howto:
 {fm_howto}---
 
-# {display} + AI in 60 seconds
+# The {display} MCP Server - free, local, built for MSPs
 
 {banner(vendor, owner, first_party)}
 
 {badge}
+
+{direct_answer}
 
 {page.get('outcome_intro', '')}
 
@@ -221,10 +293,12 @@ iwr -useb https://raw.githubusercontent.com/{OWNER}/{REPO}/main/skills/{slug}/in
 ## Frequently asked questions
 
 {faq_md}
-
+{siblings}
 ## Status
 
 Beta. Validated against the {display} API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

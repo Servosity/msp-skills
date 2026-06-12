@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "SuperOps MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "SuperOps MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't."
 permalink: /skills/superops/
 skill_name: "SuperOps MCP"
 image: /assets/social/superops/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for SuperOps?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for SuperOps, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the SuperOps MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local SuperOps MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -30,12 +34,15 @@ howto:
     text: "Ask your AI agent a SuperOps question in plain language; it runs superops-cli for you."
 ---
 
-# SuperOps + AI in 60 seconds
+# The SuperOps MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the SuperOps
-> API. Not affiliated with, endorsed by, or sponsored by SuperOps Inc..
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by SuperOps Inc..
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for SuperOps. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects SuperOps to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 SuperOps unifies PSA and RMM on one database, but the console still answers one entity at a time. Ask your AI "who's about to breach SLA, and on whose queue," "what's the full picture on Acme before the QBR," or "which endpoints are unpatched and actively alerting," and get cross-entity answers computed offline from a local SQLite mirror of your tenant - one query instead of five console screens or a scheduled report.
 
@@ -131,6 +138,14 @@ The skill drives the superops-cli and superops-mcp binaries, authenticating with
 
 ## Frequently asked questions
 
+### Is there an MCP server for SuperOps?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for SuperOps, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the SuperOps MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local SuperOps MCP server via a secure bridge. Step-by-step in the install guide.
@@ -160,9 +175,15 @@ The typed commands are read-only by design - inspection, export, sync, and analy
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 
+## More PSA connectors
+
+Run more than one PSA tool, or comparing options? These connectors work the same way: [Autotask PSA](/skills/autotask/) · [ConnectWise PSA (Manage)](/skills/connectwise-manage/) · [HaloPSA](/skills/halopsa/) · [Kaseya BMS](/skills/kaseya-bms/) · [Syncro](/skills/syncro/)
+
 ## Status
 
 Beta. Validated against the SuperOps API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 
