@@ -137,3 +137,11 @@ jobs:
         # while the fleet calibrates.
         # NOTE(calibration): drop --warn after fleet calibration to make this gate.
         run: python3 tools/maintainer/check_cli_claims.py --warn --slug ${{ matrix.skill.name }}
+
+      - name: Hand-fix ledger intact (this skill)
+        # Hard gate: if this skill carries a skills/<slug>/handfixes.json ledger,
+        # assert every recorded connector hand-fix marker is still present. A
+        # cli-printing-press reprint can silently clobber edits to generated
+        # files (go test stays green); this turns that into a loud failure.
+        # No-op for skills without a ledger. See docs/reprint-survival.md.
+        run: python3 tools/maintainer/check_handfixes.py --slug ${{ matrix.skill.name }}
