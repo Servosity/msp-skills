@@ -133,6 +133,12 @@ Resource scoping:
 				resources = defaultSyncResources()
 			}
 
+			// Hand-wired: drop dependent-resource names from the flat enqueue so a
+			// user naming one (the connector's own help suggests
+			// `--resources clients,device,autoverify`) does not run it as a flat
+			// resource that fails. See flatSyncResources for the full rationale.
+			resources = flatSyncResources(resources)
+
 			// Reject --resource-param keys that don't match a known resource.
 			// Validates against the full top-level + dependent set, not the
 			// user-filtered `resources` slice, so legitimate cases like
@@ -244,12 +250,17 @@ Resource scoping:
 			var successCount int
 			var firstErr error
 			var firstPlaceholderErr error
+			// Track which resources failed so --strict can name them, not just
+			// count them ("1 resource(s) failed to sync" was undiagnosable).
+			var failedResources []string
+			var criticalFailedResources []string
 			for res := range results {
 				if res.Err != nil {
 					if humanFriendly {
 						fmt.Fprintf(os.Stderr, "  %s: error: %v\n", res.Resource, res.Err)
 					}
 					errCount++
+					failedResources = append(failedResources, res.Resource)
 					if firstErr == nil {
 						firstErr = res.Err
 					}
@@ -258,6 +269,7 @@ Resource scoping:
 					}
 					if criticalResources[res.Resource] {
 						criticalErrCount++
+						criticalFailedResources = append(criticalFailedResources, res.Resource)
 					}
 				} else if res.Warn != nil {
 					if humanFriendly {
@@ -280,6 +292,7 @@ Resource scoping:
 						fmt.Fprintf(os.Stderr, "  %s: error: %v\n", res.Resource, res.Err)
 					}
 					errCount++
+					failedResources = append(failedResources, res.Resource)
 					if firstErr == nil {
 						firstErr = res.Err
 					}
@@ -288,6 +301,7 @@ Resource scoping:
 					}
 					if criticalResources[res.Resource] {
 						criticalErrCount++
+						criticalFailedResources = append(criticalFailedResources, res.Resource)
 					}
 				} else if res.Warn != nil {
 					if humanFriendly {
@@ -331,17 +345,17 @@ Resource scoping:
 				return classifyAPIError(firstPlaceholderErr, flags)
 			}
 			if strict && errCount > 0 {
-				return fmt.Errorf("%d resource(s) failed to sync", errCount)
+				return fmt.Errorf("%d resource(s) failed to sync%s", errCount, describeFailedResources(failedResources))
 			}
 			if criticalErrCount > 0 {
-				return fmt.Errorf("%d critical resource(s) failed to sync", criticalErrCount)
+				return fmt.Errorf("%d critical resource(s) failed to sync%s", criticalErrCount, describeFailedResources(criticalFailedResources))
 			}
 			if successCount == 0 {
 				if warnCount > 0 && errCount == 0 {
 					return fmt.Errorf("%d resource(s) skipped due to insufficient access", warnCount)
 				}
 				if errCount > 0 {
-					return fmt.Errorf("%d resource(s) failed to sync", errCount)
+					return fmt.Errorf("%d resource(s) failed to sync%s", errCount, describeFailedResources(failedResources))
 				}
 			}
 			if errCount > 0 && !strict && criticalErrCount == 0 && successCount > 0 {
@@ -1308,6 +1322,43 @@ type dependentResourceDef struct {
 type dependentPathParamDef struct {
 	Param string
 	Field string
+}
+
+// flatSyncResources removes dependent-resource names from a flat sync list.
+// Hand-wired: dependent resources (autoverify/restore_point/client_device)
+// have no flat list endpoint — syncResourcePath returns "unknown sync
+// resource" for them — and are synced per-parent by syncDependentResources.
+// The connector's own help text suggests `--resources clients,device,
+// autoverify`, so without this filter a named dependent runs once correctly
+// (dependent pass) and once failing (flat pass) — "two resources, one fails" —
+// and under --strict the spurious flat failure aborts the run. Dropping the
+// name here is safe: the dependent pass still runs it via parentFilter
+// (snapshotted before defaults expand) and the parent-table cascade.
+func flatSyncResources(resources []string) []string {
+	depNames := map[string]bool{}
+	for _, dep := range dependentResourceDefs() {
+		depNames[dep.Name] = true
+	}
+	if len(depNames) == 0 {
+		return resources
+	}
+	kept := make([]string, 0, len(resources))
+	for _, r := range resources {
+		if !depNames[r] {
+			kept = append(kept, r)
+		}
+	}
+	return kept
+}
+
+// describeFailedResources renders a ": name1, name2" suffix naming the
+// resources that failed, or "" when none were captured, so a --strict failure
+// is diagnosable instead of just "1 resource(s) failed to sync".
+func describeFailedResources(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	return ": " + strings.Join(names, ", ")
 }
 
 func dependentResourceDefs() []dependentResourceDef {

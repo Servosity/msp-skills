@@ -1168,7 +1168,9 @@ func (s *Store) UpsertRestorePoint(data json.RawMessage) error {
 		return fmt.Errorf("unmarshaling restore_point: %w", err)
 	}
 
-	id := extractObjectID(obj)
+	// Hand-wired: route through ExtractResourceID (not extractObjectID) so the
+	// single-object path resolves restore_point_id the same way UpsertBatch does.
+	id := ExtractResourceID("restore_point", obj)
 	if id == "" {
 		return fmt.Errorf("missing id for restore_point")
 	}
@@ -1266,6 +1268,28 @@ var resourceIDFieldOverrides = map[string]string{
 // field and upsert on names — see #1394.
 var genericIDFieldFallbacks = []string{"id", "id_", "ID", "gid", "sid", "uid", "uuid", "guid", "name", "slug", "key", "code"} // Hand-wired: live x360Recover emits Python-style id_ keys
 
+// restorePointResourceID synthesizes a stable primary key for restore_point
+// items. Hand-wired: the live x360Recover API keys recovery points by a
+// per-device timestamp string (restore_point_id, e.g. "2026_06_11_18_15_00")
+// with NO numeric id. That value is unique within a device but not across the
+// fleet, so the sync path (which injects device_id/parent_id, see sync.go)
+// composes "rp:<device_id>:<restore_point_id>" to avoid cross-device
+// collisions, while the live single-device write-through (no injected parent)
+// falls back to the bare restore_point_id. Returns "" when no restore_point_id
+// is present so the generic fallback list can still try.
+func restorePointResourceID(obj map[string]any) string {
+	rp := ResourceIDString(lookupFieldValue(obj, "restore_point_id"))
+	if rp == "" || rp == "<nil>" {
+		return ""
+	}
+	for _, parentKey := range []string{"device_id", "parent_id"} {
+		if dev := ResourceIDString(lookupFieldValue(obj, parentKey)); dev != "" && dev != "<nil>" {
+			return "rp:" + dev + ":" + rp
+		}
+	}
+	return rp
+}
+
 // ExtractResourceID resolves the primary key UpsertBatch would use for a
 // resource item. Callers that need to gate best-effort writes can use this to
 // avoid passing non-entity envelopes into the batch path.
@@ -1276,6 +1300,17 @@ func ExtractResourceID(resourceType string, obj map[string]any) string {
 			if s != "" && s != "<nil>" {
 				return s
 			}
+		}
+	}
+	// Hand-wired: restore_point items carry a per-device timestamp string
+	// (restore_point_id) rather than a numeric id, so the generic fallback list
+	// below misses every one and the table stores zero rows. Synthesize a
+	// collision-safe composite key. Covers both the sync canonical name
+	// ("restore_point") and the live command's hyphenated resourceType
+	// ("restore-point", see device_restore-point_*.go -> writeThroughCache).
+	if resourceType == "restore_point" || resourceType == "restore-point" {
+		if id := restorePointResourceID(obj); id != "" {
+			return id
 		}
 	}
 	for _, key := range genericIDFieldFallbacks {
