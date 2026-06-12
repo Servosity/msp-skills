@@ -1,0 +1,17 @@
+{
+  "slug": "servosity",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "servosity is a SPECIAL case: it is engine-swapped from the servosity-msp mint via a staging strip + de-msp rename ritual that is RE-APPLIED on every reprint, so most of its divergence from a stock print is re-derived, not lost. These entries pin the load-bearing engine-swap invariants so a NAIVE reprint (one that bypassed the ritual) is caught. NOTE: a full reprint-diff would surface more; this records the auth/identity invariants that matter most. Separately, issue #78 (bare SERVOSITY_MSP_TOKEN lacks the required 'Token ' auth-scheme prefix) is an OPEN bug, not a hand-fix to preserve.",
+  "handfixes": [
+    {
+      "id": "msp-token-auth-plumbing",
+      "summary": "MSP-token auth (SERVOSITY_MSP_TOKEN env var -> ServosityMspToken -> AuthHeader) is hand-wired by the engine swap",
+      "why": "The servosity-msp engine adds an MSP partner-token auth path the stock print does not have. The env-var wiring and config field are re-applied by the de-msp ritual; a naive reprint that bypassed the ritual would drop them and break authentication.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/config/config.go", "contains": "SERVOSITY_MSP_TOKEN", "min_count": 1},
+        {"file": "cli/internal/config/config.go", "contains": "ServosityMspToken", "min_count": 1}
+      ]
+    }
+  ]
+}

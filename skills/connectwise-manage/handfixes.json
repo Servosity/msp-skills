@@ -1,0 +1,16 @@
+{
+  "slug": "connectwise-manage",
+  "doc": "docs/reprint-survival.md",
+  "handfixes": [
+    {
+      "id": "composite-auth-doctor-check",
+      "summary": "doctor checks the composite ConnectWise auth (companyId+publicKey:privateKey Basic + clientId header)",
+      "why": "ConnectWise Manage needs composite Basic credentials PLUS a clientId header; the press's single-scheme auth model can't express this, so the doctor auth check is hand-wired to require all four. A reprint reverts doctor to the single-scheme check.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/cli/doctor.go", "contains": "Hand-wired: the generator's single-scheme model can't express", "min_count": 1},
+        {"file": "cli/internal/cli/doctor.go", "contains": "CW_COMPANY_ID", "min_count": 1}
+      ]
+    }
+  ]
+}

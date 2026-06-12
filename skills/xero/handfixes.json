@@ -1,0 +1,25 @@
+{
+  "slug": "xero",
+  "doc": "docs/reprint-survival.md",
+  "handfixes": [
+    {
+      "id": "tenant-id-header-env",
+      "summary": "XERO_TENANT_ID is sourced into the per-request Headers map (Xero-Tenant-Id header on every call)",
+      "why": "Xero requires the Xero-Tenant-Id header on EVERY call alongside the bearer token. The env-var wiring (XERO_TENANT_ID -> Headers) is hand-wired in config.go and pinned by config_auth_test.go; a reprint drops it and every call 401/403s.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/config/config.go", "contains": "XERO_TENANT_ID", "min_count": 1}
+      ]
+    },
+    {
+      "id": "hand-wired-resource-id-fields",
+      "summary": "5 of 7 resource primary-key fields are hand-wired (accounts/items templated; the rest hand-set)",
+      "why": "Xero's per-resource ID field names (BankTransactionID, ContactID, InvoiceID, JournalID, PaymentID) are hand-wired for ExtractResourceID; the generator only templated accounts/items. Pinned by TestExtractResourceID_Xero. A reprint reverts the five to a generic guess and breaks sync key extraction.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/store/store.go", "contains": "hand-wired and pinned by TestExtractResourceID_Xero", "min_count": 1},
+        {"file": "cli/internal/store/store.go", "contains": "BankTransactionID", "min_count": 1}
+      ]
+    }
+  ]
+}
