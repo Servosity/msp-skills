@@ -99,19 +99,34 @@ are already mostly safe - they're whole hand-authored files regen-merge keeps,
 recorded in `.printing-press.json`. A ledger entry asserting "the novel command
 still resolves" is a cheap backstop.
 
-## When fixing a connector
+## When fixing or reprinting a connector
 
-1. **Prefer surgical over a full reprint** when the goal is a targeted fix.
+The gate above is the *reactive* half (CI blocks a clobbered merge). The
+`--brief` mode is the *proactive* half: read the ledger **before** you
+regenerate so you know what to preserve. The repo's `AGENTS.md` makes this
+mandatory for any agent.
+
+1. **Before** reprinting / re-onboarding / bulk-overwriting `cli/`, read what
+   you must preserve:
+
+   ```bash
+   python3 tools/maintainer/check_handfixes.py --brief --slug <slug>
+   ```
+
+2. **Prefer surgical over a full reprint** when the goal is a targeted fix.
    Revert the cli tree to `main`, apply only the fix. A full reprint absorbs all
-   upstream improvements but risks clobbering hand-fixes and can't be live-verified
-   without credentials.
-2. If you *do* full-reprint, **3-way merge every `BODY-DRIFT` file** (preserve
-   the hand-fix, apply the template delta) - never blind-overwrite - and run
-   `check_handfixes.py` before merging.
-3. **Run `python3 tools/maintainer/check_handfixes.py` locally** (it's in
-   `verify_all.sh`) and add/refresh ledger entries for any new hand-edit.
-4. Link the originating GitHub issue to the ledger entry. Issues are for triage;
+   upstream improvements but risks clobbering hand-fixes and can't be
+   live-verified without credentials.
+3. If you *do* full-reprint, **3-way merge every `BODY-DRIFT` file** (preserve
+   the hand-fix, apply the template delta) - never blind-overwrite.
+4. **After** regenerating, run `python3 tools/maintainer/check_handfixes.py
+   --slug <slug>` (it's also in `verify_all.sh` and CI). Restore anything it
+   flags before committing, and add/refresh ledger entries for any new hand-edit.
+5. Link the originating GitHub issue to the ledger entry. Issues are for triage;
    the **ledger** is the source of truth a reprint is checked against.
+
+Find connectors whose hand-fixes are not yet recorded (back-fill candidates):
+`python3 tools/maintainer/check_handfixes.py --discover`.
 
 ## Why not "GitHub issues as the source of truth"?
 

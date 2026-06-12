@@ -20,6 +20,15 @@ jobs:
       - name: Repo hygiene guards (placeholder, em-dash, personal paths)
         run: bash tools/maintainer/ci_guards.sh
 
+      - name: New hand-fixes recorded in their ledger (PR diff)
+        if: github.event_name == 'pull_request'
+        # If this PR edits a generated (DO NOT EDIT) file in a connector without
+        # also recording it in skills/<slug>/handfixes.json, fail - so a new
+        # hand-fix is captured the moment it is introduced and survives the next
+        # reprint. Reprints (many generated files at once) are exempted; the
+        # per-skill ledger gate covers recorded fixes there. See docs/reprint-survival.md.
+        run: python3 tools/maintainer/check_handfixes.py --changed --base "${{ github.event.pull_request.base.sha }}"
+
       - name: Skill contract (frontmatter + required files)
         run: python3 tools/maintainer/check_skill_contract.py
 
