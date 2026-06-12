@@ -107,8 +107,8 @@
       "tagline": "Catch failed and stale Axcient backups, RPO breaches, and unbilled usage across every client by asking.",
       "cli_hash": "sha256:3689d836c162863a104b72186dcac80543a918651740fcdc4d1f0aec3d795b5e",
       "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:3689d836c162863a104b72186dcac80543a918651740fcdc4d1f0aec3d795b5e",
+      "version": "0.2.0",
+      "cli_hash_at_release": "sha256:b0ef6957d5327ad14373c5fd46c6b364e6df9fe229d1b26773937d461af54b28",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
