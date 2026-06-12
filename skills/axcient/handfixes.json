@@ -53,6 +53,37 @@
         {"file": "cli/internal/cli/sync.go", "contains": "isDryRunResponse(data)", "min_count": 2},
         {"file": "cli/internal/cli/sync.go", "contains": "if full && !c.DryRun {", "min_count": 1}
       ]
+    },
+    {
+      "id": "restore-point-id-synthesis",
+      "summary": "restore_point items key on a per-device timestamp string (restore_point_id); synthesize a collision-safe composite id",
+      "why": "The live /device/{device_id}/restore_point endpoint returns items keyed by restore_point_id (a YYYY_MM_DD_HH_MM_SS timestamp string), not a numeric id. ExtractResourceID's override map and generic fallback list both miss it, so UpsertBatch skipped every item and the restore_point table stored zero rows (all_items_failed_id_extraction); the live `device restore-point` write-through warned 'not cached locally'. restore_point_id is unique within a device but not across the fleet, so the fix composes rp:<device_id>:<restore_point_id> (device_id/parent_id are injected by the sync loop) and falls back to the bare restore_point_id for the live single-device path. Verified live; press 4.24 templates emit neither.",
+      "status": "active",
+      "spec_encode_followup": "No single x-resource-id can express a composite (device_id + restore_point_id) key, so this stays a hand-fix; the closest spec hook would be a per-resource composite-key annotation the press does not yet support. Errors are tracked in the v0.2.1 GitHub issue.",
+      "asserts": [
+        {"file": "cli/internal/store/store.go", "contains": "restore_point_id", "min_count": 1},
+        {"file": "cli/internal/store/store.go", "contains": "\"rp:\"", "min_count": 1}
+      ]
+    },
+    {
+      "id": "sync-skip-dependent-flat-names",
+      "summary": "flat sync enqueue drops dependent-resource names (autoverify/restore_point/client_device) so `--resources ...,autoverify` does not fail as a flat resource",
+      "why": "Dependent resources have no flat list endpoint (syncResourcePath returns 'unknown sync resource'); they sync per-parent via syncDependentResources. The connector's own help text suggests `--resources clients,device,autoverify`, so without flatSyncResources a named dependent ran once correctly (dependent pass) and once failing (flat pass) - 'two resources, one fails' - and under --strict the spurious flat failure aborted the run. Systemic press behavior, not axcient-specific; a printing-press-retro tracks the upstream fix.",
+      "status": "active",
+      "spec_encode_followup": "Fix belongs in the press: the flat-sync enqueue should never include a name it also declares as a dependent/walker resource. Filed via printing-press-retro; until a reprint absorbs it, flatSyncResources guards it here.",
+      "asserts": [
+        {"file": "cli/internal/cli/sync.go", "contains": "flatSyncResources", "min_count": 2}
+      ]
+    },
+    {
+      "id": "strict-error-names-resources",
+      "summary": "--strict / all-failed sync errors name the failing resource(s), not just a count",
+      "why": "The sync exit-policy errors emitted only 'N resource(s) failed to sync' with no resource name, so a --strict failure was undiagnosable (the retester could not tell which resource failed). describeFailedResources appends the captured names. Systemic press behavior; a printing-press-retro tracks the upstream fix.",
+      "status": "active",
+      "spec_encode_followup": "Fix belongs in the press sync template (name failed resources in the exit-policy errors). Filed via printing-press-retro; until a reprint absorbs it, describeFailedResources guards it here.",
+      "asserts": [
+        {"file": "cli/internal/cli/sync.go", "contains": "describeFailedResources", "min_count": 2}
+      ]
     }
   ]
 }

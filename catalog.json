@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-11",
+  "generated_at": "2026-06-12",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -162,7 +162,7 @@
       "skill_path": "skills/axcient",
       "cli_binary": "axcient-cli",
       "mcp_binary": "axcient-mcp",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "license": "Apache-2.0",
       "vendor": "Axcient",
       "vendor_trademark_owner": "Axcient, Inc",

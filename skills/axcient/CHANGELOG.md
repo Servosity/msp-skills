@@ -4,7 +4,28 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.2.0] - unreleased
+## [0.2.1] - unreleased
+
+### Fixed
+- `restore_point` sync no longer stores zero rows. The live x360Recover endpoint
+  keys recovery points by a timestamp string (`restore_point_id`,
+  `YYYY_MM_DD_HH_MM_SS`) with no numeric `id`; ID extraction now recognizes it
+  and composes a fleet-collision-safe `rp:<device_id>:<restore_point_id>` key, so
+  the restore-point table (and the offline/fleet history that depends on it)
+  populates. The live `device restore-point` write-through caches the same items
+  instead of warning "not cached locally".
+- `sync --resources <dependent>` (e.g. the documented
+  `--resources clients,device,autoverify`) no longer reports a spurious failure.
+  Dependent resources (`autoverify`, `restore_point`, `client_device`) have no
+  flat list endpoint and are synced per-parent; naming one previously enqueued it
+  as a flat resource that failed ("unknown sync resource"), visible under
+  `--strict` as `1 resource(s) failed to sync`. They are now excluded from the
+  flat pass and still sync via the parent cascade.
+- `sync` failure errors now name the failing resource(s)
+  (`N resource(s) failed to sync: <names>`) instead of only a count, making a
+  `--strict` failure diagnosable.
+
+## [0.2.0] - 2026-06-11
 
 ### Fixed
 - MCP numeric path/query parameters (e.g. 7-digit `device_id` / `appliance_id`)
