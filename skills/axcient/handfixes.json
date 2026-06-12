@@ -1,0 +1,58 @@
+{
+  "slug": "axcient",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. status: active = connector-only, a reprint would clobber it; upstreamed = also fixed in the press, a reprint from a fixed press regenerates it, but the back-port must still be present today.",
+  "handfixes": [
+    {
+      "id": "id-key-primary-fallback",
+      "summary": "Live x360Recover emits Python-style `id_` keys; primary-key resolution must include id_",
+      "why": "The live API keys records `id_` (not `id`) for devices/appliances/vaults/users. Without id_ in the fallback list, extraction falls through to `name` (wrong primary key) or returns \"\" (0 rows / all_items_failed_id_extraction). Verified live; the 4.24 templates do not emit id_.",
+      "status": "active",
+      "spec_encode_followup": "Best durable home is a spec annotation (`x-resource-id: id_` on the affected resources) so the press emits the fallback by construction. The generated code itself recommends this ('Annotate the spec with x-resource-id to fix').",
+      "asserts": [
+        {"file": "cli/internal/store/store.go", "contains": "\"id_\"", "min_count": 2},
+        {"file": "cli/internal/cli/sync.go", "contains": "\"id_\"", "min_count": 1}
+      ]
+    },
+    {
+      "id": "hand-wired-sync-synthesis",
+      "summary": "autoverify items have no native id (synthesized); org-level device rows may omit client_id (injected)",
+      "why": "`/device/{device_id}/autoverify` items carry no native identifier, so sync synthesizes one; org-level device rows on the live API may omit client_id, so the typed client_device table injects it. Both are live-discovered quirks marked `Hand-wired:` and absent from press templates.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/cli/sync.go", "contains": "Hand-wired:", "min_count": 5},
+        {"file": "cli/internal/store/store.go", "contains": "Hand-wired:", "min_count": 2}
+      ]
+    },
+    {
+      "id": "device-select-real-field-paths",
+      "summary": "device `--select` examples use the real serialized JSON field paths (id_, current_health_status.status)",
+      "why": "The press emits placeholder `--select id,name,status`; axcient's real serialized keys differ (`id_`, `current_health_status.status`). Corrected in the docs during onboarding (PR #70). A reprint reverts the examples to the placeholder fields.",
+      "status": "active",
+      "asserts": [
+        {"file": "SKILL.md", "contains": "id_,name,current_health_status.status", "min_count": 1},
+        {"file": "guide.md", "contains": "id_,name,current_health_status.status", "min_count": 1}
+      ]
+    },
+    {
+      "id": "mcp-numeric-id-format",
+      "summary": "D1: MCP path/query params render through formatMCPParamValue (no scientific-notation 404)",
+      "why": "JSON-number device_id/appliance_id decode to float64; fmt's %v renders 7-digit IDs as 1.234567e+06, so the URL 404s. Fixed upstream in press 4.24 (formatMCPParamValue); this is the surgical back-port until a reprint absorbs it.",
+      "status": "upstreamed",
+      "asserts": [
+        {"file": "cli/internal/mcp/tools.go", "contains": "formatMCPParamValue", "min_count": 4},
+        {"file": "cli/internal/mcp/tools.go", "not_contains": "strings.Replace(path, placeholder, fmt.Sprintf(\"%v\", v), 1)"}
+      ]
+    },
+    {
+      "id": "sync-dryrun-no-mutation",
+      "summary": "D3: sync --dry-run does not mutate sync_state (dependent loop + cursor clears guarded)",
+      "why": "The dependent-resource sync loop wrote sync_state unconditionally and --full/--latest-only cleared cursors unconditionally, so a documented side-effect-free dry run corrupted the local bookkeeping. Fixed in the press via mvanhorn/cli-printing-press#2946; surgical back-port here.",
+      "status": "upstreamed",
+      "asserts": [
+        {"file": "cli/internal/cli/sync.go", "contains": "isDryRunResponse(data)", "min_count": 2},
+        {"file": "cli/internal/cli/sync.go", "contains": "if full && !c.DryRun {", "min_count": 1}
+      ]
+    }
+  ]
+}
