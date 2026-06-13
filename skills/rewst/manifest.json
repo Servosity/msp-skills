@@ -1,0 +1,54 @@
+{
+  "manifest_version": "0.3",
+  "name": "rewst-mcp",
+  "display_name": "Rewst",
+  "version": "0.1.0",
+  "description": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/rewst-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/rewst-mcp",
+      "args": [],
+      "env": {
+        "REWST_BASE_URL": "${user_config.rewst_base_url}",
+        "REWST_API_TOKEN": "${user_config.rewst_api_token}"
+      }
+    }
+  },
+  "user_config": {
+    "rewst_base_url": {
+      "type": "string",
+      "title": "REWST_BASE_URL",
+      "description": "Rewst API base URL for your region. Defaults to the US (https://api.rewst.io); set this for EU/AU or other regional instances.",
+      "default": "https://api.rewst.io",
+      "required": false
+    },
+    "rewst_api_token": {
+      "type": "string",
+      "title": "REWST_API_TOKEN",
+      "description": "Rewst API token from an API client you create in the Rewst console (sent as a bearer token).",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.24.0",
+  "press_provenance": {
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T03:15:28.12714Z",
+    "spec_checksum": null,
+    "spec_format": null
+  }
+}

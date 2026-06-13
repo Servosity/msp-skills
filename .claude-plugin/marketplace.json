@@ -836,6 +836,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "rewst",
+      "source": "./skills/rewst",
+      "description": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
+      "version": "0.1.0",
+      "category": "automation",
+      "tags": [
+        "rewst",
+        "automation",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

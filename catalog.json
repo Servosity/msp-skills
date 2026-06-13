@@ -803,6 +803,25 @@
       "tagline": "Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking."
     },
     {
+      "name": "rewst",
+      "system": "Rewst RPA/workflow automation for MSPs: orchestrations, triggers, organizations and integration packs over a GraphQL API",
+      "status": "beta",
+      "skill_path": "skills/rewst",
+      "cli_binary": "rewst-cli",
+      "mcp_binary": "rewst-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.24.0",
+      "license": "Apache-2.0",
+      "vendor": "Rewst",
+      "vendor_trademark_owner": "Rewst, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rewst/install.sh)",
+      "install_mcp_doc": "skills/rewst/mcp-install.md",
+      "description": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
+      "verification": "awaiting",
+      "category": "Automation"
+    },
+    {
       "name": "rocketcyber",
       "system": "RocketCyber managed SOC: incidents, agents, detection events, Defender and Microsoft 365 posture, and suppression rules",
       "status": "beta",
