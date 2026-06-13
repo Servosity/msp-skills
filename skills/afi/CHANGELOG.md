@@ -4,6 +4,14 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.1] - unreleased
+
+### Changed
+- Regenerated the vendored `afi-cli` / `afi-mcp` source from cli-printing-press
+  4.24.0 and re-rendered the templated skill surfaces. No changes to command
+  names or flags; `fleet-sync`, the fleet-wide coverage/staleness reports, and
+  the offboard helper behave as before.
+
 ## [0.1.0]
 
 ### Added

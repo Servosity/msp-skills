@@ -198,7 +198,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  afi-cli orgs get mock-value --agent --select id,name,status
+  afi-cli orgs get <org-id> --agent --select id,name,status
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
@@ -246,11 +246,11 @@ Unknown schemes are refused with a structured error naming the supported set. We
 
 ## Named Profiles
 
-A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration - HeyGen's "Beacon" pattern.
+A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration.
 
 ```
 afi-cli profile save briefing --json
-afi-cli --profile briefing orgs get mock-value
+afi-cli --profile briefing orgs get <org-id>
 afi-cli profile list --json
 afi-cli profile show briefing
 afi-cli profile delete briefing --yes

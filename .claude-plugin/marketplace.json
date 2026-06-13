@@ -732,7 +732,7 @@
       "name": "afi",
       "source": "./skills/afi",
       "description": "The first CLI for Afi SaaS backup \u2014 full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "backup-dr",
       "tags": [
         "afi",

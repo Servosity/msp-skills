@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "afi-pp-mcp",
   "display_name": "Afi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The first CLI for Afi SaaS backup \u2014 full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
   "author": {
     "name": "Servosity Inc."

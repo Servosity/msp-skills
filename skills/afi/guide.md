@@ -284,19 +284,19 @@ Manage tenants
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-afi-cli orgs get mock-value
+afi-cli orgs get <org-id>
 
 # JSON for scripting and agents
-afi-cli orgs get mock-value --json
+afi-cli orgs get <org-id> --json
 
 # Filter to specific fields
-afi-cli orgs get mock-value --json --select id,name,status
+afi-cli orgs get <org-id> --json --select id,name,status
 
 # Dry run  -  show the request without sending
-afi-cli orgs get mock-value --dry-run
+afi-cli orgs get <org-id> --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-afi-cli orgs get mock-value --agent
+afi-cli orgs get <org-id> --agent
 ```
 
 ## Agent Usage
