@@ -1,0 +1,54 @@
+{
+  "manifest_version": "0.3",
+  "name": "veeam-mcp",
+  "display_name": "Veeam Service Provider Console",
+  "version": "0.1.0",
+  "description": "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/veeam-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/veeam-mcp",
+      "args": [],
+      "env": {
+        "VEEAM_BASE_URL": "${user_config.veeam_base_url}",
+        "VEEAM_TOKEN": "${user_config.veeam_token}"
+      }
+    }
+  },
+  "user_config": {
+    "veeam_base_url": {
+      "type": "string",
+      "title": "VEEAM_BASE_URL",
+      "description": "Your VSPC appliance REST API base URL, e.g. https://vspc.example.com:1280/api/v3. The console is appliance-hosted, so this is per-instance and required.",
+      "default": "https://your-vspc-host:1280/api/v3",
+      "required": true
+    },
+    "veeam_token": {
+      "type": "string",
+      "title": "VEEAM_TOKEN",
+      "description": "Bearer token for the VSPC REST API (POST /token with your portal credentials).",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.24.0",
+  "press_provenance": {
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T03:04:13.659999Z",
+    "spec_checksum": "sha256:dc6273037832162c7911ad359a5f344d4fbdaceb478287951779b666b892629c",
+    "spec_format": "openapi3"
+  }
+}

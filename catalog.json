@@ -1043,6 +1043,25 @@
       "tagline": "Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking."
     },
     {
+      "name": "veeam",
+      "system": "Veeam Service Provider Console (VSPC): multi-tenant backup monitoring, alarms, licensing and reseller management for MSPs",
+      "status": "beta",
+      "skill_path": "skills/veeam",
+      "cli_binary": "veeam-cli",
+      "mcp_binary": "veeam-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.24.0",
+      "license": "Apache-2.0",
+      "vendor": "Veeam",
+      "vendor_trademark_owner": "Veeam Software",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/veeam/install.sh)",
+      "install_mcp_doc": "skills/veeam/mcp-install.md",
+      "description": "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.",
+      "verification": "awaiting",
+      "category": "Backup/DR"
+    },
+    {
       "name": "xero",
       "system": "the Xero cloud accounting platform",
       "status": "beta",

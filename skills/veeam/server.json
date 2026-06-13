@@ -1,0 +1,46 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/veeam-mcp",
+  "title": "Veeam VSPC MCP",
+  "description": "Sync Veeam Service Provider Console tenants to local SQLite; cross-company backup answers offline.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/veeam/veeam-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/veeam"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/veeam-v0.1.0/veeam-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "VEEAM_BASE_URL",
+          "description": "Your VSPC appliance REST API base URL, e.g. https://vspc.example.com:1280/api/v3 (per-instance).",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "VEEAM_TOKEN",
+          "description": "Bearer token for the VSPC REST API (POST /token with your portal credentials).",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

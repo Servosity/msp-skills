@@ -161,6 +161,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - ThreatLocker (Security) - Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/threatlocker/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/install.sh)
+- Veeam (Backup/DR) - 
+  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/veeam/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/veeam/install.sh)
 - Xero (Billing) - Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal - offline, in one call.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/xero/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/xero/install.sh)
