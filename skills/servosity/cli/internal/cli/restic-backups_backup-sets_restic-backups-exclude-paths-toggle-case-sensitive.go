@@ -20,9 +20,10 @@ func newResticBackupsBackupSetsResticBackupsExcludePathsToggleCaseSensitiveCmd(f
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "restic-backups-exclude-paths-toggle-case-sensitive <id> <resticbackup_pk> <resticbackupset_pk>",
-		Aliases:     []string{"update"},
-		Short:       "Restic backups exclude paths toggle case sensitive",
+		Use:     "restic-backups-exclude-paths-toggle-case-sensitive <id> <resticbackup_pk> <resticbackupset_pk>",
+		Aliases: []string{"update"},
+		Short:   "Restic backups exclude paths toggle case sensitive",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli restic-backups backup-sets restic-backups-exclude-paths-toggle-case-sensitive 550e8400-e29b-41d4-a716-446655440000 example-value example-value --path example-value",
 		Annotations: map[string]string{"pp:endpoint": "backup-sets.restic-backups-exclude-paths-toggle-case-sensitive", "pp:method": "PUT", "pp:path": "/restic-backups/{resticbackup_pk}/backup-sets/{resticbackupset_pk}/exclude-paths/{id}/toggle-case-sensitive/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

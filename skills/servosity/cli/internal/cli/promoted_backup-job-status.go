@@ -51,7 +51,7 @@ func newBackupJobStatusPromotedCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("backup_id is required\nUsage: %s <%s>", cmd.CommandPath(), "backup_id"))
 			}
 			path = replacePathParam(path, "backup_id", args[0])
-			path = replacePathParam(path, "backup_date", fmt.Sprintf("%v", flagBackupDate))
+			path = replacePathParam(path, "backup_date", formatCLIParamValue(flagBackupDate))
 			params := map[string]string{}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "backup-job-status", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

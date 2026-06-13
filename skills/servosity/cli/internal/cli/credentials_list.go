@@ -30,9 +30,9 @@ func newCredentialsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/credentials/"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "credentials", path, map[string]string{
-				"company":   fmt.Sprintf("%v", flagCompany),
-				"page":      fmt.Sprintf("%v", flagPage),
-				"page_size": fmt.Sprintf("%v", flagPageSize),
+				"company":   formatCLIParamValue(flagCompany),
+				"page":      formatCLIParamValue(flagPage),
+				"page_size": formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "page", "page", "page_size", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

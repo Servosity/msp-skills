@@ -33,7 +33,7 @@ func newCompaniesResticBackupFailuresCompaniesCmd(flags *rootFlags) *cobra.Comma
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagMonth != "" {
-				params["month"] = fmt.Sprintf("%v", flagMonth)
+				params["month"] = formatCLIParamValue(flagMonth)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "restic-backup-failures", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

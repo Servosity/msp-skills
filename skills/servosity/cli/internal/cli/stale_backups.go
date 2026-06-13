@@ -76,7 +76,7 @@ type staleBackupEntry struct {
 }
 
 // pp:data-source auto
-func newStaleBackupsCmd(flags *rootFlags) *cobra.Command {
+func newNovelStaleBackupsCmd(flags *rootFlags) *cobra.Command {
 	var days int
 	var engine string
 	var company int
@@ -209,7 +209,7 @@ the local companies table to render company names.`,
 	cmd.Flags().StringVar(&engine, "engine", "all", "Backup engine filter: classic, restic, dr, all")
 	cmd.Flags().IntVar(&company, "company", 0, "Only include this company ID (0 = all)")
 	cmd.Flags().BoolVar(&refresh, "refresh", false, "Re-pull the live /reports/stale-backup-sets/ and replace the local cache")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/servosity-msp-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/servosity-cli/data.db)")
 
 	return cmd
 }

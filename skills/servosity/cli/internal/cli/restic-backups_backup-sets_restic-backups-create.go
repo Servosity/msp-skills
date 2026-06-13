@@ -27,9 +27,10 @@ func newResticBackupsBackupSetsResticBackupsCreateCmd(flags *rootFlags) *cobra.C
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "restic-backups-create <resticbackup_pk>",
-		Aliases:     []string{"create"},
-		Short:       "Restic backups create",
+		Use:     "restic-backups-create <resticbackup_pk>",
+		Aliases: []string{"create"},
+		Short:   "Restic backups create",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli restic-backups backup-sets restic-backups-create example-value --name example-resource",
 		Annotations: map[string]string{"pp:endpoint": "backup-sets.restic-backups-create", "pp:method": "POST", "pp:path": "/restic-backups/{resticbackup_pk}/backup-sets/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

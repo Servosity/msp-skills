@@ -57,12 +57,12 @@ type driftResult struct {
 	UnchangedCount int           `json:"unchanged_count"`
 }
 
-// newDriftCmd builds the trend-awareness command: it diffs two `attention`
+// newNovelDriftCmd builds the trend-awareness command: it diffs two `attention`
 // snapshots (or any other metric series) so you can see what got worse and
 // what recovered between two moments in time. Read-only on the local store;
 // the snapshots themselves are written by `attention`.
 // pp:data-source local
-func newDriftCmd(flags *rootFlags) *cobra.Command {
+func newNovelDriftCmd(flags *rootFlags) *cobra.Command {
 	var metric string
 	var fromAnchor string
 	var toAnchor string

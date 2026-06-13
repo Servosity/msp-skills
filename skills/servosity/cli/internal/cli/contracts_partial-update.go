@@ -21,8 +21,9 @@ func newContractsPartialUpdateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "partial-update <identifier>",
-		Short:       "Partial update",
+		Use:   "partial-update <identifier>",
+		Short: "Partial update",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli contracts partial-update example-value --body example-value",
 		Annotations: map[string]string{"pp:endpoint": "contracts.partial-update", "pp:method": "PATCH", "pp:path": "/contracts/{identifier}/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

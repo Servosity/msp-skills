@@ -34,7 +34,7 @@ type attentionResult struct {
 	Totals    map[string]int     `json:"totals"`
 }
 
-// newAttentionCmd builds the morning fleet-sweep command. It merges open
+// newNovelAttentionCmd builds the morning fleet-sweep command. It merges open
 // issues + stale backup sets into a
 // per-company ranked view, persists the result as a snapshot for `drift`,
 // and emits a JSON envelope on stdout.
@@ -44,7 +44,7 @@ type attentionResult struct {
 // Restore-queue weighting is deferred to v0.2 (per-company iteration is too
 // expensive without a synced table; see TODO below).
 // pp:data-source auto
-func newAttentionCmd(flags *rootFlags) *cobra.Command {
+func newNovelAttentionCmd(flags *rootFlags) *cobra.Command {
 	var refresh bool
 	var since string
 	var topN int

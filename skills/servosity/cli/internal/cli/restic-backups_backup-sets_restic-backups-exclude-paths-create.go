@@ -20,8 +20,9 @@ func newResticBackupsBackupSetsResticBackupsExcludePathsCreateCmd(flags *rootFla
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "restic-backups-exclude-paths-create <resticbackup_pk> <resticbackupset_pk>",
-		Short:       "Restic backups exclude paths create",
+		Use:   "restic-backups-exclude-paths-create <resticbackup_pk> <resticbackupset_pk>",
+		Short: "Restic backups exclude paths create",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli restic-backups backup-sets restic-backups-exclude-paths-create example-value example-value --path example-value",
 		Annotations: map[string]string{"pp:endpoint": "backup-sets.restic-backups-exclude-paths-create", "pp:method": "POST", "pp:path": "/restic-backups/{resticbackup_pk}/backup-sets/{resticbackupset_pk}/exclude-paths/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

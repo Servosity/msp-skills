@@ -29,10 +29,10 @@ func newReportsClientsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/reports/clients/"
 			params := map[string]string{}
 			if flagSendEmail != false {
-				params["send_email"] = fmt.Sprintf("%v", flagSendEmail)
+				params["send_email"] = formatCLIParamValue(flagSendEmail)
 			}
 			if flagResellerId != "" {
-				params["reseller_id"] = fmt.Sprintf("%v", flagResellerId)
+				params["reseller_id"] = formatCLIParamValue(flagResellerId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "reports", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

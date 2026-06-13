@@ -11,12 +11,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newTriageCmd builds the `triage` command: list open issues with filters,
+// newNovelTriageCmd builds the `triage` command: list open issues with filters,
 // then batch-mutate them (ignore / archive / reactivate / comment) in one
 // invocation. The web portal forces one-at-a-time; this command does many
 // in a single call with --dry-run and typed exit codes.
 // pp:data-source live
-func newTriageCmd(flags *rootFlags) *cobra.Command {
+func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 	var flagAudience string
 	var flagCompany int
 	var flagIgnore string

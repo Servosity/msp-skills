@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "servosity-mcp",
   "display_name": "Servosity",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
   "author": {
     "name": "Servosity Inc."
@@ -36,9 +36,9 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
+    "printing_press_version": "4.24.0",
     "generated_at": "2026-06-05T21:37:54.092054Z",
     "spec_checksum": "sha256:1df50f15751640a7c2ad51f806d78958ab95d3f2f370d92dfaa30c75cfb23505",
     "spec_format": "openapi3"

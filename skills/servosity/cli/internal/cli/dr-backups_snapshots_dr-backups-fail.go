@@ -54,9 +54,10 @@ func newDrBackupsSnapshotsDrBackupsFailCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "dr-backups-fail <id>",
-		Aliases:     []string{"update"},
-		Short:       "Dr backups fail",
+		Use:     "dr-backups-fail <id>",
+		Aliases: []string{"update"},
+		Short:   "Dr backups fail",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli dr-backups snapshots dr-backups-fail 550e8400-e29b-41d4-a716-446655440000 --snapshot-id 550e8400-e29b-41d4-a716-446655440000 --company example-value",
 		Annotations: map[string]string{"pp:endpoint": "snapshots.dr-backups-fail", "pp:method": "PUT", "pp:path": "/dr-backups/{id}/snapshots/fail/"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -98,7 +99,7 @@ func newDrBackupsSnapshotsDrBackupsFailCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagSnapshotId != "" {
-				params["snapshot_id"] = fmt.Sprintf("%v", flagSnapshotId)
+				params["snapshot_id"] = formatCLIParamValue(flagSnapshotId)
 			}
 			var body map[string]any
 			if stdinBody {

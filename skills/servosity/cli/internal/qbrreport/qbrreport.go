@@ -218,7 +218,7 @@ func LookupCompany(ctx context.Context, db *sql.DB, arg string) (Company, error)
 	}
 	switch len(matches) {
 	case 0:
-		return Company{}, fmt.Errorf("no company matched %q (run 'servosity-msp-pp-cli sync' if your store is empty)", arg)
+		return Company{}, fmt.Errorf("no company matched %q (run 'servosity-cli sync' if your store is empty)", arg)
 	case 1:
 		return matches[0], nil
 	default:
@@ -254,7 +254,7 @@ func loadCompany(ctx context.Context, db *sql.DB, id int64, r *Report) error {
 		fmt.Sprintf("%d", id),
 	).Scan(&idStr, &name)
 	if err == sql.ErrNoRows {
-		return fmt.Errorf("company id %d not found in local store (run 'servosity-msp-pp-cli sync')", id)
+		return fmt.Errorf("company id %d not found in local store (run 'servosity-cli sync')", id)
 	}
 	if err != nil {
 		return fmt.Errorf("load company: %w", err)

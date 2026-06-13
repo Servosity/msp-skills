@@ -28,7 +28,7 @@ func newReportsStaleBackupSetsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/reports/stale-backup-sets/"
 			params := map[string]string{}
 			if flagSendEmail != false {
-				params["send_email"] = fmt.Sprintf("%v", flagSendEmail)
+				params["send_email"] = formatCLIParamValue(flagSendEmail)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "reports", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

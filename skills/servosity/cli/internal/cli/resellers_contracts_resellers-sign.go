@@ -18,9 +18,10 @@ func newResellersContractsResellersSignCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "resellers-sign <id>",
-		Aliases:     []string{"update"},
-		Short:       "Resellers sign",
+		Use:     "resellers-sign <id>",
+		Aliases: []string{"update"},
+		Short:   "Resellers sign",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli resellers contracts resellers-sign 550e8400-e29b-41d4-a716-446655440000 --contract example-value",
 		Annotations: map[string]string{"pp:endpoint": "contracts.resellers-sign", "pp:method": "PUT", "pp:path": "/resellers/{id}/contracts/sign/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

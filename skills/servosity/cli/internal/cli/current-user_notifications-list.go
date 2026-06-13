@@ -28,7 +28,7 @@ func newCurrentUserNotificationsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/current-user/notifications/"
 			params := map[string]string{}
 			if flagIncludeDeleted != false {
-				params["include_deleted"] = fmt.Sprintf("%v", flagIncludeDeleted)
+				params["include_deleted"] = formatCLIParamValue(flagIncludeDeleted)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "current-user", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

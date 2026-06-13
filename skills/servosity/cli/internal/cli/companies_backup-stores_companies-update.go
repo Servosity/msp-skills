@@ -19,9 +19,10 @@ func newCompaniesBackupStoresCompaniesUpdateCmd(flags *rootFlags) *cobra.Command
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "companies-update <id>",
-		Aliases:     []string{"update"},
-		Short:       "Companies update",
+		Use:     "companies-update <id>",
+		Aliases: []string{"update"},
+		Short:   "Companies update",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli companies backup-stores companies-update 550e8400-e29b-41d4-a716-446655440000 --path example-value",
 		Annotations: map[string]string{"pp:endpoint": "backup-stores.companies-update", "pp:method": "PUT", "pp:path": "/companies/{id}/backup-stores/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -39,9 +39,9 @@ func newContractsGetByTokenCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/contracts/get-by-token/"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "contracts", path, map[string]string{
-				"page":      fmt.Sprintf("%v", flagPage),
-				"page_size": fmt.Sprintf("%v", flagPageSize),
-				"token":     fmt.Sprintf("%v", flagToken),
+				"page":      formatCLIParamValue(flagPage),
+				"page_size": formatCLIParamValue(flagPageSize),
+				"token":     formatCLIParamValue(flagToken),
 			}, nil, flagAll, "page", "page", "page_size", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

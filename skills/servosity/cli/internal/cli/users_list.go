@@ -29,10 +29,10 @@ func newUsersListCmd(flags *rootFlags) *cobra.Command {
 			path := "/users/"
 			params := map[string]string{}
 			if flagReseller != 0 {
-				params["reseller"] = fmt.Sprintf("%v", flagReseller)
+				params["reseller"] = formatCLIParamValue(flagReseller)
 			}
 			if flagCompany != 0 {
-				params["company"] = fmt.Sprintf("%v", flagCompany)
+				params["company"] = formatCLIParamValue(flagCompany)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "users", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

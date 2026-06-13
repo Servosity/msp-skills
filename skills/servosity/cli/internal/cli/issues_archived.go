@@ -34,13 +34,13 @@ func newIssuesArchivedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/issues/archived/"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "issues", path, map[string]string{
-				"audience":     fmt.Sprintf("%v", flagAudience),
-				"backup":       fmt.Sprintf("%v", flagBackup),
-				"drbackup":     fmt.Sprintf("%v", flagDrbackup),
-				"resticbackup": fmt.Sprintf("%v", flagResticbackup),
-				"company":      fmt.Sprintf("%v", flagCompany),
-				"reseller":     fmt.Sprintf("%v", flagReseller),
-				"cursor":       fmt.Sprintf("%v", flagCursor),
+				"audience":     formatCLIParamValue(flagAudience),
+				"backup":       formatCLIParamValue(flagBackup),
+				"drbackup":     formatCLIParamValue(flagDrbackup),
+				"resticbackup": formatCLIParamValue(flagResticbackup),
+				"company":      formatCLIParamValue(flagCompany),
+				"reseller":     formatCLIParamValue(flagReseller),
+				"cursor":       formatCLIParamValue(flagCursor),
 			}, nil, flagAll, "cursor", "cursor", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

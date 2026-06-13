@@ -46,7 +46,7 @@ func newDrBackupsRebootEventsDrBackupsCancelCmd(flags *rootFlags) *cobra.Command
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagRebootEventId != "" {
-				params["reboot_event_id"] = fmt.Sprintf("%v", flagRebootEventId)
+				params["reboot_event_id"] = formatCLIParamValue(flagRebootEventId)
 			}
 			var body map[string]any
 			if stdinBody {

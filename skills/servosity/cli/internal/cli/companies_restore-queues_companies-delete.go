@@ -14,9 +14,10 @@ import (
 func newCompaniesRestoreQueuesCompaniesDeleteCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "companies-delete <company_pk> <id>",
-		Aliases:     []string{"delete"},
-		Short:       "Companies delete",
+		Use:     "companies-delete <company_pk> <id>",
+		Aliases: []string{"delete"},
+		Short:   "Companies delete",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli companies restore-queues companies-delete example-value 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "restore-queues.companies-delete", "pp:method": "DELETE", "pp:path": "/companies/{company_pk}/restore-queues/{id}/"},
 		RunE: func(cmd *cobra.Command, args []string) error {
