@@ -363,6 +363,13 @@
     "current_hash": "sha256:1b845c41fae829b14d8195d9eb1a16613bd2cdf779a6b3d63eb638aba8305fa5",
     "released_hash": "sha256:1b845c41fae829b14d8195d9eb1a16613bd2cdf779a6b3d63eb638aba8305fa5"
   },
+  "veeam": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:bb384b1bf3114c81687737462d69eb496e3a72f27ad51c4d7855248d7f4a3267",
+    "released_hash": null
+  },
   "xero": {
     "state": "version-pending",
     "version": "0.1.1",
