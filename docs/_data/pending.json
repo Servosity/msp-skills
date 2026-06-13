@@ -76,6 +76,13 @@
     "current_hash": "sha256:5308f96f3678055c37d17cf112bae373f4394a204258300e85b0b5501433e249",
     "released_hash": "sha256:5308f96f3678055c37d17cf112bae373f4394a204258300e85b0b5501433e249"
   },
+  "connectwise-automate": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:82c50b5f6439e25b563323766c7797e0e01c1c6beb2f5c37cc77b32f4cd6df4f",
+    "released_hash": null
+  },
   "connectwise-manage": {
     "state": "up-to-date",
     "version": "0.1.1",
