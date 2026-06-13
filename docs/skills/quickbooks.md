@@ -5,7 +5,7 @@ description: "Every QuickBooks Online Accounting entity, plus an offline SQLite 
 permalink: /skills/quickbooks/
 skill_name: "QuickBooks Online MCP"
 image: /assets/social/quickbooks/wide-1200x630.png
-verification: awaiting
+verification: live-verified
 faqs:
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local QuickBooks Online MCP server via a secure bridge. Step-by-step in the install guide."
@@ -33,7 +33,7 @@ howto:
 > Unofficial. Community-built Claude Code Skill and MCP server for the QuickBooks Online
 > API. Not affiliated with, endorsed by, or sponsored by Intuit Inc..
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Live-verified** - confirmed by a real MSP against a live QuickBooks Online tenant (2026-06-12).
 
 Ask your books a question and get the answer, not a CSV export. The skill syncs your QuickBooks Online company into a local SQLite mirror, then answers who owes you (ar-aging), what you owe (ap-aging), where the cash is (balances), which invoices to chase first (invoices stale), and whether the books are clean to close (reconcile) - instantly, offline, across the whole book. No portal clicking, no per-question API call.
 

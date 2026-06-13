@@ -1,0 +1,29 @@
+{
+  "slug": "quickbooks",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. status: active = connector-only, a reprint would clobber it; upstreamed = also fixed in the press but the back-port must still be present today.",
+  "handfixes": [
+    {
+      "id": "qbo-query-injection",
+      "summary": "sync injects `select * from <Entity>` (+ minorversion) for the /query endpoint; QBO has no plain REST list path",
+      "why": "Every QuickBooks Online entity is read through /query, which REQUIRES a SQL-like `query` parameter. The generated sync path sent a bare /query with no query text, and QBO answers HTTP 200 with a `{\"Fault\":...SystemFailureError}` envelope (not a 4xx). The generic extractor finds no array, so upsertSingleObject gets the Fault envelope, extractObjectID returns \"\", and every resource fails with `missing id for <resource>` (0 rows). This silently zeroed the offline mirror, so ar-aging / ap-aging / dso / balances / reconcile all returned zeros while live --data-source reads worked. Fix injects a per-entity `select * from <Entity> maxresults 1000` and `minorversion=75` when path==\"/query\", mapping each sync resource to its PascalCase QBO entity. Verified live against a QBO sandbox tenant 2026-06-12: 227 records across 8 resources, ar-aging buckets and balances populated. Caps at 1000 rows/entity (no STARTPOSITION paging) - sufficient for small books; large production books need press-side paging.",
+      "status": "active",
+      "spec_encode_followup": "Best durable home is a press change: teach cli-printing-press to inject the entity SQL + minorversion for QBO-shaped /query endpoints (via a sync-hint / x-pp-query spec extension) and to emit STARTPOSITION/MAXRESULTS paging, so a reprint regenerates this by construction. File via /printing-press-retro.",
+      "asserts": [
+        {"file": "cli/internal/cli/sync.go", "contains": "quickbooksEntity", "min_count": 2},
+        {"file": "cli/internal/cli/sync.go", "contains": "select * from %s maxresults 1000", "min_count": 1},
+        {"file": "cli/internal/cli/sync.go", "contains": "\"JournalEntry\"", "min_count": 1}
+      ]
+    },
+    {
+      "id": "qbo-queryresponse-envelope",
+      "summary": "page-item extraction unwraps QBO's two-level `{\"QueryResponse\":{\"<Entity>\":[...]}}` envelope",
+      "why": "QBO /query nests the result array one level deeper than the generic extractor handles: `QueryResponse` (object) then the PascalCase entity key (array). Without `QueryResponse` in dataEnvelopeKeys, extractPageItems cannot reach the entity array, returns 0 items, and sync falls through to single-object upsert of the whole envelope. Adding it lets the existing two-level unwrap + single-array-sibling logic pull the entity array correctly. Paired with qbo-query-injection; both are required for sync to store any rows.",
+      "status": "active",
+      "spec_encode_followup": "Same press change as qbo-query-injection: a QBO response-envelope hint so the generated extractor unwraps QueryResponse.<Entity> by construction.",
+      "asserts": [
+        {"file": "cli/internal/cli/sync.go", "contains": "\"QueryResponse\"", "min_count": 1}
+      ]
+    }
+  ]
+}

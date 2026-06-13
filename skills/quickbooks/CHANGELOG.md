@@ -4,6 +4,24 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.1] - unreleased
+
+### Fixed
+- `sync` now stores rows. It was sending a bare `/query` with no SQL, which
+  QuickBooks Online answers with an HTTP 200 `SystemFault` envelope, so every
+  resource failed with `missing id for <resource>` and the offline mirror stayed
+  empty (`ar-aging`, `ap-aging`, `dso`, `balances`, `reconcile` all returned
+  zeros). `sync` now injects `select * from <Entity>` plus `minorversion` per
+  resource and unwraps QuickBooks' `QueryResponse.<Entity>` envelope. Verified
+  live against a sandbox tenant: 227 records across 8 resources. Recorded as
+  hand-fixes `qbo-query-injection` and `qbo-queryresponse-envelope` so a
+  cli-printing-press reprint cannot silently revert it.
+
+### Note
+- This release caps `sync` at 1000 rows per entity (no STARTPOSITION paging).
+  Large production books need press-side pagination; tracked in the hand-fix
+  ledger's `spec_encode_followup`.
+
 ## [0.1.0]
 
 ### Added
