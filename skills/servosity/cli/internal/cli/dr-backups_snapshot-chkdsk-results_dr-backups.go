@@ -42,7 +42,7 @@ func newDrBackupsSnapshotChkdskResultsDrBackupsCmd(flags *rootFlags) *cobra.Comm
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagSnapshotId != "" {
-				params["snapshot_id"] = fmt.Sprintf("%v", flagSnapshotId)
+				params["snapshot_id"] = formatCLIParamValue(flagSnapshotId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "snapshot-chkdsk-results", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

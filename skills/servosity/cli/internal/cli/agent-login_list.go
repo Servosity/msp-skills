@@ -29,10 +29,10 @@ func newAgentLoginListCmd(flags *rootFlags) *cobra.Command {
 			path := "/agent-login/"
 			params := map[string]string{}
 			if flagToken != "" {
-				params["token"] = fmt.Sprintf("%v", flagToken)
+				params["token"] = formatCLIParamValue(flagToken)
 			}
 			if flagAgentSessionId != "" {
-				params["agent_session_id"] = fmt.Sprintf("%v", flagAgentSessionId)
+				params["agent_session_id"] = formatCLIParamValue(flagAgentSessionId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "agent-login", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

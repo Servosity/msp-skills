@@ -14,8 +14,9 @@ import (
 func newResticBackupsBackupSetsResticBackupsReadCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "restic-backups-read <id> <resticbackup_pk>",
-		Short:       "Restic backups read",
+		Use:   "restic-backups-read <id> <resticbackup_pk>",
+		Short: "Restic backups read",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli restic-backups backup-sets restic-backups-read 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "backup-sets.restic-backups-read", "pp:method": "GET", "pp:path": "/restic-backups/{resticbackup_pk}/backup-sets/{id}/", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

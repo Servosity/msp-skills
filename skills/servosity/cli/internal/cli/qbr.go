@@ -15,7 +15,7 @@ import (
 	"servosity-msp-pp-cli/internal/store"
 )
 
-// newQBRCmd builds the QBR (Quarterly Business Review) generator. It
+// newNovelQbrCmd builds the QBR (Quarterly Business Review) generator. It
 // assembles a single client's backup-section deck and renders it as
 // Markdown, HTML, or PDF (via headless Chrome). The command is read-only
 // against the local SQLite sync store; pass --json for the machine
@@ -24,7 +24,7 @@ import (
 // Verify-friendly RunE: validation of <company> happens inside RunE
 // (not via cobra.Args) so --dry-run can short-circuit before any IO.
 // pp:data-source local
-func newQBRCmd(flags *rootFlags) *cobra.Command {
+func newNovelQbrCmd(flags *rootFlags) *cobra.Command {
 	var quarter string
 	var format string
 	var outPath string
@@ -154,7 +154,7 @@ Reads from the local sync store. Run 'servosity-cli sync' first.`,
 	cmd.Flags().StringVar(&quarter, "quarter", "", "Quarter window as YYYY-QN (default: current quarter)")
 	cmd.Flags().StringVar(&format, "format", "pdf", "Output format: md, html, or pdf (pdf needs local Chrome; falls back to md)")
 	cmd.Flags().StringVar(&outPath, "out", "", "Output file path (required for html/pdf; optional for md)")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/servosity-msp-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/servosity-cli/data.db)")
 
 	return cmd
 }

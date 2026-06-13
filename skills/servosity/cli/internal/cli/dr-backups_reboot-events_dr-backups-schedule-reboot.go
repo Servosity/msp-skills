@@ -19,8 +19,9 @@ func newDrBackupsRebootEventsDrBackupsScheduleRebootCmd(flags *rootFlags) *cobra
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "dr-backups-schedule-reboot <id>",
-		Short:       "Dr backups schedule reboot",
+		Use:   "dr-backups-schedule-reboot <id>",
+		Short: "Dr backups schedule reboot",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli dr-backups reboot-events dr-backups-schedule-reboot 550e8400-e29b-41d4-a716-446655440000 --reason example-value",
 		Annotations: map[string]string{"pp:endpoint": "reboot-events.dr-backups-schedule-reboot", "pp:method": "PUT", "pp:path": "/dr-backups/{id}/reboot-events/schedule/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

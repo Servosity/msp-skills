@@ -30,7 +30,7 @@ type backupFact struct {
 }
 
 // pp:data-source local
-func newBackupFactsCmd(flags *rootFlags) *cobra.Command {
+func newNovelBackupFactsCmd(flags *rootFlags) *cobra.Command {
 	var companyID int
 	var engine string
 	var status string

@@ -40,7 +40,7 @@ type storageTrendResult struct {
 	Note              string               `json:"note,omitempty"`
 }
 
-// newStorageTrendCmd builds the storage-trend command: forecast when a client
+// newNovelStorageTrendCmd builds the storage-trend command: forecast when a client
 // will need more backup storage. Reads the time series of per-backup size_bytes
 // captured by `sync`, computes a linear regression on the last N weeks, and
 // projects forward to a capacity threshold.
@@ -49,7 +49,7 @@ type storageTrendResult struct {
 // first run (or with <2 snapshots) we emit the CURRENT total and recommend
 // running periodically with --snapshot to build the trend line.
 // pp:data-source local
-func newStorageTrendCmd(flags *rootFlags) *cobra.Command {
+func newNovelStorageTrendCmd(flags *rootFlags) *cobra.Command {
 	var weeks int
 	var thresholdStr string
 	var engine string

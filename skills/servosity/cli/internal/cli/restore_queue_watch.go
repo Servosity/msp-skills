@@ -19,11 +19,11 @@ import (
 	"servosity-msp-pp-cli/internal/store"
 )
 
-// newRestoreQueueCmd is the parent for the `restore-queue` command group.
+// newNovelRestoreQueueCmd is the parent for the `restore-queue` command group.
 // v1 only ships the `watch` subcommand but the parent is shaped so future
 // subcommands (e.g., `summary`, `pause`) can be added without touching root.
 // pp:data-source live
-func newRestoreQueueCmd(flags *rootFlags) *cobra.Command {
+func newNovelRestoreQueueCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "restore-queue",
 		Short:       "Watch and manage live restore queues across companies",

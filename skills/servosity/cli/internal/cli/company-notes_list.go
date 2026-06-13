@@ -29,8 +29,8 @@ func newCompanyNotesListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/company-notes/"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "company-notes", path, map[string]string{
-				"page":      fmt.Sprintf("%v", flagPage),
-				"page_size": fmt.Sprintf("%v", flagPageSize),
+				"page":      formatCLIParamValue(flagPage),
+				"page_size": formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "page", "page", "page_size", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

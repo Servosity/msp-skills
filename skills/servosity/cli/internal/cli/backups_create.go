@@ -26,8 +26,9 @@ func newBackupsCreateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a backup account.",
+		Use:   "create",
+		Short: "Create a backup account.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli backups create --login example-value",
 		Annotations: map[string]string{"pp:endpoint": "backups.create", "pp:method": "POST", "pp:path": "/backups/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

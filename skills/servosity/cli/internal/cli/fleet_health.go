@@ -164,6 +164,6 @@ Reads from the local sync store. Run 'servosity-cli sync' and
 		},
 	}
 	cmd.Flags().IntVar(&staleDays, "stale-days", 7, "Days without success before a backup counts as stale")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/servosity-msp-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/servosity-cli/data.db)")
 	return cmd
 }

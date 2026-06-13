@@ -16,9 +16,10 @@ func newCompaniesRestoreQueuesCompaniesJobsOrderFirstCmd(flags *rootFlags) *cobr
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "companies-jobs-order-first <company_pk> <id> <resticrestorequeue_pk>",
-		Aliases:     []string{"update"},
-		Short:       "Companies jobs order first",
+		Use:     "companies-jobs-order-first <company_pk> <id> <resticrestorequeue_pk>",
+		Aliases: []string{"update"},
+		Short:   "Companies jobs order first",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli companies restore-queues companies-jobs-order-first example-value 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "restore-queues.companies-jobs-order-first", "pp:method": "PUT", "pp:path": "/companies/{company_pk}/restore-queues/{resticrestorequeue_pk}/jobs/{id}/order-first/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

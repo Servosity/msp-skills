@@ -33,12 +33,12 @@ func newCompaniesSummaryCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/companies/summary/"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "companies", path, map[string]string{
-				"reseller": fmt.Sprintf("%v", flagReseller),
-				"reseller__dedicated_support_staff__username": fmt.Sprintf("%v", flagResellerDedicatedSupportStaffUsername),
-				"support_tier": fmt.Sprintf("%v", flagSupportTier),
-				"search":       fmt.Sprintf("%v", flagSearch),
-				"page":         fmt.Sprintf("%v", flagPage),
-				"page_size":    fmt.Sprintf("%v", flagPageSize),
+				"reseller": formatCLIParamValue(flagReseller),
+				"reseller__dedicated_support_staff__username": formatCLIParamValue(flagResellerDedicatedSupportStaffUsername),
+				"support_tier": formatCLIParamValue(flagSupportTier),
+				"search":       formatCLIParamValue(flagSearch),
+				"page":         formatCLIParamValue(flagPage),
+				"page_size":    formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "page", "page", "page_size", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

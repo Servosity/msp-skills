@@ -179,6 +179,6 @@ Reads the same pp_last_success freshness data as 'stale-backups'. Run
 	cmd.Flags().BoolVar(&stale, "stale", true, "Draft for stale-backup clients (the only mode in v1)")
 	cmd.Flags().IntVar(&days, "days", 7, "Minimum days stale to include a system")
 	cmd.Flags().StringVar(&engine, "engine", "all", "Filter by engine: classic, restic, dr, all")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/servosity-msp-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/servosity-cli/data.db)")
 	return cmd
 }

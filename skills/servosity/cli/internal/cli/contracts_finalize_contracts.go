@@ -16,9 +16,10 @@ func newContractsFinalizeContractsCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "contracts <identifier>",
-		Aliases:     []string{"create"},
-		Short:       "Contracts",
+		Use:     "contracts <identifier>",
+		Aliases: []string{"create"},
+		Short:   "Contracts",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli contracts finalize contracts example-value",
 		Annotations: map[string]string{"pp:endpoint": "finalize.contracts", "pp:method": "POST", "pp:path": "/contracts/{identifier}/finalize/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

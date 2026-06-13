@@ -34,13 +34,13 @@ func newBackupsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/backups/"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "backups", path, map[string]string{
-				"company":           fmt.Sprintf("%v", flagCompany),
-				"company__reseller": fmt.Sprintf("%v", flagCompanyReseller),
-				"search":            fmt.Sprintf("%v", flagSearch),
-				"ordering":          fmt.Sprintf("%v", flagOrdering),
-				"page":              fmt.Sprintf("%v", flagPage),
-				"page_size":         fmt.Sprintf("%v", flagPageSize),
-				"include_reseller":  fmt.Sprintf("%v", flagIncludeReseller),
+				"company":           formatCLIParamValue(flagCompany),
+				"company__reseller": formatCLIParamValue(flagCompanyReseller),
+				"search":            formatCLIParamValue(flagSearch),
+				"ordering":          formatCLIParamValue(flagOrdering),
+				"page":              formatCLIParamValue(flagPage),
+				"page_size":         formatCLIParamValue(flagPageSize),
+				"include_reseller":  formatCLIParamValue(flagIncludeReseller),
 			}, nil, flagAll, "page", "page", "page_size", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

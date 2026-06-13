@@ -14,9 +14,10 @@ import (
 func newCompaniesC2cCompaniesDeleteCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "companies-delete <backup_type> <id>",
-		Aliases:     []string{"delete"},
-		Short:       "Companies delete",
+		Use:     "companies-delete <backup_type> <id>",
+		Aliases: []string{"delete"},
+		Short:   "Companies delete",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli companies c2c companies-delete example-value 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "c2c.companies-delete", "pp:method": "DELETE", "pp:path": "/companies/{id}/c2c/{backup_type}/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

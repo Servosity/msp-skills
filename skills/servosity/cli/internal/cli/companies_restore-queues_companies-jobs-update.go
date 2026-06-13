@@ -39,8 +39,9 @@ func newCompaniesRestoreQueuesCompaniesJobsUpdateCmd(flags *rootFlags) *cobra.Co
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "companies-jobs-update <company_pk> <id> <resticrestorequeue_pk>",
-		Short:       "Companies jobs update",
+		Use:   "companies-jobs-update <company_pk> <id> <resticrestorequeue_pk>",
+		Short: "Companies jobs update",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli companies restore-queues companies-jobs-update example-value 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "restore-queues.companies-jobs-update", "pp:method": "PUT", "pp:path": "/companies/{company_pk}/restore-queues/{resticrestorequeue_pk}/jobs/{id}/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -27,8 +27,9 @@ func newResticBackupsBackupSetsResticBackupsUpdateCmd(flags *rootFlags) *cobra.C
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "restic-backups-update <id> <resticbackup_pk>",
-		Short:       "Restic backups update",
+		Use:   "restic-backups-update <id> <resticbackup_pk>",
+		Short: "Restic backups update",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli restic-backups backup-sets restic-backups-update 550e8400-e29b-41d4-a716-446655440000 example-value --name example-resource",
 		Annotations: map[string]string{"pp:endpoint": "backup-sets.restic-backups-update", "pp:method": "PUT", "pp:path": "/restic-backups/{resticbackup_pk}/backup-sets/{id}/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

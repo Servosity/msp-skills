@@ -195,6 +195,6 @@ Reads from the local sync store. Run 'servosity-cli sync' first.`,
 	cmd.Flags().StringVar(&quarter, "quarter", "", "Quarter like 2026-Q1 (default: current quarter)")
 	cmd.Flags().StringVar(&outDir, "out", "./qbrs", "Output directory (one file per company)")
 	cmd.Flags().StringVar(&format, "format", "md", "Report format: md, html, or pdf (pdf needs local Chrome)")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/servosity-msp-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/servosity-cli/data.db)")
 	return cmd
 }

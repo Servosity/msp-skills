@@ -18,9 +18,10 @@ func newResticBackupsStartRestoreResticBackupsCmd(flags *rootFlags) *cobra.Comma
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "restic-backups <id>",
-		Aliases:     []string{"create"},
-		Short:       "Restic backups",
+		Use:     "restic-backups <id>",
+		Aliases: []string{"create"},
+		Short:   "Restic backups",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli restic-backups start-restore restic-backups 550e8400-e29b-41d4-a716-446655440000 --restore-target example-value",
 		Annotations: map[string]string{"pp:endpoint": "start-restore.restic-backups", "pp:method": "POST", "pp:path": "/restic-backups/{id}/start-restore/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

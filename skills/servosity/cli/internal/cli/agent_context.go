@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "servosity-cli",
-			Description: "The first MSP-fleet CLI for backup.",
+			Description: "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't — across your whole book of clients.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

@@ -17,9 +17,10 @@ func newBackupsPasswordBackupsChangeCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "backups-change <id>",
-		Aliases:     []string{"update"},
-		Short:       "Backups change",
+		Use:     "backups-change <id>",
+		Aliases: []string{"update"},
+		Short:   "Backups change",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli backups password backups-change 550e8400-e29b-41d4-a716-446655440000 --password example-value",
 		Annotations: map[string]string{"pp:endpoint": "password.backups-change", "pp:method": "PUT", "pp:path": "/backups/{id}/password/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

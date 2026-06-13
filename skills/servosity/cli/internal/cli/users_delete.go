@@ -33,10 +33,10 @@ func newUsersDeleteCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "user_id", args[0])
 			params := map[string]string{}
 			if flagReseller != 0 {
-				params["reseller"] = fmt.Sprintf("%v", flagReseller)
+				params["reseller"] = formatCLIParamValue(flagReseller)
 			}
 			if flagCompany != 0 {
-				params["company"] = fmt.Sprintf("%v", flagCompany)
+				params["company"] = formatCLIParamValue(flagCompany)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

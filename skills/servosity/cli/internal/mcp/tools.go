@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +23,15 @@ import (
 	"servosity-msp-pp-cli/internal/config"
 	"servosity-msp-pp-cli/internal/mcp/cobratree"
 	"servosity-msp-pp-cli/internal/store"
+)
+
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
 )
 
 // RegisterTools registers all API operations as MCP tools.
@@ -43,7 +54,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -71,8 +82,36 @@ type mcpParamBinding struct {
 	WireName   string
 	Location   string
 	BodyPath   []string
+	Default    string
 }
 
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
 func setNestedBodyArg(body map[string]any, path []string, value any) {
 	if len(path) == 0 {
 		return
@@ -131,13 +170,17 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			knownArgs[binding.PublicName] = true
 			v, ok := args[binding.PublicName]
 			if !ok {
-				continue
+				if binding.Default != "" {
+					v = binding.Default
+				} else {
+					continue
+				}
 			}
 			switch binding.Location {
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				if len(binding.BodyPath) > 0 {
 					setNestedBodyArg(bodyArgs, binding.BodyPath, v)
@@ -145,7 +188,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 					bodyArgs[binding.WireName] = v
 				}
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -155,7 +198,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -167,7 +210,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "POST", "PUT", "PATCH":
 				bodyArgs[k] = v
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -223,18 +266,18 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key: export SERVOSITY_MSP_TOKEN=<your-key>" +
-					"\n      Run 'servosity-msp-pp-cli doctor' to check auth status."), nil
+					"\n      Set your API key with: export SERVOSITY_MSP_TOKEN=\"your-token-here\"" +
+					"\n      Run 'servosity-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your API key." +
-					"\n      Set it with: export SERVOSITY_MSP_TOKEN=<your-key>" +
-					"\n      Run 'servosity-msp-pp-cli doctor' to check auth status."), nil
+					"\n      Set your API key with: export SERVOSITY_MSP_TOKEN=\"your-token-here\"" +
+					"\n      Run 'servosity-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: your credentials are valid but lack access to this resource." +
-					"\n      Set it with: export SERVOSITY_MSP_TOKEN=<your-key>" +
-					"\n      Run 'servosity-msp-pp-cli doctor' to check auth status."), nil
+					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
+					"\n      Set your API key with: export SERVOSITY_MSP_TOKEN=\"your-token-here\"" +
+					"\n      Run 'servosity-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
 				if method == "DELETE" {
 					return mcplib.NewToolResultText("already deleted (no-op)"), nil
@@ -247,21 +290,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -270,18 +298,139 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
 	home, _ := os.UserHomeDir()
-	cfgPath := filepath.Join(home, ".config", "servosity-msp-pp-cli", "config.toml")
+	cfgPath := filepath.Join(home, ".config", "servosity-cli", "config.toml")
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -293,7 +442,7 @@ func newMCPClient() (*client.Client, error) {
 
 func dbPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".local", "share", "servosity-msp-pp-cli", "data.db")
+	return filepath.Join(home, ".local", "share", "servosity-cli", "data.db")
 }
 
 // Note: MCP tools use their own dbPath() because they are in a separate package (main, not cli).
@@ -330,22 +479,27 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -377,6 +531,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -444,11 +689,11 @@ func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
 func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	ctx := map[string]any{
 		"api":         "servosity-msp",
-		"description": "The first MSP-fleet CLI for backup.",
+		"description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't — across your whole book of clients.",
 		"archetype":   "project-management",
 		"tool_count":  293,
 		// tool_surface tells agents which surface a capability lives on.
-		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion servosity-msp-pp-cli binary.",
+		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion servosity-cli binary.",
 		"auth": map[string]any{
 			"type": "api_key",
 			"env_vars": []map[string]any{
@@ -647,18 +892,18 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "Morning fleet sweep", "command": "attention", "description": "One screen across your whole book of clients.", "rationale": "Requires three API rollups + local join + ranking + snapshot persistence.", "via": "mcp-command-mirror"},
-			{"name": "Client QBR report", "command": "qbr", "description": "Generate the backup section of a client's Quarterly Business Review as Markdown, HTML, or PDF.", "rationale": "Every MSP hand-builds these every quarter.", "via": "mcp-command-mirror"},
-			{"name": "Drift since yesterday", "command": "drift", "description": "Diff two snapshots the CLI collected — show which companies got worse, which recovered", "rationale": "Trivially impossible without a local time-keyed snapshot store.", "via": "mcp-command-mirror"},
-			{"name": "Stale-backup follow-up list", "command": "stale-backups", "description": "Slice the stale-backup-sets report by company, age window, and backup engine — entirely offline once cached.", "rationale": "Friday's 'who needs a follow-up?' sweep. Local snapshot means you can filter without burning an API call per slice.", "via": "mcp-command-mirror"},
-			{"name": "Batch issue triage", "command": "triage", "description": "List open issues with filters, then batch-mutate them (ignore / archive / reactivate / comment)", "rationale": "The Servosity web portal forces one-at-a-time issue actions. This compresses 20 clicks into one shell command.", "via": "mcp-command-mirror"},
-			{"name": "Restore-queue watch", "command": "restore-queue watch", "description": "Watch every active company's restore queue across the book during a DR event.", "rationale": "Web portal forces tab-switching during DR. CLI pins one terminal on every queue at once.", "via": "mcp-command-mirror"},
-			{"name": "Cross-engine backup-facts", "command": "backup-facts", "description": "Unified view across Servosity's three backup engines (classic, restic, DR) for one company or all.", "rationale": "Three API calls become one local query.", "via": "mcp-command-mirror"},
-			{"name": "Bill reconciliation", "command": "bill --reconcile", "description": "Pull the MSP's monthly Servosity bill and compare line-by-line against a CSV of what the MSP is invoicing their clients.", "rationale": "MSP billing reconciliation is the most error-prone manual task per industry research.", "via": "mcp-command-mirror"},
-			{"name": "Unprovisioned agents", "command": "unprovisioned", "description": "List agents installed on client machines but not yet pulling backups, ranked by client.", "rationale": "Joins the reseller's unprovisioned-agents endpoint with the local companies table to give per-client visibility.", "via": "mcp-command-mirror"},
-			{"name": "Storage trend forecast", "command": "storage-trend", "description": "Linear-regression forecast of when a specific client will hit a capacity threshold.", "rationale": "Capacity-needs forecasting requires a time series.", "via": "mcp-command-mirror"},
-			{"name": "Stale follow-up email drafts", "command": "email-draft", "description": "Generate ready-to-paste follow-up email bodies for every client with a stale backup", "rationale": "Template-fills from the synced stale slice + companies tables — mechanical, offline, no portal copy-paste.", "via": "mcp-command-mirror"},
-			{"name": "Fleet health scorecard", "command": "fleet-health", "description": "One fleet-wide scorecard: 24h job success rate, companies with stale backups, open issues, in-flight restores", "rationale": "Scalar rollup across four synced tables plus snapshot deltas — no single API call or portal screen returns it.", "via": "mcp-command-mirror"},
+			{"name": "Morning fleet sweep", "command": "attention", "description": "One screen across your whole book of clients. Merges open issues, stale backups into a per-company ranked view, then persists the result so tomorrow's drift command can compare.", "rationale": "Requires three API rollups + local join + ranking + snapshot persistence. No backup vendor's portal shows a single-screen fleet view ranked by attention need.", "via": "mcp-command-mirror"},
+			{"name": "Client QBR report", "command": "qbr", "description": "Generate the backup section of a client's Quarterly Business Review as Markdown, HTML, or PDF. Job success rate, restore tests run this quarter, coverage map across all three engines, open issues, storage trend.", "rationale": "Every MSP hand-builds these every quarter. We assemble from local store + multiple report endpoints + snapshot history into one executive-grade artifact.", "via": "mcp-command-mirror"},
+			{"name": "Drift since yesterday", "command": "drift", "description": "Diff two snapshots the CLI collected — show which companies got worse, which recovered, and which are new since a past anchor. Default compares yesterday-to-now on the attention metric.", "rationale": "Trivially impossible without a local time-keyed snapshot store. Every backup portal shows current state; none answers 'what changed since Friday?'", "via": "mcp-command-mirror"},
+			{"name": "Stale-backup follow-up list", "command": "stale-backups", "description": "Slice the stale-backup-sets report by company, age window, and backup engine — entirely offline once cached. Use --refresh to repull from the API.", "rationale": "Friday's 'who needs a follow-up?' sweep. Local snapshot means you can filter without burning an API call per slice.", "via": "mcp-command-mirror"},
+			{"name": "Batch issue triage", "command": "triage", "description": "List open issues with filters, then batch-mutate them (ignore / archive / reactivate / comment) in one invocation with --dry-run support and typed exit codes.", "rationale": "The Servosity web portal forces one-at-a-time issue actions. This compresses 20 clicks into one shell command.", "via": "mcp-command-mirror"},
+			{"name": "Restore-queue watch", "command": "restore-queue watch", "description": "Watch every active company's restore queue across the book during a DR event. Polls each company periodically and prints diffs since the last tick.", "rationale": "Web portal forces tab-switching during DR. CLI pins one terminal on every queue at once.", "via": "mcp-command-mirror"},
+			{"name": "Cross-engine backup-facts", "command": "backup-facts", "description": "Unified view across Servosity's three backup engines (classic, restic, DR) for one company or all. Engine, ID, hostname, last_successful_at, state, and freshness-derived health — joined from three local store tables into one table.", "rationale": "Three API calls become one local query. Cross-engine ranking and filtering is impossible without union-joining the engine tables.", "via": "mcp-command-mirror"},
+			{"name": "Bill reconciliation", "command": "bill --reconcile", "description": "Pull the MSP's monthly Servosity bill and compare line-by-line against a CSV of what the MSP is invoicing their clients. Surfaces drift — clients under- or over-charged.", "rationale": "MSP billing reconciliation is the most error-prone manual task per industry research. We do it with integer cents and stable sort.", "via": "mcp-command-mirror"},
+			{"name": "Unprovisioned agents", "command": "unprovisioned", "description": "List agents installed on client machines but not yet pulling backups, ranked by client. Surfaces lost revenue from incomplete onboardings.", "rationale": "Joins the reseller's unprovisioned-agents endpoint with the local companies table to give per-client visibility. Useful onboarding QA loop.", "via": "mcp-command-mirror"},
+			{"name": "Storage trend forecast", "command": "storage-trend", "description": "Linear-regression forecast of when a specific client will hit a capacity threshold. Reads the historical storage_bytes time series from local snapshots; with --snapshot, persists a new measurement for future runs.", "rationale": "Capacity-needs forecasting requires a time series. Servosity's portal shows current bytes; we project forward to a threshold and surface upsell timing.", "via": "mcp-command-mirror"},
+			{"name": "Stale follow-up email drafts", "command": "email-draft", "description": "Generate ready-to-paste follow-up email bodies for every client with a stale backup, filled from the local store (client name, hosts, days stale, last success).", "rationale": "Template-fills from the synced stale slice + companies tables — mechanical, offline, no portal copy-paste.", "via": "mcp-command-mirror"},
+			{"name": "Fleet health scorecard", "command": "fleet-health", "description": "One fleet-wide scorecard: 24h job success rate, companies with stale backups, and open issues, with week-over-week deltas.", "rationale": "Scalar rollup across the freshness and issues tables plus snapshot deltas — no single API call or portal screen returns it.", "via": "mcp-command-mirror"},
 			{"name": "All-clients QBR batch", "command": "qbr-all", "description": "Generate every client's QBR backup report in one pass, one file per company.", "rationale": "Loops the qbr assembly over the local companies table — removes the per-client manual repeat at quarter end.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
@@ -673,7 +918,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			{"topic": "Unprovisioned agents", "insight": "Joins the reseller's unprovisioned-agents endpoint with the local companies table to give per-client visibility. Useful onboarding QA loop."},
 			{"topic": "Storage trend forecast", "insight": "Capacity-needs forecasting requires a time series. Servosity's portal shows current bytes; we project forward to a threshold and surface upsell timing."},
 			{"topic": "Stale follow-up email drafts", "insight": "Template-fills from the synced stale slice + companies tables — mechanical, offline, no portal copy-paste."},
-			{"topic": "Fleet health scorecard", "insight": "Scalar rollup across four synced tables plus snapshot deltas — no single API call or portal screen returns it."},
+			{"topic": "Fleet health scorecard", "insight": "Scalar rollup across the freshness and issues tables plus snapshot deltas — no single API call or portal screen returns it."},
 			{"topic": "All-clients QBR batch", "insight": "Loops the qbr assembly over the local companies table — removes the per-client manual repeat at quarter end."},
 			{"topic": "Finding stale work", "insight": "Use the stale command or sql query to find items not updated recently. More reliable than scanning list results manually."},
 			{"topic": "Load analysis", "insight": "When analyzing team workload, filter by assignee and status. Raw counts without status filtering are misleading."},

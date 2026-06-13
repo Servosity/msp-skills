@@ -18,7 +18,7 @@ func newDownloadPromotedCmd(flags *rootFlags) *cobra.Command {
 		Short:       "Servosity one windows list",
 		Long:        "Servosity one windows list",
 		Example:     "  servosity-cli download",
-		Annotations: map[string]string{"pp:endpoint": "download.servosity-one-windows-list", "pp:method": "GET", "pp:path": "/download/servosity-one-windows/", "mcp:read-only": "true", "pp:happy-args": "--select=id"},
+		Annotations: map[string]string{"pp:endpoint": "download.servosity-one-windows-list", "pp:method": "GET", "pp:path": "/download/servosity-one-windows/", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()
 			if err != nil {

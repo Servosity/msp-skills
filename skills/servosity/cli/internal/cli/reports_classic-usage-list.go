@@ -29,10 +29,10 @@ func newReportsClassicUsageListCmd(flags *rootFlags) *cobra.Command {
 			path := "/reports/classic-usage/"
 			params := map[string]string{}
 			if flagSendEmail != false {
-				params["send_email"] = fmt.Sprintf("%v", flagSendEmail)
+				params["send_email"] = formatCLIParamValue(flagSendEmail)
 			}
 			if flagCompressed != false {
-				params["compressed"] = fmt.Sprintf("%v", flagCompressed)
+				params["compressed"] = formatCLIParamValue(flagCompressed)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "reports", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

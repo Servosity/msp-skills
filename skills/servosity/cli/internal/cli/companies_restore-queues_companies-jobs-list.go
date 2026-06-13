@@ -14,9 +14,10 @@ import (
 func newCompaniesRestoreQueuesCompaniesJobsListCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "companies-jobs-list <company_pk> <resticrestorequeue_pk>",
-		Aliases:     []string{"get"},
-		Short:       "Companies jobs list",
+		Use:     "companies-jobs-list <company_pk> <resticrestorequeue_pk>",
+		Aliases: []string{"get"},
+		Short:   "Companies jobs list",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli companies restore-queues companies-jobs-list example-value example-value",
 		Annotations: map[string]string{"pp:endpoint": "restore-queues.companies-jobs-list", "pp:method": "GET", "pp:path": "/companies/{company_pk}/restore-queues/{resticrestorequeue_pk}/jobs/", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

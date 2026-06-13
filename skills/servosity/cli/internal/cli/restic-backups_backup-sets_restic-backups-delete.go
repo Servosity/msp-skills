@@ -14,9 +14,10 @@ import (
 func newResticBackupsBackupSetsResticBackupsDeleteCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "restic-backups-delete <id> <resticbackup_pk>",
-		Aliases:     []string{"delete"},
-		Short:       "Restic backups delete",
+		Use:     "restic-backups-delete <id> <resticbackup_pk>",
+		Aliases: []string{"delete"},
+		Short:   "Restic backups delete",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli restic-backups backup-sets restic-backups-delete 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "backup-sets.restic-backups-delete", "pp:method": "DELETE", "pp:path": "/restic-backups/{resticbackup_pk}/backup-sets/{id}/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -28,7 +28,7 @@ func newReportsUserProfilesListCmd(flags *rootFlags) *cobra.Command {
 			path := "/reports/user-profiles/"
 			params := map[string]string{}
 			if flagOnlyResellers != false {
-				params["only_resellers"] = fmt.Sprintf("%v", flagOnlyResellers)
+				params["only_resellers"] = formatCLIParamValue(flagOnlyResellers)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "reports", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

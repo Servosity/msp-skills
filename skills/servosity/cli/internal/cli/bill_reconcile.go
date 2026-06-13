@@ -83,7 +83,7 @@ type reconcileReport struct {
 }
 
 // pp:data-source live
-func newBillCmd(flags *rootFlags) *cobra.Command {
+func newNovelBillCmd(flags *rootFlags) *cobra.Command {
 	var reconcilePath string
 	var month string
 	var format string

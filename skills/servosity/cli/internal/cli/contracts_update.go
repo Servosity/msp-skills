@@ -21,8 +21,9 @@ func newContractsUpdateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update <identifier>",
-		Short:       "Update",
+		Use:   "update <identifier>",
+		Short: "Update",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli contracts update example-value --body example-value",
 		Annotations: map[string]string{"pp:endpoint": "contracts.update", "pp:method": "PUT", "pp:path": "/contracts/{identifier}/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

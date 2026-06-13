@@ -24,7 +24,7 @@ type unprovisionedItem struct {
 	AgeHours    float64 `json:"age_hours"`
 }
 
-// newUnprovisionedCmd builds the unprovisioned-agents lost-revenue report.
+// newNovelUnprovisionedCmd builds the unprovisioned-agents lost-revenue report.
 //
 // Flow:
 //  1. Resolve reseller ID inline from /current-user/ (no global config knob;
@@ -36,7 +36,7 @@ type unprovisionedItem struct {
 //
 // Read-only, verify-friendly, --dry-run short-circuits before any IO.
 // pp:data-source auto
-func newUnprovisionedCmd(flags *rootFlags) *cobra.Command {
+func newNovelUnprovisionedCmd(flags *rootFlags) *cobra.Command {
 	var ageStr string
 	var companyFilter int
 	var dbPath string
@@ -200,7 +200,7 @@ for friendly names (otherwise "(unknown)" is shown).`,
 	cmd.Flags().StringVar(&ageStr, "age", "24h",
 		"Only show agents unprovisioned for longer than this duration (Go duration syntax: 24h, 168h, etc.). Filters out brand-new installs that haven't had time to phone home.")
 	cmd.Flags().IntVar(&companyFilter, "company", 0, "Filter to one company (by company id)")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/servosity-msp-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/servosity-cli/data.db)")
 
 	return cmd
 }

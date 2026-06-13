@@ -21,8 +21,9 @@ func newContractsCreateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create",
+		Use:   "create",
+		Short: "Create",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli contracts create --body example-value",
 		Annotations: map[string]string{"pp:endpoint": "contracts.create", "pp:method": "POST", "pp:path": "/contracts/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -41,7 +41,7 @@ func newCompaniesDraasCompaniesExtraInstancePasswordCmd(flags *rootFlags) *cobra
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagInstanceId != "" {
-				params["instance_id"] = fmt.Sprintf("%v", flagInstanceId)
+				params["instance_id"] = formatCLIParamValue(flagInstanceId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "draas", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

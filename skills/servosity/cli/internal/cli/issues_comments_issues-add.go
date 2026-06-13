@@ -23,9 +23,10 @@ func newIssuesCommentsIssuesAddCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "issues-add <id>",
-		Aliases:     []string{"update"},
-		Short:       "Issues add",
+		Use:     "issues-add <id>",
+		Aliases: []string{"update"},
+		Short:   "Issues add",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  servosity-cli issues comments issues-add 550e8400-e29b-41d4-a716-446655440000 --body example-value",
 		Annotations: map[string]string{"pp:endpoint": "comments.issues-add", "pp:method": "PUT", "pp:path": "/issues/{id}/comments/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

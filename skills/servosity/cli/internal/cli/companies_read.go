@@ -33,7 +33,7 @@ func newCompaniesReadCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagIncludeReseller != false {
-				params["include_reseller"] = fmt.Sprintf("%v", flagIncludeReseller)
+				params["include_reseller"] = formatCLIParamValue(flagIncludeReseller)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "companies", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {
