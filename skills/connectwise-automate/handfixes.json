@@ -1,0 +1,59 @@
+{
+  "slug": "connectwise-automate",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint or onboard --resume must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and FAILS CI if a reprint dropped one.",
+  "handfixes": [
+    {
+      "id": "manifest-clean-mcp-binary-name",
+      "summary": "manifest.json name/entry_point/command use the clean `connectwise-automate-mcp`, not the press `-pp-mcp`",
+      "why": "onboard.py re-copies the SOURCE manifest.json on every --resume, and the printing-press source keeps the `-pp-mcp` convention. The repo builds/ships `connectwise-automate-mcp`, so a stale `-pp-mcp` name/entry_point/command mismatches the .mcpb the release matrix produces. See project_onboard_manifest_deleak_and_envvar.",
+      "status": "active",
+      "asserts": [
+        {"file": "manifest.json", "contains": "connectwise-automate-mcp", "min_count": 2},
+        {"file": "manifest.json", "not_contains": "connectwise-automate-pp-mcp"}
+      ]
+    },
+    {
+      "id": "manifest-server-clientid-env",
+      "summary": "CONNECTWISE_AUTOMATE_CLIENT_ID is a required env var in manifest.json + server.json (per-request clientId header)",
+      "why": "config.go injects CONNECTWISE_AUTOMATE_CLIENT_ID as the `clientId` header on EVERY request for Automate v2020.11+; without it the MCP server 401s on modern servers. The press generated the manifest with only SERVER+TOKEN (the per-instance env-omission pattern), so a fresh reprint drops it again. See project_onboard_perinstance_baseurl_and_bareword_claims.",
+      "status": "active",
+      "asserts": [
+        {"file": "manifest.json", "contains": "CONNECTWISE_AUTOMATE_CLIENT_ID", "min_count": 2},
+        {"file": "server.json", "contains": "CONNECTWISE_AUTOMATE_CLIENT_ID", "min_count": 1}
+      ]
+    },
+    {
+      "id": "governance-endpoint-fleet-execution-tier",
+      "summary": "Hand-added an 'Endpoint and fleet actions' tier; gen_governance.py is method-blind and dropped `computers command-execute` entirely and mis-tiered `patching deploy-*` as routine",
+      "why": "ConnectWise Automate is an RMM whose members RUN CODE/PATCHES on live client endpoints. gen_governance.py keyword-matches and ignores pp:method, so `computers command-execute` (arbitrary command on an agent) fell out of the table and `patching deploy-approved`/`deploy-security`/`reattempt-failed` (fleet-wide patch deployment) landed in 'Write (routine)'. governance.md was rewritten to put all four under Endpoint/fleet, human-in-the-loop. A full reprint re-runs the classifier and reverts. See project_action1_onboard_traps + project_domotz_onboard_gotchas.",
+      "status": "active",
+      "asserts": [
+        {"file": "governance.md", "contains": "Endpoint and fleet actions", "min_count": 1},
+        {"file": "governance.md", "contains": "computers command-execute", "min_count": 1},
+        {"file": "governance.md", "contains": "fleet-wide patch deployment", "min_count": 1}
+      ]
+    },
+    {
+      "id": "skill-alert-triage-select-keys",
+      "summary": "alert-triage --select example uses the real TriagedAlert json keys `client,computer,priority,message`, not `client_name,computer_name`",
+      "why": "The generated SKILL.md recipe asserted `--select client_name,computer_name,priority,message`, but fleet.TriagedAlert json tags are `client`/`computer`/`priority`/`message` (the binary's own --help example agrees). The wrong keys silently drop fields. See project_onboard_select_placeholder_fields.",
+      "status": "active",
+      "asserts": [
+        {"file": "SKILL.md", "contains": "--select client,computer,priority,message", "min_count": 1},
+        {"file": "SKILL.md", "not_contains": "client_name,computer_name"}
+      ]
+    },
+    {
+      "id": "skill-guide-deleak",
+      "summary": "SKILL.md + guide.md stay free of Printing Press / npx-library / public-library install leaks",
+      "why": "onboard.py only de-leaks the SKILL.md description, not the body H1/prereqs/HeyGen-Beacon/public-library lines or guide.md's npx install section. A reprint re-vendors both and re-introduces the leaks. See project_onboard_skillmd_guide_deleak.",
+      "status": "active",
+      "asserts": [
+        {"file": "SKILL.md", "not_contains": "@mvanhorn/printing-press-library"},
+        {"file": "SKILL.md", "not_contains": "public-library entry"},
+        {"file": "guide.md", "not_contains": "npx -y @mvanhorn"}
+      ]
+    }
+  ]
+}

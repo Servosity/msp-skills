@@ -1,0 +1,110 @@
+{
+  "outcome_intro": "Ask your AI \"which clients are behind on patches?\" or \"where are my offline agents?\" and get a fleet-wide answer in one shot. ConnectWise Automate's console is per-server and built for one endpoint at a time. This skill syncs your whole fleet - computers, clients, alerts, patch history - into a local SQLite mirror, then answers the cross-client questions the web UI can't.",
+  "instead_of_say": [
+    {
+      "instead": "Logging into each client's Automate view and tallying offline agents by hand before a license true-up",
+      "say": "Which agents haven't checked in for 30+ days, grouped by client?",
+      "cli": "connectwise-automate-cli stale-agents --days 30 --agent"
+    },
+    {
+      "instead": "Pulling a patch report per client in Patch Manager and reassembling the numbers for a QBR",
+      "say": "Which clients are behind on patches, worst first?",
+      "cli": "connectwise-automate-cli patch-compliance --agent"
+    },
+    {
+      "instead": "Clicking through the Monitors and Alerts views server by server to see what needs a tech this morning",
+      "say": "What open alerts need a human across every client right now?",
+      "cli": "connectwise-automate-cli alert-triage --min-priority 3 --agent"
+    }
+  ],
+  "pain_points": [
+    "Automate's console is per-server and one-endpoint-at-a-time - there's no native cross-client roll-up, so a simple \"how many offline agents do I have across all clients?\" means logging into views and tallying by hand.",
+    "Offline and stale agents quietly inflate your license count and hide risk, and finding them before a true-up or security review is manual.",
+    "Patch compliance for a QBR lives in Automate, but pulling it per client and reassembling it into something you can hand a client eats an afternoon."
+  ],
+  "outcomes": [
+    {
+      "question": "Which agents haven't checked in for 30+ days, by client?",
+      "command": "connectwise-automate-cli stale-agents --days 30 --agent"
+    },
+    {
+      "question": "Which clients are behind on patches, worst first?",
+      "command": "connectwise-automate-cli patch-compliance --agent"
+    },
+    {
+      "question": "What open alerts need a human across every client?",
+      "command": "connectwise-automate-cli alert-triage --min-priority 3 --agent"
+    },
+    {
+      "question": "What's my whole-fleet health right now - online/offline, last contact, open alerts?",
+      "command": "connectwise-automate-cli fleet-health --agent"
+    },
+    {
+      "question": "Give me a one-line snapshot per client for the review.",
+      "command": "connectwise-automate-cli client-rollup --agent"
+    },
+    {
+      "question": "What operating systems are end-of-life across the fleet?",
+      "command": "connectwise-automate-cli os-inventory --eol-only --agent"
+    },
+    {
+      "question": "What changed overnight - new alerts, check-ins, patches installed?",
+      "command": "connectwise-automate-cli since --hours 24 --agent"
+    }
+  ],
+  "different_vs_wrappers": "Most ConnectWise Automate integrations proxy each question into a live API call - fine for one computer, useless when you ask \"across all 40 clients.\" This skill syncs your fleet into a local SQLite mirror, so a cross-client roll-up is one local join: instant, offline, and your AI sees the answer, not thousands of raw agent records.",
+  "different_vs_vendor": "Automate's console and reports are per-server and built for drilling into one endpoint. This complements them by answering the whole-book-of-business questions - stale agents, patch posture, EOL exposure, overnight drift - in a single command, without replacing your RMM.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local ConnectWise Automate MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my ConnectWise Automate data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Is this for ConnectWise Automate or ConnectWise Manage (PSA)?",
+      "a": "ConnectWise Automate - the RMM, formerly LabTech. ConnectWise Manage (the PSA) is a separate skill. This one talks to your Automate server's API for computers, clients, alerts, patching, scripts, and monitors."
+    },
+    {
+      "q": "Will this hit my Automate API rate limits?",
+      "a": "The local mirror is the point. You sync once, then every roll-up, triage, and search runs against local SQLite, so day-to-day questions never touch the API. Only sync and the live list/get commands call Automate."
+    },
+    {
+      "q": "Do I need to be a ConnectWise partner?",
+      "a": "You need an Automate server you administer plus an API token, and a registered integration clientId GUID (required for v2020.11+). The skill authenticates as you and adds nothing to your ConnectWise account."
+    }
+  ],
+  "governance_summary": "The skill is read-first: fleet roll-ups, stale-agent sweeps, patch posture, alert triage, inventory, and search are all read-only and safe to let an agent run. A small set of commands change real endpoints - running a command on an agent (computers command-execute) and deploying patches across the fleet (patching deploy-approved / deploy-security / reattempt-failed) - plus token minting; keep those human-in-the-loop. The credential's own ConnectWise Automate permissions are the outer limit on anything the agent can do.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "fleet-health, stale-agents, patch-compliance, alert-triage, client-rollup, os-inventory, since, and every list / get / search command",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Endpoint and fleet actions",
+      "examples": "computers command-execute (runs a real command on an agent), patching deploy-approved / deploy-security / reattempt-failed (fleet-wide patch deployment)",
+      "policy": "Human-in-the-loop, explicit confirmation"
+    },
+    {
+      "tier": "Write (data)",
+      "examples": "import <resource> (creates/upserts records via the API)",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Credential",
+      "examples": "apitoken mint, apitoken refresh, auth set-token",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

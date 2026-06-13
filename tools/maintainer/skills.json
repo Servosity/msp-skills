@@ -2,6 +2,29 @@
   "owner": "servosity",
   "repo": "msp-skills",
   "skills": {
+    "abnormal": {
+      "system": "cloud email security platform that detects and remediates phishing, business email compromise, account takeover, and vendor email compromise",
+      "status": "beta",
+      "cli_binary": "abnormal-cli",
+      "mcp_binary": "abnormal-mcp",
+      "vendor": "Abnormal Security",
+      "vendor_trademark_owner": "Abnormal Security Corporation",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Abnormal Security",
+      "tagline": "Triage Abnormal email threats, confirm remediations, and pull client-ready security reports from your terminal.",
+      "cli_hash": "sha256:0d191ba709e169fab33b53f7edd2b8480b4f24d4f6be75365f380967efb3eb6f",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:0d191ba709e169fab33b53f7edd2b8480b4f24d4f6be75365f380967efb3eb6f",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "acronis": {
       "system": "Acronis Cyber Protect Cloud",
       "status": "beta",
@@ -40,6 +63,52 @@
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": "sha256:cd15f01a694393e81caeba156e88e0274c9baa0985bc187618acc0d7e42b2d80",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "afi": {
+      "system": "SaaS backup for Microsoft 365 and Google Workspace",
+      "status": "beta",
+      "cli_binary": "afi-cli",
+      "mcp_binary": "afi-mcp",
+      "vendor": "Afi",
+      "vendor_trademark_owner": "Afi",
+      "first_party": false,
+      "category": "Backup/DR",
+      "display_name": "Afi",
+      "tagline": "Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.",
+      "cli_hash": "sha256:6a24526f190823c2faf1b8631d900484d8662f8f8044cb6468c7e799e92d5dce",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:6a24526f190823c2faf1b8631d900484d8662f8f8044cb6468c7e799e92d5dce",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "appdirect": {
+      "system": "AppDirect cloud commerce marketplace",
+      "status": "beta",
+      "cli_binary": "appdirect-cli",
+      "mcp_binary": "appdirect-mcp",
+      "vendor": "AppDirect",
+      "vendor_trademark_owner": "AppDirect, Inc",
+      "first_party": false,
+      "category": "Billing",
+      "display_name": "AppDirect",
+      "tagline": "Reconcile AppDirect marketplace billing and chase failed payments across every reseller company before month-close.",
+      "cli_hash": "sha256:da05b9a0d23a5214804687dfe8170c56f00babc8c7fa956d94e59c8aab28134b",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:da05b9a0d23a5214804687dfe8170c56f00babc8c7fa956d94e59c8aab28134b",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -117,6 +186,29 @@
         "evidence": null
       }
     },
+    "betterstack": {
+      "system": "Better Stack Uptime monitoring, incident management, on-call scheduling, and status pages",
+      "status": "beta",
+      "cli_binary": "betterstack-cli",
+      "mcp_binary": "betterstack-mcp",
+      "vendor": "Better Stack",
+      "vendor_trademark_owner": "Better Stack",
+      "first_party": false,
+      "category": "Monitoring",
+      "display_name": "Better Stack",
+      "tagline": "Ask what's down, who's paged, where coverage is missing, and your MTTA/MTTR across your Better Stack account",
+      "cli_hash": "sha256:ed25b0355abbed564f43ae63695e076a566928f340121e7c2f3b1279080df46b",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:ed25b0355abbed564f43ae63695e076a566928f340121e7c2f3b1279080df46b",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "blumira": {
       "system": "cloud SIEM and automated detection and response platform",
       "status": "beta",
@@ -163,6 +255,28 @@
         "evidence": null
       }
     },
+    "connectwise-automate": {
+      "system": "ConnectWise Automate (LabTech) RMM: device management, patching, scripting, monitors and alerts for MSPs",
+      "status": "beta",
+      "cli_binary": "connectwise-automate-cli",
+      "mcp_binary": "connectwise-automate-mcp",
+      "vendor": "ConnectWise",
+      "vendor_trademark_owner": "ConnectWise, LLC",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "ConnectWise Automate",
+      "cli_hash": "sha256:82c50b5f6439e25b563323766c7797e0e01c1c6beb2f5c37cc77b32f4cd6df4f",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "connectwise-manage": {
       "system": "ConnectWise PSA (Manage)",
       "status": "beta",
@@ -181,6 +295,29 @@
       "has_video": true,
       "featured": 2,
       "install_auth_hint": "Then authenticate per the README",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "cove": {
+      "system": "N-able Cove Data Protection cloud backup and recovery",
+      "status": "beta",
+      "cli_binary": "cove-cli",
+      "mcp_binary": "cove-mcp",
+      "vendor": "Cove Data Protection",
+      "vendor_trademark_owner": "N-able",
+      "first_party": false,
+      "category": "Backup/DR",
+      "display_name": "Cove Data Protection",
+      "tagline": "Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal.",
+      "cli_hash": "sha256:c5d9a8473fe8419502e1c39bf9d9c7fe8c37201647f2c84d280a5e7994b2844d",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:c5d9a8473fe8419502e1c39bf9d9c7fe8c37201647f2c84d280a5e7994b2844d",
+      "has_video": true,
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -272,6 +409,29 @@
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": "sha256:6ebb43673929dadad8e073419e6eebf447563ebc7f70ef22e1fed294d8a73f3d",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "gradient": {
+      "system": "the Gradient MSP Synthesize billing-reconciliation vendor API",
+      "status": "beta",
+      "cli_binary": "gradient-cli",
+      "mcp_binary": "gradient-mcp",
+      "vendor": "Gradient MSP",
+      "vendor_trademark_owner": "Gradient MSP, Inc",
+      "first_party": false,
+      "category": "Billing",
+      "display_name": "Gradient MSP",
+      "tagline": "Push usage counts, catch billing drift, and trace alerts to PSA tickets in Gradient MSP Synthesize from your terminal.",
+      "cli_hash": "sha256:0e9b53fef8e8c6d4811a118ec56f55c6aff8384adc854cca1ee3d765d2de6829",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:0e9b53fef8e8c6d4811a118ec56f55c6aff8384adc854cca1ee3d765d2de6829",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -391,6 +551,29 @@
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": "sha256:568baf7c3d968040255ed86d07cfdad57346f29ed23bcf9901ec0b9c621f8e29",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "kaseya-bms": {
+      "system": "Kaseya BMS PSA - tickets, CRM, contracts, finance, and projects",
+      "status": "beta",
+      "cli_binary": "kaseya-bms-cli",
+      "mcp_binary": "kaseya-bms-mcp",
+      "vendor": "Kaseya BMS",
+      "vendor_trademark_owner": "Kaseya US LLC",
+      "first_party": false,
+      "category": "PSA",
+      "display_name": "Kaseya BMS",
+      "tagline": "Run the Kaseya BMS service desk, contracts, and billing from your terminal - with offline analytics the web grid can't compute.",
+      "cli_hash": "sha256:80414aa7baeaef4afccd1f96a35096f35c44538b50cc7ec1e20bd10c719e62e5",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:80414aa7baeaef4afccd1f96a35096f35c44538b50cc7ec1e20bd10c719e62e5",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -549,6 +732,29 @@
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": "sha256:201711890131225f157b48bbe856281d97a695cd8384b8578dfe8020aa4c73f3",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "nerdio": {
+      "system": "Nerdio Manager for MSP: Azure Virtual Desktop fleets, host pools, autoscale, desktop images, Intune devices, and cross-account billing",
+      "status": "beta",
+      "cli_binary": "nerdio-cli",
+      "mcp_binary": "nerdio-mcp",
+      "vendor": "Nerdio Manager",
+      "vendor_trademark_owner": "Nerdio, Inc",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "Nerdio Manager",
+      "tagline": "Audit autoscale, sweep idle session hosts, and reconcile per-customer billing across every Nerdio Manager account from your terminal.",
+      "cli_hash": "sha256:bce25ac130f946ac84cd0e7b83525a441d051170cf3037828dbce758c41d49fb",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:bce25ac130f946ac84cd0e7b83525a441d051170cf3037828dbce758c41d49fb",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -716,6 +922,29 @@
         "date": "2026-06-12",
         "source": "self",
         "evidence": "Servosity (an MSP) verified end-to-end against an Intuit QuickBooks Online tenant on 2026-06-12: OAuth token refresh, live reads, sync 227 records across 8 resources, ar-aging and balances populated; after the /query sync fix (handfix qbo-query-injection)."
+      }
+    },
+    "rocketcyber": {
+      "system": "RocketCyber managed SOC: incidents, agents, detection events, Defender and Microsoft 365 posture, and suppression rules",
+      "status": "beta",
+      "cli_binary": "rocketcyber-cli",
+      "mcp_binary": "rocketcyber-mcp",
+      "vendor": "RocketCyber",
+      "vendor_trademark_owner": "Kaseya",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "RocketCyber",
+      "tagline": "Triage your managed SOC, rank devices at risk, and audit suppression rules from the terminal - no console logins.",
+      "cli_hash": "sha256:015cf5ac20bab0a4ae186e05bd4445ef5a82265c9ab2c083b9639a86eba755e9",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:015cf5ac20bab0a4ae186e05bd4445ef5a82265c9ab2c083b9639a86eba755e9",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     },
     "rootly": {
@@ -989,213 +1218,6 @@
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": "sha256:894e49c7bbc421702afcd551687fbdb0b355cd863ed8dbf5c440e452333189d6",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "nerdio": {
-      "system": "Nerdio Manager for MSP: Azure Virtual Desktop fleets, host pools, autoscale, desktop images, Intune devices, and cross-account billing",
-      "status": "beta",
-      "cli_binary": "nerdio-cli",
-      "mcp_binary": "nerdio-mcp",
-      "vendor": "Nerdio Manager",
-      "vendor_trademark_owner": "Nerdio, Inc",
-      "first_party": false,
-      "category": "RMM",
-      "display_name": "Nerdio Manager",
-      "tagline": "Audit autoscale, sweep idle session hosts, and reconcile per-customer billing across every Nerdio Manager account from your terminal.",
-      "cli_hash": "sha256:bce25ac130f946ac84cd0e7b83525a441d051170cf3037828dbce758c41d49fb",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:bce25ac130f946ac84cd0e7b83525a441d051170cf3037828dbce758c41d49fb",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "betterstack": {
-      "system": "Better Stack Uptime monitoring, incident management, on-call scheduling, and status pages",
-      "status": "beta",
-      "cli_binary": "betterstack-cli",
-      "mcp_binary": "betterstack-mcp",
-      "vendor": "Better Stack",
-      "vendor_trademark_owner": "Better Stack",
-      "first_party": false,
-      "category": "Monitoring",
-      "display_name": "Better Stack",
-      "tagline": "Ask what's down, who's paged, where coverage is missing, and your MTTA/MTTR across your Better Stack account",
-      "cli_hash": "sha256:ed25b0355abbed564f43ae63695e076a566928f340121e7c2f3b1279080df46b",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:ed25b0355abbed564f43ae63695e076a566928f340121e7c2f3b1279080df46b",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "rocketcyber": {
-      "system": "RocketCyber managed SOC: incidents, agents, detection events, Defender and Microsoft 365 posture, and suppression rules",
-      "status": "beta",
-      "cli_binary": "rocketcyber-cli",
-      "mcp_binary": "rocketcyber-mcp",
-      "vendor": "RocketCyber",
-      "vendor_trademark_owner": "Kaseya",
-      "first_party": false,
-      "category": "Security",
-      "display_name": "RocketCyber",
-      "tagline": "Triage your managed SOC, rank devices at risk, and audit suppression rules from the terminal - no console logins.",
-      "cli_hash": "sha256:015cf5ac20bab0a4ae186e05bd4445ef5a82265c9ab2c083b9639a86eba755e9",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:015cf5ac20bab0a4ae186e05bd4445ef5a82265c9ab2c083b9639a86eba755e9",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "abnormal": {
-      "system": "cloud email security platform that detects and remediates phishing, business email compromise, account takeover, and vendor email compromise",
-      "status": "beta",
-      "cli_binary": "abnormal-cli",
-      "mcp_binary": "abnormal-mcp",
-      "vendor": "Abnormal Security",
-      "vendor_trademark_owner": "Abnormal Security Corporation",
-      "first_party": false,
-      "category": "Security",
-      "display_name": "Abnormal Security",
-      "tagline": "Triage Abnormal email threats, confirm remediations, and pull client-ready security reports from your terminal.",
-      "cli_hash": "sha256:0d191ba709e169fab33b53f7edd2b8480b4f24d4f6be75365f380967efb3eb6f",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:0d191ba709e169fab33b53f7edd2b8480b4f24d4f6be75365f380967efb3eb6f",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "afi": {
-      "system": "SaaS backup for Microsoft 365 and Google Workspace",
-      "status": "beta",
-      "cli_binary": "afi-cli",
-      "mcp_binary": "afi-mcp",
-      "vendor": "Afi",
-      "vendor_trademark_owner": "Afi",
-      "first_party": false,
-      "category": "Backup/DR",
-      "display_name": "Afi",
-      "tagline": "Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.",
-      "cli_hash": "sha256:6a24526f190823c2faf1b8631d900484d8662f8f8044cb6468c7e799e92d5dce",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:6a24526f190823c2faf1b8631d900484d8662f8f8044cb6468c7e799e92d5dce",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "cove": {
-      "system": "N-able Cove Data Protection cloud backup and recovery",
-      "status": "beta",
-      "cli_binary": "cove-cli",
-      "mcp_binary": "cove-mcp",
-      "vendor": "Cove Data Protection",
-      "vendor_trademark_owner": "N-able",
-      "first_party": false,
-      "category": "Backup/DR",
-      "display_name": "Cove Data Protection",
-      "tagline": "Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal.",
-      "cli_hash": "sha256:c5d9a8473fe8419502e1c39bf9d9c7fe8c37201647f2c84d280a5e7994b2844d",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:c5d9a8473fe8419502e1c39bf9d9c7fe8c37201647f2c84d280a5e7994b2844d",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "kaseya-bms": {
-      "system": "Kaseya BMS PSA - tickets, CRM, contracts, finance, and projects",
-      "status": "beta",
-      "cli_binary": "kaseya-bms-cli",
-      "mcp_binary": "kaseya-bms-mcp",
-      "vendor": "Kaseya BMS",
-      "vendor_trademark_owner": "Kaseya US LLC",
-      "first_party": false,
-      "category": "PSA",
-      "display_name": "Kaseya BMS",
-      "tagline": "Run the Kaseya BMS service desk, contracts, and billing from your terminal - with offline analytics the web grid can't compute.",
-      "cli_hash": "sha256:80414aa7baeaef4afccd1f96a35096f35c44538b50cc7ec1e20bd10c719e62e5",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:80414aa7baeaef4afccd1f96a35096f35c44538b50cc7ec1e20bd10c719e62e5",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "appdirect": {
-      "system": "AppDirect cloud commerce marketplace",
-      "status": "beta",
-      "cli_binary": "appdirect-cli",
-      "mcp_binary": "appdirect-mcp",
-      "vendor": "AppDirect",
-      "vendor_trademark_owner": "AppDirect, Inc",
-      "first_party": false,
-      "category": "Billing",
-      "display_name": "AppDirect",
-      "tagline": "Reconcile AppDirect marketplace billing and chase failed payments across every reseller company before month-close.",
-      "cli_hash": "sha256:da05b9a0d23a5214804687dfe8170c56f00babc8c7fa956d94e59c8aab28134b",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:da05b9a0d23a5214804687dfe8170c56f00babc8c7fa956d94e59c8aab28134b",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "gradient": {
-      "system": "the Gradient MSP Synthesize billing-reconciliation vendor API",
-      "status": "beta",
-      "cli_binary": "gradient-cli",
-      "mcp_binary": "gradient-mcp",
-      "vendor": "Gradient MSP",
-      "vendor_trademark_owner": "Gradient MSP, Inc",
-      "first_party": false,
-      "category": "Billing",
-      "display_name": "Gradient MSP",
-      "tagline": "Push usage counts, catch billing drift, and trace alerts to PSA tickets in Gradient MSP Synthesize from your terminal.",
-      "cli_hash": "sha256:0e9b53fef8e8c6d4811a118ec56f55c6aff8384adc854cca1ee3d765d2de6829",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:0e9b53fef8e8c6d4811a118ec56f55c6aff8384adc854cca1ee3d765d2de6829",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",

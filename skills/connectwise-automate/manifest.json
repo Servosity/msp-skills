@@ -1,0 +1,61 @@
+{
+  "manifest_version": "0.3",
+  "name": "connectwise-automate-mcp",
+  "display_name": "ConnectWise Automate",
+  "version": "0.1.0",
+  "description": "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/connectwise-automate-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/connectwise-automate-mcp",
+      "args": [],
+      "env": {
+        "CONNECTWISE_AUTOMATE_SERVER": "${user_config.connectwise_automate_server}",
+        "CONNECTWISE_AUTOMATE_CLIENT_ID": "${user_config.connectwise_automate_client_id}",
+        "CONNECTWISE_AUTOMATE_TOKEN": "${user_config.connectwise_automate_token}"
+      }
+    }
+  },
+  "user_config": {
+    "connectwise_automate_server": {
+      "type": "string",
+      "title": "CONNECTWISE_AUTOMATE_SERVER",
+      "description": "Your Automate host, e.g. company.hostedrmm.com. Sets CONNECTWISE_AUTOMATE_SERVER for the endpoint base URL.",
+      "default": "YOUR_SERVER.hostedrmm.com",
+      "required": true
+    },
+    "connectwise_automate_client_id": {
+      "type": "string",
+      "title": "CONNECTWISE_AUTOMATE_CLIENT_ID",
+      "description": "Your registered integration clientId GUID, sent as the clientId header on every request (required for ConnectWise Automate v2020.11+).",
+      "required": true
+    },
+    "connectwise_automate_token": {
+      "type": "string",
+      "title": "CONNECTWISE_AUTOMATE_TOKEN",
+      "description": "Sets CONNECTWISE_AUTOMATE_TOKEN for the ConnectWise Automate MCP server. Get a credential from https://docs.connectwise.com/ConnectWise_Automate.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.24.0",
+  "press_provenance": {
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T02:48:59.515774Z",
+    "spec_checksum": "sha256:4de6643313ca8582c779ba0ccf64c0ef0aeb101f431423753cfcc29d74f2f03d",
+    "spec_format": "internal"
+  }
+}
