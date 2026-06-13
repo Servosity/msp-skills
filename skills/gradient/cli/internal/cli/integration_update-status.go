@@ -44,7 +44,7 @@ func newIntegrationUpdateStatusCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			path := "/vendor-api/organization/status/{status}"
-			path = replacePathParam(path, "status", fmt.Sprintf("%v", flagStatus))
+			path = replacePathParam(path, "status", formatCLIParamValue(flagStatus))
 			params := map[string]string{}
 			var body map[string]any
 			if stdinBody {

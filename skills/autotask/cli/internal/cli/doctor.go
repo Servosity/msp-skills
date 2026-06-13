@@ -156,7 +156,6 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				report["config"] = "ok"
 				report["config_path"] = cfg.Path
 				report["base_url"] = cfg.BaseURL
-				report["zone"] = describeZone(cfg.BaseURL)
 				// agentcookie integration is soft: if the agentcookie daemon manages
 				// this CLI's config, it writes a marker file alongside the config and
 				// AuthSource is upgraded to "agentcookie" in config.Load. Surface the
@@ -174,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export AUTOTASK_PSA_API_INTEGRATION_CODE=<your-key>"
+					report["auth_hint"] = "Set your API key with: export AUTOTASK_API_INTEGRATION_CODE=\"your-token-here\""
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"
@@ -204,8 +203,8 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					authEnvRequiredMissing = append(authEnvRequiredMissing, name)
 				}
 			}
-			if os.Getenv("AUTOTASK_PSA_API_INTEGRATION_CODE") != "" {
-				authEnvSet = append(authEnvSet, "AUTOTASK_PSA_API_INTEGRATION_CODE")
+			if os.Getenv("AUTOTASK_API_INTEGRATION_CODE") != "" {
+				authEnvSet = append(authEnvSet, "AUTOTASK_API_INTEGRATION_CODE")
 			} else if authConfigured {
 				authSource, _ := report["auth_source"].(string)
 				if authSource == "" {
@@ -213,7 +212,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				}
 				authEnvInfo = append(authEnvInfo, "credentials available from "+authSource)
 			} else {
-				authEnvRequiredMissing = append(authEnvRequiredMissing, "AUTOTASK_PSA_API_INTEGRATION_CODE")
+				authEnvRequiredMissing = append(authEnvRequiredMissing, "AUTOTASK_API_INTEGRATION_CODE")
 			}
 			{
 				configuredValue := ""
@@ -342,7 +341,6 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				{"config", "Config"},
 				{"auth", "Auth"},
 				{"env_vars", "Env Vars"},
-				{"zone", "Zone"},
 				{"verify_mode", "Verify Mode"},
 				{"api", "API"},
 				{"credentials", "Credentials"},

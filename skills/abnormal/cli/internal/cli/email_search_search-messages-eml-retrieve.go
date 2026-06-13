@@ -36,10 +36,10 @@ func newEmailSearchSearchMessagesEmlRetrieveCmd(flags *rootFlags) *cobra.Command
 			}
 			params := map[string]string{}
 			if flagQuarantineIdentity != "" {
-				params["quarantineIdentity"] = fmt.Sprintf("%v", flagQuarantineIdentity)
+				params["quarantineIdentity"] = formatCLIParamValue(flagQuarantineIdentity)
 			}
 			if flagRecipientMailbox != "" {
-				params["recipientMailbox"] = fmt.Sprintf("%v", flagRecipientMailbox)
+				params["recipientMailbox"] = formatCLIParamValue(flagRecipientMailbox)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "email_search", false, path, params, headerOverrides, cmd.ErrOrStderr())
 			if err != nil {

@@ -46,19 +46,19 @@ func newReportingResourceOtherReadReportsV1GetCmd(flags *rootFlags) *cobra.Comma
 			path := "/reporting/v1/reports"
 			params := map[string]string{}
 			if flagCount != 0 {
-				params["count"] = fmt.Sprintf("%v", flagCount)
+				params["count"] = formatCLIParamValue(flagCount)
 			}
 			if flagFromDate != 0.0 {
-				params["fromDate"] = fmt.Sprintf("%v", flagFromDate)
+				params["fromDate"] = formatCLIParamValue(flagFromDate)
 			}
 			if flagStart != 0 {
-				params["start"] = fmt.Sprintf("%v", flagStart)
+				params["start"] = formatCLIParamValue(flagStart)
 			}
 			if flagToDate != 0.0 {
-				params["toDate"] = fmt.Sprintf("%v", flagToDate)
+				params["toDate"] = formatCLIParamValue(flagToDate)
 			}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "reporting", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

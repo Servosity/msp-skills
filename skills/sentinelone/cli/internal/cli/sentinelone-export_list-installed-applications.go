@@ -48,67 +48,67 @@ func newSentineloneExportListInstalledApplicationsCmd(flags *rootFlags) *cobra.C
 			path := "/export/installed-applications"
 			params := map[string]string{}
 			if flagRiskLevels != "" {
-				params["riskLevels"] = fmt.Sprintf("%v", flagRiskLevels)
+				params["riskLevels"] = formatCLIParamValue(flagRiskLevels)
 			}
 			if flagAgentIsDecommissioned != "" {
-				params["agentIsDecommissioned"] = fmt.Sprintf("%v", flagAgentIsDecommissioned)
+				params["agentIsDecommissioned"] = formatCLIParamValue(flagAgentIsDecommissioned)
 			}
 			if flagPublisherContains != "" {
-				params["publisher__contains"] = fmt.Sprintf("%v", flagPublisherContains)
+				params["publisher__contains"] = formatCLIParamValue(flagPublisherContains)
 			}
 			if flagAgentComputerNameContains != "" {
-				params["agentComputerName__contains"] = fmt.Sprintf("%v", flagAgentComputerNameContains)
+				params["agentComputerName__contains"] = formatCLIParamValue(flagAgentComputerNameContains)
 			}
 			if flagAgentOsVersionContains != "" {
-				params["agentOsVersion__contains"] = fmt.Sprintf("%v", flagAgentOsVersionContains)
+				params["agentOsVersion__contains"] = formatCLIParamValue(flagAgentOsVersionContains)
 			}
 			if flagVersionContains != "" {
-				params["version__contains"] = fmt.Sprintf("%v", flagVersionContains)
+				params["version__contains"] = formatCLIParamValue(flagVersionContains)
 			}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			if flagOsTypes != "" {
-				params["osTypes"] = fmt.Sprintf("%v", flagOsTypes)
+				params["osTypes"] = formatCLIParamValue(flagOsTypes)
 			}
 			if flagNameContains != "" {
-				params["name__contains"] = fmt.Sprintf("%v", flagNameContains)
+				params["name__contains"] = formatCLIParamValue(flagNameContains)
 			}
 			if flagSiteIds != "" {
-				params["siteIds"] = fmt.Sprintf("%v", flagSiteIds)
+				params["siteIds"] = formatCLIParamValue(flagSiteIds)
 			}
 			if flagGroupIds != "" {
-				params["groupIds"] = fmt.Sprintf("%v", flagGroupIds)
+				params["groupIds"] = formatCLIParamValue(flagGroupIds)
 			}
 			if flagSizeBetween != "" {
-				params["size__between"] = fmt.Sprintf("%v", flagSizeBetween)
+				params["size__between"] = formatCLIParamValue(flagSizeBetween)
 			}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			if flagAgentMachineTypesNin != "" {
-				params["agentMachineTypesNin"] = fmt.Sprintf("%v", flagAgentMachineTypesNin)
+				params["agentMachineTypesNin"] = formatCLIParamValue(flagAgentMachineTypesNin)
 			}
 			if flagTypes != "" {
-				params["types"] = fmt.Sprintf("%v", flagTypes)
+				params["types"] = formatCLIParamValue(flagTypes)
 			}
 			if flagOsTypesNin != "" {
-				params["osTypesNin"] = fmt.Sprintf("%v", flagOsTypesNin)
+				params["osTypesNin"] = formatCLIParamValue(flagOsTypesNin)
 			}
 			if flagRiskLevelsNin != "" {
-				params["riskLevelsNin"] = fmt.Sprintf("%v", flagRiskLevelsNin)
+				params["riskLevelsNin"] = formatCLIParamValue(flagRiskLevelsNin)
 			}
 			if flagTypesNin != "" {
-				params["typesNin"] = fmt.Sprintf("%v", flagTypesNin)
+				params["typesNin"] = formatCLIParamValue(flagTypesNin)
 			}
 			if flagAgentMachineTypes != "" {
-				params["agentMachineTypes"] = fmt.Sprintf("%v", flagAgentMachineTypes)
+				params["agentMachineTypes"] = formatCLIParamValue(flagAgentMachineTypes)
 			}
 			if flagInstalledAtBetween != "" {
-				params["installedAt__between"] = fmt.Sprintf("%v", flagInstalledAtBetween)
+				params["installedAt__between"] = formatCLIParamValue(flagInstalledAtBetween)
 			}
 			if flagAgentUuidContains != "" {
-				params["agentUuid__contains"] = fmt.Sprintf("%v", flagAgentUuidContains)
+				params["agentUuid__contains"] = formatCLIParamValue(flagAgentUuidContains)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "sentinelone-export", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

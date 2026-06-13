@@ -55,7 +55,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			resources := []string{"customers", "device-filters", "devices", "org-units", "service-orgs", "sites", "users"}
+			resources := []string{"customers", "devices", "org-units", "service-orgs", "sites"}
 			totalSynced := 0
 			syncEventWriter := cmd.OutOrStdout()
 			if flags.asJSON {
@@ -101,7 +101,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/n-central-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/n-central-cli/data.db)")
 	cmd.Flags().BoolVar(&full, "full", false, "Full re-archive (ignore previous sync state)")
 
 	return cmd

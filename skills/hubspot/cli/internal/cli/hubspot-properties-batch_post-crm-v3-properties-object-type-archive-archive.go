@@ -17,8 +17,9 @@ func newHubspotPropertiesBatchPostCrmV3PropertiesObjectTypeArchiveArchiveCmd(fla
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-crm-v3-properties-object-type-archive-archive <objectType>",
-		Short:       "Archive a provided list of properties.",
+		Use:   "post-crm-v3-properties-object-type-archive-archive <objectType>",
+		Short: "Archive a provided list of properties.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-properties-batch post-crm-v3-properties-object-type-archive-archive example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-properties-batch.post-crm-v3-properties-object-type-archive-archive", "pp:method": "POST", "pp:path": "/crm/v3/properties/{objectType}/batch/archive"},
 		RunE: func(cmd *cobra.Command, args []string) error {

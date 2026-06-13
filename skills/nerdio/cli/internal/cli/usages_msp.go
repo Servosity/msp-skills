@@ -42,13 +42,13 @@ func newUsagesMspCmd(flags *rootFlags) *cobra.Command {
 			path := "/rest-api/v1/usages"
 			params := map[string]string{}
 			if flagStartDate != "" {
-				params["startDate"] = fmt.Sprintf("%v", flagStartDate)
+				params["startDate"] = formatCLIParamValue(flagStartDate)
 			}
 			if flagEndDate != "" {
-				params["endDate"] = fmt.Sprintf("%v", flagEndDate)
+				params["endDate"] = formatCLIParamValue(flagEndDate)
 			}
 			if flagWithDetails != false {
-				params["withDetails"] = fmt.Sprintf("%v", flagWithDetails)
+				params["withDetails"] = formatCLIParamValue(flagWithDetails)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "usages", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

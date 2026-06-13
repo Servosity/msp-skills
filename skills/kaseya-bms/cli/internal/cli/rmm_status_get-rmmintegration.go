@@ -14,9 +14,10 @@ import (
 func newRmmStatusGetRmmintegrationCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "get-rmmintegration <integrationType>",
-		Aliases:     []string{"get"},
-		Short:       "Get rmmintegration",
+		Use:     "get-rmmintegration <integrationType>",
+		Aliases: []string{"get"},
+		Short:   "Get rmmintegration",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli rmm status get-rmmintegration example-value",
 		Annotations: map[string]string{"pp:endpoint": "status.get-rmmintegration", "pp:method": "GET", "pp:path": "/v2/rmm/{integrationType}/status", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

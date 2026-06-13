@@ -13,8 +13,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-
-	"pipedrive-pp-cli/internal/store"
 )
 
 type coldDeal struct {
@@ -72,7 +70,7 @@ Do NOT use this command for deals that simply haven't been touched recently; use
 				return usageErr(fmt.Errorf("--limit must be >= 0"))
 			}
 
-			db, err := store.OpenWithContext(cmd.Context(), novelDBPath(dbPath))
+			db, err := pdOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local store: %w", err)
 			}

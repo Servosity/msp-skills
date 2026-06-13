@@ -38,7 +38,7 @@ func newDvDownloadSourceProcessFileCmd(flags *rootFlags) *cobra.Command {
 			path := "/dv/fetch-file"
 			params := map[string]string{}
 			if flagDownloadToken != "" {
-				params["downloadToken"] = fmt.Sprintf("%v", flagDownloadToken)
+				params["downloadToken"] = formatCLIParamValue(flagDownloadToken)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "dv", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

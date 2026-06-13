@@ -17,7 +17,7 @@ func newWebhookSubscriptionsDetailsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "details <id>",
 		Aliases:     []string{"get"},
 		Short:       "Get webhook subscription by uuid",
-		Example:     "  pandadoc-cli webhook-subscriptions details 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli webhook-subscriptions details 4fb6506c-02a0-427e-b445-b9e9ff0c822f",
 		Annotations: map[string]string{"pp:endpoint": "webhook-subscriptions.details", "pp:method": "GET", "pp:path": "/webhook-subscriptions/{id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

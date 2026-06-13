@@ -33,22 +33,22 @@ func newCrmGetSalesAcceleratorSummaryCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/crm/salesaccelerator/dashboard/summary"
 			params := map[string]string{}
 			if flagAccountName != "" {
-				params["AccountName"] = fmt.Sprintf("%v", flagAccountName)
+				params["AccountName"] = formatCLIParamValue(flagAccountName)
 			}
 			if flagServiceName != "" {
-				params["ServiceName"] = fmt.Sprintf("%v", flagServiceName)
+				params["ServiceName"] = formatCLIParamValue(flagServiceName)
 			}
 			if flagAccountType != "" {
-				params["AccountType"] = fmt.Sprintf("%v", flagAccountType)
+				params["AccountType"] = formatCLIParamValue(flagAccountType)
 			}
 			if flagServiceCategoryIds != "" {
-				params["ServiceCategoryIds"] = fmt.Sprintf("%v", flagServiceCategoryIds)
+				params["ServiceCategoryIds"] = formatCLIParamValue(flagServiceCategoryIds)
 			}
 			if flagServiceSubCategoryIds != "" {
-				params["ServiceSubCategoryIds"] = fmt.Sprintf("%v", flagServiceSubCategoryIds)
+				params["ServiceSubCategoryIds"] = formatCLIParamValue(flagServiceSubCategoryIds)
 			}
 			if flagUnitOfMeasureIds != "" {
-				params["UnitOfMeasureIds"] = fmt.Sprintf("%v", flagUnitOfMeasureIds)
+				params["UnitOfMeasureIds"] = formatCLIParamValue(flagUnitOfMeasureIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "crm", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

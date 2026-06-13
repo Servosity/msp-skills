@@ -34,13 +34,13 @@ func newAccountResourceUserReadUserMembershipsGetCmd(flags *rootFlags) *cobra.Co
 			path = replacePathParam(path, "userUuid", args[0])
 			params := map[string]string{}
 			if flagStatus != "" {
-				params["status"] = fmt.Sprintf("%v", flagStatus)
+				params["status"] = formatCLIParamValue(flagStatus)
 			}
 			if flagIncludeUserCustomAttributes != false {
-				params["includeUserCustomAttributes"] = fmt.Sprintf("%v", flagIncludeUserCustomAttributes)
+				params["includeUserCustomAttributes"] = formatCLIParamValue(flagIncludeUserCustomAttributes)
 			}
 			if flagIncludeCompanyCustomAttributes != false {
-				params["includeCompanyCustomAttributes"] = fmt.Sprintf("%v", flagIncludeCompanyCustomAttributes)
+				params["includeCompanyCustomAttributes"] = formatCLIParamValue(flagIncludeCompanyCustomAttributes)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "account", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

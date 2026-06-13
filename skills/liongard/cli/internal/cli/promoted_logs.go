@@ -43,10 +43,10 @@ func newLogsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/logs"
 			params := map[string]string{}
 			if flagLaunchpoint != 0 {
-				params["launchpoint"] = fmt.Sprintf("%v", flagLaunchpoint)
+				params["launchpoint"] = formatCLIParamValue(flagLaunchpoint)
 			}
 			if flagTimeline != 0 {
-				params["timeline"] = fmt.Sprintf("%v", flagTimeline)
+				params["timeline"] = formatCLIParamValue(flagTimeline)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "logs", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

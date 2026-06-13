@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/crowdstrike/">
-    <img src="../../docs/assets/social/crowdstrike/wide-1200x630.png" alt="CrowdStrike Falcon - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/crowdstrike/animated-og.gif" alt="CrowdStrike Falcon demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/crowdstrike/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/crowdstrike/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once  -  something no other Falcon tool (including the official MCP server) does. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.

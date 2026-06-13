@@ -22,7 +22,7 @@ func newPublicDocumentSettingsUpdateCmd(flags *rootFlags) *cobra.Command {
 		Use:         "document-settings-update <document_id>",
 		Aliases:     []string{"update"},
 		Short:       "Updates the settings for a specified document.",
-		Example:     "  pandadoc-cli public document-settings-update 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli public document-settings-update BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "public.document-settings-update", "pp:method": "PATCH", "pp:path": "/public/v2/documents/{document_id}/settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

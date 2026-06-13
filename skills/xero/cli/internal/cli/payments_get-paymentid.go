@@ -16,7 +16,7 @@ func newPaymentsGetPaymentidCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-paymentid <PaymentID>",
 		Short:       "Retrieves a specific payment for invoices and credit notes using a unique payment Id",
-		Example:     "  xero-cli payments get-paymentid 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  xero-cli payments get-paymentid 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "payments.get-paymentid", "pp:method": "GET", "pp:path": "/Payments/{PaymentID}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

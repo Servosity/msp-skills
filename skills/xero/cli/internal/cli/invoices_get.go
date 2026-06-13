@@ -41,19 +41,19 @@ func newInvoicesGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/Invoices"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "invoices", path, map[string]string{
-				"where":           fmt.Sprintf("%v", flagWhere),
-				"order":           fmt.Sprintf("%v", flagOrder),
-				"IDs":             fmt.Sprintf("%v", flagIDs),
-				"InvoiceNumbers":  fmt.Sprintf("%v", flagInvoiceNumbers),
-				"ContactIDs":      fmt.Sprintf("%v", flagContactIDs),
-				"Statuses":        fmt.Sprintf("%v", flagStatuses),
-				"page":            fmt.Sprintf("%v", flagPage),
-				"includeArchived": fmt.Sprintf("%v", flagIncludeArchived),
-				"createdByMyApp":  fmt.Sprintf("%v", flagCreatedByMyApp),
-				"unitdp":          fmt.Sprintf("%v", flagUnitdp),
-				"summaryOnly":     fmt.Sprintf("%v", flagSummaryOnly),
-				"pageSize":        fmt.Sprintf("%v", flagPageSize),
-				"searchTerm":      fmt.Sprintf("%v", flagSearchTerm),
+				"where":           formatCLIParamValue(flagWhere),
+				"order":           formatCLIParamValue(flagOrder),
+				"IDs":             formatCLIParamValue(flagIDs),
+				"InvoiceNumbers":  formatCLIParamValue(flagInvoiceNumbers),
+				"ContactIDs":      formatCLIParamValue(flagContactIDs),
+				"Statuses":        formatCLIParamValue(flagStatuses),
+				"page":            formatCLIParamValue(flagPage),
+				"includeArchived": formatCLIParamValue(flagIncludeArchived),
+				"createdByMyApp":  formatCLIParamValue(flagCreatedByMyApp),
+				"unitdp":          formatCLIParamValue(flagUnitdp),
+				"summaryOnly":     formatCLIParamValue(flagSummaryOnly),
+				"pageSize":        formatCLIParamValue(flagPageSize),
+				"searchTerm":      formatCLIParamValue(flagSearchTerm),
 			}, nil, flagAll, "page", "page", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

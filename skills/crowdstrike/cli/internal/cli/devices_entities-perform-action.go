@@ -19,8 +19,9 @@ func newDevicesEntitiesPerformActionCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "entities-perform-action",
-		Short:       "Performs the specified action on the provided group IDs.",
+		Use:   "entities-perform-action",
+		Short: "Performs the specified action on the provided group IDs.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  crowdstrike-cli devices entities-perform-action --ids example-value --action-name add_group_member",
 		Annotations: map[string]string{"pp:endpoint": "devices.entities-perform-action", "pp:method": "POST", "pp:path": "/devices/entities/group-actions/v1"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -59,13 +60,13 @@ func newDevicesEntitiesPerformActionCmd(flags *rootFlags) *cobra.Command {
 			path := "/devices/entities/group-actions/v1"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			if flagActionName != "" {
-				params["action_name"] = fmt.Sprintf("%v", flagActionName)
+				params["action_name"] = formatCLIParamValue(flagActionName)
 			}
 			if flagDisableHostnameCheck != false {
-				params["disable_hostname_check"] = fmt.Sprintf("%v", flagDisableHostnameCheck)
+				params["disable_hostname_check"] = formatCLIParamValue(flagDisableHostnameCheck)
 			}
 			var body map[string]any
 			if stdinBody {

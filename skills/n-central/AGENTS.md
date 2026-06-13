@@ -1,4 +1,4 @@
-# N-central Printed CLI Agent Guide
+# N Central Printed CLI Agent Guide
 
 This directory is a generated `n-central-cli` printed CLI. It was produced by [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press), so treat systemic fixes as upstream Printing Press fixes first. Keep local edits narrow and document why a generated-tree patch belongs here.
 
@@ -34,6 +34,10 @@ n-central-cli <command> --dry-run --agent
 Use `--yes --no-input` only after the target, arguments, and side effects are clear.
 
 For install, auth, examples, and longer product guidance, read `README.md` and `SKILL.md`. This file intentionally stays small so repo-local agents get invariant local guidance without duplicating the generated docs.
+
+## Release Ledger
+
+`CHANGELOG.md` and `.printing-press-release.json` are the public library's per-CLI release ledger. Fresh prints may carry blank skeletons, but the final `YYYY.M.N` CLI release version is assigned only after a publish PR merges in `mvanhorn/printing-press-library`. Do not hand-bump those files or edit `var version = ...` for release bookkeeping; preserve existing ledger files on reprint and let the library workflow stamp the next release.
 
 ## Local Customizations
 

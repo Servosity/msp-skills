@@ -29,8 +29,8 @@ func newAgentListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/bcdr/agent"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "agent", path, map[string]string{
-				"_page":    fmt.Sprintf("%v", flagPage),
-				"_perPage": fmt.Sprintf("%v", flagPerPage),
+				"_page":    formatCLIParamValue(flagPage),
+				"_perPage": formatCLIParamValue(flagPerPage),
 			}, nil, flagAll, "", "offset", "", "", "pagination.totalPages", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

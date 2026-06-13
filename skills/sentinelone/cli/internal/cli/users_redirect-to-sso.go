@@ -37,7 +37,7 @@ func newUsersRedirectToSsoCmd(flags *rootFlags) *cobra.Command {
 			path := "/users/login/sso-saml2"
 			params := map[string]string{}
 			if flagEmail != "" {
-				params["email"] = fmt.Sprintf("%v", flagEmail)
+				params["email"] = formatCLIParamValue(flagEmail)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "users", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

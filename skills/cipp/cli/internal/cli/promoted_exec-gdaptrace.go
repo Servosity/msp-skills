@@ -16,9 +16,10 @@ func newExecGdaptracePromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagUPN string
 
 	cmd := &cobra.Command{
-		Use:         "exec-gdaptrace",
-		Short:       "GDAP Access Path Testing: 1. Validates input parameters (TenantFilter and UPN) 2.",
-		Long:        "GDAP Access Path Testing: 1. Validates input parameters (TenantFilter and UPN) 2.",
+		Use:   "exec-gdaptrace",
+		Short: "GDAP Access Path Testing: 1. Validates input parameters (TenantFilter and UPN) 2.",
+		Long:  "GDAP Access Path Testing: 1. Validates input parameters (TenantFilter and UPN) 2.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-gdaptrace --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-gdaptrace.list", "pp:method": "GET", "pp:path": "/ExecGDAPTrace", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,10 +41,10 @@ func newExecGdaptracePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecGDAPTrace"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagUPN != "" {
-				params["UPN"] = fmt.Sprintf("%v", flagUPN)
+				params["UPN"] = formatCLIParamValue(flagUPN)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-gdaptrace", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

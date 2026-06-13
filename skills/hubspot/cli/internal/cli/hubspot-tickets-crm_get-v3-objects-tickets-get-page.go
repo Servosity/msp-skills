@@ -33,12 +33,12 @@ func newHubspotTicketsCrmGetV3ObjectsTicketsGetPageCmd(flags *rootFlags) *cobra.
 
 			path := "/crm/v3/objects/tickets"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-tickets-crm", path, map[string]string{
-				"after":                 fmt.Sprintf("%v", flagAfter),
-				"archived":              fmt.Sprintf("%v", flagArchived),
-				"associations":          fmt.Sprintf("%v", flagAssociations),
-				"limit":                 fmt.Sprintf("%v", flagLimit),
-				"properties":            fmt.Sprintf("%v", flagProperties),
-				"propertiesWithHistory": fmt.Sprintf("%v", flagPropertiesWithHistory),
+				"after":                 formatCLIParamValue(flagAfter),
+				"archived":              formatCLIParamValue(flagArchived),
+				"associations":          formatCLIParamValue(flagAssociations),
+				"limit":                 formatCLIParamValue(flagLimit),
+				"properties":            formatCLIParamValue(flagProperties),
+				"propertiesWithHistory": formatCLIParamValue(flagPropertiesWithHistory),
 			}, nil, flagAll, "after", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

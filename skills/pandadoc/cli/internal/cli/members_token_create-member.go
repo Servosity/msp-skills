@@ -20,7 +20,7 @@ func newMembersTokenCreateMemberCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-member <member_id>",
 		Aliases:     []string{"create"},
 		Short:       "> 🚧 > > This endpoint is only exposed upon request. Please reach out to your Account Manager to get access.",
-		Example:     "  pandadoc-cli members token create-member 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli members token create-member radQBiBkU7MBk59NSgaGf5",
 		Annotations: map[string]string{"pp:endpoint": "token.create-member", "pp:method": "POST", "pp:path": "/members/{member_id}/token"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

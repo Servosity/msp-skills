@@ -47,64 +47,64 @@ func newTeamListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Team"
 			params := map[string]string{}
 			if flagCanEditOnly != false {
-				params["can_edit_only"] = fmt.Sprintf("%v", flagCanEditOnly)
+				params["can_edit_only"] = formatCLIParamValue(flagCanEditOnly)
 			}
 			if flagChatOnly != false {
-				params["chat_only"] = fmt.Sprintf("%v", flagChatOnly)
+				params["chat_only"] = formatCLIParamValue(flagChatOnly)
 			}
 			if flagDepartmentId != "" {
-				params["department_id"] = fmt.Sprintf("%v", flagDepartmentId)
+				params["department_id"] = formatCLIParamValue(flagDepartmentId)
 			}
 			if flagDomain != "" {
-				params["domain"] = fmt.Sprintf("%v", flagDomain)
+				params["domain"] = formatCLIParamValue(flagDomain)
 			}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			if flagIncludeManagers != false {
-				params["include_managers"] = fmt.Sprintf("%v", flagIncludeManagers)
+				params["include_managers"] = formatCLIParamValue(flagIncludeManagers)
 			}
 			if flagIncludeagentsforteams != "" {
-				params["includeagentsforteams"] = fmt.Sprintf("%v", flagIncludeagentsforteams)
+				params["includeagentsforteams"] = formatCLIParamValue(flagIncludeagentsforteams)
 			}
 			if flagIncludedisabled != "" {
-				params["includedisabled"] = fmt.Sprintf("%v", flagIncludedisabled)
+				params["includedisabled"] = formatCLIParamValue(flagIncludedisabled)
 			}
 			if flagIncludeenabled != "" {
-				params["includeenabled"] = fmt.Sprintf("%v", flagIncludeenabled)
+				params["includeenabled"] = formatCLIParamValue(flagIncludeenabled)
 			}
 			if flagIstree != false {
-				params["istree"] = fmt.Sprintf("%v", flagIstree)
+				params["istree"] = formatCLIParamValue(flagIstree)
 			}
 			if flagMemberonly != false {
-				params["memberonly"] = fmt.Sprintf("%v", flagMemberonly)
+				params["memberonly"] = formatCLIParamValue(flagMemberonly)
 			}
 			if flagMydeps != false {
-				params["mydeps"] = fmt.Sprintf("%v", flagMydeps)
+				params["mydeps"] = formatCLIParamValue(flagMydeps)
 			}
 			if flagMyteamsonly != false {
-				params["myteamsonly"] = fmt.Sprintf("%v", flagMyteamsonly)
+				params["myteamsonly"] = formatCLIParamValue(flagMyteamsonly)
 			}
 			if flagOrderbyseq != false {
-				params["orderbyseq"] = fmt.Sprintf("%v", flagOrderbyseq)
+				params["orderbyseq"] = formatCLIParamValue(flagOrderbyseq)
 			}
 			if flagOutcomeId != "" {
-				params["outcome_id"] = fmt.Sprintf("%v", flagOutcomeId)
+				params["outcome_id"] = formatCLIParamValue(flagOutcomeId)
 			}
 			if flagShowall != false {
-				params["showall"] = fmt.Sprintf("%v", flagShowall)
+				params["showall"] = formatCLIParamValue(flagShowall)
 			}
 			if flagShowcounts != false {
-				params["showcounts"] = fmt.Sprintf("%v", flagShowcounts)
+				params["showcounts"] = formatCLIParamValue(flagShowcounts)
 			}
 			if flagTicketareaId != "" {
-				params["ticketarea_id"] = fmt.Sprintf("%v", flagTicketareaId)
+				params["ticketarea_id"] = formatCLIParamValue(flagTicketareaId)
 			}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			if flagViewId != "" {
-				params["view_id"] = fmt.Sprintf("%v", flagViewId)
+				params["view_id"] = formatCLIParamValue(flagViewId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "team", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -317,6 +317,48 @@ func TestUpsertBatch_ExtractFailuresReturnedForPerItemMisses(t *testing.T) {
 	}
 }
 
+func TestSearchQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "ip", "value": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "cidr", "value": "172.16.192.0/18"}`),
+		json.RawMessage(`{"id": "host", "value": "host.example.com"}`),
+		json.RawMessage(`{"id": "email", "value": "user@example.com"}`),
+		json.RawMessage(`{"id": "mac", "value": "aa:bb:cc:dd:ee:ff"}`),
+		json.RawMessage(`{"id": "hyphen", "value": "some-name"}`),
+		json.RawMessage(`{"id": "multi", "value": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("search-regression", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"172.16.192.0/18",
+		"host.example.com",
+		"user@example.com",
+		"aa:bb:cc:dd:ee:ff",
+		"some-name",
+		"error timeout",
+	} {
+		results, err := s.Search(query, 10)
+		if err != nil {
+			t.Fatalf("Search(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("Search(%q) returned no results", query)
+		}
+	}
+}
+
 // TestUpsertBatch_PopulatesAccountsTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed accounts table. Regression for issue #268: before the fix, paginated
@@ -356,6 +398,40 @@ func TestUpsertBatch_PopulatesAccountsTable(t *testing.T) {
 	}
 	if typed != len(items) {
 		t.Fatalf("accounts count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
+	}
+}
+
+func TestSearchAccountsQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "description": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "description": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "description": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("accounts", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchAccounts(query, 10)
+		if err != nil {
+			t.Fatalf("SearchAccounts(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchAccounts(%q) returned no results", query)
+		}
 	}
 }
 
@@ -454,6 +530,64 @@ func TestUpsertBatch_TypedFailureDoesNotStrandBankTransactionsHistoryGeneric(t *
 	}
 }
 
+// TestUpsertBatch_KeysBankTransactionsHistoryByChildAndParent verifies dependent
+// sub-collection rows with the same child id but different parent ids do not
+// overwrite one another in either the generic resources table or the typed
+// table. Regression for issue #2471.
+func TestUpsertBatch_KeysBankTransactionsHistoryByChildAndParent(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "shared_child", "bank_transactions_id": "parent_A"}`),
+		json.RawMessage(`{"id": "shared", "bank_transactions_id": "child_parent_A"}`),
+		json.RawMessage(`{"id": "shared_child", "bank_transactions_id": "parent_B"}`),
+		json.RawMessage(`{"id": "other_child", "bank_transactions_id": "parent_A"}`),
+	}
+	stored, extractFailures, err := s.UpsertBatch("bank_transactions_history", items)
+	if err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	}
+	if stored != len(items) {
+		t.Fatalf("stored = %d, want %d", stored, len(items))
+	}
+	if extractFailures != 0 {
+		t.Fatalf("extractFailures = %d, want 0", extractFailures)
+	}
+
+	db := s.DB()
+
+	var generic int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = ?`, "bank_transactions_history").Scan(&generic); err != nil {
+		t.Fatalf("count resources: %v", err)
+	}
+	if generic != len(items) {
+		t.Fatalf("resources count = %d, want %d (dependent rows collapsed on child id)", generic, len(items))
+	}
+
+	var typed int
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "bank_transactions_history")
+	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
+		t.Fatalf("count bank_transactions_history: %v", err)
+	}
+	if typed != len(items) {
+		t.Fatalf("bank_transactions_history count = %d, want %d (typed rows collapsed on child id)", typed, len(items))
+	}
+
+	var parentMatches int
+	parentQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s" WHERE "bank_transactions_id" = ?`, "bank_transactions_history")
+	if err := db.QueryRow(parentQuery, "parent_A").Scan(&parentMatches); err != nil {
+		t.Fatalf("count by bank_transactions_id: %v", err)
+	}
+	if parentMatches != 2 {
+		t.Fatalf("bank_transactions_id=parent_A count = %d, want 2", parentMatches)
+	}
+}
+
 // TestUpsertBatch_PopulatesContactsHistoryTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed contacts_history table. Regression for issue #268: before the fix, paginated
@@ -546,6 +680,64 @@ func TestUpsertBatch_TypedFailureDoesNotStrandContactsHistoryGeneric(t *testing.
 	}
 	if typed != 0 {
 		t.Fatalf("contacts_history count = %d, want 0 (typed insert violated NOT NULL on %q)", typed, "contacts_id")
+	}
+}
+
+// TestUpsertBatch_KeysContactsHistoryByChildAndParent verifies dependent
+// sub-collection rows with the same child id but different parent ids do not
+// overwrite one another in either the generic resources table or the typed
+// table. Regression for issue #2471.
+func TestUpsertBatch_KeysContactsHistoryByChildAndParent(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "shared_child", "contacts_id": "parent_A"}`),
+		json.RawMessage(`{"id": "shared", "contacts_id": "child_parent_A"}`),
+		json.RawMessage(`{"id": "shared_child", "contacts_id": "parent_B"}`),
+		json.RawMessage(`{"id": "other_child", "contacts_id": "parent_A"}`),
+	}
+	stored, extractFailures, err := s.UpsertBatch("contacts_history", items)
+	if err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	}
+	if stored != len(items) {
+		t.Fatalf("stored = %d, want %d", stored, len(items))
+	}
+	if extractFailures != 0 {
+		t.Fatalf("extractFailures = %d, want 0", extractFailures)
+	}
+
+	db := s.DB()
+
+	var generic int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = ?`, "contacts_history").Scan(&generic); err != nil {
+		t.Fatalf("count resources: %v", err)
+	}
+	if generic != len(items) {
+		t.Fatalf("resources count = %d, want %d (dependent rows collapsed on child id)", generic, len(items))
+	}
+
+	var typed int
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "contacts_history")
+	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
+		t.Fatalf("count contacts_history: %v", err)
+	}
+	if typed != len(items) {
+		t.Fatalf("contacts_history count = %d, want %d (typed rows collapsed on child id)", typed, len(items))
+	}
+
+	var parentMatches int
+	parentQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s" WHERE "contacts_id" = ?`, "contacts_history")
+	if err := db.QueryRow(parentQuery, "parent_A").Scan(&parentMatches); err != nil {
+		t.Fatalf("count by contacts_id: %v", err)
+	}
+	if parentMatches != 2 {
+		t.Fatalf("contacts_id=parent_A count = %d, want 2", parentMatches)
 	}
 }
 
@@ -644,6 +836,64 @@ func TestUpsertBatch_TypedFailureDoesNotStrandInvoicesHistoryGeneric(t *testing.
 	}
 }
 
+// TestUpsertBatch_KeysInvoicesHistoryByChildAndParent verifies dependent
+// sub-collection rows with the same child id but different parent ids do not
+// overwrite one another in either the generic resources table or the typed
+// table. Regression for issue #2471.
+func TestUpsertBatch_KeysInvoicesHistoryByChildAndParent(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "shared_child", "invoices_id": "parent_A"}`),
+		json.RawMessage(`{"id": "shared", "invoices_id": "child_parent_A"}`),
+		json.RawMessage(`{"id": "shared_child", "invoices_id": "parent_B"}`),
+		json.RawMessage(`{"id": "other_child", "invoices_id": "parent_A"}`),
+	}
+	stored, extractFailures, err := s.UpsertBatch("invoices_history", items)
+	if err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	}
+	if stored != len(items) {
+		t.Fatalf("stored = %d, want %d", stored, len(items))
+	}
+	if extractFailures != 0 {
+		t.Fatalf("extractFailures = %d, want 0", extractFailures)
+	}
+
+	db := s.DB()
+
+	var generic int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = ?`, "invoices_history").Scan(&generic); err != nil {
+		t.Fatalf("count resources: %v", err)
+	}
+	if generic != len(items) {
+		t.Fatalf("resources count = %d, want %d (dependent rows collapsed on child id)", generic, len(items))
+	}
+
+	var typed int
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "invoices_history")
+	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
+		t.Fatalf("count invoices_history: %v", err)
+	}
+	if typed != len(items) {
+		t.Fatalf("invoices_history count = %d, want %d (typed rows collapsed on child id)", typed, len(items))
+	}
+
+	var parentMatches int
+	parentQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s" WHERE "invoices_id" = ?`, "invoices_history")
+	if err := db.QueryRow(parentQuery, "parent_A").Scan(&parentMatches); err != nil {
+		t.Fatalf("count by invoices_id: %v", err)
+	}
+	if parentMatches != 2 {
+		t.Fatalf("invoices_id=parent_A count = %d, want 2", parentMatches)
+	}
+}
+
 // TestUpsertBatch_PopulatesItemsTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed items table. Regression for issue #268: before the fix, paginated
@@ -683,6 +933,40 @@ func TestUpsertBatch_PopulatesItemsTable(t *testing.T) {
 	}
 	if typed != len(items) {
 		t.Fatalf("items count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
+	}
+}
+
+func TestSearchItemsQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "description": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "description": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "description": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("items", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchItems(query, 10)
+		if err != nil {
+			t.Fatalf("SearchItems(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchItems(%q) returned no results", query)
+		}
 	}
 }
 
@@ -781,6 +1065,64 @@ func TestUpsertBatch_TypedFailureDoesNotStrandItemsHistoryGeneric(t *testing.T) 
 	}
 }
 
+// TestUpsertBatch_KeysItemsHistoryByChildAndParent verifies dependent
+// sub-collection rows with the same child id but different parent ids do not
+// overwrite one another in either the generic resources table or the typed
+// table. Regression for issue #2471.
+func TestUpsertBatch_KeysItemsHistoryByChildAndParent(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "shared_child", "items_id": "parent_A"}`),
+		json.RawMessage(`{"id": "shared", "items_id": "child_parent_A"}`),
+		json.RawMessage(`{"id": "shared_child", "items_id": "parent_B"}`),
+		json.RawMessage(`{"id": "other_child", "items_id": "parent_A"}`),
+	}
+	stored, extractFailures, err := s.UpsertBatch("items_history", items)
+	if err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	}
+	if stored != len(items) {
+		t.Fatalf("stored = %d, want %d", stored, len(items))
+	}
+	if extractFailures != 0 {
+		t.Fatalf("extractFailures = %d, want 0", extractFailures)
+	}
+
+	db := s.DB()
+
+	var generic int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = ?`, "items_history").Scan(&generic); err != nil {
+		t.Fatalf("count resources: %v", err)
+	}
+	if generic != len(items) {
+		t.Fatalf("resources count = %d, want %d (dependent rows collapsed on child id)", generic, len(items))
+	}
+
+	var typed int
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "items_history")
+	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
+		t.Fatalf("count items_history: %v", err)
+	}
+	if typed != len(items) {
+		t.Fatalf("items_history count = %d, want %d (typed rows collapsed on child id)", typed, len(items))
+	}
+
+	var parentMatches int
+	parentQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s" WHERE "items_id" = ?`, "items_history")
+	if err := db.QueryRow(parentQuery, "parent_A").Scan(&parentMatches); err != nil {
+		t.Fatalf("count by items_id: %v", err)
+	}
+	if parentMatches != 2 {
+		t.Fatalf("items_id=parent_A count = %d, want 2", parentMatches)
+	}
+}
+
 // TestUpsertBatch_PopulatesPaymentsHistoryTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed payments_history table. Regression for issue #268: before the fix, paginated
@@ -873,5 +1215,63 @@ func TestUpsertBatch_TypedFailureDoesNotStrandPaymentsHistoryGeneric(t *testing.
 	}
 	if typed != 0 {
 		t.Fatalf("payments_history count = %d, want 0 (typed insert violated NOT NULL on %q)", typed, "payments_id")
+	}
+}
+
+// TestUpsertBatch_KeysPaymentsHistoryByChildAndParent verifies dependent
+// sub-collection rows with the same child id but different parent ids do not
+// overwrite one another in either the generic resources table or the typed
+// table. Regression for issue #2471.
+func TestUpsertBatch_KeysPaymentsHistoryByChildAndParent(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "shared_child", "payments_id": "parent_A"}`),
+		json.RawMessage(`{"id": "shared", "payments_id": "child_parent_A"}`),
+		json.RawMessage(`{"id": "shared_child", "payments_id": "parent_B"}`),
+		json.RawMessage(`{"id": "other_child", "payments_id": "parent_A"}`),
+	}
+	stored, extractFailures, err := s.UpsertBatch("payments_history", items)
+	if err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	}
+	if stored != len(items) {
+		t.Fatalf("stored = %d, want %d", stored, len(items))
+	}
+	if extractFailures != 0 {
+		t.Fatalf("extractFailures = %d, want 0", extractFailures)
+	}
+
+	db := s.DB()
+
+	var generic int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = ?`, "payments_history").Scan(&generic); err != nil {
+		t.Fatalf("count resources: %v", err)
+	}
+	if generic != len(items) {
+		t.Fatalf("resources count = %d, want %d (dependent rows collapsed on child id)", generic, len(items))
+	}
+
+	var typed int
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "payments_history")
+	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
+		t.Fatalf("count payments_history: %v", err)
+	}
+	if typed != len(items) {
+		t.Fatalf("payments_history count = %d, want %d (typed rows collapsed on child id)", typed, len(items))
+	}
+
+	var parentMatches int
+	parentQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s" WHERE "payments_id" = ?`, "payments_history")
+	if err := db.QueryRow(parentQuery, "parent_A").Scan(&parentMatches); err != nil {
+		t.Fatalf("count by payments_id: %v", err)
+	}
+	if parentMatches != 2 {
+		t.Fatalf("payments_id=parent_A count = %d, want 2", parentMatches)
 	}
 }

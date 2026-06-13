@@ -17,9 +17,10 @@ func newRmmTicketsDuplicateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "duplicate <integrationType>",
-		Aliases:     []string{"create"},
-		Short:       "Duplicate",
+		Use:     "duplicate <integrationType>",
+		Aliases: []string{"create"},
+		Short:   "Duplicate",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli rmm tickets duplicate example-value",
 		Annotations: map[string]string{"pp:endpoint": "tickets.duplicate", "pp:method": "POST", "pp:path": "/v2/rmm/{integrationType}/tickets/duplicate"},
 		RunE: func(cmd *cobra.Command, args []string) error {

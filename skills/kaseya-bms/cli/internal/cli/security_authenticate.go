@@ -26,9 +26,10 @@ func newSecurityAuthenticateCmd(flags *rootFlags) *cobra.Command {
 	var bodyUserName string
 
 	cmd := &cobra.Command{
-		Use:         "authenticate",
-		Aliases:     []string{"create"},
-		Short:       "Authenticate",
+		Use:     "authenticate",
+		Aliases: []string{"create"},
+		Short:   "Authenticate",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli security authenticate --grant-type example-value",
 		Annotations: map[string]string{"pp:endpoint": "security.authenticate", "pp:method": "POST", "pp:path": "/v2/security/authenticate"},
 		RunE: func(cmd *cobra.Command, args []string) error {

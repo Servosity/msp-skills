@@ -18,8 +18,9 @@ func newHubspotPropertiesCrmGetV3PropertiesObjectTypeGetAllCmd(flags *rootFlags)
 	var flagProperties string
 
 	cmd := &cobra.Command{
-		Use:         "get-v3-properties-object-type-get-all <objectType>",
-		Short:       "Read all existing properties for the specified object type and HubSpot account.",
+		Use:   "get-v3-properties-object-type-get-all <objectType>",
+		Short: "Read all existing properties for the specified object type and HubSpot account.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-properties-crm get-v3-properties-object-type-get-all example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-properties-crm.get-v3-properties-object-type-get-all", "pp:method": "GET", "pp:path": "/crm/v3/properties/{objectType}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -48,16 +49,16 @@ func newHubspotPropertiesCrmGetV3PropertiesObjectTypeGetAllCmd(flags *rootFlags)
 			path = replacePathParam(path, "objectType", args[0])
 			params := map[string]string{}
 			if flagArchived != false {
-				params["archived"] = fmt.Sprintf("%v", flagArchived)
+				params["archived"] = formatCLIParamValue(flagArchived)
 			}
 			if flagDataSensitivity != "" {
-				params["dataSensitivity"] = fmt.Sprintf("%v", flagDataSensitivity)
+				params["dataSensitivity"] = formatCLIParamValue(flagDataSensitivity)
 			}
 			if flagLocale != "" {
-				params["locale"] = fmt.Sprintf("%v", flagLocale)
+				params["locale"] = formatCLIParamValue(flagLocale)
 			}
 			if flagProperties != "" {
-				params["properties"] = fmt.Sprintf("%v", flagProperties)
+				params["properties"] = formatCLIParamValue(flagProperties)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-properties-crm", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

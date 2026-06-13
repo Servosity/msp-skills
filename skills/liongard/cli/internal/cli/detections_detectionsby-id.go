@@ -33,7 +33,7 @@ func newDetectionsDetectionsbyIdCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "DetectionID", args[0])
 			params := map[string]string{}
 			if flagFields != "" {
-				params["fields[]"] = fmt.Sprintf("%v", flagFields)
+				params["fields[]"] = formatCLIParamValue(flagFields)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "detections", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

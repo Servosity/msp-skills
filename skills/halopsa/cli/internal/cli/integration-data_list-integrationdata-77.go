@@ -31,16 +31,16 @@ func newIntegrationDataListIntegrationdata77Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/SalesMailbox"
 			params := map[string]string{}
 			if flagConnectionid != "" {
-				params["connectionid"] = fmt.Sprintf("%v", flagConnectionid)
+				params["connectionid"] = formatCLIParamValue(flagConnectionid)
 			}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			if flagMailboxname != "" {
-				params["mailboxname"] = fmt.Sprintf("%v", flagMailboxname)
+				params["mailboxname"] = formatCLIParamValue(flagMailboxname)
 			}
 			if flagMappingid != "" {
-				params["mappingid"] = fmt.Sprintf("%v", flagMappingid)
+				params["mappingid"] = formatCLIParamValue(flagMappingid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -32,7 +32,7 @@ func newTeamsDeleteCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagReassignmentTeam != "" {
-				params["reassignment_team"] = fmt.Sprintf("%v", flagReassignmentTeam)
+				params["reassignment_team"] = formatCLIParamValue(flagReassignmentTeam)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

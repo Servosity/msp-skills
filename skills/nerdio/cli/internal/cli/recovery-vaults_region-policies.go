@@ -14,8 +14,9 @@ import (
 func newRecoveryVaultsRegionPoliciesCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "region-policies <account_id> <region>",
-		Short:       "Get vault policy info for an Azure region",
+		Use:   "region-policies <account_id> <region>",
+		Short: "Get vault policy info for an Azure region",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  nerdio-cli recovery-vaults region-policies 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "recovery-vaults.region-policies", "pp:method": "GET", "pp:path": "/rest-api/v1/accounts/{account_id}/recovery-vault/regionpolicyinfo/{region}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

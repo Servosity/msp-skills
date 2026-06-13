@@ -30,13 +30,13 @@ func newFeaturesListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Features"
 			params := map[string]string{}
 			if flagIsconfig != false {
-				params["isconfig"] = fmt.Sprintf("%v", flagIsconfig)
+				params["isconfig"] = formatCLIParamValue(flagIsconfig)
 			}
 			if flagShowdisabled != false {
-				params["showdisabled"] = fmt.Sprintf("%v", flagShowdisabled)
+				params["showdisabled"] = formatCLIParamValue(flagShowdisabled)
 			}
 			if flagShowenabled != false {
-				params["showenabled"] = fmt.Sprintf("%v", flagShowenabled)
+				params["showenabled"] = formatCLIParamValue(flagShowenabled)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "features", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

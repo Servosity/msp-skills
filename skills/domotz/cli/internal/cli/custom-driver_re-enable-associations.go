@@ -33,7 +33,7 @@ func newCustomDriverReEnableAssociationsCmd(flags *rootFlags) *cobra.Command {
 			path := "/custom-driver/association/re-enable"
 			params := map[string]string{}
 			if flagIncludeUnrecoverable != false {
-				params["include_unrecoverable"] = fmt.Sprintf("%v", flagIncludeUnrecoverable)
+				params["include_unrecoverable"] = formatCLIParamValue(flagIncludeUnrecoverable)
 			}
 			var body map[string]any
 			if stdinBody {

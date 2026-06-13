@@ -26,6 +26,13 @@ import (
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+var isoDatePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Zz]+)?$`)
+var ftsQueryTokenRE = regexp.MustCompile(`[\pL\pN_]+`)
+
+var sqliteDriverInit struct {
+	mu   sync.Mutex
+	done bool
+}
 
 // validIdentifierRE pins ListField's `field` argument to a safe SQL
 // identifier shape before any Sprintf interpolation. Matches what
@@ -41,9 +48,15 @@ func IsUUID(s string) bool {
 
 // StoreSchemaVersion is the on-disk schema version this binary understands.
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
-// checked on every open. Non-learn CLIs advance to v3 for the
-// resources_fts rowid rehash.
-const StoreSchemaVersion = 3
+// checked on every open. Non-learn CLIs advance to v4 for the
+// resources_fts content extraction.
+const StoreSchemaVersion = 4
+
+// resourcesFTSContentSchemaVersion pins the schema bump that rewrote
+// resources_fts content from raw JSON to searchable leaf values. Keep this
+// separate from StoreSchemaVersion so future unrelated migrations do not
+// trigger an expensive full FTS rebuild.
+const resourcesFTSContentSchemaVersion = 4
 
 const resourcesFTSCreateSQL = `CREATE VIRTUAL TABLE IF NOT EXISTS resources_fts USING fts5(
 	id, resource_type, content, tokenize='porter unicode61'
@@ -87,7 +100,12 @@ func Open(dbPath string) (*Store, error) {
 // delete mode (e.g. a pre-WAL database opened by an old binary before its
 // first read-write open) errors with "attempt to write a readonly database".
 func OpenReadOnly(dbPath string) (*Store, error) {
-	db, err := sql.Open("sqlite", "file:"+dbPath+"?mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(268435456)")
+	dsn := "file:" + dbPath + "?mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(268435456)"
+	if err := ensureSQLiteDriverInitialized(context.Background(), dsn); err != nil {
+		return nil, err
+	}
+
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("opening database (read-only): %w", err)
 	}
@@ -104,7 +122,12 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("creating db directory: %w", err)
 	}
 
-	db, err := sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(268435456)")
+	dsn := dbPath + "?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(268435456)"
+	if err := ensureSQLiteDriverInitialized(ctx, dsn); err != nil {
+		return nil, err
+	}
+
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
@@ -121,6 +144,32 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 	}
 
 	return s, nil
+}
+
+func ensureSQLiteDriverInitialized(ctx context.Context, dsn string) error {
+	sqliteDriverInit.mu.Lock()
+	defer sqliteDriverInit.mu.Unlock()
+
+	if sqliteDriverInit.done {
+		return nil
+	}
+
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return fmt.Errorf("opening database for driver initialization: %w", err)
+	}
+	defer db.Close()
+
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("initializing sqlite driver: %w", err)
+	}
+	if err := conn.Close(); err != nil {
+		return fmt.Errorf("closing sqlite initialization connection: %w", err)
+	}
+
+	sqliteDriverInit.done = true
+	return nil
 }
 
 func (s *Store) Close() error {
@@ -1077,6 +1126,11 @@ func (s *Store) migrate(ctx context.Context) error {
 		if err := s.migrateExtras(ctx, conn); err != nil {
 			return fmt.Errorf("running extra migrations: %w", err)
 		}
+		if current < resourcesFTSContentSchemaVersion {
+			if err := s.migrateResourcesFTSContent(ctx, conn); err != nil {
+				return fmt.Errorf("migrating resources FTS content: %w", err)
+			}
+		}
 		// Stamp the schema version. On a fresh DB this writes the current
 		// StoreSchemaVersion; on an already-stamped DB this is a no-op
 		// write of the same value.
@@ -1162,6 +1216,27 @@ func (s *Store) migrateResourcesFTSRowIDs(ctx context.Context, conn *sql.Conn) e
 	return nil
 }
 
+func (s *Store) migrateResourcesFTSContent(ctx context.Context, conn *sql.Conn) error {
+	exists, err := tableExists(ctx, conn, "resources")
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+
+	if _, err := conn.ExecContext(ctx, `DROP TABLE IF EXISTS resources_fts`); err != nil {
+		return fmt.Errorf("dropping resources_fts: %w", err)
+	}
+	if _, err := conn.ExecContext(ctx, resourcesFTSCreateSQL); err != nil {
+		return fmt.Errorf("creating resources_fts: %w", err)
+	}
+	if err := rebuildResourcesFTS(ctx, conn); err != nil {
+		return fmt.Errorf("rebuilding resources_fts: %w", err)
+	}
+	return nil
+}
+
 func tableExists(ctx context.Context, conn *sql.Conn, name string) (bool, error) {
 	var count int
 	if err := conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, name).Scan(&count); err != nil {
@@ -1225,7 +1300,7 @@ func rebuildResourcesFTS(ctx context.Context, conn *sql.Conn) error {
 	for _, r := range resources {
 		if _, err := conn.ExecContext(ctx,
 			`INSERT INTO resources_fts (rowid, id, resource_type, content) VALUES (?, ?, ?, ?)`,
-			ftsRowID(r.resourceType, r.id), r.id, r.resourceType, r.data,
+			ftsRowID(r.resourceType, r.id), r.id, r.resourceType, searchableResourceContent(json.RawMessage(r.data)),
 		); err != nil {
 			return fmt.Errorf("indexing resource %s/%s: %w", r.resourceType, r.id, err)
 		}
@@ -1361,7 +1436,7 @@ func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, dat
 	if _, err = tx.Exec(
 		`INSERT INTO resources_fts (rowid, id, resource_type, content)
 		 VALUES (?, ?, ?, ?)`,
-		ftsRowid, id, resourceType, string(data),
+		ftsRowid, id, resourceType, searchableResourceContent(data),
 	); err != nil {
 		// FTS insert failure is non-fatal
 		fmt.Fprintf(os.Stderr, "warning: FTS index update failed: %v\n", err)
@@ -1400,13 +1475,76 @@ func (s *Store) Get(resourceType, id string) (json.RawMessage, error) {
 	return json.RawMessage(data), nil
 }
 
+// List returns resources of the given type. A positive limit caps the result
+// count; zero or negative means no limit.
 func (s *Store) List(resourceType string, limit int) ([]json.RawMessage, error) {
+	query := `SELECT data FROM resources WHERE resource_type = ? ORDER BY updated_at DESC`
+	args := []any{resourceType}
+	if limit > 0 {
+		query += ` LIMIT ?`
+		args = append(args, limit)
+	}
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []json.RawMessage
+	for rows.Next() {
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			return nil, err
+		}
+		results = append(results, json.RawMessage(data))
+	}
+	return results, rows.Err()
+}
+
+func (s *Store) Search(query string, limit int, resourceTypes ...string) ([]json.RawMessage, error) {
 	if limit <= 0 {
-		limit = 200
+		limit = 50
+	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
+	resourceType := ""
+	if len(resourceTypes) > 0 {
+		resourceType = strings.TrimSpace(resourceTypes[0])
+	}
+	if resourceType != "" {
+		rows, err := s.db.Query(
+			`SELECT r.data FROM resources r
+			 JOIN resources_fts f ON r.id = f.id AND r.resource_type = f.resource_type
+			 WHERE resources_fts MATCH ?
+			 AND r.resource_type = ?
+			 ORDER BY rank
+			 LIMIT ?`,
+			matchQuery, resourceType, limit,
+		)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		var results []json.RawMessage
+		for rows.Next() {
+			var data string
+			if err := rows.Scan(&data); err != nil {
+				return nil, err
+			}
+			results = append(results, json.RawMessage(data))
+		}
+		return results, rows.Err()
 	}
 	rows, err := s.db.Query(
-		`SELECT data FROM resources WHERE resource_type = ? ORDER BY updated_at DESC LIMIT ?`,
-		resourceType, limit,
+		`SELECT r.data FROM resources r
+		 JOIN resources_fts f ON r.id = f.id AND r.resource_type = f.resource_type
+		 WHERE resources_fts MATCH ?
+		 ORDER BY rank
+		 LIMIT ?`,
+		matchQuery, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -1424,32 +1562,82 @@ func (s *Store) List(resourceType string, limit int) ([]json.RawMessage, error) 
 	return results, rows.Err()
 }
 
-func (s *Store) Search(query string, limit int) ([]json.RawMessage, error) {
-	if limit <= 0 {
-		limit = 50
+func searchableResourceContent(data json.RawMessage) string {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	var value any
+	if err := dec.Decode(&value); err != nil {
+		return ""
 	}
-	rows, err := s.db.Query(
-		`SELECT r.data FROM resources r
-		 JOIN resources_fts f ON r.id = f.id AND r.resource_type = f.resource_type
-		 WHERE resources_fts MATCH ?
-		 ORDER BY rank
-		 LIMIT ?`,
-		query, limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+	var parts []string
+	collectSearchableStrings(&parts, "", value)
+	return strings.Join(parts, " ")
+}
 
-	var results []json.RawMessage
-	for rows.Next() {
-		var data string
-		if err := rows.Scan(&data); err != nil {
-			return nil, err
+func collectSearchableStrings(parts *[]string, key string, value any) {
+	switch v := value.(type) {
+	case map[string]any:
+		for childKey, child := range v {
+			collectSearchableStrings(parts, childKey, child)
 		}
-		results = append(results, json.RawMessage(data))
+	case []any:
+		for _, child := range v {
+			collectSearchableStrings(parts, key, child)
+		}
+	case string:
+		if shouldIndexSearchString(key, v) {
+			*parts = append(*parts, strings.TrimSpace(v))
+		}
 	}
-	return results, rows.Err()
+}
+
+func shouldIndexSearchString(key, value string) bool {
+	s := strings.TrimSpace(value)
+	if len(s) < 2 {
+		return false
+	}
+	if isIdentifierKey(key) {
+		return false
+	}
+	lower := strings.ToLower(s)
+	upper := strings.ToUpper(s)
+	switch {
+	case IsUUID(s):
+		return false
+	case isoDatePattern.MatchString(s):
+		return false
+	case strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://"):
+		return false
+	case upper == s && len(s) == 3 && strings.IndexFunc(s, func(r rune) bool { return r < 'A' || r > 'Z' }) == -1:
+		return false
+	}
+	tokens := ftsQueryTokenRE.FindAllString(s, -1)
+	return len(tokens) > 0
+}
+
+func isIdentifierKey(key string) bool {
+	if key == "" {
+		return false
+	}
+	lower := strings.ToLower(key)
+	return lower == "id" ||
+		lower == "uuid" ||
+		strings.HasSuffix(lower, "_id") ||
+		strings.HasSuffix(lower, "-id") ||
+		strings.HasSuffix(key, "Id") ||
+		strings.HasSuffix(key, "ID")
+}
+
+func ftsMatchQuery(query string) string {
+	tokens := ftsQueryTokenRE.FindAllString(query, -1)
+	if len(tokens) == 0 {
+		return ""
+	}
+	quoted := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		quoted = append(quoted, `"`+token+`"`)
+	}
+	return strings.Join(quoted, " ")
 }
 
 func extractObjectID(obj map[string]any) string {
@@ -1596,6 +1784,7 @@ func (s *Store) UpsertAcknowledge(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for acknowledge")
 	}
+	storageID := resourceStorageID("acknowledge", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -1605,10 +1794,10 @@ func (s *Store) UpsertAcknowledge(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "acknowledge", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "acknowledge", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertAcknowledgeTx(tx, id, obj, data); err != nil {
+	if err := s.upsertAcknowledgeTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -1648,6 +1837,7 @@ func (s *Store) UpsertAlertsEvents(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for alerts_events")
 	}
+	storageID := resourceStorageID("alerts_events", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -1657,10 +1847,10 @@ func (s *Store) UpsertAlertsEvents(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "alerts_events", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "alerts_events", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertAlertsEventsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertAlertsEventsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -1699,6 +1889,7 @@ func (s *Store) UpsertAlertsResolve(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for alerts_resolve")
 	}
+	storageID := resourceStorageID("alerts_resolve", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -1708,10 +1899,10 @@ func (s *Store) UpsertAlertsResolve(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "alerts_resolve", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "alerts_resolve", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertAlertsResolveTx(tx, id, obj, data); err != nil {
+	if err := s.upsertAlertsResolveTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -1750,6 +1941,7 @@ func (s *Store) UpsertRotate(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for rotate")
 	}
+	storageID := resourceStorageID("rotate", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -1759,10 +1951,10 @@ func (s *Store) UpsertRotate(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "rotate", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "rotate", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertRotateTx(tx, id, obj, data); err != nil {
+	if err := s.upsertRotateTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -1801,6 +1993,7 @@ func (s *Store) UpsertTrigger(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for trigger")
 	}
+	storageID := resourceStorageID("trigger", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -1810,10 +2003,10 @@ func (s *Store) UpsertTrigger(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "trigger", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "trigger", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertTriggerTx(tx, id, obj, data); err != nil {
+	if err := s.upsertTriggerTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -1852,6 +2045,7 @@ func (s *Store) UpsertCatalogEntitiesProperties(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for catalog_entities_properties")
 	}
+	storageID := resourceStorageID("catalog_entities_properties", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -1861,10 +2055,10 @@ func (s *Store) UpsertCatalogEntitiesProperties(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "catalog_entities_properties", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "catalog_entities_properties", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertCatalogEntitiesPropertiesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertCatalogEntitiesPropertiesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -1904,6 +2098,7 @@ func (s *Store) UpsertEntities(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for entities")
 	}
+	storageID := resourceStorageID("entities", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -1913,10 +2108,10 @@ func (s *Store) UpsertEntities(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "entities", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "entities", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertEntitiesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertEntitiesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -1955,6 +2150,7 @@ func (s *Store) UpsertCatalogsProperties(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for catalogs_properties")
 	}
+	storageID := resourceStorageID("catalogs_properties", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -1964,10 +2160,10 @@ func (s *Store) UpsertCatalogsProperties(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "catalogs_properties", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "catalogs_properties", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertCatalogsPropertiesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertCatalogsPropertiesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2007,6 +2203,7 @@ func (s *Store) UpsertCustomFieldsOptions(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for custom_fields_options")
 	}
+	storageID := resourceStorageID("custom_fields_options", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2016,10 +2213,10 @@ func (s *Store) UpsertCustomFieldsOptions(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "custom_fields_options", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "custom_fields_options", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertCustomFieldsOptionsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertCustomFieldsOptionsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2058,6 +2255,7 @@ func (s *Store) UpsertDashboardPanelsDuplicate(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for dashboard_panels_duplicate")
 	}
+	storageID := resourceStorageID("dashboard_panels_duplicate", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2067,10 +2265,10 @@ func (s *Store) UpsertDashboardPanelsDuplicate(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "dashboard_panels_duplicate", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "dashboard_panels_duplicate", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertDashboardPanelsDuplicateTx(tx, id, obj, data); err != nil {
+	if err := s.upsertDashboardPanelsDuplicateTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2109,6 +2307,7 @@ func (s *Store) UpsertDashboardsDuplicate(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for dashboards_duplicate")
 	}
+	storageID := resourceStorageID("dashboards_duplicate", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2118,10 +2317,10 @@ func (s *Store) UpsertDashboardsDuplicate(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "dashboards_duplicate", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "dashboards_duplicate", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertDashboardsDuplicateTx(tx, id, obj, data); err != nil {
+	if err := s.upsertDashboardsDuplicateTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2161,6 +2360,7 @@ func (s *Store) UpsertPanels(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for panels")
 	}
+	storageID := resourceStorageID("panels", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2170,10 +2370,10 @@ func (s *Store) UpsertPanels(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "panels", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "panels", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPanelsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPanelsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2212,6 +2412,7 @@ func (s *Store) UpsertSetDefault(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for set_default")
 	}
+	storageID := resourceStorageID("set_default", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2221,10 +2422,10 @@ func (s *Store) UpsertSetDefault(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "set_default", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "set_default", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertSetDefaultTx(tx, id, obj, data); err != nil {
+	if err := s.upsertSetDefaultTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2263,6 +2464,7 @@ func (s *Store) UpsertActions(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for actions")
 	}
+	storageID := resourceStorageID("actions", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2272,10 +2474,10 @@ func (s *Store) UpsertActions(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "actions", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "actions", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertActionsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertActionsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2314,6 +2516,7 @@ func (s *Store) UpsertResendVerification(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for resend_verification")
 	}
+	storageID := resourceStorageID("resend_verification", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2323,10 +2526,10 @@ func (s *Store) UpsertResendVerification(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "resend_verification", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "resend_verification", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertResendVerificationTx(tx, id, obj, data); err != nil {
+	if err := s.upsertResendVerificationTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2365,6 +2568,7 @@ func (s *Store) UpsertVerify(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for verify")
 	}
+	storageID := resourceStorageID("verify", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2374,10 +2578,10 @@ func (s *Store) UpsertVerify(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "verify", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "verify", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertVerifyTx(tx, id, obj, data); err != nil {
+	if err := s.upsertVerifyTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2416,6 +2620,7 @@ func (s *Store) UpsertEscalationPathsEscalationLevels(data json.RawMessage) erro
 	if id == "" {
 		return fmt.Errorf("missing id for escalation_paths_escalation_levels")
 	}
+	storageID := resourceStorageID("escalation_paths_escalation_levels", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2425,10 +2630,10 @@ func (s *Store) UpsertEscalationPathsEscalationLevels(data json.RawMessage) erro
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "escalation_paths_escalation_levels", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "escalation_paths_escalation_levels", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertEscalationPathsEscalationLevelsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertEscalationPathsEscalationLevelsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2468,6 +2673,7 @@ func (s *Store) UpsertEscalationPoliciesEscalationLevels(data json.RawMessage) e
 	if id == "" {
 		return fmt.Errorf("missing id for escalation_policies_escalation_levels")
 	}
+	storageID := resourceStorageID("escalation_policies_escalation_levels", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2477,10 +2683,10 @@ func (s *Store) UpsertEscalationPoliciesEscalationLevels(data json.RawMessage) e
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "escalation_policies_escalation_levels", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "escalation_policies_escalation_levels", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertEscalationPoliciesEscalationLevelsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertEscalationPoliciesEscalationLevelsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2520,6 +2726,7 @@ func (s *Store) UpsertEscalationPoliciesEscalationPaths(data json.RawMessage) er
 	if id == "" {
 		return fmt.Errorf("missing id for escalation_policies_escalation_paths")
 	}
+	storageID := resourceStorageID("escalation_policies_escalation_paths", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2529,10 +2736,10 @@ func (s *Store) UpsertEscalationPoliciesEscalationPaths(data json.RawMessage) er
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "escalation_policies_escalation_paths", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "escalation_policies_escalation_paths", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertEscalationPoliciesEscalationPathsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertEscalationPoliciesEscalationPathsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2571,6 +2778,7 @@ func (s *Store) UpsertEventsFunctionalities(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for events_functionalities")
 	}
+	storageID := resourceStorageID("events_functionalities", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2580,10 +2788,10 @@ func (s *Store) UpsertEventsFunctionalities(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "events_functionalities", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "events_functionalities", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertEventsFunctionalitiesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertEventsFunctionalitiesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2622,6 +2830,7 @@ func (s *Store) UpsertEventsServices(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for events_services")
 	}
+	storageID := resourceStorageID("events_services", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2631,10 +2840,10 @@ func (s *Store) UpsertEventsServices(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "events_services", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "events_services", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertEventsServicesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertEventsServicesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2673,6 +2882,7 @@ func (s *Store) UpsertFormFieldPlacementsConditions(data json.RawMessage) error 
 	if id == "" {
 		return fmt.Errorf("missing id for form_field_placements_conditions")
 	}
+	storageID := resourceStorageID("form_field_placements_conditions", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2682,10 +2892,10 @@ func (s *Store) UpsertFormFieldPlacementsConditions(data json.RawMessage) error 
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "form_field_placements_conditions", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "form_field_placements_conditions", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertFormFieldPlacementsConditionsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertFormFieldPlacementsConditionsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2725,6 +2935,7 @@ func (s *Store) UpsertFormFieldsOptions(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for form_fields_options")
 	}
+	storageID := resourceStorageID("form_fields_options", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2734,10 +2945,10 @@ func (s *Store) UpsertFormFieldsOptions(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "form_fields_options", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "form_fields_options", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertFormFieldsOptionsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertFormFieldsOptionsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2777,6 +2988,7 @@ func (s *Store) UpsertPlacements(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for placements")
 	}
+	storageID := resourceStorageID("placements", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2786,10 +2998,10 @@ func (s *Store) UpsertPlacements(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "placements", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "placements", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPlacementsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPlacementsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2829,6 +3041,7 @@ func (s *Store) UpsertPositions(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for positions")
 	}
+	storageID := resourceStorageID("positions", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2838,10 +3051,10 @@ func (s *Store) UpsertPositions(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "positions", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "positions", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPositionsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPositionsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2881,6 +3094,7 @@ func (s *Store) UpsertFormSetsConditions(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for form_sets_conditions")
 	}
+	storageID := resourceStorageID("form_sets_conditions", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2890,10 +3104,10 @@ func (s *Store) UpsertFormSetsConditions(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "form_sets_conditions", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "form_sets_conditions", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertFormSetsConditionsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertFormSetsConditionsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2932,6 +3146,7 @@ func (s *Store) UpsertFunctionalitiesIncidentsChart(data json.RawMessage) error 
 	if id == "" {
 		return fmt.Errorf("missing id for functionalities_incidents_chart")
 	}
+	storageID := resourceStorageID("functionalities_incidents_chart", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2941,10 +3156,10 @@ func (s *Store) UpsertFunctionalitiesIncidentsChart(data json.RawMessage) error 
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "functionalities_incidents_chart", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "functionalities_incidents_chart", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertFunctionalitiesIncidentsChartTx(tx, id, obj, data); err != nil {
+	if err := s.upsertFunctionalitiesIncidentsChartTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2983,6 +3198,7 @@ func (s *Store) UpsertFunctionalitiesUptimeChart(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for functionalities_uptime_chart")
 	}
+	storageID := resourceStorageID("functionalities_uptime_chart", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2992,10 +3208,10 @@ func (s *Store) UpsertFunctionalitiesUptimeChart(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "functionalities_uptime_chart", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "functionalities_uptime_chart", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertFunctionalitiesUptimeChartTx(tx, id, obj, data); err != nil {
+	if err := s.upsertFunctionalitiesUptimeChartTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3034,6 +3250,7 @@ func (s *Store) UpsertPing(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for ping")
 	}
+	storageID := resourceStorageID("ping", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3043,10 +3260,10 @@ func (s *Store) UpsertPing(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "ping", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "ping", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPingTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPingTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3086,6 +3303,7 @@ func (s *Store) UpsertBooleans(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for booleans")
 	}
+	storageID := resourceStorageID("booleans", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3095,10 +3313,10 @@ func (s *Store) UpsertBooleans(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "booleans", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "booleans", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertBooleansTx(tx, id, obj, data); err != nil {
+	if err := s.upsertBooleansTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3138,6 +3356,7 @@ func (s *Store) UpsertResources(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for resources")
 	}
+	storageID := resourceStorageID("resources", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3147,10 +3366,10 @@ func (s *Store) UpsertResources(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "resources", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "resources", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertResourcesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertResourcesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3190,6 +3409,7 @@ func (s *Store) UpsertIncidentRolesIncidentRoleTasks(data json.RawMessage) error
 	if id == "" {
 		return fmt.Errorf("missing id for incident_roles_incident_role_tasks")
 	}
+	storageID := resourceStorageID("incident_roles_incident_role_tasks", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3199,10 +3419,10 @@ func (s *Store) UpsertIncidentRolesIncidentRoleTasks(data json.RawMessage) error
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "incident_roles_incident_role_tasks", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "incident_roles_incident_role_tasks", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertIncidentRolesIncidentRoleTasksTx(tx, id, obj, data); err != nil {
+	if err := s.upsertIncidentRolesIncidentRoleTasksTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3242,6 +3462,7 @@ func (s *Store) UpsertIncidentsActionItems(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for incidents_action_items")
 	}
+	storageID := resourceStorageID("incidents_action_items", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3251,10 +3472,10 @@ func (s *Store) UpsertIncidentsActionItems(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "incidents_action_items", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "incidents_action_items", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertIncidentsActionItemsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertIncidentsActionItemsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3293,6 +3514,7 @@ func (s *Store) UpsertAddSubscribers(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for add_subscribers")
 	}
+	storageID := resourceStorageID("add_subscribers", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3302,10 +3524,10 @@ func (s *Store) UpsertAddSubscribers(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "add_subscribers", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "add_subscribers", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertAddSubscribersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertAddSubscribersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3344,6 +3566,7 @@ func (s *Store) UpsertIncidentsAlerts(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for incidents_alerts")
 	}
+	storageID := resourceStorageID("incidents_alerts", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3353,10 +3576,10 @@ func (s *Store) UpsertIncidentsAlerts(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "incidents_alerts", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "incidents_alerts", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertIncidentsAlertsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertIncidentsAlertsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3395,6 +3618,7 @@ func (s *Store) UpsertAssignRoleToUser(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for assign_role_to_user")
 	}
+	storageID := resourceStorageID("assign_role_to_user", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3404,10 +3628,10 @@ func (s *Store) UpsertAssignRoleToUser(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "assign_role_to_user", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "assign_role_to_user", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertAssignRoleToUserTx(tx, id, obj, data); err != nil {
+	if err := s.upsertAssignRoleToUserTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3446,6 +3670,7 @@ func (s *Store) UpsertCancel(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for cancel")
 	}
+	storageID := resourceStorageID("cancel", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3455,10 +3680,10 @@ func (s *Store) UpsertCancel(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "cancel", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "cancel", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertCancelTx(tx, id, obj, data); err != nil {
+	if err := s.upsertCancelTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3498,6 +3723,7 @@ func (s *Store) UpsertIncidentsCustomFieldSelections(data json.RawMessage) error
 	if id == "" {
 		return fmt.Errorf("missing id for incidents_custom_field_selections")
 	}
+	storageID := resourceStorageID("incidents_custom_field_selections", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3507,10 +3733,10 @@ func (s *Store) UpsertIncidentsCustomFieldSelections(data json.RawMessage) error
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "incidents_custom_field_selections", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "incidents_custom_field_selections", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertIncidentsCustomFieldSelectionsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertIncidentsCustomFieldSelectionsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3549,6 +3775,7 @@ func (s *Store) UpsertDetachFromParent(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for detach_from_parent")
 	}
+	storageID := resourceStorageID("detach_from_parent", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3558,10 +3785,10 @@ func (s *Store) UpsertDetachFromParent(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "detach_from_parent", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "detach_from_parent", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertDetachFromParentTx(tx, id, obj, data); err != nil {
+	if err := s.upsertDetachFromParentTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3600,6 +3827,7 @@ func (s *Store) UpsertIncidentsDuplicate(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for incidents_duplicate")
 	}
+	storageID := resourceStorageID("incidents_duplicate", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3609,10 +3837,10 @@ func (s *Store) UpsertIncidentsDuplicate(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "incidents_duplicate", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "incidents_duplicate", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertIncidentsDuplicateTx(tx, id, obj, data); err != nil {
+	if err := s.upsertIncidentsDuplicateTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3652,6 +3880,7 @@ func (s *Store) UpsertIncidentsEvents(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for incidents_events")
 	}
+	storageID := resourceStorageID("incidents_events", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3661,10 +3890,10 @@ func (s *Store) UpsertIncidentsEvents(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "incidents_events", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "incidents_events", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertIncidentsEventsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertIncidentsEventsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3704,6 +3933,7 @@ func (s *Store) UpsertIncidentsFeedbacks(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for incidents_feedbacks")
 	}
+	storageID := resourceStorageID("incidents_feedbacks", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3713,10 +3943,10 @@ func (s *Store) UpsertIncidentsFeedbacks(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "incidents_feedbacks", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "incidents_feedbacks", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertIncidentsFeedbacksTx(tx, id, obj, data); err != nil {
+	if err := s.upsertIncidentsFeedbacksTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3756,6 +3986,7 @@ func (s *Store) UpsertFormFieldSelections(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for form_field_selections")
 	}
+	storageID := resourceStorageID("form_field_selections", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3765,10 +3996,10 @@ func (s *Store) UpsertFormFieldSelections(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "form_field_selections", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "form_field_selections", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertFormFieldSelectionsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertFormFieldSelectionsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3807,6 +4038,7 @@ func (s *Store) UpsertInTriage(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for in_triage")
 	}
+	storageID := resourceStorageID("in_triage", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3816,10 +4048,10 @@ func (s *Store) UpsertInTriage(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "in_triage", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "in_triage", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertInTriageTx(tx, id, obj, data); err != nil {
+	if err := s.upsertInTriageTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3859,6 +4091,7 @@ func (s *Store) UpsertIncidentsMeetingRecordings(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for incidents_meeting_recordings")
 	}
+	storageID := resourceStorageID("incidents_meeting_recordings", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3868,10 +4101,10 @@ func (s *Store) UpsertIncidentsMeetingRecordings(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "incidents_meeting_recordings", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "incidents_meeting_recordings", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertIncidentsMeetingRecordingsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertIncidentsMeetingRecordingsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3910,6 +4143,7 @@ func (s *Store) UpsertMitigate(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for mitigate")
 	}
+	storageID := resourceStorageID("mitigate", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3919,10 +4153,10 @@ func (s *Store) UpsertMitigate(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "mitigate", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "mitigate", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertMitigateTx(tx, id, obj, data); err != nil {
+	if err := s.upsertMitigateTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3961,6 +4195,7 @@ func (s *Store) UpsertRemoveSubscribers(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for remove_subscribers")
 	}
+	storageID := resourceStorageID("remove_subscribers", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3970,10 +4205,10 @@ func (s *Store) UpsertRemoveSubscribers(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "remove_subscribers", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "remove_subscribers", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertRemoveSubscribersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertRemoveSubscribersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4012,6 +4247,7 @@ func (s *Store) UpsertIncidentsResolve(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for incidents_resolve")
 	}
+	storageID := resourceStorageID("incidents_resolve", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4021,10 +4257,10 @@ func (s *Store) UpsertIncidentsResolve(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "incidents_resolve", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "incidents_resolve", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertIncidentsResolveTx(tx, id, obj, data); err != nil {
+	if err := s.upsertIncidentsResolveTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4063,6 +4299,7 @@ func (s *Store) UpsertRestart(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for restart")
 	}
+	storageID := resourceStorageID("restart", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4072,10 +4309,10 @@ func (s *Store) UpsertRestart(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "restart", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "restart", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertRestartTx(tx, id, obj, data); err != nil {
+	if err := s.upsertRestartTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4115,6 +4352,7 @@ func (s *Store) UpsertIncidentsStatusPageEvents(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for incidents_status_page_events")
 	}
+	storageID := resourceStorageID("incidents_status_page_events", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4124,10 +4362,10 @@ func (s *Store) UpsertIncidentsStatusPageEvents(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "incidents_status_page_events", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "incidents_status_page_events", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertIncidentsStatusPageEventsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertIncidentsStatusPageEventsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4167,6 +4405,7 @@ func (s *Store) UpsertIncidentsSubStatuses(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for incidents_sub_statuses")
 	}
+	storageID := resourceStorageID("incidents_sub_statuses", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4176,10 +4415,10 @@ func (s *Store) UpsertIncidentsSubStatuses(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "incidents_sub_statuses", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "incidents_sub_statuses", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertIncidentsSubStatusesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertIncidentsSubStatusesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4218,6 +4457,7 @@ func (s *Store) UpsertUnassignRoleFromUser(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for unassign_role_from_user")
 	}
+	storageID := resourceStorageID("unassign_role_from_user", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4227,10 +4467,10 @@ func (s *Store) UpsertUnassignRoleFromUser(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "unassign_role_from_user", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "unassign_role_from_user", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertUnassignRoleFromUserTx(tx, id, obj, data); err != nil {
+	if err := s.upsertUnassignRoleFromUserTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4269,6 +4509,7 @@ func (s *Store) UpsertUnmarkAsDuplicate(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for unmark_as_duplicate")
 	}
+	storageID := resourceStorageID("unmark_as_duplicate", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4278,10 +4519,10 @@ func (s *Store) UpsertUnmarkAsDuplicate(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "unmark_as_duplicate", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "unmark_as_duplicate", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertUnmarkAsDuplicateTx(tx, id, obj, data); err != nil {
+	if err := s.upsertUnmarkAsDuplicateTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4320,6 +4561,7 @@ func (s *Store) UpsertDeleteVideo(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for delete_video")
 	}
+	storageID := resourceStorageID("delete_video", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4329,10 +4571,10 @@ func (s *Store) UpsertDeleteVideo(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "delete_video", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "delete_video", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertDeleteVideoTx(tx, id, obj, data); err != nil {
+	if err := s.upsertDeleteVideoTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4371,6 +4613,7 @@ func (s *Store) UpsertLeave(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for leave")
 	}
+	storageID := resourceStorageID("leave", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4380,10 +4623,10 @@ func (s *Store) UpsertLeave(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "leave", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "leave", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertLeaveTx(tx, id, obj, data); err != nil {
+	if err := s.upsertLeaveTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4422,6 +4665,7 @@ func (s *Store) UpsertPause(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for pause")
 	}
+	storageID := resourceStorageID("pause", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4431,10 +4675,10 @@ func (s *Store) UpsertPause(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "pause", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "pause", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPauseTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPauseTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4473,6 +4717,7 @@ func (s *Store) UpsertResume(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for resume")
 	}
+	storageID := resourceStorageID("resume", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4482,10 +4727,10 @@ func (s *Store) UpsertResume(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "resume", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "resume", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertResumeTx(tx, id, obj, data); err != nil {
+	if err := s.upsertResumeTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4524,6 +4769,7 @@ func (s *Store) UpsertStop(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for stop")
 	}
+	storageID := resourceStorageID("stop", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4533,10 +4779,10 @@ func (s *Store) UpsertStop(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "stop", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "stop", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertStopTx(tx, id, obj, data); err != nil {
+	if err := s.upsertStopTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4575,6 +4821,7 @@ func (s *Store) UpsertRegenerate(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for regenerate")
 	}
+	storageID := resourceStorageID("regenerate", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4584,10 +4831,10 @@ func (s *Store) UpsertRegenerate(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "regenerate", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "regenerate", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertRegenerateTx(tx, id, obj, data); err != nil {
+	if err := s.upsertRegenerateTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4627,6 +4874,7 @@ func (s *Store) UpsertPlaybooksPlaybookTasks(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for playbooks_playbook_tasks")
 	}
+	storageID := resourceStorageID("playbooks_playbook_tasks", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4636,10 +4884,10 @@ func (s *Store) UpsertPlaybooksPlaybookTasks(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "playbooks_playbook_tasks", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "playbooks_playbook_tasks", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPlaybooksPlaybookTasksTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPlaybooksPlaybookTasksTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4678,6 +4926,7 @@ func (s *Store) UpsertSteps(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for steps")
 	}
+	storageID := resourceStorageID("steps", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4687,10 +4936,10 @@ func (s *Store) UpsertSteps(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "steps", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "steps", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertStepsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertStepsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4730,6 +4979,7 @@ func (s *Store) UpsertGroups(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for groups")
 	}
+	storageID := resourceStorageID("groups", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4739,10 +4989,10 @@ func (s *Store) UpsertGroups(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "groups", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "groups", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertGroupsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertGroupsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4782,6 +5032,7 @@ func (s *Store) UpsertRetrospectiveProcessesRetrospectiveSteps(data json.RawMess
 	if id == "" {
 		return fmt.Errorf("missing id for retrospective_processes_retrospective_steps")
 	}
+	storageID := resourceStorageID("retrospective_processes_retrospective_steps", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4791,10 +5042,10 @@ func (s *Store) UpsertRetrospectiveProcessesRetrospectiveSteps(data json.RawMess
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "retrospective_processes_retrospective_steps", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "retrospective_processes_retrospective_steps", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertRetrospectiveProcessesRetrospectiveStepsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertRetrospectiveProcessesRetrospectiveStepsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4833,6 +5084,7 @@ func (s *Store) UpsertScheduleRotationsScheduleRotationActiveDays(data json.RawM
 	if id == "" {
 		return fmt.Errorf("missing id for schedule_rotations_schedule_rotation_active_days")
 	}
+	storageID := resourceStorageID("schedule_rotations_schedule_rotation_active_days", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4842,10 +5094,10 @@ func (s *Store) UpsertScheduleRotationsScheduleRotationActiveDays(data json.RawM
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "schedule_rotations_schedule_rotation_active_days", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "schedule_rotations_schedule_rotation_active_days", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertScheduleRotationsScheduleRotationActiveDaysTx(tx, id, obj, data); err != nil {
+	if err := s.upsertScheduleRotationsScheduleRotationActiveDaysTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4884,6 +5136,7 @@ func (s *Store) UpsertScheduleRotationsScheduleRotationUsers(data json.RawMessag
 	if id == "" {
 		return fmt.Errorf("missing id for schedule_rotations_schedule_rotation_users")
 	}
+	storageID := resourceStorageID("schedule_rotations_schedule_rotation_users", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4893,10 +5146,10 @@ func (s *Store) UpsertScheduleRotationsScheduleRotationUsers(data json.RawMessag
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "schedule_rotations_schedule_rotation_users", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "schedule_rotations_schedule_rotation_users", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertScheduleRotationsScheduleRotationUsersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertScheduleRotationsScheduleRotationUsersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4936,6 +5189,7 @@ func (s *Store) UpsertSchedulesOnCallShadows(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for schedules_on_call_shadows")
 	}
+	storageID := resourceStorageID("schedules_on_call_shadows", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4945,10 +5199,10 @@ func (s *Store) UpsertSchedulesOnCallShadows(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "schedules_on_call_shadows", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "schedules_on_call_shadows", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertSchedulesOnCallShadowsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertSchedulesOnCallShadowsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4988,6 +5242,7 @@ func (s *Store) UpsertSchedulesOverrideShifts(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for schedules_override_shifts")
 	}
+	storageID := resourceStorageID("schedules_override_shifts", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4997,10 +5252,10 @@ func (s *Store) UpsertSchedulesOverrideShifts(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "schedules_override_shifts", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "schedules_override_shifts", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertSchedulesOverrideShiftsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertSchedulesOverrideShiftsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5040,6 +5295,7 @@ func (s *Store) UpsertSchedulesScheduleRotations(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for schedules_schedule_rotations")
 	}
+	storageID := resourceStorageID("schedules_schedule_rotations", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5049,10 +5305,10 @@ func (s *Store) UpsertSchedulesScheduleRotations(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "schedules_schedule_rotations", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "schedules_schedule_rotations", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertSchedulesScheduleRotationsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertSchedulesScheduleRotationsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5091,6 +5347,7 @@ func (s *Store) UpsertSchedulesShifts(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for schedules_shifts")
 	}
+	storageID := resourceStorageID("schedules_shifts", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5100,10 +5357,10 @@ func (s *Store) UpsertSchedulesShifts(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "schedules_shifts", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "schedules_shifts", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertSchedulesShiftsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertSchedulesShiftsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5142,6 +5399,7 @@ func (s *Store) UpsertServicesIncidentsChart(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for services_incidents_chart")
 	}
+	storageID := resourceStorageID("services_incidents_chart", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5151,10 +5409,10 @@ func (s *Store) UpsertServicesIncidentsChart(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "services_incidents_chart", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "services_incidents_chart", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertServicesIncidentsChartTx(tx, id, obj, data); err != nil {
+	if err := s.upsertServicesIncidentsChartTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5193,6 +5451,7 @@ func (s *Store) UpsertServicesUptimeChart(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for services_uptime_chart")
 	}
+	storageID := resourceStorageID("services_uptime_chart", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5202,10 +5461,10 @@ func (s *Store) UpsertServicesUptimeChart(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "services_uptime_chart", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "services_uptime_chart", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertServicesUptimeChartTx(tx, id, obj, data); err != nil {
+	if err := s.upsertServicesUptimeChartTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5245,6 +5504,7 @@ func (s *Store) UpsertStatusPagesTemplates(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for status_pages_templates")
 	}
+	storageID := resourceStorageID("status_pages_templates", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5254,10 +5514,10 @@ func (s *Store) UpsertStatusPagesTemplates(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "status_pages_templates", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "status_pages_templates", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertStatusPagesTemplatesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertStatusPagesTemplatesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5296,6 +5556,7 @@ func (s *Store) UpsertTeamsIncidentsChart(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for teams_incidents_chart")
 	}
+	storageID := resourceStorageID("teams_incidents_chart", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5305,10 +5566,10 @@ func (s *Store) UpsertTeamsIncidentsChart(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "teams_incidents_chart", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "teams_incidents_chart", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertTeamsIncidentsChartTx(tx, id, obj, data); err != nil {
+	if err := s.upsertTeamsIncidentsChartTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5347,6 +5608,7 @@ func (s *Store) UpsertUsersEmailAddresses(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for users_email_addresses")
 	}
+	storageID := resourceStorageID("users_email_addresses", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5356,10 +5618,10 @@ func (s *Store) UpsertUsersEmailAddresses(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "users_email_addresses", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "users_email_addresses", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertUsersEmailAddressesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertUsersEmailAddressesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5399,6 +5661,7 @@ func (s *Store) UpsertUsersNotificationRules(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for users_notification_rules")
 	}
+	storageID := resourceStorageID("users_notification_rules", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5408,10 +5671,10 @@ func (s *Store) UpsertUsersNotificationRules(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "users_notification_rules", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "users_notification_rules", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertUsersNotificationRulesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertUsersNotificationRulesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5450,6 +5713,7 @@ func (s *Store) UpsertUsersPhoneNumbers(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for users_phone_numbers")
 	}
+	storageID := resourceStorageID("users_phone_numbers", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5459,10 +5723,10 @@ func (s *Store) UpsertUsersPhoneNumbers(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "users_phone_numbers", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "users_phone_numbers", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertUsersPhoneNumbersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertUsersPhoneNumbersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5502,6 +5766,7 @@ func (s *Store) UpsertWorkflowsCustomFieldSelections(data json.RawMessage) error
 	if id == "" {
 		return fmt.Errorf("missing id for workflows_custom_field_selections")
 	}
+	storageID := resourceStorageID("workflows_custom_field_selections", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5511,10 +5776,10 @@ func (s *Store) UpsertWorkflowsCustomFieldSelections(data json.RawMessage) error
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "workflows_custom_field_selections", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "workflows_custom_field_selections", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertWorkflowsCustomFieldSelectionsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertWorkflowsCustomFieldSelectionsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5554,6 +5819,7 @@ func (s *Store) UpsertFormFieldConditions(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for form_field_conditions")
 	}
+	storageID := resourceStorageID("form_field_conditions", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5563,10 +5829,10 @@ func (s *Store) UpsertFormFieldConditions(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "form_field_conditions", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "form_field_conditions", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertFormFieldConditionsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertFormFieldConditionsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5606,6 +5872,7 @@ func (s *Store) UpsertWorkflowRuns(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for workflow_runs")
 	}
+	storageID := resourceStorageID("workflow_runs", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5615,10 +5882,10 @@ func (s *Store) UpsertWorkflowRuns(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "workflow_runs", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "workflow_runs", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertWorkflowRunsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertWorkflowRunsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5658,6 +5925,7 @@ func (s *Store) UpsertWorkflowsWorkflowTasks(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for workflows_workflow_tasks")
 	}
+	storageID := resourceStorageID("workflows_workflow_tasks", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5667,10 +5935,10 @@ func (s *Store) UpsertWorkflowsWorkflowTasks(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "workflows_workflow_tasks", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "workflows_workflow_tasks", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertWorkflowsWorkflowTasksTx(tx, id, obj, data); err != nil {
+	if err := s.upsertWorkflowsWorkflowTasksTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5792,9 +6060,99 @@ var resourceIDFieldOverrides = map[string]string{
 // field and upsert on names — see #1394.
 var genericIDFieldFallbacks = []string{"id", "ID", "gid", "sid", "uid", "uuid", "guid", "name", "slug", "key", "code"}
 
-// ExtractResourceID resolves the primary key UpsertBatch would use for a
-// resource item. Callers that need to gate best-effort writes can use this to
-// avoid passing non-entity envelopes into the batch path.
+// resourceParentKeyColumns identifies generated dependent resources whose
+// local mirror rows need the parent context in the storage key. Without this,
+// many-to-many sub-collections collapse every parent association onto the
+// child's bare id and silently keep only the last synced parent.
+var resourceParentKeyColumns = map[string]string{
+	"acknowledge":                           "alerts_id",
+	"alerts_events":                         "alerts_id",
+	"alerts_resolve":                        "alerts_id",
+	"rotate":                                "api_keys_id",
+	"trigger":                               "catalog_checklist_templates_id",
+	"catalog_entities_properties":           "catalog_entities_id",
+	"entities":                              "catalogs_id",
+	"catalogs_properties":                   "catalogs_id",
+	"custom_fields_options":                 "custom_fields_id",
+	"dashboard_panels_duplicate":            "dashboard_panels_id",
+	"dashboards_duplicate":                  "dashboards_id",
+	"panels":                                "dashboards_id",
+	"set_default":                           "dashboards_id",
+	"actions":                               "edge_connectors_id",
+	"resend_verification":                   "email_addresses_id",
+	"verify":                                "email_addresses_id",
+	"escalation_paths_escalation_levels":    "escalation_paths_id",
+	"escalation_policies_escalation_levels": "escalation_policies_id",
+	"escalation_policies_escalation_paths":  "escalation_policies_id",
+	"events_functionalities":                "events_id",
+	"events_services":                       "events_id",
+	"form_field_placements_conditions":      "form_field_placements_id",
+	"form_fields_options":                   "form_fields_id",
+	"placements":                            "form_fields_id",
+	"positions":                             "form_fields_id",
+	"form_sets_conditions":                  "form_sets_id",
+	"functionalities_incidents_chart":       "functionalities_id",
+	"functionalities_uptime_chart":          "functionalities_id",
+	"ping":                                  "heartbeats_id",
+	"booleans":                              "incident_permission_sets_id",
+	"resources":                             "incident_permission_sets_id",
+	"incident_roles_incident_role_tasks":    "incident_roles_id",
+	"incidents_action_items":                "incidents_id",
+	"add_subscribers":                       "incidents_id",
+	"incidents_alerts":                      "incidents_id",
+	"assign_role_to_user":                   "incidents_id",
+	"cancel":                                "incidents_id",
+	"incidents_custom_field_selections":     "incidents_id",
+	"detach_from_parent":                    "incidents_id",
+	"incidents_duplicate":                   "incidents_id",
+	"incidents_events":                      "incidents_id",
+	"incidents_feedbacks":                   "incidents_id",
+	"form_field_selections":                 "incidents_id",
+	"in_triage":                             "incidents_id",
+	"incidents_meeting_recordings":          "incidents_id",
+	"mitigate":                              "incidents_id",
+	"remove_subscribers":                    "incidents_id",
+	"incidents_resolve":                     "incidents_id",
+	"restart":                               "incidents_id",
+	"incidents_status_page_events":          "incidents_id",
+	"incidents_sub_statuses":                "incidents_id",
+	"unassign_role_from_user":               "incidents_id",
+	"unmark_as_duplicate":                   "incidents_id",
+	"delete_video":                          "meeting_recordings_id",
+	"leave":                                 "meeting_recordings_id",
+	"pause":                                 "meeting_recordings_id",
+	"resume":                                "meeting_recordings_id",
+	"stop":                                  "meeting_recordings_id",
+	"regenerate":                            "on_call_pay_reports_id",
+	"playbooks_playbook_tasks":              "playbooks_id",
+	"steps":                                 "retrospective_process_groups_id",
+	"groups":                                "retrospective_processes_id",
+	"retrospective_processes_retrospective_steps":      "retrospective_processes_id",
+	"schedule_rotations_schedule_rotation_active_days": "schedule_rotations_id",
+	"schedule_rotations_schedule_rotation_users":       "schedule_rotations_id",
+	"schedules_on_call_shadows":                        "schedules_id",
+	"schedules_override_shifts":                        "schedules_id",
+	"schedules_schedule_rotations":                     "schedules_id",
+	"schedules_shifts":                                 "schedules_id",
+	"services_incidents_chart":                         "services_id",
+	"services_uptime_chart":                            "services_id",
+	"status_pages_templates":                           "status_pages_id",
+	"teams_incidents_chart":                            "teams_id",
+	"users_email_addresses":                            "users_id",
+	"users_notification_rules":                         "users_id",
+	"users_phone_numbers":                              "users_id",
+	"workflows_custom_field_selections":                "workflows_id",
+	"form_field_conditions":                            "workflows_id",
+	"workflow_runs":                                    "workflows_id",
+	"workflows_workflow_tasks":                         "workflows_id",
+}
+
+// ExtractResourceID resolves the bare resource id field that UpsertBatch
+// extracts from a resource item. For dependent resource types, UpsertBatch
+// derives the actual storage key by combining this id with the parent value;
+// use resourceStorageID if you need the key as it appears in the database.
+// Callers that need to gate best-effort writes can use this to avoid passing
+// non-entity envelopes into the batch path.
 func ExtractResourceID(resourceType string, obj map[string]any) string {
 	if override, ok := resourceIDFieldOverrides[resourceType]; ok && override != "" {
 		if v := lookupFieldValue(obj, override); v != nil {
@@ -5812,7 +6170,115 @@ func ExtractResourceID(resourceType string, obj map[string]any) string {
 			}
 		}
 	}
+	if s := suffixIDFieldFallback(resourceType, obj); s != "" {
+		return s
+	}
 	return ""
+}
+
+// suffixIDFieldFallback resolves an id-less resource that keys on its own
+// "<name>_code" / "<name>_id" / "<name>_key" / "<name>_slug" field (e.g. the
+// "currencies" resource keying on "currency_code" — see #2327). It is scoped to
+// the resource's OWN name so a foreign key like account_id/parent_id is never
+// promoted to the primary key, and it uses direct map lookups in a fixed suffix
+// order so the chosen id is deterministic.
+func suffixIDFieldFallback(resourceType string, obj map[string]any) string {
+	for _, base := range resourceIDBaseNames(resourceType) {
+		for _, suffix := range []string{"_id", "_code", "_key", "_slug"} {
+			if v, ok := obj[base+suffix]; ok {
+				if s := scalarIDString(v); s != "" && s != "<nil>" {
+					return s
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// resourceIDBaseNames returns lowercase candidate singular/plural stems of a
+// resource name to build "<base>_id"-style key probes from (e.g. "currencies"
+// -> ["currencies","currency"]). OpenAPI-/path-derived names can carry a
+// leading verb token ("get-currencies"), so the same probes are also attempted
+// on the de-verbed stem. Minimal English depluralization; the raw name is
+// always included so already-singular names work too.
+func resourceIDBaseNames(resourceType string) []string {
+	r := strings.ToLower(strings.TrimSpace(resourceType))
+	if r == "" {
+		return nil
+	}
+	stems := []string{r}
+	if d := stripLeadingResourceVerb(r); d != "" && d != r {
+		stems = append(stems, d)
+	}
+	var bases []string
+	seen := map[string]bool{}
+	add := func(s string) {
+		if s != "" && !seen[s] {
+			seen[s] = true
+			bases = append(bases, s)
+		}
+	}
+	for _, stem := range stems {
+		add(stem)
+		add(depluralizeResourceStem(stem))
+	}
+	return bases
+}
+
+func stripLeadingResourceVerb(r string) string {
+	for _, verb := range []string{"get", "list", "fetch", "find", "retrieve", "read", "show", "all"} {
+		for _, sep := range []string{"-", "_"} {
+			prefix := verb + sep
+			if strings.HasPrefix(r, prefix) && len(r) > len(prefix) {
+				return r[len(prefix):]
+			}
+		}
+	}
+	return ""
+}
+
+func depluralizeResourceStem(r string) string {
+	switch {
+	case strings.HasSuffix(r, "ies") && len(r) > 3:
+		return strings.TrimSuffix(r, "ies") + "y" // currencies -> currency
+	// Plurals formed by adding "es" to a base ending in s/x/z/ch/sh. The
+	// double-s "sses" guard (not bare "ses") keeps soft-e plurals — where the
+	// singular already ends in a silent "e" (cases, databases, licenses,
+	// purchases) — out of this branch; they fall through to the "-s" case below
+	// (cases -> case, not cas). Trade-off: a genuine "-es" plural of an s-ending
+	// singular (buses, statuses) depluralizes imperfectly, but those are rare as
+	// resource names and this stem only feeds best-effort id-field probing.
+	case strings.HasSuffix(r, "sses") || strings.HasSuffix(r, "xes") ||
+		strings.HasSuffix(r, "zes") || strings.HasSuffix(r, "ches") ||
+		strings.HasSuffix(r, "shes"):
+		return strings.TrimSuffix(r, "es") // classes -> class, boxes -> box, dishes -> dish
+	case strings.HasSuffix(r, "s") && !strings.HasSuffix(r, "ss") && len(r) > 1:
+		return strings.TrimSuffix(r, "s") // languages -> language, cases -> case
+	}
+	return r
+}
+
+func scalarIDString(value any) string {
+	switch value.(type) {
+	case string, bool, int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64, json.Number, []byte:
+		return ResourceIDString(value)
+	default:
+		return ""
+	}
+}
+
+func resourceStorageID(resourceType, id string, obj map[string]any) string {
+	parentKey := resourceParentKeyColumns[resourceType]
+	if parentKey == "" {
+		return id
+	}
+	parentValue := ResourceIDString(lookupFieldValue(obj, parentKey))
+	if parentValue == "" || parentValue == "<nil>" {
+		return id
+	}
+	return id + string([]byte{0}) + parentValue
 }
 
 // UpsertBatch inserts or replaces multiple records in a single transaction
@@ -5862,196 +6328,197 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 			extractFailures++
 			continue
 		}
+		storageID := resourceStorageID(resourceType, id, obj)
 
-		if err := s.upsertGenericResourceTx(tx, resourceType, id, item); err != nil {
+		if err := s.upsertGenericResourceTx(tx, resourceType, storageID, item); err != nil {
 			// Return the running stored count rather than zero so callers
 			// inspecting partial progress on failure see what already
 			// landed in earlier loop iterations.
-			return stored, extractFailures, fmt.Errorf("upserting %s/%s: %w", resourceType, id, err)
+			return stored, extractFailures, fmt.Errorf("upserting %s/%s: %w", resourceType, storageID, err)
 		}
 		stored++
 
 		savepoint := fmt.Sprintf("pp_typed_%d", i)
 		if _, err := tx.Exec("SAVEPOINT " + savepoint); err != nil {
-			return stored, extractFailures, fmt.Errorf("savepoint begin for %s/%s: %w", resourceType, id, err)
+			return stored, extractFailures, fmt.Errorf("savepoint begin for %s/%s: %w", resourceType, storageID, err)
 		}
 
 		var typedErr error
 		switch resourceType {
 		case "acknowledge":
-			typedErr = s.upsertAcknowledgeTx(tx, id, obj, item)
+			typedErr = s.upsertAcknowledgeTx(tx, storageID, obj, item)
 		case "alerts_events":
-			typedErr = s.upsertAlertsEventsTx(tx, id, obj, item)
+			typedErr = s.upsertAlertsEventsTx(tx, storageID, obj, item)
 		case "alerts_resolve":
-			typedErr = s.upsertAlertsResolveTx(tx, id, obj, item)
+			typedErr = s.upsertAlertsResolveTx(tx, storageID, obj, item)
 		case "rotate":
-			typedErr = s.upsertRotateTx(tx, id, obj, item)
+			typedErr = s.upsertRotateTx(tx, storageID, obj, item)
 		case "trigger":
-			typedErr = s.upsertTriggerTx(tx, id, obj, item)
+			typedErr = s.upsertTriggerTx(tx, storageID, obj, item)
 		case "catalog_entities_properties":
-			typedErr = s.upsertCatalogEntitiesPropertiesTx(tx, id, obj, item)
+			typedErr = s.upsertCatalogEntitiesPropertiesTx(tx, storageID, obj, item)
 		case "entities":
-			typedErr = s.upsertEntitiesTx(tx, id, obj, item)
+			typedErr = s.upsertEntitiesTx(tx, storageID, obj, item)
 		case "catalogs_properties":
-			typedErr = s.upsertCatalogsPropertiesTx(tx, id, obj, item)
+			typedErr = s.upsertCatalogsPropertiesTx(tx, storageID, obj, item)
 		case "custom_fields_options":
-			typedErr = s.upsertCustomFieldsOptionsTx(tx, id, obj, item)
+			typedErr = s.upsertCustomFieldsOptionsTx(tx, storageID, obj, item)
 		case "dashboard_panels_duplicate":
-			typedErr = s.upsertDashboardPanelsDuplicateTx(tx, id, obj, item)
+			typedErr = s.upsertDashboardPanelsDuplicateTx(tx, storageID, obj, item)
 		case "dashboards_duplicate":
-			typedErr = s.upsertDashboardsDuplicateTx(tx, id, obj, item)
+			typedErr = s.upsertDashboardsDuplicateTx(tx, storageID, obj, item)
 		case "panels":
-			typedErr = s.upsertPanelsTx(tx, id, obj, item)
+			typedErr = s.upsertPanelsTx(tx, storageID, obj, item)
 		case "set_default":
-			typedErr = s.upsertSetDefaultTx(tx, id, obj, item)
+			typedErr = s.upsertSetDefaultTx(tx, storageID, obj, item)
 		case "actions":
-			typedErr = s.upsertActionsTx(tx, id, obj, item)
+			typedErr = s.upsertActionsTx(tx, storageID, obj, item)
 		case "resend_verification":
-			typedErr = s.upsertResendVerificationTx(tx, id, obj, item)
+			typedErr = s.upsertResendVerificationTx(tx, storageID, obj, item)
 		case "verify":
-			typedErr = s.upsertVerifyTx(tx, id, obj, item)
+			typedErr = s.upsertVerifyTx(tx, storageID, obj, item)
 		case "escalation_paths_escalation_levels":
-			typedErr = s.upsertEscalationPathsEscalationLevelsTx(tx, id, obj, item)
+			typedErr = s.upsertEscalationPathsEscalationLevelsTx(tx, storageID, obj, item)
 		case "escalation_policies_escalation_levels":
-			typedErr = s.upsertEscalationPoliciesEscalationLevelsTx(tx, id, obj, item)
+			typedErr = s.upsertEscalationPoliciesEscalationLevelsTx(tx, storageID, obj, item)
 		case "escalation_policies_escalation_paths":
-			typedErr = s.upsertEscalationPoliciesEscalationPathsTx(tx, id, obj, item)
+			typedErr = s.upsertEscalationPoliciesEscalationPathsTx(tx, storageID, obj, item)
 		case "events_functionalities":
-			typedErr = s.upsertEventsFunctionalitiesTx(tx, id, obj, item)
+			typedErr = s.upsertEventsFunctionalitiesTx(tx, storageID, obj, item)
 		case "events_services":
-			typedErr = s.upsertEventsServicesTx(tx, id, obj, item)
+			typedErr = s.upsertEventsServicesTx(tx, storageID, obj, item)
 		case "form_field_placements_conditions":
-			typedErr = s.upsertFormFieldPlacementsConditionsTx(tx, id, obj, item)
+			typedErr = s.upsertFormFieldPlacementsConditionsTx(tx, storageID, obj, item)
 		case "form_fields_options":
-			typedErr = s.upsertFormFieldsOptionsTx(tx, id, obj, item)
+			typedErr = s.upsertFormFieldsOptionsTx(tx, storageID, obj, item)
 		case "placements":
-			typedErr = s.upsertPlacementsTx(tx, id, obj, item)
+			typedErr = s.upsertPlacementsTx(tx, storageID, obj, item)
 		case "positions":
-			typedErr = s.upsertPositionsTx(tx, id, obj, item)
+			typedErr = s.upsertPositionsTx(tx, storageID, obj, item)
 		case "form_sets_conditions":
-			typedErr = s.upsertFormSetsConditionsTx(tx, id, obj, item)
+			typedErr = s.upsertFormSetsConditionsTx(tx, storageID, obj, item)
 		case "functionalities_incidents_chart":
-			typedErr = s.upsertFunctionalitiesIncidentsChartTx(tx, id, obj, item)
+			typedErr = s.upsertFunctionalitiesIncidentsChartTx(tx, storageID, obj, item)
 		case "functionalities_uptime_chart":
-			typedErr = s.upsertFunctionalitiesUptimeChartTx(tx, id, obj, item)
+			typedErr = s.upsertFunctionalitiesUptimeChartTx(tx, storageID, obj, item)
 		case "ping":
-			typedErr = s.upsertPingTx(tx, id, obj, item)
+			typedErr = s.upsertPingTx(tx, storageID, obj, item)
 		case "booleans":
-			typedErr = s.upsertBooleansTx(tx, id, obj, item)
+			typedErr = s.upsertBooleansTx(tx, storageID, obj, item)
 		case "resources":
-			typedErr = s.upsertResourcesTx(tx, id, obj, item)
+			typedErr = s.upsertResourcesTx(tx, storageID, obj, item)
 		case "incident_roles_incident_role_tasks":
-			typedErr = s.upsertIncidentRolesIncidentRoleTasksTx(tx, id, obj, item)
+			typedErr = s.upsertIncidentRolesIncidentRoleTasksTx(tx, storageID, obj, item)
 		case "incidents_action_items":
-			typedErr = s.upsertIncidentsActionItemsTx(tx, id, obj, item)
+			typedErr = s.upsertIncidentsActionItemsTx(tx, storageID, obj, item)
 		case "add_subscribers":
-			typedErr = s.upsertAddSubscribersTx(tx, id, obj, item)
+			typedErr = s.upsertAddSubscribersTx(tx, storageID, obj, item)
 		case "incidents_alerts":
-			typedErr = s.upsertIncidentsAlertsTx(tx, id, obj, item)
+			typedErr = s.upsertIncidentsAlertsTx(tx, storageID, obj, item)
 		case "assign_role_to_user":
-			typedErr = s.upsertAssignRoleToUserTx(tx, id, obj, item)
+			typedErr = s.upsertAssignRoleToUserTx(tx, storageID, obj, item)
 		case "cancel":
-			typedErr = s.upsertCancelTx(tx, id, obj, item)
+			typedErr = s.upsertCancelTx(tx, storageID, obj, item)
 		case "incidents_custom_field_selections":
-			typedErr = s.upsertIncidentsCustomFieldSelectionsTx(tx, id, obj, item)
+			typedErr = s.upsertIncidentsCustomFieldSelectionsTx(tx, storageID, obj, item)
 		case "detach_from_parent":
-			typedErr = s.upsertDetachFromParentTx(tx, id, obj, item)
+			typedErr = s.upsertDetachFromParentTx(tx, storageID, obj, item)
 		case "incidents_duplicate":
-			typedErr = s.upsertIncidentsDuplicateTx(tx, id, obj, item)
+			typedErr = s.upsertIncidentsDuplicateTx(tx, storageID, obj, item)
 		case "incidents_events":
-			typedErr = s.upsertIncidentsEventsTx(tx, id, obj, item)
+			typedErr = s.upsertIncidentsEventsTx(tx, storageID, obj, item)
 		case "incidents_feedbacks":
-			typedErr = s.upsertIncidentsFeedbacksTx(tx, id, obj, item)
+			typedErr = s.upsertIncidentsFeedbacksTx(tx, storageID, obj, item)
 		case "form_field_selections":
-			typedErr = s.upsertFormFieldSelectionsTx(tx, id, obj, item)
+			typedErr = s.upsertFormFieldSelectionsTx(tx, storageID, obj, item)
 		case "in_triage":
-			typedErr = s.upsertInTriageTx(tx, id, obj, item)
+			typedErr = s.upsertInTriageTx(tx, storageID, obj, item)
 		case "incidents_meeting_recordings":
-			typedErr = s.upsertIncidentsMeetingRecordingsTx(tx, id, obj, item)
+			typedErr = s.upsertIncidentsMeetingRecordingsTx(tx, storageID, obj, item)
 		case "mitigate":
-			typedErr = s.upsertMitigateTx(tx, id, obj, item)
+			typedErr = s.upsertMitigateTx(tx, storageID, obj, item)
 		case "remove_subscribers":
-			typedErr = s.upsertRemoveSubscribersTx(tx, id, obj, item)
+			typedErr = s.upsertRemoveSubscribersTx(tx, storageID, obj, item)
 		case "incidents_resolve":
-			typedErr = s.upsertIncidentsResolveTx(tx, id, obj, item)
+			typedErr = s.upsertIncidentsResolveTx(tx, storageID, obj, item)
 		case "restart":
-			typedErr = s.upsertRestartTx(tx, id, obj, item)
+			typedErr = s.upsertRestartTx(tx, storageID, obj, item)
 		case "incidents_status_page_events":
-			typedErr = s.upsertIncidentsStatusPageEventsTx(tx, id, obj, item)
+			typedErr = s.upsertIncidentsStatusPageEventsTx(tx, storageID, obj, item)
 		case "incidents_sub_statuses":
-			typedErr = s.upsertIncidentsSubStatusesTx(tx, id, obj, item)
+			typedErr = s.upsertIncidentsSubStatusesTx(tx, storageID, obj, item)
 		case "unassign_role_from_user":
-			typedErr = s.upsertUnassignRoleFromUserTx(tx, id, obj, item)
+			typedErr = s.upsertUnassignRoleFromUserTx(tx, storageID, obj, item)
 		case "unmark_as_duplicate":
-			typedErr = s.upsertUnmarkAsDuplicateTx(tx, id, obj, item)
+			typedErr = s.upsertUnmarkAsDuplicateTx(tx, storageID, obj, item)
 		case "delete_video":
-			typedErr = s.upsertDeleteVideoTx(tx, id, obj, item)
+			typedErr = s.upsertDeleteVideoTx(tx, storageID, obj, item)
 		case "leave":
-			typedErr = s.upsertLeaveTx(tx, id, obj, item)
+			typedErr = s.upsertLeaveTx(tx, storageID, obj, item)
 		case "pause":
-			typedErr = s.upsertPauseTx(tx, id, obj, item)
+			typedErr = s.upsertPauseTx(tx, storageID, obj, item)
 		case "resume":
-			typedErr = s.upsertResumeTx(tx, id, obj, item)
+			typedErr = s.upsertResumeTx(tx, storageID, obj, item)
 		case "stop":
-			typedErr = s.upsertStopTx(tx, id, obj, item)
+			typedErr = s.upsertStopTx(tx, storageID, obj, item)
 		case "regenerate":
-			typedErr = s.upsertRegenerateTx(tx, id, obj, item)
+			typedErr = s.upsertRegenerateTx(tx, storageID, obj, item)
 		case "playbooks_playbook_tasks":
-			typedErr = s.upsertPlaybooksPlaybookTasksTx(tx, id, obj, item)
+			typedErr = s.upsertPlaybooksPlaybookTasksTx(tx, storageID, obj, item)
 		case "steps":
-			typedErr = s.upsertStepsTx(tx, id, obj, item)
+			typedErr = s.upsertStepsTx(tx, storageID, obj, item)
 		case "groups":
-			typedErr = s.upsertGroupsTx(tx, id, obj, item)
+			typedErr = s.upsertGroupsTx(tx, storageID, obj, item)
 		case "retrospective_processes_retrospective_steps":
-			typedErr = s.upsertRetrospectiveProcessesRetrospectiveStepsTx(tx, id, obj, item)
+			typedErr = s.upsertRetrospectiveProcessesRetrospectiveStepsTx(tx, storageID, obj, item)
 		case "schedule_rotations_schedule_rotation_active_days":
-			typedErr = s.upsertScheduleRotationsScheduleRotationActiveDaysTx(tx, id, obj, item)
+			typedErr = s.upsertScheduleRotationsScheduleRotationActiveDaysTx(tx, storageID, obj, item)
 		case "schedule_rotations_schedule_rotation_users":
-			typedErr = s.upsertScheduleRotationsScheduleRotationUsersTx(tx, id, obj, item)
+			typedErr = s.upsertScheduleRotationsScheduleRotationUsersTx(tx, storageID, obj, item)
 		case "schedules_on_call_shadows":
-			typedErr = s.upsertSchedulesOnCallShadowsTx(tx, id, obj, item)
+			typedErr = s.upsertSchedulesOnCallShadowsTx(tx, storageID, obj, item)
 		case "schedules_override_shifts":
-			typedErr = s.upsertSchedulesOverrideShiftsTx(tx, id, obj, item)
+			typedErr = s.upsertSchedulesOverrideShiftsTx(tx, storageID, obj, item)
 		case "schedules_schedule_rotations":
-			typedErr = s.upsertSchedulesScheduleRotationsTx(tx, id, obj, item)
+			typedErr = s.upsertSchedulesScheduleRotationsTx(tx, storageID, obj, item)
 		case "schedules_shifts":
-			typedErr = s.upsertSchedulesShiftsTx(tx, id, obj, item)
+			typedErr = s.upsertSchedulesShiftsTx(tx, storageID, obj, item)
 		case "services_incidents_chart":
-			typedErr = s.upsertServicesIncidentsChartTx(tx, id, obj, item)
+			typedErr = s.upsertServicesIncidentsChartTx(tx, storageID, obj, item)
 		case "services_uptime_chart":
-			typedErr = s.upsertServicesUptimeChartTx(tx, id, obj, item)
+			typedErr = s.upsertServicesUptimeChartTx(tx, storageID, obj, item)
 		case "status_pages_templates":
-			typedErr = s.upsertStatusPagesTemplatesTx(tx, id, obj, item)
+			typedErr = s.upsertStatusPagesTemplatesTx(tx, storageID, obj, item)
 		case "teams_incidents_chart":
-			typedErr = s.upsertTeamsIncidentsChartTx(tx, id, obj, item)
+			typedErr = s.upsertTeamsIncidentsChartTx(tx, storageID, obj, item)
 		case "users_email_addresses":
-			typedErr = s.upsertUsersEmailAddressesTx(tx, id, obj, item)
+			typedErr = s.upsertUsersEmailAddressesTx(tx, storageID, obj, item)
 		case "users_notification_rules":
-			typedErr = s.upsertUsersNotificationRulesTx(tx, id, obj, item)
+			typedErr = s.upsertUsersNotificationRulesTx(tx, storageID, obj, item)
 		case "users_phone_numbers":
-			typedErr = s.upsertUsersPhoneNumbersTx(tx, id, obj, item)
+			typedErr = s.upsertUsersPhoneNumbersTx(tx, storageID, obj, item)
 		case "workflows_custom_field_selections":
-			typedErr = s.upsertWorkflowsCustomFieldSelectionsTx(tx, id, obj, item)
+			typedErr = s.upsertWorkflowsCustomFieldSelectionsTx(tx, storageID, obj, item)
 		case "form_field_conditions":
-			typedErr = s.upsertFormFieldConditionsTx(tx, id, obj, item)
+			typedErr = s.upsertFormFieldConditionsTx(tx, storageID, obj, item)
 		case "workflow_runs":
-			typedErr = s.upsertWorkflowRunsTx(tx, id, obj, item)
+			typedErr = s.upsertWorkflowRunsTx(tx, storageID, obj, item)
 		case "workflows_workflow_tasks":
-			typedErr = s.upsertWorkflowsWorkflowTasksTx(tx, id, obj, item)
+			typedErr = s.upsertWorkflowsWorkflowTasksTx(tx, storageID, obj, item)
 		}
 
 		if typedErr != nil {
 			if _, rbErr := tx.Exec("ROLLBACK TO SAVEPOINT " + savepoint); rbErr != nil {
-				return stored, extractFailures, fmt.Errorf("rollback to savepoint for %s/%s (typed err: %v): %w", resourceType, id, typedErr, rbErr)
+				return stored, extractFailures, fmt.Errorf("rollback to savepoint for %s/%s (typed err: %v): %w", resourceType, storageID, typedErr, rbErr)
 			}
 			if _, relErr := tx.Exec("RELEASE SAVEPOINT " + savepoint); relErr != nil {
-				return stored, extractFailures, fmt.Errorf("release savepoint after rollback for %s/%s: %w", resourceType, id, relErr)
+				return stored, extractFailures, fmt.Errorf("release savepoint after rollback for %s/%s: %w", resourceType, storageID, relErr)
 			}
 			typedFailures++
 			continue
 		}
 		if _, err := tx.Exec("RELEASE SAVEPOINT " + savepoint); err != nil {
-			return stored, extractFailures, fmt.Errorf("release savepoint for %s/%s: %w", resourceType, id, err)
+			return stored, extractFailures, fmt.Errorf("release savepoint for %s/%s: %w", resourceType, storageID, err)
 		}
 	}
 
@@ -6372,7 +6839,7 @@ func (s *Store) ResolveByName(resourceType string, input string, matchFields ...
 		)
 		rows, err := s.db.Query(query, resourceType, input)
 		if err != nil {
-			continue
+			return "", err
 		}
 		for rows.Next() {
 			var id string
@@ -6389,6 +6856,10 @@ func (s *Store) ResolveByName(resourceType string, input string, matchFields ...
 					matches = append(matches, id)
 				}
 			}
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return "", err
 		}
 		rows.Close()
 	}

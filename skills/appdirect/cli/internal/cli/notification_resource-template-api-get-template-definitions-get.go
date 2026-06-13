@@ -28,7 +28,7 @@ func newNotificationResourceTemplateApiGetTemplateDefinitionsGetCmd(flags *rootF
 			path := "/notification/v1/templates"
 			params := map[string]string{}
 			if flagDirectSales != false {
-				params["directSales"] = fmt.Sprintf("%v", flagDirectSales)
+				params["directSales"] = formatCLIParamValue(flagDirectSales)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "notification", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -24,9 +24,10 @@ func newFirewallControlProtocolsGetByCategoryCmd(flags *rootFlags) *cobra.Comman
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "get-by-category <firewall_rule_category>",
-		Aliases:     []string{"get"},
-		Short:       "Get a list of protocols that can be used in Firewall Control rules.",
+		Use:     "get-by-category <firewall_rule_category>",
+		Aliases: []string{"get"},
+		Short:   "Get a list of protocols that can be used in Firewall Control rules.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli firewall-control protocols get-by-category example-value",
 		Annotations: map[string]string{"pp:endpoint": "protocols.get-by-category", "pp:method": "GET", "pp:path": "/firewall-control/{firewall_rule_category}/protocols", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,15 +42,15 @@ func newFirewallControlProtocolsGetByCategoryCmd(flags *rootFlags) *cobra.Comman
 			path := "/firewall-control/{firewall_rule_category}/protocols"
 			path = replacePathParam(path, "firewall_rule_category", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "protocols", path, map[string]string{
-				"sortBy":            fmt.Sprintf("%v", flagSortBy),
-				"limit":             fmt.Sprintf("%v", flagLimit),
-				"skipCount":         fmt.Sprintf("%v", flagSkipCount),
-				"skip":              fmt.Sprintf("%v", flagSkip),
-				"sortOrder":         fmt.Sprintf("%v", flagSortOrder),
-				"query":             fmt.Sprintf("%v", flagQuery),
-				"disablePagination": fmt.Sprintf("%v", flagDisablePagination),
-				"countOnly":         fmt.Sprintf("%v", flagCountOnly),
-				"cursor":            fmt.Sprintf("%v", flagCursor),
+				"sortBy":            formatCLIParamValue(flagSortBy),
+				"limit":             formatCLIParamValue(flagLimit),
+				"skipCount":         formatCLIParamValue(flagSkipCount),
+				"skip":              formatCLIParamValue(flagSkip),
+				"sortOrder":         formatCLIParamValue(flagSortOrder),
+				"query":             formatCLIParamValue(flagQuery),
+				"disablePagination": formatCLIParamValue(flagDisablePagination),
+				"countOnly":         formatCLIParamValue(flagCountOnly),
+				"cursor":            formatCLIParamValue(flagCursor),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

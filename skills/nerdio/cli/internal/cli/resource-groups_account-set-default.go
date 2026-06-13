@@ -18,8 +18,9 @@ func newResourceGroupsAccountSetDefaultCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "account-set-default <account_id>",
-		Short:       "Set the default resource group for an account",
+		Use:   "account-set-default <account_id>",
+		Short: "Set the default resource group for an account",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  nerdio-cli resource-groups account-set-default 550e8400-e29b-41d4-a716-446655440000 --resource-group example-value",
 		Annotations: map[string]string{"pp:endpoint": "resource-groups.account-set-default", "pp:method": "PUT", "pp:path": "/rest-api/v1/accounts/{account_id}/resource-group/setDefault"},
 		RunE: func(cmd *cobra.Command, args []string) error {

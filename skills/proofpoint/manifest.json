@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "proofpoint-mcp",
   "display_name": "Proofpoint TAP",
-  "version": "0.1.0",
-  "description": "Every Proofpoint TAP Threat Insight endpoint plus a local threat store that answers cross-endpoint questions - who is both attacked and clicking, what touched a given user - without re-spending the limited daily API quota.",
+  "version": "0.1.1",
+  "description": "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions \u2014 who is both attacked and clicking, what touched this user \u2014 inside Proofpoint's punishing daily quotas.",
   "author": {
     "name": "Servosity Inc."
   },
@@ -44,11 +44,10 @@
       "win32"
     ]
   },
-  "short_description": "Proofpoint TAP threats, VAPs, clickers, and IOCs from your terminal, with a local threat store.",
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-07T02:57:22.687291Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:11:38.270047Z",
     "spec_checksum": "sha256:db11de897bf8002ec8702a396f2c6d7bd8afce510f7e0f8ad08e9f924e4576b4",
     "spec_format": "openapi3"
   }

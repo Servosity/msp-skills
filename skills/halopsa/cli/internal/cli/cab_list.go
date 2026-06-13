@@ -28,7 +28,7 @@ func newCabListCmd(flags *rootFlags) *cobra.Command {
 			path := "/CAB"
 			params := map[string]string{}
 			if flagIncludemembers != false {
-				params["includemembers"] = fmt.Sprintf("%v", flagIncludemembers)
+				params["includemembers"] = formatCLIParamValue(flagIncludemembers)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "cab", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -44,7 +44,7 @@ func newStandardsListResourceCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/standards/scores/{resource_type}/{id}"
 			path = replacePathParam(path, "id", args[0])
-			path = replacePathParam(path, "resource_type", fmt.Sprintf("%v", flagResourceType))
+			path = replacePathParam(path, "resource_type", formatCLIParamValue(flagResourceType))
 			params := map[string]string{}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "standards", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

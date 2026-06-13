@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "xero-mcp",
   "display_name": "Xero",
-  "version": "0.1.0",
-  "description": "Every Xero Accounting read plus a local SQLite ledger  -  aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
+  "version": "0.1.1",
+  "description": "Every Xero Accounting read plus a local SQLite ledger \u2014 aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
   "author": {
     "name": "Servosity Inc."
   },
@@ -16,8 +16,7 @@
       "args": [],
       "env": {
         "XERO_ACCESS_TOKEN": "${user_config.xero_access_token}",
-        "XERO_ACCOUNTING_OAUTH2": "${user_config.xero_accounting_oauth2}",
-        "XERO_TENANT_ID": "${user_config.xero_tenant_id}"
+        "XERO_OAUTH2": "${user_config.xero_oauth2}"
       }
     }
   },
@@ -28,18 +27,11 @@
       "description": "Optional. Sets XERO_ACCESS_TOKEN for the Xero MCP server.",
       "sensitive": true
     },
-    "xero_accounting_oauth2": {
+    "xero_oauth2": {
       "type": "string",
-      "title": "XERO_ACCOUNTING_OAUTH2",
-      "description": "Optional. Sets XERO_ACCOUNTING_OAUTH2 for the Xero MCP server.",
+      "title": "XERO_OAUTH2",
+      "description": "Optional. Sets XERO_OAUTH2 for the Xero MCP server.",
       "sensitive": true
-    },
-    "xero_tenant_id": {
-      "type": "string",
-      "title": "XERO_TENANT_ID",
-      "description": "Required. Tenant UUID sent as the Xero-Tenant-Id header on every call (find it via GET /connections after minting a token).",
-      "sensitive": false,
-      "required": true
     }
   },
   "compatibility": {
@@ -50,10 +42,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T15:57:07.035495Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:03:32.259357Z",
     "spec_checksum": "sha256:e30fb22f7eae1717f708161ce3b9401968459bcb65004ac7654b9c073e6babb6",
     "spec_format": "openapi3"
   }

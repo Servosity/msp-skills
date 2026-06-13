@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"kaseya-bms-pp-cli/internal/store"
 )
 
 type pipelineStage struct {
@@ -148,7 +147,7 @@ today - math the BMS CRM grid will not compute for you.`, "\n"),
 			if dbPath == "" {
 				dbPath = defaultDBPath("kaseya-bms-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := kbmsOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening database: %w", err)
 			}

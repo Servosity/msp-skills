@@ -34,25 +34,25 @@ func newFaqlistsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/FAQLists"
 			params := map[string]string{}
 			if flagAllgroups != false {
-				params["allgroups"] = fmt.Sprintf("%v", flagAllgroups)
+				params["allgroups"] = formatCLIParamValue(flagAllgroups)
 			}
 			if flagEndoftreeonly != false {
-				params["endoftreeonly"] = fmt.Sprintf("%v", flagEndoftreeonly)
+				params["endoftreeonly"] = formatCLIParamValue(flagEndoftreeonly)
 			}
 			if flagLevel != 0 {
-				params["level"] = fmt.Sprintf("%v", flagLevel)
+				params["level"] = formatCLIParamValue(flagLevel)
 			}
 			if flagOrganisationId != "" {
-				params["organisation_id"] = fmt.Sprintf("%v", flagOrganisationId)
+				params["organisation_id"] = formatCLIParamValue(flagOrganisationId)
 			}
 			if flagParentId != "" {
-				params["parent_id"] = fmt.Sprintf("%v", flagParentId)
+				params["parent_id"] = formatCLIParamValue(flagParentId)
 			}
 			if flagShowcounts != false {
-				params["showcounts"] = fmt.Sprintf("%v", flagShowcounts)
+				params["showcounts"] = formatCLIParamValue(flagShowcounts)
 			}
 			if flagType != 0 {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "faqlists", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

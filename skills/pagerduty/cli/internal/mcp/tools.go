@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +23,15 @@ import (
 	"pagerduty-pp-cli/internal/config"
 	"pagerduty-pp-cli/internal/mcp/cobratree"
 	"pagerduty-pp-cli/internal/store"
+)
+
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
 )
 
 // RegisterTools registers all API operations as MCP tools.
@@ -43,7 +54,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -71,8 +82,36 @@ type mcpParamBinding struct {
 	WireName   string
 	Location   string
 	BodyPath   []string
+	Default    string
 }
 
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
 func setNestedBodyArg(body map[string]any, path []string, value any) {
 	if len(path) == 0 {
 		return
@@ -135,13 +174,17 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			knownArgs[binding.PublicName] = true
 			v, ok := args[binding.PublicName]
 			if !ok {
-				continue
+				if binding.Default != "" {
+					v = binding.Default
+				} else {
+					continue
+				}
 			}
 			switch binding.Location {
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				if len(binding.BodyPath) > 0 {
 					setNestedBodyArg(bodyArgs, binding.BodyPath, v)
@@ -160,7 +203,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 					bodyJSONOverride = json.RawMessage(s)
 				}
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -170,7 +213,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -182,7 +225,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "POST", "PUT", "PATCH":
 				bodyArgs[k] = v
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -270,19 +313,19 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key: export PAGERDUTY_API_KEY=<your-key>" +
+					"\n      Set your API key with: export PAGERDUTY_API_KEY=\"your-token-here\"" +
 					"\n      See API docs: http://www.pagerduty.com/support" +
 					"\n      Run 'pagerduty-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your API key." +
-					"\n      Set it with: export PAGERDUTY_API_KEY=<your-key>" +
+					"\n      Set your API key with: export PAGERDUTY_API_KEY=\"your-token-here\"" +
 					"\n      See API docs: http://www.pagerduty.com/support" +
 					"\n      Run 'pagerduty-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: your credentials are valid but lack access to this resource." +
-					"\n      Set it with: export PAGERDUTY_API_KEY=<your-key>" +
+					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
+					"\n      Set your API key with: export PAGERDUTY_API_KEY=\"your-token-here\"" +
 					"\n      See API docs: http://www.pagerduty.com/support" +
 					"\n      Run 'pagerduty-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
@@ -297,21 +340,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -320,8 +348,129 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
@@ -331,7 +480,7 @@ func newMCPClient() (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -380,22 +529,27 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -427,6 +581,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -494,9 +739,9 @@ func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
 func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	ctx := map[string]any{
 		"api":         "pagerduty",
-		"description": "Every PagerDuty incident, on-call and service operation from the terminal",
+		"description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions — MTTA/MTTR, on-call coverage gaps, responder load — that neither the API nor the web UI can.",
 		"archetype":   "payments",
-		"tool_count":  417,
+		"tool_count":  416,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion pagerduty-cli binary.",
 		"auth": map[string]any{
@@ -797,24 +1042,30 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "Live triage pulse", "command": "pulse", "description": "One offline call shows what's hot right now: open incidents bucketed by service", "rationale": "Joins the local incidents and services tables to compute per-bucket counts and unacked-age that the live API has no", "via": "mcp-command-mirror"},
-			{"name": "On-call now + next + handoff", "command": "oncall who", "description": "Resolves who is on call right now for a service or team, who is on next, and the exact handoff timestamp.", "rationale": "Joins escalation policies, schedules and overrides in the local store", "via": "mcp-command-mirror"},
+			{"name": "Live triage pulse", "command": "pulse", "description": "One offline call shows what's hot right now: open incidents bucketed by service, urgency and status with how long each has gone unacknowledged, sorted by SLA risk.", "rationale": "Joins the local incidents and services tables to compute per-bucket counts and unacked-age that the live API has no single endpoint for.", "via": "mcp-command-mirror"},
+			{"name": "On-call now + next + handoff", "command": "oncall who", "description": "Resolves who is on call right now for a service or team, who is on next, and the exact handoff timestamp.", "rationale": "Joins escalation policies, schedules and overrides in the local store; the single oncalls endpoint never returns the next person or the flip time.", "via": "mcp-command-mirror"},
+			{"name": "Escalation coverage audit", "command": "audit coverage", "description": "Flags services whose escalation chain is broken: empty tiers, single point of failure, expired or empty schedules, or no escalation policy at all.", "rationale": "Structural rule-based join across services, escalation policies and schedules in the local store; PagerDuty ships no coverage-gap report.", "via": "mcp-command-mirror"},
+			{"name": "MTTA / MTTR analytics", "command": "insights mttr", "description": "Mean time to acknowledge and resolve, computed from synced log-entry timestamps and grouped by service, team or priority.", "rationale": "Reconstructs the paid Analytics product offline from local log_entries timestamps with no POST-body analytics call.", "via": "mcp-command-mirror"},
 			{"name": "On-call hours report", "command": "oncall hours", "description": "On-call hours per user over a time window, derived from synced schedule layers and overrides.", "rationale": "Interval math over local schedule entries reproduces PagerDuty's paid on-call-compensation report offline.", "via": "mcp-command-mirror"},
-			{"name": "Escalation coverage audit", "command": "audit coverage", "description": "Flags services whose escalation chain is broken: empty tiers, single point of failure, expired or empty schedules", "rationale": "Structural rule-based join across services, escalation policies and schedules in the local store", "via": "mcp-command-mirror"},
-			{"name": "MTTA / MTTR analytics", "command": "insights mttr", "description": "Mean time to acknowledge and resolve, computed from synced log-entry timestamps and grouped by service", "rationale": "Reconstructs the paid Analytics product offline from local log_entries timestamps with no POST-body analytics call.", "via": "mcp-command-mirror"},
-			{"name": "Responder workload + off-hours", "command": "insights responders", "description": "Per-responder page, ack and resolve counts plus the share of pages that landed off-hours (nights and weekends).", "rationale": "Aggregates local log_entries joined to users and classifies each action by local-time weekday/hour", "via": "mcp-command-mirror"},
-			{"name": "Noisy-service ranking", "command": "insights noisy", "description": "Ranks services by incident volume, auto-resolve rate and re-trigger/flapping rate over a window.", "rationale": "Local count and ratio aggregation over incidents and log_entries; the API's outlier endpoint is per-incident", "via": "mcp-command-mirror"},
-			{"name": "Incident timeline", "command": "incidents timeline", "description": "Reconstructs one incident's full chronology — trigger, every ack, note, reassignment", "rationale": "Orders and joins local log_entries and notes for a single incident; the API only returns unordered raw log pages.", "via": "mcp-command-mirror"},
+			{"name": "Responder workload + off-hours", "command": "insights responders", "description": "Per-responder page, ack and resolve counts plus the share of pages that landed off-hours (nights and weekends).", "rationale": "Aggregates local log_entries joined to users and classifies each action by local-time weekday/hour; no single API call returns the burnout signal.", "via": "mcp-command-mirror"},
+			{"name": "Noisy-service ranking", "command": "insights noisy", "description": "Ranks services by incident volume, auto-resolve rate and re-trigger/flapping rate over a window.", "rationale": "Local count and ratio aggregation over incidents and log_entries; the API's outlier endpoint is per-incident, not a service leaderboard.", "via": "mcp-command-mirror"},
+			{"name": "Incident timeline", "command": "incidents timeline", "description": "Reconstructs one incident's full chronology — trigger, every ack, note, reassignment, escalation and resolve — with elapsed deltas between events.", "rationale": "Orders and joins local log_entries and notes for a single incident; the API only returns unordered raw log pages.", "via": "mcp-command-mirror"},
+			{"name": "Change-event correlation", "command": "incidents changes", "description": "For an incident, see the change events that shipped on the same service in the window right before it triggered, ranked by proximity.", "rationale": "Time-window join across local change_events, incidents and services — PagerDuty exposes change events but reserves incident correlation for premium AIOps.", "via": "mcp-command-mirror"},
+			{"name": "Schedule gap audit", "command": "audit schedule-gaps", "description": "Find future time windows where a schedule has nobody on call, before an incident finds the hole for you.", "rationale": "Interval-coverage math over synced schedule layers and overrides — the oncalls endpoint answers point-in-time queries but never reports the gap.", "via": "mcp-command-mirror"},
+			{"name": "Stale incident sweep", "command": "insights stale", "description": "Open incidents with no log activity past a threshold, grouped by responder and service — the ones quietly rotting.", "rationale": "Joins local incidents and log_entries to compute last-activity age; no API endpoint reports 'no movement since'.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
 			{"topic": "Live triage pulse", "insight": "Joins the local incidents and services tables to compute per-bucket counts and unacked-age that the live API has no single endpoint for."},
 			{"topic": "On-call now + next + handoff", "insight": "Joins escalation policies, schedules and overrides in the local store; the single oncalls endpoint never returns the next person or the flip time."},
-			{"topic": "On-call hours report", "insight": "Interval math over local schedule entries reproduces PagerDuty's paid on-call-compensation report offline."},
 			{"topic": "Escalation coverage audit", "insight": "Structural rule-based join across services, escalation policies and schedules in the local store; PagerDuty ships no coverage-gap report."},
 			{"topic": "MTTA / MTTR analytics", "insight": "Reconstructs the paid Analytics product offline from local log_entries timestamps with no POST-body analytics call."},
+			{"topic": "On-call hours report", "insight": "Interval math over local schedule entries reproduces PagerDuty's paid on-call-compensation report offline."},
 			{"topic": "Responder workload + off-hours", "insight": "Aggregates local log_entries joined to users and classifies each action by local-time weekday/hour; no single API call returns the burnout signal."},
 			{"topic": "Noisy-service ranking", "insight": "Local count and ratio aggregation over incidents and log_entries; the API's outlier endpoint is per-incident, not a service leaderboard."},
 			{"topic": "Incident timeline", "insight": "Orders and joins local log_entries and notes for a single incident; the API only returns unordered raw log pages."},
+			{"topic": "Change-event correlation", "insight": "Time-window join across local change_events, incidents and services — PagerDuty exposes change events but reserves incident correlation for premium AIOps."},
+			{"topic": "Schedule gap audit", "insight": "Interval-coverage math over synced schedule layers and overrides — the oncalls endpoint answers point-in-time queries but never reports the gap."},
+			{"topic": "Stale incident sweep", "insight": "Joins local incidents and log_entries to compute last-activity age; no API endpoint reports 'no movement since'."},
 			{"topic": "Financial data", "insight": "Always use read-only operations for financial queries. Never use create/update tools for payment data without explicit user confirmation."},
 			{"topic": "Reconciliation", "insight": "For reconciliation tasks, sync first then use sql for cross-referencing. API pagination over financial records is slow and rate-limited."},
 		},

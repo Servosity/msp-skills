@@ -19,9 +19,10 @@ func newAppdirectSyncResourceDeveloperAccountCreateDeveloperAccountPostCmd(flags
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "resource-developer-account-create-developer-account-post",
-		Aliases:     []string{"create"},
-		Short:       "This call creates a developer account. Maximum of global requests of 20 per 2 seconds.",
+		Use:     "resource-developer-account-create-developer-account-post",
+		Aliases: []string{"create"},
+		Short:   "This call creates a developer account. Maximum of global requests of 20 per 2 seconds.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli appdirect-sync resource-developer-account-create-developer-account-post --operation example-value",
 		Annotations: map[string]string{"pp:endpoint": "appdirect-sync.resource-developer-account-create-developer-account-post", "pp:method": "POST", "pp:path": "/sync/v1/tasks#create"},
 		RunE: func(cmd *cobra.Command, args []string) error {

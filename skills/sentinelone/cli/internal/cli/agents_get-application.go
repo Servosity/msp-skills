@@ -15,8 +15,9 @@ func newAgentsGetApplicationCmd(flags *rootFlags) *cobra.Command {
 	var flagIds string
 
 	cmd := &cobra.Command{
-		Use:         "get-application",
-		Short:       "Get the installed applications for a specific Agent. <BR>To get the Agent ID, run 'agents'.",
+		Use:   "get-application",
+		Short: "Get the installed applications for a specific Agent. <BR>To get the Agent ID, run 'agents'.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli agents get-application --ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "agents.get-application", "pp:method": "GET", "pp:path": "/agents/applications", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newAgentsGetApplicationCmd(flags *rootFlags) *cobra.Command {
 			path := "/agents/applications"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "agents", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

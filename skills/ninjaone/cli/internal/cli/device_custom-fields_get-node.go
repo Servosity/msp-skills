@@ -33,7 +33,7 @@ func newDeviceCustomFieldsGetNodeCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagWithInheritance != false {
-				params["withInheritance"] = fmt.Sprintf("%v", flagWithInheritance)
+				params["withInheritance"] = formatCLIParamValue(flagWithInheritance)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "custom-fields", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

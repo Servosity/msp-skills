@@ -257,9 +257,9 @@ func (c *Client) readCache(path string, params map[string]string) (json.RawMessa
 }
 
 func (c *Client) writeCache(path string, params map[string]string, data json.RawMessage) {
-	os.MkdirAll(c.cacheDir, 0o755)
+	os.MkdirAll(c.cacheDir, 0o700)
 	cacheFile := filepath.Join(c.cacheDir, c.cacheKey(path, params)+".json")
-	os.WriteFile(cacheFile, []byte(data), 0o644)
+	os.WriteFile(cacheFile, []byte(data), 0o600)
 }
 
 // invalidateCache wholesale-removes the cache directory so the next read
@@ -820,14 +820,10 @@ func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecr
 	if tokenURL == "" {
 		return nil
 	}
-	// SkyKick's token endpoint (Azure APIM) does NOT accept client_id/client_secret
-	// as form fields. Vendor docs (developers.cloudservices.connectwise.com/Guides/
-	// Authentication): identity travels in an HTTP Basic header (API user ID +
-	// subscription key) and the same subscription key must also be sent as
-	// Ocp-Apim-Subscription-Key. Body carries only grant_type and scope. A missing
-	// Basic header yields 400 invalid_request "Missing required parameter: username".
 	form := url.Values{
-		"grant_type": {"client_credentials"},
+		"grant_type":    {"client_credentials"},
+		"client_id":     {clientID},
+		"client_secret": {clientSecret},
 	}
 	if scope := resolveClientCredentialsScope(); scope != "" {
 		form.Set("scope", scope)
@@ -836,8 +832,6 @@ func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecr
 	if err != nil {
 		return fmt.Errorf("building token request: %w", err)
 	}
-	req.SetBasicAuth(clientID, clientSecret)
-	req.Header.Set("Ocp-Apim-Subscription-Key", clientSecret)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -846,7 +840,7 @@ func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecr
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
-		return fmt.Errorf("OAuth client_credentials mint: HTTP %d: %s", resp.StatusCode, c.maskCredentialText(cliutil.SanitizeErrorBody(string(body)), clientID, clientSecret))
+		return fmt.Errorf("OAuth client_credentials mint: HTTP %d: %s", resp.StatusCode, cliutil.SanitizeErrorBody(string(body)))
 	}
 	var tokenResp struct {
 		AccessToken string `json:"access_token"`
@@ -879,6 +873,9 @@ func (c *Client) refreshAccessToken(ctx context.Context) error {
 	if c.Config.RefreshToken == "" {
 		return nil
 	}
+	if strings.TrimSpace(c.Config.ClientID) == "" {
+		return fmt.Errorf("refreshing access token: OAuth2 client ID is required when a refresh token is configured; set client_id in config or the client ID environment variable")
+	}
 
 	tokenURL := c.Config.TokenURL
 	if tokenURL == "" {
@@ -898,14 +895,6 @@ func (c *Client) refreshAccessToken(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("building refresh request: %w", err)
 	}
-	// Same APIM gateway requirements as the client_credentials mint: Basic-auth
-	// identity plus Ocp-Apim-Subscription-Key (the client secret doubles as the
-	// subscription key). SkyKick's refresh_token support is unverified upstream;
-	// if it rejects refresh grants the 401 path re-mints via client_credentials.
-	if c.Config.ClientID != "" && c.Config.ClientSecret != "" {
-		req.SetBasicAuth(c.Config.ClientID, c.Config.ClientSecret)
-		req.Header.Set("Ocp-Apim-Subscription-Key", c.Config.ClientSecret)
-	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -915,7 +904,7 @@ func (c *Client) refreshAccessToken(ctx context.Context) error {
 
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("refreshing access token: HTTP %d: %s", resp.StatusCode, c.maskCredentialText(cliutil.SanitizeErrorBody(truncateBody(body)), c.Config.ClientID, c.Config.ClientSecret))
+		return fmt.Errorf("refreshing access token: HTTP %d: %s", resp.StatusCode, cliutil.SanitizeErrorBody(truncateBody(body)))
 	}
 
 	var tokenResp struct {

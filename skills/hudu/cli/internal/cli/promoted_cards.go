@@ -20,7 +20,7 @@ func newCardsPromotedCmd(flags *rootFlags) *cobra.Command {
 		Use:         "cards",
 		Short:       "Look up Hudu objects by an external integrator's record id",
 		Long:        "Look up Hudu objects by an external integrator's record id",
-		Example:     "  hudu-cli cards --integration-slug example-value",
+		Example:     "  hudu-cli cards --integration-slug cw_manage",
 		Annotations: map[string]string{"pp:endpoint": "cards.lookup", "pp:method": "GET", "pp:path": "/cards/lookup", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with a required flag/body prints help
@@ -41,13 +41,13 @@ func newCardsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/cards/lookup"
 			params := map[string]string{}
 			if flagIntegrationSlug != "" {
-				params["integration_slug"] = fmt.Sprintf("%v", flagIntegrationSlug)
+				params["integration_slug"] = formatCLIParamValue(flagIntegrationSlug)
 			}
 			if flagIntegrationId != "" {
-				params["integration_id"] = fmt.Sprintf("%v", flagIntegrationId)
+				params["integration_id"] = formatCLIParamValue(flagIntegrationId)
 			}
 			if flagIntegrationIdentifier != "" {
-				params["integration_identifier"] = fmt.Sprintf("%v", flagIntegrationIdentifier)
+				params["integration_identifier"] = formatCLIParamValue(flagIntegrationIdentifier)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "cards", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

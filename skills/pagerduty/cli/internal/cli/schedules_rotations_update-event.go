@@ -31,7 +31,7 @@ func newSchedulesRotationsUpdateEventCmd(flags *rootFlags) *cobra.Command {
 		Use:         "update-event <id> <rotation_id> <event_id>",
 		Aliases:     []string{"update"},
 		Short:       "<!",
-		Example:     "  pagerduty-cli schedules rotations update-event 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pagerduty-cli schedules rotations update-event PSJUKNI AGO462IDT5ZMNFBVSROUDT6B4M AGO462IDT55XVGN74FDAQUUNHY",
 		Annotations: map[string]string{"pp:endpoint": "rotations.update-event", "pp:method": "PUT", "pp:path": "/v3/schedules/{id}/rotations/{rotation_id}/events/{event_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

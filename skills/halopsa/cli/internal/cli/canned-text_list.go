@@ -34,25 +34,25 @@ func newCannedTextListCmd(flags *rootFlags) *cobra.Command {
 			path := "/CannedText"
 			params := map[string]string{}
 			if flagAccessControlLevel != 0 {
-				params["access_control_level"] = fmt.Sprintf("%v", flagAccessControlLevel)
+				params["access_control_level"] = formatCLIParamValue(flagAccessControlLevel)
 			}
 			if flagAgentId != "" {
-				params["agent_id"] = fmt.Sprintf("%v", flagAgentId)
+				params["agent_id"] = formatCLIParamValue(flagAgentId)
 			}
 			if flagDepartmentId != "" {
-				params["department_id"] = fmt.Sprintf("%v", flagDepartmentId)
+				params["department_id"] = formatCLIParamValue(flagDepartmentId)
 			}
 			if flagGroupId != "" {
-				params["group_id"] = fmt.Sprintf("%v", flagGroupId)
+				params["group_id"] = formatCLIParamValue(flagGroupId)
 			}
 			if flagShowall != false {
-				params["showall"] = fmt.Sprintf("%v", flagShowall)
+				params["showall"] = formatCLIParamValue(flagShowall)
 			}
 			if flagTeamId != "" {
-				params["team_id"] = fmt.Sprintf("%v", flagTeamId)
+				params["team_id"] = formatCLIParamValue(flagTeamId)
 			}
 			if flagTicketonly != false {
-				params["ticketonly"] = fmt.Sprintf("%v", flagTicketonly)
+				params["ticketonly"] = formatCLIParamValue(flagTicketonly)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "canned-text", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

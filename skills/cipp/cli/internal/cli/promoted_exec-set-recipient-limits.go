@@ -18,9 +18,10 @@ func newExecSetRecipientLimitsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUserid string
 
 	cmd := &cobra.Command{
-		Use:         "exec-set-recipient-limits",
-		Short:       "Exec set recipient limits",
-		Long:        "Exec set recipient limits",
+		Use:   "exec-set-recipient-limits",
+		Short: "Exec set recipient limits",
+		Long:  "Exec set recipient limits",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-set-recipient-limits --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-set-recipient-limits.create", "pp:method": "POST", "pp:path": "/ExecSetRecipientLimits"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -60,10 +61,10 @@ func newExecSetRecipientLimitsPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

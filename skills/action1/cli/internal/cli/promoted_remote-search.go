@@ -17,9 +17,10 @@ func newRemoteSearchPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "remote-search <orgId>",
-		Short:       "**Requires permissions: `view_endpoints`, `view_software_repository`",
-		Long:        "**Requires permissions: `view_endpoints`, `view_software_repository`",
+		Use:   "remote-search <orgId>",
+		Short: "**Requires permissions: `view_endpoints`, `view_software_repository`",
+		Long:  "**Requires permissions: `view_endpoints`, `view_software_repository`",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  action1-cli remote-search 550e8400-e29b-41d4-a716-446655440000 --query example-value",
 		Annotations: map[string]string{"pp:endpoint": "remote_search.search", "pp:method": "GET", "pp:path": "/search/{orgId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -54,8 +55,8 @@ func newRemoteSearchPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			path = replacePathParam(path, "orgId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "remote_search", path, map[string]string{
-				"query": fmt.Sprintf("%v", flagQuery),
-				"limit": fmt.Sprintf("%v", flagLimit),
+				"query": formatCLIParamValue(flagQuery),
+				"limit": formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

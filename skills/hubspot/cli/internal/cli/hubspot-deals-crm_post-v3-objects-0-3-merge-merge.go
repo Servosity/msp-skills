@@ -18,8 +18,9 @@ func newHubspotDealsCrmPostV3Objects03MergeMergeCmd(flags *rootFlags) *cobra.Com
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-v3-objects-0-3-merge-merge",
-		Short:       "Combine two deals of the same type into a single deal.",
+		Use:   "post-v3-objects-0-3-merge-merge",
+		Short: "Combine two deals of the same type into a single deal.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-deals-crm post-v3-objects-0-3-merge-merge --object-id-to-merge example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-deals-crm.post-v3-objects-0-3-merge-merge", "pp:method": "POST", "pp:path": "/crm/v3/objects/0-3/merge"},
 		RunE: func(cmd *cobra.Command, args []string) error {

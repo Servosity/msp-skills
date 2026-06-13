@@ -35,14 +35,14 @@ func newIntegrationsGetTicketsSyncCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/integrations/itglue/servicedesk/ticketsync"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integrations", path, map[string]string{
-				"Filter.CreatedOnFrom":  fmt.Sprintf("%v", flagFilterCreatedOnFrom),
-				"Filter.CreatedOnTo":    fmt.Sprintf("%v", flagFilterCreatedOnTo),
-				"Filter.ModifiedOnFrom": fmt.Sprintf("%v", flagFilterModifiedOnFrom),
-				"Filter.ModifiedOnTo":   fmt.Sprintf("%v", flagFilterModifiedOnTo),
-				"Sort":                  fmt.Sprintf("%v", flagSort),
-				"Exclude":               fmt.Sprintf("%v", flagExclude),
-				"PageSize":              fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":            fmt.Sprintf("%v", flagPageNumber),
+				"Filter.CreatedOnFrom":  formatCLIParamValue(flagFilterCreatedOnFrom),
+				"Filter.CreatedOnTo":    formatCLIParamValue(flagFilterCreatedOnTo),
+				"Filter.ModifiedOnFrom": formatCLIParamValue(flagFilterModifiedOnFrom),
+				"Filter.ModifiedOnTo":   formatCLIParamValue(flagFilterModifiedOnTo),
+				"Sort":                  formatCLIParamValue(flagSort),
+				"Exclude":               formatCLIParamValue(flagExclude),
+				"PageSize":              formatCLIParamValue(flagPageSize),
+				"PageNumber":            formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

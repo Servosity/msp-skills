@@ -37,10 +37,10 @@ func newAccountResourceSubscriptionDeleteSubscriptionAssignmentDeleteCmd(flags *
 			path = replacePathParam(path, "userUuid", args[1])
 			params := map[string]string{}
 			if flagDisconnectVoiceConnection != false {
-				params["disconnectVoiceConnection"] = fmt.Sprintf("%v", flagDisconnectVoiceConnection)
+				params["disconnectVoiceConnection"] = formatCLIParamValue(flagDisconnectVoiceConnection)
 			}
 			if flagSource != "" {
-				params["source"] = fmt.Sprintf("%v", flagSource)
+				params["source"] = formatCLIParamValue(flagSource)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

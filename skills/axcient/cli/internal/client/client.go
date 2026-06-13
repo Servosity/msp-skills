@@ -4,8 +4,6 @@
 package client
 
 import (
-	"axcient-pp-cli/internal/cliutil"
-	"axcient-pp-cli/internal/config"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -14,6 +12,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	enetxhttp "github.com/enetx/http"
+	"github.com/enetx/surf"
 	"io"
 	"math"
 	"net/http"
@@ -23,6 +23,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"axcient-pp-cli/internal/cliutil"
+	"axcient-pp-cli/internal/config"
 )
 
 const BinaryResponseHeader = "X-Printing-Press-Binary-Response"
@@ -59,7 +62,38 @@ func (e *APIError) Error() string {
 }
 
 func newHTTPClient(timeout time.Duration, jar http.CookieJar) *http.Client {
-	return &http.Client{Timeout: timeout, Jar: jar}
+	builder := surf.NewClient().
+		Builder().
+		Impersonate().
+		Chrome().
+		Timeout(timeout)
+	builder = builder.ForceHTTP2()
+	if jar == nil {
+		builder = builder.Session()
+	}
+	surfClient := builder.Build().Unwrap()
+	// Surf's underlying *http.Transport sets ResponseHeaderTimeout to
+	// its package default (10s in surf v1.x), which caps how long we
+	// wait for the FIRST response byte independent of the overall
+	// client Timeout. Slow-streaming endpoints (RAG queries, LLM
+	// completions, server-side rendering) routinely take longer than
+	// that to emit headers; without this override the user-facing
+	// --timeout flag has no effect on transport-layer cutoffs and
+	// requests fail with "net/http: timeout awaiting response headers"
+	// at the package default regardless of --timeout. Override so the
+	// transport-layer ceiling tracks the user's intent.
+	// surf's GetTransport returns *enetxhttp.Transport (surf's HTTP fork
+	// used for browser-impersonate features), NOT *net/http.Transport,
+	// so the assertion targets the enetx package's Transport type.
+	if t, ok := surfClient.GetTransport().(*enetxhttp.Transport); ok {
+		t.ResponseHeaderTimeout = timeout
+	}
+	httpClient := surfClient.Std()
+	httpClient.Timeout = timeout
+	if jar != nil {
+		httpClient.Jar = jar
+	}
+	return httpClient
 }
 
 func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
@@ -247,9 +281,9 @@ func (c *Client) readCache(path string, params map[string]string) (json.RawMessa
 }
 
 func (c *Client) writeCache(path string, params map[string]string, data json.RawMessage) {
-	os.MkdirAll(c.cacheDir, 0o755)
+	os.MkdirAll(c.cacheDir, 0o700)
 	cacheFile := filepath.Join(c.cacheDir, c.cacheKey(path, params)+".json")
-	os.WriteFile(cacheFile, []byte(data), 0o644)
+	os.WriteFile(cacheFile, []byte(data), 0o600)
 }
 
 // invalidateCache wholesale-removes the cache directory so the next read
@@ -509,27 +543,6 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		binaryResponse := strings.EqualFold(req.Header.Get(BinaryResponseHeader), "true")
 		if binaryResponse {
 			req.Header.Del(BinaryResponseHeader)
-		}
-		if req.Header.Get("User-Agent") == "" {
-			req.Header.Set("User-Agent", "axcient-cli/0.3.1")
-		}
-		// Go's net/http omits Accept by default; browsers, curl, and other
-		// stdlibs always send it. Fingerprint-checking WAFs (Imperva, Akamai,
-		// Cloudflare bot-mode, DataDome) flag the absence as a bot signal
-		// and answer with empty-body 5xx, 403, or a challenge redirect
-		// depending on vendor and rule tier. The value is application/json
-		// rather than */* because strict-JSON APIs (Zendesk, Atlassian REST,
-		// Salesforce) return 415 on anything that isn't literally
-		// application/json; specs that need a different content type
-		// (vendor mediatypes, XML, HTML) declare it via RequiredHeaders or
-		// per-endpoint headerOverrides, both of which run before this
-		// if-empty default.
-		if req.Header.Get("Accept") == "" {
-			if binaryResponse {
-				req.Header.Set("Accept", "*/*")
-			} else {
-				req.Header.Set("Accept", "application/json")
-			}
 		}
 
 		resp, err := c.HTTPClient.Do(req)

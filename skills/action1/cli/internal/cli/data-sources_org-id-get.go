@@ -42,7 +42,7 @@ func newDataSourcesOrgIdGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/data-sources/all"
 			params := map[string]string{}
 			if flagBuiltin != "" {
-				params["builtin"] = fmt.Sprintf("%v", flagBuiltin)
+				params["builtin"] = formatCLIParamValue(flagBuiltin)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "data-sources", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

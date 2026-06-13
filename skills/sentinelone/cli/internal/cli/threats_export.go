@@ -109,247 +109,247 @@ func newThreatsExportCmd(flags *rootFlags) *cobra.Command {
 			path := "/threats/export"
 			params := map[string]string{}
 			if flagK8sNodeNameContains != "" {
-				params["k8sNodeName__contains"] = fmt.Sprintf("%v", flagK8sNodeNameContains)
+				params["k8sNodeName__contains"] = formatCLIParamValue(flagK8sNodeNameContains)
 			}
 			if flagFilePathContains != "" {
-				params["filePath__contains"] = fmt.Sprintf("%v", flagFilePathContains)
+				params["filePath__contains"] = formatCLIParamValue(flagFilePathContains)
 			}
 			if flagAnalystVerdictsNin != "" {
-				params["analystVerdictsNin"] = fmt.Sprintf("%v", flagAnalystVerdictsNin)
+				params["analystVerdictsNin"] = formatCLIParamValue(flagAnalystVerdictsNin)
 			}
 			if flagConfidenceLevelsNin != "" {
-				params["confidenceLevelsNin"] = fmt.Sprintf("%v", flagConfidenceLevelsNin)
+				params["confidenceLevelsNin"] = formatCLIParamValue(flagConfidenceLevelsNin)
 			}
 			if flagAgentIds != "" {
-				params["agentIds"] = fmt.Sprintf("%v", flagAgentIds)
+				params["agentIds"] = formatCLIParamValue(flagAgentIds)
 			}
 			if flagCreatedAtGte != "" {
-				params["createdAt__gte"] = fmt.Sprintf("%v", flagCreatedAtGte)
+				params["createdAt__gte"] = formatCLIParamValue(flagCreatedAtGte)
 			}
 			if flagIncidentStatusesNin != "" {
-				params["incidentStatusesNin"] = fmt.Sprintf("%v", flagIncidentStatusesNin)
+				params["incidentStatusesNin"] = formatCLIParamValue(flagIncidentStatusesNin)
 			}
 			if flagInitiatedByUsernameContains != "" {
-				params["initiatedByUsername__contains"] = fmt.Sprintf("%v", flagInitiatedByUsernameContains)
+				params["initiatedByUsername__contains"] = formatCLIParamValue(flagInitiatedByUsernameContains)
 			}
 			if flagClassificationsNin != "" {
-				params["classificationsNin"] = fmt.Sprintf("%v", flagClassificationsNin)
+				params["classificationsNin"] = formatCLIParamValue(flagClassificationsNin)
 			}
 			if flagK8sPodNameContains != "" {
-				params["k8sPodName__contains"] = fmt.Sprintf("%v", flagK8sPodNameContains)
+				params["k8sPodName__contains"] = formatCLIParamValue(flagK8sPodNameContains)
 			}
 			if flagK8sNamespaceLabelsContains != "" {
-				params["k8sNamespaceLabels__contains"] = fmt.Sprintf("%v", flagK8sNamespaceLabelsContains)
+				params["k8sNamespaceLabels__contains"] = formatCLIParamValue(flagK8sNamespaceLabelsContains)
 			}
 			if flagAgentIsActive != "" {
-				params["agentIsActive"] = fmt.Sprintf("%v", flagAgentIsActive)
+				params["agentIsActive"] = formatCLIParamValue(flagAgentIsActive)
 			}
 			if flagUpdatedAtGte != "" {
-				params["updatedAt__gte"] = fmt.Sprintf("%v", flagUpdatedAtGte)
+				params["updatedAt__gte"] = formatCLIParamValue(flagUpdatedAtGte)
 			}
 			if flagDetectionEnginesNin != "" {
-				params["detectionEnginesNin"] = fmt.Sprintf("%v", flagDetectionEnginesNin)
+				params["detectionEnginesNin"] = formatCLIParamValue(flagDetectionEnginesNin)
 			}
 			if flagK8sNamespaceNameContains != "" {
-				params["k8sNamespaceName__contains"] = fmt.Sprintf("%v", flagK8sNamespaceNameContains)
+				params["k8sNamespaceName__contains"] = formatCLIParamValue(flagK8sNamespaceNameContains)
 			}
 			if flagOsTypesNin != "" {
-				params["osTypesNin"] = fmt.Sprintf("%v", flagOsTypesNin)
+				params["osTypesNin"] = formatCLIParamValue(flagOsTypesNin)
 			}
 			if flagNoteExists != "" {
-				params["noteExists"] = fmt.Sprintf("%v", flagNoteExists)
+				params["noteExists"] = formatCLIParamValue(flagNoteExists)
 			}
 			if flagTenant != "" {
-				params["tenant"] = fmt.Sprintf("%v", flagTenant)
+				params["tenant"] = formatCLIParamValue(flagTenant)
 			}
 			if flagResolved != "" {
-				params["resolved"] = fmt.Sprintf("%v", flagResolved)
+				params["resolved"] = formatCLIParamValue(flagResolved)
 			}
 			if flagRebootRequired != "" {
-				params["rebootRequired"] = fmt.Sprintf("%v", flagRebootRequired)
+				params["rebootRequired"] = formatCLIParamValue(flagRebootRequired)
 			}
 			if flagDetectionAgentDomainContains != "" {
-				params["detectionAgentDomain__contains"] = fmt.Sprintf("%v", flagDetectionAgentDomainContains)
+				params["detectionAgentDomain__contains"] = formatCLIParamValue(flagDetectionAgentDomainContains)
 			}
 			if flagEngines != "" {
-				params["engines"] = fmt.Sprintf("%v", flagEngines)
+				params["engines"] = formatCLIParamValue(flagEngines)
 			}
 			if flagExternalTicketExists != "" {
-				params["externalTicketExists"] = fmt.Sprintf("%v", flagExternalTicketExists)
+				params["externalTicketExists"] = formatCLIParamValue(flagExternalTicketExists)
 			}
 			if flagUpdatedAtGt != "" {
-				params["updatedAt__gt"] = fmt.Sprintf("%v", flagUpdatedAtGt)
+				params["updatedAt__gt"] = formatCLIParamValue(flagUpdatedAtGt)
 			}
 			if flagAgentVersions != "" {
-				params["agentVersions"] = fmt.Sprintf("%v", flagAgentVersions)
+				params["agentVersions"] = formatCLIParamValue(flagAgentVersions)
 			}
 			if flagContentHashContains != "" {
-				params["contentHash__contains"] = fmt.Sprintf("%v", flagContentHashContains)
+				params["contentHash__contains"] = formatCLIParamValue(flagContentHashContains)
 			}
 			if flagK8sControllerNameContains != "" {
-				params["k8sControllerName__contains"] = fmt.Sprintf("%v", flagK8sControllerNameContains)
+				params["k8sControllerName__contains"] = formatCLIParamValue(flagK8sControllerNameContains)
 			}
 			if flagCollectionIds != "" {
-				params["collectionIds"] = fmt.Sprintf("%v", flagCollectionIds)
+				params["collectionIds"] = formatCLIParamValue(flagCollectionIds)
 			}
 			if flagUpdatedAtLte != "" {
-				params["updatedAt__lte"] = fmt.Sprintf("%v", flagUpdatedAtLte)
+				params["updatedAt__lte"] = formatCLIParamValue(flagUpdatedAtLte)
 			}
 			if flagK8sPodLabelsContains != "" {
-				params["k8sPodLabels__contains"] = fmt.Sprintf("%v", flagK8sPodLabelsContains)
+				params["k8sPodLabels__contains"] = formatCLIParamValue(flagK8sPodLabelsContains)
 			}
 			if flagSiteIds != "" {
-				params["siteIds"] = fmt.Sprintf("%v", flagSiteIds)
+				params["siteIds"] = formatCLIParamValue(flagSiteIds)
 			}
 			if flagGroupIds != "" {
-				params["groupIds"] = fmt.Sprintf("%v", flagGroupIds)
+				params["groupIds"] = formatCLIParamValue(flagGroupIds)
 			}
 			if flagThreatDetailsContains != "" {
-				params["threatDetails__contains"] = fmt.Sprintf("%v", flagThreatDetailsContains)
+				params["threatDetails__contains"] = formatCLIParamValue(flagThreatDetailsContains)
 			}
 			if flagDetectionAgentVersionContains != "" {
-				params["detectionAgentVersion__contains"] = fmt.Sprintf("%v", flagDetectionAgentVersionContains)
+				params["detectionAgentVersion__contains"] = formatCLIParamValue(flagDetectionAgentVersionContains)
 			}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			if flagMitigationStatuses != "" {
-				params["mitigationStatuses"] = fmt.Sprintf("%v", flagMitigationStatuses)
+				params["mitigationStatuses"] = formatCLIParamValue(flagMitigationStatuses)
 			}
 			if flagContainerImageNameContains != "" {
-				params["containerImageName__contains"] = fmt.Sprintf("%v", flagContainerImageNameContains)
+				params["containerImageName__contains"] = formatCLIParamValue(flagContainerImageNameContains)
 			}
 			if flagAgentMachineTypesNin != "" {
-				params["agentMachineTypesNin"] = fmt.Sprintf("%v", flagAgentMachineTypesNin)
+				params["agentMachineTypesNin"] = formatCLIParamValue(flagAgentMachineTypesNin)
 			}
 			if flagContentHashes != "" {
-				params["contentHashes"] = fmt.Sprintf("%v", flagContentHashes)
+				params["contentHashes"] = formatCLIParamValue(flagContentHashes)
 			}
 			if flagOriginatedProcessContains != "" {
-				params["originatedProcess__contains"] = fmt.Sprintf("%v", flagOriginatedProcessContains)
+				params["originatedProcess__contains"] = formatCLIParamValue(flagOriginatedProcessContains)
 			}
 			if flagPublisherNameContains != "" {
-				params["publisherName__contains"] = fmt.Sprintf("%v", flagPublisherNameContains)
+				params["publisherName__contains"] = formatCLIParamValue(flagPublisherNameContains)
 			}
 			if flagContainerLabelsContains != "" {
-				params["containerLabels__contains"] = fmt.Sprintf("%v", flagContainerLabelsContains)
+				params["containerLabels__contains"] = formatCLIParamValue(flagContainerLabelsContains)
 			}
 			if flagCreatedAtLte != "" {
-				params["createdAt__lte"] = fmt.Sprintf("%v", flagCreatedAtLte)
+				params["createdAt__lte"] = formatCLIParamValue(flagCreatedAtLte)
 			}
 			if flagClassifications != "" {
-				params["classifications"] = fmt.Sprintf("%v", flagClassifications)
+				params["classifications"] = formatCLIParamValue(flagClassifications)
 			}
 			if flagConfidenceLevels != "" {
-				params["confidenceLevels"] = fmt.Sprintf("%v", flagConfidenceLevels)
+				params["confidenceLevels"] = formatCLIParamValue(flagConfidenceLevels)
 			}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			if flagInitiatedBy != "" {
-				params["initiatedBy"] = fmt.Sprintf("%v", flagInitiatedBy)
+				params["initiatedBy"] = formatCLIParamValue(flagInitiatedBy)
 			}
 			if flagExternalTicketIdContains != "" {
-				params["externalTicketId__contains"] = fmt.Sprintf("%v", flagExternalTicketIdContains)
+				params["externalTicketId__contains"] = formatCLIParamValue(flagExternalTicketIdContains)
 			}
 			if flagAgentVersionsNin != "" {
-				params["agentVersionsNin"] = fmt.Sprintf("%v", flagAgentVersionsNin)
+				params["agentVersionsNin"] = formatCLIParamValue(flagAgentVersionsNin)
 			}
 			if flagExternalTicketIds != "" {
-				params["externalTicketIds"] = fmt.Sprintf("%v", flagExternalTicketIds)
+				params["externalTicketIds"] = formatCLIParamValue(flagExternalTicketIds)
 			}
 			if flagOsTypes != "" {
-				params["osTypes"] = fmt.Sprintf("%v", flagOsTypes)
+				params["osTypes"] = formatCLIParamValue(flagOsTypes)
 			}
 			if flagDisplayName != "" {
-				params["displayName"] = fmt.Sprintf("%v", flagDisplayName)
+				params["displayName"] = formatCLIParamValue(flagDisplayName)
 			}
 			if flagStorylines != "" {
-				params["storylines"] = fmt.Sprintf("%v", flagStorylines)
+				params["storylines"] = formatCLIParamValue(flagStorylines)
 			}
 			if flagStorylineContains != "" {
-				params["storyline__contains"] = fmt.Sprintf("%v", flagStorylineContains)
+				params["storyline__contains"] = formatCLIParamValue(flagStorylineContains)
 			}
 			if flagQuery != "" {
-				params["query"] = fmt.Sprintf("%v", flagQuery)
+				params["query"] = formatCLIParamValue(flagQuery)
 			}
 			if flagPendingActions != "" {
-				params["pendingActions"] = fmt.Sprintf("%v", flagPendingActions)
+				params["pendingActions"] = formatCLIParamValue(flagPendingActions)
 			}
 			if flagK8sClusterNameContains != "" {
-				params["k8sClusterName__contains"] = fmt.Sprintf("%v", flagK8sClusterNameContains)
+				params["k8sClusterName__contains"] = formatCLIParamValue(flagK8sClusterNameContains)
 			}
 			if flagInitiatedByNin != "" {
-				params["initiatedByNin"] = fmt.Sprintf("%v", flagInitiatedByNin)
+				params["initiatedByNin"] = formatCLIParamValue(flagInitiatedByNin)
 			}
 			if flagDetectionEngines != "" {
-				params["detectionEngines"] = fmt.Sprintf("%v", flagDetectionEngines)
+				params["detectionEngines"] = formatCLIParamValue(flagDetectionEngines)
 			}
 			if flagEnginesNin != "" {
-				params["enginesNin"] = fmt.Sprintf("%v", flagEnginesNin)
+				params["enginesNin"] = formatCLIParamValue(flagEnginesNin)
 			}
 			if flagOsNamesNin != "" {
-				params["osNamesNin"] = fmt.Sprintf("%v", flagOsNamesNin)
+				params["osNamesNin"] = formatCLIParamValue(flagOsNamesNin)
 			}
 			if flagIncidentStatuses != "" {
-				params["incidentStatuses"] = fmt.Sprintf("%v", flagIncidentStatuses)
+				params["incidentStatuses"] = formatCLIParamValue(flagIncidentStatuses)
 			}
 			if flagCreatedAtGt != "" {
-				params["createdAt__gt"] = fmt.Sprintf("%v", flagCreatedAtGt)
+				params["createdAt__gt"] = formatCLIParamValue(flagCreatedAtGt)
 			}
 			if flagUpdatedAtLt != "" {
-				params["updatedAt__lt"] = fmt.Sprintf("%v", flagUpdatedAtLt)
+				params["updatedAt__lt"] = formatCLIParamValue(flagUpdatedAtLt)
 			}
 			if flagCreatedAtLt != "" {
-				params["createdAt__lt"] = fmt.Sprintf("%v", flagCreatedAtLt)
+				params["createdAt__lt"] = formatCLIParamValue(flagCreatedAtLt)
 			}
 			if flagMitigatedPreemptively != "" {
-				params["mitigatedPreemptively"] = fmt.Sprintf("%v", flagMitigatedPreemptively)
+				params["mitigatedPreemptively"] = formatCLIParamValue(flagMitigatedPreemptively)
 			}
 			if flagFailedActions != "" {
-				params["failedActions"] = fmt.Sprintf("%v", flagFailedActions)
+				params["failedActions"] = formatCLIParamValue(flagFailedActions)
 			}
 			if flagRealtimeAgentVersionContains != "" {
-				params["realtimeAgentVersion__contains"] = fmt.Sprintf("%v", flagRealtimeAgentVersionContains)
+				params["realtimeAgentVersion__contains"] = formatCLIParamValue(flagRealtimeAgentVersionContains)
 			}
 			if flagK8sControllerLabelsContains != "" {
-				params["k8sControllerLabels__contains"] = fmt.Sprintf("%v", flagK8sControllerLabelsContains)
+				params["k8sControllerLabels__contains"] = formatCLIParamValue(flagK8sControllerLabelsContains)
 			}
 			if flagUuidContains != "" {
-				params["uuid__contains"] = fmt.Sprintf("%v", flagUuidContains)
+				params["uuid__contains"] = formatCLIParamValue(flagUuidContains)
 			}
 			if flagAnalystVerdicts != "" {
-				params["analystVerdicts"] = fmt.Sprintf("%v", flagAnalystVerdicts)
+				params["analystVerdicts"] = formatCLIParamValue(flagAnalystVerdicts)
 			}
 			if flagCountsFor != "" {
-				params["countsFor"] = fmt.Sprintf("%v", flagCountsFor)
+				params["countsFor"] = formatCLIParamValue(flagCountsFor)
 			}
 			if flagContainerNameContains != "" {
-				params["containerName__contains"] = fmt.Sprintf("%v", flagContainerNameContains)
+				params["containerName__contains"] = formatCLIParamValue(flagContainerNameContains)
 			}
 			if flagClassificationSourcesNin != "" {
-				params["classificationSourcesNin"] = fmt.Sprintf("%v", flagClassificationSourcesNin)
+				params["classificationSourcesNin"] = formatCLIParamValue(flagClassificationSourcesNin)
 			}
 			if flagCommandLineArgumentsContains != "" {
-				params["commandLineArguments__contains"] = fmt.Sprintf("%v", flagCommandLineArgumentsContains)
+				params["commandLineArguments__contains"] = formatCLIParamValue(flagCommandLineArgumentsContains)
 			}
 			if flagOsArchs != "" {
-				params["osArchs"] = fmt.Sprintf("%v", flagOsArchs)
+				params["osArchs"] = formatCLIParamValue(flagOsArchs)
 			}
 			if flagComputerNameContains != "" {
-				params["computerName__contains"] = fmt.Sprintf("%v", flagComputerNameContains)
+				params["computerName__contains"] = formatCLIParamValue(flagComputerNameContains)
 			}
 			if flagMitigationStatusesNin != "" {
-				params["mitigationStatusesNin"] = fmt.Sprintf("%v", flagMitigationStatusesNin)
+				params["mitigationStatusesNin"] = formatCLIParamValue(flagMitigationStatusesNin)
 			}
 			if flagOsNames != "" {
-				params["osNames"] = fmt.Sprintf("%v", flagOsNames)
+				params["osNames"] = formatCLIParamValue(flagOsNames)
 			}
 			if flagClassificationSources != "" {
-				params["classificationSources"] = fmt.Sprintf("%v", flagClassificationSources)
+				params["classificationSources"] = formatCLIParamValue(flagClassificationSources)
 			}
 			if flagAgentMachineTypes != "" {
-				params["agentMachineTypes"] = fmt.Sprintf("%v", flagAgentMachineTypes)
+				params["agentMachineTypes"] = formatCLIParamValue(flagAgentMachineTypes)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "threats", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -19,7 +19,7 @@ func newPublicTemplateSettingsUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "template-settings-update <template_id>",
 		Short:       "Updates the settings for a specified template. Only the language field is currently supported.",
-		Example:     "  pandadoc-cli public template-settings-update 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli public template-settings-update BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "public.template-settings-update", "pp:method": "PATCH", "pp:path": "/public/v2/templates/{template_id}/settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

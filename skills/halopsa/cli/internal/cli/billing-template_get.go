@@ -33,10 +33,10 @@ func newBillingTemplateGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagClientId != "" {
-				params["client_id"] = fmt.Sprintf("%v", flagClientId)
+				params["client_id"] = formatCLIParamValue(flagClientId)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "billing-template", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

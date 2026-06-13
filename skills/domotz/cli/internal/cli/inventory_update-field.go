@@ -17,9 +17,10 @@ func newInventoryUpdateFieldCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update-field <inventory_field>",
-		Aliases:     []string{"update"},
-		Short:       "Updates the Inventory Field.",
+		Use:     "update-field <inventory_field>",
+		Aliases: []string{"update"},
+		Short:   "Updates the Inventory Field.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  domotz-cli inventory update-field example-value --label example-value",
 		Annotations: map[string]string{"pp:endpoint": "inventory.update-field", "pp:method": "PUT", "pp:path": "/inventory/{inventory_field}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -21,7 +21,7 @@ func newDocumentsAppendContentLibraryItemToDocumentCmd(flags *rootFlags) *cobra.
 		Use:         "to-document <id>",
 		Aliases:     []string{"create"},
 		Short:       "Appends a Content Library Item (CLI) to a document and provides a name mapping for its content blocks.",
-		Example:     "  pandadoc-cli documents append-content-library-item to-document 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents append-content-library-item to-document BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "append-content-library-item.to-document", "pp:method": "POST", "pp:path": "/documents/{id}/append-content-library-item"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

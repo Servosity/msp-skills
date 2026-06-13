@@ -35,10 +35,10 @@ func newHubspotImportsCrmGetV3ImportsImportIdErrorsV3ImportsImportIdErrorsCmd(fl
 			path := "/crm/v3/imports/{importId}/errors"
 			path = replacePathParam(path, "importId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-imports-crm", path, map[string]string{
-				"after":               fmt.Sprintf("%v", flagAfter),
-				"includeErrorMessage": fmt.Sprintf("%v", flagIncludeErrorMessage),
-				"includeRowData":      fmt.Sprintf("%v", flagIncludeRowData),
-				"limit":               fmt.Sprintf("%v", flagLimit),
+				"after":               formatCLIParamValue(flagAfter),
+				"includeErrorMessage": formatCLIParamValue(flagIncludeErrorMessage),
+				"includeRowData":      formatCLIParamValue(flagIncludeRowData),
+				"limit":               formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "after", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -32,7 +32,7 @@ func newSystemGetCustomFieldsMetaDataCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "moduleId", args[0])
 			params := map[string]string{}
 			if flagWithInactive != false {
-				params["withInactive"] = fmt.Sprintf("%v", flagWithInactive)
+				params["withInactive"] = formatCLIParamValue(flagWithInactive)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "system", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

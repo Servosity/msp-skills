@@ -38,25 +38,25 @@ func newClientsGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagDomain != "" {
-				params["domain"] = fmt.Sprintf("%v", flagDomain)
+				params["domain"] = formatCLIParamValue(flagDomain)
 			}
 			if flagGetavailablerts != false {
-				params["getavailablerts"] = fmt.Sprintf("%v", flagGetavailablerts)
+				params["getavailablerts"] = formatCLIParamValue(flagGetavailablerts)
 			}
 			if flagIncludeactivity != false {
-				params["includeactivity"] = fmt.Sprintf("%v", flagIncludeactivity)
+				params["includeactivity"] = formatCLIParamValue(flagIncludeactivity)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagIncludeperiods != false {
-				params["includeperiods"] = fmt.Sprintf("%v", flagIncludeperiods)
+				params["includeperiods"] = formatCLIParamValue(flagIncludeperiods)
 			}
 			if flagIncludeprepay != false {
-				params["includeprepay"] = fmt.Sprintf("%v", flagIncludeprepay)
+				params["includeprepay"] = formatCLIParamValue(flagIncludeprepay)
 			}
 			if flagTickettypeId != "" {
-				params["tickettype_id"] = fmt.Sprintf("%v", flagTickettypeId)
+				params["tickettype_id"] = formatCLIParamValue(flagTickettypeId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "clients", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

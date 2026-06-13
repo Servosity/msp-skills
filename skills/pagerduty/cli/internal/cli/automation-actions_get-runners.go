@@ -31,10 +31,10 @@ func newAutomationActionsGetRunnersCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/automation_actions/runners"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "automation-actions", path, map[string]string{
-				"limit":     fmt.Sprintf("%v", flagLimit),
-				"cursor":    fmt.Sprintf("%v", flagCursor),
-				"name":      fmt.Sprintf("%v", flagName),
-				"include[]": fmt.Sprintf("%v", flagInclude),
+				"limit":     formatCLIParamValue(flagLimit),
+				"cursor":    formatCLIParamValue(flagCursor),
+				"name":      formatCLIParamValue(flagName),
+				"include[]": formatCLIParamValue(flagInclude),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

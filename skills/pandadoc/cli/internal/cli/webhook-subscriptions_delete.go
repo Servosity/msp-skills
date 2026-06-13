@@ -16,7 +16,7 @@ func newWebhookSubscriptionsDeleteCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete <id>",
 		Short:       "This operation deletes a specific webhook subscription identified by its UUID.",
-		Example:     "  pandadoc-cli webhook-subscriptions delete 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli webhook-subscriptions delete d173751d-0057-4d5c-ab75-49a670a4ca68",
 		Annotations: map[string]string{"pp:endpoint": "webhook-subscriptions.delete", "pp:method": "DELETE", "pp:path": "/webhook-subscriptions/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -28,7 +28,7 @@ func newPowerShellScriptCriteriaListCmd(flags *rootFlags) *cobra.Command {
 			path := "/PowerShellScriptCriteria"
 			params := map[string]string{}
 			if flagScriptId != "" {
-				params["script_id"] = fmt.Sprintf("%v", flagScriptId)
+				params["script_id"] = formatCLIParamValue(flagScriptId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "power-shell-script-criteria", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

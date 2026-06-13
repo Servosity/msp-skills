@@ -33,8 +33,8 @@ func newPhishingTestsRecipientsCmd(flags *rootFlags) *cobra.Command {
 			path := "/phishing/security_tests/{pst_id}/recipients"
 			path = replacePathParam(path, "pst_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "phishing-tests", path, map[string]string{
-				"page":     fmt.Sprintf("%v", flagPage),
-				"per_page": fmt.Sprintf("%v", flagPerPage),
+				"page":     formatCLIParamValue(flagPage),
+				"per_page": formatCLIParamValue(flagPerPage),
 			}, nil, flagAll, "page", "page", "per_page", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

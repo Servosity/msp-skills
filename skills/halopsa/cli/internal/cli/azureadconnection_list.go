@@ -31,16 +31,16 @@ func newAzureadconnectionListCmd(flags *rootFlags) *cobra.Command {
 			path := "/azureadconnection"
 			params := map[string]string{}
 			if flagAuthorized != false {
-				params["authorized"] = fmt.Sprintf("%v", flagAuthorized)
+				params["authorized"] = formatCLIParamValue(flagAuthorized)
 			}
 			if flagIsintune != false {
-				params["isintune"] = fmt.Sprintf("%v", flagIsintune)
+				params["isintune"] = formatCLIParamValue(flagIsintune)
 			}
 			if flagType != 0 {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			if flagTypes != "" {
-				params["types"] = fmt.Sprintf("%v", flagTypes)
+				params["types"] = formatCLIParamValue(flagTypes)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "azureadconnection", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -104,17 +104,17 @@ func newUnwantedAccessRulesGetV1Cmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/unwanted_access_rules"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "unwanted-access-rules", path, map[string]string{
-				"limit":           fmt.Sprintf("%v", flagLimit),
-				"page_token":      fmt.Sprintf("%v", flagPageToken),
-				"organization_id": fmt.Sprintf("%v", flagOrganizationId),
-				"identity_id":     fmt.Sprintf("%v", flagIdentityId),
-				"type":            fmt.Sprintf("%v", flagType),
-				"status":          fmt.Sprintf("%v", flagStatus),
-				"scope":           fmt.Sprintf("%v", flagScope),
-				"category":        fmt.Sprintf("%v", flagCategory),
-				"country_code":    fmt.Sprintf("%v", flagCountryCode),
-				"vpn":             fmt.Sprintf("%v", flagVpn),
-				"logic":           fmt.Sprintf("%v", flagLogic),
+				"limit":           formatCLIParamValue(flagLimit),
+				"page_token":      formatCLIParamValue(flagPageToken),
+				"organization_id": formatCLIParamValue(flagOrganizationId),
+				"identity_id":     formatCLIParamValue(flagIdentityId),
+				"type":            formatCLIParamValue(flagType),
+				"status":          formatCLIParamValue(flagStatus),
+				"scope":           formatCLIParamValue(flagScope),
+				"category":        formatCLIParamValue(flagCategory),
+				"country_code":    formatCLIParamValue(flagCountryCode),
+				"vpn":             formatCLIParamValue(flagVpn),
+				"logic":           formatCLIParamValue(flagLogic),
 			}, nil, flagAll, "page_token", "page_token", "limit", "nextPageToken", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

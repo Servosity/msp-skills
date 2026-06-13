@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "liongard-mcp",
   "display_name": "Liongard",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
   "author": {
     "name": "Servosity Inc."
@@ -16,7 +16,6 @@
       "args": [],
       "env": {
         "LIONGARD_API_KEY": "${user_config.liongard_api_key}",
-        "LIONGARD_ENDPOINTS_API_KEY": "${user_config.liongard_endpoints_api_key}",
         "LIONGARD_INSTANCE": "${user_config.liongard_instance}"
       }
     }
@@ -25,19 +24,14 @@
     "liongard_api_key": {
       "type": "string",
       "title": "LIONGARD_API_KEY",
-      "description": "Required. Base64 X-ROAR-API-KEY for the Liongard API (or set LIONGARD_ACCESS_KEY_ID + LIONGARD_ACCESS_KEY_SECRET instead).",
-      "sensitive": true
-    },
-    "liongard_endpoints_api_key": {
-      "type": "string",
-      "title": "LIONGARD_ENDPOINTS_API_KEY",
-      "description": "Optional. Only needed for the Liongard Endpoints API surface.",
-      "sensitive": true
+      "description": "Sets LIONGARD_API_KEY for the Liongard MCP server.",
+      "sensitive": true,
+      "required": true
     },
     "liongard_instance": {
       "type": "string",
       "title": "LIONGARD_INSTANCE",
-      "description": "Required. Your Liongard subdomain (the 'acme' in acme.app.liongard.com); builds the API URL.",
+      "description": "Sets LIONGARD_INSTANCE for the endpoint template variable {instance}.",
       "default": "example"
     }
   },
@@ -49,10 +43,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T21:54:26.503396Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:10:04.595258Z",
     "spec_checksum": "sha256:369e071df713d1be383ab5b568b5bdc16b420fd8a82c395c329d97c6ef91fdfc",
     "spec_format": "openapi3"
   }

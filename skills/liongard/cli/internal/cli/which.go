@@ -35,6 +35,10 @@ var whichIndex = []whichEntry{
 	{Command: "metrics pivot", Description: "One RoarPath metric pulled across every system as a system-by-value table, CSV-ready for reports.", Group: "Reporting and SLA", WhyItMatters: "Use to assemble a single metric across the whole estate for an SLA or QBR deck in one command."},
 	{Command: "metrics breach", Description: "Every system whose RoarPath metric value crosses a numeric threshold.", Group: "Reporting and SLA", WhyItMatters: "Use for SLA-breach and security-posture checks across all clients without N per-system calls."},
 	{Command: "launchpoints run-stale", Description: "Find stale launchpoints and trigger an inspection run on each, in one guarded command.", Group: "Inspection health", WhyItMatters: "Use to re-kick every collector that fell behind, instead of clicking run on each launchpoint in the UI."},
+	{Command: "systems history", Description: "The full chronological change history of one system: every detection and inspection entry in time order.", Group: "Whole-estate visibility", WhyItMatters: "Reach for this when an agent needs 'when did this system change / break' instead of paging timeline and detections endpoints separately."},
+	{Command: "detections failures", Description: "Every inspection that ran but failed or errored across the estate, joined to the owning environment.", Group: "Inspection health", WhyItMatters: "Reach for this to find inspections that ran but errored - a different failure mode from collectors that silently stopped reporting (launchpoints stale)."},
+	{Command: "inspectors coverage", Description: "Which environments are missing a given inspector type - the estate-wide rollout-gap view.", Group: "Inspection health", WhyItMatters: "Reach for this when an agent needs 'who is missing the M365 inspector' instead of paging launchpoints per environment."},
+	{Command: "health", Description: "One estate-wide health scorecard: stale launchpoints, offline agents, failed inspections, and coverage gaps as a single summary with a typed exit code.", Group: "Inspection health", WhyItMatters: "Reach for this for a single-command daily health check with a typed exit code, instead of running each sweep separately."},
 }
 
 // whichMatch pairs an index entry with its ranking score for a query.
@@ -138,6 +142,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

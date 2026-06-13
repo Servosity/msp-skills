@@ -33,12 +33,12 @@ func newMeterReadingListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/MeterReading"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "meter-reading", path, map[string]string{
-				"asset_id":                 fmt.Sprintf("%v", flagAssetId),
-				"count":                    fmt.Sprintf("%v", flagCount),
-				"page_no":                  fmt.Sprintf("%v", flagPageNo),
-				"page_size":                fmt.Sprintf("%v", flagPageSize),
-				"pageinate":                fmt.Sprintf("%v", flagPageinate),
-				"recurringinvoice_line_id": fmt.Sprintf("%v", flagRecurringinvoiceLineId),
+				"asset_id":                 formatCLIParamValue(flagAssetId),
+				"count":                    formatCLIParamValue(flagCount),
+				"page_no":                  formatCLIParamValue(flagPageNo),
+				"page_size":                formatCLIParamValue(flagPageSize),
+				"pageinate":                formatCLIParamValue(flagPageinate),
+				"recurringinvoice_line_id": formatCLIParamValue(flagRecurringinvoiceLineId),
 			}, nil, flagAll, "", "offset", "page_size", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

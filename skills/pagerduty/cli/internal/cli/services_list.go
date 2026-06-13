@@ -62,15 +62,15 @@ func newServicesListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/services"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "services", path, map[string]string{
-				"query":      fmt.Sprintf("%v", flagQuery),
-				"limit":      fmt.Sprintf("%v", flagLimit),
-				"offset":     fmt.Sprintf("%v", flagOffset),
-				"total":      fmt.Sprintf("%v", flagTotal),
-				"team_ids[]": fmt.Sprintf("%v", flagTeamIds),
-				"time_zone":  fmt.Sprintf("%v", flagTimeZone),
-				"sort_by":    fmt.Sprintf("%v", flagSortBy),
-				"include[]":  fmt.Sprintf("%v", flagInclude),
-				"name":       fmt.Sprintf("%v", flagName),
+				"query":      formatCLIParamValue(flagQuery),
+				"limit":      formatCLIParamValue(flagLimit),
+				"offset":     formatCLIParamValue(flagOffset),
+				"total":      formatCLIParamValue(flagTotal),
+				"team_ids[]": formatCLIParamValue(flagTeamIds),
+				"time_zone":  formatCLIParamValue(flagTimeZone),
+				"sort_by":    formatCLIParamValue(flagSortBy),
+				"include[]":  formatCLIParamValue(flagInclude),
+				"name":       formatCLIParamValue(flagName),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -34,12 +34,12 @@ func newProjectsGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/projects"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "projects", path, map[string]string{
-				"cursor":           fmt.Sprintf("%v", flagCursor),
-				"limit":            fmt.Sprintf("%v", flagLimit),
-				"filter_id":        fmt.Sprintf("%v", flagFilterId),
-				"status":           fmt.Sprintf("%v", flagStatus),
-				"phase_id":         fmt.Sprintf("%v", flagPhaseId),
-				"include_archived": fmt.Sprintf("%v", flagIncludeArchived),
+				"cursor":           formatCLIParamValue(flagCursor),
+				"limit":            formatCLIParamValue(flagLimit),
+				"filter_id":        formatCLIParamValue(flagFilterId),
+				"status":           formatCLIParamValue(flagStatus),
+				"phase_id":         formatCLIParamValue(flagPhaseId),
+				"include_archived": formatCLIParamValue(flagIncludeArchived),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

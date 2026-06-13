@@ -29,8 +29,8 @@ func newPhishingCampaignsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/phishing/campaigns"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "phishing-campaigns", path, map[string]string{
-				"page":     fmt.Sprintf("%v", flagPage),
-				"per_page": fmt.Sprintf("%v", flagPerPage),
+				"page":     formatCLIParamValue(flagPage),
+				"per_page": formatCLIParamValue(flagPerPage),
 			}, nil, flagAll, "page", "page", "per_page", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

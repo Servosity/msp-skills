@@ -18,7 +18,7 @@ func newBackupDiscoverMailboxesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "discover-mailboxes <subscriptionId>",
 		Short:       "Trigger Exchange mailbox discovery (async; poll the returned operation with watch-operation)",
-		Example:     "  skykick-cli backup discover-mailboxes 1a2b3c4d-0000-0000-0000-000000000000",
+		Example:     "  skykick-cli backup discover-mailboxes 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "backup.discover-mailboxes", "pp:method": "POST", "pp:path": "/Backup/{subscriptionId}/discovermailboxes"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -16,8 +16,9 @@ func newCrmPutV4ObjectsFromObjectTypeFromObjectIdAssociationsDefaultToObjectType
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "put-v4-objects-from-object-type-from-object-id-associations-default-to-object-type-to-object-id-create-default <fromObjectId> <fromObjectType> <toObjectId> <toObjectType>",
-		Short:       "Create the default (most generic) association type between two object types",
+		Use:   "put-v4-objects-from-object-type-from-object-id-associations-default-to-object-type-to-object-id-create-default <fromObjectId> <fromObjectType> <toObjectId> <toObjectType>",
+		Short: "Create the default (most generic) association type between two object types",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli crm put-v4-objects-from-object-type-from-object-id-associations-default-to-object-type-to-object-id-create-default 550e8400-e29b-41d4-a716-446655440000 example-value 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "crm.put-v4-objects-from-object-type-from-object-id-associations-default-to-object-type-to-object-id-create-default", "pp:method": "PUT", "pp:path": "/crm/v4/objects/{fromObjectType}/{fromObjectId}/associations/default/{toObjectType}/{toObjectId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

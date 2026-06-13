@@ -56,91 +56,91 @@ func newActionsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Actions"
 			params := map[string]string{}
 			if flagActoutcome != "" {
-				params["actoutcome"] = fmt.Sprintf("%v", flagActoutcome)
+				params["actoutcome"] = formatCLIParamValue(flagActoutcome)
 			}
 			if flagActoutcomenum != 0 {
-				params["actoutcomenum"] = fmt.Sprintf("%v", flagActoutcomenum)
+				params["actoutcomenum"] = formatCLIParamValue(flagActoutcomenum)
 			}
 			if flagAgentonly != false {
-				params["agentonly"] = fmt.Sprintf("%v", flagAgentonly)
+				params["agentonly"] = formatCLIParamValue(flagAgentonly)
 			}
 			if flagConversationonly != false {
-				params["conversationonly"] = fmt.Sprintf("%v", flagConversationonly)
+				params["conversationonly"] = formatCLIParamValue(flagConversationonly)
 			}
 			if flagCount != 0 {
-				params["count"] = fmt.Sprintf("%v", flagCount)
+				params["count"] = formatCLIParamValue(flagCount)
 			}
 			if flagDatesearch != "" {
-				params["datesearch"] = fmt.Sprintf("%v", flagDatesearch)
+				params["datesearch"] = formatCLIParamValue(flagDatesearch)
 			}
 			if flagEnddate != "" {
-				params["enddate"] = fmt.Sprintf("%v", flagEnddate)
+				params["enddate"] = formatCLIParamValue(flagEnddate)
 			}
 			if flagExcludebilling != false {
-				params["excludebilling"] = fmt.Sprintf("%v", flagExcludebilling)
+				params["excludebilling"] = formatCLIParamValue(flagExcludebilling)
 			}
 			if flagExcludehiddenfrominternalit != false {
-				params["excludehiddenfrominternalit"] = fmt.Sprintf("%v", flagExcludehiddenfrominternalit)
+				params["excludehiddenfrominternalit"] = formatCLIParamValue(flagExcludehiddenfrominternalit)
 			}
 			if flagExcludeprivate != false {
-				params["excludeprivate"] = fmt.Sprintf("%v", flagExcludeprivate)
+				params["excludeprivate"] = formatCLIParamValue(flagExcludeprivate)
 			}
 			if flagExcludesys != false {
-				params["excludesys"] = fmt.Sprintf("%v", flagExcludesys)
+				params["excludesys"] = formatCLIParamValue(flagExcludesys)
 			}
 			if flagImportantonly != false {
-				params["importantonly"] = fmt.Sprintf("%v", flagImportantonly)
+				params["importantonly"] = formatCLIParamValue(flagImportantonly)
 			}
 			if flagImportanttop != false {
-				params["importanttop"] = fmt.Sprintf("%v", flagImportanttop)
+				params["importanttop"] = formatCLIParamValue(flagImportanttop)
 			}
 			if flagIncludeagentdetails != false {
-				params["includeagentdetails"] = fmt.Sprintf("%v", flagIncludeagentdetails)
+				params["includeagentdetails"] = formatCLIParamValue(flagIncludeagentdetails)
 			}
 			if flagIncludeattachments != false {
-				params["includeattachments"] = fmt.Sprintf("%v", flagIncludeattachments)
+				params["includeattachments"] = formatCLIParamValue(flagIncludeattachments)
 			}
 			if flagIncludefacebookfields != false {
-				params["includefacebookfields"] = fmt.Sprintf("%v", flagIncludefacebookfields)
+				params["includefacebookfields"] = formatCLIParamValue(flagIncludefacebookfields)
 			}
 			if flagIncludehtmlemail != false {
-				params["includehtmlemail"] = fmt.Sprintf("%v", flagIncludehtmlemail)
+				params["includehtmlemail"] = formatCLIParamValue(flagIncludehtmlemail)
 			}
 			if flagIncludehtmlnote != false {
-				params["includehtmlnote"] = fmt.Sprintf("%v", flagIncludehtmlnote)
+				params["includehtmlnote"] = formatCLIParamValue(flagIncludehtmlnote)
 			}
 			if flagIncludenonactionattachments != false {
-				params["includenonactionattachments"] = fmt.Sprintf("%v", flagIncludenonactionattachments)
+				params["includenonactionattachments"] = formatCLIParamValue(flagIncludenonactionattachments)
 			}
 			if flagIncludetranslations != false {
-				params["includetranslations"] = fmt.Sprintf("%v", flagIncludetranslations)
+				params["includetranslations"] = formatCLIParamValue(flagIncludetranslations)
 			}
 			if flagIncludetwitterfields != false {
-				params["includetwitterfields"] = fmt.Sprintf("%v", flagIncludetwitterfields)
+				params["includetwitterfields"] = formatCLIParamValue(flagIncludetwitterfields)
 			}
 			if flagIntraticketonly != false {
-				params["intraticketonly"] = fmt.Sprintf("%v", flagIntraticketonly)
+				params["intraticketonly"] = formatCLIParamValue(flagIntraticketonly)
 			}
 			if flagIschildnotes != false {
-				params["ischildnotes"] = fmt.Sprintf("%v", flagIschildnotes)
+				params["ischildnotes"] = formatCLIParamValue(flagIschildnotes)
 			}
 			if flagIsrelatednotes != false {
-				params["isrelatednotes"] = fmt.Sprintf("%v", flagIsrelatednotes)
+				params["isrelatednotes"] = formatCLIParamValue(flagIsrelatednotes)
 			}
 			if flagSlaonly != false {
-				params["slaonly"] = fmt.Sprintf("%v", flagSlaonly)
+				params["slaonly"] = formatCLIParamValue(flagSlaonly)
 			}
 			if flagStartdate != "" {
-				params["startdate"] = fmt.Sprintf("%v", flagStartdate)
+				params["startdate"] = formatCLIParamValue(flagStartdate)
 			}
 			if flagSupplieronly != false {
-				params["supplieronly"] = fmt.Sprintf("%v", flagSupplieronly)
+				params["supplieronly"] = formatCLIParamValue(flagSupplieronly)
 			}
 			if flagTicketId != "" {
-				params["ticket_id"] = fmt.Sprintf("%v", flagTicketId)
+				params["ticket_id"] = formatCLIParamValue(flagTicketId)
 			}
 			if flagTimeentriesonly != false {
-				params["timeentriesonly"] = fmt.Sprintf("%v", flagTimeentriesonly)
+				params["timeentriesonly"] = formatCLIParamValue(flagTimeentriesonly)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "actions", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

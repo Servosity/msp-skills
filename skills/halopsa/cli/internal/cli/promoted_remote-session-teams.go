@@ -30,10 +30,10 @@ func newRemoteSessionTeamsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/RemoteSessionTeams"
 			params := map[string]string{}
 			if flagIncludeenabled != false {
-				params["includeenabled"] = fmt.Sprintf("%v", flagIncludeenabled)
+				params["includeenabled"] = formatCLIParamValue(flagIncludeenabled)
 			}
 			if flagMsid != "" {
-				params["msid"] = fmt.Sprintf("%v", flagMsid)
+				params["msid"] = formatCLIParamValue(flagMsid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "remote-session-teams", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

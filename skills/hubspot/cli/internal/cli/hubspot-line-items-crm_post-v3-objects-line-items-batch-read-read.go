@@ -52,7 +52,7 @@ func newHubspotLineItemsCrmPostV3ObjectsLineItemsBatchReadReadCmd(flags *rootFla
 			path := "/crm/v3/objects/line_items/batch/read"
 			params := map[string]string{}
 			if flagArchived != false {
-				params["archived"] = fmt.Sprintf("%v", flagArchived)
+				params["archived"] = formatCLIParamValue(flagArchived)
 			}
 			var body map[string]any
 			if stdinBody {

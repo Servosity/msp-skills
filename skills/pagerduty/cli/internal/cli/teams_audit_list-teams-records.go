@@ -36,10 +36,10 @@ func newTeamsAuditListTeamsRecordsCmd(flags *rootFlags) *cobra.Command {
 			path := "/teams/{id}/audit/records"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "audit", path, map[string]string{
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"cursor": fmt.Sprintf("%v", flagCursor),
-				"since":  fmt.Sprintf("%v", flagSince),
-				"until":  fmt.Sprintf("%v", flagUntil),
+				"limit":  formatCLIParamValue(flagLimit),
+				"cursor": formatCLIParamValue(flagCursor),
+				"since":  formatCLIParamValue(flagSince),
+				"until":  formatCLIParamValue(flagUntil),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

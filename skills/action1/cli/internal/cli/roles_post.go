@@ -19,9 +19,10 @@ func newRolesPostCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post",
-		Aliases:     []string{"create"},
-		Short:       "**Requires permission: `manage_roles`** Creates a new role.",
+		Use:     "post",
+		Aliases: []string{"create"},
+		Short:   "**Requires permission: `manage_roles`** Creates a new role.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  action1-cli roles post --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "roles.post", "pp:method": "POST", "pp:path": "/roles"},
 		RunE: func(cmd *cobra.Command, args []string) error {

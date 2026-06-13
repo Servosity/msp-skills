@@ -15,9 +15,10 @@ func newListPartnerRelationshipsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-partner-relationships",
-		Short:       "List partner relationships",
-		Long:        "List partner relationships",
+		Use:   "list-partner-relationships",
+		Short: "List partner relationships",
+		Long:  "List partner relationships",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-partner-relationships --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-partner-relationships.list", "pp:method": "GET", "pp:path": "/ListPartnerRelationships", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,7 @@ func newListPartnerRelationshipsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListPartnerRelationships"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-partner-relationships", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

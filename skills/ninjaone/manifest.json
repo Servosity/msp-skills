@@ -1,8 +1,8 @@
 {
   "manifest_version": "0.3",
-  "name": "ninjaone-pp-mcp",
+  "name": "ninjaone-mcp",
   "display_name": "NinjaOne",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
   "author": {
     "name": "Servosity Inc."
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/ninjaone-pp-mcp",
+    "entry_point": "bin/ninjaone-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/ninjaone-pp-mcp",
+      "command": "${__dirname}/bin/ninjaone-mcp",
       "args": [],
       "env": {
         "NINJAONE_CLIENT_ID": "${user_config.ninjaone_client_id}",
@@ -39,9 +39,9 @@
     "ninjaone_oauth_scope": {
       "type": "string",
       "title": "NINJAONE_OAUTH_SCOPE",
-      "description": "Optional. Space-separated OAuth2 scopes to request at token mint. Leave blank to use the default (monitoring management control); set it to narrow the token for least-privilege deployments.",
-      "sensitive": false,
-      "required": false
+      "description": "Sets NINJAONE_OAUTH_SCOPE for the NinjaOne MCP server. Required by the generated client for credential refresh or hand-written auth flow.",
+      "sensitive": true,
+      "required": true
     }
   },
   "compatibility": {
@@ -52,10 +52,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T02:42:04.958433Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T02:54:27.52011Z",
     "spec_checksum": "sha256:20614fd747a37ffae33ac5a6ae4cc2ca1b08fa21d154307cebba49d7014ec00f",
     "spec_format": "openapi3"
   }

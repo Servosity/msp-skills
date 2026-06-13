@@ -18,9 +18,10 @@ func newSiemPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyRangeStart string
 
 	cmd := &cobra.Command{
-		Use:         "siem",
-		Short:       "Execute an ESQL query against your SIEM logs and receive paginated JSON results.",
-		Long:        "Execute an ESQL query against your SIEM logs and receive paginated JSON results.",
+		Use:   "siem",
+		Short: "Execute an ESQL query against your SIEM logs and receive paginated JSON results.",
+		Long:  "Execute an ESQL query against your SIEM logs and receive paginated JSON results.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  huntress-cli siem --esql example-value",
 		Annotations: map[string]string{"pp:endpoint": "siem.post-v1-query", "pp:method": "POST", "pp:path": "/v1/siem/query"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -66,10 +67,10 @@ func newSiemPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

@@ -29,10 +29,10 @@ func newComputerGroupsDropdownCmd(flags *rootFlags) *cobra.Command {
 			path := "/ComputerGroup/ComputerGroupGetDropdownByOrganizationId"
 			params := map[string]string{}
 			if flagComputerGroupOSTypeId != "" {
-				params["computerGroupOSTypeId"] = fmt.Sprintf("%v", flagComputerGroupOSTypeId)
+				params["computerGroupOSTypeId"] = formatCLIParamValue(flagComputerGroupOSTypeId)
 			}
 			if flagHideGlobals != false {
-				params["hideGlobals"] = fmt.Sprintf("%v", flagHideGlobals)
+				params["hideGlobals"] = formatCLIParamValue(flagHideGlobals)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "computer-groups", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

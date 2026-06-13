@@ -35,28 +35,28 @@ func newUsersListCmd(flags *rootFlags) *cobra.Command {
 			path := "/users"
 			params := map[string]string{}
 			if flagFirstName != "" {
-				params["first_name"] = fmt.Sprintf("%v", flagFirstName)
+				params["first_name"] = formatCLIParamValue(flagFirstName)
 			}
 			if flagLastName != "" {
-				params["last_name"] = fmt.Sprintf("%v", flagLastName)
+				params["last_name"] = formatCLIParamValue(flagLastName)
 			}
 			if flagEmail != "" {
-				params["email"] = fmt.Sprintf("%v", flagEmail)
+				params["email"] = formatCLIParamValue(flagEmail)
 			}
 			if flagPortalMemberCompanyId != "" {
-				params["portal_member_company_id"] = fmt.Sprintf("%v", flagPortalMemberCompanyId)
+				params["portal_member_company_id"] = formatCLIParamValue(flagPortalMemberCompanyId)
 			}
 			if flagSlug != "" {
-				params["slug"] = fmt.Sprintf("%v", flagSlug)
+				params["slug"] = formatCLIParamValue(flagSlug)
 			}
 			if flagArchived != false {
-				params["archived"] = fmt.Sprintf("%v", flagArchived)
+				params["archived"] = formatCLIParamValue(flagArchived)
 			}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPageSize != 0 {
-				params["page_size"] = fmt.Sprintf("%v", flagPageSize)
+				params["page_size"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "users", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -17,9 +17,10 @@ func newExecEnableAutoExpandingArchivePromotedCmd(flags *rootFlags) *cobra.Comma
 	var bodyUsername string
 
 	cmd := &cobra.Command{
-		Use:         "exec-enable-auto-expanding-archive",
-		Short:       "Exec enable auto expanding archive",
-		Long:        "Exec enable auto expanding archive",
+		Use:   "exec-enable-auto-expanding-archive",
+		Short: "Exec enable auto expanding archive",
+		Long:  "Exec enable auto expanding archive",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-enable-auto-expanding-archive --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-enable-auto-expanding-archive.create", "pp:method": "POST", "pp:path": "/ExecEnableAutoExpandingArchive"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -56,10 +57,10 @@ func newExecEnableAutoExpandingArchivePromotedCmd(flags *rootFlags) *cobra.Comma
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

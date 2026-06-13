@@ -184,6 +184,9 @@ func newFeedbackListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List recent feedback entries",
+		Annotations: map[string]string{
+			"mcp:read-only": "true",
+		},
 		Example: `  connectwise-manage-cli feedback list
   connectwise-manage-cli feedback list --limit 5
   connectwise-manage-cli feedback list --json`,

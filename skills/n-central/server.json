@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/n-central-mcp",
   "title": "N-able N-central MCP",
   "description": "N-central REST API with an offline org-tree mirror, cross-tenant search, and a JWT-expiry guardian.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/n-central/n-central-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/n-central-v0.1.0/n-central-mcp.mcpb",
-      "version": "0.1.0",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/n-central-v0.1.1/n-central-mcp.mcpb",
+      "version": "0.1.1",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

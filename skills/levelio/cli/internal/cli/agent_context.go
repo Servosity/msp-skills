@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "levelio-cli",
-			Description: "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has",
+			Description: "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

@@ -15,9 +15,10 @@ func newListTenantAllowBlockListPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-tenant-allow-block-list",
-		Short:       "List tenant allow block list",
-		Long:        "List tenant allow block list",
+		Use:   "list-tenant-allow-block-list",
+		Short: "List tenant allow block list",
+		Long:  "List tenant allow block list",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-tenant-allow-block-list --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-tenant-allow-block-list.list", "pp:method": "GET", "pp:path": "/ListTenantAllowBlockList", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,7 @@ func newListTenantAllowBlockListPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListTenantAllowBlockList"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-tenant-allow-block-list", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

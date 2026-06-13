@@ -29,10 +29,10 @@ func newTagsDropdownCmd(flags *rootFlags) *cobra.Command {
 			path := "/Tag/TagGetDowndownOptionsByOrganizationId"
 			params := map[string]string{}
 			if flagIncludeBuiltIns != false {
-				params["includeBuiltIns"] = fmt.Sprintf("%v", flagIncludeBuiltIns)
+				params["includeBuiltIns"] = formatCLIParamValue(flagIncludeBuiltIns)
 			}
 			if flagTagType != 0 {
-				params["tagType"] = fmt.Sprintf("%v", flagTagType)
+				params["tagType"] = formatCLIParamValue(flagTagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "tags", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

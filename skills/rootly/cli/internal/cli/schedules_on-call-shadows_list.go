@@ -35,9 +35,9 @@ func newSchedulesOnCallShadowsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/v1/schedules/{schedule_id}/on_call_shadows"
 			path = replacePathParam(path, "schedule_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "on-call-shadows", path, map[string]string{
-				"include":      fmt.Sprintf("%v", flagInclude),
-				"page[number]": fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":   fmt.Sprintf("%v", flagPageSize),
+				"include":      formatCLIParamValue(flagInclude),
+				"page[number]": formatCLIParamValue(flagPageNumber),
+				"page[size]":   formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

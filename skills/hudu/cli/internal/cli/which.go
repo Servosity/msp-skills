@@ -31,7 +31,7 @@ var whichIndex = []whichEntry{
 	{Command: "audit stale-passwords", Description: "Find vault passwords not rotated within a threshold, grouped by company.", Group: "Documentation hygiene audits", WhyItMatters: "Reach for this when auditing credential rotation for compliance — the answer doesn't exist anywhere in the Hudu UI or API."},
 	{Command: "audit expirations", Description: "Windowed, typed view of expiring SSL certs, domains, warranties, and passwords sorted by days remaining.", Group: "Documentation hygiene audits", WhyItMatters: "Reach for this to answer 'what expires in the next month across all clients' without hammering the 300/min rate limit."},
 	{Command: "audit summary", Description: "One worst-first hygiene scorecard per company combining completeness, stale passwords, expirations due, and stale articles.", Group: "Documentation hygiene audits", WhyItMatters: "Reach for this when an agent needs the bottom-N worst-documented clients across every hygiene dimension in one call instead of running four audits."},
-	{Command: "onboard", Description: "Apply a saved bundle of asset layouts, folder tree, and procedures-from-template to a new company in one command.", Group: "Multi-tenant operations", WhyItMatters: "Reach for this when standing up a new client so documentation structure never drifts between technicians."},
+	{Command: "onboard", Description: "Preview (default) and apply with --apply a saved bundle of asset layouts, folder tree, and procedures-from-template to a new company; the write path needs a global (not company-scoped) API key.", Group: "Multi-tenant operations", WhyItMatters: "Reach for this when standing up a new client so documentation structure never drifts between technicians."},
 	{Command: "reconcile", Description: "Bulk bidirectional check of which integrator (PSA/RMM) records resolve to a live Hudu asset and which are orphaned.", Group: "Multi-tenant operations", WhyItMatters: "Reach for this when auditing whether a PSA/RMM integration has gone stale, before something breaks in production."},
 	{Command: "doctor", Description: "Check CLI health: config, auth, API reachability, credential presence, and local-cache freshness.", Group: "Reliability", WhyItMatters: "Reach for this first against any tenant to confirm the key, base URL, and reachability before running other commands."},
 	{Command: "audit layout-drift", Description: "Find assets carrying custom fields not in their layout's current schema, or missing newly-added fields.", Group: "Documentation hygiene audits", WhyItMatters: "Reach for this after a bulk layout migration to catch assets left in an inconsistent field state."},
@@ -140,6 +140,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

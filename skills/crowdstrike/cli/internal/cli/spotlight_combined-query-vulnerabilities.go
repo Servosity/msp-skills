@@ -20,8 +20,9 @@ func newSpotlightCombinedQueryVulnerabilitiesCmd(flags *rootFlags) *cobra.Comman
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "combined-query-vulnerabilities",
-		Short:       "Search for Vulnerabilities in your environment by providing an FQL filter and paging details.",
+		Use:   "combined-query-vulnerabilities",
+		Short: "Search for Vulnerabilities in your environment by providing an FQL filter and paging details.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  crowdstrike-cli spotlight combined-query-vulnerabilities --filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "spotlight.combined-query-vulnerabilities", "pp:method": "GET", "pp:path": "/spotlight/combined/vulnerabilities/v1", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,11 +42,11 @@ func newSpotlightCombinedQueryVulnerabilitiesCmd(flags *rootFlags) *cobra.Comman
 
 			path := "/spotlight/combined/vulnerabilities/v1"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "spotlight", path, map[string]string{
-				"after":  fmt.Sprintf("%v", flagAfter),
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"sort":   fmt.Sprintf("%v", flagSort),
-				"filter": fmt.Sprintf("%v", flagFilter),
-				"facet":  fmt.Sprintf("%v", flagFacet),
+				"after":  formatCLIParamValue(flagAfter),
+				"limit":  formatCLIParamValue(flagLimit),
+				"sort":   formatCLIParamValue(flagSort),
+				"filter": formatCLIParamValue(flagFilter),
+				"facet":  formatCLIParamValue(flagFacet),
 			}, nil, flagAll, "after", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

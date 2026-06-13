@@ -57,16 +57,16 @@ func newAssistedSalesGetRequiredFieldsDefinitionsCmd(flags *rootFlags) *cobra.Co
 			path := "/assistedSales/v1/opportunities/items/requiredFields/definitions"
 			params := map[string]string{}
 			if flagUserId != "" {
-				params["userId"] = fmt.Sprintf("%v", flagUserId)
+				params["userId"] = formatCLIParamValue(flagUserId)
 			}
 			if flagCompanyId != "" {
-				params["companyId"] = fmt.Sprintf("%v", flagCompanyId)
+				params["companyId"] = formatCLIParamValue(flagCompanyId)
 			}
 			if flagSalesAgentUserId != "" {
-				params["salesAgentUserId"] = fmt.Sprintf("%v", flagSalesAgentUserId)
+				params["salesAgentUserId"] = formatCLIParamValue(flagSalesAgentUserId)
 			}
 			if flagSalesAgentCompanyId != "" {
-				params["salesAgentCompanyId"] = fmt.Sprintf("%v", flagSalesAgentCompanyId)
+				params["salesAgentCompanyId"] = formatCLIParamValue(flagSalesAgentCompanyId)
 			}
 			var body map[string]any
 			if stdinBody {

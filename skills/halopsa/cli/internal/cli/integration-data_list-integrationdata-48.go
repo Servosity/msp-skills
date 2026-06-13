@@ -29,10 +29,10 @@ func newIntegrationDataListIntegrationdata48Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/Jamf"
 			params := map[string]string{}
 			if flagDataOnly != false {
-				params["dataOnly"] = fmt.Sprintf("%v", flagDataOnly)
+				params["dataOnly"] = formatCLIParamValue(flagDataOnly)
 			}
 			if flagEndpoint != "" {
-				params["endpoint"] = fmt.Sprintf("%v", flagEndpoint)
+				params["endpoint"] = formatCLIParamValue(flagEndpoint)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

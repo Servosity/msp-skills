@@ -32,19 +32,19 @@ func newIntegrationDataListIntegrationdata42Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/ITGlue"
 			params := map[string]string{}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			if flagOrganizationid != "" {
-				params["organizationid"] = fmt.Sprintf("%v", flagOrganizationid)
+				params["organizationid"] = formatCLIParamValue(flagOrganizationid)
 			}
 			if flagReturntype != "" {
-				params["returntype"] = fmt.Sprintf("%v", flagReturntype)
+				params["returntype"] = formatCLIParamValue(flagReturntype)
 			}
 			if flagTypeid != "" {
-				params["typeid"] = fmt.Sprintf("%v", flagTypeid)
+				params["typeid"] = formatCLIParamValue(flagTypeid)
 			}
 			if flagUpdateddate != "" {
-				params["updateddate"] = fmt.Sprintf("%v", flagUpdateddate)
+				params["updateddate"] = formatCLIParamValue(flagUpdateddate)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

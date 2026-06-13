@@ -19,7 +19,7 @@ func newDeviceGetVaultRestorePointByAsioEndpointIdOrgLevelCmd(flags *rootFlags) 
 	cmd := &cobra.Command{
 		Use:         "get-vault-restore-point-by-asio-endpoint-id-org-level <asio_endpoint_id>",
 		Short:       "Returns information about device's restore points grouped by Cloud Vaults it is replicated on",
-		Example:     "  axcient-cli device get-vault-restore-point-by-asio-endpoint-id-org-level 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  axcient-cli device get-vault-restore-point-by-asio-endpoint-id-org-level 89fe5095-9f16-4aa2-9107-9586b5fe7036",
 		Annotations: map[string]string{"pp:endpoint": "device.get-vault-restore-point-by-asio-endpoint-id-org-level", "pp:method": "GET", "pp:path": "/device/asio_endpoint_id/{asio_endpoint_id}/restore_point", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -33,8 +33,8 @@ func newDeviceGetVaultRestorePointByAsioEndpointIdOrgLevelCmd(flags *rootFlags) 
 			path := "/device/asio_endpoint_id/{asio_endpoint_id}/restore_point"
 			path = replacePathParam(path, "asio_endpoint_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "device", path, map[string]string{
-				"max_timestamp": fmt.Sprintf("%v", flagMaxTimestamp),
-				"limit":         fmt.Sprintf("%v", flagLimit),
+				"max_timestamp": formatCLIParamValue(flagMaxTimestamp),
+				"limit":         formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

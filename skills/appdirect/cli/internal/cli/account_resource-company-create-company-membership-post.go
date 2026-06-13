@@ -45,7 +45,7 @@ func newAccountResourceCompanyCreateCompanyMembershipPostCmd(flags *rootFlags) *
 			path = replacePathParam(path, "companyUuid", args[0])
 			params := map[string]string{}
 			if flagInviterUuid != "" {
-				params["inviterUuid"] = fmt.Sprintf("%v", flagInviterUuid)
+				params["inviterUuid"] = formatCLIParamValue(flagInviterUuid)
 			}
 			var body map[string]any
 			if stdinBody {

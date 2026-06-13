@@ -30,8 +30,9 @@ func newAppMarketCreatePaymentMethodTokenCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create-payment-method-token",
-		Short:       "Calls the payment gateway to validate the payment method, which is not yet associated with a user.",
+		Use:   "create-payment-method-token",
+		Short: "Calls the payment gateway to validate the payment method, which is not yet associated with a user.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli app-market create-payment-method-token --payment-method-type example-value",
 		Annotations: map[string]string{"pp:endpoint": "app-market.create-payment-method-token", "pp:method": "POST", "pp:path": "/appMarket/v2/paymentMethodTokens"},
 		RunE: func(cmd *cobra.Command, args []string) error {

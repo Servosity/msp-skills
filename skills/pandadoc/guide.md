@@ -11,10 +11,117 @@ Contributors: [@DamienStevens](https://github.com/DamienStevens) (Damien Stevens
 
 ## Install
 
-For the short install path (one-line installer for the `pandadoc-cli` and
-`pandadoc-mcp` binaries) see [README.md](./README.md). For wiring the MCP server
-into Claude Desktop, ChatGPT, GitHub Copilot, Gemini, and other MCP clients, see
-[mcp-install.md](./mcp-install.md). This file is the command reference.
+The recommended path installs both the `pandadoc-cli` binary and the `pp-pandadoc` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+
+```bash
+npx -y @mvanhorn/printing-press-library install pandadoc
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install pandadoc --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install pandadoc --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install pandadoc --agent claude-code
+npx -y @mvanhorn/printing-press-library install pandadoc --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/pandadoc/cmd/pandadoc-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/pandadoc-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install pandadoc --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-pandadoc --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-pandadoc --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install pandadoc --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/pandadoc-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `PANDADOC_API_KEY` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/pandadoc/cmd/pandadoc-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "pandadoc": {
+      "command": "pandadoc-mcp",
+      "env": {
+        "PANDADOC_API_KEY": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Authentication
 
@@ -156,7 +263,7 @@ List documents sent but unsigned for 10 days, narrowed to the fields that matter
 ### Forecast in-flight value
 
 ```bash
-pandadoc-cli value --status document.sent --agent
+pandadoc-cli value --status sent --agent
 ```
 
 Sum quote totals across sent documents for a quick pipeline-dollar forecast.
@@ -769,7 +876,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/pandadoc-cli/config.toml`
+Config file: `~/.config/pandadoc-public-pp-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
@@ -806,4 +913,4 @@ This CLI was built by studying these projects and resources:
 - [**pandadoc-python-client**](https://github.com/PandaDoc/pandadoc-python-client)  -  Python
 - [**pandadoc-node-client**](https://github.com/PandaDoc/pandadoc-node-client)  -  JavaScript
 
-Maintained by [Servosity](https://www.servosity.com)
+Generated by [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press)

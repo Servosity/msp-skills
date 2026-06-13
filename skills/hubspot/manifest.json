@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "hubspot-mcp",
   "display_name": "HubSpot",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
   "author": {
     "name": "Servosity Inc."
@@ -36,11 +36,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T12:34:48.3237Z",
-    "spec_checksum": "sha256:ef8bded66c004ef2ec92019b4f0a4a942494165e2d27cf38ffef6743905bc723",
-    "spec_format": "internal"
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:36:42.540934Z",
+    "spec_checksum": null,
+    "spec_format": null
   }
 }

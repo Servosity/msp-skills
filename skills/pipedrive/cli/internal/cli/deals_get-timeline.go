@@ -67,31 +67,31 @@ func newDealsGetTimelineCmd(flags *rootFlags) *cobra.Command {
 			path := "/deals/timeline"
 			params := map[string]string{}
 			if flagStartDate != "" {
-				params["start_date"] = fmt.Sprintf("%v", flagStartDate)
+				params["start_date"] = formatCLIParamValue(flagStartDate)
 			}
 			if flagInterval != "" {
-				params["interval"] = fmt.Sprintf("%v", flagInterval)
+				params["interval"] = formatCLIParamValue(flagInterval)
 			}
 			if flagAmount != 0 {
-				params["amount"] = fmt.Sprintf("%v", flagAmount)
+				params["amount"] = formatCLIParamValue(flagAmount)
 			}
 			if flagFieldKey != "" {
-				params["field_key"] = fmt.Sprintf("%v", flagFieldKey)
+				params["field_key"] = formatCLIParamValue(flagFieldKey)
 			}
 			if flagUserId != "" {
-				params["user_id"] = fmt.Sprintf("%v", flagUserId)
+				params["user_id"] = formatCLIParamValue(flagUserId)
 			}
 			if flagPipelineId != "" {
-				params["pipeline_id"] = fmt.Sprintf("%v", flagPipelineId)
+				params["pipeline_id"] = formatCLIParamValue(flagPipelineId)
 			}
 			if flagFilterId != "" {
-				params["filter_id"] = fmt.Sprintf("%v", flagFilterId)
+				params["filter_id"] = formatCLIParamValue(flagFilterId)
 			}
 			if flagExcludeDeals != 0.0 {
-				params["exclude_deals"] = fmt.Sprintf("%v", flagExcludeDeals)
+				params["exclude_deals"] = formatCLIParamValue(flagExcludeDeals)
 			}
 			if flagTotalsConvertCurrency != "" {
-				params["totals_convert_currency"] = fmt.Sprintf("%v", flagTotalsConvertCurrency)
+				params["totals_convert_currency"] = formatCLIParamValue(flagTotalsConvertCurrency)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "deals", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

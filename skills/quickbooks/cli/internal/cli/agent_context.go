@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "quickbooks-cli",
-			Description: "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search",
+			Description: "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

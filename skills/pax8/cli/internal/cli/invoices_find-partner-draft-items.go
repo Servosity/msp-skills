@@ -31,10 +31,10 @@ func newInvoicesFindPartnerDraftItemsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/invoices/draftItems"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "invoices", path, map[string]string{
-				"page":        fmt.Sprintf("%v", flagPage),
-				"size":        fmt.Sprintf("%v", flagSize),
-				"monthOffset": fmt.Sprintf("%v", flagMonthOffset),
-				"companyId":   fmt.Sprintf("%v", flagCompanyId),
+				"page":        formatCLIParamValue(flagPage),
+				"size":        formatCLIParamValue(flagSize),
+				"monthOffset": formatCLIParamValue(flagMonthOffset),
+				"companyId":   formatCLIParamValue(flagCompanyId),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

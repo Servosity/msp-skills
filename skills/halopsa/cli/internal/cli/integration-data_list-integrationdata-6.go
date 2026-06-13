@@ -36,31 +36,31 @@ func newIntegrationDataListIntegrationdata6Cmd(flags *rootFlags) *cobra.Command 
 			path := "/IntegrationData/Get/Auvik"
 			params := map[string]string{}
 			if flagAlsoInclude != "" {
-				params["alsoInclude"] = fmt.Sprintf("%v", flagAlsoInclude)
+				params["alsoInclude"] = formatCLIParamValue(flagAlsoInclude)
 			}
 			if flagDataType != "" {
-				params["dataType"] = fmt.Sprintf("%v", flagDataType)
+				params["dataType"] = formatCLIParamValue(flagDataType)
 			}
 			if flagExcludeMapped != false {
-				params["excludeMapped"] = fmt.Sprintf("%v", flagExcludeMapped)
+				params["excludeMapped"] = formatCLIParamValue(flagExcludeMapped)
 			}
 			if flagExtraFilter != "" {
-				params["extraFilter"] = fmt.Sprintf("%v", flagExtraFilter)
+				params["extraFilter"] = formatCLIParamValue(flagExtraFilter)
 			}
 			if flagMappedOnly != false {
-				params["mappedOnly"] = fmt.Sprintf("%v", flagMappedOnly)
+				params["mappedOnly"] = formatCLIParamValue(flagMappedOnly)
 			}
 			if flagNextUrl != "" {
-				params["next_url"] = fmt.Sprintf("%v", flagNextUrl)
+				params["next_url"] = formatCLIParamValue(flagNextUrl)
 			}
 			if flagPaginate != false {
-				params["paginate"] = fmt.Sprintf("%v", flagPaginate)
+				params["paginate"] = formatCLIParamValue(flagPaginate)
 			}
 			if flagParentId != "" {
-				params["parentId"] = fmt.Sprintf("%v", flagParentId)
+				params["parentId"] = formatCLIParamValue(flagParentId)
 			}
 			if flagSubDataType != "" {
-				params["subDataType"] = fmt.Sprintf("%v", flagSubDataType)
+				params["subDataType"] = formatCLIParamValue(flagSubDataType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

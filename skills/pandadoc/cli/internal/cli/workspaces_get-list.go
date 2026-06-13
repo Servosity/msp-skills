@@ -30,8 +30,8 @@ func newWorkspacesGetListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/workspaces"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "workspaces", path, map[string]string{
-				"count": fmt.Sprintf("%v", flagCount),
-				"page":  fmt.Sprintf("%v", flagPage),
+				"count": formatCLIParamValue(flagCount),
+				"page":  formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

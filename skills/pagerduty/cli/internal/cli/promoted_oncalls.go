@@ -52,17 +52,17 @@ func newOncallsPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/oncalls"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "oncalls", path, map[string]string{
-				"time_zone":               fmt.Sprintf("%v", flagTimeZone),
-				"limit":                   fmt.Sprintf("%v", flagLimit),
-				"offset":                  fmt.Sprintf("%v", flagOffset),
-				"total":                   fmt.Sprintf("%v", flagTotal),
-				"include[]":               fmt.Sprintf("%v", flagInclude),
-				"user_ids[]":              fmt.Sprintf("%v", flagUserIds),
-				"escalation_policy_ids[]": fmt.Sprintf("%v", flagEscalationPolicyIds),
-				"schedule_ids[]":          fmt.Sprintf("%v", flagScheduleIds),
-				"since":                   fmt.Sprintf("%v", flagSince),
-				"until":                   fmt.Sprintf("%v", flagUntil),
-				"earliest":                fmt.Sprintf("%v", flagEarliest),
+				"time_zone":               formatCLIParamValue(flagTimeZone),
+				"limit":                   formatCLIParamValue(flagLimit),
+				"offset":                  formatCLIParamValue(flagOffset),
+				"total":                   formatCLIParamValue(flagTotal),
+				"include[]":               formatCLIParamValue(flagInclude),
+				"user_ids[]":              formatCLIParamValue(flagUserIds),
+				"escalation_policy_ids[]": formatCLIParamValue(flagEscalationPolicyIds),
+				"schedule_ids[]":          formatCLIParamValue(flagScheduleIds),
+				"since":                   formatCLIParamValue(flagSince),
+				"until":                   formatCLIParamValue(flagUntil),
+				"earliest":                formatCLIParamValue(flagEarliest),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

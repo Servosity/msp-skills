@@ -43,10 +43,10 @@ func newSpmV2PosturesQueryCreateCmd(flags *rootFlags) *cobra.Command {
 			path := "/spm-v2/postures/query"
 			params := map[string]string{}
 			if flagPageSize != 0 {
-				params["pageSize"] = fmt.Sprintf("%v", flagPageSize)
+				params["pageSize"] = formatCLIParamValue(flagPageSize)
 			}
 			if flagPageNumber != 0 {
-				params["pageNumber"] = fmt.Sprintf("%v", flagPageNumber)
+				params["pageNumber"] = formatCLIParamValue(flagPageNumber)
 			}
 			var body map[string]any
 			if stdinBody {

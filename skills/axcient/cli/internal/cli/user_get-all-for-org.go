@@ -29,7 +29,7 @@ func newUserGetAllForOrgCmd(flags *rootFlags) *cobra.Command {
 			path := "/user"
 			params := map[string]string{}
 			if flagUsername != "" {
-				params["username"] = fmt.Sprintf("%v", flagUsername)
+				params["username"] = formatCLIParamValue(flagUsername)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "user", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

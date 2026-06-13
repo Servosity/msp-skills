@@ -11,7 +11,7 @@ func newNovelDealsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "deals",
-		Short:       "Cross-deal analytics that aren't in the raw HubSpot CRM endpoints",
+		Short:       "deals subcommands: forecast, top, unowned, velocity",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

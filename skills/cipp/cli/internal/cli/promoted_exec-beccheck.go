@@ -19,9 +19,10 @@ func newExecBeccheckPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagUserName string
 
 	cmd := &cobra.Command{
-		Use:         "exec-beccheck",
-		Short:       "Exec beccheck",
-		Long:        "Exec beccheck",
+		Use:   "exec-beccheck",
+		Short: "Exec beccheck",
+		Long:  "Exec beccheck",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-beccheck --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-beccheck.list", "pp:method": "GET", "pp:path": "/ExecBECCheck", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -43,19 +44,19 @@ func newExecBeccheckPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecBECCheck"
 			params := map[string]string{}
 			if flagGUID != "" {
-				params["GUID"] = fmt.Sprintf("%v", flagGUID)
+				params["GUID"] = formatCLIParamValue(flagGUID)
 			}
 			if flagOverwrite != "" {
-				params["overwrite"] = fmt.Sprintf("%v", flagOverwrite)
+				params["overwrite"] = formatCLIParamValue(flagOverwrite)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagUserid != "" {
-				params["userid"] = fmt.Sprintf("%v", flagUserid)
+				params["userid"] = formatCLIParamValue(flagUserid)
 			}
 			if flagUserName != "" {
-				params["userName"] = fmt.Sprintf("%v", flagUserName)
+				params["userName"] = formatCLIParamValue(flagUserName)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-beccheck", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

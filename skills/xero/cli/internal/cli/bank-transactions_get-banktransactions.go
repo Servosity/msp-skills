@@ -17,7 +17,7 @@ func newBankTransactionsGetBanktransactionsCmd(flags *rootFlags) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:         "get-banktransactions <BankTransactionID>",
 		Short:       "Retrieves a single spent or received money transaction by using a unique bank transaction Id",
-		Example:     "  xero-cli bank-transactions get-banktransactions 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  xero-cli bank-transactions get-banktransactions 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "bank-transactions.get-banktransactions", "pp:method": "GET", "pp:path": "/BankTransactions/{BankTransactionID}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -32,7 +32,7 @@ func newBankTransactionsGetBanktransactionsCmd(flags *rootFlags) *cobra.Command 
 			path = replacePathParam(path, "BankTransactionID", args[0])
 			params := map[string]string{}
 			if flagUnitdp != 0 {
-				params["unitdp"] = fmt.Sprintf("%v", flagUnitdp)
+				params["unitdp"] = formatCLIParamValue(flagUnitdp)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "bank-transactions", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

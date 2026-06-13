@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "rootly-mcp",
   "display_name": "Rootly",
-  "version": "0.1.0",
-  "description": "Every Rootly incident, alert, and on-call object as a typed command - plus a local SQLite mirror that answers related-incident, MTTR, coverage-gap, and on-call questions offline and instantly.",
+  "version": "0.1.1",
+  "description": "Every Rootly incident, alert, and on-call object as a typed command, with a local SQLite mirror for offline analytics.",
   "author": {
     "name": "Servosity Inc."
   },
@@ -43,10 +43,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T15:01:50.492644Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:01:11.75671Z",
     "spec_checksum": "sha256:21caf14cd7337053cc12b60f825f7072d13b96b4fcb57044426aee8e70227968",
     "spec_format": "openapi3"
   }

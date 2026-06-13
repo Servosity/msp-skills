@@ -31,9 +31,9 @@ func newFilesGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/files"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "files", path, map[string]string{
-				"start": fmt.Sprintf("%v", flagStart),
-				"limit": fmt.Sprintf("%v", flagLimit),
-				"sort":  fmt.Sprintf("%v", flagSort),
+				"start": formatCLIParamValue(flagStart),
+				"limit": formatCLIParamValue(flagLimit),
+				"sort":  formatCLIParamValue(flagSort),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

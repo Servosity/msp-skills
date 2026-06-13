@@ -31,16 +31,16 @@ func newIntegrationDataListIntegrationdata63Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/NCentral"
 			params := map[string]string{}
 			if flagAccountid != "" {
-				params["accountid"] = fmt.Sprintf("%v", flagAccountid)
+				params["accountid"] = formatCLIParamValue(flagAccountid)
 			}
 			if flagCustomerid != "" {
-				params["customerid"] = fmt.Sprintf("%v", flagCustomerid)
+				params["customerid"] = formatCLIParamValue(flagCustomerid)
 			}
 			if flagDataOnly != false {
-				params["dataOnly"] = fmt.Sprintf("%v", flagDataOnly)
+				params["dataOnly"] = formatCLIParamValue(flagDataOnly)
 			}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

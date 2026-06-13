@@ -50,7 +50,7 @@ func newChannelCreateDynamicSegmentCmd(flags *rootFlags) *cobra.Command {
 			path := "/channel/v1/segments/dynamicSegments"
 			params := map[string]string{}
 			if flagCompanyGroupId != "" {
-				params["companyGroupId"] = fmt.Sprintf("%v", flagCompanyGroupId)
+				params["companyGroupId"] = formatCLIParamValue(flagCompanyGroupId)
 			}
 			var body map[string]any
 			if stdinBody {

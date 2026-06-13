@@ -37,34 +37,34 @@ func newViewListsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/ViewLists"
 			params := map[string]string{}
 			if flagConnectedinstanceId != "" {
-				params["connectedinstance_id"] = fmt.Sprintf("%v", flagConnectedinstanceId)
+				params["connectedinstance_id"] = formatCLIParamValue(flagConnectedinstanceId)
 			}
 			if flagDomain != "" {
-				params["domain"] = fmt.Sprintf("%v", flagDomain)
+				params["domain"] = formatCLIParamValue(flagDomain)
 			}
 			if flagGlobalonly != false {
-				params["globalonly"] = fmt.Sprintf("%v", flagGlobalonly)
+				params["globalonly"] = formatCLIParamValue(flagGlobalonly)
 			}
 			if flagIstree != false {
-				params["istree"] = fmt.Sprintf("%v", flagIstree)
+				params["istree"] = formatCLIParamValue(flagIstree)
 			}
 			if flagShowall != false {
-				params["showall"] = fmt.Sprintf("%v", flagShowall)
+				params["showall"] = formatCLIParamValue(flagShowall)
 			}
 			if flagShowallforteam != 0 {
-				params["showallforteam"] = fmt.Sprintf("%v", flagShowallforteam)
+				params["showallforteam"] = formatCLIParamValue(flagShowallforteam)
 			}
 			if flagShowallfortech != 0 {
-				params["showallfortech"] = fmt.Sprintf("%v", flagShowallfortech)
+				params["showallfortech"] = formatCLIParamValue(flagShowallfortech)
 			}
 			if flagShowcounts != false {
-				params["showcounts"] = fmt.Sprintf("%v", flagShowcounts)
+				params["showcounts"] = formatCLIParamValue(flagShowcounts)
 			}
 			if flagTicketareaId != "" {
-				params["ticketarea_id"] = fmt.Sprintf("%v", flagTicketareaId)
+				params["ticketarea_id"] = formatCLIParamValue(flagTicketareaId)
 			}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "view-lists", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

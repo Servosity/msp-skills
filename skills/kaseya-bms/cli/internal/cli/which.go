@@ -30,8 +30,8 @@ var whichIndex = []whichEntry{
 	{Command: "queue-health", Description: "See open ticket volume by queue, priority, and status in one shot, with stale counts flagged before the morning standup.", Group: "Service-desk pulse", WhyItMatters: "Reach for this when asked how the service desk looks right now - it answers in one local query instead of paging the tickets endpoint."},
 	{Command: "stale-tickets", Description: "List open tickets that have not been touched in N days, oldest first, with account and assignee so nothing rots in the queue.", Group: "Service-desk pulse", WhyItMatters: "Use this for SLA-risk and aging-ticket questions instead of listing all tickets and filtering by hand."},
 	{Command: "workload", Description: "Open and in-progress ticket load per assignee, flagging who is overloaded and who has slack before you dispatch the next ticket.", Group: "Service-desk pulse", WhyItMatters: "Pick this when deciding who should take a ticket; it is one command instead of one query per technician."},
-	{Command: "contract-burn", Description: "Per-contract prepaid-hours picture: what is allotted, what is consumed, what remains - sorted by percent depleted so at-risk accounts surface first.", Group: "Money on the table", WhyItMatters: "Use this before authorizing work on an account - it answers whether the contract still has hours left, fleet-wide, in one call."},
-	{Command: "unbilled", Description: "Billable, approved, not-yet-invoiced time and charges grouped by account, in hours plus dollars where a rate is present.", Group: "Money on the table", WhyItMatters: "Reach for this for any what-is-ready-to-bill question; the answer is local, grouped, and JSON-shaped."},
+	{Command: "contract-burn", Description: "Per-contract burn picture: hours consumed, open tickets, and how much of the contract period has elapsed - at-risk agreements surface first.", Group: "Money on the table", WhyItMatters: "Use this before authorizing work on an account - it answers whether the contract still has hours left, fleet-wide, in one call."},
+	{Command: "unbilled", Description: "Billable, approved, not-yet-billed time grouped by account, in hours - the month-end ready-to-bill review without the Excel export.", Group: "Money on the table", WhyItMatters: "Reach for this for any what-is-ready-to-bill question; the answer is local, grouped, and JSON-shaped."},
 	{Command: "pipeline", Description: "Open opportunities grouped by stage with counts, total and weighted value, and slipped-close flags for the Monday sales call.", Group: "Money on the table", WhyItMatters: "Use this for pipeline and forecast questions instead of paging the opportunities endpoint and aggregating by hand."},
 }
 
@@ -136,6 +136,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

@@ -16,8 +16,9 @@ func newIntegrationGetBillDetailsCmd(flags *rootFlags) *cobra.Command {
 	var flagBillIds string
 
 	cmd := &cobra.Command{
-		Use:         "get-bill-details",
-		Short:       "Get bill details",
+		Use:   "get-bill-details",
+		Short: "Get bill details",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli integration get-bill-details --external-tenant-id 550e8400-e29b-41d4-a716-446655440000 --bill-ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "integration.get-bill-details", "pp:method": "GET", "pp:path": "/v2/integration/qbd/bills/detail", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,10 +42,10 @@ func newIntegrationGetBillDetailsCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/integration/qbd/bills/detail"
 			params := map[string]string{}
 			if flagExternalTenantId != "" {
-				params["ExternalTenantId"] = fmt.Sprintf("%v", flagExternalTenantId)
+				params["ExternalTenantId"] = formatCLIParamValue(flagExternalTenantId)
 			}
 			if flagBillIds != "" {
-				params["BillIds"] = fmt.Sprintf("%v", flagBillIds)
+				params["BillIds"] = formatCLIParamValue(flagBillIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

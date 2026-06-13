@@ -62,14 +62,14 @@ func newAutomationActionsGetAllCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/automation_actions/actions"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "automation-actions", path, map[string]string{
-				"limit":          fmt.Sprintf("%v", flagLimit),
-				"cursor":         fmt.Sprintf("%v", flagCursor),
-				"name":           fmt.Sprintf("%v", flagName),
-				"runner_id":      fmt.Sprintf("%v", flagRunnerId),
-				"classification": fmt.Sprintf("%v", flagClassification),
-				"team_id":        fmt.Sprintf("%v", flagTeamId),
-				"service_id":     fmt.Sprintf("%v", flagServiceId),
-				"action_type":    fmt.Sprintf("%v", flagActionType),
+				"limit":          formatCLIParamValue(flagLimit),
+				"cursor":         formatCLIParamValue(flagCursor),
+				"name":           formatCLIParamValue(flagName),
+				"runner_id":      formatCLIParamValue(flagRunnerId),
+				"classification": formatCLIParamValue(flagClassification),
+				"team_id":        formatCLIParamValue(flagTeamId),
+				"service_id":     formatCLIParamValue(flagServiceId),
+				"action_type":    formatCLIParamValue(flagActionType),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

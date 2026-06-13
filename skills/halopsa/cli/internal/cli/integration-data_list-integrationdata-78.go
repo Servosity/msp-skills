@@ -31,16 +31,16 @@ func newIntegrationDataListIntegrationdata78Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/Salesforce"
 			params := map[string]string{}
 			if flagEndpoint != "" {
-				params["endpoint"] = fmt.Sprintf("%v", flagEndpoint)
+				params["endpoint"] = formatCLIParamValue(flagEndpoint)
 			}
 			if flagKeypair != false {
-				params["keypair"] = fmt.Sprintf("%v", flagKeypair)
+				params["keypair"] = formatCLIParamValue(flagKeypair)
 			}
 			if flagNextlink != "" {
-				params["nextlink"] = fmt.Sprintf("%v", flagNextlink)
+				params["nextlink"] = formatCLIParamValue(flagNextlink)
 			}
 			if flagResource != "" {
-				params["resource"] = fmt.Sprintf("%v", flagResource)
+				params["resource"] = formatCLIParamValue(flagResource)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -19,7 +19,7 @@ func newQueryPromotedCmd(flags *rootFlags) *cobra.Command {
 		Use:         "query",
 		Short:       "Run a raw QBO query, e.g. 'select * from Invoice where Balance > '0' orderby TxnDate'",
 		Long:        "Run a raw QBO query, e.g. 'select * from Invoice where Balance > '0' orderby TxnDate'",
-		Example:     "  quickbooks-cli query --query example-value",
+		Example:     "  quickbooks-cli query --query \"select * from Invoice where Balance > '0' orderby TxnDate\" --agent",
 		Annotations: map[string]string{"pp:endpoint": "query.run", "pp:method": "GET", "pp:path": "/query", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with a required flag/body prints help
@@ -40,10 +40,10 @@ func newQueryPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/query"
 			params := map[string]string{}
 			if flagQuery != "" {
-				params["query"] = fmt.Sprintf("%v", flagQuery)
+				params["query"] = formatCLIParamValue(flagQuery)
 			}
 			if flagMinorversion != 0 {
-				params["minorversion"] = fmt.Sprintf("%v", flagMinorversion)
+				params["minorversion"] = formatCLIParamValue(flagMinorversion)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "query", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

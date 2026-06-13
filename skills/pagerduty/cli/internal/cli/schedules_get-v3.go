@@ -21,7 +21,7 @@ func newSchedulesGetV3Cmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-v3 <id>",
 		Short:       "<!",
-		Example:     "  pagerduty-cli schedules get-v3 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pagerduty-cli schedules get-v3 PSJUKNI",
 		Annotations: map[string]string{"pp:endpoint": "schedules.get-v3", "pp:method": "GET", "pp:path": "/v3/schedules/{id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -36,19 +36,19 @@ func newSchedulesGetV3Cmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagSince != "" {
-				params["since"] = fmt.Sprintf("%v", flagSince)
+				params["since"] = formatCLIParamValue(flagSince)
 			}
 			if flagUntil != "" {
-				params["until"] = fmt.Sprintf("%v", flagUntil)
+				params["until"] = formatCLIParamValue(flagUntil)
 			}
 			if flagTimeZone != "" {
-				params["time_zone"] = fmt.Sprintf("%v", flagTimeZone)
+				params["time_zone"] = formatCLIParamValue(flagTimeZone)
 			}
 			if flagOverflow != false {
-				params["overflow"] = fmt.Sprintf("%v", flagOverflow)
+				params["overflow"] = formatCLIParamValue(flagOverflow)
 			}
 			if flagInclude != "" {
-				params["include[]"] = fmt.Sprintf("%v", flagInclude)
+				params["include[]"] = formatCLIParamValue(flagInclude)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "schedules", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

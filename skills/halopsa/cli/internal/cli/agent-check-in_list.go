@@ -30,13 +30,13 @@ func newAgentCheckInListCmd(flags *rootFlags) *cobra.Command {
 			path := "/AgentCheckIn"
 			params := map[string]string{}
 			if flagAgentId != "" {
-				params["agent_id"] = fmt.Sprintf("%v", flagAgentId)
+				params["agent_id"] = formatCLIParamValue(flagAgentId)
 			}
 			if flagEndDate != "" {
-				params["end_date"] = fmt.Sprintf("%v", flagEndDate)
+				params["end_date"] = formatCLIParamValue(flagEndDate)
 			}
 			if flagStartDate != "" {
-				params["start_date"] = fmt.Sprintf("%v", flagStartDate)
+				params["start_date"] = formatCLIParamValue(flagStartDate)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "agent-check-in", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

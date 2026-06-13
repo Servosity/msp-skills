@@ -30,10 +30,10 @@ func newIntegrationsGetDistributorsPricingCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/integrations/etilize/products/pricing"
 			params := map[string]string{}
 			if flagMfrNumber != "" {
-				params["MfrNumber"] = fmt.Sprintf("%v", flagMfrNumber)
+				params["MfrNumber"] = formatCLIParamValue(flagMfrNumber)
 			}
 			if flagSkuNumber != "" {
-				params["SkuNumber"] = fmt.Sprintf("%v", flagSkuNumber)
+				params["SkuNumber"] = formatCLIParamValue(flagSkuNumber)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integrations", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

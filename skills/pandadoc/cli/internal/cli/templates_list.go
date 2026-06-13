@@ -36,15 +36,15 @@ func newTemplatesListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/templates"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "templates", path, map[string]string{
-				"q":           fmt.Sprintf("%v", flagQ),
-				"shared":      fmt.Sprintf("%v", flagShared),
-				"deleted":     fmt.Sprintf("%v", flagDeleted),
-				"count":       fmt.Sprintf("%v", flagCount),
-				"page":        fmt.Sprintf("%v", flagPage),
-				"id":          fmt.Sprintf("%v", flagId),
-				"folder_uuid": fmt.Sprintf("%v", flagFolderUuid),
-				"tag":         fmt.Sprintf("%v", flagTag),
-				"fields":      fmt.Sprintf("%v", flagFields),
+				"q":           formatCLIParamValue(flagQ),
+				"shared":      formatCLIParamValue(flagShared),
+				"deleted":     formatCLIParamValue(flagDeleted),
+				"count":       formatCLIParamValue(flagCount),
+				"page":        formatCLIParamValue(flagPage),
+				"id":          formatCLIParamValue(flagId),
+				"folder_uuid": formatCLIParamValue(flagFolderUuid),
+				"tag":         formatCLIParamValue(flagTag),
+				"fields":      formatCLIParamValue(flagFields),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

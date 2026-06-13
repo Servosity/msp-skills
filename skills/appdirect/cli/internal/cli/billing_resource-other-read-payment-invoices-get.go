@@ -78,28 +78,28 @@ func newBillingResourceOtherReadPaymentInvoicesGetCmd(flags *rootFlags) *cobra.C
 			path = replacePathParam(path, "paymentNumber", args[0])
 			params := map[string]string{}
 			if flagCount != "" {
-				params["count"] = fmt.Sprintf("%v", flagCount)
+				params["count"] = formatCLIParamValue(flagCount)
 			}
 			if flagExcludeFree != false {
-				params["excludeFree"] = fmt.Sprintf("%v", flagExcludeFree)
+				params["excludeFree"] = formatCLIParamValue(flagExcludeFree)
 			}
 			if flagFromDate != 0.0 {
-				params["fromDate"] = fmt.Sprintf("%v", flagFromDate)
+				params["fromDate"] = formatCLIParamValue(flagFromDate)
 			}
 			if flagSortField != "" {
-				params["sortField"] = fmt.Sprintf("%v", flagSortField)
+				params["sortField"] = formatCLIParamValue(flagSortField)
 			}
 			if flagSortOrder != "" {
-				params["sortOrder"] = fmt.Sprintf("%v", flagSortOrder)
+				params["sortOrder"] = formatCLIParamValue(flagSortOrder)
 			}
 			if flagStart != "" {
-				params["start"] = fmt.Sprintf("%v", flagStart)
+				params["start"] = formatCLIParamValue(flagStart)
 			}
 			if flagStatus != "" {
-				params["status"] = fmt.Sprintf("%v", flagStatus)
+				params["status"] = formatCLIParamValue(flagStatus)
 			}
 			if flagToDate != 0.0 {
-				params["toDate"] = fmt.Sprintf("%v", flagToDate)
+				params["toDate"] = formatCLIParamValue(flagToDate)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "billing", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -41,11 +41,11 @@ func newAdminGetK1ProductOrganizationMappingsCmd(flags *rootFlags) *cobra.Comman
 
 			path := "/v2/admin/k1/organizationmappings"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "admin", path, map[string]string{
-				"SourceProductId":        fmt.Sprintf("%v", flagSourceProductId),
-				"SourceOrganizationName": fmt.Sprintf("%v", flagSourceOrganizationName),
-				"SourceTenantId":         fmt.Sprintf("%v", flagSourceTenantId),
-				"PageNumber":             fmt.Sprintf("%v", flagPageNumber),
-				"PageSize":               fmt.Sprintf("%v", flagPageSize),
+				"SourceProductId":        formatCLIParamValue(flagSourceProductId),
+				"SourceOrganizationName": formatCLIParamValue(flagSourceOrganizationName),
+				"SourceTenantId":         formatCLIParamValue(flagSourceTenantId),
+				"PageNumber":             formatCLIParamValue(flagPageNumber),
+				"PageSize":               formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -31,10 +31,10 @@ func newAppointmentsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/appointments"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "appointments", path, map[string]string{
-				"date_from": fmt.Sprintf("%v", flagDateFrom),
-				"date_to":   fmt.Sprintf("%v", flagDateTo),
-				"mine":      fmt.Sprintf("%v", flagMine),
-				"page":      fmt.Sprintf("%v", flagPage),
+				"date_from": formatCLIParamValue(flagDateFrom),
+				"date_to":   formatCLIParamValue(flagDateTo),
+				"mine":      formatCLIParamValue(flagMine),
+				"page":      formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

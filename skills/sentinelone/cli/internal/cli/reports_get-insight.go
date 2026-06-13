@@ -31,16 +31,16 @@ func newReportsGetInsightCmd(flags *rootFlags) *cobra.Command {
 			path := "/reports/insights/types"
 			params := map[string]string{}
 			if flagSiteIds != "" {
-				params["siteIds"] = fmt.Sprintf("%v", flagSiteIds)
+				params["siteIds"] = formatCLIParamValue(flagSiteIds)
 			}
 			if flagGroupIds != "" {
-				params["groupIds"] = fmt.Sprintf("%v", flagGroupIds)
+				params["groupIds"] = formatCLIParamValue(flagGroupIds)
 			}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			if flagForceUpdate != "" {
-				params["forceUpdate"] = fmt.Sprintf("%v", flagForceUpdate)
+				params["forceUpdate"] = formatCLIParamValue(flagForceUpdate)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "reports", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -20,9 +20,10 @@ func newExecReprocessUserLicensesPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUserPrincipalName2 string
 
 	cmd := &cobra.Command{
-		Use:         "exec-reprocess-user-licenses",
-		Short:       "Exec reprocess user licenses",
-		Long:        "Exec reprocess user licenses",
+		Use:   "exec-reprocess-user-licenses",
+		Short: "Exec reprocess user licenses",
+		Long:  "Exec reprocess user licenses",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-reprocess-user-licenses --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-reprocess-user-licenses.create", "pp:method": "POST", "pp:path": "/ExecReprocessUserLicenses"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -47,13 +48,13 @@ func newExecReprocessUserLicensesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecReprocessUserLicenses"
 			params := map[string]string{}
 			if flagID != "" {
-				params["ID"] = fmt.Sprintf("%v", flagID)
+				params["ID"] = formatCLIParamValue(flagID)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagUserPrincipalName != "" {
-				params["userPrincipalName"] = fmt.Sprintf("%v", flagUserPrincipalName)
+				params["userPrincipalName"] = formatCLIParamValue(flagUserPrincipalName)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -71,10 +72,10 @@ func newExecReprocessUserLicensesPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

@@ -11,7 +11,7 @@ func newNovelFleetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "fleet",
-		Short:       "Cross-account fleet operations (autoscale audit, host estate, billing rollup)",
+		Short:       "fleet subcommands: autoscale-audit, billing-rollup, host-estate",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

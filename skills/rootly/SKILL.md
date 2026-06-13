@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - rootly-cli
+    install:
+      - kind: go
+        bins: [rootly-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/rootly/cmd/rootly-cli
 ---
 
-# Rootly Claude Code Skill
+# Rootly  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `rootly-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rootly/install.sh)
+   npx -y @mvanhorn/printing-press-library install rootly --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rootly/install.ps1 | iex
-   ```
-3. Verify: `rootly-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `rootly-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/rootly/cmd/rootly-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 The official rootly-cli exposes a handful of resource groups; Rootly's API has ~98. This CLI types the entire surface, then adds what no Rootly tool has: a local SQLite mirror powering offline incident-similarity (related), solution-mining (fixed-last-time), MTTR/MTTA analytics (mttr), service scorecards (service-health), and cross-schedule coverage-gap detection (coverage-gaps)  -  the same agentic capabilities the AI-Labs MCP server reaches a remote service to compute, here for free in your terminal.
 
@@ -38,13 +44,14 @@ The official rootly-cli exposes a handful of resource groups; Rootly's API has ~
 
 Reach for this CLI when you are operating Rootly from a terminal or an agent loop: declaring and updating incidents, checking who is on call across services, computing reliability analytics for a review, or gating a deploy on incident state. It is the right tool when you want offline, composable answers (pipe to jq, gate on exit codes) instead of clicking through the Rootly web UI, and especially when an MSP-style portfolio of many services makes per-service browsing impractical.
 
-## When NOT to Use This CLI (anti-triggers)
+## Anti-triggers
 
-- Driving the Rootly web UI (Slack-channel creation, Zoom bridges, status-page theming)  -  UI/integration workflows the API does not expose as commands.
-- Running the analytics commands (`related`, `mttr`, `oncall-now`, ...) on a cold store  -  sync first; they read the local mirror, not the live API.
-- `digest` for an end-of-shift summary scoped to one schedule  -  use `handoff` instead.
-- `escalation-trace` for the portfolio-wide who-is-on-call view  -  use `oncall-now` instead.
-- `sla-breach` for historical mean-time trends  -  use `mttr` instead.
+Do not use this CLI for:
+- Do not use this CLI to drive the Rootly web UI (Slack-channel creation, Zoom bridges, status-page theming)  -  those are UI/integration workflows the API does not expose as commands.
+- Do not use the 17 analytics commands (related, mttr, oncall-now, ...) before a sync  -  they read the local SQLite mirror and return empty results on a cold store.
+- Do not use 'digest' for an end-of-shift summary scoped to one schedule; use 'handoff' instead.
+- Do not use 'escalation-trace' for the portfolio-wide who-is-on-call view; use 'oncall-now' instead.
+- Do not use 'sla-breach' for historical mean-time trends; use 'mttr' instead.
 
 ## Unique Capabilities
 
@@ -70,7 +77,7 @@ These capabilities aren't available in any other tool for this API.
   _Pick this when an alert smells like a repeat  -  it answers 'what did we do last time' from history instead of guesswork._
 
   ```bash
-  rootly-cli fixed-last-time "checkout-api" --agent --limit 10
+  rootly-cli fixed-last-time <service-or-query> --agent --limit 10
   ```
 - **`postmortem-skeleton`**  -  Emit a paste-ready post-mortem markdown skeleton for an incident: timeline, action items, severity, duration, and affected services.
 
@@ -144,7 +151,7 @@ These capabilities aren't available in any other tool for this API.
   _Pull this before a deploy or during a portfolio review to judge a service's health at a glance._
 
   ```bash
-  rootly-cli service-health "checkout-api" --agent
+  rootly-cli service-health <service> --agent
   ```
 - **`sla-breach`**  -  List incidents that have breached or are about to breach their SLA target, sorted by time remaining, with a non-zero exit when any active breach exists.
 
@@ -160,7 +167,7 @@ These capabilities aren't available in any other tool for this API.
   _Wire into a deploy script so a risky push is blocked when the target service is mid-incident or has no on-call coverage._
 
   ```bash
-  rootly-cli deploy-guard "checkout-api" --within 7d
+  rootly-cli deploy-guard <service> --within 7d
   ```
 
 ### Config & signal hygiene
@@ -920,7 +927,7 @@ Report every unstaffed on-call window in the next two weeks across all schedules
 ### Gate a deploy on service health
 
 ```bash
-rootly-cli deploy-guard "checkout-api" --within 7d
+rootly-cli deploy-guard <service> --within 7d
 ```
 
 Exit non-zero when checkout-api has an open incident, no on-call, or recent flakiness  -  drop it into a deploy script.
@@ -1015,7 +1022,6 @@ Explicit flags always win over profile values; profile values win over defaults.
 | 4 | Authentication required |
 | 5 | API error (upstream issue) |
 | 7 | Rate limited (wait and retry) |
-| 8 | Gate tripped (`deploy-guard` unsafe to deploy / `sla-breach` active breach) |
 | 10 | Config error |
 
 ## Argument Parsing
@@ -1028,13 +1034,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `rootly-mcp` alongside the CLI. Register it (the server reads `ROOTLY_API_KEY` from the environment):
-
-```bash
-claude mcp add rootly-mcp -- rootly-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/rootly/cmd/rootly-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add rootly-mcp -- rootly-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

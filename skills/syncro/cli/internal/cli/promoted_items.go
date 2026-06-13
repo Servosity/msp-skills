@@ -31,9 +31,9 @@ func newItemsPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/items"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "items", path, map[string]string{
-				"completed": fmt.Sprintf("%v", flagCompleted),
-				"query":     fmt.Sprintf("%v", flagQuery),
-				"page":      fmt.Sprintf("%v", flagPage),
+				"completed": formatCLIParamValue(flagCompleted),
+				"query":     formatCLIParamValue(flagQuery),
+				"page":      formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

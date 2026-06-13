@@ -16,7 +16,7 @@ func newAccessKeysDeleteCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete <AccessKeyID>",
 		Short:       "Delete Access Token created by user",
-		Example:     "  liongard-cli access-keys delete 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  liongard-cli access-keys delete 12a3b45678cd912e3f4g",
 		Annotations: map[string]string{"pp:endpoint": "access-keys.delete", "pp:method": "DELETE", "pp:path": "/access-keys/{AccessKeyID}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

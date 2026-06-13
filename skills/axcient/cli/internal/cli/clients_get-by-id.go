@@ -17,7 +17,7 @@ func newClientsGetByIdCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-by-id <client_id>",
 		Short:       "Returns the client information for organization related to the user by client ID",
-		Example:     "  axcient-cli clients get-by-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  axcient-cli clients get-by-id 333",
 		Annotations: map[string]string{"pp:endpoint": "clients.get-by-id", "pp:method": "GET", "pp:path": "/client/{client_id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -32,7 +32,7 @@ func newClientsGetByIdCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "client_id", args[0])
 			params := map[string]string{}
 			if flagIncludeAppliances != false {
-				params["include_appliances"] = fmt.Sprintf("%v", flagIncludeAppliances)
+				params["include_appliances"] = formatCLIParamValue(flagIncludeAppliances)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "clients", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

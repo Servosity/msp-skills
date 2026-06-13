@@ -35,7 +35,7 @@ func newAlertsPostCmd(flags *rootFlags) *cobra.Command {
 		Use:         "post",
 		Aliases:     []string{"create"},
 		Short:       "Creates a new alert. Requires the device's global unique identifier (GUID).",
-		Example:     "  atera-cli alerts post --device-guid 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  atera-cli alerts post --device-guid 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "alerts.post", "pp:method": "POST", "pp:path": "/alerts"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

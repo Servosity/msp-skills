@@ -30,13 +30,13 @@ func newUpdateLatestPackagesByOsCmd(flags *rootFlags) *cobra.Command {
 			path := "/update/agent/latest-packages"
 			params := map[string]string{}
 			if flagSiteIds != "" {
-				params["siteIds"] = fmt.Sprintf("%v", flagSiteIds)
+				params["siteIds"] = formatCLIParamValue(flagSiteIds)
 			}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			if flagPackageType != "" {
-				params["packageType"] = fmt.Sprintf("%v", flagPackageType)
+				params["packageType"] = formatCLIParamValue(flagPackageType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "update", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

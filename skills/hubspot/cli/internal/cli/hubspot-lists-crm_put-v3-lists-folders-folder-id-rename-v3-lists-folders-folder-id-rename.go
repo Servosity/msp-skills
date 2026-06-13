@@ -36,7 +36,7 @@ func newHubspotListsCrmPutV3ListsFoldersFolderIdRenameV3ListsFoldersFolderIdRena
 			path = replacePathParam(path, "folderId", args[0])
 			params := map[string]string{}
 			if flagNewFolderName != "" {
-				params["newFolderName"] = fmt.Sprintf("%v", flagNewFolderName)
+				params["newFolderName"] = formatCLIParamValue(flagNewFolderName)
 			}
 			var body map[string]any
 			if stdinBody {

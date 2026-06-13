@@ -28,7 +28,7 @@ func newSystemGetViewsCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/system/views"
 			params := map[string]string{}
 			if flagFilterModuleId != "" {
-				params["Filter.ModuleId"] = fmt.Sprintf("%v", flagFilterModuleId)
+				params["Filter.ModuleId"] = formatCLIParamValue(flagFilterModuleId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "system", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

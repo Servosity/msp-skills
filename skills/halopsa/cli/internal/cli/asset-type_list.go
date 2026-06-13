@@ -36,31 +36,31 @@ func newAssetTypeListCmd(flags *rootFlags) *cobra.Command {
 			path := "/AssetType"
 			params := map[string]string{}
 			if flagAssetgroupId != "" {
-				params["assetgroup_id"] = fmt.Sprintf("%v", flagAssetgroupId)
+				params["assetgroup_id"] = formatCLIParamValue(flagAssetgroupId)
 			}
 			if flagCanCreateOnly != false {
-				params["can_create_only"] = fmt.Sprintf("%v", flagCanCreateOnly)
+				params["can_create_only"] = formatCLIParamValue(flagCanCreateOnly)
 			}
 			if flagCanEditOnly != false {
-				params["can_edit_only"] = fmt.Sprintf("%v", flagCanEditOnly)
+				params["can_edit_only"] = formatCLIParamValue(flagCanEditOnly)
 			}
 			if flagFixedassetgroups != false {
-				params["fixedassetgroups"] = fmt.Sprintf("%v", flagFixedassetgroups)
+				params["fixedassetgroups"] = formatCLIParamValue(flagFixedassetgroups)
 			}
 			if flagIncludeCurrent != 0 {
-				params["include_current"] = fmt.Sprintf("%v", flagIncludeCurrent)
+				params["include_current"] = formatCLIParamValue(flagIncludeCurrent)
 			}
 			if flagResourcesonly != false {
-				params["resourcesonly"] = fmt.Sprintf("%v", flagResourcesonly)
+				params["resourcesonly"] = formatCLIParamValue(flagResourcesonly)
 			}
 			if flagSetuplist != false {
-				params["setuplist"] = fmt.Sprintf("%v", flagSetuplist)
+				params["setuplist"] = formatCLIParamValue(flagSetuplist)
 			}
 			if flagTickettypeId != "" {
-				params["tickettype_id"] = fmt.Sprintf("%v", flagTickettypeId)
+				params["tickettype_id"] = formatCLIParamValue(flagTickettypeId)
 			}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "asset-type", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

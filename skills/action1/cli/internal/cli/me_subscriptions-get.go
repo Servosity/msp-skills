@@ -29,8 +29,8 @@ func newMeSubscriptionsGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/me/report-subscriptions"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "me", path, map[string]string{
-				"from":  fmt.Sprintf("%v", flagFrom),
-				"limit": fmt.Sprintf("%v", flagLimit),
+				"from":  formatCLIParamValue(flagFrom),
+				"limit": formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

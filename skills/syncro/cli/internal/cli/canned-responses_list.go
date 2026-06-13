@@ -28,7 +28,7 @@ func newCannedResponsesListCmd(flags *rootFlags) *cobra.Command {
 			path := "/canned_responses"
 			params := map[string]string{}
 			if flagQuery != "" {
-				params["query"] = fmt.Sprintf("%v", flagQuery)
+				params["query"] = formatCLIParamValue(flagQuery)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "canned-responses", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

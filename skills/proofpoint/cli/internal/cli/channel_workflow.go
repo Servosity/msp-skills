@@ -55,7 +55,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			resources := []string{"forensics", "people", "people-top-clickers", "siem", "siem-clicks-blocked", "siem-clicks-permitted", "siem-issues", "siem-messages-blocked", "siem-messages-delivered"}
+			resources := []string{"forensics", "siem-messages-blocked", "siem-messages-delivered"}
 			totalSynced := 0
 			syncEventWriter := cmd.OutOrStdout()
 			if flags.asJSON {

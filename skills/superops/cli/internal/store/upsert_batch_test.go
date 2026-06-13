@@ -317,6 +317,48 @@ func TestUpsertBatch_ExtractFailuresReturnedForPerItemMisses(t *testing.T) {
 	}
 }
 
+func TestSearchQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "ip", "value": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "cidr", "value": "172.16.192.0/18"}`),
+		json.RawMessage(`{"id": "host", "value": "host.example.com"}`),
+		json.RawMessage(`{"id": "email", "value": "user@example.com"}`),
+		json.RawMessage(`{"id": "mac", "value": "aa:bb:cc:dd:ee:ff"}`),
+		json.RawMessage(`{"id": "hyphen", "value": "some-name"}`),
+		json.RawMessage(`{"id": "multi", "value": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("search-regression", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"172.16.192.0/18",
+		"host.example.com",
+		"user@example.com",
+		"aa:bb:cc:dd:ee:ff",
+		"some-name",
+		"error timeout",
+	} {
+		results, err := s.Search(query, 10)
+		if err != nil {
+			t.Fatalf("Search(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("Search(%q) returned no results", query)
+		}
+	}
+}
+
 // TestUpsertBatch_PopulatesAlertsTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed alerts table. Regression for issue #268: before the fix, paginated
@@ -356,6 +398,40 @@ func TestUpsertBatch_PopulatesAlertsTable(t *testing.T) {
 	}
 	if typed != len(items) {
 		t.Fatalf("alerts count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
+	}
+}
+
+func TestSearchAlertsQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "message": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "message": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "message": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("alerts", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchAlerts(query, 10)
+		if err != nil {
+			t.Fatalf("SearchAlerts(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchAlerts(%q) returned no results", query)
+		}
 	}
 }
 
@@ -569,6 +645,40 @@ func TestUpsertBatch_PopulatesItDocsTable(t *testing.T) {
 	}
 }
 
+func TestSearchItDocsQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "name": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "name": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "name": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("it-docs", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchItDocs(query, 10)
+		if err != nil {
+			t.Fatalf("SearchItDocs(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchItDocs(%q) returned no results", query)
+		}
+	}
+}
+
 // TestUpsertBatch_PopulatesKbTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed kb table. Regression for issue #268: before the fix, paginated
@@ -611,6 +721,40 @@ func TestUpsertBatch_PopulatesKbTable(t *testing.T) {
 	}
 }
 
+func TestSearchKbQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "title": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "title": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "title": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("kb", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchKb(query, 10)
+		if err != nil {
+			t.Fatalf("SearchKb(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchKb(%q) returned no results", query)
+		}
+	}
+}
+
 // TestUpsertBatch_PopulatesServiceItemsTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed service_items table. Regression for issue #268: before the fix, paginated
@@ -650,6 +794,40 @@ func TestUpsertBatch_PopulatesServiceItemsTable(t *testing.T) {
 	}
 	if typed != len(items) {
 		t.Fatalf("service_items count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
+	}
+}
+
+func TestSearchServiceItemsQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "name": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "name": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "name": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("service-items", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchServiceItems(query, 10)
+		if err != nil {
+			t.Fatalf("SearchServiceItems(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchServiceItems(%q) returned no results", query)
+		}
 	}
 }
 
@@ -734,6 +912,40 @@ func TestUpsertBatch_PopulatesTasksTable(t *testing.T) {
 	}
 	if typed != len(items) {
 		t.Fatalf("tasks count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
+	}
+}
+
+func TestSearchTasksQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "title": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "title": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "title": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("tasks", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchTasks(query, 10)
+		if err != nil {
+			t.Fatalf("SearchTasks(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchTasks(%q) returned no results", query)
+		}
 	}
 }
 

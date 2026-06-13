@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "betterstack-cli",
-			Description: "Every Better Stack Uptime feature",
+			Description: "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics — what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift — that the API alone can't answer.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

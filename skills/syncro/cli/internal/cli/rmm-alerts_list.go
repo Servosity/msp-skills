@@ -30,9 +30,9 @@ func newRmmAlertsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/rmm_alerts"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "rmm-alerts", path, map[string]string{
-				"status":        fmt.Sprintf("%v", flagStatus),
-				"page":          fmt.Sprintf("%v", flagPage),
-				"created_after": fmt.Sprintf("%v", flagCreatedAfter),
+				"status":        formatCLIParamValue(flagStatus),
+				"page":          formatCLIParamValue(flagPage),
+				"created_after": formatCLIParamValue(flagCreatedAfter),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

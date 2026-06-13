@@ -48,20 +48,20 @@ func newFiltersGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/filters"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "filters", path, map[string]string{
-				"siteIds":         fmt.Sprintf("%v", flagSiteIds),
-				"sortBy":          fmt.Sprintf("%v", flagSortBy),
-				"includeGlobal":   fmt.Sprintf("%v", flagIncludeGlobal),
-				"ids":             fmt.Sprintf("%v", flagIds),
-				"includeParents":  fmt.Sprintf("%v", flagIncludeParents),
-				"limit":           fmt.Sprintf("%v", flagLimit),
-				"skipCount":       fmt.Sprintf("%v", flagSkipCount),
-				"skip":            fmt.Sprintf("%v", flagSkip),
-				"sortOrder":       fmt.Sprintf("%v", flagSortOrder),
-				"query":           fmt.Sprintf("%v", flagQuery),
-				"includeChildren": fmt.Sprintf("%v", flagIncludeChildren),
-				"accountIds":      fmt.Sprintf("%v", flagAccountIds),
-				"countOnly":       fmt.Sprintf("%v", flagCountOnly),
-				"cursor":          fmt.Sprintf("%v", flagCursor),
+				"siteIds":         formatCLIParamValue(flagSiteIds),
+				"sortBy":          formatCLIParamValue(flagSortBy),
+				"includeGlobal":   formatCLIParamValue(flagIncludeGlobal),
+				"ids":             formatCLIParamValue(flagIds),
+				"includeParents":  formatCLIParamValue(flagIncludeParents),
+				"limit":           formatCLIParamValue(flagLimit),
+				"skipCount":       formatCLIParamValue(flagSkipCount),
+				"skip":            formatCLIParamValue(flagSkip),
+				"sortOrder":       formatCLIParamValue(flagSortOrder),
+				"query":           formatCLIParamValue(flagQuery),
+				"includeChildren": formatCLIParamValue(flagIncludeChildren),
+				"accountIds":      formatCLIParamValue(flagAccountIds),
+				"countOnly":       formatCLIParamValue(flagCountOnly),
+				"cursor":          formatCLIParamValue(flagCursor),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

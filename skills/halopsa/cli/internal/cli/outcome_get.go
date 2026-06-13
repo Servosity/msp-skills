@@ -46,49 +46,49 @@ func newOutcomeGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagActionId != "" {
-				params["action_id"] = fmt.Sprintf("%v", flagActionId)
+				params["action_id"] = formatCLIParamValue(flagActionId)
 			}
 			if flagAnonTicketid != "" {
-				params["anon_ticketid"] = fmt.Sprintf("%v", flagAnonTicketid)
+				params["anon_ticketid"] = formatCLIParamValue(flagAnonTicketid)
 			}
 			if flagContractId != "" {
-				params["contract_id"] = fmt.Sprintf("%v", flagContractId)
+				params["contract_id"] = formatCLIParamValue(flagContractId)
 			}
 			if flagDebug != false {
-				params["debug"] = fmt.Sprintf("%v", flagDebug)
+				params["debug"] = formatCLIParamValue(flagDebug)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagInvoiceId != "" {
-				params["invoice_id"] = fmt.Sprintf("%v", flagInvoiceId)
+				params["invoice_id"] = formatCLIParamValue(flagInvoiceId)
 			}
 			if flagMatchedKbClientId != "" {
-				params["matched_kb_client_id"] = fmt.Sprintf("%v", flagMatchedKbClientId)
+				params["matched_kb_client_id"] = formatCLIParamValue(flagMatchedKbClientId)
 			}
 			if flagMatchedKbid != "" {
-				params["matched_kbid"] = fmt.Sprintf("%v", flagMatchedKbid)
+				params["matched_kbid"] = formatCLIParamValue(flagMatchedKbid)
 			}
 			if flagOverrideUserId != "" {
-				params["override_user_id"] = fmt.Sprintf("%v", flagOverrideUserId)
+				params["override_user_id"] = formatCLIParamValue(flagOverrideUserId)
 			}
 			if flagPurchaseorderId != "" {
-				params["purchaseorder_id"] = fmt.Sprintf("%v", flagPurchaseorderId)
+				params["purchaseorder_id"] = formatCLIParamValue(flagPurchaseorderId)
 			}
 			if flagQuotationId != "" {
-				params["quotation_id"] = fmt.Sprintf("%v", flagQuotationId)
+				params["quotation_id"] = formatCLIParamValue(flagQuotationId)
 			}
 			if flagSalesorderId != "" {
-				params["salesorder_id"] = fmt.Sprintf("%v", flagSalesorderId)
+				params["salesorder_id"] = formatCLIParamValue(flagSalesorderId)
 			}
 			if flagSelectedSupplierId != "" {
-				params["selected_supplier_id"] = fmt.Sprintf("%v", flagSelectedSupplierId)
+				params["selected_supplier_id"] = formatCLIParamValue(flagSelectedSupplierId)
 			}
 			if flagTicketId != "" {
-				params["ticket_id"] = fmt.Sprintf("%v", flagTicketId)
+				params["ticket_id"] = formatCLIParamValue(flagTicketId)
 			}
 			if flagToken != "" {
-				params["token"] = fmt.Sprintf("%v", flagToken)
+				params["token"] = formatCLIParamValue(flagToken)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "outcome", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -11,6 +11,7 @@ func newSitesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "sites",
 		Short:       "Sites — the leaf org-unit level under customers.",
+		Hidden:      true,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

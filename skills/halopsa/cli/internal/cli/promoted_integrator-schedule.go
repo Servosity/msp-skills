@@ -31,9 +31,9 @@ func newIntegratorSchedulePromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/IntegratorSchedule"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integrator-schedule", path, map[string]string{
-				"page_no":   fmt.Sprintf("%v", flagPageNo),
-				"page_size": fmt.Sprintf("%v", flagPageSize),
-				"pageinate": fmt.Sprintf("%v", flagPageinate),
+				"page_no":   formatCLIParamValue(flagPageNo),
+				"page_size": formatCLIParamValue(flagPageSize),
+				"pageinate": formatCLIParamValue(flagPageinate),
 			}, nil, flagAll, "", "offset", "page_size", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

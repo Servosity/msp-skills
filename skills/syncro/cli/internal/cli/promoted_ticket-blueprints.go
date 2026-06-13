@@ -30,8 +30,8 @@ func newTicketBlueprintsPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/ticket_blueprints"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "ticket-blueprints", path, map[string]string{
-				"page":     fmt.Sprintf("%v", flagPage),
-				"per_page": fmt.Sprintf("%v", flagPerPage),
+				"page":     formatCLIParamValue(flagPage),
+				"per_page": formatCLIParamValue(flagPerPage),
 			}, nil, flagAll, "page", "page", "per_page", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

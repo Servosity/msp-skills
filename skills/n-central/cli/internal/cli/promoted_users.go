@@ -30,8 +30,8 @@ func newUsersPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/users"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "users", path, map[string]string{
-				"pageNumber": fmt.Sprintf("%v", flagPageNumber),
-				"pageSize":   fmt.Sprintf("%v", flagPageSize),
+				"pageNumber": formatCLIParamValue(flagPageNumber),
+				"pageSize":   formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "pageNumber", "page", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

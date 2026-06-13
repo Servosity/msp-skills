@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"halopsa-pp-cli/internal/store"
 )
 
 func newOrphansCmd(flags *rootFlags) *cobra.Command {
@@ -32,7 +31,7 @@ such as assignee, project, priority, or labels. Useful for triaging unowned work
 				dbPath = defaultDBPath("halopsa-cli")
 			}
 
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := halopsaOpenStoreSchemaAware(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'halopsa-cli sync' first.", err)
 			}

@@ -35,7 +35,7 @@ var whichIndex = []whichEntry{
 	{Command: "dupes", Description: "Find likely-duplicate persons or organizations by normalized name, email, and phone.", Group: "Data hygiene", WhyItMatters: "Reach for this to clean up the duplicate contacts that integrations quietly create."},
 	{Command: "leaderboard", Description: "Per-rep open/won/lost counts, weighted pipeline, won value, and activity count over a window.", Group: "Pipeline intelligence (local-join)", WhyItMatters: "Use this for team reviews to rank reps by real contribution without touching a spreadsheet."},
 	{Command: "next-activity", Description: "List open deals with no future activity scheduled, ranked by the value at risk of falling through the cracks.", Group: "Pipeline intelligence (local-join)", WhyItMatters: "Run this daily to catch the deals you forgot to plan a next step for — distinct from stale, which catches deals you have not touched."},
-	{Command: "lost", Description: "All deals marked Lost in the last N months with their person, org, owner, and lost reason — ready for re-enrollment.", Group: "Pipeline intelligence (local-join)", WhyItMatters: "Use this to build a re-engagement campaign from deals lost in a window, with contact info and lost reasons already joined in."},
+	{Command: "lost", Description: "All deals marked Lost in a recent window with their person, org, owner, and lost reason — ready for re-enrollment.", Group: "Pipeline intelligence (local-join)", WhyItMatters: "Use this to build a re-engagement campaign from deals lost in a window, with contact info and lost reasons already joined in."},
 	{Command: "who", Description: "One-shot card for a person: their org, open deals and value, last and next activity, and recent notes — joined from the local store.", Group: "Pipeline intelligence (local-join)", WhyItMatters: "Reach for this before a call to get the full relationship picture of one contact in a single command instead of five lookups."},
 }
 
@@ -140,6 +140,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

@@ -16,8 +16,9 @@ func newThreatsMitigateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "mitigate <action>",
-		Short:       "Apply a mitigation action to a group of threats that match the filter.",
+		Use:   "mitigate <action>",
+		Short: "Apply a mitigation action to a group of threats that match the filter.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli threats mitigate example-value",
 		Annotations: map[string]string{"pp:endpoint": "threats.mitigate", "pp:method": "POST", "pp:path": "/threats/mitigate/{action}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

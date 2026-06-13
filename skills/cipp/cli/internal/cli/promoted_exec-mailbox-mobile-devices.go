@@ -20,9 +20,10 @@ func newExecMailboxMobileDevicesPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagUserid string
 
 	cmd := &cobra.Command{
-		Use:         "exec-mailbox-mobile-devices",
-		Short:       "Exec mailbox mobile devices",
-		Long:        "Exec mailbox mobile devices",
+		Use:   "exec-mailbox-mobile-devices",
+		Short: "Exec mailbox mobile devices",
+		Long:  "Exec mailbox mobile devices",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-mailbox-mobile-devices --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-mailbox-mobile-devices.list", "pp:method": "GET", "pp:path": "/ExecMailboxMobileDevices", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -44,22 +45,22 @@ func newExecMailboxMobileDevicesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecMailboxMobileDevices"
 			params := map[string]string{}
 			if flagDelete != "" {
-				params["Delete"] = fmt.Sprintf("%v", flagDelete)
+				params["Delete"] = formatCLIParamValue(flagDelete)
 			}
 			if flagDeviceid != "" {
-				params["deviceid"] = fmt.Sprintf("%v", flagDeviceid)
+				params["deviceid"] = formatCLIParamValue(flagDeviceid)
 			}
 			if flagGuid != "" {
-				params["guid"] = fmt.Sprintf("%v", flagGuid)
+				params["guid"] = formatCLIParamValue(flagGuid)
 			}
 			if flagQuarantine != "" {
-				params["Quarantine"] = fmt.Sprintf("%v", flagQuarantine)
+				params["Quarantine"] = formatCLIParamValue(flagQuarantine)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagUserid != "" {
-				params["Userid"] = fmt.Sprintf("%v", flagUserid)
+				params["Userid"] = formatCLIParamValue(flagUserid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-mailbox-mobile-devices", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

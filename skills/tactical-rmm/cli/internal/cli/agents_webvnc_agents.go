@@ -14,9 +14,10 @@ import (
 func newAgentsWebvncAgentsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "agents <agent_id> <port>",
-		Aliases:     []string{"get"},
-		Short:       "GET /agents/{agent_id}/{port}/webvnc/",
+		Use:     "agents <agent_id> <port>",
+		Aliases: []string{"get"},
+		Short:   "GET /agents/{agent_id}/{port}/webvnc/",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  tactical-rmm-cli agents webvnc agents 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "webvnc.agents", "pp:method": "GET", "pp:path": "/agents/{agent_id}/{port}/webvnc/", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

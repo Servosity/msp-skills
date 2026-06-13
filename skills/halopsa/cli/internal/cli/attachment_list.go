@@ -48,67 +48,67 @@ func newAttachmentListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Attachment"
 			params := map[string]string{}
 			if flagActionId != "" {
-				params["action_id"] = fmt.Sprintf("%v", flagActionId)
+				params["action_id"] = formatCLIParamValue(flagActionId)
 			}
 			if flagDomotzagents != false {
-				params["domotzagents"] = fmt.Sprintf("%v", flagDomotzagents)
+				params["domotzagents"] = formatCLIParamValue(flagDomotzagents)
 			}
 			if flagFiletype != "" {
-				params["filetype"] = fmt.Sprintf("%v", flagFiletype)
+				params["filetype"] = formatCLIParamValue(flagFiletype)
 			}
 			if flagIdonly != false {
-				params["idonly"] = fmt.Sprintf("%v", flagIdonly)
+				params["idonly"] = formatCLIParamValue(flagIdonly)
 			}
 			if flagIsxlsimport != false {
-				params["isxlsimport"] = fmt.Sprintf("%v", flagIsxlsimport)
+				params["isxlsimport"] = formatCLIParamValue(flagIsxlsimport)
 			}
 			if flagOneAttachmentId != "" {
-				params["one_attachment_id"] = fmt.Sprintf("%v", flagOneAttachmentId)
+				params["one_attachment_id"] = formatCLIParamValue(flagOneAttachmentId)
 			}
 			if flagOrder != "" {
-				params["order"] = fmt.Sprintf("%v", flagOrder)
+				params["order"] = formatCLIParamValue(flagOrder)
 			}
 			if flagOrder2 != "" {
-				params["order2"] = fmt.Sprintf("%v", flagOrder2)
+				params["order2"] = formatCLIParamValue(flagOrder2)
 			}
 			if flagOrder3 != "" {
-				params["order3"] = fmt.Sprintf("%v", flagOrder3)
+				params["order3"] = formatCLIParamValue(flagOrder3)
 			}
 			if flagOrder4 != "" {
-				params["order4"] = fmt.Sprintf("%v", flagOrder4)
+				params["order4"] = formatCLIParamValue(flagOrder4)
 			}
 			if flagOrder5 != "" {
-				params["order5"] = fmt.Sprintf("%v", flagOrder5)
+				params["order5"] = formatCLIParamValue(flagOrder5)
 			}
 			if flagOrderdesc != false {
-				params["orderdesc"] = fmt.Sprintf("%v", flagOrderdesc)
+				params["orderdesc"] = formatCLIParamValue(flagOrderdesc)
 			}
 			if flagOrderdesc2 != false {
-				params["orderdesc2"] = fmt.Sprintf("%v", flagOrderdesc2)
+				params["orderdesc2"] = formatCLIParamValue(flagOrderdesc2)
 			}
 			if flagOrderdesc3 != false {
-				params["orderdesc3"] = fmt.Sprintf("%v", flagOrderdesc3)
+				params["orderdesc3"] = formatCLIParamValue(flagOrderdesc3)
 			}
 			if flagOrderdesc4 != false {
-				params["orderdesc4"] = fmt.Sprintf("%v", flagOrderdesc4)
+				params["orderdesc4"] = formatCLIParamValue(flagOrderdesc4)
 			}
 			if flagOrderdesc5 != false {
-				params["orderdesc5"] = fmt.Sprintf("%v", flagOrderdesc5)
+				params["orderdesc5"] = formatCLIParamValue(flagOrderdesc5)
 			}
 			if flagPortal != 0 {
-				params["portal"] = fmt.Sprintf("%v", flagPortal)
+				params["portal"] = formatCLIParamValue(flagPortal)
 			}
 			if flagTicketId != "" {
-				params["ticket_id"] = fmt.Sprintf("%v", flagTicketId)
+				params["ticket_id"] = formatCLIParamValue(flagTicketId)
 			}
 			if flagToken != "" {
-				params["token"] = fmt.Sprintf("%v", flagToken)
+				params["token"] = formatCLIParamValue(flagToken)
 			}
 			if flagType != 0 {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			if flagUniqueId != "" {
-				params["unique_id"] = fmt.Sprintf("%v", flagUniqueId)
+				params["unique_id"] = formatCLIParamValue(flagUniqueId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "attachment", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

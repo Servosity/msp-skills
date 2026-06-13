@@ -22,9 +22,10 @@ func newEditExConnectorPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "edit-ex-connector",
-		Short:       "Edit ex connector",
-		Long:        "Edit ex connector",
+		Use:   "edit-ex-connector",
+		Short: "Edit ex connector",
+		Long:  "Edit ex connector",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli edit-ex-connector --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "edit-ex-connector.create", "pp:method": "POST", "pp:path": "/EditExConnector"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -49,16 +50,16 @@ func newEditExConnectorPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/EditExConnector"
 			params := map[string]string{}
 			if flagGUID != "" {
-				params["GUID"] = fmt.Sprintf("%v", flagGUID)
+				params["GUID"] = formatCLIParamValue(flagGUID)
 			}
 			if flagState != "" {
-				params["State"] = fmt.Sprintf("%v", flagState)
+				params["State"] = formatCLIParamValue(flagState)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagType != "" {
-				params["Type"] = fmt.Sprintf("%v", flagType)
+				params["Type"] = formatCLIParamValue(flagType)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -79,10 +80,10 @@ func newEditExConnectorPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

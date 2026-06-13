@@ -32,10 +32,10 @@ func newStagesGetAllCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/stages"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "stages", path, map[string]string{
-				"pipeline_id": fmt.Sprintf("%v", flagPipelineId),
-				"start":       fmt.Sprintf("%v", flagStart),
-				"limit":       fmt.Sprintf("%v", flagLimit),
-				"sort":        fmt.Sprintf("%v", flagSort),
+				"pipeline_id": formatCLIParamValue(flagPipelineId),
+				"start":       formatCLIParamValue(flagStart),
+				"limit":       formatCLIParamValue(flagLimit),
+				"sort":        formatCLIParamValue(flagSort),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

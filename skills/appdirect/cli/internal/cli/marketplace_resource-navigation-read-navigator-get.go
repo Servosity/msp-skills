@@ -29,10 +29,10 @@ func newMarketplaceResourceNavigationReadNavigatorGetCmd(flags *rootFlags) *cobr
 			path := "/marketplace/v1/navigator"
 			params := map[string]string{}
 			if flagPl != "" {
-				params["pl"] = fmt.Sprintf("%v", flagPl)
+				params["pl"] = formatCLIParamValue(flagPl)
 			}
 			if flagLocale != "" {
-				params["locale"] = fmt.Sprintf("%v", flagLocale)
+				params["locale"] = formatCLIParamValue(flagLocale)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "marketplace", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -16,7 +16,7 @@ func newContactsDeleteCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete <id>",
 		Short:       "This method deletes a contact.",
-		Example:     "  pandadoc-cli contacts delete 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli contacts delete SyoufNkJiHRn24LpuJ7RXb",
 		Annotations: map[string]string{"pp:endpoint": "contacts.delete", "pp:method": "DELETE", "pp:path": "/contacts/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

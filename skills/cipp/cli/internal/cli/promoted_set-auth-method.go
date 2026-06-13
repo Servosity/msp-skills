@@ -18,9 +18,10 @@ func newSetAuthMethodPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "set-auth-method",
-		Short:       "Set auth method",
-		Long:        "Set auth method",
+		Use:   "set-auth-method",
+		Short: "Set auth method",
+		Long:  "Set auth method",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli set-auth-method --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "set-auth-method.create", "pp:method": "POST", "pp:path": "/SetAuthMethod"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -60,10 +61,10 @@ func newSetAuthMethodPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

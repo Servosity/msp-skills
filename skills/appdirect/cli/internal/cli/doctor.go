@@ -173,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export APPDIRECT_CLIENT_ID=<your-key>"
+					report["auth_hint"] = "Run 'appdirect-cli auth setup' for credential setup steps."
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"

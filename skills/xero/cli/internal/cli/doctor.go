@@ -201,15 +201,15 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				authEnvInfo = append(authEnvInfo, "XERO_ACCESS_TOKEN optional")
 			}
 			if strings.Contains("", " OR ") {
-				authEnvOptionalNames = append(authEnvOptionalNames, "XERO_ACCOUNTING_OAUTH2")
-				if os.Getenv("XERO_ACCOUNTING_OAUTH2") != "" {
-					authEnvSet = append(authEnvSet, "XERO_ACCOUNTING_OAUTH2")
+				authEnvOptionalNames = append(authEnvOptionalNames, "XERO_OAUTH2")
+				if os.Getenv("XERO_OAUTH2") != "" {
+					authEnvSet = append(authEnvSet, "XERO_OAUTH2")
 					authEnvOptionalSatisfied = true
 				}
-			} else if os.Getenv("XERO_ACCOUNTING_OAUTH2") != "" {
-				authEnvSet = append(authEnvSet, "XERO_ACCOUNTING_OAUTH2")
+			} else if os.Getenv("XERO_OAUTH2") != "" {
+				authEnvSet = append(authEnvSet, "XERO_OAUTH2")
 			} else {
-				authEnvInfo = append(authEnvInfo, "XERO_ACCOUNTING_OAUTH2 optional")
+				authEnvInfo = append(authEnvInfo, "XERO_OAUTH2 optional")
 			}
 			switch {
 			case len(authEnvRequiredMissing) > 0:

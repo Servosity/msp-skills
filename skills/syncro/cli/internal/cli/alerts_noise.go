@@ -95,7 +95,7 @@ Customers are ranked by alert count, descending.`,
 				}
 				windowDur = d
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := syncroOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w", err)
 			}

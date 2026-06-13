@@ -18,8 +18,9 @@ func newOrgUpdateAssetCommentsCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update-asset-comments <asset_id>",
-		Short:       "Update asset comments",
+		Use:   "update-asset-comments <asset_id>",
+		Short: "Update asset comments",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  runzero-cli org update-asset-comments 550e8400-e29b-41d4-a716-446655440000 --comments example-value",
 		Annotations: map[string]string{"pp:endpoint": "org.update-asset-comments", "pp:method": "PATCH", "pp:path": "/org/assets/{asset_id}/comments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -46,7 +47,7 @@ func newOrgUpdateAssetCommentsCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "asset_id", args[0])
 			params := map[string]string{}
 			if flagOid != "" {
-				params["_oid"] = fmt.Sprintf("%v", flagOid)
+				params["_oid"] = formatCLIParamValue(flagOid)
 			}
 			var body map[string]any
 			if stdinBody {

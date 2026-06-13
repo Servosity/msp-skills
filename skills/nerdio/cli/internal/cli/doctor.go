@@ -173,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export NERDIO_CLIENT_ID=<your-key>"
+					report["auth_hint"] = "Run 'nerdio-cli auth login' to re-authenticate."
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"

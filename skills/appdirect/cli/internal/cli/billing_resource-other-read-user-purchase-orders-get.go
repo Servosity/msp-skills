@@ -127,46 +127,46 @@ func newBillingResourceOtherReadUserPurchaseOrdersGetCmd(flags *rootFlags) *cobr
 			path = replacePathParam(path, "userId", args[1])
 			params := map[string]string{}
 			if flagStartDateFrom != 0.0 {
-				params["startDateFrom"] = fmt.Sprintf("%v", flagStartDateFrom)
+				params["startDateFrom"] = formatCLIParamValue(flagStartDateFrom)
 			}
 			if flagStartDateTo != 0.0 {
-				params["startDateTo"] = fmt.Sprintf("%v", flagStartDateTo)
+				params["startDateTo"] = formatCLIParamValue(flagStartDateTo)
 			}
 			if flagStatus != "" {
-				params["status"] = fmt.Sprintf("%v", flagStatus)
+				params["status"] = formatCLIParamValue(flagStatus)
 			}
 			if flagCurrency != "" {
-				params["currency"] = fmt.Sprintf("%v", flagCurrency)
+				params["currency"] = formatCLIParamValue(flagCurrency)
 			}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			if flagFrequency != "" {
-				params["frequency"] = fmt.Sprintf("%v", flagFrequency)
+				params["frequency"] = formatCLIParamValue(flagFrequency)
 			}
 			if flagOrderReferenceCode != "" {
-				params["orderReferenceCode"] = fmt.Sprintf("%v", flagOrderReferenceCode)
+				params["orderReferenceCode"] = formatCLIParamValue(flagOrderReferenceCode)
 			}
 			if flagApplicationIds != 0.0 {
-				params["applicationIds"] = fmt.Sprintf("%v", flagApplicationIds)
+				params["applicationIds"] = formatCLIParamValue(flagApplicationIds)
 			}
 			if flagFromCreationDate != 0.0 {
-				params["fromCreationDate"] = fmt.Sprintf("%v", flagFromCreationDate)
+				params["fromCreationDate"] = formatCLIParamValue(flagFromCreationDate)
 			}
 			if flagToCreationDate != 0.0 {
-				params["toCreationDate"] = fmt.Sprintf("%v", flagToCreationDate)
+				params["toCreationDate"] = formatCLIParamValue(flagToCreationDate)
 			}
 			if flagCount != 0 {
-				params["count"] = fmt.Sprintf("%v", flagCount)
+				params["count"] = formatCLIParamValue(flagCount)
 			}
 			if flagSortField != "" {
-				params["sortField"] = fmt.Sprintf("%v", flagSortField)
+				params["sortField"] = formatCLIParamValue(flagSortField)
 			}
 			if flagSortOrder != "" {
-				params["sortOrder"] = fmt.Sprintf("%v", flagSortOrder)
+				params["sortOrder"] = formatCLIParamValue(flagSortOrder)
 			}
 			if flagStart != 0 {
-				params["start"] = fmt.Sprintf("%v", flagStart)
+				params["start"] = formatCLIParamValue(flagStart)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "billing", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

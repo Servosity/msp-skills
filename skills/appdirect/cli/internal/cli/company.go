@@ -11,7 +11,7 @@ func newNovelCompanyCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "company",
-		Short:       "Single-customer views joined from the local store",
+		Short:       "company subcommands: show",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

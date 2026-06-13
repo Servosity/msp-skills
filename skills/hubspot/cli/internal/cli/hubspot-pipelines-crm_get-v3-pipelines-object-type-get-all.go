@@ -14,8 +14,9 @@ import (
 func newHubspotPipelinesCrmGetV3PipelinesObjectTypeGetAllCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "get-v3-pipelines-object-type-get-all <objectType>",
-		Short:       "Return all pipelines for the object type specified by `{objectType}`.",
+		Use:   "get-v3-pipelines-object-type-get-all <objectType>",
+		Short: "Return all pipelines for the object type specified by `{objectType}`.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-pipelines-crm get-v3-pipelines-object-type-get-all example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-pipelines-crm.get-v3-pipelines-object-type-get-all", "pp:method": "GET", "pp:path": "/crm/v3/pipelines/{objectType}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

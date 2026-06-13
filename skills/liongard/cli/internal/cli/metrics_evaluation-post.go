@@ -37,7 +37,7 @@ func newMetricsEvaluationPostCmd(flags *rootFlags) *cobra.Command {
 			path := "/metrics/bulk"
 			params := map[string]string{}
 			if flagIncludeNonVisible != false {
-				params["includeNonVisible"] = fmt.Sprintf("%v", flagIncludeNonVisible)
+				params["includeNonVisible"] = formatCLIParamValue(flagIncludeNonVisible)
 			}
 			var body map[string]any
 			if stdinBody {

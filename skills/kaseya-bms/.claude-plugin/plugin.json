@@ -1,7 +1,7 @@
 {
   "name": "kaseya-bms",
-  "version": "0.1.0",
-  "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-time analytics the web grid can't compute.",
+  "version": "0.1.1",
+  "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute.",
   "author": {
     "name": "Servosity",
     "url": "https://www.servosity.com"

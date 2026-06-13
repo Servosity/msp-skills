@@ -60,10 +60,10 @@ func newUsersNotificationRulesGetUserCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagInclude != "" {
-				params["include[]"] = fmt.Sprintf("%v", flagInclude)
+				params["include[]"] = formatCLIParamValue(flagInclude)
 			}
 			if flagUrgency != "" {
-				params["urgency"] = fmt.Sprintf("%v", flagUrgency)
+				params["urgency"] = formatCLIParamValue(flagUrgency)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "notification-rules", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

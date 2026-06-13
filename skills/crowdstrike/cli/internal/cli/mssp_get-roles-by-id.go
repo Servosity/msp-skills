@@ -15,8 +15,9 @@ func newMsspGetRolesByIdCmd(flags *rootFlags) *cobra.Command {
 	var flagIds string
 
 	cmd := &cobra.Command{
-		Use:         "get-roles-by-id",
-		Short:       "Get link between user group and CID group by ID.",
+		Use:   "get-roles-by-id",
+		Short: "Get link between user group and CID group by ID.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  crowdstrike-cli mssp get-roles-by-id --ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "mssp.get-roles-by-id", "pp:method": "GET", "pp:path": "/mssp/entities/mssp-roles/v1", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newMsspGetRolesByIdCmd(flags *rootFlags) *cobra.Command {
 			path := "/mssp/entities/mssp-roles/v1"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "mssp", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

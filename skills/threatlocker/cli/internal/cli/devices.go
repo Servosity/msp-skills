@@ -11,7 +11,7 @@ func newNovelDevicesCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "devices",
-		Short:       "Cross-tenant device health and inventory (offline-store backed)",
+		Short:       "devices subcommands: health",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

@@ -1,6 +1,6 @@
 ---
 name: threatlocker
-description: "Use when the user asks to triage ThreatLocker application approvals across tenants, approve a file hash everywhere it's pending, export or check retention on the Unified Audit log, find offline or stale ThreatLocker agents, hunt a file across every tenant, push or copy policies, toggle computer maintenance, or run any cross-tenant question against the ThreatLocker Portal API. Wraps the full Portal API plus a cross-tenant offline SQLite mirror. Trigger phrases: `triage threatlocker approvals`, `approve this hash across all tenants`, `export the threatlocker audit log`, `which threatlocker agents are offline`, `hunt this file across my threatlocker tenants`, `why is threatlocker returning 401`, `ThreatLocker + ChatGPT`, `ThreatLocker + Claude`, `use threatlocker`, `run threatlocker-cli`."
+description: "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has. Trigger phrases: `triage threatlocker approvals`, `approve this hash across all tenants`, `export the threatlocker audit log`, `which threatlocker agents are offline`, `why is threatlocker returning 401`, `use threatlocker`, `run threatlocker`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "ThreatLocker"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - threatlocker-cli
+    install:
+      - kind: go
+        bins: [threatlocker-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/threatlocker/cmd/threatlocker-cli
 ---
 
-# ThreatLocker Claude Code Skill
+# ThreatLocker  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `threatlocker-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/install.sh)
+   npx -y @mvanhorn/printing-press-library install threatlocker --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/install.ps1 | iex
-   ```
-3. Verify: `threatlocker-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `threatlocker-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/threatlocker/cmd/threatlocker-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 A single CLI for MSPs running ThreatLocker across many customer tenants. It matches the full read surface of the incumbent MCP server, adds the writes nobody shipped (approve requests, toggle maintenance, push policy), and mirrors every entity into a local SQLite database so you can triage approvals, audit drift, and device health across ALL tenants at once  -  something the per-tenant API forces you to do one header-swap at a time.
 
@@ -57,7 +63,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   threatlocker-cli audit drift --since 7d --all-tenants --agent
   ```
-- **`devices health`**  -  Joins computers, online-devices, and last-checkin data to classify every endpoint online / offline / stale / isolated, rolled up per tenant.
+- **`devices health`**  -  Joins computers, online-devices, and last-checkin data to classify every endpoint healthy / offline / stale / isolated, rolled up per tenant.
 
   _Reach for this for the daily 'which agents are dark across all customers' sweep and post-patch verification._
 
@@ -89,7 +95,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   threatlocker-cli audit export --all-tenants --since 2026-04-01 --agent
   ```
-- **`audit retention-check`**  -  Reports, per tenant, the oldest audit row you have versus the 31-day cliff and how stale your last sync is  -  flagging tenants about to lose evidence.
+- **`audit retention-check`**  -  Reports, per tenant, the oldest audit row you have versus the 31-day cliff and how stale your last export is  -  flagging tenants about to lose evidence.
 
   _Pick this to catch a broken export before the data it should have captured ages off the 31-day window forever._
 
@@ -256,7 +262,7 @@ One ranked table of protection-off / policy-change / maintenance events across e
 threatlocker-cli devices health --all-tenants --agent --select organizationName,computerName,healthClass,lastCheckin
 ```
 
-Classify every endpoint online/offline/stale/isolated across all tenants in one pass. Requires a recent sync --resources computers,online-devices.
+Classify every endpoint healthy/offline/stale/isolated across all tenants in one pass. Requires a recent sync --resources computers,online-devices.
 
 ### Diagnose a broken automation
 
@@ -362,17 +368,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The `install.sh` / `install.ps1` from the Prerequisites section drops both `threatlocker-cli`
-and `threatlocker-mcp` on your PATH. Once `threatlocker-mcp` is installed, register it:
-
-1. Register with Claude Code:
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/threatlocker/cmd/threatlocker-mcp@latest
+   ```
+2. Register with Claude Code:
    ```bash
    claude mcp add threatlocker-mcp -- threatlocker-mcp
    ```
-2. Verify: `claude mcp list`
-
-For every other MCP client (Claude Desktop, ChatGPT, Codex, Cursor, Gemini, and more), see
-[mcp-install.md](./mcp-install.md).
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

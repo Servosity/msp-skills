@@ -17,7 +17,7 @@ func newDocumentsAttachmentsDetailsDocumentCmd(flags *rootFlags) *cobra.Command 
 		Use:         "details-document <id> <attachment_id>",
 		Aliases:     []string{"get"},
 		Short:       "Returns details of the specific document's attachment.",
-		Example:     "  pandadoc-cli documents attachments details-document 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents attachments details-document BhVzRcxH9Z2LgfPPGXFUBa 89ce2f49-10fb-4e9b-b5f3-e28be2a5c042",
 		Annotations: map[string]string{"pp:endpoint": "attachments.details-document", "pp:method": "GET", "pp:path": "/documents/{id}/attachments/{attachment_id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

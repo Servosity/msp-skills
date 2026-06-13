@@ -33,7 +33,7 @@ func newFunctionalitiesUptimeChartGetFunctionalityCmd(flags *rootFlags) *cobra.C
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagPeriod != "" {
-				params["period"] = fmt.Sprintf("%v", flagPeriod)
+				params["period"] = formatCLIParamValue(flagPeriod)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "uptime-chart", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

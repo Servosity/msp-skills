@@ -33,22 +33,22 @@ func newNotificationListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Notification"
 			params := map[string]string{}
 			if flagAgentId != "" {
-				params["agent_id"] = fmt.Sprintf("%v", flagAgentId)
+				params["agent_id"] = formatCLIParamValue(flagAgentId)
 			}
 			if flagRestricttoAgentId != "" {
-				params["restrictto_agent_id"] = fmt.Sprintf("%v", flagRestricttoAgentId)
+				params["restrictto_agent_id"] = formatCLIParamValue(flagRestricttoAgentId)
 			}
 			if flagRoleId != "" {
-				params["role_id"] = fmt.Sprintf("%v", flagRoleId)
+				params["role_id"] = formatCLIParamValue(flagRoleId)
 			}
 			if flagShowall != false {
-				params["showall"] = fmt.Sprintf("%v", flagShowall)
+				params["showall"] = formatCLIParamValue(flagShowall)
 			}
 			if flagType != 0 {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			if flagWebhookId != "" {
-				params["webhook_id"] = fmt.Sprintf("%v", flagWebhookId)
+				params["webhook_id"] = formatCLIParamValue(flagWebhookId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "notification", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -33,8 +33,8 @@ func newProductsProductSerialsGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/products/{product_id}/product_serials"
 			path = replacePathParam(path, "product_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "product-serials", path, map[string]string{
-				"status": fmt.Sprintf("%v", flagStatus),
-				"page":   fmt.Sprintf("%v", flagPage),
+				"status": formatCLIParamValue(flagStatus),
+				"page":   formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

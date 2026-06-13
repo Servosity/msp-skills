@@ -36,14 +36,14 @@ func newAuditEventsGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/audit/events"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "audit", path, map[string]string{
-				"event":    fmt.Sprintf("%v", flagEvent),
-				"timefrom": fmt.Sprintf("%v", flagTimefrom),
-				"timeto":   fmt.Sprintf("%v", flagTimeto),
-				"from":     fmt.Sprintf("%v", flagFrom),
-				"limit":    fmt.Sprintf("%v", flagLimit),
-				"sortby":   fmt.Sprintf("%v", flagSortby),
-				"filter":   fmt.Sprintf("%v", flagFilter),
-				"from_id":  fmt.Sprintf("%v", flagFromId),
+				"event":    formatCLIParamValue(flagEvent),
+				"timefrom": formatCLIParamValue(flagTimefrom),
+				"timeto":   formatCLIParamValue(flagTimeto),
+				"from":     formatCLIParamValue(flagFrom),
+				"limit":    formatCLIParamValue(flagLimit),
+				"sortby":   formatCLIParamValue(flagSortby),
+				"filter":   formatCLIParamValue(flagFilter),
+				"from_id":  formatCLIParamValue(flagFromId),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

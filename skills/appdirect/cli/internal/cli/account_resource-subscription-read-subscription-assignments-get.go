@@ -34,9 +34,9 @@ func newAccountResourceSubscriptionReadSubscriptionAssignmentsGetCmd(flags *root
 			path := "/account/v2/subscriptions/{subscriptionUuid}/assignments"
 			path = replacePathParam(path, "subscriptionUuid", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "account", path, map[string]string{
-				"page":       fmt.Sprintf("%v", flagPage),
-				"searchText": fmt.Sprintf("%v", flagSearchText),
-				"size":       fmt.Sprintf("%v", flagSize),
+				"page":       formatCLIParamValue(flagPage),
+				"searchText": formatCLIParamValue(flagSearchText),
+				"size":       formatCLIParamValue(flagSize),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -26,7 +26,7 @@ func newIntegrationsGetVsaAccessInfoCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			path := "/v2/integrations/vsa/accessinfo/{integrationTypeId}"
-			path = replacePathParam(path, "integrationTypeId", fmt.Sprintf("%v", flagIntegrationTypeId))
+			path = replacePathParam(path, "integrationTypeId", formatCLIParamValue(flagIntegrationTypeId))
 			params := map[string]string{}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integrations", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

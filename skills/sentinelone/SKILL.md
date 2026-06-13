@@ -1,6 +1,6 @@
 ---
 name: sentinelone
-description: "Use when the user asks to triage SentinelOne threats across client sites, trace a threat's blast radius, find dark/stale/under-protected agents, check protection-coverage gaps, see what changed in the fleet overnight, rank clients by risk, or pull a per-tenant posture scorecard. Wraps the SentinelOne v2.1 Management API plus an offline SQLite mirror with cross-site analytics no single console view composes. Trigger phrases: `triage sentinelone threats`, `sentinelone blast radius`, `sentinelone fleet health`, `which endpoints have active threats`, `what changed in sentinelone overnight`, `sentinelone coverage gaps`, `sentinelone posture`, `SentinelOne + ChatGPT`, `SentinelOne + Claude`, `use sentinelone`, `run sentinelone-cli`."
+description: "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics  -  fleet health, threat triage, blast radius, drift  -  that no console view offers. Trigger phrases: `triage sentinelone threats`, `check sentinelone threats`, `sentinelone fleet health`, `which endpoints have active threats`, `what changed in sentinelone overnight`, `sentinelone agent status`, `use sentinelone`, `run sentinelone-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "SentinelOne"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - sentinelone-cli
+    install:
+      - kind: go
+        bins: [sentinelone-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/sentinelone/cmd/sentinelone-cli
 ---
 
-# SentinelOne Claude Code Skill
+# SentinelOne  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `sentinelone-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sentinelone/install.sh)
+   npx -y @mvanhorn/printing-press-library install sentinelone --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sentinelone/install.ps1 | iex
-   ```
-3. Verify: `sentinelone-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `sentinelone-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/sentinelone/cmd/sentinelone-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Query and manage your whole SentinelOne fleet from the terminal: agents, threats, activities, sites, groups, exclusions, Ranger, and more. Sync to a local store for offline full-text search, then run analytics the console can't  -  `fleet-health stale` ranks decaying endpoints, `threats blast-radius` traces one hash across the fleet, `whatchanged --since 24h` diffs overnight, and `posture` rolls up a per-tenant scorecard. Ships an MCP server so an AI agent can drive all of it.
 
@@ -38,12 +44,13 @@ Query and manage your whole SentinelOne fleet from the terminal: agents, threats
 
 Use this CLI when an agent or analyst needs to query or act on a SentinelOne tenant from the terminal or via MCP: listing and filtering agents/threats/activities, taking agent or threat actions, or  -  its differentiator  -  answering cross-entity and historical questions (fleet health, coverage gaps, blast radius, overnight drift, version rollout, MTTR) that the web console and raw API can't compute. Prefer it over raw API calls whenever the question spans multiple entities, multiple sites, or time.
 
-## When NOT to Use
+## Anti-triggers
 
+Do not use this CLI for:
 - Data Lake / Purple AI queries (alerts, vulnerabilities, misconfigurations, PowerQuery events)  -  that is a different SentinelOne surface; use the official Sentinel-One/purple-mcp server instead.
 - Bulk SIEM-scale telemetry ingestion of Deep Visibility events  -  use the official SIEM integrations (Sumo Logic, Google SecOps); this CLI persists bounded dv pulls, not a streaming pipeline.
 - Console-only settings not exposed by the v2.1 management API (SSO config, billing, console UI preferences)  -  use the web console.
-- Write actions needing request bodies the public spec omits, beyond the documented --stdin JSON passthrough  -  check the tenant's own api-doc for exact field names first.
+- Anything requiring request bodies the public spec omits beyond the documented --stdin JSON passthrough  -  check the tenant's own api-doc for exact field names first.
 
 ## Unique Capabilities
 
@@ -479,7 +486,7 @@ These capabilities aren't available in any other tool for this API.
 - `sentinelone-cli system cache-status`  -  Get an indication of the system's cache health status.
 - `sentinelone-cli system database-status`  -  Get an indication of the system's database health status.
 - `sentinelone-cli system get-config`  -  Get the configuration of your SentinelOne system.
-- `sentinelone-cli system get`  -  Get the Console build, version, patch, and release information.
+- `sentinelone-cli system info`  -  Get the Console build, version, patch, and release information.
 - `sentinelone-cli system set-config`  -  Change the system configuration. Before you run this, see Get System Config.
 - `sentinelone-cli system status`  -  Get an indication of the system's health status.
 
@@ -735,13 +742,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `sentinelone-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add sentinelone-mcp -- sentinelone-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/sentinelone/cmd/sentinelone-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add sentinelone-mcp -- sentinelone-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

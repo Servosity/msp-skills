@@ -123,16 +123,11 @@ type tokenResponse struct {
 	ExpiresIn   int    `json:"expires_in"`
 }
 
-// resolveClientCredentialsScopes returns the OAuth2 scopes requested at
-// token mint. The spec's security block requires monitoring, management,
-// and control across the endpoint surface; NINJAONE_OAUTH_SCOPE overrides
-// with a space-separated list for least-privilege deployments.
-func resolveClientCredentialsScopes() []string {
-	scopes := []string{"monitoring", "management", "control"}
-	if env := os.Getenv("NINJAONE_OAUTH_SCOPE"); env != "" {
-		scopes = strings.Fields(env)
+func resolveClientCredentialsScope() string {
+	if scope := os.Getenv("NINJAONE_OAUTH_SCOPE"); scope != "" {
+		return scope
 	}
-	return scopes
+	return "control management monitoring"
 }
 
 // mintClientCredentialsToken POSTs grant_type=client_credentials to the
@@ -143,9 +138,8 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 		"client_id":     {clientID},
 		"client_secret": {clientSecret},
 	}
-	scopes := resolveClientCredentialsScopes()
-	if len(scopes) > 0 {
-		form.Set("scope", strings.Join(scopes, " "))
+	if scope := resolveClientCredentialsScope(); scope != "" {
+		form.Set("scope", scope)
 	}
 	req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {

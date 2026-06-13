@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "tactical-rmm-cli",
-			Description: "Every Tactical RMM endpoint as a typed command",
+			Description: "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

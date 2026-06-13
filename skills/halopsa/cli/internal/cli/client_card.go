@@ -8,11 +8,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"halopsa-pp-cli/internal/store"
 )
 
 // pp:data-source local
-func newClientCardCmd(flags *rootFlags) *cobra.Command {
+func newNovelClientCardCmd(flags *rootFlags) *cobra.Command {
 	var (
 		dbPath string
 		limitT int
@@ -44,7 +43,7 @@ client. Resolves by numeric ID or by name (case-insensitive substring match).`,
 			if dbPath == "" {
 				dbPath = defaultDBPath("halopsa-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := halopsaOpenStoreSchemaAware(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'halopsa-cli sync' first.", err)
 			}
@@ -179,7 +178,7 @@ client. Resolves by numeric ID or by name (case-insensitive substring match).`,
 	return cmd
 }
 
-func newClientOverlayCmd(flags *rootFlags) *cobra.Command {
+func newNovelClientOverlayCmd(flags *rootFlags) *cobra.Command {
 	var (
 		dbPath string
 		metric string
@@ -204,7 +203,7 @@ func newClientOverlayCmd(flags *rootFlags) *cobra.Command {
 			if dbPath == "" {
 				dbPath = defaultDBPath("halopsa-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := halopsaOpenStoreSchemaAware(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'halopsa-cli sync' first.", err)
 			}

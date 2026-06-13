@@ -15,8 +15,9 @@ func newDealFieldsDeleteCmd(flags *rootFlags) *cobra.Command {
 	var flagIds string
 
 	cmd := &cobra.Command{
-		Use:         "delete",
-		Short:       "Marks multiple deal fields as deleted.",
+		Use:   "delete",
+		Short: "Marks multiple deal fields as deleted.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pipedrive-cli deal-fields delete --ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "deal-fields.delete", "pp:method": "DELETE", "pp:path": "/dealFields"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newDealFieldsDeleteCmd(flags *rootFlags) *cobra.Command {
 			path := "/dealFields"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

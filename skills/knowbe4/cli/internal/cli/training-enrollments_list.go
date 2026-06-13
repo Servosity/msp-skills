@@ -31,10 +31,10 @@ func newTrainingEnrollmentsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/training/enrollments"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "training-enrollments", path, map[string]string{
-				"page":              fmt.Sprintf("%v", flagPage),
-				"per_page":          fmt.Sprintf("%v", flagPerPage),
-				"campaign_id":       fmt.Sprintf("%v", flagCampaignId),
-				"store_purchase_id": fmt.Sprintf("%v", flagStorePurchaseId),
+				"page":              formatCLIParamValue(flagPage),
+				"per_page":          formatCLIParamValue(flagPerPage),
+				"campaign_id":       formatCLIParamValue(flagCampaignId),
+				"store_purchase_id": formatCLIParamValue(flagStorePurchaseId),
 			}, nil, flagAll, "page", "page", "per_page", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"syncro-pp-cli/internal/store"
 )
 
 // profileTicket is one ticket row surfaced on the customer card.
@@ -76,7 +75,7 @@ Do NOT use it for cross-customer rankings; use 'alerts noise' or
 			if dbPath == "" {
 				dbPath = defaultDBPath("syncro-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := syncroOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w", err)
 			}

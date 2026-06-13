@@ -19,8 +19,9 @@ func newHubspotObjectsCrmGetV3ObjectsObjectTypeObjectIdGetByIdCmd(flags *rootFla
 	var flagPropertiesWithHistory string
 
 	cmd := &cobra.Command{
-		Use:         "get-v3-objects-object-type-object-id-get-by-id <objectId> <objectType>",
-		Short:       "Read an Object identified by `{objectId}`.",
+		Use:   "get-v3-objects-object-type-object-id-get-by-id <objectId> <objectType>",
+		Short: "Read an Object identified by `{objectId}`.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-objects-crm get-v3-objects-object-type-object-id-get-by-id 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-objects-crm.get-v3-objects-object-type-object-id-get-by-id", "pp:method": "GET", "pp:path": "/crm/v3/objects/{objectType}/{objectId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,19 +41,19 @@ func newHubspotObjectsCrmGetV3ObjectsObjectTypeObjectIdGetByIdCmd(flags *rootFla
 			path = replacePathParam(path, "objectType", args[1])
 			params := map[string]string{}
 			if flagArchived != false {
-				params["archived"] = fmt.Sprintf("%v", flagArchived)
+				params["archived"] = formatCLIParamValue(flagArchived)
 			}
 			if flagAssociations != "" {
-				params["associations"] = fmt.Sprintf("%v", flagAssociations)
+				params["associations"] = formatCLIParamValue(flagAssociations)
 			}
 			if flagIdProperty != "" {
-				params["idProperty"] = fmt.Sprintf("%v", flagIdProperty)
+				params["idProperty"] = formatCLIParamValue(flagIdProperty)
 			}
 			if flagProperties != "" {
-				params["properties"] = fmt.Sprintf("%v", flagProperties)
+				params["properties"] = formatCLIParamValue(flagProperties)
 			}
 			if flagPropertiesWithHistory != "" {
-				params["propertiesWithHistory"] = fmt.Sprintf("%v", flagPropertiesWithHistory)
+				params["propertiesWithHistory"] = formatCLIParamValue(flagPropertiesWithHistory)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-objects-crm", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

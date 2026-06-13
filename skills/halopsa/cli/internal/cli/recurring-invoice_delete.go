@@ -32,7 +32,7 @@ func newRecurringInvoiceDeleteCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagBypassAccountsSync != false {
-				params["bypass_accounts_sync"] = fmt.Sprintf("%v", flagBypassAccountsSync)
+				params["bypass_accounts_sync"] = formatCLIParamValue(flagBypassAccountsSync)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

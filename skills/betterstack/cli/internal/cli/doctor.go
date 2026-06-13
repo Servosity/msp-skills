@@ -173,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export BETTERSTACK_API_TOKEN=<your-key>"
+					report["auth_hint"] = "Set it with: betterstack-cli auth set-token <token> or export BETTERSTACK_API_TOKEN=\"your-token-here\""
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"

@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/autotask-mcp",
   "title": "Autotask MCP",
   "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/autotask/autotask-512x512.png",
@@ -21,19 +21,13 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/autotask-v0.1.0/autotask-mcp.mcpb",
-      "version": "0.1.0",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/autotask-v0.1.1/autotask-mcp.mcpb",
+      "version": "0.1.1",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
-        {
-          "name": "AUTOTASK_PSA_API_INTEGRATION_CODE",
-          "description": "Set the AUTOTASK_PSA_API_INTEGRATION_CODE credential for the Autotask MCP server.",
-          "isRequired": true,
-          "isSecret": true
-        },
         {
           "name": "AUTOTASK_PSA_SECRET",
           "description": "Set the AUTOTASK_PSA_SECRET credential for the Autotask MCP server.",

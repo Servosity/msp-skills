@@ -16,9 +16,10 @@ func newListStandardsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-standards",
-		Short:       "List standards",
-		Long:        "List standards",
+		Use:   "list-standards",
+		Short: "List standards",
+		Long:  "List standards",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-standards --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-standards.list", "pp:method": "GET", "pp:path": "/ListStandards", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,10 +41,10 @@ func newListStandardsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListStandards"
 			params := map[string]string{}
 			if flagShowConsolidated != "" {
-				params["ShowConsolidated"] = fmt.Sprintf("%v", flagShowConsolidated)
+				params["ShowConsolidated"] = formatCLIParamValue(flagShowConsolidated)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-standards", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

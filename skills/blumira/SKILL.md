@@ -1,6 +1,6 @@
 ---
 name: blumira
-description: "Use when the user asks to triage Blumira findings across client accounts, see what changed in Blumira since the last sync, check detection-coverage drift versus the basis ruleset, find stale or unprotected domain controllers, report Blumira MTTR or SLA aging, reconcile findings against a PSA, or search finding evidence for an IOC. Wraps the Blumira public API plus an offline SQLite mirror with cross-account triage and over-time trends no single API call can answer. Trigger phrases: `blumira findings`, `triage blumira across accounts`, `what changed in blumira since yesterday`, `blumira detection coverage`, `blumira domain controller exposure`, `blumira MTTR report`, `Blumira + ChatGPT`, `Blumira + Claude`, `use blumira`, `run blumira-cli`."
+description: "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account  -  in one offline-searchable store with cross-account triage and over-time trends no single API call can answer. Trigger phrases: `blumira findings`, `triage blumira across accounts`, `what changed in blumira since yesterday`, `blumira detection coverage`, `blumira domain controller exposure`, `blumira MTTR report`, `use blumira`, `run blumira`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Blumira"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - blumira-cli
+    install:
+      - kind: go
+        bins: [blumira-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/blumira/cmd/blumira-cli
 ---
 
-# Blumira Claude Code Skill
+# Blumira  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `blumira-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blumira/install.sh)
+   npx -y @mvanhorn/printing-press-library install blumira --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blumira/install.ps1 | iex
-   ```
-3. Verify: `blumira-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `blumira-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/blumira/cmd/blumira-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Blumira's API and the community MCP return per-account, point-in-time snapshots. This CLI syncs findings, evidence, detection rules, and agent devices from your org and every MSP client account into a local SQLite store, so you get one ranked cross-account triage queue (triage), what-changed-since-last-sync (drift), MTTR and velocity trends (velocity), SLA aging (sla), detection coverage drift vs the MSP basis (coverage), and domain-controller exposure (exposure). It also mints and auto-refreshes its own JWT from your Client ID and Secret instead of making you bring your own.
 
@@ -351,13 +357,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `blumira-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add blumira-mcp -- blumira-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/blumira/cmd/blumira-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add blumira-mcp -- blumira-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

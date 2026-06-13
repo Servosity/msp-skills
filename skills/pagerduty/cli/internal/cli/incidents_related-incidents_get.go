@@ -45,7 +45,7 @@ func newIncidentsRelatedIncidentsGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagAdditionalDetails != "" {
-				params["additional_details[]"] = fmt.Sprintf("%v", flagAdditionalDetails)
+				params["additional_details[]"] = formatCLIParamValue(flagAdditionalDetails)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "related-incidents", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

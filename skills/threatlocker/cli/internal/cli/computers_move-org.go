@@ -18,8 +18,9 @@ func newComputersMoveOrgCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "move-org",
-		Short:       "Move computers to another organization (tenant)",
+		Use:   "move-org",
+		Short: "Move computers to another organization (tenant)",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  threatlocker-cli computers move-org --computer-ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "computers.move-org", "pp:method": "POST", "pp:path": "/Computer/ComputerMoveToOtherOrganization"},
 		RunE: func(cmd *cobra.Command, args []string) error {

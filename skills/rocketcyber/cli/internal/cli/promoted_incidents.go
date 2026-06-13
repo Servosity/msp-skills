@@ -28,7 +28,7 @@ func newIncidentsPromotedCmd(flags *rootFlags) *cobra.Command {
 		Use:         "incidents",
 		Short:       "List SOC incidents with status, title, and date filters",
 		Long:        "List SOC incidents with status, title, and date filters",
-		Example:     "  rocketcyber-cli incidents",
+		Example:     "  rocketcyber-cli incidents --status open --json",
 		Annotations: map[string]string{"pp:endpoint": "incidents.list", "pp:method": "GET", "pp:path": "/incidents", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("status") {
@@ -52,37 +52,37 @@ func newIncidentsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/incidents"
 			params := map[string]string{}
 			if flagAccountId != "" {
-				params["accountId"] = fmt.Sprintf("%v", flagAccountId)
+				params["accountId"] = formatCLIParamValue(flagAccountId)
 			}
 			if flagId != "" {
-				params["id"] = fmt.Sprintf("%v", flagId)
+				params["id"] = formatCLIParamValue(flagId)
 			}
 			if flagTitle != "" {
-				params["title"] = fmt.Sprintf("%v", flagTitle)
+				params["title"] = formatCLIParamValue(flagTitle)
 			}
 			if flagDescription != "" {
-				params["description"] = fmt.Sprintf("%v", flagDescription)
+				params["description"] = formatCLIParamValue(flagDescription)
 			}
 			if flagRemediation != "" {
-				params["remediation"] = fmt.Sprintf("%v", flagRemediation)
+				params["remediation"] = formatCLIParamValue(flagRemediation)
 			}
 			if flagResolvedAt != "" {
-				params["resolvedAt"] = fmt.Sprintf("%v", flagResolvedAt)
+				params["resolvedAt"] = formatCLIParamValue(flagResolvedAt)
 			}
 			if flagCreatedAt != "" {
-				params["createdAt"] = fmt.Sprintf("%v", flagCreatedAt)
+				params["createdAt"] = formatCLIParamValue(flagCreatedAt)
 			}
 			if flagStatus != "" {
-				params["status"] = fmt.Sprintf("%v", flagStatus)
+				params["status"] = formatCLIParamValue(flagStatus)
 			}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPageSize != 0 {
-				params["pageSize"] = fmt.Sprintf("%v", flagPageSize)
+				params["pageSize"] = formatCLIParamValue(flagPageSize)
 			}
 			if flagSort != "" {
-				params["sort"] = fmt.Sprintf("%v", flagSort)
+				params["sort"] = formatCLIParamValue(flagSort)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "incidents", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {
@@ -147,6 +147,7 @@ func newIncidentsPromotedCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&flagSort, "sort", "", "Sort as field:direction (e.g. createdAt:desc)")
 
 	// Wire sibling endpoints and sub-resources as subcommands
+	cmd.AddCommand(newNovelIncidentsMttrCmd(flags))
 
 	return cmd
 }

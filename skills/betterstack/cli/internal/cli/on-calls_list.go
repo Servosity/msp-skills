@@ -29,10 +29,10 @@ func newOnCallsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/on-calls"
 			params := map[string]string{}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPerPage != 0 {
-				params["per_page"] = fmt.Sprintf("%v", flagPerPage)
+				params["per_page"] = formatCLIParamValue(flagPerPage)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "on-calls", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

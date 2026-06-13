@@ -11,21 +11,117 @@ Contributors: [@DamienStevens](https://github.com/DamienStevens) (Damien Stevens
 
 ## Install
 
-Install both the `itglue-cli` CLI and the `itglue-mcp` MCP server with the repo installer:
-
-**macOS / Linux:**
+The recommended path installs both the `itglue-cli` binary and the `pp-itglue` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/install.sh)
+npx -y @mvanhorn/printing-press-library install itglue
 ```
 
-**Windows (PowerShell):**
+For CLI only (no skill):
 
-```powershell
-iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/install.ps1 | iex
+```bash
+npx -y @mvanhorn/printing-press-library install itglue --cli-only
 ```
 
-The installer drops both binaries into your user bin path (`~/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\msp-skills` on Windows). Verify with `itglue-cli --version`. For Claude Desktop's one-click `.mcpb`, the Claude Code plugin, ChatGPT, GitHub Copilot, Gemini, and the other supported agents, see the [README](./README.md) and [mcp-install.md](./mcp-install.md).
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install itglue --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install itglue --agent claude-code
+npx -y @mvanhorn/printing-press-library install itglue --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/productivity/itglue/cmd/itglue-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/itglue-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install itglue --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-itglue --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-itglue --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install itglue --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/itglue-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `ITGLUE_API_KEY` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/productivity/itglue/cmd/itglue-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "itglue": {
+      "command": "itglue-mcp",
+      "env": {
+        "ITGLUE_API_KEY": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Authentication
 
@@ -248,7 +344,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/itglue-cli/config.toml`
+Config file: `~/.config/it-glue-myglue-pp-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

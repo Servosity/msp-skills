@@ -10,23 +10,22 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"halopsa-pp-cli/internal/store"
 )
 
-// newContractsCmd is a novel parent ("contracts burn"). The generated CRUD
+// newNovelContractsCmd is a novel parent ("contracts burn"). The generated CRUD
 // for contracts lives under "client-contract".
 // pp:data-source local
-func newContractsCmd(flags *rootFlags) *cobra.Command {
+func newNovelContractsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "contracts",
 		Short: "Contract analytics (burn-down) across local client_contract + actions",
 		Long:  "Cross-entity contract analyses the API and Halo Reports don't expose directly.",
 	}
-	cmd.AddCommand(newContractsBurnCmd(flags))
+	cmd.AddCommand(newNovelContractsBurnCmd(flags))
 	return cmd
 }
 
-func newContractsBurnCmd(flags *rootFlags) *cobra.Command {
+func newNovelContractsBurnCmd(flags *rootFlags) *cobra.Command {
 	var (
 		dbPath string
 		client string
@@ -58,7 +57,7 @@ the conversation isn't a surprise. Reads client_contract + actions locally.`,
 			if err != nil {
 				return fmt.Errorf("--month %q: %w", month, err)
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := halopsaOpenStoreSchemaAware(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'halopsa-cli sync' first.", err)
 			}

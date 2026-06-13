@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"halopsa-pp-cli/internal/store"
 )
 
 // isNilOrEmpty checks whether a JSON object has nil or empty values for
@@ -139,7 +138,7 @@ In local mode: searches locally synced data only.`,
 				dbPath = defaultDBPath("halopsa-cli")
 			}
 
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := halopsaOpenStoreSchemaAware(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'halopsa-cli sync' first to populate the local database.", err)
 			}
@@ -322,8 +321,8 @@ In local mode: searches locally synced data only.`,
 					}
 				}
 			default:
-				// Unrecognized type — fall back to generic search
-				results, err = db.Search(query, limit)
+				// Unrecognized type -- filter generic resources by type.
+				results, err = db.Search(query, limit, resourceType)
 			}
 			if err != nil {
 				return fmt.Errorf("search failed: %w", err)

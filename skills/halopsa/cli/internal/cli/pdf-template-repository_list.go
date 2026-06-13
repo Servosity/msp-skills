@@ -29,10 +29,10 @@ func newPdfTemplateRepositoryListCmd(flags *rootFlags) *cobra.Command {
 			path := "/PdfTemplateRepository"
 			params := map[string]string{}
 			if flagLicencename != "" {
-				params["licencename"] = fmt.Sprintf("%v", flagLicencename)
+				params["licencename"] = formatCLIParamValue(flagLicencename)
 			}
 			if flagType != 0 {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "pdf-template-repository", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

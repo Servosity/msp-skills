@@ -255,6 +255,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newNovelSlaWatchCmd(flags))
 	rootCmd.AddCommand(newNovelStaleTicketsCmd(flags))
 	rootCmd.AddCommand(newNovelUnbilledCmd(flags))
+	rootCmd.AddCommand(newRawCmd(flags))
 	rootCmd.AddCommand(newAPICmd(flags))
 	rootCmd.AddCommand(newAlertsPromotedCmd(flags))
 	rootCmd.AddCommand(newAssetsPromotedCmd(flags))
@@ -270,9 +271,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newTicketsPromotedCmd(flags))
 	rootCmd.AddCommand(newUsersPromotedCmd(flags))
 	rootCmd.AddCommand(newWorklogsPromotedCmd(flags))
-	rootCmd.AddCommand(newVersionCliCmd())
-
-	rootCmd.AddCommand(newRawCmd(flags))
+	rootCmd.AddCommand(newVersionCmd())
 
 	return rootCmd
 }
@@ -324,14 +323,4 @@ func (f *rootFlags) printTable(w *cobra.Command, headers []string, rows [][]stri
 		fmt.Fprintln(tw, line)
 	}
 	return tw.Flush()
-}
-
-func newVersionCliCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Print the CLI name and version string",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("%s %s\n", cmd.Root().Name(), version)
-		},
-	}
 }

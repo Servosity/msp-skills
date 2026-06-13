@@ -11,8 +11,7 @@ func newNovelInsightsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "insights",
-		Short:       "Offline post-incident analytics (MTTA/MTTR, responder workload, noisy services, stale incidents) over the local store",
-		Long:        "Offline analytics computed from the synced incident and log-entry mirror. Subcommands: mttr (MTTA/MTTR by service/team/priority), responders (per-responder workload and off-hours share), noisy (service incident-volume leaderboard), stale (open incidents with no recent log activity). Run `sync` first.",
+		Short:       "insights subcommands: mttr, noisy, responders, stale",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

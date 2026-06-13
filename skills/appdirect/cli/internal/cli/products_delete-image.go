@@ -23,7 +23,7 @@ func newProductsDeleteImageCmd(flags *rootFlags) *cobra.Command {
 		Use:         "delete-image",
 		Aliases:     []string{"create"},
 		Short:       "Deletes a specific image resource from a product.",
-		Example:     "  appdirect-cli products delete-image --locale example-value",
+		Example:     "  appdirect-cli products delete-image --locale en_US",
 		Annotations: map[string]string{"pp:endpoint": "products.delete-image", "pp:method": "POST", "pp:path": "/products/v1/resources/image/delete"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

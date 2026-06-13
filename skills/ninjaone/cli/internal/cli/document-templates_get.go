@@ -32,7 +32,7 @@ func newDocumentTemplatesGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "documentTemplateId", args[0])
 			params := map[string]string{}
 			if flagIncludeTechnicianRoles != false {
-				params["includeTechnicianRoles"] = fmt.Sprintf("%v", flagIncludeTechnicianRoles)
+				params["includeTechnicianRoles"] = formatCLIParamValue(flagIncludeTechnicianRoles)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "document-templates", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

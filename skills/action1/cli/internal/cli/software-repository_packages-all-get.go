@@ -81,16 +81,16 @@ func newSoftwareRepositoryPackagesAllGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/software-repository/{orgId}"
 			path = replacePathParam(path, "orgId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "software-repository", path, map[string]string{
-				"filter":        fmt.Sprintf("%v", flagFilter),
-				"builtin":       fmt.Sprintf("%v", flagBuiltin),
-				"custom":        fmt.Sprintf("%v", flagCustom),
-				"sortby":        fmt.Sprintf("%v", flagSortby),
-				"from":          fmt.Sprintf("%v", flagFrom),
-				"limit":         fmt.Sprintf("%v", flagLimit),
-				"match_name":    fmt.Sprintf("%v", flagMatchName),
-				"match_version": fmt.Sprintf("%v", flagMatchVersion),
-				"fields":        fmt.Sprintf("%v", flagFields),
-				"platform":      fmt.Sprintf("%v", flagPlatform),
+				"filter":        formatCLIParamValue(flagFilter),
+				"builtin":       formatCLIParamValue(flagBuiltin),
+				"custom":        formatCLIParamValue(flagCustom),
+				"sortby":        formatCLIParamValue(flagSortby),
+				"from":          formatCLIParamValue(flagFrom),
+				"limit":         formatCLIParamValue(flagLimit),
+				"match_name":    formatCLIParamValue(flagMatchName),
+				"match_version": formatCLIParamValue(flagMatchVersion),
+				"fields":        formatCLIParamValue(flagFields),
+				"platform":      formatCLIParamValue(flagPlatform),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

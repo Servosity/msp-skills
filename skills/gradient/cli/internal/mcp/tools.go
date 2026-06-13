@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +23,15 @@ import (
 	"gradient-pp-cli/internal/config"
 	"gradient-pp-cli/internal/mcp/cobratree"
 	"gradient-pp-cli/internal/store"
+)
+
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
 )
 
 // RegisterTools registers all API operations as MCP tools.
@@ -189,7 +200,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("vendor_get",
-			mcplib.WithDescription("Fetch the authenticated vendor's own partner profile from Gradient. Takes no parameters; the API key identifies the vendor. Returns the vendor record: name, description, integrationType, the vendor's SKUs, isDistributor flag, externalIntegrationStatus, mappingResponsibilities, and enabled modules. Use this to read your vendor identity and SKU catalog; use vendor_update to change these fields."),
+			mcplib.WithDescription("Get Vendor Details. Returns the GetVendorResponse."),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -207,11 +218,22 @@ func RegisterTools(s *server.MCPServer) {
 		),
 		makeAPIHandler("PATCH", "/vendor-api", false, false, nil, []mcpParamBinding{{PublicName: "description", WireName: "description", Location: "body"}, {PublicName: "integrationPortalUrl", WireName: "integrationPortalUrl", Location: "body"}, {PublicName: "name", WireName: "name", Location: "body"}, {PublicName: "vendorSupportPageUrl", WireName: "vendorSupportPageUrl", Location: "body"}}, []string{}),
 	)
+	// Search tool — faster than iterating list endpoints for finding specific items
+	s.AddTool(
+		mcplib.NewTool("search",
+			mcplib.WithDescription("Full-text search across all synced data. Faster than paginating list endpoints. Requires sync first."),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Search query (supports FTS5 syntax: AND, OR, NOT, quotes for phrases)")),
+			mcplib.WithNumber("limit", mcplib.Description("Max results (default 25)")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+		),
+		handleSearch,
+	)
 	// SQL tool — ad-hoc analysis on synced data without API calls
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -238,6 +260,34 @@ type mcpParamBinding struct {
 	PublicName string
 	WireName   string
 	Location   string
+}
+
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // makeAPIHandler creates a generic MCP tool handler for an API endpoint.
@@ -288,7 +338,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				bodyArgs[binding.WireName] = v
 			case "body_json":
@@ -303,7 +353,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 					bodyJSONOverride = json.RawMessage(s)
 				}
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -313,7 +363,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -325,7 +375,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "POST", "PUT", "PATCH":
 				bodyArgs[k] = v
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -413,17 +463,17 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key: export GRADIENT_TOKEN=<your-key>" +
+					"\n      Set your API key with: export GRADIENT_TOKEN=\"your-token-here\"" +
 					"\n      Run 'gradient-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your API key." +
-					"\n      Set it with: export GRADIENT_TOKEN=<your-key>" +
+					"\n      Set your API key with: export GRADIENT_TOKEN=\"your-token-here\"" +
 					"\n      Run 'gradient-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: your credentials are valid but lack access to this resource." +
-					"\n      Set it with: export GRADIENT_TOKEN=<your-key>" +
+					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
+					"\n      Set your API key with: export GRADIENT_TOKEN=\"your-token-here\"" +
 					"\n      Run 'gradient-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
 				if method == "DELETE" {
@@ -437,21 +487,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -460,8 +495,129 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
@@ -471,7 +627,7 @@ func newMCPClient() (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -489,27 +645,58 @@ func dbPath() string {
 // Note: MCP tools use their own dbPath() because they are in a separate package (main, not cli).
 // The CLI's defaultDBPath() in the cli package uses the same canonical path.
 
+func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	args := req.GetArguments()
+	query, ok := args["query"].(string)
+	if !ok || query == "" {
+		return mcplib.NewToolResultError("query is required"), nil
+	}
+
+	limit := 25
+	if v, ok := args["limit"].(float64); ok && v > 0 {
+		limit = int(v)
+	}
+
+	db, err := store.OpenReadOnly(dbPath())
+	if err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("opening database: %v", err)), nil
+	}
+	defer db.Close()
+
+	results, err := db.Search(query, limit)
+	if err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("search failed: %v", err)), nil
+	}
+
+	return toolResultJSON(results)
+}
+
 // validateReadOnlyQuery gates the MCP sql tool. The agent contract advertised
 // to the host is ReadOnlyHintAnnotation(true); a false annotation on a
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -541,6 +728,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -608,8 +886,8 @@ func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
 func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	ctx := map[string]any{
 		"api":         "gradient",
-		"description": "Gradient MSP Synthesize Vendor API - push accounts, services",
-		"archetype":   "crm",
+		"description": "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has.",
+		"archetype":   "project-management",
 		"tool_count":  17,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion gradient-cli binary.",
@@ -691,22 +969,23 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "Debounce-aware usage push", "command": "usage push", "description": "Push a whole file of unit counts (CSV or JSON)", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Push-ledger drift report", "command": "usage drift", "description": "See exactly which accounts' usage changed between your last two pushes, with old-to-new deltas.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Alert dispatch with poll-to-ticket", "command": "alert send", "description": "Dispatch an alert and wait until the PSA ticket actually exists, instead of fire-and-forget.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Mapping-hygiene work queue", "command": "hygiene unmapped", "description": "One rollup of every unmapped account and every service without a vendor SKU, shaped as an actionable work queue.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Integration go/no-go readiness", "command": "status ready", "description": "A single go/no-go verdict on whether the integration is ready to flip to active: live status, last sync age", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Alert trace ledger", "command": "alert trace", "description": "Review every alert you have dispatched - messageId, account, time", "rationale": "", "via": "mcp-command-mirror"},
+			{"name": "Debounce-aware usage push", "command": "usage push", "description": "Push a whole file of unit counts (CSV or JSON) in one shot and trigger exactly one billing rebuild instead of one per call.", "rationale": "Orchestrates the per-call no_build flag across the fan-out and ledgers every row locally - the SDK makes you script this loop yourself.", "via": "mcp-command-mirror"},
+			{"name": "Push-ledger drift report", "command": "usage drift", "description": "See exactly which accounts' usage changed between your last two pushes, with old-to-new deltas.", "rationale": "The Synthesize API has no read-back for pushed counts; the CLI's local push ledger is the only place this history exists.", "via": "mcp-command-mirror"},
+			{"name": "Alert dispatch with poll-to-ticket", "command": "alert send", "description": "Dispatch an alert and wait until the PSA ticket actually exists, instead of fire-and-forget.", "rationale": "Alerting is an async queue (dispatch returns a messageId, the ticket arrives later); this command closes the loop by polling the debug route and ledgering the outcome.", "via": "mcp-command-mirror"},
+			{"name": "Mapping-hygiene work queue", "command": "hygiene unmapped", "description": "One rollup of every unmapped account and every service without a vendor SKU, shaped as an actionable work queue.", "rationale": "Joins live accounts (isMapped) with the vendor SKU catalog in one rollup - the API only offers a raw returnUnmapped filter on one endpoint.", "via": "mcp-command-mirror"},
+			{"name": "Integration go/no-go readiness", "command": "status ready", "description": "A single go/no-go verdict on whether the integration is ready to flip to active: live status, last sync age, and outstanding mapping gaps.", "rationale": "Cross-endpoint synthesis of the live integration record with the mapping-hygiene rollup - no single API call answers it.", "via": "mcp-command-mirror"},
+			{"name": "Alert trace ledger", "command": "alert trace", "description": "Review every alert you have dispatched - messageId, account, time, last-known ticket state - and filter to ones that never became tickets.", "rationale": "The API has no list-my-alerts route; the local dispatch ledger is the only possible source.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
-			{"topic": "Debounce-aware usage push", "insight": ""},
-			{"topic": "Push-ledger drift report", "insight": ""},
-			{"topic": "Alert dispatch with poll-to-ticket", "insight": ""},
-			{"topic": "Mapping-hygiene work queue", "insight": ""},
-			{"topic": "Integration go/no-go readiness", "insight": ""},
-			{"topic": "Alert trace ledger", "insight": ""},
-			{"topic": "Contact lookup", "insight": "Use search for finding contacts by name/email. List endpoints return unsorted results and require pagination for large datasets."},
-			{"topic": "Activity tracking", "insight": "When checking deal activity, sync first and query locally. CRM APIs often throttle activity-log endpoints heavily."},
+			{"topic": "Debounce-aware usage push", "insight": "Orchestrates the per-call no_build flag across the fan-out and ledgers every row locally - the SDK makes you script this loop yourself."},
+			{"topic": "Push-ledger drift report", "insight": "The Synthesize API has no read-back for pushed counts; the CLI's local push ledger is the only place this history exists."},
+			{"topic": "Alert dispatch with poll-to-ticket", "insight": "Alerting is an async queue (dispatch returns a messageId, the ticket arrives later); this command closes the loop by polling the debug route and ledgering the outcome."},
+			{"topic": "Mapping-hygiene work queue", "insight": "Joins live accounts (isMapped) with the vendor SKU catalog in one rollup - the API only offers a raw returnUnmapped filter on one endpoint."},
+			{"topic": "Integration go/no-go readiness", "insight": "Cross-endpoint synthesis of the live integration record with the mapping-hygiene rollup - no single API call answers it."},
+			{"topic": "Alert trace ledger", "insight": "The API has no list-my-alerts route; the local dispatch ledger is the only possible source."},
+			{"topic": "Finding stale work", "insight": "Use the stale command or sql query to find items not updated recently. More reliable than scanning list results manually."},
+			{"topic": "Load analysis", "insight": "When analyzing team workload, filter by assignee and status. Raw counts without status filtering are misleading."},
+			{"topic": "Bulk operations", "insight": "For bulk status changes, prefer update endpoints over delete+create. Most PM APIs track history on updates."},
 		},
 	}
 	return toolResultJSON(ctx)

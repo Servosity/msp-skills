@@ -14,8 +14,9 @@ import (
 func newHostPoolsSessionTimeoutsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "session-timeouts <account_id> <subscription_id> <resource_group> <pool_name>",
-		Short:       "Get host pool session timeout settings",
+		Use:   "session-timeouts <account_id> <subscription_id> <resource_group> <pool_name>",
+		Short: "Get host pool session timeout settings",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  nerdio-cli host-pools session-timeouts 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "host-pools.session-timeouts", "pp:method": "GET", "pp:path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/session-timeouts", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -16,7 +16,7 @@ func newDocumentsAutoRemindersStatusDocumentCmd(flags *rootFlags) *cobra.Command
 	cmd := &cobra.Command{
 		Use:         "status-document <document_id>",
 		Short:       "Retrieves the current auto reminder status per recipient for a specified document.",
-		Example:     "  pandadoc-cli documents auto-reminders status-document 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents auto-reminders status-document BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "auto-reminders.status-document", "pp:method": "GET", "pp:path": "/documents/{document_id}/auto-reminders/status", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

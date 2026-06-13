@@ -16,8 +16,9 @@ func newIntegrationGetReimbursementDetailsCmd(flags *rootFlags) *cobra.Command {
 	var flagReimbursementIds string
 
 	cmd := &cobra.Command{
-		Use:         "get-reimbursement-details",
-		Short:       "Get reimbursement details",
+		Use:   "get-reimbursement-details",
+		Short: "Get reimbursement details",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli integration get-reimbursement-details --external-tenant-id 550e8400-e29b-41d4-a716-446655440000 --reimbursement-ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "integration.get-reimbursement-details", "pp:method": "GET", "pp:path": "/v2/integration/qbd/reimbursements/detail", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,10 +42,10 @@ func newIntegrationGetReimbursementDetailsCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/integration/qbd/reimbursements/detail"
 			params := map[string]string{}
 			if flagExternalTenantId != "" {
-				params["ExternalTenantId"] = fmt.Sprintf("%v", flagExternalTenantId)
+				params["ExternalTenantId"] = formatCLIParamValue(flagExternalTenantId)
 			}
 			if flagReimbursementIds != "" {
-				params["ReimbursementIds"] = fmt.Sprintf("%v", flagReimbursementIds)
+				params["ReimbursementIds"] = formatCLIParamValue(flagReimbursementIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

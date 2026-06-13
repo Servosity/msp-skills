@@ -16,7 +16,7 @@ func newDocumentsAttachmentsDownloadDocumentCmd(flags *rootFlags) *cobra.Command
 	cmd := &cobra.Command{
 		Use:         "download-document <id> <attachment_id>",
 		Short:       "Download an attachment by ID.",
-		Example:     "  pandadoc-cli documents attachments download-document 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents attachments download-document BhVzRcxH9Z2LgfPPGXFUBa 89ce2f49-10fb-4e9b-b5f3-e28be2a5c042",
 		Annotations: map[string]string{"pp:endpoint": "attachments.download-document", "pp:method": "GET", "pp:path": "/documents/{id}/attachments/{attachment_id}/download", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

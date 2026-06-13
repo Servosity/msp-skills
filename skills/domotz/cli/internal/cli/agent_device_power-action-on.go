@@ -51,7 +51,7 @@ func newAgentDevicePowerActionOnCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("device_id is required\nUsage: %s <%s>", cmd.CommandPath(), "device_id"))
 			}
 			path = replacePathParam(path, "device_id", args[1])
-			path = replacePathParam(path, "field", fmt.Sprintf("%v", flagField))
+			path = replacePathParam(path, "field", formatCLIParamValue(flagField))
 			params := map[string]string{}
 			var body map[string]any
 			if stdinBody {

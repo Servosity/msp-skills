@@ -22,9 +22,10 @@ func newAddIntuneReusableSettingTemplatePromotedCmd(flags *rootFlags) *cobra.Com
 	var bodyTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "add-intune-reusable-setting-template",
-		Short:       "Add intune reusable setting template",
-		Long:        "Add intune reusable setting template",
+		Use:   "add-intune-reusable-setting-template",
+		Short: "Add intune reusable setting template",
+		Long:  "Add intune reusable setting template",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli add-intune-reusable-setting-template --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "add-intune-reusable-setting-template.create", "pp:method": "POST", "pp:path": "/AddIntuneReusableSettingTemplate"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -76,10 +77,10 @@ func newAddIntuneReusableSettingTemplatePromotedCmd(flags *rootFlags) *cobra.Com
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

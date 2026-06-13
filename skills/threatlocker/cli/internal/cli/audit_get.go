@@ -38,10 +38,10 @@ func newAuditGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/ActionLog/ActionLogGetByIdV2"
 			params := map[string]string{}
 			if flagEActionLogId != "" {
-				params["eActionLogId"] = fmt.Sprintf("%v", flagEActionLogId)
+				params["eActionLogId"] = formatCLIParamValue(flagEActionLogId)
 			}
 			if flagSourceTableId != "" {
-				params["sourceTableId"] = fmt.Sprintf("%v", flagSourceTableId)
+				params["sourceTableId"] = formatCLIParamValue(flagSourceTableId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "audit", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

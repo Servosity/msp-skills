@@ -11,7 +11,7 @@ func newNovelAssetsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "assets",
-		Short:       "Cross-entity asset views (expiring warranties and contracts)",
+		Short:       "assets subcommands: expiring",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

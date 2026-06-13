@@ -57,28 +57,28 @@ func newEventsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/events"
 			params := map[string]string{}
 			if flagAppId != "" {
-				params["appId"] = fmt.Sprintf("%v", flagAppId)
+				params["appId"] = formatCLIParamValue(flagAppId)
 			}
 			if flagAccountId != "" {
-				params["accountId"] = fmt.Sprintf("%v", flagAccountId)
+				params["accountId"] = formatCLIParamValue(flagAccountId)
 			}
 			if flagVerdict != "" {
-				params["verdict"] = fmt.Sprintf("%v", flagVerdict)
+				params["verdict"] = formatCLIParamValue(flagVerdict)
 			}
 			if flagDetails != "" {
-				params["details"] = fmt.Sprintf("%v", flagDetails)
+				params["details"] = formatCLIParamValue(flagDetails)
 			}
 			if flagDates != "" {
-				params["dates"] = fmt.Sprintf("%v", flagDates)
+				params["dates"] = formatCLIParamValue(flagDates)
 			}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPageSize != 0 {
-				params["pageSize"] = fmt.Sprintf("%v", flagPageSize)
+				params["pageSize"] = formatCLIParamValue(flagPageSize)
 			}
 			if flagSort != "" {
-				params["sort"] = fmt.Sprintf("%v", flagSort)
+				params["sort"] = formatCLIParamValue(flagSort)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "events", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

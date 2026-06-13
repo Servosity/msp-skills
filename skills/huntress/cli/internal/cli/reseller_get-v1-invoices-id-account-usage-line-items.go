@@ -33,8 +33,8 @@ func newResellerGetV1InvoicesIdAccountUsageLineItemsCmd(flags *rootFlags) *cobra
 			path := "/v1/reseller/invoices/{id}/account_usage_line_items"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "reseller", path, map[string]string{
-				"limit":      fmt.Sprintf("%v", flagLimit),
-				"page_token": fmt.Sprintf("%v", flagPageToken),
+				"limit":      formatCLIParamValue(flagLimit),
+				"page_token": formatCLIParamValue(flagPageToken),
 			}, nil, flagAll, "page_token", "page_token", "limit", "nextPageToken", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

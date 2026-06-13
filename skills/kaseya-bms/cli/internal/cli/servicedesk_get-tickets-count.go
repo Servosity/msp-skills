@@ -76,151 +76,151 @@ func newServicedeskGetTicketsCountCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/servicedesk/tickets/count"
 			params := map[string]string{}
 			if flagIsScheduled != 0 {
-				params["IsScheduled"] = fmt.Sprintf("%v", flagIsScheduled)
+				params["IsScheduled"] = formatCLIParamValue(flagIsScheduled)
 			}
 			if flagIsRecurringTickets != 0 {
-				params["IsRecurringTickets"] = fmt.Sprintf("%v", flagIsRecurringTickets)
+				params["IsRecurringTickets"] = formatCLIParamValue(flagIsRecurringTickets)
 			}
 			if flagTitle != "" {
-				params["Title"] = fmt.Sprintf("%v", flagTitle)
+				params["Title"] = formatCLIParamValue(flagTitle)
 			}
 			if flagAccount != "" {
-				params["Account"] = fmt.Sprintf("%v", flagAccount)
+				params["Account"] = formatCLIParamValue(flagAccount)
 			}
 			if flagLocationName != "" {
-				params["LocationName"] = fmt.Sprintf("%v", flagLocationName)
+				params["LocationName"] = formatCLIParamValue(flagLocationName)
 			}
 			if flagAccountCode != "" {
-				params["AccountCode"] = fmt.Sprintf("%v", flagAccountCode)
+				params["AccountCode"] = formatCLIParamValue(flagAccountCode)
 			}
 			if flagAssigneeName != "" {
-				params["AssigneeName"] = fmt.Sprintf("%v", flagAssigneeName)
+				params["AssigneeName"] = formatCLIParamValue(flagAssigneeName)
 			}
 			if flagTicketNumber != "" {
-				params["TicketNumber"] = fmt.Sprintf("%v", flagTicketNumber)
+				params["TicketNumber"] = formatCLIParamValue(flagTicketNumber)
 			}
 			if flagCreatedByName != "" {
-				params["CreatedByName"] = fmt.Sprintf("%v", flagCreatedByName)
+				params["CreatedByName"] = formatCLIParamValue(flagCreatedByName)
 			}
 			if flagDetails != "" {
-				params["Details"] = fmt.Sprintf("%v", flagDetails)
+				params["Details"] = formatCLIParamValue(flagDetails)
 			}
 			if flagContactName != "" {
-				params["ContactName"] = fmt.Sprintf("%v", flagContactName)
+				params["ContactName"] = formatCLIParamValue(flagContactName)
 			}
 			if flagStatusNames != "" {
-				params["StatusNames"] = fmt.Sprintf("%v", flagStatusNames)
+				params["StatusNames"] = formatCLIParamValue(flagStatusNames)
 			}
 			if flagQueueNames != "" {
-				params["QueueNames"] = fmt.Sprintf("%v", flagQueueNames)
+				params["QueueNames"] = formatCLIParamValue(flagQueueNames)
 			}
 			if flagPriorityNames != "" {
-				params["PriorityNames"] = fmt.Sprintf("%v", flagPriorityNames)
+				params["PriorityNames"] = formatCLIParamValue(flagPriorityNames)
 			}
 			if flagTicketTypeNames != "" {
-				params["TicketTypeNames"] = fmt.Sprintf("%v", flagTicketTypeNames)
+				params["TicketTypeNames"] = formatCLIParamValue(flagTicketTypeNames)
 			}
 			if flagIssueTypeNames != "" {
-				params["IssueTypeNames"] = fmt.Sprintf("%v", flagIssueTypeNames)
+				params["IssueTypeNames"] = formatCLIParamValue(flagIssueTypeNames)
 			}
 			if flagServiceLevelAgreementNames != "" {
-				params["ServiceLevelAgreementNames"] = fmt.Sprintf("%v", flagServiceLevelAgreementNames)
+				params["ServiceLevelAgreementNames"] = formatCLIParamValue(flagServiceLevelAgreementNames)
 			}
 			if flagSubIssueTypeNames != "" {
-				params["SubIssueTypeNames"] = fmt.Sprintf("%v", flagSubIssueTypeNames)
+				params["SubIssueTypeNames"] = formatCLIParamValue(flagSubIssueTypeNames)
 			}
 			if flagSourceIds != "" {
-				params["SourceIds"] = fmt.Sprintf("%v", flagSourceIds)
+				params["SourceIds"] = formatCLIParamValue(flagSourceIds)
 			}
 			if flagExcludeCompleted != 0 {
-				params["ExcludeCompleted"] = fmt.Sprintf("%v", flagExcludeCompleted)
+				params["ExcludeCompleted"] = formatCLIParamValue(flagExcludeCompleted)
 			}
 			if flagOpenDateFrom != "" {
-				params["OpenDateFrom"] = fmt.Sprintf("%v", flagOpenDateFrom)
+				params["OpenDateFrom"] = formatCLIParamValue(flagOpenDateFrom)
 			}
 			if flagOpenDateTo != "" {
-				params["OpenDateTo"] = fmt.Sprintf("%v", flagOpenDateTo)
+				params["OpenDateTo"] = formatCLIParamValue(flagOpenDateTo)
 			}
 			if flagCompletedDateFrom != "" {
-				params["CompletedDateFrom"] = fmt.Sprintf("%v", flagCompletedDateFrom)
+				params["CompletedDateFrom"] = formatCLIParamValue(flagCompletedDateFrom)
 			}
 			if flagCompletedDateTo != "" {
-				params["CompletedDateTo"] = fmt.Sprintf("%v", flagCompletedDateTo)
+				params["CompletedDateTo"] = formatCLIParamValue(flagCompletedDateTo)
 			}
 			if flagLastActivityUpdateFrom != "" {
-				params["LastActivityUpdateFrom"] = fmt.Sprintf("%v", flagLastActivityUpdateFrom)
+				params["LastActivityUpdateFrom"] = formatCLIParamValue(flagLastActivityUpdateFrom)
 			}
 			if flagLastActivityUpdateTo != "" {
-				params["LastActivityUpdateTo"] = fmt.Sprintf("%v", flagLastActivityUpdateTo)
+				params["LastActivityUpdateTo"] = formatCLIParamValue(flagLastActivityUpdateTo)
 			}
 			if flagCreatedOnFrom != "" {
-				params["CreatedOnFrom"] = fmt.Sprintf("%v", flagCreatedOnFrom)
+				params["CreatedOnFrom"] = formatCLIParamValue(flagCreatedOnFrom)
 			}
 			if flagCreatedOnTo != "" {
-				params["CreatedOnTo"] = fmt.Sprintf("%v", flagCreatedOnTo)
+				params["CreatedOnTo"] = formatCLIParamValue(flagCreatedOnTo)
 			}
 			if flagLastStatusUpdateFrom != "" {
-				params["LastStatusUpdateFrom"] = fmt.Sprintf("%v", flagLastStatusUpdateFrom)
+				params["LastStatusUpdateFrom"] = formatCLIParamValue(flagLastStatusUpdateFrom)
 			}
 			if flagLastStatusUpdateTo != "" {
-				params["LastStatusUpdateTo"] = fmt.Sprintf("%v", flagLastStatusUpdateTo)
+				params["LastStatusUpdateTo"] = formatCLIParamValue(flagLastStatusUpdateTo)
 			}
 			if flagLastPriorityUpdateFrom != "" {
-				params["LastPriorityUpdateFrom"] = fmt.Sprintf("%v", flagLastPriorityUpdateFrom)
+				params["LastPriorityUpdateFrom"] = formatCLIParamValue(flagLastPriorityUpdateFrom)
 			}
 			if flagLastPriorityUpdateTo != "" {
-				params["LastPriorityUpdateTo"] = fmt.Sprintf("%v", flagLastPriorityUpdateTo)
+				params["LastPriorityUpdateTo"] = formatCLIParamValue(flagLastPriorityUpdateTo)
 			}
 			if flagLastQueueUpdateFrom != "" {
-				params["LastQueueUpdateFrom"] = fmt.Sprintf("%v", flagLastQueueUpdateFrom)
+				params["LastQueueUpdateFrom"] = formatCLIParamValue(flagLastQueueUpdateFrom)
 			}
 			if flagLastQueueUpdateTo != "" {
-				params["LastQueueUpdateTo"] = fmt.Sprintf("%v", flagLastQueueUpdateTo)
+				params["LastQueueUpdateTo"] = formatCLIParamValue(flagLastQueueUpdateTo)
 			}
 			if flagDueDateFrom != "" {
-				params["DueDateFrom"] = fmt.Sprintf("%v", flagDueDateFrom)
+				params["DueDateFrom"] = formatCLIParamValue(flagDueDateFrom)
 			}
 			if flagDueDateTo != "" {
-				params["DueDateTo"] = fmt.Sprintf("%v", flagDueDateTo)
+				params["DueDateTo"] = formatCLIParamValue(flagDueDateTo)
 			}
 			if flagResolutionTargetTimeFrom != "" {
-				params["ResolutionTargetTimeFrom"] = fmt.Sprintf("%v", flagResolutionTargetTimeFrom)
+				params["ResolutionTargetTimeFrom"] = formatCLIParamValue(flagResolutionTargetTimeFrom)
 			}
 			if flagResolutionTargetTimeTo != "" {
-				params["ResolutionTargetTimeTo"] = fmt.Sprintf("%v", flagResolutionTargetTimeTo)
+				params["ResolutionTargetTimeTo"] = formatCLIParamValue(flagResolutionTargetTimeTo)
 			}
 			if flagContactId != "" {
-				params["ContactId"] = fmt.Sprintf("%v", flagContactId)
+				params["ContactId"] = formatCLIParamValue(flagContactId)
 			}
 			if flagHardwareAssetId != "" {
-				params["HardwareAssetId"] = fmt.Sprintf("%v", flagHardwareAssetId)
+				params["HardwareAssetId"] = formatCLIParamValue(flagHardwareAssetId)
 			}
 			if flagAccountLocationId != "" {
-				params["AccountLocationId"] = fmt.Sprintf("%v", flagAccountLocationId)
+				params["AccountLocationId"] = formatCLIParamValue(flagAccountLocationId)
 			}
 			if flagAccountIds != "" {
-				params["AccountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["AccountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			if flagSLAEventStatusIds != "" {
-				params["SLAEventStatusIds"] = fmt.Sprintf("%v", flagSLAEventStatusIds)
+				params["SLAEventStatusIds"] = formatCLIParamValue(flagSLAEventStatusIds)
 			}
 			if flagFromDate != "" {
-				params["FromDate"] = fmt.Sprintf("%v", flagFromDate)
+				params["FromDate"] = formatCLIParamValue(flagFromDate)
 			}
 			if flagToDate != "" {
-				params["ToDate"] = fmt.Sprintf("%v", flagToDate)
+				params["ToDate"] = formatCLIParamValue(flagToDate)
 			}
 			if flagValue != "" {
-				params["Value"] = fmt.Sprintf("%v", flagValue)
+				params["Value"] = formatCLIParamValue(flagValue)
 			}
 			if flagActionType != 0 {
-				params["ActionType"] = fmt.Sprintf("%v", flagActionType)
+				params["ActionType"] = formatCLIParamValue(flagActionType)
 			}
 			if flagHardwareAssetName != "" {
-				params["HardwareAssetName"] = fmt.Sprintf("%v", flagHardwareAssetName)
+				params["HardwareAssetName"] = formatCLIParamValue(flagHardwareAssetName)
 			}
 			if flagOwnerIds != "" {
-				params["OwnerIds"] = fmt.Sprintf("%v", flagOwnerIds)
+				params["OwnerIds"] = formatCLIParamValue(flagOwnerIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "servicedesk", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

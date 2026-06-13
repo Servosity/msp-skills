@@ -45,10 +45,10 @@ func newRecoveryVaultsPolicyCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "account_id", args[0])
 			params := map[string]string{}
 			if flagVaultId != "" {
-				params["vaultId"] = fmt.Sprintf("%v", flagVaultId)
+				params["vaultId"] = formatCLIParamValue(flagVaultId)
 			}
 			if flagPolicyName != "" {
-				params["policyName"] = fmt.Sprintf("%v", flagPolicyName)
+				params["policyName"] = formatCLIParamValue(flagPolicyName)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "recovery-vaults", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

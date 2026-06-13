@@ -35,9 +35,9 @@ func newWorkflowsCustomFieldSelectionsListWorkflowCmd(flags *rootFlags) *cobra.C
 			path := "/v1/workflows/{workflow_id}/custom_field_selections"
 			path = replacePathParam(path, "workflow_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "custom-field-selections", path, map[string]string{
-				"include":      fmt.Sprintf("%v", flagInclude),
-				"page[number]": fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":   fmt.Sprintf("%v", flagPageSize),
+				"include":      formatCLIParamValue(flagInclude),
+				"page[number]": formatCLIParamValue(flagPageNumber),
+				"page[size]":   formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

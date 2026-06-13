@@ -30,13 +30,13 @@ func newProcedureTasksListCmd(flags *rootFlags) *cobra.Command {
 			path := "/procedure_tasks"
 			params := map[string]string{}
 			if flagProcedureId != "" {
-				params["procedure_id"] = fmt.Sprintf("%v", flagProcedureId)
+				params["procedure_id"] = formatCLIParamValue(flagProcedureId)
 			}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPageSize != 0 {
-				params["page_size"] = fmt.Sprintf("%v", flagPageSize)
+				params["page_size"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "procedure-tasks", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

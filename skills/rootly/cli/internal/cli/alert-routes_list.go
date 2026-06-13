@@ -32,11 +32,11 @@ func newAlertRoutesListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/alert_routes"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "alert-routes", path, map[string]string{
-				"page[number]":   fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":     fmt.Sprintf("%v", flagPageSize),
-				"filter[search]": fmt.Sprintf("%v", flagFilterSearch),
-				"filter[name]":   fmt.Sprintf("%v", flagFilterName),
-				"sort":           fmt.Sprintf("%v", flagSort),
+				"page[number]":   formatCLIParamValue(flagPageNumber),
+				"page[size]":     formatCLIParamValue(flagPageSize),
+				"filter[search]": formatCLIParamValue(flagFilterSearch),
+				"filter[name]":   formatCLIParamValue(flagFilterName),
+				"sort":           formatCLIParamValue(flagSort),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

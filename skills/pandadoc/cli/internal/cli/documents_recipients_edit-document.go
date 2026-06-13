@@ -41,7 +41,7 @@ func newDocumentsRecipientsEditDocumentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "edit-document <id> <recipient_id>",
 		Aliases:     []string{"update"},
 		Short:       "Modify recipient's personal details.",
-		Example:     "  pandadoc-cli documents recipients edit-document 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents recipients edit-document BhVzRcxH9Z2LgfPPGXFUBa tf5dGS3Tmu3cj228ao6fnc",
 		Annotations: map[string]string{"pp:endpoint": "recipients.edit-document", "pp:method": "PATCH", "pp:path": "/documents/{id}/recipients/recipient/{recipient_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

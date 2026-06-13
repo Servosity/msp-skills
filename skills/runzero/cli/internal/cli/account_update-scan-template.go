@@ -55,7 +55,7 @@ func newAccountUpdateScanTemplateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update-scan-template",
 		Short:       "Update scan template",
-		Example:     "  runzero-cli account update-scan-template --id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  runzero-cli account update-scan-template --id e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8",
 		Annotations: map[string]string{"pp:endpoint": "account.update-scan-template", "pp:method": "PUT", "pp:path": "/account/tasks/templates"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

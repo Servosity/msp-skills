@@ -28,7 +28,7 @@ func newFacebookDetailsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/FacebookDetails"
 			params := map[string]string{}
 			if flagPageId != "" {
-				params["page_id"] = fmt.Sprintf("%v", flagPageId)
+				params["page_id"] = formatCLIParamValue(flagPageId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "facebook-details", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -16,9 +16,10 @@ func newListMailQuarantineMessagePromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-mail-quarantine-message",
-		Short:       "List mail quarantine message",
-		Long:        "List mail quarantine message",
+		Use:   "list-mail-quarantine-message",
+		Short: "List mail quarantine message",
+		Long:  "List mail quarantine message",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-mail-quarantine-message --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-mail-quarantine-message.list", "pp:method": "GET", "pp:path": "/ListMailQuarantineMessage", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,10 +41,10 @@ func newListMailQuarantineMessagePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListMailQuarantineMessage"
 			params := map[string]string{}
 			if flagIdentity != "" {
-				params["Identity"] = fmt.Sprintf("%v", flagIdentity)
+				params["Identity"] = formatCLIParamValue(flagIdentity)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-mail-quarantine-message", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

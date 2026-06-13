@@ -31,10 +31,10 @@ func newIntegrationDataListIntegrationdata51Cmd(flags *rootFlags) *cobra.Command
 
 			path := "/IntegrationData/Get/KaseyaVSA"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", path, map[string]string{
-				"datatype":    fmt.Sprintf("%v", flagDatatype),
-				"extrafilter": fmt.Sprintf("%v", flagExtrafilter),
-				"keyPair":     fmt.Sprintf("%v", flagKeyPair),
-				"page":        fmt.Sprintf("%v", flagPage),
+				"datatype":    formatCLIParamValue(flagDatatype),
+				"extrafilter": formatCLIParamValue(flagExtrafilter),
+				"keyPair":     formatCLIParamValue(flagKeyPair),
+				"page":        formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

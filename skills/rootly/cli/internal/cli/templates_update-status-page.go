@@ -27,9 +27,10 @@ func newTemplatesUpdateStatusPageCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update-status-page <id>",
-		Aliases:     []string{"update"},
-		Short:       "Update a specific template event by id",
+		Use:     "update-status-page <id>",
+		Aliases: []string{"update"},
+		Short:   "Update a specific template event by id",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  rootly-cli templates update-status-page 550e8400-e29b-41d4-a716-446655440000 --body example-value",
 		Annotations: map[string]string{"pp:endpoint": "templates.update-status-page", "pp:method": "PUT", "pp:path": "/v1/templates/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

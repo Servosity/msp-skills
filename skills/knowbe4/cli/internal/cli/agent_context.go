@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "knowbe4-cli",
-			Description: "Every KnowBe4 KMSAT reporting feature",
+			Description: "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

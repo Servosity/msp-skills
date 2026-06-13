@@ -100,7 +100,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export SYNCRO_API_KEY=<your-key>"
+					report["auth_hint"] = "Set your API key with: export SYNCRO_API_KEY=\"your-token-here\""
 					report["auth_key_url"] = "https://syncromsp.com"
 				} else {
 					authConfigured = true

@@ -14,8 +14,7 @@ import (
 func newSystemInfoCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "get",
-		Aliases:     []string{"info"},
+		Use:         "info",
 		Short:       "Get the Console build, version, patch, and release information.",
 		Example:     "  sentinelone-cli system info",
 		Annotations: map[string]string{"pp:endpoint": "system.info", "pp:method": "GET", "pp:path": "/system/info", "mcp:read-only": "true"},

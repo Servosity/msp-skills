@@ -20,7 +20,7 @@ func newPublicAddDsvNamedItemsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "add-dsv-named-items <document_id>",
 		Aliases:     []string{"create"},
 		Short:       "Adds one or more named items to the specified document by ID.",
-		Example:     "  pandadoc-cli public add-dsv-named-items 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli public add-dsv-named-items BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "public.add-dsv-named-items", "pp:method": "POST", "pp:path": "/public/v2/dsv/{document_id}/add-named-items"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

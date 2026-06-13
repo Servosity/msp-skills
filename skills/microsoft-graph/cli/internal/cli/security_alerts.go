@@ -31,16 +31,16 @@ func newSecurityAlertsCmd(flags *rootFlags) *cobra.Command {
 			path := "/security/alerts_v2"
 			params := map[string]string{}
 			if flagFilter != "" {
-				params["$filter"] = fmt.Sprintf("%v", flagFilter)
+				params["$filter"] = formatCLIParamValue(flagFilter)
 			}
 			if flagTop != 0 {
-				params["$top"] = fmt.Sprintf("%v", flagTop)
+				params["$top"] = formatCLIParamValue(flagTop)
 			}
 			if flagSkip != 0 {
-				params["$skip"] = fmt.Sprintf("%v", flagSkip)
+				params["$skip"] = formatCLIParamValue(flagSkip)
 			}
 			if flagSelect != "" {
-				params["$select"] = fmt.Sprintf("%v", flagSelect)
+				params["$select"] = formatCLIParamValue(flagSelect)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "security", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

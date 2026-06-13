@@ -9,23 +9,23 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"halopsa-pp-cli/internal/store"
 )
 
-// newTimeCmd is a novel-features parent ("time gaps"), separate from the
+// newNovelTimeCmd is a novel-features parent ("time gaps"), separate from the
 // generated "timesheet" CRUD parent.
 // pp:data-source local
-func newTimeCmd(flags *rootFlags) *cobra.Command {
+func newNovelTimeCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "time",
 		Short: "Time-entry analytics across local + live data",
 		Long:  "Cross-entity time analyses (e.g. 'gaps') that the API doesn't expose directly.",
 	}
-	cmd.AddCommand(newTimeGapsCmd(flags))
+	cmd.AddCommand(newNovelTimeGapsCmd(flags))
+	cmd.AddCommand(newNovelTimeLeaksCmd(flags))
 	return cmd
 }
 
-func newTimeGapsCmd(flags *rootFlags) *cobra.Command {
+func newNovelTimeGapsCmd(flags *rootFlags) *cobra.Command {
 	var (
 		dbPath string
 		agent  string
@@ -57,7 +57,7 @@ The Friday-timesheet reconcile.`,
 			if err != nil {
 				return fmt.Errorf("--week %q: %w", week, err)
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := halopsaOpenStoreSchemaAware(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'halopsa-cli sync' first.", err)
 			}

@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -256,4 +257,49 @@ func fmtFloat(n float64) string {
 // whitespace collapsed.
 func kbmsNormName(name string) string {
 	return strings.Join(strings.Fields(strings.ToLower(name)), " ")
+}
+
+// kbmsOpenStore opens the local mirror for the read-only novel commands. It
+// prefers a read-only handle when the schema already exists (read-only takes no
+// write lock, so parallel novel commands don't collide with SQLITE_BUSY) and
+// falls back to a read-write open that migrates when the DB is absent or not yet
+// built, inside a short retry that rides out the first-run create/migrate race.
+func kbmsOpenStore(ctx context.Context, dbPath string) (*store.Store, error) {
+	if dbPath == "" {
+		dbPath = defaultDBPath("kaseya-bms-cli")
+	}
+	var lastErr error
+	for attempt := 0; attempt < 8; attempt++ {
+		if st, ok := kbmsTryReadOnlyMigrated(dbPath); ok {
+			return st, nil
+		}
+		st, err := store.OpenWithContext(ctx, dbPath)
+		if err == nil {
+			return st, nil
+		}
+		lastErr = err
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		time.Sleep(time.Duration(20*(attempt+1)) * time.Millisecond)
+	}
+	return nil, lastErr
+}
+
+// kbmsTryReadOnlyMigrated opens read-only only when the file exists AND the
+// resources table is present (a prior read-write open finished migrating).
+func kbmsTryReadOnlyMigrated(path string) (*store.Store, bool) {
+	if _, err := os.Stat(path); err != nil {
+		return nil, false
+	}
+	st, err := store.OpenReadOnly(path)
+	if err != nil {
+		return nil, false
+	}
+	var one int
+	if err := st.DB().QueryRow(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='resources' LIMIT 1`).Scan(&one); err != nil {
+		_ = st.Close()
+		return nil, false
+	}
+	return st, true
 }

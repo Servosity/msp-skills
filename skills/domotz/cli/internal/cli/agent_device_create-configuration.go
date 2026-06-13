@@ -19,8 +19,9 @@ func newAgentDeviceCreateConfigurationCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create-configuration <agent_id> <device_id>",
-		Short:       "Creates a device configuration backup in the configuration history.",
+		Use:   "create-configuration <agent_id> <device_id>",
+		Short: "Creates a device configuration backup in the configuration history.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  domotz-cli agent device create-configuration 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --label example-value",
 		Annotations: map[string]string{"pp:endpoint": "device.create-configuration", "pp:method": "POST", "pp:path": "/agent/{agent_id}/device/{device_id}/configuration-management/history"},
 		RunE: func(cmd *cobra.Command, args []string) error {

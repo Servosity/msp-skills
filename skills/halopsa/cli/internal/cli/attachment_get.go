@@ -37,13 +37,13 @@ func newAttachmentGetCmd(flags *rootFlags) *cobra.Command {
 			}
 			params := map[string]string{}
 			if flagChildticketid != "" {
-				params["childticketid"] = fmt.Sprintf("%v", flagChildticketid)
+				params["childticketid"] = formatCLIParamValue(flagChildticketid)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagToken != "" {
-				params["token"] = fmt.Sprintf("%v", flagToken)
+				params["token"] = formatCLIParamValue(flagToken)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "attachment", false, path, params, headerOverrides, cmd.ErrOrStderr())
 			if err != nil {

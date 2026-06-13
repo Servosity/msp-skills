@@ -97,21 +97,15 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			// Check auth
 			authConfigured := false
 			if cfg != nil {
-				switch {
-				case cfg.AuthHeader() != "":
+				header := cfg.AuthHeader()
+				if header == "" {
+					report["auth"] = "not configured"
+					report["auth_hint"] = "Set it with: action1-cli auth set-token <token> or export ACTION1_OAUTH2=\"your-token-here\""
+					report["auth_docs_url"] = "https://app.action1.com/support/"
+				} else {
 					authConfigured = true
 					report["auth"] = "configured"
 					report["auth_source"] = cfg.AuthSource
-				case cfg.ClientID != "" && cfg.ClientSecret != "":
-					// Client-credentials present but no token minted yet — the
-					// client mints one on the first authenticated request.
-					authConfigured = true
-					report["auth"] = "configured (client-credentials; token minted on demand)"
-					report["auth_source"] = cfg.AuthSource
-				default:
-					report["auth"] = "not configured"
-					report["auth_hint"] = "set ACTION1_CLIENT_ID and ACTION1_CLIENT_SECRET, or export ACTION1_OAUTH2=<token>"
-					report["auth_docs_url"] = "https://app.action1.com/support/"
 				}
 			}
 
@@ -124,8 +118,6 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			authEnvOptionalSatisfied := false
 			if os.Getenv("ACTION1_OAUTH2") != "" {
 				authEnvSet = append(authEnvSet, "ACTION1_OAUTH2")
-			} else if os.Getenv("ACTION1_CLIENT_ID") != "" && os.Getenv("ACTION1_CLIENT_SECRET") != "" {
-				authEnvInfo = append(authEnvInfo, "client-credentials set (ACTION1_CLIENT_ID + ACTION1_CLIENT_SECRET)")
 			} else if authConfigured {
 				authSource, _ := report["auth_source"].(string)
 				if authSource == "" {
@@ -200,21 +192,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 
 					// Step 2: Validate credentials with an authenticated probe.
 					authHeader := cfg.AuthHeader()
-					if authHeader == "" && cfg.ClientID != "" && cfg.ClientSecret != "" {
-						// Client-credentials: step 1's /me probe went through the
-						// client's mint path, so it was already authenticated.
-						var ccErr *client.APIError
-						switch {
-						case reachErr == nil:
-							report["credentials"] = "valid"
-						case errors.As(reachErr, &ccErr) && ccErr.StatusCode == 401:
-							report["credentials"] = "invalid (HTTP 401) — check ACTION1_CLIENT_ID / ACTION1_CLIENT_SECRET"
-						case errors.As(reachErr, &ccErr):
-							report["credentials"] = fmt.Sprintf("token minted; /me returned HTTP %d", ccErr.StatusCode)
-						default:
-							report["credentials"] = "skipped (API unreachable)"
-						}
-					} else if authHeader == "" {
+					if authHeader == "" {
 						// No auth configured — skip credential validation
 					} else if reachErr != nil && !errors.As(reachErr, &reachAPIErr) {
 						report["credentials"] = "skipped (API unreachable)"

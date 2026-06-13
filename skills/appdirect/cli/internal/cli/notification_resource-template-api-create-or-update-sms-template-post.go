@@ -22,8 +22,9 @@ func newNotificationResourceTemplateApiCreateOrUpdateSmsTemplatePostCmd(flags *r
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "resource-template-api-create-or-update-sms-template-post",
-		Short:       "This call create a new element or updates an existing SMS template.",
+		Use:   "resource-template-api-create-or-update-sms-template-post",
+		Short: "This call create a new element or updates an existing SMS template.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli notification resource-template-api-create-or-update-sms-template-post --content example-value",
 		Annotations: map[string]string{"pp:endpoint": "notification.resource-template-api-create-or-update-sms-template-post", "pp:method": "POST", "pp:path": "/notification/v1/templates/sms"},
 		RunE: func(cmd *cobra.Command, args []string) error {

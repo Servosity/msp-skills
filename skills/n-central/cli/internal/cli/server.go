@@ -11,6 +11,7 @@ func newServerCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "server",
 		Short:       "Server info and health.",
+		Hidden:      true,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

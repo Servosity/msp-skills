@@ -17,8 +17,9 @@ func newCrmPostV4AssociationsFromObjectTypeToObjectTypeBatchCreateCreateCmd(flag
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-v4-associations-from-object-type-to-object-type-batch-create-create <fromObjectType> <toObjectType>",
-		Short:       "Batch create associations for objects",
+		Use:   "post-v4-associations-from-object-type-to-object-type-batch-create-create <fromObjectType> <toObjectType>",
+		Short: "Batch create associations for objects",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli crm post-v4-associations-from-object-type-to-object-type-batch-create-create example-value example-value",
 		Annotations: map[string]string{"pp:endpoint": "crm.post-v4-associations-from-object-type-to-object-type-batch-create-create", "pp:method": "POST", "pp:path": "/crm/v4/associations/{fromObjectType}/{toObjectType}/batch/create"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "runzero-mcp",
   "display_name": "runZero",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice.",
   "author": {
     "name": "Servosity Inc."
@@ -36,10 +36,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T21:57:47.978698Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:05:34.66612Z",
     "spec_checksum": "sha256:d993636e94e1ef7357fa720ee70320198b9471c00d07b14b31a8af6969460107",
     "spec_format": "openapi3"
   }

@@ -160,8 +160,9 @@ func newProjectPostTicketsCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-tickets",
-		Short:       "Post ProjectTicket",
+		Use:   "post-tickets",
+		Short: "Post ProjectTicket",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  connectwise-manage-cli project post-tickets --summary example-value",
 		Annotations: map[string]string{"pp:endpoint": "project.post-tickets", "pp:method": "POST", "pp:path": "/project/tickets"},
 		RunE: func(cmd *cobra.Command, args []string) error {

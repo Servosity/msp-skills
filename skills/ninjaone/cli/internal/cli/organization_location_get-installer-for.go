@@ -48,7 +48,7 @@ func newOrganizationLocationGetInstallerForCmd(flags *rootFlags) *cobra.Command 
 				return usageErr(fmt.Errorf("location_id is required\nUsage: %s <%s>", cmd.CommandPath(), "location_id"))
 			}
 			path = replacePathParam(path, "location_id", args[1])
-			path = replacePathParam(path, "installer_type", fmt.Sprintf("%v", flagInstallerType))
+			path = replacePathParam(path, "installer_type", formatCLIParamValue(flagInstallerType))
 			params := map[string]string{}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "location", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

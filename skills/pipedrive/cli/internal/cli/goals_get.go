@@ -80,43 +80,43 @@ func newGoalsGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/goals/find"
 			params := map[string]string{}
 			if flagTypeName != "" {
-				params["type.name"] = fmt.Sprintf("%v", flagTypeName)
+				params["type.name"] = formatCLIParamValue(flagTypeName)
 			}
 			if flagTitle != "" {
-				params["title"] = fmt.Sprintf("%v", flagTitle)
+				params["title"] = formatCLIParamValue(flagTitle)
 			}
 			if flagIsActive != false {
-				params["is_active"] = fmt.Sprintf("%v", flagIsActive)
+				params["is_active"] = formatCLIParamValue(flagIsActive)
 			}
 			if flagAssigneeId != "" {
-				params["assignee.id"] = fmt.Sprintf("%v", flagAssigneeId)
+				params["assignee.id"] = formatCLIParamValue(flagAssigneeId)
 			}
 			if flagAssigneeType != "" {
-				params["assignee.type"] = fmt.Sprintf("%v", flagAssigneeType)
+				params["assignee.type"] = formatCLIParamValue(flagAssigneeType)
 			}
 			if flagExpectedOutcomeTarget != 0.0 {
-				params["expected_outcome.target"] = fmt.Sprintf("%v", flagExpectedOutcomeTarget)
+				params["expected_outcome.target"] = formatCLIParamValue(flagExpectedOutcomeTarget)
 			}
 			if flagExpectedOutcomeTrackingMetric != "" {
-				params["expected_outcome.tracking_metric"] = fmt.Sprintf("%v", flagExpectedOutcomeTrackingMetric)
+				params["expected_outcome.tracking_metric"] = formatCLIParamValue(flagExpectedOutcomeTrackingMetric)
 			}
 			if flagExpectedOutcomeCurrencyId != "" {
-				params["expected_outcome.currency_id"] = fmt.Sprintf("%v", flagExpectedOutcomeCurrencyId)
+				params["expected_outcome.currency_id"] = formatCLIParamValue(flagExpectedOutcomeCurrencyId)
 			}
 			if flagTypeParamsPipelineId != "" {
-				params["type.params.pipeline_id"] = fmt.Sprintf("%v", flagTypeParamsPipelineId)
+				params["type.params.pipeline_id"] = formatCLIParamValue(flagTypeParamsPipelineId)
 			}
 			if flagTypeParamsStageId != "" {
-				params["type.params.stage_id"] = fmt.Sprintf("%v", flagTypeParamsStageId)
+				params["type.params.stage_id"] = formatCLIParamValue(flagTypeParamsStageId)
 			}
 			if flagTypeParamsActivityTypeId != "" {
-				params["type.params.activity_type_id"] = fmt.Sprintf("%v", flagTypeParamsActivityTypeId)
+				params["type.params.activity_type_id"] = formatCLIParamValue(flagTypeParamsActivityTypeId)
 			}
 			if flagPeriodStart != "" {
-				params["period.start"] = fmt.Sprintf("%v", flagPeriodStart)
+				params["period.start"] = formatCLIParamValue(flagPeriodStart)
 			}
 			if flagPeriodEnd != "" {
-				params["period.end"] = fmt.Sprintf("%v", flagPeriodEnd)
+				params["period.end"] = formatCLIParamValue(flagPeriodEnd)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "goals", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

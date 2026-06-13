@@ -20,8 +20,9 @@ func newEnvironmentsCreateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Creates a single Liongard Environment.",
+		Use:   "create",
+		Short: "Creates a single Liongard Environment.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  liongard-cli environments create --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "environments.create", "pp:method": "POST", "pp:path": "/environments"},
 		RunE: func(cmd *cobra.Command, args []string) error {

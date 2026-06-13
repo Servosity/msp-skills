@@ -9,11 +9,10 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"halopsa-pp-cli/internal/store"
 )
 
 // pp:data-source local
-func newStandupCmd(flags *rootFlags) *cobra.Command {
+func newNovelStandupCmd(flags *rootFlags) *cobra.Command {
 	var (
 		dbPath string
 		team   string
@@ -48,7 +47,7 @@ Run 'halopsa-cli sync' first.`,
 			if err != nil {
 				return fmt.Errorf("--since %q: %w", since, err)
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := halopsaOpenStoreSchemaAware(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'halopsa-cli sync' first.", err)
 			}

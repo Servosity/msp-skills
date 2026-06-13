@@ -15,8 +15,9 @@ func newFiltersDeleteCmd(flags *rootFlags) *cobra.Command {
 	var flagIds string
 
 	cmd := &cobra.Command{
-		Use:         "delete",
-		Short:       "Marks multiple filters as deleted.",
+		Use:   "delete",
+		Short: "Marks multiple filters as deleted.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pipedrive-cli filters delete --ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "filters.delete", "pp:method": "DELETE", "pp:path": "/filters"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newFiltersDeleteCmd(flags *rootFlags) *cobra.Command {
 			path := "/filters"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

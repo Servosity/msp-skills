@@ -20,8 +20,9 @@ func newSalesPutOpportunitiesTypesByIdCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "put-opportunities-types-by-id <id>",
-		Short:       "Put OpportunityType",
+		Use:   "put-opportunities-types-by-id <id>",
+		Short: "Put OpportunityType",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  connectwise-manage-cli sales put-opportunities-types-by-id 550e8400-e29b-41d4-a716-446655440000 --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "sales.put-opportunities-types-by-id", "pp:method": "PUT", "pp:path": "/sales/opportunities/types/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

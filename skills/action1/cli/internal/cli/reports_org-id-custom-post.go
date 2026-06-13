@@ -25,9 +25,10 @@ func newReportsOrgIdCustomPostCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "org-id-custom-post",
-		Aliases:     []string{"create"},
-		Short:       "**Requires permission: `manage_reports`** Creates a custom report in the predefined Custom report category.",
+		Use:     "org-id-custom-post",
+		Aliases: []string{"create"},
+		Short:   "**Requires permission: `manage_reports`** Creates a custom report in the predefined Custom report category.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  action1-cli reports org-id-custom-post --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "reports.org-id-custom-post", "pp:method": "POST", "pp:path": "/reports/all/custom"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -20,7 +20,7 @@ func newDocumentsRecipientsReassignDocumentCmd(flags *rootFlags) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:         "reassign-document <id> <recipient_id>",
 		Short:       "Reassign fields to another signer.",
-		Example:     "  pandadoc-cli documents recipients reassign-document 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --id-2 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents recipients reassign-document BhVzRcxH9Z2LgfPPGXFUBa tf5dGS3Tmu3cj228ao6fnc --id-2 2eWSKSvVqmuVCnuUK3iWwD",
 		Annotations: map[string]string{"pp:endpoint": "recipients.reassign-document", "pp:method": "POST", "pp:path": "/documents/{id}/recipients/{recipient_id}/reassign"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

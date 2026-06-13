@@ -20,7 +20,7 @@ func newBankTransactionsHistoryCreateBankTransactionRecordCmd(flags *rootFlags) 
 		Use:         "create-bank-transaction-record <BankTransactionID>",
 		Aliases:     []string{"update"},
 		Short:       "Creates a history record for a specific bank transactions",
-		Example:     "  xero-cli bank-transactions history create-bank-transaction-record 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  xero-cli bank-transactions history create-bank-transaction-record 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "history.create-bank-transaction-record", "pp:method": "PUT", "pp:path": "/BankTransactions/{BankTransactionID}/History"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

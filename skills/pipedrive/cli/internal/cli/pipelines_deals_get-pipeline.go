@@ -40,14 +40,14 @@ func newPipelinesDealsGetPipelineCmd(flags *rootFlags) *cobra.Command {
 			path := "/pipelines/{id}/deals"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "deals", path, map[string]string{
-				"filter_id":               fmt.Sprintf("%v", flagFilterId),
-				"user_id":                 fmt.Sprintf("%v", flagUserId),
-				"everyone":                fmt.Sprintf("%v", flagEveryone),
-				"stage_id":                fmt.Sprintf("%v", flagStageId),
-				"start":                   fmt.Sprintf("%v", flagStart),
-				"limit":                   fmt.Sprintf("%v", flagLimit),
-				"get_summary":             fmt.Sprintf("%v", flagGetSummary),
-				"totals_convert_currency": fmt.Sprintf("%v", flagTotalsConvertCurrency),
+				"filter_id":               formatCLIParamValue(flagFilterId),
+				"user_id":                 formatCLIParamValue(flagUserId),
+				"everyone":                formatCLIParamValue(flagEveryone),
+				"stage_id":                formatCLIParamValue(flagStageId),
+				"start":                   formatCLIParamValue(flagStart),
+				"limit":                   formatCLIParamValue(flagLimit),
+				"get_summary":             formatCLIParamValue(flagGetSummary),
+				"totals_convert_currency": formatCLIParamValue(flagTotalsConvertCurrency),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

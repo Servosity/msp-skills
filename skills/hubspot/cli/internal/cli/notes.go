@@ -11,7 +11,7 @@ func newNovelNotesCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "notes",
-		Short:       "Signal extraction from synced note bodies",
+		Short:       "notes subcommands: signals",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

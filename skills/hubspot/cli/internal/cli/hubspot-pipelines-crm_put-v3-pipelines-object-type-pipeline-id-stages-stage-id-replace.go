@@ -19,8 +19,9 @@ func newHubspotPipelinesCrmPutV3PipelinesObjectTypePipelineIdStagesStageIdReplac
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "put-v3-pipelines-object-type-pipeline-id-stages-stage-id-replace <objectType> <pipelineId> <stageId>",
-		Short:       "Replace all the properties of an existing pipeline stage with the values provided.",
+		Use:   "put-v3-pipelines-object-type-pipeline-id-stages-stage-id-replace <objectType> <pipelineId> <stageId>",
+		Short: "Replace all the properties of an existing pipeline stage with the values provided.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-pipelines-crm put-v3-pipelines-object-type-pipeline-id-stages-stage-id-replace example-value 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --label example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-pipelines-crm.put-v3-pipelines-object-type-pipeline-id-stages-stage-id-replace", "pp:method": "PUT", "pp:path": "/crm/v3/pipelines/{objectType}/{pipelineId}/stages/{stageId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

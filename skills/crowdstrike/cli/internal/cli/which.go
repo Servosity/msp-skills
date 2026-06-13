@@ -27,7 +27,7 @@ type whichEntry struct {
 // `--help`; `which` exists to resolve a natural-language capability
 // query to one of the commands the skill says matter most.
 var whichIndex = []whichEntry{
-	{Command: "fleet sync", Description: "Pull hosts, alerts, vulnerabilities, and policies from every Flight Control child tenant into one local store keyed by CID.", Group: "Cross-tenant fleet intelligence", WhyItMatters: "Reach for this first: it builds the offline fleet store every other fleet command reads from."},
+	{Command: "fleet sync", Description: "Pull hosts, alerts, vulnerabilities, policies, and the Flight Control fabric from every child tenant into one local store keyed by CID. Requires a parent-CID API client with Flight Control (MSSP) scope; without it, sync degrades to the single authenticated CID.", Group: "Cross-tenant fleet intelligence", WhyItMatters: "Reach for this first: it builds the offline fleet store every other fleet command reads from."},
 	{Command: "fleet scorecard", Description: "One posture board across all tenants: host count, sensor coverage, open critical alerts, critical vulns, and policy posture per CID.", Group: "Cross-tenant fleet intelligence", WhyItMatters: "Use when an agent needs a whole-book-of-business health summary without dozens of live calls."},
 	{Command: "fleet vulns", Description: "Rank and filter Spotlight vulnerabilities across every tenant at once, by severity or CVE.", Group: "Cross-tenant fleet intelligence", WhyItMatters: "Use to answer 'every critical exposure across all customers' in one shot."},
 	{Command: "fleet stale", Description: "Find hosts across all tenants whose sensor has not checked in within N days.", Group: "Cross-tenant fleet intelligence", WhyItMatters: "Use to catch coverage gaps (offline sensors) before they become blind spots."},
@@ -140,6 +140,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

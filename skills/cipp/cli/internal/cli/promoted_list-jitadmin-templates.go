@@ -18,9 +18,10 @@ func newListJitadminTemplatesPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyIncludeAllTenants2 string
 
 	cmd := &cobra.Command{
-		Use:         "list-jitadmin-templates",
-		Short:       "List jitadmin templates",
-		Long:        "List jitadmin templates",
+		Use:   "list-jitadmin-templates",
+		Short: "List jitadmin templates",
+		Long:  "List jitadmin templates",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-jitadmin-templates --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-jitadmin-templates.create", "pp:method": "POST", "pp:path": "/ListJITAdminTemplates"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -42,13 +43,13 @@ func newListJitadminTemplatesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListJITAdminTemplates"
 			params := map[string]string{}
 			if flagGUID != "" {
-				params["GUID"] = fmt.Sprintf("%v", flagGUID)
+				params["GUID"] = formatCLIParamValue(flagGUID)
 			}
 			if flagIncludeAllTenants != "" {
-				params["includeAllTenants"] = fmt.Sprintf("%v", flagIncludeAllTenants)
+				params["includeAllTenants"] = formatCLIParamValue(flagIncludeAllTenants)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -60,10 +61,10 @@ func newListJitadminTemplatesPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

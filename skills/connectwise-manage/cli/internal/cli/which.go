@@ -30,8 +30,8 @@ var whichIndex = []whichEntry{
 	{Command: "unbilled", Description: "Find tickets you touched or closed in a window that have zero or under-threshold time logged against them.", Group: "Local joins that compound", WhyItMatters: "Reach for this before a billing cutoff or at end-of-day to catch revenue leaking from unlogged time."},
 	{Command: "account", Description: "One card for a company: contacts, active agreements, deployed configurations, open-ticket count, and last activity.", Group: "Local joins that compound", WhyItMatters: "Use it to prep a QBR or to get full context before any escalation call without clicking through tabs."},
 	{Command: "agreement-burn", Description: "Hours logged against an agreement's company in a period versus the agreement's allotment, as a utilization percentage with over/under flag.", Group: "Local joins that compound", WhyItMatters: "Use it to spot unprofitable clients before they blow their block-hours."},
-	{Command: "board", Description: "A grouped board view: tickets by status with age, owner, priority, and an SLA flag, joined to the tech who owns each.", Group: "Dispatcher views", WhyItMatters: "Reach for this for the morning queue sweep instead of reloading the web board view."},
-	{Command: "stale", Description: "Open tickets with no update older than N days, grouped by owner and board, sorted by age.", Group: "Dispatcher views", WhyItMatters: "Use it for the daily 'what's rotting on my board' pass before standup."},
+	{Command: "board", Description: "Open tickets on a board, oldest first, with each ticket's age, owner, status, and priority joined from the synced reference data.", Group: "Dispatcher views", WhyItMatters: "Reach for this for the morning queue sweep instead of reloading the web board view."},
+	{Command: "stale", Description: "Open tickets with no update in N days, oldest first, with board and owner columns so you see what's rotting and whose it is.", Group: "Dispatcher views", WhyItMatters: "Use it for the daily 'what's rotting on my board' pass before standup."},
 	{Command: "workload", Description: "Open ticket count and aging per tech, so you route the next ticket to whoever is lightest.", Group: "Dispatcher views", WhyItMatters: "Reach for this when deciding who should take a new escalation."},
 	{Command: "condition", Description: "Build a validated ConnectWise conditions expression from flags (handling string quoting, bracketed dates, and AND-default / OR-parentheses), or explain what an existing expression queries.", Group: "Query ergonomics", WhyItMatters: "Use it whenever a list command returns surprisingly empty — the DSL's quoting and AND/OR rules are the usual culprit."},
 }
@@ -137,6 +137,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

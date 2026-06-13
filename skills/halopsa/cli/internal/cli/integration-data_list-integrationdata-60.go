@@ -36,31 +36,31 @@ func newIntegrationDataListIntegrationdata60Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/MicrosoftCSP"
 			params := map[string]string{}
 			if flagAzuretenants != "" {
-				params["azuretenants"] = fmt.Sprintf("%v", flagAzuretenants)
+				params["azuretenants"] = formatCLIParamValue(flagAzuretenants)
 			}
 			if flagContinuationToken != "" {
-				params["continuationToken"] = fmt.Sprintf("%v", flagContinuationToken)
+				params["continuationToken"] = formatCLIParamValue(flagContinuationToken)
 			}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			if flagDetailsId != "" {
-				params["detailsId"] = fmt.Sprintf("%v", flagDetailsId)
+				params["detailsId"] = formatCLIParamValue(flagDetailsId)
 			}
 			if flagDoPaginate != false {
-				params["doPaginate"] = fmt.Sprintf("%v", flagDoPaginate)
+				params["doPaginate"] = formatCLIParamValue(flagDoPaginate)
 			}
 			if flagIsLookup != false {
-				params["isLookup"] = fmt.Sprintf("%v", flagIsLookup)
+				params["isLookup"] = formatCLIParamValue(flagIsLookup)
 			}
 			if flagKeyPair != false {
-				params["keyPair"] = fmt.Sprintf("%v", flagKeyPair)
+				params["keyPair"] = formatCLIParamValue(flagKeyPair)
 			}
 			if flagNextLink != "" {
-				params["nextLink"] = fmt.Sprintf("%v", flagNextLink)
+				params["nextLink"] = formatCLIParamValue(flagNextLink)
 			}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

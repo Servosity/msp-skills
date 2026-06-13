@@ -42,21 +42,21 @@ func newDevicesListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/devices"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "devices", path, map[string]string{
-				"group_id":                   fmt.Sprintf("%v", flagGroupId),
-				"ancestor_group_id":          fmt.Sprintf("%v", flagAncestorGroupId),
-				"tag_id":                     fmt.Sprintf("%v", flagTagId),
-				"hostname":                   fmt.Sprintf("%v", flagHostname),
-				"serial_number":              fmt.Sprintf("%v", flagSerialNumber),
-				"include_operating_system":   fmt.Sprintf("%v", flagIncludeOperatingSystem),
-				"include_cpus":               fmt.Sprintf("%v", flagIncludeCpus),
-				"include_memory":             fmt.Sprintf("%v", flagIncludeMemory),
-				"include_disks":              fmt.Sprintf("%v", flagIncludeDisks),
-				"include_network_interfaces": fmt.Sprintf("%v", flagIncludeNetworkInterfaces),
-				"include_motherboard":        fmt.Sprintf("%v", flagIncludeMotherboard),
-				"include_security":           fmt.Sprintf("%v", flagIncludeSecurity),
-				"limit":                      fmt.Sprintf("%v", flagLimit),
-				"starting_after":             fmt.Sprintf("%v", flagStartingAfter),
-				"ending_before":              fmt.Sprintf("%v", flagEndingBefore),
+				"group_id":                   formatCLIParamValue(flagGroupId),
+				"ancestor_group_id":          formatCLIParamValue(flagAncestorGroupId),
+				"tag_id":                     formatCLIParamValue(flagTagId),
+				"hostname":                   formatCLIParamValue(flagHostname),
+				"serial_number":              formatCLIParamValue(flagSerialNumber),
+				"include_operating_system":   formatCLIParamValue(flagIncludeOperatingSystem),
+				"include_cpus":               formatCLIParamValue(flagIncludeCpus),
+				"include_memory":             formatCLIParamValue(flagIncludeMemory),
+				"include_disks":              formatCLIParamValue(flagIncludeDisks),
+				"include_network_interfaces": formatCLIParamValue(flagIncludeNetworkInterfaces),
+				"include_motherboard":        formatCLIParamValue(flagIncludeMotherboard),
+				"include_security":           formatCLIParamValue(flagIncludeSecurity),
+				"limit":                      formatCLIParamValue(flagLimit),
+				"starting_after":             formatCLIParamValue(flagStartingAfter),
+				"ending_before":              formatCLIParamValue(flagEndingBefore),
 			}, nil, flagAll, "", "cursor", "limit", "", "has_more", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

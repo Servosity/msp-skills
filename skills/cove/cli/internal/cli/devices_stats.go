@@ -30,7 +30,7 @@ func newDevicesStatsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "stats",
 		Short:       "Query device statistics by column codes (JSON-RPC EnumerateAccountStatistics; see README column-code legend)",
 		Example:     "  cove-cli devices stats",
-		Annotations: map[string]string{"pp:endpoint": "devices.stats", "pp:method": "POST", "pp:path": "/jsonapi", "mcp:read-only": "true"},
+		Annotations: map[string]string{"pp:endpoint": "devices.stats", "pp:method": "POST", "pp:path": "/jsonapi"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
 			// instead of pflag's terse "required flag not set" error. Optional-
@@ -113,7 +113,7 @@ func newDevicesStatsCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 			}
-			data, statusCode, err := c.PostQueryWithParams(cmd.Context(), path, params, body)
+			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -134,6 +134,9 @@ func newDevicesStatsCmd(flags *rootFlags) *cobra.Command {
 						fmt.Fprintf(os.Stderr, "         succeeded: %d operation(s)\n", len(partialFailure.ResourceNames))
 					}
 				}
+			}
+			if !flags.dryRun && statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure) {
+				writeMutationResponseToStore(cmd.Context(), "devices", data, "result.result")
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")

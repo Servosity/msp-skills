@@ -16,8 +16,9 @@ func newIntegrationGetSalesTaxItemsByIdsCmd(flags *rootFlags) *cobra.Command {
 	var flagSalesTaxItemIds string
 
 	cmd := &cobra.Command{
-		Use:         "get-sales-tax-items-by-ids",
-		Short:       "Get sales tax items by ids",
+		Use:   "get-sales-tax-items-by-ids",
+		Short: "Get sales tax items by ids",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli integration get-sales-tax-items-by-ids --external-tenant-id 550e8400-e29b-41d4-a716-446655440000 --sales-tax-item-ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "integration.get-sales-tax-items-by-ids", "pp:method": "GET", "pp:path": "/v2/integration/qbd/salestaxitems/byids", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,10 +42,10 @@ func newIntegrationGetSalesTaxItemsByIdsCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/integration/qbd/salestaxitems/byids"
 			params := map[string]string{}
 			if flagExternalTenantId != "" {
-				params["ExternalTenantId"] = fmt.Sprintf("%v", flagExternalTenantId)
+				params["ExternalTenantId"] = formatCLIParamValue(flagExternalTenantId)
 			}
 			if flagSalesTaxItemIds != "" {
-				params["SalesTaxItemIds"] = fmt.Sprintf("%v", flagSalesTaxItemIds)
+				params["SalesTaxItemIds"] = formatCLIParamValue(flagSalesTaxItemIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

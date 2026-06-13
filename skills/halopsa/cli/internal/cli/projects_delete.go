@@ -32,7 +32,7 @@ func newProjectsDeleteCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagReason != "" {
-				params["reason"] = fmt.Sprintf("%v", flagReason)
+				params["reason"] = formatCLIParamValue(flagReason)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

@@ -66,18 +66,18 @@ func newInvoicesFindPartnerCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/invoices"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "invoices", path, map[string]string{
-				"page":                  fmt.Sprintf("%v", flagPage),
-				"size":                  fmt.Sprintf("%v", flagSize),
-				"sort":                  fmt.Sprintf("%v", flagSort),
-				"status":                fmt.Sprintf("%v", flagStatus),
-				"invoiceDate":           fmt.Sprintf("%v", flagInvoiceDate),
-				"invoiceDateRangeStart": fmt.Sprintf("%v", flagInvoiceDateRangeStart),
-				"invoiceDateRangeEnd":   fmt.Sprintf("%v", flagInvoiceDateRangeEnd),
-				"dueDate":               fmt.Sprintf("%v", flagDueDate),
-				"total":                 fmt.Sprintf("%v", flagTotal),
-				"balance":               fmt.Sprintf("%v", flagBalance),
-				"carriedBalance":        fmt.Sprintf("%v", flagCarriedBalance),
-				"companyId":             fmt.Sprintf("%v", flagCompanyId),
+				"page":                  formatCLIParamValue(flagPage),
+				"size":                  formatCLIParamValue(flagSize),
+				"sort":                  formatCLIParamValue(flagSort),
+				"status":                formatCLIParamValue(flagStatus),
+				"invoiceDate":           formatCLIParamValue(flagInvoiceDate),
+				"invoiceDateRangeStart": formatCLIParamValue(flagInvoiceDateRangeStart),
+				"invoiceDateRangeEnd":   formatCLIParamValue(flagInvoiceDateRangeEnd),
+				"dueDate":               formatCLIParamValue(flagDueDate),
+				"total":                 formatCLIParamValue(flagTotal),
+				"balance":               formatCLIParamValue(flagBalance),
+				"carriedBalance":        formatCLIParamValue(flagCarriedBalance),
+				"companyId":             formatCLIParamValue(flagCompanyId),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

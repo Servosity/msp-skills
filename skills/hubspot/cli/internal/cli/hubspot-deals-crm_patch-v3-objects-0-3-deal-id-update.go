@@ -46,7 +46,7 @@ func newHubspotDealsCrmPatchV3Objects03DealIdUpdateCmd(flags *rootFlags) *cobra.
 			path = replacePathParam(path, "dealId", args[0])
 			params := map[string]string{}
 			if flagIdProperty != "" {
-				params["idProperty"] = fmt.Sprintf("%v", flagIdProperty)
+				params["idProperty"] = formatCLIParamValue(flagIdProperty)
 			}
 			var body map[string]any
 			if stdinBody {

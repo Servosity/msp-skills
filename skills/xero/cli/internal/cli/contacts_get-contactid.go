@@ -16,7 +16,7 @@ func newContactsGetContactidCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-contactid <ContactID>",
 		Short:       "Retrieves a specific contacts in a Xero organisation using a unique contact Id",
-		Example:     "  xero-cli contacts get-contactid 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  xero-cli contacts get-contactid 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "contacts.get-contactid", "pp:method": "GET", "pp:path": "/Contacts/{ContactID}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

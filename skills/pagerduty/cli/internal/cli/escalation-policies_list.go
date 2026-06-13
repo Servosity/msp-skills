@@ -61,14 +61,14 @@ func newEscalationPoliciesListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/escalation_policies"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "escalation-policies", path, map[string]string{
-				"limit":      fmt.Sprintf("%v", flagLimit),
-				"offset":     fmt.Sprintf("%v", flagOffset),
-				"total":      fmt.Sprintf("%v", flagTotal),
-				"query":      fmt.Sprintf("%v", flagQuery),
-				"user_ids[]": fmt.Sprintf("%v", flagUserIds),
-				"team_ids[]": fmt.Sprintf("%v", flagTeamIds),
-				"include[]":  fmt.Sprintf("%v", flagInclude),
-				"sort_by":    fmt.Sprintf("%v", flagSortBy),
+				"limit":      formatCLIParamValue(flagLimit),
+				"offset":     formatCLIParamValue(flagOffset),
+				"total":      formatCLIParamValue(flagTotal),
+				"query":      formatCLIParamValue(flagQuery),
+				"user_ids[]": formatCLIParamValue(flagUserIds),
+				"team_ids[]": formatCLIParamValue(flagTeamIds),
+				"include[]":  formatCLIParamValue(flagInclude),
+				"sort_by":    formatCLIParamValue(flagSortBy),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -32,11 +32,11 @@ func newQueriesGetVolumesCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/queries/volumes"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "queries", path, map[string]string{
-				"df":       fmt.Sprintf("%v", flagDf),
-				"ts":       fmt.Sprintf("%v", flagTs),
-				"cursor":   fmt.Sprintf("%v", flagCursor),
-				"pageSize": fmt.Sprintf("%v", flagPageSize),
-				"include":  fmt.Sprintf("%v", flagInclude),
+				"df":       formatCLIParamValue(flagDf),
+				"ts":       formatCLIParamValue(flagTs),
+				"cursor":   formatCLIParamValue(flagCursor),
+				"pageSize": formatCLIParamValue(flagPageSize),
+				"include":  formatCLIParamValue(flagInclude),
 			}, nil, flagAll, "cursor", "cursor", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

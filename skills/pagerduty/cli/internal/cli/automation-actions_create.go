@@ -17,8 +17,9 @@ func newAutomationActionsCreateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a Script, Process Automation, or Runbook Automation action",
+		Use:   "create",
+		Short: "Create a Script, Process Automation, or Runbook Automation action",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pagerduty-cli automation-actions create --action example-value",
 		Annotations: map[string]string{"pp:endpoint": "automation-actions.create", "pp:method": "POST", "pp:path": "/automation_actions/actions"},
 		RunE: func(cmd *cobra.Command, args []string) error {

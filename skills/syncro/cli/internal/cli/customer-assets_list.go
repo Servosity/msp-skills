@@ -32,11 +32,11 @@ func newCustomerAssetsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/customer_assets"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "customer-assets", path, map[string]string{
-				"snmp_enabled":  fmt.Sprintf("%v", flagSnmpEnabled),
-				"customer_id":   fmt.Sprintf("%v", flagCustomerId),
-				"asset_type_id": fmt.Sprintf("%v", flagAssetTypeId),
-				"query":         fmt.Sprintf("%v", flagQuery),
-				"page":          fmt.Sprintf("%v", flagPage),
+				"snmp_enabled":  formatCLIParamValue(flagSnmpEnabled),
+				"customer_id":   formatCLIParamValue(flagCustomerId),
+				"asset_type_id": formatCLIParamValue(flagAssetTypeId),
+				"query":         formatCLIParamValue(flagQuery),
+				"page":          formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

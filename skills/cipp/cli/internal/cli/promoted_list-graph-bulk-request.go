@@ -18,9 +18,10 @@ func newListGraphBulkRequestPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-graph-bulk-request",
-		Short:       "List graph bulk request",
-		Long:        "List graph bulk request",
+		Use:   "list-graph-bulk-request",
+		Short: "List graph bulk request",
+		Long:  "List graph bulk request",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-graph-bulk-request --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-graph-bulk-request.create", "pp:method": "POST", "pp:path": "/ListGraphBulkRequest"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -60,10 +61,10 @@ func newListGraphBulkRequestPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

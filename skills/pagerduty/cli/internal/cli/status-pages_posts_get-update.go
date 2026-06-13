@@ -43,7 +43,7 @@ func newStatusPagesPostsGetUpdateCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("post_id is required\nUsage: %s <%s>", cmd.CommandPath(), "post_id"))
 			}
 			path = replacePathParam(path, "post_id", args[1])
-			path = replacePathParam(path, "post_update_id", fmt.Sprintf("%v", flagPostUpdateId))
+			path = replacePathParam(path, "post_update_id", formatCLIParamValue(flagPostUpdateId))
 			params := map[string]string{}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "posts", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

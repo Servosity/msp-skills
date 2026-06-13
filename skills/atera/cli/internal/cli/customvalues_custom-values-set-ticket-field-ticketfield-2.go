@@ -16,8 +16,9 @@ func newCustomvaluesCustomValuesSetTicketFieldTicketfield2Cmd(flags *rootFlags) 
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "custom-values-set-ticket-field-ticketfield-2 <ticketId> <fieldName> <value>",
-		Short:       "Set custom field value for specified Ticket",
+		Use:   "custom-values-set-ticket-field-ticketfield-2 <ticketId> <fieldName> <value>",
+		Short: "Set custom field value for specified Ticket",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  atera-cli customvalues custom-values-set-ticket-field-ticketfield-2 42 example-resource example-value",
 		Annotations: map[string]string{"pp:endpoint": "customvalues.custom-values-set-ticket-field-ticketfield-2", "pp:method": "PUT", "pp:path": "/customvalues/ticketfield/{ticketId}/{fieldName}/{value}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

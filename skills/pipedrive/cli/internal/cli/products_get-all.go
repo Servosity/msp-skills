@@ -32,10 +32,10 @@ func newProductsGetAllCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/products"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "products", path, map[string]string{
-				"filter_id": fmt.Sprintf("%v", flagFilterId),
-				"start":     fmt.Sprintf("%v", flagStart),
-				"limit":     fmt.Sprintf("%v", flagLimit),
-				"sort":      fmt.Sprintf("%v", flagSort),
+				"filter_id": formatCLIParamValue(flagFilterId),
+				"start":     formatCLIParamValue(flagStart),
+				"limit":     formatCLIParamValue(flagLimit),
+				"sort":      formatCLIParamValue(flagSort),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

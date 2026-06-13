@@ -14,8 +14,9 @@ import (
 func newDesktopImagesGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "get <account_id> <subscription_id> <resource_group> <image_name>",
-		Short:       "Get desktop image details",
+		Use:   "get <account_id> <subscription_id> <resource_group> <image_name>",
+		Short: "Get desktop image details",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  nerdio-cli desktop-images get 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "desktop-images.get", "pp:method": "GET", "pp:path": "/rest-api/v1/accounts/{account_id}/desktop-image/{subscription_id}/{resource_group}/{image_name}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -173,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export NCENTRAL_JWT=<your-key>"
+					report["auth_hint"] = "Set it with: n-central-cli auth set-token <token> or export NCENTRAL_JWT=\"your-token-here\""
 					report["auth_instructions"] = "Generate a JSON Web Token for an API-only user in N-central: Administration -> User Management -> Users -> select the API user -> API Access -> GENERATE JSON WEB TOKEN. MFA must be OFF on that user, and watch the password-expiry (default 90 days) which silently invalidates the JWT. Also set N_CENTRAL_BASE_URL to your tenant, e.g. https://yourmsp.ncod.n-able.com/api"
 				} else {
 					authConfigured = true

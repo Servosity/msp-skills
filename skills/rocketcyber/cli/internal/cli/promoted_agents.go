@@ -52,37 +52,37 @@ func newAgentsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/agents"
 			params := map[string]string{}
 			if flagAccountId != "" {
-				params["accountId"] = fmt.Sprintf("%v", flagAccountId)
+				params["accountId"] = formatCLIParamValue(flagAccountId)
 			}
 			if flagId != "" {
-				params["id"] = fmt.Sprintf("%v", flagId)
+				params["id"] = formatCLIParamValue(flagId)
 			}
 			if flagHostname != "" {
-				params["hostname"] = fmt.Sprintf("%v", flagHostname)
+				params["hostname"] = formatCLIParamValue(flagHostname)
 			}
 			if flagIp != "" {
-				params["ip"] = fmt.Sprintf("%v", flagIp)
+				params["ip"] = formatCLIParamValue(flagIp)
 			}
 			if flagCreated != "" {
-				params["created"] = fmt.Sprintf("%v", flagCreated)
+				params["created"] = formatCLIParamValue(flagCreated)
 			}
 			if flagOs != "" {
-				params["os"] = fmt.Sprintf("%v", flagOs)
+				params["os"] = formatCLIParamValue(flagOs)
 			}
 			if flagVersion != "" {
-				params["version"] = fmt.Sprintf("%v", flagVersion)
+				params["version"] = formatCLIParamValue(flagVersion)
 			}
 			if flagConnectivity != "" {
-				params["connectivity"] = fmt.Sprintf("%v", flagConnectivity)
+				params["connectivity"] = formatCLIParamValue(flagConnectivity)
 			}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPageSize != 0 {
-				params["pageSize"] = fmt.Sprintf("%v", flagPageSize)
+				params["pageSize"] = formatCLIParamValue(flagPageSize)
 			}
 			if flagSort != "" {
-				params["sort"] = fmt.Sprintf("%v", flagSort)
+				params["sort"] = formatCLIParamValue(flagSort)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "agents", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {
@@ -147,6 +147,7 @@ func newAgentsPromotedCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&flagSort, "sort", "", "Sort as field:direction (e.g. hostname:asc)")
 
 	// Wire sibling endpoints and sub-resources as subcommands
+	cmd.AddCommand(newNovelAgentsStaleCmd(flags))
 
 	return cmd
 }

@@ -45,11 +45,11 @@ func newAssistedSalesReadQuotesCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/assistedSales/v1/quotes"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "assisted-sales", path, map[string]string{
-				"sourceId":   fmt.Sprintf("%v", flagSourceId),
-				"sourceType": fmt.Sprintf("%v", flagSourceType),
-				"status":     fmt.Sprintf("%v", flagStatus),
-				"after":      fmt.Sprintf("%v", flagAfter),
-				"first":      fmt.Sprintf("%v", flagFirst),
+				"sourceId":   formatCLIParamValue(flagSourceId),
+				"sourceType": formatCLIParamValue(flagSourceType),
+				"status":     formatCLIParamValue(flagStatus),
+				"after":      formatCLIParamValue(flagAfter),
+				"first":      formatCLIParamValue(flagFirst),
 			}, nil, flagAll, "after", "cursor", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

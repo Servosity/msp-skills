@@ -42,9 +42,11 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "Get a key at: https://api.rootly.com/v1")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export ROOTLY_API_KEY=\"<your-token>\"")
-			fmt.Fprintln(w, "  export ROOTLY_API_TOKEN=\"<your-token>\"")
+			fmt.Fprintln(w, "  export ROOTLY_API_KEY=\"your-token-here\"")
 			fmt.Fprintln(w, "  rootly-cli auth set-token <token>")
+			fmt.Fprintln(w, "")
+			fmt.Fprintln(w, "Optional request credentials:")
+			fmt.Fprintln(w, "  export ROOTLY_API_TOKEN=\"your-token-here\"")
 			if !launch {
 				return nil
 			}
@@ -115,10 +117,12 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			if !authed {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
-				fmt.Fprintln(w, "Set your token:")
+				fmt.Fprintln(w, "Set your credentials:")
 				fmt.Fprintln(w, "  export ROOTLY_API_KEY=\"your-token-here\" # Rootly API key, sent as a Bearer token (JSON:API). Create one at Rootly > Settings > API Keys. Set this OR ROOTLY_API_TOKEN.")
-				fmt.Fprintln(w, "  export ROOTLY_API_TOKEN=\"your-token-here\" # Accepted as an alias for ROOTLY_API_KEY (the variable the Rootly MCP server uses).")
 				fmt.Fprintf(w, "  rootly-cli auth set-token <token>\n")
+				fmt.Fprintln(w, "")
+				fmt.Fprintln(w, "Optional request credentials:")
+				fmt.Fprintln(w, "  export ROOTLY_API_TOKEN=\"your-token-here\" # Accepted as an alias for ROOTLY_API_KEY (the variable the Rootly MCP server uses).")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
 

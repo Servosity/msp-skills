@@ -52,7 +52,7 @@ func newOrdersCreateCmd(flags *rootFlags) *cobra.Command {
 			path := "/orders"
 			params := map[string]string{}
 			if flagIsMock != false {
-				params["isMock"] = fmt.Sprintf("%v", flagIsMock)
+				params["isMock"] = formatCLIParamValue(flagIsMock)
 			}
 			var body map[string]any
 			if stdinBody {

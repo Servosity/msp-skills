@@ -23,7 +23,7 @@ func newBackupJobsPromotedCmd(flags *rootFlags) *cobra.Command {
 		Short:       "Enumerate jobs for a partner (JSON-RPC EnumerateJobs)",
 		Long:        "Enumerate jobs for a partner (JSON-RPC EnumerateJobs)",
 		Example:     "  cove-cli backup-jobs",
-		Annotations: map[string]string{"pp:endpoint": "backup-jobs.list", "pp:method": "POST", "pp:path": "/jsonapi", "mcp:read-only": "true", "pp:happy-args": "--params-partner-id=1"},
+		Annotations: map[string]string{"pp:endpoint": "backup-jobs.list", "pp:method": "POST", "pp:path": "/jsonapi", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with a required flag/body prints help
 			// instead of pflag's terse "required flag not set" error. Optional-
@@ -70,10 +70,10 @@ func newBackupJobsPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, _, err := c.PostQueryWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope

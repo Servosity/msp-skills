@@ -31,9 +31,9 @@ func newDevicesDetailedPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/devices-detailed"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "devices-detailed", path, map[string]string{
-				"df":       fmt.Sprintf("%v", flagDf),
-				"pageSize": fmt.Sprintf("%v", flagPageSize),
-				"after":    fmt.Sprintf("%v", flagAfter),
+				"df":       formatCLIParamValue(flagDf),
+				"pageSize": formatCLIParamValue(flagPageSize),
+				"after":    formatCLIParamValue(flagAfter),
 			}, nil, flagAll, "after", "cursor", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

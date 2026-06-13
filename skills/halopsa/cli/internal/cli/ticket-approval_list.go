@@ -33,22 +33,22 @@ func newTicketApprovalListCmd(flags *rootFlags) *cobra.Command {
 			path := "/TicketApproval"
 			params := map[string]string{}
 			if flagActionNumber != 0 {
-				params["action_number"] = fmt.Sprintf("%v", flagActionNumber)
+				params["action_number"] = formatCLIParamValue(flagActionNumber)
 			}
 			if flagIncludeAgentDetails != false {
-				params["include_agent_details"] = fmt.Sprintf("%v", flagIncludeAgentDetails)
+				params["include_agent_details"] = formatCLIParamValue(flagIncludeAgentDetails)
 			}
 			if flagIncludeAttachments != false {
-				params["include_attachments"] = fmt.Sprintf("%v", flagIncludeAttachments)
+				params["include_attachments"] = formatCLIParamValue(flagIncludeAttachments)
 			}
 			if flagIncludeapprovaldetails != false {
-				params["includeapprovaldetails"] = fmt.Sprintf("%v", flagIncludeapprovaldetails)
+				params["includeapprovaldetails"] = formatCLIParamValue(flagIncludeapprovaldetails)
 			}
 			if flagMine != false {
-				params["mine"] = fmt.Sprintf("%v", flagMine)
+				params["mine"] = formatCLIParamValue(flagMine)
 			}
 			if flagTicketId != "" {
-				params["ticket_id"] = fmt.Sprintf("%v", flagTicketId)
+				params["ticket_id"] = formatCLIParamValue(flagTicketId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "ticket-approval", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

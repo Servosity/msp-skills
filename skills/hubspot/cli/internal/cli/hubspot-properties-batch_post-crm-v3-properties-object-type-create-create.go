@@ -17,8 +17,9 @@ func newHubspotPropertiesBatchPostCrmV3PropertiesObjectTypeCreateCreateCmd(flags
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-crm-v3-properties-object-type-create-create <objectType>",
-		Short:       "Create a batch of properties using the same rules as when creating an individual property.",
+		Use:   "post-crm-v3-properties-object-type-create-create <objectType>",
+		Short: "Create a batch of properties using the same rules as when creating an individual property.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-properties-batch post-crm-v3-properties-object-type-create-create example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-properties-batch.post-crm-v3-properties-object-type-create-create", "pp:method": "POST", "pp:path": "/crm/v3/properties/{objectType}/batch/create"},
 		RunE: func(cmd *cobra.Command, args []string) error {

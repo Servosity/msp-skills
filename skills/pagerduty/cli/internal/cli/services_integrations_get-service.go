@@ -50,7 +50,7 @@ func newServicesIntegrationsGetServiceCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "integration_id", args[1])
 			params := map[string]string{}
 			if flagInclude != "" {
-				params["include[]"] = fmt.Sprintf("%v", flagInclude)
+				params["include[]"] = formatCLIParamValue(flagInclude)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integrations", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

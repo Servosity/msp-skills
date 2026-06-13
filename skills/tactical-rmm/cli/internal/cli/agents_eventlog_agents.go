@@ -14,9 +14,10 @@ import (
 func newAgentsEventlogAgentsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "agents <agent_id> <logtype> <days>",
-		Aliases:     []string{"get"},
-		Short:       "GET /agents/{agent_id}/eventlog/{logtype}/{days}/",
+		Use:     "agents <agent_id> <logtype> <days>",
+		Aliases: []string{"get"},
+		Short:   "GET /agents/{agent_id}/eventlog/{logtype}/{days}/",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  tactical-rmm-cli agents eventlog agents 550e8400-e29b-41d4-a716-446655440000 example-value 42",
 		Annotations: map[string]string{"pp:endpoint": "eventlog.agents", "pp:method": "GET", "pp:path": "/agents/{agent_id}/eventlog/{logtype}/{days}/", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

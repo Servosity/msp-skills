@@ -30,10 +30,10 @@ func newClientsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/vendor-api/organization/clients"
 			params := map[string]string{}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			if flagPreviousId != "" {
-				params["previousId"] = fmt.Sprintf("%v", flagPreviousId)
+				params["previousId"] = formatCLIParamValue(flagPreviousId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "clients", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

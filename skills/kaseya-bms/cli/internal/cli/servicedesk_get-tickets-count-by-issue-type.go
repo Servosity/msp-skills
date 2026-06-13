@@ -32,19 +32,19 @@ func newServicedeskGetTicketsCountByIssueTypeCmd(flags *rootFlags) *cobra.Comman
 			path := "/v2/servicedesk/dashboard/ticketscount/byissuetype"
 			params := map[string]string{}
 			if flagStartDate != "" {
-				params["StartDate"] = fmt.Sprintf("%v", flagStartDate)
+				params["StartDate"] = formatCLIParamValue(flagStartDate)
 			}
 			if flagEndDate != "" {
-				params["EndDate"] = fmt.Sprintf("%v", flagEndDate)
+				params["EndDate"] = formatCLIParamValue(flagEndDate)
 			}
 			if flagSelectedIssueTypeIds != "" {
-				params["SelectedIssueTypeIds"] = fmt.Sprintf("%v", flagSelectedIssueTypeIds)
+				params["SelectedIssueTypeIds"] = formatCLIParamValue(flagSelectedIssueTypeIds)
 			}
 			if flagTopPerformersCount != 0 {
-				params["TopPerformersCount"] = fmt.Sprintf("%v", flagTopPerformersCount)
+				params["TopPerformersCount"] = formatCLIParamValue(flagTopPerformersCount)
 			}
 			if flagIncludeCompleted != false {
-				params["IncludeCompleted"] = fmt.Sprintf("%v", flagIncludeCompleted)
+				params["IncludeCompleted"] = formatCLIParamValue(flagIncludeCompleted)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "servicedesk", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

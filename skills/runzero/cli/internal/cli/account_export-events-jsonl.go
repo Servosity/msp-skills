@@ -32,10 +32,10 @@ func newAccountExportEventsJsonlCmd(flags *rootFlags) *cobra.Command {
 			}
 			params := map[string]string{}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			if flagFields != "" {
-				params["fields"] = fmt.Sprintf("%v", flagFields)
+				params["fields"] = formatCLIParamValue(flagFields)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "account", false, path, params, headerOverrides, cmd.ErrOrStderr())
 			if err != nil {

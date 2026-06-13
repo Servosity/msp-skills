@@ -30,13 +30,13 @@ func newWorkdayListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Workday"
 			params := map[string]string{}
 			if flagAccessControlLevel != 0 {
-				params["access_control_level"] = fmt.Sprintf("%v", flagAccessControlLevel)
+				params["access_control_level"] = formatCLIParamValue(flagAccessControlLevel)
 			}
 			if flagIsconfig != false {
-				params["isconfig"] = fmt.Sprintf("%v", flagIsconfig)
+				params["isconfig"] = formatCLIParamValue(flagIsconfig)
 			}
 			if flagShowholidays != false {
-				params["showholidays"] = fmt.Sprintf("%v", flagShowholidays)
+				params["showholidays"] = formatCLIParamValue(flagShowholidays)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "workday", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

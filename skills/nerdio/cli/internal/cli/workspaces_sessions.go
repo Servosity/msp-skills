@@ -14,8 +14,9 @@ import (
 func newWorkspacesSessionsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "sessions <account_id> <subscription_id> <resource_group> <workspace_name>",
-		Short:       "List sessions in a workspace",
+		Use:   "sessions <account_id> <subscription_id> <resource_group> <workspace_name>",
+		Short: "List sessions in a workspace",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  nerdio-cli workspaces sessions 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "workspaces.sessions", "pp:method": "GET", "pp:path": "/rest-api/v1/accounts/{account_id}/workspace/{subscription_id}/{resource_group}/{workspace_name}/sessions", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

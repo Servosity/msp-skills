@@ -29,7 +29,7 @@ func newListSafeLinksPolicyTemplatesPromotedCmd(flags *rootFlags) *cobra.Command
 			path := "/ListSafeLinksPolicyTemplates"
 			params := map[string]string{}
 			if flagId != "" {
-				params["id"] = fmt.Sprintf("%v", flagId)
+				params["id"] = formatCLIParamValue(flagId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-safe-links-policy-templates", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

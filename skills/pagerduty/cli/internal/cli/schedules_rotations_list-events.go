@@ -19,7 +19,7 @@ func newSchedulesRotationsListEventsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list-events <id> <rotation_id>",
 		Short:       "<!",
-		Example:     "  pagerduty-cli schedules rotations list-events 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pagerduty-cli schedules rotations list-events PSJUKNI AGO462IDT5ZMNFBVSROUDT6B4M",
 		Annotations: map[string]string{"pp:endpoint": "rotations.list-events", "pp:method": "GET", "pp:path": "/v3/schedules/{id}/rotations/{rotation_id}/events", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -37,8 +37,8 @@ func newSchedulesRotationsListEventsCmd(flags *rootFlags) *cobra.Command {
 			}
 			path = replacePathParam(path, "rotation_id", args[1])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "rotations", path, map[string]string{
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"offset": fmt.Sprintf("%v", flagOffset),
+				"limit":  formatCLIParamValue(flagLimit),
+				"offset": formatCLIParamValue(flagOffset),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

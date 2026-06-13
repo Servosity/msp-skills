@@ -32,8 +32,8 @@ func newAdminGetChartOfAccountsLookupCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/admin/finance/chartofaccounts/lookup/{parentAccountCodeId}"
 			path = replacePathParam(path, "parentAccountCodeId", args[0])
-			path = replacePathParam(path, "PageSize", fmt.Sprintf("%v", flagPageSize))
-			path = replacePathParam(path, "PageNumber", fmt.Sprintf("%v", flagPageNumber))
+			path = replacePathParam(path, "PageSize", formatCLIParamValue(flagPageSize))
+			path = replacePathParam(path, "PageNumber", formatCLIParamValue(flagPageNumber))
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "admin", path, map[string]string{}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

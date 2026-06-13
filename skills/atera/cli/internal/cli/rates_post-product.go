@@ -20,8 +20,9 @@ func newRatesPostProductCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-product",
-		Short:       "Creates a new product. Requires a product description.",
+		Use:   "post-product",
+		Short: "Creates a new product. Requires a product description.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  atera-cli rates post-product --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "rates.post-product", "pp:method": "POST", "pp:path": "/rates/products"},
 		RunE: func(cmd *cobra.Command, args []string) error {

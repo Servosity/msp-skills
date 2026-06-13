@@ -1,6 +1,6 @@
 {
   "name": "hubspot",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
   "author": {
     "name": "Servosity",

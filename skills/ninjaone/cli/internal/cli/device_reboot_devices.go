@@ -49,7 +49,7 @@ func newDeviceRebootDevicesCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/device/{id}/reboot/{mode}"
 			path = replacePathParam(path, "id", args[0])
-			path = replacePathParam(path, "mode", fmt.Sprintf("%v", flagMode))
+			path = replacePathParam(path, "mode", formatCLIParamValue(flagMode))
 			params := map[string]string{}
 			var body map[string]any
 			if stdinBody {

@@ -36,7 +36,7 @@ func newAccountResourceCompanyRevokeInvitationDeleteCmd(flags *rootFlags) *cobra
 			path = replacePathParam(path, "email", args[1])
 			params := map[string]string{}
 			if flagInviterUuid != "" {
-				params["inviterUuid"] = fmt.Sprintf("%v", flagInviterUuid)
+				params["inviterUuid"] = formatCLIParamValue(flagInviterUuid)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

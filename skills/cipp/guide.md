@@ -36,15 +36,9 @@ npx -y @mvanhorn/printing-press-library install cipp --agent claude-code
 npx -y @mvanhorn/printing-press-library install cipp --agent claude-code --agent codex
 ```
 
-### Without Node (Go fallback)
+### Without Node
 
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/monitoring/cipp/cmd/cipp-cli@latest
-```
-
-This installs the CLI only  -  no skill.
+The generated install path is category-agnostic until this CLI is published. If `npx` is not available before publish, install Node or use the category-specific Go fallback from the public-library entry after publish.
 
 ### Pre-built binary
 
@@ -102,9 +96,7 @@ Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple S
 If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
 
 
-```bash
-go install github.com/mvanhorn/printing-press-library/library/monitoring/cipp/cmd/cipp-mcp@latest
-```
+Install the MCP binary from this CLI's published public-library entry or pre-built release.
 
 Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
@@ -3428,10 +3420,10 @@ This CLI is designed for AI agent consumption:
 - **Pipeable** - `--json` output to stdout, errors to stderr
 - **Filterable** - `--select id,name` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries when an already-existing result should count as a successful no-op
+- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
 - **Confirmable** - `--yes` for explicit confirmation of destructive actions
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
-- **Offline-friendly** - the analytics commands (`posture`, `licenses waste`, `users stale`, `standards drift`, `analytics`) read the local SQLite store populated by `fanout --save`
+- **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
 Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.

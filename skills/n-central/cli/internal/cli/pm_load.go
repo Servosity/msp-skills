@@ -180,7 +180,7 @@ person. Helps identify overloaded team members and unbalanced workload.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/n-central-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/n-central-cli/data.db)")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum entries to show")
 
 	return cmd

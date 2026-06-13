@@ -28,7 +28,7 @@ func newDatabaseLookupListCmd(flags *rootFlags) *cobra.Command {
 			path := "/DatabaseLookup"
 			params := map[string]string{}
 			if flagType != 0 {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "database-lookup", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

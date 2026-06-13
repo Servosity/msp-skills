@@ -20,7 +20,7 @@ func newVaultThresholdSetByVaultIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "set-by-vault-id <vault_id>",
 		Aliases:     []string{"create"},
 		Short:       "This request allows to change all available vault thresholds.",
-		Example:     "  axcient-cli vault threshold set-by-vault-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  axcient-cli vault threshold set-by-vault-id 222",
 		Annotations: map[string]string{"pp:endpoint": "threshold.set-by-vault-id", "pp:method": "POST", "pp:path": "/vault/{vault_id}/threshold/connectivity"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

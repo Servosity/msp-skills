@@ -19,8 +19,9 @@ func newGroupsPostCrmV3PropertiesObjectTypeCreateCmd(flags *rootFlags) *cobra.Co
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-crm-v3-properties-object-type-create <objectType>",
-		Short:       "Create and return a copy of a new property group.",
+		Use:   "post-crm-v3-properties-object-type-create <objectType>",
+		Short: "Create and return a copy of a new property group.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli groups post-crm-v3-properties-object-type-create example-value --label example-value",
 		Annotations: map[string]string{"pp:endpoint": "groups.post-crm-v3-properties-object-type-create", "pp:method": "POST", "pp:path": "/crm/v3/properties/{objectType}/groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {

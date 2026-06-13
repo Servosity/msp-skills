@@ -39,25 +39,25 @@ func newDevicesShowCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagIncludeOperatingSystem != false {
-				params["include_operating_system"] = fmt.Sprintf("%v", flagIncludeOperatingSystem)
+				params["include_operating_system"] = formatCLIParamValue(flagIncludeOperatingSystem)
 			}
 			if flagIncludeCpus != false {
-				params["include_cpus"] = fmt.Sprintf("%v", flagIncludeCpus)
+				params["include_cpus"] = formatCLIParamValue(flagIncludeCpus)
 			}
 			if flagIncludeMemory != false {
-				params["include_memory"] = fmt.Sprintf("%v", flagIncludeMemory)
+				params["include_memory"] = formatCLIParamValue(flagIncludeMemory)
 			}
 			if flagIncludeDisks != false {
-				params["include_disks"] = fmt.Sprintf("%v", flagIncludeDisks)
+				params["include_disks"] = formatCLIParamValue(flagIncludeDisks)
 			}
 			if flagIncludeNetworkInterfaces != false {
-				params["include_network_interfaces"] = fmt.Sprintf("%v", flagIncludeNetworkInterfaces)
+				params["include_network_interfaces"] = formatCLIParamValue(flagIncludeNetworkInterfaces)
 			}
 			if flagIncludeMotherboard != false {
-				params["include_motherboard"] = fmt.Sprintf("%v", flagIncludeMotherboard)
+				params["include_motherboard"] = formatCLIParamValue(flagIncludeMotherboard)
 			}
 			if flagIncludeSecurity != false {
-				params["include_security"] = fmt.Sprintf("%v", flagIncludeSecurity)
+				params["include_security"] = formatCLIParamValue(flagIncludeSecurity)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "devices", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

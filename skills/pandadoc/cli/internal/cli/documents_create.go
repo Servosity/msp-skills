@@ -43,10 +43,10 @@ func newDocumentsCreateCmd(flags *rootFlags) *cobra.Command {
 			path := "/documents"
 			params := map[string]string{}
 			if flagEditorVer != "" {
-				params["editor_ver"] = fmt.Sprintf("%v", flagEditorVer)
+				params["editor_ver"] = formatCLIParamValue(flagEditorVer)
 			}
 			if flagUseFormFieldProperties != "" {
-				params["use_form_field_properties"] = fmt.Sprintf("%v", flagUseFormFieldProperties)
+				params["use_form_field_properties"] = formatCLIParamValue(flagUseFormFieldProperties)
 			}
 			var body map[string]any
 			if stdinBody {

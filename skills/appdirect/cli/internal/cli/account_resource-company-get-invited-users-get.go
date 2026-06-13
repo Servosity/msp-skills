@@ -34,10 +34,10 @@ func newAccountResourceCompanyGetInvitedUsersGetCmd(flags *rootFlags) *cobra.Com
 			path = replacePathParam(path, "companyUuid", args[0])
 			params := map[string]string{}
 			if flagFilter != "" {
-				params["filter"] = fmt.Sprintf("%v", flagFilter)
+				params["filter"] = formatCLIParamValue(flagFilter)
 			}
 			if flagInviterUuid != "" {
-				params["inviterUuid"] = fmt.Sprintf("%v", flagInviterUuid)
+				params["inviterUuid"] = formatCLIParamValue(flagInviterUuid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "account", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

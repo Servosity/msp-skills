@@ -11,6 +11,7 @@ func newCustomersCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "customers",
 		Short:       "Customers (client organizations) in N-central.",
+		Hidden:      true,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

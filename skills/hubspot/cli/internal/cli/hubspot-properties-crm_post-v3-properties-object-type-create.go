@@ -34,8 +34,9 @@ func newHubspotPropertiesCrmPostV3PropertiesObjectTypeCreateCmd(flags *rootFlags
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-v3-properties-object-type-create <objectType>",
-		Short:       "Create and return a copy of a new property for the specified object type.",
+		Use:   "post-v3-properties-object-type-create <objectType>",
+		Short: "Create and return a copy of a new property for the specified object type.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-properties-crm post-v3-properties-object-type-create example-value --field-type booleancheckbox",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-properties-crm.post-v3-properties-object-type-create", "pp:method": "POST", "pp:path": "/crm/v3/properties/{objectType}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

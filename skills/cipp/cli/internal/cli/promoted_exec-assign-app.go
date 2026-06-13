@@ -31,9 +31,10 @@ func newExecAssignAppPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "exec-assign-app",
-		Short:       "Exec assign app",
-		Long:        "Exec assign app",
+		Use:   "exec-assign-app",
+		Short: "Exec assign app",
+		Long:  "Exec assign app",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-assign-app --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-assign-app.create", "pp:method": "POST", "pp:path": "/ExecAssignApp"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -58,25 +59,25 @@ func newExecAssignAppPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecAssignApp"
 			params := map[string]string{}
 			if flagAppType != "" {
-				params["AppType"] = fmt.Sprintf("%v", flagAppType)
+				params["AppType"] = formatCLIParamValue(flagAppType)
 			}
 			if flagAssignTo != "" {
-				params["AssignTo"] = fmt.Sprintf("%v", flagAssignTo)
+				params["AssignTo"] = formatCLIParamValue(flagAssignTo)
 			}
 			if flagGroupIds != "" {
-				params["GroupIds"] = fmt.Sprintf("%v", flagGroupIds)
+				params["GroupIds"] = formatCLIParamValue(flagGroupIds)
 			}
 			if flagGroupNames != "" {
-				params["GroupNames"] = fmt.Sprintf("%v", flagGroupNames)
+				params["GroupNames"] = formatCLIParamValue(flagGroupNames)
 			}
 			if flagID != "" {
-				params["ID"] = fmt.Sprintf("%v", flagID)
+				params["ID"] = formatCLIParamValue(flagID)
 			}
 			if flagIntent != "" {
-				params["Intent"] = fmt.Sprintf("%v", flagIntent)
+				params["Intent"] = formatCLIParamValue(flagIntent)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -115,10 +116,10 @@ func newExecAssignAppPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

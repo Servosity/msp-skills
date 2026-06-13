@@ -14,8 +14,9 @@ import (
 func newHostPoolsAssignedUsersCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "assigned-users <account_id> <subscription_id> <resource_group> <pool_name>",
-		Short:       "List users assigned to a host pool",
+		Use:   "assigned-users <account_id> <subscription_id> <resource_group> <pool_name>",
+		Short: "List users assigned to a host pool",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  nerdio-cli host-pools assigned-users 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "host-pools.assigned-users", "pp:method": "GET", "pp:path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/assigned-users", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

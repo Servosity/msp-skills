@@ -33,10 +33,10 @@ func newClientContractGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagIncludeperiods != false {
-				params["includeperiods"] = fmt.Sprintf("%v", flagIncludeperiods)
+				params["includeperiods"] = formatCLIParamValue(flagIncludeperiods)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "client-contract", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

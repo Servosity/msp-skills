@@ -43,21 +43,21 @@ func newTicketCommentsPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/ticket_comments"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "ticket-comments", path, map[string]string{
-				"ticket_search_id":       fmt.Sprintf("%v", flagTicketSearchId),
-				"ticket_id":              fmt.Sprintf("%v", flagTicketId),
-				"customer_id":            fmt.Sprintf("%v", flagCustomerId),
-				"contact_id":             fmt.Sprintf("%v", flagContactId),
-				"user_id":                fmt.Sprintf("%v", flagUserId),
-				"status":                 fmt.Sprintf("%v", flagStatus),
-				"resolved_after":         fmt.Sprintf("%v", flagResolvedAfter),
-				"created_after":          fmt.Sprintf("%v", flagCreatedAfter),
-				"since_updated_at":       fmt.Sprintf("%v", flagSinceUpdatedAt),
-				"mine":                   fmt.Sprintf("%v", flagMine),
-				"comment_created_after":  fmt.Sprintf("%v", flagCommentCreatedAfter),
-				"comment_created_before": fmt.Sprintf("%v", flagCommentCreatedBefore),
-				"page":                   fmt.Sprintf("%v", flagPage),
-				"per_page":               fmt.Sprintf("%v", flagPerPage),
-				"comment_format":         fmt.Sprintf("%v", flagCommentFormat),
+				"ticket_search_id":       formatCLIParamValue(flagTicketSearchId),
+				"ticket_id":              formatCLIParamValue(flagTicketId),
+				"customer_id":            formatCLIParamValue(flagCustomerId),
+				"contact_id":             formatCLIParamValue(flagContactId),
+				"user_id":                formatCLIParamValue(flagUserId),
+				"status":                 formatCLIParamValue(flagStatus),
+				"resolved_after":         formatCLIParamValue(flagResolvedAfter),
+				"created_after":          formatCLIParamValue(flagCreatedAfter),
+				"since_updated_at":       formatCLIParamValue(flagSinceUpdatedAt),
+				"mine":                   formatCLIParamValue(flagMine),
+				"comment_created_after":  formatCLIParamValue(flagCommentCreatedAfter),
+				"comment_created_before": formatCLIParamValue(flagCommentCreatedBefore),
+				"page":                   formatCLIParamValue(flagPage),
+				"per_page":               formatCLIParamValue(flagPerPage),
+				"comment_format":         formatCLIParamValue(flagCommentFormat),
 			}, nil, flagAll, "page", "page", "per_page", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

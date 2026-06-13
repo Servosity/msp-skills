@@ -47,19 +47,19 @@ func newListTenantsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListTenants"
 			params := map[string]string{}
 			if flagAllTenantSelector != "" {
-				params["AllTenantSelector"] = fmt.Sprintf("%v", flagAllTenantSelector)
+				params["AllTenantSelector"] = formatCLIParamValue(flagAllTenantSelector)
 			}
 			if flagIncludeOffboardingDefaults != "" {
-				params["IncludeOffboardingDefaults"] = fmt.Sprintf("%v", flagIncludeOffboardingDefaults)
+				params["IncludeOffboardingDefaults"] = formatCLIParamValue(flagIncludeOffboardingDefaults)
 			}
 			if flagMode != "" {
-				params["Mode"] = fmt.Sprintf("%v", flagMode)
+				params["Mode"] = formatCLIParamValue(flagMode)
 			}
 			if flagTriggerRefresh != "" {
-				params["TriggerRefresh"] = fmt.Sprintf("%v", flagTriggerRefresh)
+				params["TriggerRefresh"] = formatCLIParamValue(flagTriggerRefresh)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -86,10 +86,10 @@ func newListTenantsPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

@@ -34,8 +34,8 @@ func newDealsChangelogGetDealCmd(flags *rootFlags) *cobra.Command {
 			path := "/deals/{id}/changelog"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "changelog", path, map[string]string{
-				"cursor": fmt.Sprintf("%v", flagCursor),
-				"limit":  fmt.Sprintf("%v", flagLimit),
+				"cursor": formatCLIParamValue(flagCursor),
+				"limit":  formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

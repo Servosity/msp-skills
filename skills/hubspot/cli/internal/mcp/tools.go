@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +23,15 @@ import (
 	"hubspot-pp-cli/internal/config"
 	"hubspot-pp-cli/internal/mcp/cobratree"
 	"hubspot-pp-cli/internal/store"
+)
+
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
 )
 
 // RegisterTools registers all API operations as MCP tools.
@@ -43,7 +54,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -73,8 +84,36 @@ type mcpParamBinding struct {
 	BodyPath           []string
 	Format             string
 	RequestContentType string
+	Default            string
 }
 
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
 func mcpMultipartFieldValue(v any) string {
 	if s, ok := v.(string); ok {
 		return s
@@ -152,13 +191,17 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			v, ok := args[binding.PublicName]
 			if !ok {
-				continue
+				if binding.Default != "" {
+					v = binding.Default
+				} else {
+					continue
+				}
 			}
 			switch binding.Location {
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				if len(binding.BodyPath) > 0 {
 					setNestedBodyArg(bodyArgs, binding.BodyPath, v)
@@ -184,7 +227,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 					bodyJSONOverride = json.RawMessage(s)
 				}
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -194,7 +237,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -209,7 +252,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 					multipartFields[k] = mcpMultipartFieldValue(v)
 				}
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -321,21 +364,21 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key: export HUBSPOT_ACCESS_TOKEN=<your-key>" +
+					"\n      Set it with: hubspot-cli auth set-token <token> or export HUBSPOT_ACCESS_TOKEN=\"your-token-here\"" +
 					"\n      Get a key at: https://app.hubspot.com/private-apps" +
 					"\n      Create a private app, grant CRM scopes, and copy the access token." +
 					"\n      Run 'hubspot-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your token." +
-					"\n      Set it with: export HUBSPOT_ACCESS_TOKEN=<your-key>" +
+					"\n      Set it with: hubspot-cli auth set-token <token> or export HUBSPOT_ACCESS_TOKEN=\"your-token-here\"" +
 					"\n      Get a key at: https://app.hubspot.com/private-apps" +
 					"\n      Create a private app, grant CRM scopes, and copy the access token." +
 					"\n      Run 'hubspot-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: your credentials are valid but lack access to this resource." +
-					"\n      Set it with: export HUBSPOT_ACCESS_TOKEN=<your-key>" +
+					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
+					"\n      Set it with: hubspot-cli auth set-token <token> or export HUBSPOT_ACCESS_TOKEN=\"your-token-here\"" +
 					"\n      Get a key at: https://app.hubspot.com/private-apps" +
 					"\n      Create a private app, grant CRM scopes, and copy the access token." +
 					"\n      Run 'hubspot-cli doctor' to check auth status."), nil
@@ -351,21 +394,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -374,8 +402,129 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
@@ -385,7 +534,7 @@ func newMCPClient() (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -434,22 +583,27 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -481,6 +635,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -548,7 +793,7 @@ func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
 func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	ctx := map[string]any{
 		"api":         "hubspot",
-		"description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting",
+		"description": "Every Sales Hub feature, plus offline cross-object queries and retained property-change history.",
 		"archetype":   "crm",
 		"tool_count":  232,
 		// tool_surface tells agents which surface a capability lives on.
@@ -740,19 +985,24 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
 			{"name": "Stale objects", "command": "stale", "description": "Find contacts or deals with no engagement in N days, scoped by owner or pipeline stage — instantly, offline.", "rationale": "Left-joins the engagement tables against contacts/deals locally; the live API has no 'no engagement since' filter shape.", "via": "mcp-command-mirror"},
-			{"name": "Owner load", "command": "owner-load", "description": "Open deals per rep per pipeline stage with $ totals, count, and oldest-deal age — the Monday-morning sales-lead report.", "rationale": "SQL GROUP BY on deals × owners × pipeline_stages", "via": "mcp-command-mirror"},
-			{"name": "Pipeline health", "command": "pipeline-health", "description": "Per-stage rollup of count, $ total, $ at risk (idle deals near their close date)", "rationale": "Local join across deals × pipeline_stages × engagements with mechanical scoring (amount × probability × idle-flag)", "via": "mcp-command-mirror"},
-			{"name": "Nurture queue", "command": "nurture queue", "description": "Ranked 'who to contact today' list scored by stale-days × deal amount × stage probability", "rationale": "Designed for the nurture skill loop — replaces ad-hoc Python in meetings/.", "via": "mcp-command-mirror"},
-			{"name": "Top deals by opportunity score", "command": "deals top", "description": "Composite-ranked top-N deals by (signal × amount × stage-probability × inverse-days-since-contact)", "rationale": "Implements the same scoring formula Damien has been running in Python (pipeline-review/score_urgency.", "via": "mcp-command-mirror"},
-			{"name": "Per-meeting property history", "command": "meetings history", "description": "Show the full timeline of property changes for a single meeting (outcome, title, owner, custom fields)", "rationale": "Reads the local hubspot_property_history snapshot table populated by sync --with-history; zero API calls at query time.", "via": "mcp-command-mirror"},
-			{"name": "Meetings ever-had query", "command": "meetings ever-had", "description": "Find every meeting whose given property was EVER set to a given value within a date range — even if it has since", "rationale": "SELECT DISTINCT object_id FROM hubspot_property_history filtered on object_type='meetings', property, value", "via": "mcp-command-mirror"},
-			{"name": "Monthly meeting status report", "command": "meetings status-report", "description": "Composes the meetings ever-had query into the canonical monthly-report shape", "rationale": "Wraps meetings ever-had with a calendar-month window and an opinionated report shape (JSON or CSV) ready for handoff.", "via": "mcp-command-mirror"},
-			{"name": "Sync with property history", "command": "sync --with-history", "description": "Opt-in sync flag that requests propertiesWithHistory for the named properties on meetings (and on deals, contacts", "rationale": "Adds ?", "via": "mcp-command-mirror"},
-			{"name": "Engagements of", "command": "engagements of", "description": "Unified chronological timeline of every call, email, meeting, note, and task touching a contact, deal, or company.", "rationale": "Local associations graph table joins all five engagement tables in one SQL query", "via": "mcp-command-mirror"},
-			{"name": "Note signal extraction", "command": "notes signals", "description": "Scan note bodies for buying / lost signals (meeting scheduled, budget approved, no response, competitor chosen)", "rationale": "Pure regex over local hs_note_body — no LLM dependency.", "via": "mcp-command-mirror"},
-			{"name": "Since", "command": "since", "description": "What changed across contacts, deals, and engagements since a given timestamp — agent-friendly cross-object delta.", "rationale": "Scans hs_lastmodifieddate cursors stored in the local mirror", "via": "mcp-command-mirror"},
-			{"name": "Nurture mine", "command": "nurture-mine", "description": "Surface the contacts assigned to you that have gone cold but still have open deals — the daily 'who do I call' list", "rationale": "Joins contacts × associations × engagements × deals × pipeline_stages × owners — five tables no single HubSpot API call", "via": "mcp-command-mirror"},
-			{"name": "Bulk update from CSV with schema validation", "command": "contacts bulk-update", "description": "Apply a CSV of property changes to many contacts at once", "rationale": "Reads the locally cached properties table and rejects bad rows up-front", "via": "mcp-command-mirror"},
+			{"name": "Owner load", "command": "owner-load", "description": "Open deals per rep per pipeline stage with $ totals, count, and oldest-deal age — the Monday-morning sales-lead report.", "rationale": "SQL GROUP BY on deals × owners × pipeline_stages; HubSpot's web UI requires the Deal Owner report plus a Sheets pivot to assemble this.", "via": "mcp-command-mirror"},
+			{"name": "Pipeline health", "command": "pipeline-health", "description": "Per-stage rollup of count, $ total, $ at risk (idle deals near their close date), and the oldest-stuck deal — one query for a sales-ops dashboard. Closed Lost weighted at probability 0, Closed Won at 1.0.", "rationale": "Local join across deals × pipeline_stages × engagements with mechanical scoring (amount × probability × idle-flag); the web UI cannot answer '$ at risk of slipping this quarter' in one screen. Uses HubSpot-provided stage probabilities — Closed Lost is 0, not 0.5 (PR #549 review fix).", "via": "mcp-command-mirror"},
+			{"name": "Nurture queue", "command": "nurture queue", "description": "Ranked 'who to contact today' list scored by stale-days × deal amount × stage probability, with the rationale exposed as columns.", "rationale": "Designed for the nurture skill loop — replaces ad-hoc Python in meetings/. Local SQL ranking with explicit columns means the agent doesn't have to recompute aggregations in-process.", "via": "mcp-command-mirror"},
+			{"name": "Top deals by opportunity score", "command": "deals top", "description": "Composite-ranked top-N deals by (signal × amount × stage-probability × inverse-days-since-contact) with the score breakdown exposed as columns.", "rationale": "Implements the same scoring formula Damien has been running in Python (pipeline-review/score_urgency.py) but locally over the synced store — one offline command instead of a 30-line script with live API calls per deal.", "via": "mcp-command-mirror"},
+			{"name": "Per-meeting property history", "command": "meetings history", "description": "Show the full timeline of property changes for a single meeting (outcome, title, owner, custom fields) — when each value was set, by whom, and from what source.", "rationale": "Reads the local hubspot_property_history snapshot table populated by sync --with-history; zero API calls at query time. No incumbent CLI or MCP retains property history across syncs.", "via": "mcp-command-mirror"},
+			{"name": "Meetings ever-had query", "command": "meetings ever-had", "description": "Find every meeting whose given property was EVER set to a given value within a date range — even if it has since changed.", "rationale": "SELECT DISTINCT object_id FROM hubspot_property_history filtered on object_type='meetings', property, value, and timestamp range. HubSpot's /search API physically cannot answer this: it sees only current property values, not the history.", "via": "mcp-command-mirror"},
+			{"name": "Monthly meeting status report", "command": "meetings status-report", "description": "Composes the meetings ever-had query into the canonical monthly-report shape: every meeting that touched the given status in the given month, with owner, title, current status, and the timestamp of the original status set.", "rationale": "Wraps meetings ever-had with a calendar-month window and an opinionated report shape (JSON or CSV) ready for handoff. Built for the Servosity customer use case (monthly 'every meeting ever Scheduled in April' report) but generalizes to any property + month.", "via": "mcp-command-mirror"},
+			{"name": "Sync with property history", "command": "sync --with-history", "description": "Opt-in sync flag that requests propertiesWithHistory for the named properties on meetings (and on deals, contacts, companies when scoped to those). Persists per-property snapshots into the shared hubspot_property_history table.", "rationale": "Adds ?propertiesWithHistory=<list> to the per-object GET leg of sync; writes both the current value and the full history block in one transaction. Composite PK (object_type+object_id+property+timestamp) makes re-sync idempotent. Foundation for meetings history / ever-had / status-report and for future per-object ever-had commands on the other three object types.", "via": "mcp-command-mirror"},
+			{"name": "Engagements of", "command": "engagements of", "description": "Unified chronological timeline of every call, email, meeting, note, and task touching a contact, deal, or company.", "rationale": "Local associations graph table joins all five engagement tables in one SQL query, replacing N+1 round trips across HubSpot's per-engagement endpoints.", "via": "mcp-command-mirror"},
+			{"name": "Note signal extraction", "command": "notes signals", "description": "Scan note bodies for buying / lost signals (meeting scheduled, budget approved, no response, competitor chosen) and emit per-deal signal counts with the source note id.", "rationale": "Pure regex over local hs_note_body — no LLM dependency. The patterns came from real pipeline-review work, so they reflect signals that have actually moved Damien's deals.", "via": "mcp-command-mirror"},
+			{"name": "Since", "command": "since", "description": "What changed across contacts, deals, and engagements since a given timestamp — agent-friendly cross-object delta.", "rationale": "Scans hs_lastmodifieddate cursors stored in the local mirror; no aggregated 'what changed everywhere' endpoint exists on HubSpot's API.", "via": "mcp-command-mirror"},
+			{"name": "Nurture mine", "command": "nurture-mine", "description": "Surface the contacts assigned to you that have gone cold but still have open deals — the daily 'who do I call' list, computed across local SQLite.", "rationale": "Joins contacts × associations × engagements × deals × pipeline_stages × owners — five tables no single HubSpot API call can compose. The web UI requires three filter passes per object; every incumbent MCP demands live calls per query.", "via": "mcp-command-mirror"},
+			{"name": "Bulk update from CSV with schema validation", "command": "contacts bulk-update", "description": "Apply a CSV of property changes to many contacts at once, pre-validating each row against HubSpot's property schema (types, picklists) before any mutation.", "rationale": "Reads the locally cached properties table and rejects bad rows up-front, then dispatches valid rows through batch endpoints. HubSpot's own Imports API silently drops bad rows — this surfaces them.", "via": "mcp-command-mirror"},
+			{"name": "Deal velocity / time-in-stage", "command": "deals velocity", "description": "Per-deal days-in-current-stage and per-stage median/p90 dwell time, computed from dealstage change history — find where deals rot.", "rationale": "Computes time-in-stage from dealstage transitions retained in the local hubspot_property_history table; no single API call returns time-in-stage.", "via": "mcp-command-mirror"},
+			{"name": "Lifecycle-stage funnel", "command": "contacts funnel", "description": "One-shot funnel table of contacts per lifecycle stage (subscriber → lead → MQL → SQL → opportunity → customer) with stage-to-stage conversion ratios.", "rationale": "Local GROUP BY over contacts.lifecyclestage with derived conversion ratios; the API returns rows, not a funnel rollup.", "via": "mcp-command-mirror"},
+			{"name": "Orphaned / dead-owner deals", "command": "deals unowned", "description": "Open deals with no owner or owned by a deactivated rep, with per-stage dollar exposure — the hygiene gap owner-load can't see.", "rationale": "Anti-joins open deals against active owners in local SQLite; the HubSpot UI has no dead-owner or unassigned-exposure view.", "via": "mcp-command-mirror"},
+			{"name": "Post-win re-engagement (win-back)", "command": "contacts win-back", "description": "Contacts attached to a Closed Won deal but with no engagement in N days — the customer-expansion and re-engage list.", "rationale": "Joins Closed Won deals × associations × engagements locally; no single API call composes won-then-cold.", "via": "mcp-command-mirror"},
+			{"name": "Weighted forecast by close-month", "command": "deals forecast", "description": "Probability-weighted pipeline forecast bucketed by close-date month — the canonical GM revenue question, answered offline.", "rationale": "Sums amount × stage-probability across open deals grouped by close month locally, reusing pipeline-health's probability map (Closed Lost = 0, Closed Won = 1.0).", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
 			{"topic": "Stale objects", "insight": "Left-joins the engagement tables against contacts/deals locally; the live API has no 'no engagement since' filter shape."},
@@ -769,6 +1019,11 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			{"topic": "Since", "insight": "Scans hs_lastmodifieddate cursors stored in the local mirror; no aggregated 'what changed everywhere' endpoint exists on HubSpot's API."},
 			{"topic": "Nurture mine", "insight": "Joins contacts × associations × engagements × deals × pipeline_stages × owners — five tables no single HubSpot API call can compose. The web UI requires three filter passes per object; every incumbent MCP demands live calls per query."},
 			{"topic": "Bulk update from CSV with schema validation", "insight": "Reads the locally cached properties table and rejects bad rows up-front, then dispatches valid rows through batch endpoints. HubSpot's own Imports API silently drops bad rows — this surfaces them."},
+			{"topic": "Deal velocity / time-in-stage", "insight": "Computes time-in-stage from dealstage transitions retained in the local hubspot_property_history table; no single API call returns time-in-stage."},
+			{"topic": "Lifecycle-stage funnel", "insight": "Local GROUP BY over contacts.lifecyclestage with derived conversion ratios; the API returns rows, not a funnel rollup."},
+			{"topic": "Orphaned / dead-owner deals", "insight": "Anti-joins open deals against active owners in local SQLite; the HubSpot UI has no dead-owner or unassigned-exposure view."},
+			{"topic": "Post-win re-engagement (win-back)", "insight": "Joins Closed Won deals × associations × engagements locally; no single API call composes won-then-cold."},
+			{"topic": "Weighted forecast by close-month", "insight": "Sums amount × stage-probability across open deals grouped by close month locally, reusing pipeline-health's probability map (Closed Lost = 0, Closed Won = 1.0)."},
 			{"topic": "Contact lookup", "insight": "Use search for finding contacts by name/email. List endpoints return unsorted results and require pagination for large datasets."},
 			{"topic": "Activity tracking", "insight": "When checking deal activity, sync first and query locally. CRM APIs often throttle activity-log endpoints heavily."},
 		},

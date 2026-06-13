@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "connectwise-manage-cli",
-			Description: "Every ConnectWise PSA workflow from the terminal — with a typed conditions query builder, offline SQLite sync",
+			Description: "Every ConnectWise PSA workflow from the terminal — with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

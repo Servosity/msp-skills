@@ -31,16 +31,16 @@ func newServiceCategoryListCmd(flags *rootFlags) *cobra.Command {
 			path := "/ServiceCategory"
 			params := map[string]string{}
 			if flagAccessControlLevel != 0 {
-				params["access_control_level"] = fmt.Sprintf("%v", flagAccessControlLevel)
+				params["access_control_level"] = formatCLIParamValue(flagAccessControlLevel)
 			}
 			if flagIncludeParentName != false {
-				params["include_parent_name"] = fmt.Sprintf("%v", flagIncludeParentName)
+				params["include_parent_name"] = formatCLIParamValue(flagIncludeParentName)
 			}
 			if flagItilTicketType != 0 {
-				params["itil_ticket_type"] = fmt.Sprintf("%v", flagItilTicketType)
+				params["itil_ticket_type"] = formatCLIParamValue(flagItilTicketType)
 			}
 			if flagUserId != "" {
-				params["user_id"] = fmt.Sprintf("%v", flagUserId)
+				params["user_id"] = formatCLIParamValue(flagUserId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "service-category", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

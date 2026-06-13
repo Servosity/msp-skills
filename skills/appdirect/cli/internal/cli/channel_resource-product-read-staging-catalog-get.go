@@ -74,14 +74,14 @@ func newChannelResourceProductReadStagingCatalogGetCmd(flags *rootFlags) *cobra.
 
 			path := "/channel/v1/stagingCatalog"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "channel", path, map[string]string{
-				"appStatus":    fmt.Sprintf("%v", flagAppStatus),
-				"page":         fmt.Sprintf("%v", flagPage),
-				"productType":  fmt.Sprintf("%v", flagProductType),
-				"searchText":   fmt.Sprintf("%v", flagSearchText),
-				"vendorUuid":   fmt.Sprintf("%v", flagVendorUuid),
-				"size":         fmt.Sprintf("%v", flagSize),
-				"sortOrder":    fmt.Sprintf("%v", flagSortOrder),
-				"sortProperty": fmt.Sprintf("%v", flagSortProperty),
+				"appStatus":    formatCLIParamValue(flagAppStatus),
+				"page":         formatCLIParamValue(flagPage),
+				"productType":  formatCLIParamValue(flagProductType),
+				"searchText":   formatCLIParamValue(flagSearchText),
+				"vendorUuid":   formatCLIParamValue(flagVendorUuid),
+				"size":         formatCLIParamValue(flagSize),
+				"sortOrder":    formatCLIParamValue(flagSortOrder),
+				"sortProperty": formatCLIParamValue(flagSortProperty),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

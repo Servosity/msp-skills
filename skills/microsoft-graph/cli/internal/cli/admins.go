@@ -11,7 +11,7 @@ func newNovelAdminsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "admins",
-		Short:       "Privileged-access audits over the local store",
+		Short:       "admins subcommands: audit",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

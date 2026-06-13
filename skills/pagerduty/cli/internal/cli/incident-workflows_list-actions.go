@@ -30,9 +30,9 @@ func newIncidentWorkflowsListActionsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/incident_workflows/actions"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "incident-workflows", path, map[string]string{
-				"limit":   fmt.Sprintf("%v", flagLimit),
-				"cursor":  fmt.Sprintf("%v", flagCursor),
-				"keyword": fmt.Sprintf("%v", flagKeyword),
+				"limit":   formatCLIParamValue(flagLimit),
+				"cursor":  formatCLIParamValue(flagCursor),
+				"keyword": formatCLIParamValue(flagKeyword),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -19,7 +19,7 @@ func newTemplatesRenameFolderCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "rename-folder <id>",
 		Short:       "Rename a templates folder.",
-		Example:     "  pandadoc-cli templates rename-folder 550e8400-e29b-41d4-a716-446655440000 --name example-resource",
+		Example:     "  pandadoc-cli templates rename-folder Nq8htXxFssmhRxAPSP4SBP --name example-resource",
 		Annotations: map[string]string{"pp:endpoint": "templates.rename-folder", "pp:method": "PUT", "pp:path": "/templates/folders/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

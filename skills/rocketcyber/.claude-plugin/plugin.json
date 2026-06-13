@@ -1,7 +1,7 @@
 {
   "name": "rocketcyber",
-  "version": "0.1.0",
-  "description": "The first CLI and MCP server for RocketCyber Managed SOC: triage, incident MTTR, device risk ranking, and posture analytics the console doesn't compute.",
+  "version": "0.1.1",
+  "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
   "author": {
     "name": "Servosity",
     "url": "https://www.servosity.com"

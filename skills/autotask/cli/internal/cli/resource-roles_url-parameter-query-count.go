@@ -15,8 +15,9 @@ func newResourceRolesUrlParameterQueryCountCmd(flags *rootFlags) *cobra.Command 
 	var flagSearch string
 
 	cmd := &cobra.Command{
-		Use:         "url-parameter-query-count",
-		Short:       "Url parameter query count",
+		Use:   "url-parameter-query-count",
+		Short: "Url parameter query count",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  autotask-cli resource-roles url-parameter-query-count --search example-value",
 		Annotations: map[string]string{"pp:endpoint": "resource-roles.url-parameter-query-count", "pp:method": "GET", "pp:path": "/ResourceRoles/query/count", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newResourceRolesUrlParameterQueryCountCmd(flags *rootFlags) *cobra.Command 
 			path := "/ResourceRoles/query/count"
 			params := map[string]string{}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "resource-roles", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

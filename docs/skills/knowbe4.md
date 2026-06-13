@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "KnowBe4 MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "Every KnowBe4 KMSAT reporting feature plus a local SQLite store that answers the cross-client questions the console can't \u2014 repeat-clicker hunts and training-coverage anti-joins."
+description: "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer."
 permalink: /skills/knowbe4/
 skill_name: "KnowBe4 MCP"
 image: /assets/social/knowbe4/wide-1200x630.png

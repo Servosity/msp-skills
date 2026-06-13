@@ -30,10 +30,10 @@ func newExecExtensionSyncPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecExtensionSync"
 			params := map[string]string{}
 			if flagExtension != "" {
-				params["Extension"] = fmt.Sprintf("%v", flagExtension)
+				params["Extension"] = formatCLIParamValue(flagExtension)
 			}
 			if flagTenantID != "" {
-				params["TenantID"] = fmt.Sprintf("%v", flagTenantID)
+				params["TenantID"] = formatCLIParamValue(flagTenantID)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-extension-sync", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

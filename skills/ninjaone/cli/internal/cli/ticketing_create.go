@@ -40,8 +40,9 @@ func newTicketingCreateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a new ticket, does not accept files",
+		Use:   "create",
+		Short: "Create a new ticket, does not accept files",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  ninjaone-cli ticketing create --status example-value",
 		Annotations: map[string]string{"pp:endpoint": "ticketing.create", "pp:method": "POST", "pp:path": "/v2/ticketing/ticket"},
 		RunE: func(cmd *cobra.Command, args []string) error {

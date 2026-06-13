@@ -55,7 +55,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			resources := []string{"account", "account-v2-companies", "app-market", "app-market-v2-transfer-methods", "app-market-v2-transfer-platform-configurations", "app-reseller", "app-reseller-v1-catalog-sellable-products", "assisted-sales", "assisted-sales-v1-opportunities", "billing", "billing-v1-invoices", "billing-v1-payments", "billing-v1-subscriptions", "channel", "channel-v1-applications", "channel-v1-company-groups", "channel-v1-discounts", "channel-v1-exchange-rates", "channel-v1-segments-dynamic-segments-filter-parameters", "channel-v1-staging-catalog", "checkout", "marketplace", "marketplace-v1-bundles", "marketplace-v1-listing", "notification", "notification-v1-templates-common", "notification-v1-templates-default", "reporting", "reporting-v2-reports", "reseller"}
+			resources := []string{"app-market", "app-market-v2-transfer-methods", "app-market-v2-transfer-platform-configurations", "app-reseller", "assisted-sales", "assisted-sales-v1-opportunities", "billing", "billing-v1-payments", "billing-v1-subscriptions", "channel-v1-company-groups", "channel-v1-discounts", "channel-v1-segments-dynamic-segments-filter-parameters", "marketplace-v1-bundles", "marketplace-v1-listing", "reporting", "reporting-v2-reports", "reseller"}
 			totalSynced := 0
 			syncEventWriter := cmd.OutOrStdout()
 			if flags.asJSON {

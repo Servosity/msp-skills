@@ -173,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export CIPP_API_KEY=<your-key>"
+					report["auth_hint"] = "Set it with: cipp-cli auth set-token <token> or export CIPP_API_KEY=\"your-token-here\""
 					report["auth_key_url"] = "https://docs.cipp.app/user-documentation/cipp/integrations/cipp-api"
 					report["auth_instructions"] = "In CIPP: Integrations > CIPP-API > Create New Client (use a read-only Custom Role for safe testing). Then run 'cipp-cli auth login' with the Client ID, Secret, Tenant ID, and base URL (must end in /api), or set CIPP_API_KEY to a bearer token directly."
 				} else {

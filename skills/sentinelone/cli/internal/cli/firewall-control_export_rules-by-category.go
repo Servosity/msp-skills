@@ -40,9 +40,10 @@ func newFirewallControlExportRulesByCategoryCmd(flags *rootFlags) *cobra.Command
 	var flagCreatedAtGt string
 
 	cmd := &cobra.Command{
-		Use:         "rules-by-category <firewall_rule_category>",
-		Aliases:     []string{"get"},
-		Short:       "Export Firewall Control rules that match the filter to a JSON file from a scope specified by ID (run 'accounts', 'sites'",
+		Use:     "rules-by-category <firewall_rule_category>",
+		Aliases: []string{"get"},
+		Short:   "Export Firewall Control rules that match the filter to a JSON file from a scope specified by ID (run 'accounts', 'sites'",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli firewall-control export rules-by-category example-value",
 		Annotations: map[string]string{"pp:endpoint": "export.rules-by-category", "pp:method": "GET", "pp:path": "/firewall-control/{firewall_rule_category}/export", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -58,82 +59,82 @@ func newFirewallControlExportRulesByCategoryCmd(flags *rootFlags) *cobra.Command
 			path = replacePathParam(path, "firewall_rule_category", args[0])
 			params := map[string]string{}
 			if flagName != "" {
-				params["name"] = fmt.Sprintf("%v", flagName)
+				params["name"] = formatCLIParamValue(flagName)
 			}
 			if flagApplicationContains != "" {
-				params["application__contains"] = fmt.Sprintf("%v", flagApplicationContains)
+				params["application__contains"] = formatCLIParamValue(flagApplicationContains)
 			}
 			if flagCreatedAtLt != "" {
-				params["createdAt__lt"] = fmt.Sprintf("%v", flagCreatedAtLt)
+				params["createdAt__lt"] = formatCLIParamValue(flagCreatedAtLt)
 			}
 			if flagCreatedAtLte != "" {
-				params["createdAt__lte"] = fmt.Sprintf("%v", flagCreatedAtLte)
+				params["createdAt__lte"] = formatCLIParamValue(flagCreatedAtLte)
 			}
 			if flagProtocolContains != "" {
-				params["protocol__contains"] = fmt.Sprintf("%v", flagProtocolContains)
+				params["protocol__contains"] = formatCLIParamValue(flagProtocolContains)
 			}
 			if flagProtocols != "" {
-				params["protocols"] = fmt.Sprintf("%v", flagProtocols)
+				params["protocols"] = formatCLIParamValue(flagProtocols)
 			}
 			if flagStatuses != "" {
-				params["statuses"] = fmt.Sprintf("%v", flagStatuses)
+				params["statuses"] = formatCLIParamValue(flagStatuses)
 			}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			if flagCreatedAtGte != "" {
-				params["createdAt__gte"] = fmt.Sprintf("%v", flagCreatedAtGte)
+				params["createdAt__gte"] = formatCLIParamValue(flagCreatedAtGte)
 			}
 			if flagApplications != "" {
-				params["applications"] = fmt.Sprintf("%v", flagApplications)
+				params["applications"] = formatCLIParamValue(flagApplications)
 			}
 			if flagOsTypes != "" {
-				params["osTypes"] = fmt.Sprintf("%v", flagOsTypes)
+				params["osTypes"] = formatCLIParamValue(flagOsTypes)
 			}
 			if flagNameContains != "" {
-				params["name__contains"] = fmt.Sprintf("%v", flagNameContains)
+				params["name__contains"] = formatCLIParamValue(flagNameContains)
 			}
 			if flagSiteIds != "" {
-				params["siteIds"] = fmt.Sprintf("%v", flagSiteIds)
+				params["siteIds"] = formatCLIParamValue(flagSiteIds)
 			}
 			if flagGroupIds != "" {
-				params["groupIds"] = fmt.Sprintf("%v", flagGroupIds)
+				params["groupIds"] = formatCLIParamValue(flagGroupIds)
 			}
 			if flagQuery != "" {
-				params["query"] = fmt.Sprintf("%v", flagQuery)
+				params["query"] = formatCLIParamValue(flagQuery)
 			}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			if flagTagIds != "" {
-				params["tagIds"] = fmt.Sprintf("%v", flagTagIds)
+				params["tagIds"] = formatCLIParamValue(flagTagIds)
 			}
 			if flagDirections != "" {
-				params["directions"] = fmt.Sprintf("%v", flagDirections)
+				params["directions"] = formatCLIParamValue(flagDirections)
 			}
 			if flagCreatedAtBetween != "" {
-				params["createdAt__between"] = fmt.Sprintf("%v", flagCreatedAtBetween)
+				params["createdAt__between"] = formatCLIParamValue(flagCreatedAtBetween)
 			}
 			if flagTenant != "" {
-				params["tenant"] = fmt.Sprintf("%v", flagTenant)
+				params["tenant"] = formatCLIParamValue(flagTenant)
 			}
 			if flagLocationIds != "" {
-				params["locationIds"] = fmt.Sprintf("%v", flagLocationIds)
+				params["locationIds"] = formatCLIParamValue(flagLocationIds)
 			}
 			if flagActions != "" {
-				params["actions"] = fmt.Sprintf("%v", flagActions)
+				params["actions"] = formatCLIParamValue(flagActions)
 			}
 			if flagScopes != "" {
-				params["scopes"] = fmt.Sprintf("%v", flagScopes)
+				params["scopes"] = formatCLIParamValue(flagScopes)
 			}
 			if flagTagNameContains != "" {
-				params["tagName__contains"] = fmt.Sprintf("%v", flagTagNameContains)
+				params["tagName__contains"] = formatCLIParamValue(flagTagNameContains)
 			}
 			if flagServiceContains != "" {
-				params["service__contains"] = fmt.Sprintf("%v", flagServiceContains)
+				params["service__contains"] = formatCLIParamValue(flagServiceContains)
 			}
 			if flagCreatedAtGt != "" {
-				params["createdAt__gt"] = fmt.Sprintf("%v", flagCreatedAtGt)
+				params["createdAt__gt"] = formatCLIParamValue(flagCreatedAtGt)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "export", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

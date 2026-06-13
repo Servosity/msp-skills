@@ -45,11 +45,11 @@ func newTicketTimersListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/ticket_timers"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "ticket-timers", path, map[string]string{
-				"created_at_lt":  fmt.Sprintf("%v", flagCreatedAtLt),
-				"created_at_gt":  fmt.Sprintf("%v", flagCreatedAtGt),
-				"customer_id":    fmt.Sprintf("%v", flagCustomerId),
-				"billing_status": fmt.Sprintf("%v", flagBillingStatus),
-				"page":           fmt.Sprintf("%v", flagPage),
+				"created_at_lt":  formatCLIParamValue(flagCreatedAtLt),
+				"created_at_gt":  formatCLIParamValue(flagCreatedAtGt),
+				"customer_id":    formatCLIParamValue(flagCustomerId),
+				"billing_status": formatCLIParamValue(flagBillingStatus),
+				"page":           formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

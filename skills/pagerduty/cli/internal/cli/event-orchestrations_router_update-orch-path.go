@@ -17,9 +17,10 @@ func newEventOrchestrationsRouterUpdateOrchPathCmd(flags *rootFlags) *cobra.Comm
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update-orch-path <id>",
-		Aliases:     []string{"update"},
-		Short:       "Update a Global Orchestration's Routing Rules. An Orchestration Router allows you to create a set of Event Rules.",
+		Use:     "update-orch-path <id>",
+		Aliases: []string{"update"},
+		Short:   "Update a Global Orchestration's Routing Rules. An Orchestration Router allows you to create a set of Event Rules.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pagerduty-cli event-orchestrations router update-orch-path 550e8400-e29b-41d4-a716-446655440000 --orchestration-path example-value",
 		Annotations: map[string]string{"pp:endpoint": "router.update-orch-path", "pp:method": "PUT", "pp:path": "/event_orchestrations/{id}/router"},
 		RunE: func(cmd *cobra.Command, args []string) error {

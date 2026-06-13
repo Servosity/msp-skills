@@ -23,8 +23,9 @@ func newHubspotDealsCrmPostV3Objects03SearchDoSearchCmd(flags *rootFlags) *cobra
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-v3-objects-0-3-search-do-search",
-		Short:       "Search for deals using various filters and criteria to retrieve specific records.",
+		Use:   "post-v3-objects-0-3-search-do-search",
+		Short: "Search for deals using various filters and criteria to retrieve specific records.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-deals-crm post-v3-objects-0-3-search-do-search --after example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-deals-crm.post-v3-objects-0-3-search-do-search", "pp:method": "POST", "pp:path": "/crm/v3/objects/0-3/search"},
 		RunE: func(cmd *cobra.Command, args []string) error {

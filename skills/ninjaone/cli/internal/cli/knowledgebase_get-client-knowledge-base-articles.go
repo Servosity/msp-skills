@@ -31,13 +31,13 @@ func newKnowledgebaseGetClientKnowledgeBaseArticlesCmd(flags *rootFlags) *cobra.
 			path := "/v2/knowledgebase/organization/articles"
 			params := map[string]string{}
 			if flagOrganizationIds != "" {
-				params["organizationIds"] = fmt.Sprintf("%v", flagOrganizationIds)
+				params["organizationIds"] = formatCLIParamValue(flagOrganizationIds)
 			}
 			if flagArticleName != "" {
-				params["articleName"] = fmt.Sprintf("%v", flagArticleName)
+				params["articleName"] = formatCLIParamValue(flagArticleName)
 			}
 			if flagIncludeArchived != false {
-				params["includeArchived"] = fmt.Sprintf("%v", flagIncludeArchived)
+				params["includeArchived"] = formatCLIParamValue(flagIncludeArchived)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "knowledgebase", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

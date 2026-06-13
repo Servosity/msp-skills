@@ -26,6 +26,13 @@ import (
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+var isoDatePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Zz]+)?$`)
+var ftsQueryTokenRE = regexp.MustCompile(`[\pL\pN_]+`)
+
+var sqliteDriverInit struct {
+	mu   sync.Mutex
+	done bool
+}
 
 // validIdentifierRE pins ListField's `field` argument to a safe SQL
 // identifier shape before any Sprintf interpolation. Matches what
@@ -41,9 +48,15 @@ func IsUUID(s string) bool {
 
 // StoreSchemaVersion is the on-disk schema version this binary understands.
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
-// checked on every open. Non-learn CLIs advance to v3 for the
-// resources_fts rowid rehash.
-const StoreSchemaVersion = 3
+// checked on every open. Non-learn CLIs advance to v4 for the
+// resources_fts content extraction.
+const StoreSchemaVersion = 4
+
+// resourcesFTSContentSchemaVersion pins the schema bump that rewrote
+// resources_fts content from raw JSON to searchable leaf values. Keep this
+// separate from StoreSchemaVersion so future unrelated migrations do not
+// trigger an expensive full FTS rebuild.
+const resourcesFTSContentSchemaVersion = 4
 
 const resourcesFTSCreateSQL = `CREATE VIRTUAL TABLE IF NOT EXISTS resources_fts USING fts5(
 	id, resource_type, content, tokenize='porter unicode61'
@@ -87,7 +100,12 @@ func Open(dbPath string) (*Store, error) {
 // delete mode (e.g. a pre-WAL database opened by an old binary before its
 // first read-write open) errors with "attempt to write a readonly database".
 func OpenReadOnly(dbPath string) (*Store, error) {
-	db, err := sql.Open("sqlite", "file:"+dbPath+"?mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(268435456)")
+	dsn := "file:" + dbPath + "?mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(268435456)"
+	if err := ensureSQLiteDriverInitialized(context.Background(), dsn); err != nil {
+		return nil, err
+	}
+
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("opening database (read-only): %w", err)
 	}
@@ -104,7 +122,12 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("creating db directory: %w", err)
 	}
 
-	db, err := sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(268435456)")
+	dsn := dbPath + "?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(268435456)"
+	if err := ensureSQLiteDriverInitialized(ctx, dsn); err != nil {
+		return nil, err
+	}
+
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
@@ -121,6 +144,32 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 	}
 
 	return s, nil
+}
+
+func ensureSQLiteDriverInitialized(ctx context.Context, dsn string) error {
+	sqliteDriverInit.mu.Lock()
+	defer sqliteDriverInit.mu.Unlock()
+
+	if sqliteDriverInit.done {
+		return nil
+	}
+
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return fmt.Errorf("opening database for driver initialization: %w", err)
+	}
+	defer db.Close()
+
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("initializing sqlite driver: %w", err)
+	}
+	if err := conn.Close(); err != nil {
+		return fmt.Errorf("closing sqlite initialization connection: %w", err)
+	}
+
+	sqliteDriverInit.done = true
+	return nil
 }
 
 func (s *Store) Close() error {
@@ -1943,6 +1992,11 @@ func (s *Store) migrate(ctx context.Context) error {
 		if err := s.migrateExtras(ctx, conn); err != nil {
 			return fmt.Errorf("running extra migrations: %w", err)
 		}
+		if current < resourcesFTSContentSchemaVersion {
+			if err := s.migrateResourcesFTSContent(ctx, conn); err != nil {
+				return fmt.Errorf("migrating resources FTS content: %w", err)
+			}
+		}
 		// Stamp the schema version. On a fresh DB this writes the current
 		// StoreSchemaVersion; on an already-stamped DB this is a no-op
 		// write of the same value.
@@ -2028,6 +2082,27 @@ func (s *Store) migrateResourcesFTSRowIDs(ctx context.Context, conn *sql.Conn) e
 	return nil
 }
 
+func (s *Store) migrateResourcesFTSContent(ctx context.Context, conn *sql.Conn) error {
+	exists, err := tableExists(ctx, conn, "resources")
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+
+	if _, err := conn.ExecContext(ctx, `DROP TABLE IF EXISTS resources_fts`); err != nil {
+		return fmt.Errorf("dropping resources_fts: %w", err)
+	}
+	if _, err := conn.ExecContext(ctx, resourcesFTSCreateSQL); err != nil {
+		return fmt.Errorf("creating resources_fts: %w", err)
+	}
+	if err := rebuildResourcesFTS(ctx, conn); err != nil {
+		return fmt.Errorf("rebuilding resources_fts: %w", err)
+	}
+	return nil
+}
+
 func tableExists(ctx context.Context, conn *sql.Conn, name string) (bool, error) {
 	var count int
 	if err := conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, name).Scan(&count); err != nil {
@@ -2091,7 +2166,7 @@ func rebuildResourcesFTS(ctx context.Context, conn *sql.Conn) error {
 	for _, r := range resources {
 		if _, err := conn.ExecContext(ctx,
 			`INSERT INTO resources_fts (rowid, id, resource_type, content) VALUES (?, ?, ?, ?)`,
-			ftsRowID(r.resourceType, r.id), r.id, r.resourceType, r.data,
+			ftsRowID(r.resourceType, r.id), r.id, r.resourceType, searchableResourceContent(json.RawMessage(r.data)),
 		); err != nil {
 			return fmt.Errorf("indexing resource %s/%s: %w", r.resourceType, r.id, err)
 		}
@@ -2227,7 +2302,7 @@ func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, dat
 	if _, err = tx.Exec(
 		`INSERT INTO resources_fts (rowid, id, resource_type, content)
 		 VALUES (?, ?, ?, ?)`,
-		ftsRowid, id, resourceType, string(data),
+		ftsRowid, id, resourceType, searchableResourceContent(data),
 	); err != nil {
 		// FTS insert failure is non-fatal
 		fmt.Fprintf(os.Stderr, "warning: FTS index update failed: %v\n", err)
@@ -2266,13 +2341,76 @@ func (s *Store) Get(resourceType, id string) (json.RawMessage, error) {
 	return json.RawMessage(data), nil
 }
 
+// List returns resources of the given type. A positive limit caps the result
+// count; zero or negative means no limit.
 func (s *Store) List(resourceType string, limit int) ([]json.RawMessage, error) {
+	query := `SELECT data FROM resources WHERE resource_type = ? ORDER BY updated_at DESC`
+	args := []any{resourceType}
+	if limit > 0 {
+		query += ` LIMIT ?`
+		args = append(args, limit)
+	}
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []json.RawMessage
+	for rows.Next() {
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			return nil, err
+		}
+		results = append(results, json.RawMessage(data))
+	}
+	return results, rows.Err()
+}
+
+func (s *Store) Search(query string, limit int, resourceTypes ...string) ([]json.RawMessage, error) {
 	if limit <= 0 {
-		limit = 200
+		limit = 50
+	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
+	resourceType := ""
+	if len(resourceTypes) > 0 {
+		resourceType = strings.TrimSpace(resourceTypes[0])
+	}
+	if resourceType != "" {
+		rows, err := s.db.Query(
+			`SELECT r.data FROM resources r
+			 JOIN resources_fts f ON r.id = f.id AND r.resource_type = f.resource_type
+			 WHERE resources_fts MATCH ?
+			 AND r.resource_type = ?
+			 ORDER BY rank
+			 LIMIT ?`,
+			matchQuery, resourceType, limit,
+		)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		var results []json.RawMessage
+		for rows.Next() {
+			var data string
+			if err := rows.Scan(&data); err != nil {
+				return nil, err
+			}
+			results = append(results, json.RawMessage(data))
+		}
+		return results, rows.Err()
 	}
 	rows, err := s.db.Query(
-		`SELECT data FROM resources WHERE resource_type = ? ORDER BY updated_at DESC LIMIT ?`,
-		resourceType, limit,
+		`SELECT r.data FROM resources r
+		 JOIN resources_fts f ON r.id = f.id AND r.resource_type = f.resource_type
+		 WHERE resources_fts MATCH ?
+		 ORDER BY rank
+		 LIMIT ?`,
+		matchQuery, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -2290,32 +2428,82 @@ func (s *Store) List(resourceType string, limit int) ([]json.RawMessage, error) 
 	return results, rows.Err()
 }
 
-func (s *Store) Search(query string, limit int) ([]json.RawMessage, error) {
-	if limit <= 0 {
-		limit = 50
+func searchableResourceContent(data json.RawMessage) string {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	var value any
+	if err := dec.Decode(&value); err != nil {
+		return ""
 	}
-	rows, err := s.db.Query(
-		`SELECT r.data FROM resources r
-		 JOIN resources_fts f ON r.id = f.id AND r.resource_type = f.resource_type
-		 WHERE resources_fts MATCH ?
-		 ORDER BY rank
-		 LIMIT ?`,
-		query, limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+	var parts []string
+	collectSearchableStrings(&parts, "", value)
+	return strings.Join(parts, " ")
+}
 
-	var results []json.RawMessage
-	for rows.Next() {
-		var data string
-		if err := rows.Scan(&data); err != nil {
-			return nil, err
+func collectSearchableStrings(parts *[]string, key string, value any) {
+	switch v := value.(type) {
+	case map[string]any:
+		for childKey, child := range v {
+			collectSearchableStrings(parts, childKey, child)
 		}
-		results = append(results, json.RawMessage(data))
+	case []any:
+		for _, child := range v {
+			collectSearchableStrings(parts, key, child)
+		}
+	case string:
+		if shouldIndexSearchString(key, v) {
+			*parts = append(*parts, strings.TrimSpace(v))
+		}
 	}
-	return results, rows.Err()
+}
+
+func shouldIndexSearchString(key, value string) bool {
+	s := strings.TrimSpace(value)
+	if len(s) < 2 {
+		return false
+	}
+	if isIdentifierKey(key) {
+		return false
+	}
+	lower := strings.ToLower(s)
+	upper := strings.ToUpper(s)
+	switch {
+	case IsUUID(s):
+		return false
+	case isoDatePattern.MatchString(s):
+		return false
+	case strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://"):
+		return false
+	case upper == s && len(s) == 3 && strings.IndexFunc(s, func(r rune) bool { return r < 'A' || r > 'Z' }) == -1:
+		return false
+	}
+	tokens := ftsQueryTokenRE.FindAllString(s, -1)
+	return len(tokens) > 0
+}
+
+func isIdentifierKey(key string) bool {
+	if key == "" {
+		return false
+	}
+	lower := strings.ToLower(key)
+	return lower == "id" ||
+		lower == "uuid" ||
+		strings.HasSuffix(lower, "_id") ||
+		strings.HasSuffix(lower, "-id") ||
+		strings.HasSuffix(key, "Id") ||
+		strings.HasSuffix(key, "ID")
+}
+
+func ftsMatchQuery(query string) string {
+	tokens := ftsQueryTokenRE.FindAllString(query, -1)
+	if len(tokens) == 0 {
+		return ""
+	}
+	quoted := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		quoted = append(quoted, `"`+token+`"`)
+	}
+	return strings.Join(quoted, " ")
 }
 
 func extractObjectID(obj map[string]any) string {
@@ -2477,6 +2665,7 @@ func (s *Store) UpsertActivities(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for activities")
 	}
+	storageID := resourceStorageID("activities", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2486,10 +2675,10 @@ func (s *Store) UpsertActivities(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "activities", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "activities", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertActivitiesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertActivitiesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2528,6 +2717,7 @@ func (s *Store) UpsertActivityTypes(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for activity_types")
 	}
+	storageID := resourceStorageID("activity-types", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2537,10 +2727,10 @@ func (s *Store) UpsertActivityTypes(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "activity-types", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "activity-types", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertActivityTypesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertActivityTypesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2595,6 +2785,7 @@ func (s *Store) UpsertCallLogs(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for call_logs")
 	}
+	storageID := resourceStorageID("call-logs", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2604,10 +2795,10 @@ func (s *Store) UpsertCallLogs(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "call-logs", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "call-logs", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertCallLogsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertCallLogsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2646,6 +2837,7 @@ func (s *Store) UpsertRecordings(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for recordings")
 	}
+	storageID := resourceStorageID("recordings", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2655,10 +2847,10 @@ func (s *Store) UpsertRecordings(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "recordings", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "recordings", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertRecordingsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertRecordingsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2697,6 +2889,7 @@ func (s *Store) UpsertChannels(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for channels")
 	}
+	storageID := resourceStorageID("channels", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2706,10 +2899,10 @@ func (s *Store) UpsertChannels(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "channels", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "channels", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertChannelsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertChannelsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2748,6 +2941,7 @@ func (s *Store) UpsertConversations(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for conversations")
 	}
+	storageID := resourceStorageID("conversations", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2757,10 +2951,10 @@ func (s *Store) UpsertConversations(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "conversations", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "conversations", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertConversationsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertConversationsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2804,6 +2998,7 @@ func (s *Store) UpsertCurrencies(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for currencies")
 	}
+	storageID := resourceStorageID("currencies", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2813,10 +3008,10 @@ func (s *Store) UpsertCurrencies(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "currencies", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "currencies", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertCurrenciesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertCurrenciesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2855,6 +3050,7 @@ func (s *Store) UpsertDealFields(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for deal_fields")
 	}
+	storageID := resourceStorageID("deal-fields", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2864,10 +3060,10 @@ func (s *Store) UpsertDealFields(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "deal-fields", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "deal-fields", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertDealFieldsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertDealFieldsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -2972,6 +3168,7 @@ func (s *Store) UpsertDeals(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for deals")
 	}
+	storageID := resourceStorageID("deals", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -2981,10 +3178,10 @@ func (s *Store) UpsertDeals(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "deals", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "deals", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertDealsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertDealsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3024,6 +3221,7 @@ func (s *Store) UpsertDealsChangelog(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for deals_changelog")
 	}
+	storageID := resourceStorageID("deals_changelog", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3033,10 +3231,10 @@ func (s *Store) UpsertDealsChangelog(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "deals_changelog", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "deals_changelog", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertDealsChangelogTx(tx, id, obj, data); err != nil {
+	if err := s.upsertDealsChangelogTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3075,6 +3273,7 @@ func (s *Store) UpsertDuplicate(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for duplicate")
 	}
+	storageID := resourceStorageID("duplicate", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3084,10 +3283,10 @@ func (s *Store) UpsertDuplicate(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "duplicate", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "duplicate", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertDuplicateTx(tx, id, obj, data); err != nil {
+	if err := s.upsertDuplicateTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3127,6 +3326,7 @@ func (s *Store) UpsertDealsFiles(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for deals_files")
 	}
+	storageID := resourceStorageID("deals_files", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3136,10 +3336,10 @@ func (s *Store) UpsertDealsFiles(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "deals_files", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "deals_files", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertDealsFilesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertDealsFilesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3179,6 +3379,7 @@ func (s *Store) UpsertDealsFlow(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for deals_flow")
 	}
+	storageID := resourceStorageID("deals_flow", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3188,10 +3389,10 @@ func (s *Store) UpsertDealsFlow(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "deals_flow", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "deals_flow", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertDealsFlowTx(tx, id, obj, data); err != nil {
+	if err := s.upsertDealsFlowTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3230,6 +3431,7 @@ func (s *Store) UpsertDealsFollowers(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for deals_followers")
 	}
+	storageID := resourceStorageID("deals_followers", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3239,10 +3441,10 @@ func (s *Store) UpsertDealsFollowers(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "deals_followers", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "deals_followers", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertDealsFollowersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertDealsFollowersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3282,6 +3484,7 @@ func (s *Store) UpsertDealsMailMessages(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for deals_mail_messages")
 	}
+	storageID := resourceStorageID("deals_mail_messages", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3291,10 +3494,10 @@ func (s *Store) UpsertDealsMailMessages(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "deals_mail_messages", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "deals_mail_messages", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertDealsMailMessagesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertDealsMailMessagesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3333,6 +3536,7 @@ func (s *Store) UpsertDealsMerge(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for deals_merge")
 	}
+	storageID := resourceStorageID("deals_merge", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3342,10 +3546,10 @@ func (s *Store) UpsertDealsMerge(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "deals_merge", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "deals_merge", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertDealsMergeTx(tx, id, obj, data); err != nil {
+	if err := s.upsertDealsMergeTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3385,6 +3589,7 @@ func (s *Store) UpsertParticipants(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for participants")
 	}
+	storageID := resourceStorageID("participants", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3394,10 +3599,10 @@ func (s *Store) UpsertParticipants(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "participants", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "participants", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertParticipantsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertParticipantsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3437,6 +3642,7 @@ func (s *Store) UpsertParticipantsChangelog(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for participants_changelog")
 	}
+	storageID := resourceStorageID("participants_changelog", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3446,10 +3652,10 @@ func (s *Store) UpsertParticipantsChangelog(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "participants_changelog", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "participants_changelog", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertParticipantsChangelogTx(tx, id, obj, data); err != nil {
+	if err := s.upsertParticipantsChangelogTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3488,6 +3694,7 @@ func (s *Store) UpsertDealsPermittedUsers(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for deals_permitted_users")
 	}
+	storageID := resourceStorageID("deals_permitted_users", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3497,10 +3704,10 @@ func (s *Store) UpsertDealsPermittedUsers(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "deals_permitted_users", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "deals_permitted_users", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertDealsPermittedUsersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertDealsPermittedUsersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3568,6 +3775,7 @@ func (s *Store) UpsertFiles(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for files")
 	}
+	storageID := resourceStorageID("files", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3577,10 +3785,10 @@ func (s *Store) UpsertFiles(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "files", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "files", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertFilesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertFilesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3619,6 +3827,7 @@ func (s *Store) UpsertDownload(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for download")
 	}
+	storageID := resourceStorageID("download", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3628,10 +3837,10 @@ func (s *Store) UpsertDownload(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "download", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "download", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertDownloadTx(tx, id, obj, data); err != nil {
+	if err := s.upsertDownloadTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3670,6 +3879,7 @@ func (s *Store) UpsertFilters(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for filters")
 	}
+	storageID := resourceStorageID("filters", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3679,10 +3889,10 @@ func (s *Store) UpsertFilters(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "filters", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "filters", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertFiltersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertFiltersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3721,6 +3931,7 @@ func (s *Store) UpsertGoals(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for goals")
 	}
+	storageID := resourceStorageID("goals", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3730,10 +3941,10 @@ func (s *Store) UpsertGoals(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "goals", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "goals", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertGoalsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertGoalsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3772,6 +3983,7 @@ func (s *Store) UpsertResults(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for results")
 	}
+	storageID := resourceStorageID("results", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3781,10 +3993,10 @@ func (s *Store) UpsertResults(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "results", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "results", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertResultsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertResultsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3826,6 +4038,7 @@ func (s *Store) UpsertLeadLabels(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for lead_labels")
 	}
+	storageID := resourceStorageID("lead-labels", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3835,10 +4048,10 @@ func (s *Store) UpsertLeadLabels(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "lead-labels", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "lead-labels", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertLeadLabelsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertLeadLabelsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3877,6 +4090,7 @@ func (s *Store) UpsertLeadSources(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for lead_sources")
 	}
+	storageID := resourceStorageID("lead-sources", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3886,10 +4100,10 @@ func (s *Store) UpsertLeadSources(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "lead-sources", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "lead-sources", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertLeadSourcesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertLeadSourcesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3947,6 +4161,7 @@ func (s *Store) UpsertLeads(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for leads")
 	}
+	storageID := resourceStorageID("leads", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -3956,10 +4171,10 @@ func (s *Store) UpsertLeads(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "leads", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "leads", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertLeadsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertLeadsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3998,6 +4213,7 @@ func (s *Store) UpsertLeadsPermittedUsers(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for leads_permitted_users")
 	}
+	storageID := resourceStorageID("leads_permitted_users", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4007,10 +4223,10 @@ func (s *Store) UpsertLeadsPermittedUsers(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "leads_permitted_users", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "leads_permitted_users", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertLeadsPermittedUsersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertLeadsPermittedUsersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4049,6 +4265,7 @@ func (s *Store) UpsertLegacyTeams(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for legacy_teams")
 	}
+	storageID := resourceStorageID("legacy-teams", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4058,10 +4275,10 @@ func (s *Store) UpsertLegacyTeams(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "legacy-teams", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "legacy-teams", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertLegacyTeamsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertLegacyTeamsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4100,6 +4317,7 @@ func (s *Store) UpsertLegacyTeamsUsers(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for legacy_teams_users")
 	}
+	storageID := resourceStorageID("legacy_teams_users", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4109,10 +4327,10 @@ func (s *Store) UpsertLegacyTeamsUsers(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "legacy_teams_users", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "legacy_teams_users", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertLegacyTeamsUsersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertLegacyTeamsUsersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4154,6 +4372,7 @@ func (s *Store) UpsertMailbox(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for mailbox")
 	}
+	storageID := resourceStorageID("mailbox", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4163,10 +4382,10 @@ func (s *Store) UpsertMailbox(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "mailbox", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "mailbox", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertMailboxTx(tx, id, obj, data); err != nil {
+	if err := s.upsertMailboxTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4205,6 +4424,7 @@ func (s *Store) UpsertMeetings(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for meetings")
 	}
+	storageID := resourceStorageID("meetings", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4214,10 +4434,10 @@ func (s *Store) UpsertMeetings(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "meetings", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "meetings", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertMeetingsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertMeetingsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4273,6 +4493,7 @@ func (s *Store) UpsertNotes(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for notes")
 	}
+	storageID := resourceStorageID("notes", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4282,10 +4503,10 @@ func (s *Store) UpsertNotes(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "notes", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "notes", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertNotesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertNotesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4325,6 +4546,7 @@ func (s *Store) UpsertComments(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for comments")
 	}
+	storageID := resourceStorageID("comments", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4334,10 +4556,10 @@ func (s *Store) UpsertComments(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "comments", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "comments", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertCommentsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertCommentsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4381,6 +4603,7 @@ func (s *Store) UpsertOauth(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for oauth")
 	}
+	storageID := resourceStorageID("oauth", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4390,10 +4613,10 @@ func (s *Store) UpsertOauth(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "oauth", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "oauth", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertOauthTx(tx, id, obj, data); err != nil {
+	if err := s.upsertOauthTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4432,6 +4655,7 @@ func (s *Store) UpsertOrganizationFields(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for organization_fields")
 	}
+	storageID := resourceStorageID("organization-fields", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4441,10 +4665,10 @@ func (s *Store) UpsertOrganizationFields(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "organization-fields", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "organization-fields", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertOrganizationFieldsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertOrganizationFieldsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4483,6 +4707,7 @@ func (s *Store) UpsertOrganizationRelationships(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for organization_relationships")
 	}
+	storageID := resourceStorageID("organization-relationships", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4492,10 +4717,10 @@ func (s *Store) UpsertOrganizationRelationships(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "organization-relationships", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "organization-relationships", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertOrganizationRelationshipsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertOrganizationRelationshipsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4548,6 +4773,7 @@ func (s *Store) UpsertOrganizations(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for organizations")
 	}
+	storageID := resourceStorageID("organizations", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4557,10 +4783,10 @@ func (s *Store) UpsertOrganizations(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "organizations", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "organizations", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertOrganizationsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertOrganizationsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4600,6 +4826,7 @@ func (s *Store) UpsertOrganizationsChangelog(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for organizations_changelog")
 	}
+	storageID := resourceStorageID("organizations_changelog", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4609,10 +4836,10 @@ func (s *Store) UpsertOrganizationsChangelog(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "organizations_changelog", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "organizations_changelog", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertOrganizationsChangelogTx(tx, id, obj, data); err != nil {
+	if err := s.upsertOrganizationsChangelogTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4652,6 +4879,7 @@ func (s *Store) UpsertOrganizationsFiles(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for organizations_files")
 	}
+	storageID := resourceStorageID("organizations_files", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4661,10 +4889,10 @@ func (s *Store) UpsertOrganizationsFiles(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "organizations_files", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "organizations_files", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertOrganizationsFilesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertOrganizationsFilesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4704,6 +4932,7 @@ func (s *Store) UpsertOrganizationsFlow(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for organizations_flow")
 	}
+	storageID := resourceStorageID("organizations_flow", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4713,10 +4942,10 @@ func (s *Store) UpsertOrganizationsFlow(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "organizations_flow", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "organizations_flow", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertOrganizationsFlowTx(tx, id, obj, data); err != nil {
+	if err := s.upsertOrganizationsFlowTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4755,6 +4984,7 @@ func (s *Store) UpsertOrganizationsFollowers(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for organizations_followers")
 	}
+	storageID := resourceStorageID("organizations_followers", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4764,10 +4994,10 @@ func (s *Store) UpsertOrganizationsFollowers(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "organizations_followers", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "organizations_followers", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertOrganizationsFollowersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertOrganizationsFollowersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4807,6 +5037,7 @@ func (s *Store) UpsertOrganizationsMailMessages(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for organizations_mail_messages")
 	}
+	storageID := resourceStorageID("organizations_mail_messages", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4816,10 +5047,10 @@ func (s *Store) UpsertOrganizationsMailMessages(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "organizations_mail_messages", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "organizations_mail_messages", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertOrganizationsMailMessagesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertOrganizationsMailMessagesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4858,6 +5089,7 @@ func (s *Store) UpsertOrganizationsMerge(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for organizations_merge")
 	}
+	storageID := resourceStorageID("organizations_merge", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4867,10 +5099,10 @@ func (s *Store) UpsertOrganizationsMerge(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "organizations_merge", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "organizations_merge", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertOrganizationsMergeTx(tx, id, obj, data); err != nil {
+	if err := s.upsertOrganizationsMergeTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4909,6 +5141,7 @@ func (s *Store) UpsertOrganizationsPermittedUsers(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for organizations_permitted_users")
 	}
+	storageID := resourceStorageID("organizations_permitted_users", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4918,10 +5151,10 @@ func (s *Store) UpsertOrganizationsPermittedUsers(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "organizations_permitted_users", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "organizations_permitted_users", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertOrganizationsPermittedUsersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertOrganizationsPermittedUsersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4965,6 +5198,7 @@ func (s *Store) UpsertPermissionSets(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for permission_sets")
 	}
+	storageID := resourceStorageID("permission-sets", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4974,10 +5208,10 @@ func (s *Store) UpsertPermissionSets(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "permission-sets", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "permission-sets", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPermissionSetsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPermissionSetsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5017,6 +5251,7 @@ func (s *Store) UpsertPermissionSetsAssignments(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for permission_sets_assignments")
 	}
+	storageID := resourceStorageID("permission_sets_assignments", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5026,10 +5261,10 @@ func (s *Store) UpsertPermissionSetsAssignments(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "permission_sets_assignments", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "permission_sets_assignments", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPermissionSetsAssignmentsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPermissionSetsAssignmentsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5068,6 +5303,7 @@ func (s *Store) UpsertPersonFields(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for person_fields")
 	}
+	storageID := resourceStorageID("person-fields", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5077,10 +5313,10 @@ func (s *Store) UpsertPersonFields(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "person-fields", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "person-fields", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPersonFieldsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPersonFieldsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5132,6 +5368,7 @@ func (s *Store) UpsertPersons(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for persons")
 	}
+	storageID := resourceStorageID("persons", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5141,10 +5378,10 @@ func (s *Store) UpsertPersons(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "persons", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "persons", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPersonsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPersonsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5184,6 +5421,7 @@ func (s *Store) UpsertPersonsChangelog(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for persons_changelog")
 	}
+	storageID := resourceStorageID("persons_changelog", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5193,10 +5431,10 @@ func (s *Store) UpsertPersonsChangelog(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "persons_changelog", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "persons_changelog", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPersonsChangelogTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPersonsChangelogTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5236,6 +5474,7 @@ func (s *Store) UpsertPersonsFiles(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for persons_files")
 	}
+	storageID := resourceStorageID("persons_files", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5245,10 +5484,10 @@ func (s *Store) UpsertPersonsFiles(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "persons_files", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "persons_files", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPersonsFilesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPersonsFilesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5288,6 +5527,7 @@ func (s *Store) UpsertPersonsFlow(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for persons_flow")
 	}
+	storageID := resourceStorageID("persons_flow", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5297,10 +5537,10 @@ func (s *Store) UpsertPersonsFlow(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "persons_flow", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "persons_flow", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPersonsFlowTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPersonsFlowTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5339,6 +5579,7 @@ func (s *Store) UpsertPersonsFollowers(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for persons_followers")
 	}
+	storageID := resourceStorageID("persons_followers", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5348,10 +5589,10 @@ func (s *Store) UpsertPersonsFollowers(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "persons_followers", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "persons_followers", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPersonsFollowersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPersonsFollowersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5391,6 +5632,7 @@ func (s *Store) UpsertPersonsMailMessages(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for persons_mail_messages")
 	}
+	storageID := resourceStorageID("persons_mail_messages", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5400,10 +5642,10 @@ func (s *Store) UpsertPersonsMailMessages(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "persons_mail_messages", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "persons_mail_messages", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPersonsMailMessagesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPersonsMailMessagesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5442,6 +5684,7 @@ func (s *Store) UpsertPersonsMerge(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for persons_merge")
 	}
+	storageID := resourceStorageID("persons_merge", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5451,10 +5694,10 @@ func (s *Store) UpsertPersonsMerge(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "persons_merge", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "persons_merge", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPersonsMergeTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPersonsMergeTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5493,6 +5736,7 @@ func (s *Store) UpsertPersonsPermittedUsers(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for persons_permitted_users")
 	}
+	storageID := resourceStorageID("persons_permitted_users", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5502,10 +5746,10 @@ func (s *Store) UpsertPersonsPermittedUsers(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "persons_permitted_users", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "persons_permitted_users", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPersonsPermittedUsersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPersonsPermittedUsersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5544,6 +5788,7 @@ func (s *Store) UpsertPicture(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for picture")
 	}
+	storageID := resourceStorageID("picture", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5553,10 +5798,10 @@ func (s *Store) UpsertPicture(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "picture", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "picture", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPictureTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPictureTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5596,6 +5841,7 @@ func (s *Store) UpsertPersonsProducts(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for persons_products")
 	}
+	storageID := resourceStorageID("persons_products", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5605,10 +5851,10 @@ func (s *Store) UpsertPersonsProducts(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "persons_products", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "persons_products", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPersonsProductsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPersonsProductsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5654,6 +5900,7 @@ func (s *Store) UpsertPipelines(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for pipelines")
 	}
+	storageID := resourceStorageID("pipelines", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5663,10 +5910,10 @@ func (s *Store) UpsertPipelines(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "pipelines", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "pipelines", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPipelinesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPipelinesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5705,6 +5952,7 @@ func (s *Store) UpsertConversionStatistics(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for conversion_statistics")
 	}
+	storageID := resourceStorageID("conversion_statistics", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5714,10 +5962,10 @@ func (s *Store) UpsertConversionStatistics(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "conversion_statistics", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "conversion_statistics", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertConversionStatisticsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertConversionStatisticsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5757,6 +6005,7 @@ func (s *Store) UpsertPipelinesDeals(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for pipelines_deals")
 	}
+	storageID := resourceStorageID("pipelines_deals", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5766,10 +6015,10 @@ func (s *Store) UpsertPipelinesDeals(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "pipelines_deals", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "pipelines_deals", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPipelinesDealsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPipelinesDealsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5808,6 +6057,7 @@ func (s *Store) UpsertMovementStatistics(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for movement_statistics")
 	}
+	storageID := resourceStorageID("movement_statistics", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5817,10 +6067,10 @@ func (s *Store) UpsertMovementStatistics(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "movement_statistics", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "movement_statistics", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertMovementStatisticsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertMovementStatisticsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5876,6 +6126,7 @@ func (s *Store) UpsertProductFields(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for product_fields")
 	}
+	storageID := resourceStorageID("product-fields", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5885,10 +6136,10 @@ func (s *Store) UpsertProductFields(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "product-fields", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "product-fields", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertProductFieldsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertProductFieldsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5937,6 +6188,7 @@ func (s *Store) UpsertProducts(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for products")
 	}
+	storageID := resourceStorageID("products", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5946,10 +6198,10 @@ func (s *Store) UpsertProducts(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "products", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "products", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertProductsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertProductsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -5989,6 +6241,7 @@ func (s *Store) UpsertProductsDeals(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for products_deals")
 	}
+	storageID := resourceStorageID("products_deals", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -5998,10 +6251,10 @@ func (s *Store) UpsertProductsDeals(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "products_deals", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "products_deals", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertProductsDealsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertProductsDealsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6041,6 +6294,7 @@ func (s *Store) UpsertProductsFiles(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for products_files")
 	}
+	storageID := resourceStorageID("products_files", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6050,10 +6304,10 @@ func (s *Store) UpsertProductsFiles(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "products_files", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "products_files", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertProductsFilesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertProductsFilesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6093,6 +6347,7 @@ func (s *Store) UpsertProductsFollowers(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for products_followers")
 	}
+	storageID := resourceStorageID("products_followers", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6102,10 +6357,10 @@ func (s *Store) UpsertProductsFollowers(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "products_followers", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "products_followers", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertProductsFollowersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertProductsFollowersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6144,6 +6399,7 @@ func (s *Store) UpsertProductsPermittedUsers(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for products_permitted_users")
 	}
+	storageID := resourceStorageID("products_permitted_users", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6153,10 +6409,10 @@ func (s *Store) UpsertProductsPermittedUsers(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "products_permitted_users", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "products_permitted_users", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertProductsPermittedUsersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertProductsPermittedUsersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6201,6 +6457,7 @@ func (s *Store) UpsertProjectTemplates(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for project_templates")
 	}
+	storageID := resourceStorageID("project-templates", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6210,10 +6467,10 @@ func (s *Store) UpsertProjectTemplates(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "project-templates", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "project-templates", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertProjectTemplatesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertProjectTemplatesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6269,6 +6526,7 @@ func (s *Store) UpsertProjects(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for projects")
 	}
+	storageID := resourceStorageID("projects", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6278,10 +6536,10 @@ func (s *Store) UpsertProjects(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "projects", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "projects", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertProjectsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertProjectsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6320,6 +6578,7 @@ func (s *Store) UpsertProjectsActivities(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for projects_activities")
 	}
+	storageID := resourceStorageID("projects_activities", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6329,10 +6588,10 @@ func (s *Store) UpsertProjectsActivities(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "projects_activities", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "projects_activities", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertProjectsActivitiesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertProjectsActivitiesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6371,6 +6630,7 @@ func (s *Store) UpsertArchive(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for archive")
 	}
+	storageID := resourceStorageID("archive", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6380,10 +6640,10 @@ func (s *Store) UpsertArchive(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "archive", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "archive", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertArchiveTx(tx, id, obj, data); err != nil {
+	if err := s.upsertArchiveTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6422,6 +6682,7 @@ func (s *Store) UpsertGroups(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for groups")
 	}
+	storageID := resourceStorageID("groups", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6431,10 +6692,10 @@ func (s *Store) UpsertGroups(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "groups", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "groups", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertGroupsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertGroupsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6473,6 +6734,7 @@ func (s *Store) UpsertPlan(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for plan")
 	}
+	storageID := resourceStorageID("plan", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6482,10 +6744,10 @@ func (s *Store) UpsertPlan(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "plan", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "plan", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPlanTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPlanTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6524,6 +6786,7 @@ func (s *Store) UpsertProjectsTasks(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for projects_tasks")
 	}
+	storageID := resourceStorageID("projects_tasks", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6533,10 +6796,10 @@ func (s *Store) UpsertProjectsTasks(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "projects_tasks", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "projects_tasks", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertProjectsTasksTx(tx, id, obj, data); err != nil {
+	if err := s.upsertProjectsTasksTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6575,6 +6838,7 @@ func (s *Store) UpsertRoles(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for roles")
 	}
+	storageID := resourceStorageID("roles", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6584,10 +6848,10 @@ func (s *Store) UpsertRoles(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "roles", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "roles", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertRolesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertRolesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6627,6 +6891,7 @@ func (s *Store) UpsertRolesAssignments(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for roles_assignments")
 	}
+	storageID := resourceStorageID("roles_assignments", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6636,10 +6901,10 @@ func (s *Store) UpsertRolesAssignments(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "roles_assignments", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "roles_assignments", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertRolesAssignmentsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertRolesAssignmentsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6678,6 +6943,7 @@ func (s *Store) UpsertRolesPipelines(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for roles_pipelines")
 	}
+	storageID := resourceStorageID("roles_pipelines", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6687,10 +6953,10 @@ func (s *Store) UpsertRolesPipelines(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "roles_pipelines", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "roles_pipelines", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertRolesPipelinesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertRolesPipelinesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6729,6 +6995,7 @@ func (s *Store) UpsertSettings(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for settings")
 	}
+	storageID := resourceStorageID("settings", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6738,10 +7005,10 @@ func (s *Store) UpsertSettings(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "settings", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "settings", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertSettingsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertSettingsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6789,6 +7056,7 @@ func (s *Store) UpsertStages(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for stages")
 	}
+	storageID := resourceStorageID("stages", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6798,10 +7066,10 @@ func (s *Store) UpsertStages(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "stages", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "stages", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertStagesTx(tx, id, obj, data); err != nil {
+	if err := s.upsertStagesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6841,6 +7109,7 @@ func (s *Store) UpsertStagesDeals(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for stages_deals")
 	}
+	storageID := resourceStorageID("stages_deals", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6850,10 +7119,10 @@ func (s *Store) UpsertStagesDeals(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "stages_deals", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "stages_deals", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertStagesDealsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertStagesDealsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6903,6 +7172,7 @@ func (s *Store) UpsertTasks(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for tasks")
 	}
+	storageID := resourceStorageID("tasks", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6912,10 +7182,10 @@ func (s *Store) UpsertTasks(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "tasks", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "tasks", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertTasksTx(tx, id, obj, data); err != nil {
+	if err := s.upsertTasksTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6954,6 +7224,7 @@ func (s *Store) UpsertUsers(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for users")
 	}
+	storageID := resourceStorageID("users", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -6963,10 +7234,10 @@ func (s *Store) UpsertUsers(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "users", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "users", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertUsersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertUsersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -7005,6 +7276,7 @@ func (s *Store) UpsertUsersFollowers(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for users_followers")
 	}
+	storageID := resourceStorageID("users_followers", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -7014,10 +7286,10 @@ func (s *Store) UpsertUsersFollowers(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "users_followers", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "users_followers", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertUsersFollowersTx(tx, id, obj, data); err != nil {
+	if err := s.upsertUsersFollowersTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -7056,6 +7328,7 @@ func (s *Store) UpsertPermissions(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for permissions")
 	}
+	storageID := resourceStorageID("permissions", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -7065,10 +7338,10 @@ func (s *Store) UpsertPermissions(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "permissions", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "permissions", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertPermissionsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertPermissionsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -7108,6 +7381,7 @@ func (s *Store) UpsertRoleAssignments(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for role_assignments")
 	}
+	storageID := resourceStorageID("role_assignments", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -7117,10 +7391,10 @@ func (s *Store) UpsertRoleAssignments(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "role_assignments", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "role_assignments", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertRoleAssignmentsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertRoleAssignmentsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -7159,6 +7433,7 @@ func (s *Store) UpsertRoleSettings(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for role_settings")
 	}
+	storageID := resourceStorageID("role_settings", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -7168,10 +7443,10 @@ func (s *Store) UpsertRoleSettings(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "role_settings", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "role_settings", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertRoleSettingsTx(tx, id, obj, data); err != nil {
+	if err := s.upsertRoleSettingsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -7211,6 +7486,7 @@ func (s *Store) UpsertWebhooks(data json.RawMessage) error {
 	if id == "" {
 		return fmt.Errorf("missing id for webhooks")
 	}
+	storageID := resourceStorageID("webhooks", id, obj)
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -7220,10 +7496,10 @@ func (s *Store) UpsertWebhooks(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "webhooks", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "webhooks", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertWebhooksTx(tx, id, obj, data); err != nil {
+	if err := s.upsertWebhooksTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -7275,9 +7551,73 @@ var resourceIDFieldOverrides = map[string]string{
 // field and upsert on names — see #1394.
 var genericIDFieldFallbacks = []string{"id", "ID", "gid", "sid", "uid", "uuid", "guid", "name", "slug", "key", "code"}
 
-// ExtractResourceID resolves the primary key UpsertBatch would use for a
-// resource item. Callers that need to gate best-effort writes can use this to
-// avoid passing non-entity envelopes into the batch path.
+// resourceParentKeyColumns identifies generated dependent resources whose
+// local mirror rows need the parent context in the storage key. Without this,
+// many-to-many sub-collections collapse every parent association onto the
+// child's bare id and silently keep only the last synced parent.
+var resourceParentKeyColumns = map[string]string{
+	"recordings":                    "call_logs_id",
+	"conversations":                 "channels_id",
+	"deals_changelog":               "deals_id",
+	"duplicate":                     "deals_id",
+	"deals_files":                   "deals_id",
+	"deals_flow":                    "deals_id",
+	"deals_followers":               "deals_id",
+	"deals_mail_messages":           "deals_id",
+	"deals_merge":                   "deals_id",
+	"participants":                  "deals_id",
+	"participants_changelog":        "deals_id",
+	"deals_permitted_users":         "deals_id",
+	"download":                      "files_id",
+	"results":                       "goals_id",
+	"leads_permitted_users":         "leads_id",
+	"legacy_teams_users":            "legacy_teams_id",
+	"comments":                      "notes_id",
+	"organizations_changelog":       "organizations_id",
+	"organizations_files":           "organizations_id",
+	"organizations_flow":            "organizations_id",
+	"organizations_followers":       "organizations_id",
+	"organizations_mail_messages":   "organizations_id",
+	"organizations_merge":           "organizations_id",
+	"organizations_permitted_users": "organizations_id",
+	"permission_sets_assignments":   "permission_sets_id",
+	"persons_changelog":             "persons_id",
+	"persons_files":                 "persons_id",
+	"persons_flow":                  "persons_id",
+	"persons_followers":             "persons_id",
+	"persons_mail_messages":         "persons_id",
+	"persons_merge":                 "persons_id",
+	"persons_permitted_users":       "persons_id",
+	"picture":                       "persons_id",
+	"persons_products":              "persons_id",
+	"conversion_statistics":         "pipelines_id",
+	"pipelines_deals":               "pipelines_id",
+	"movement_statistics":           "pipelines_id",
+	"products_deals":                "products_id",
+	"products_files":                "products_id",
+	"products_followers":            "products_id",
+	"products_permitted_users":      "products_id",
+	"projects_activities":           "projects_id",
+	"archive":                       "projects_id",
+	"groups":                        "projects_id",
+	"plan":                          "projects_id",
+	"projects_tasks":                "projects_id",
+	"roles_assignments":             "roles_id",
+	"roles_pipelines":               "roles_id",
+	"settings":                      "roles_id",
+	"stages_deals":                  "stages_id",
+	"users_followers":               "users_id",
+	"permissions":                   "users_id",
+	"role_assignments":              "users_id",
+	"role_settings":                 "users_id",
+}
+
+// ExtractResourceID resolves the bare resource id field that UpsertBatch
+// extracts from a resource item. For dependent resource types, UpsertBatch
+// derives the actual storage key by combining this id with the parent value;
+// use resourceStorageID if you need the key as it appears in the database.
+// Callers that need to gate best-effort writes can use this to avoid passing
+// non-entity envelopes into the batch path.
 func ExtractResourceID(resourceType string, obj map[string]any) string {
 	if override, ok := resourceIDFieldOverrides[resourceType]; ok && override != "" {
 		if v := lookupFieldValue(obj, override); v != nil {
@@ -7295,7 +7635,115 @@ func ExtractResourceID(resourceType string, obj map[string]any) string {
 			}
 		}
 	}
+	if s := suffixIDFieldFallback(resourceType, obj); s != "" {
+		return s
+	}
 	return ""
+}
+
+// suffixIDFieldFallback resolves an id-less resource that keys on its own
+// "<name>_code" / "<name>_id" / "<name>_key" / "<name>_slug" field (e.g. the
+// "currencies" resource keying on "currency_code" — see #2327). It is scoped to
+// the resource's OWN name so a foreign key like account_id/parent_id is never
+// promoted to the primary key, and it uses direct map lookups in a fixed suffix
+// order so the chosen id is deterministic.
+func suffixIDFieldFallback(resourceType string, obj map[string]any) string {
+	for _, base := range resourceIDBaseNames(resourceType) {
+		for _, suffix := range []string{"_id", "_code", "_key", "_slug"} {
+			if v, ok := obj[base+suffix]; ok {
+				if s := scalarIDString(v); s != "" && s != "<nil>" {
+					return s
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// resourceIDBaseNames returns lowercase candidate singular/plural stems of a
+// resource name to build "<base>_id"-style key probes from (e.g. "currencies"
+// -> ["currencies","currency"]). OpenAPI-/path-derived names can carry a
+// leading verb token ("get-currencies"), so the same probes are also attempted
+// on the de-verbed stem. Minimal English depluralization; the raw name is
+// always included so already-singular names work too.
+func resourceIDBaseNames(resourceType string) []string {
+	r := strings.ToLower(strings.TrimSpace(resourceType))
+	if r == "" {
+		return nil
+	}
+	stems := []string{r}
+	if d := stripLeadingResourceVerb(r); d != "" && d != r {
+		stems = append(stems, d)
+	}
+	var bases []string
+	seen := map[string]bool{}
+	add := func(s string) {
+		if s != "" && !seen[s] {
+			seen[s] = true
+			bases = append(bases, s)
+		}
+	}
+	for _, stem := range stems {
+		add(stem)
+		add(depluralizeResourceStem(stem))
+	}
+	return bases
+}
+
+func stripLeadingResourceVerb(r string) string {
+	for _, verb := range []string{"get", "list", "fetch", "find", "retrieve", "read", "show", "all"} {
+		for _, sep := range []string{"-", "_"} {
+			prefix := verb + sep
+			if strings.HasPrefix(r, prefix) && len(r) > len(prefix) {
+				return r[len(prefix):]
+			}
+		}
+	}
+	return ""
+}
+
+func depluralizeResourceStem(r string) string {
+	switch {
+	case strings.HasSuffix(r, "ies") && len(r) > 3:
+		return strings.TrimSuffix(r, "ies") + "y" // currencies -> currency
+	// Plurals formed by adding "es" to a base ending in s/x/z/ch/sh. The
+	// double-s "sses" guard (not bare "ses") keeps soft-e plurals — where the
+	// singular already ends in a silent "e" (cases, databases, licenses,
+	// purchases) — out of this branch; they fall through to the "-s" case below
+	// (cases -> case, not cas). Trade-off: a genuine "-es" plural of an s-ending
+	// singular (buses, statuses) depluralizes imperfectly, but those are rare as
+	// resource names and this stem only feeds best-effort id-field probing.
+	case strings.HasSuffix(r, "sses") || strings.HasSuffix(r, "xes") ||
+		strings.HasSuffix(r, "zes") || strings.HasSuffix(r, "ches") ||
+		strings.HasSuffix(r, "shes"):
+		return strings.TrimSuffix(r, "es") // classes -> class, boxes -> box, dishes -> dish
+	case strings.HasSuffix(r, "s") && !strings.HasSuffix(r, "ss") && len(r) > 1:
+		return strings.TrimSuffix(r, "s") // languages -> language, cases -> case
+	}
+	return r
+}
+
+func scalarIDString(value any) string {
+	switch value.(type) {
+	case string, bool, int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64, json.Number, []byte:
+		return ResourceIDString(value)
+	default:
+		return ""
+	}
+}
+
+func resourceStorageID(resourceType, id string, obj map[string]any) string {
+	parentKey := resourceParentKeyColumns[resourceType]
+	if parentKey == "" {
+		return id
+	}
+	parentValue := ResourceIDString(lookupFieldValue(obj, parentKey))
+	if parentValue == "" || parentValue == "<nil>" {
+		return id
+	}
+	return id + string([]byte{0}) + parentValue
 }
 
 // UpsertBatch inserts or replaces multiple records in a single transaction
@@ -7345,212 +7793,213 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 			extractFailures++
 			continue
 		}
+		storageID := resourceStorageID(resourceType, id, obj)
 
-		if err := s.upsertGenericResourceTx(tx, resourceType, id, item); err != nil {
+		if err := s.upsertGenericResourceTx(tx, resourceType, storageID, item); err != nil {
 			// Return the running stored count rather than zero so callers
 			// inspecting partial progress on failure see what already
 			// landed in earlier loop iterations.
-			return stored, extractFailures, fmt.Errorf("upserting %s/%s: %w", resourceType, id, err)
+			return stored, extractFailures, fmt.Errorf("upserting %s/%s: %w", resourceType, storageID, err)
 		}
 		stored++
 
 		savepoint := fmt.Sprintf("pp_typed_%d", i)
 		if _, err := tx.Exec("SAVEPOINT " + savepoint); err != nil {
-			return stored, extractFailures, fmt.Errorf("savepoint begin for %s/%s: %w", resourceType, id, err)
+			return stored, extractFailures, fmt.Errorf("savepoint begin for %s/%s: %w", resourceType, storageID, err)
 		}
 
 		var typedErr error
 		switch resourceType {
 		case "activities":
-			typedErr = s.upsertActivitiesTx(tx, id, obj, item)
+			typedErr = s.upsertActivitiesTx(tx, storageID, obj, item)
 		case "activity-types":
-			typedErr = s.upsertActivityTypesTx(tx, id, obj, item)
+			typedErr = s.upsertActivityTypesTx(tx, storageID, obj, item)
 		case "call-logs":
-			typedErr = s.upsertCallLogsTx(tx, id, obj, item)
+			typedErr = s.upsertCallLogsTx(tx, storageID, obj, item)
 		case "recordings":
-			typedErr = s.upsertRecordingsTx(tx, id, obj, item)
+			typedErr = s.upsertRecordingsTx(tx, storageID, obj, item)
 		case "channels":
-			typedErr = s.upsertChannelsTx(tx, id, obj, item)
+			typedErr = s.upsertChannelsTx(tx, storageID, obj, item)
 		case "conversations":
-			typedErr = s.upsertConversationsTx(tx, id, obj, item)
+			typedErr = s.upsertConversationsTx(tx, storageID, obj, item)
 		case "currencies":
-			typedErr = s.upsertCurrenciesTx(tx, id, obj, item)
+			typedErr = s.upsertCurrenciesTx(tx, storageID, obj, item)
 		case "deal-fields":
-			typedErr = s.upsertDealFieldsTx(tx, id, obj, item)
+			typedErr = s.upsertDealFieldsTx(tx, storageID, obj, item)
 		case "deals":
-			typedErr = s.upsertDealsTx(tx, id, obj, item)
+			typedErr = s.upsertDealsTx(tx, storageID, obj, item)
 		case "deals_changelog":
-			typedErr = s.upsertDealsChangelogTx(tx, id, obj, item)
+			typedErr = s.upsertDealsChangelogTx(tx, storageID, obj, item)
 		case "duplicate":
-			typedErr = s.upsertDuplicateTx(tx, id, obj, item)
+			typedErr = s.upsertDuplicateTx(tx, storageID, obj, item)
 		case "deals_files":
-			typedErr = s.upsertDealsFilesTx(tx, id, obj, item)
+			typedErr = s.upsertDealsFilesTx(tx, storageID, obj, item)
 		case "deals_flow":
-			typedErr = s.upsertDealsFlowTx(tx, id, obj, item)
+			typedErr = s.upsertDealsFlowTx(tx, storageID, obj, item)
 		case "deals_followers":
-			typedErr = s.upsertDealsFollowersTx(tx, id, obj, item)
+			typedErr = s.upsertDealsFollowersTx(tx, storageID, obj, item)
 		case "deals_mail_messages":
-			typedErr = s.upsertDealsMailMessagesTx(tx, id, obj, item)
+			typedErr = s.upsertDealsMailMessagesTx(tx, storageID, obj, item)
 		case "deals_merge":
-			typedErr = s.upsertDealsMergeTx(tx, id, obj, item)
+			typedErr = s.upsertDealsMergeTx(tx, storageID, obj, item)
 		case "participants":
-			typedErr = s.upsertParticipantsTx(tx, id, obj, item)
+			typedErr = s.upsertParticipantsTx(tx, storageID, obj, item)
 		case "participants_changelog":
-			typedErr = s.upsertParticipantsChangelogTx(tx, id, obj, item)
+			typedErr = s.upsertParticipantsChangelogTx(tx, storageID, obj, item)
 		case "deals_permitted_users":
-			typedErr = s.upsertDealsPermittedUsersTx(tx, id, obj, item)
+			typedErr = s.upsertDealsPermittedUsersTx(tx, storageID, obj, item)
 		case "files":
-			typedErr = s.upsertFilesTx(tx, id, obj, item)
+			typedErr = s.upsertFilesTx(tx, storageID, obj, item)
 		case "download":
-			typedErr = s.upsertDownloadTx(tx, id, obj, item)
+			typedErr = s.upsertDownloadTx(tx, storageID, obj, item)
 		case "filters":
-			typedErr = s.upsertFiltersTx(tx, id, obj, item)
+			typedErr = s.upsertFiltersTx(tx, storageID, obj, item)
 		case "goals":
-			typedErr = s.upsertGoalsTx(tx, id, obj, item)
+			typedErr = s.upsertGoalsTx(tx, storageID, obj, item)
 		case "results":
-			typedErr = s.upsertResultsTx(tx, id, obj, item)
+			typedErr = s.upsertResultsTx(tx, storageID, obj, item)
 		case "lead-labels":
-			typedErr = s.upsertLeadLabelsTx(tx, id, obj, item)
+			typedErr = s.upsertLeadLabelsTx(tx, storageID, obj, item)
 		case "lead-sources":
-			typedErr = s.upsertLeadSourcesTx(tx, id, obj, item)
+			typedErr = s.upsertLeadSourcesTx(tx, storageID, obj, item)
 		case "leads":
-			typedErr = s.upsertLeadsTx(tx, id, obj, item)
+			typedErr = s.upsertLeadsTx(tx, storageID, obj, item)
 		case "leads_permitted_users":
-			typedErr = s.upsertLeadsPermittedUsersTx(tx, id, obj, item)
+			typedErr = s.upsertLeadsPermittedUsersTx(tx, storageID, obj, item)
 		case "legacy-teams":
-			typedErr = s.upsertLegacyTeamsTx(tx, id, obj, item)
+			typedErr = s.upsertLegacyTeamsTx(tx, storageID, obj, item)
 		case "legacy_teams_users":
-			typedErr = s.upsertLegacyTeamsUsersTx(tx, id, obj, item)
+			typedErr = s.upsertLegacyTeamsUsersTx(tx, storageID, obj, item)
 		case "mailbox":
-			typedErr = s.upsertMailboxTx(tx, id, obj, item)
+			typedErr = s.upsertMailboxTx(tx, storageID, obj, item)
 		case "meetings":
-			typedErr = s.upsertMeetingsTx(tx, id, obj, item)
+			typedErr = s.upsertMeetingsTx(tx, storageID, obj, item)
 		case "notes":
-			typedErr = s.upsertNotesTx(tx, id, obj, item)
+			typedErr = s.upsertNotesTx(tx, storageID, obj, item)
 		case "comments":
-			typedErr = s.upsertCommentsTx(tx, id, obj, item)
+			typedErr = s.upsertCommentsTx(tx, storageID, obj, item)
 		case "oauth":
-			typedErr = s.upsertOauthTx(tx, id, obj, item)
+			typedErr = s.upsertOauthTx(tx, storageID, obj, item)
 		case "organization-fields":
-			typedErr = s.upsertOrganizationFieldsTx(tx, id, obj, item)
+			typedErr = s.upsertOrganizationFieldsTx(tx, storageID, obj, item)
 		case "organization-relationships":
-			typedErr = s.upsertOrganizationRelationshipsTx(tx, id, obj, item)
+			typedErr = s.upsertOrganizationRelationshipsTx(tx, storageID, obj, item)
 		case "organizations":
-			typedErr = s.upsertOrganizationsTx(tx, id, obj, item)
+			typedErr = s.upsertOrganizationsTx(tx, storageID, obj, item)
 		case "organizations_changelog":
-			typedErr = s.upsertOrganizationsChangelogTx(tx, id, obj, item)
+			typedErr = s.upsertOrganizationsChangelogTx(tx, storageID, obj, item)
 		case "organizations_files":
-			typedErr = s.upsertOrganizationsFilesTx(tx, id, obj, item)
+			typedErr = s.upsertOrganizationsFilesTx(tx, storageID, obj, item)
 		case "organizations_flow":
-			typedErr = s.upsertOrganizationsFlowTx(tx, id, obj, item)
+			typedErr = s.upsertOrganizationsFlowTx(tx, storageID, obj, item)
 		case "organizations_followers":
-			typedErr = s.upsertOrganizationsFollowersTx(tx, id, obj, item)
+			typedErr = s.upsertOrganizationsFollowersTx(tx, storageID, obj, item)
 		case "organizations_mail_messages":
-			typedErr = s.upsertOrganizationsMailMessagesTx(tx, id, obj, item)
+			typedErr = s.upsertOrganizationsMailMessagesTx(tx, storageID, obj, item)
 		case "organizations_merge":
-			typedErr = s.upsertOrganizationsMergeTx(tx, id, obj, item)
+			typedErr = s.upsertOrganizationsMergeTx(tx, storageID, obj, item)
 		case "organizations_permitted_users":
-			typedErr = s.upsertOrganizationsPermittedUsersTx(tx, id, obj, item)
+			typedErr = s.upsertOrganizationsPermittedUsersTx(tx, storageID, obj, item)
 		case "permission-sets":
-			typedErr = s.upsertPermissionSetsTx(tx, id, obj, item)
+			typedErr = s.upsertPermissionSetsTx(tx, storageID, obj, item)
 		case "permission_sets_assignments":
-			typedErr = s.upsertPermissionSetsAssignmentsTx(tx, id, obj, item)
+			typedErr = s.upsertPermissionSetsAssignmentsTx(tx, storageID, obj, item)
 		case "person-fields":
-			typedErr = s.upsertPersonFieldsTx(tx, id, obj, item)
+			typedErr = s.upsertPersonFieldsTx(tx, storageID, obj, item)
 		case "persons":
-			typedErr = s.upsertPersonsTx(tx, id, obj, item)
+			typedErr = s.upsertPersonsTx(tx, storageID, obj, item)
 		case "persons_changelog":
-			typedErr = s.upsertPersonsChangelogTx(tx, id, obj, item)
+			typedErr = s.upsertPersonsChangelogTx(tx, storageID, obj, item)
 		case "persons_files":
-			typedErr = s.upsertPersonsFilesTx(tx, id, obj, item)
+			typedErr = s.upsertPersonsFilesTx(tx, storageID, obj, item)
 		case "persons_flow":
-			typedErr = s.upsertPersonsFlowTx(tx, id, obj, item)
+			typedErr = s.upsertPersonsFlowTx(tx, storageID, obj, item)
 		case "persons_followers":
-			typedErr = s.upsertPersonsFollowersTx(tx, id, obj, item)
+			typedErr = s.upsertPersonsFollowersTx(tx, storageID, obj, item)
 		case "persons_mail_messages":
-			typedErr = s.upsertPersonsMailMessagesTx(tx, id, obj, item)
+			typedErr = s.upsertPersonsMailMessagesTx(tx, storageID, obj, item)
 		case "persons_merge":
-			typedErr = s.upsertPersonsMergeTx(tx, id, obj, item)
+			typedErr = s.upsertPersonsMergeTx(tx, storageID, obj, item)
 		case "persons_permitted_users":
-			typedErr = s.upsertPersonsPermittedUsersTx(tx, id, obj, item)
+			typedErr = s.upsertPersonsPermittedUsersTx(tx, storageID, obj, item)
 		case "picture":
-			typedErr = s.upsertPictureTx(tx, id, obj, item)
+			typedErr = s.upsertPictureTx(tx, storageID, obj, item)
 		case "persons_products":
-			typedErr = s.upsertPersonsProductsTx(tx, id, obj, item)
+			typedErr = s.upsertPersonsProductsTx(tx, storageID, obj, item)
 		case "pipelines":
-			typedErr = s.upsertPipelinesTx(tx, id, obj, item)
+			typedErr = s.upsertPipelinesTx(tx, storageID, obj, item)
 		case "conversion_statistics":
-			typedErr = s.upsertConversionStatisticsTx(tx, id, obj, item)
+			typedErr = s.upsertConversionStatisticsTx(tx, storageID, obj, item)
 		case "pipelines_deals":
-			typedErr = s.upsertPipelinesDealsTx(tx, id, obj, item)
+			typedErr = s.upsertPipelinesDealsTx(tx, storageID, obj, item)
 		case "movement_statistics":
-			typedErr = s.upsertMovementStatisticsTx(tx, id, obj, item)
+			typedErr = s.upsertMovementStatisticsTx(tx, storageID, obj, item)
 		case "product-fields":
-			typedErr = s.upsertProductFieldsTx(tx, id, obj, item)
+			typedErr = s.upsertProductFieldsTx(tx, storageID, obj, item)
 		case "products":
-			typedErr = s.upsertProductsTx(tx, id, obj, item)
+			typedErr = s.upsertProductsTx(tx, storageID, obj, item)
 		case "products_deals":
-			typedErr = s.upsertProductsDealsTx(tx, id, obj, item)
+			typedErr = s.upsertProductsDealsTx(tx, storageID, obj, item)
 		case "products_files":
-			typedErr = s.upsertProductsFilesTx(tx, id, obj, item)
+			typedErr = s.upsertProductsFilesTx(tx, storageID, obj, item)
 		case "products_followers":
-			typedErr = s.upsertProductsFollowersTx(tx, id, obj, item)
+			typedErr = s.upsertProductsFollowersTx(tx, storageID, obj, item)
 		case "products_permitted_users":
-			typedErr = s.upsertProductsPermittedUsersTx(tx, id, obj, item)
+			typedErr = s.upsertProductsPermittedUsersTx(tx, storageID, obj, item)
 		case "project-templates":
-			typedErr = s.upsertProjectTemplatesTx(tx, id, obj, item)
+			typedErr = s.upsertProjectTemplatesTx(tx, storageID, obj, item)
 		case "projects":
-			typedErr = s.upsertProjectsTx(tx, id, obj, item)
+			typedErr = s.upsertProjectsTx(tx, storageID, obj, item)
 		case "projects_activities":
-			typedErr = s.upsertProjectsActivitiesTx(tx, id, obj, item)
+			typedErr = s.upsertProjectsActivitiesTx(tx, storageID, obj, item)
 		case "archive":
-			typedErr = s.upsertArchiveTx(tx, id, obj, item)
+			typedErr = s.upsertArchiveTx(tx, storageID, obj, item)
 		case "groups":
-			typedErr = s.upsertGroupsTx(tx, id, obj, item)
+			typedErr = s.upsertGroupsTx(tx, storageID, obj, item)
 		case "plan":
-			typedErr = s.upsertPlanTx(tx, id, obj, item)
+			typedErr = s.upsertPlanTx(tx, storageID, obj, item)
 		case "projects_tasks":
-			typedErr = s.upsertProjectsTasksTx(tx, id, obj, item)
+			typedErr = s.upsertProjectsTasksTx(tx, storageID, obj, item)
 		case "roles":
-			typedErr = s.upsertRolesTx(tx, id, obj, item)
+			typedErr = s.upsertRolesTx(tx, storageID, obj, item)
 		case "roles_assignments":
-			typedErr = s.upsertRolesAssignmentsTx(tx, id, obj, item)
+			typedErr = s.upsertRolesAssignmentsTx(tx, storageID, obj, item)
 		case "roles_pipelines":
-			typedErr = s.upsertRolesPipelinesTx(tx, id, obj, item)
+			typedErr = s.upsertRolesPipelinesTx(tx, storageID, obj, item)
 		case "settings":
-			typedErr = s.upsertSettingsTx(tx, id, obj, item)
+			typedErr = s.upsertSettingsTx(tx, storageID, obj, item)
 		case "stages":
-			typedErr = s.upsertStagesTx(tx, id, obj, item)
+			typedErr = s.upsertStagesTx(tx, storageID, obj, item)
 		case "stages_deals":
-			typedErr = s.upsertStagesDealsTx(tx, id, obj, item)
+			typedErr = s.upsertStagesDealsTx(tx, storageID, obj, item)
 		case "tasks":
-			typedErr = s.upsertTasksTx(tx, id, obj, item)
+			typedErr = s.upsertTasksTx(tx, storageID, obj, item)
 		case "users":
-			typedErr = s.upsertUsersTx(tx, id, obj, item)
+			typedErr = s.upsertUsersTx(tx, storageID, obj, item)
 		case "users_followers":
-			typedErr = s.upsertUsersFollowersTx(tx, id, obj, item)
+			typedErr = s.upsertUsersFollowersTx(tx, storageID, obj, item)
 		case "permissions":
-			typedErr = s.upsertPermissionsTx(tx, id, obj, item)
+			typedErr = s.upsertPermissionsTx(tx, storageID, obj, item)
 		case "role_assignments":
-			typedErr = s.upsertRoleAssignmentsTx(tx, id, obj, item)
+			typedErr = s.upsertRoleAssignmentsTx(tx, storageID, obj, item)
 		case "role_settings":
-			typedErr = s.upsertRoleSettingsTx(tx, id, obj, item)
+			typedErr = s.upsertRoleSettingsTx(tx, storageID, obj, item)
 		case "webhooks":
-			typedErr = s.upsertWebhooksTx(tx, id, obj, item)
+			typedErr = s.upsertWebhooksTx(tx, storageID, obj, item)
 		}
 
 		if typedErr != nil {
 			if _, rbErr := tx.Exec("ROLLBACK TO SAVEPOINT " + savepoint); rbErr != nil {
-				return stored, extractFailures, fmt.Errorf("rollback to savepoint for %s/%s (typed err: %v): %w", resourceType, id, typedErr, rbErr)
+				return stored, extractFailures, fmt.Errorf("rollback to savepoint for %s/%s (typed err: %v): %w", resourceType, storageID, typedErr, rbErr)
 			}
 			if _, relErr := tx.Exec("RELEASE SAVEPOINT " + savepoint); relErr != nil {
-				return stored, extractFailures, fmt.Errorf("release savepoint after rollback for %s/%s: %w", resourceType, id, relErr)
+				return stored, extractFailures, fmt.Errorf("release savepoint after rollback for %s/%s: %w", resourceType, storageID, relErr)
 			}
 			typedFailures++
 			continue
 		}
 		if _, err := tx.Exec("RELEASE SAVEPOINT " + savepoint); err != nil {
-			return stored, extractFailures, fmt.Errorf("release savepoint for %s/%s: %w", resourceType, id, err)
+			return stored, extractFailures, fmt.Errorf("release savepoint for %s/%s: %w", resourceType, storageID, err)
 		}
 	}
 
@@ -7576,12 +8025,16 @@ func (s *Store) SearchActivities(query string, limit int) ([]json.RawMessage, er
 	if limit <= 0 {
 		limit = 50
 	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
 	rows, err := s.db.Query(
 		`SELECT t.data FROM "activities" t
 		 JOIN "activities_fts" ON "activities_fts".rowid = t.rowid
 		 WHERE "activities_fts" MATCH ?
 		 ORDER BY rank LIMIT ?`,
-		query, limit,
+		matchQuery, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -7604,12 +8057,16 @@ func (s *Store) SearchCallLogs(query string, limit int) ([]json.RawMessage, erro
 	if limit <= 0 {
 		limit = 50
 	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
 	rows, err := s.db.Query(
 		`SELECT t.data FROM "call_logs" t
 		 JOIN "call_logs_fts" ON "call_logs_fts".rowid = t.rowid
 		 WHERE "call_logs_fts" MATCH ?
 		 ORDER BY rank LIMIT ?`,
-		query, limit,
+		matchQuery, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -7632,12 +8089,16 @@ func (s *Store) SearchDeals(query string, limit int) ([]json.RawMessage, error) 
 	if limit <= 0 {
 		limit = 50
 	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
 	rows, err := s.db.Query(
 		`SELECT t.data FROM "deals" t
 		 JOIN "deals_fts" ON "deals_fts".rowid = t.rowid
 		 WHERE "deals_fts" MATCH ?
 		 ORDER BY rank LIMIT ?`,
-		query, limit,
+		matchQuery, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -7660,12 +8121,16 @@ func (s *Store) SearchFiles(query string, limit int) ([]json.RawMessage, error) 
 	if limit <= 0 {
 		limit = 50
 	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
 	rows, err := s.db.Query(
 		`SELECT t.data FROM "files" t
 		 JOIN "files_fts" ON "files_fts".rowid = t.rowid
 		 WHERE "files_fts" MATCH ?
 		 ORDER BY rank LIMIT ?`,
-		query, limit,
+		matchQuery, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -7688,12 +8153,16 @@ func (s *Store) SearchOrganizations(query string, limit int) ([]json.RawMessage,
 	if limit <= 0 {
 		limit = 50
 	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
 	rows, err := s.db.Query(
 		`SELECT t.data FROM "organizations" t
 		 JOIN "organizations_fts" ON "organizations_fts".rowid = t.rowid
 		 WHERE "organizations_fts" MATCH ?
 		 ORDER BY rank LIMIT ?`,
-		query, limit,
+		matchQuery, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -7716,12 +8185,16 @@ func (s *Store) SearchPermissionSets(query string, limit int) ([]json.RawMessage
 	if limit <= 0 {
 		limit = 50
 	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
 	rows, err := s.db.Query(
 		`SELECT t.data FROM "permission_sets" t
 		 JOIN "permission_sets_fts" ON "permission_sets_fts".rowid = t.rowid
 		 WHERE "permission_sets_fts" MATCH ?
 		 ORDER BY rank LIMIT ?`,
-		query, limit,
+		matchQuery, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -7744,12 +8217,16 @@ func (s *Store) SearchPersons(query string, limit int) ([]json.RawMessage, error
 	if limit <= 0 {
 		limit = 50
 	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
 	rows, err := s.db.Query(
 		`SELECT t.data FROM "persons" t
 		 JOIN "persons_fts" ON "persons_fts".rowid = t.rowid
 		 WHERE "persons_fts" MATCH ?
 		 ORDER BY rank LIMIT ?`,
-		query, limit,
+		matchQuery, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -7772,12 +8249,16 @@ func (s *Store) SearchProducts(query string, limit int) ([]json.RawMessage, erro
 	if limit <= 0 {
 		limit = 50
 	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
 	rows, err := s.db.Query(
 		`SELECT t.data FROM "products" t
 		 JOIN "products_fts" ON "products_fts".rowid = t.rowid
 		 WHERE "products_fts" MATCH ?
 		 ORDER BY rank LIMIT ?`,
-		query, limit,
+		matchQuery, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -7800,12 +8281,16 @@ func (s *Store) SearchProjectTemplates(query string, limit int) ([]json.RawMessa
 	if limit <= 0 {
 		limit = 50
 	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
 	rows, err := s.db.Query(
 		`SELECT t.data FROM "project_templates" t
 		 JOIN "project_templates_fts" ON "project_templates_fts".rowid = t.rowid
 		 WHERE "project_templates_fts" MATCH ?
 		 ORDER BY rank LIMIT ?`,
-		query, limit,
+		matchQuery, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -7828,12 +8313,16 @@ func (s *Store) SearchProjects(query string, limit int) ([]json.RawMessage, erro
 	if limit <= 0 {
 		limit = 50
 	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
 	rows, err := s.db.Query(
 		`SELECT t.data FROM "projects" t
 		 JOIN "projects_fts" ON "projects_fts".rowid = t.rowid
 		 WHERE "projects_fts" MATCH ?
 		 ORDER BY rank LIMIT ?`,
-		query, limit,
+		matchQuery, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -7856,12 +8345,16 @@ func (s *Store) SearchTasks(query string, limit int) ([]json.RawMessage, error) 
 	if limit <= 0 {
 		limit = 50
 	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
 	rows, err := s.db.Query(
 		`SELECT t.data FROM "tasks" t
 		 JOIN "tasks_fts" ON "tasks_fts".rowid = t.rowid
 		 WHERE "tasks_fts" MATCH ?
 		 ORDER BY rank LIMIT ?`,
-		query, limit,
+		matchQuery, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -8179,7 +8672,7 @@ func (s *Store) ResolveByName(resourceType string, input string, matchFields ...
 		)
 		rows, err := s.db.Query(query, resourceType, input)
 		if err != nil {
-			continue
+			return "", err
 		}
 		for rows.Next() {
 			var id string
@@ -8196,6 +8689,10 @@ func (s *Store) ResolveByName(resourceType string, input string, matchFields ...
 					matches = append(matches, id)
 				}
 			}
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return "", err
 		}
 		rows.Close()
 	}

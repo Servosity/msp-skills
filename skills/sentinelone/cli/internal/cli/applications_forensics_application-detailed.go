@@ -34,13 +34,13 @@ func newApplicationsForensicsApplicationDetailedCmd(flags *rootFlags) *cobra.Com
 			path = replacePathParam(path, "application_id", args[0])
 			params := map[string]string{}
 			if flagSiteIds != "" {
-				params["siteIds"] = fmt.Sprintf("%v", flagSiteIds)
+				params["siteIds"] = formatCLIParamValue(flagSiteIds)
 			}
 			if flagGroupIds != "" {
-				params["groupIds"] = fmt.Sprintf("%v", flagGroupIds)
+				params["groupIds"] = formatCLIParamValue(flagGroupIds)
 			}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "forensics", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -64,13 +64,13 @@ func newAutomationsPoliciesInstancesOrgIdGetCmd(flags *rootFlags) *cobra.Command
 			path := "/automations/instances/{orgId}"
 			path = replacePathParam(path, "orgId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "automations", path, map[string]string{
-				"from":        fmt.Sprintf("%v", flagFrom),
-				"limit":       fmt.Sprintf("%v", flagLimit),
-				"sortby":      fmt.Sprintf("%v", flagSortby),
-				"filter":      fmt.Sprintf("%v", flagFilter),
-				"status":      fmt.Sprintf("%v", flagStatus),
-				"completed":   fmt.Sprintf("%v", flagCompleted),
-				"endpoint_id": fmt.Sprintf("%v", flagEndpointId),
+				"from":        formatCLIParamValue(flagFrom),
+				"limit":       formatCLIParamValue(flagLimit),
+				"sortby":      formatCLIParamValue(flagSortby),
+				"filter":      formatCLIParamValue(flagFilter),
+				"status":      formatCLIParamValue(flagStatus),
+				"completed":   formatCLIParamValue(flagCompleted),
+				"endpoint_id": formatCLIParamValue(flagEndpointId),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

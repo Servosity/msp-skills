@@ -46,25 +46,25 @@ func newAppResellerResourceAccountV1CustomerCompanyAssociationApiGetGetCmd(flags
 			path := "/appReseller/v1/companyAssociations"
 			params := map[string]string{}
 			if flagResellerCompanyId != "" {
-				params["resellerCompanyId"] = fmt.Sprintf("%v", flagResellerCompanyId)
+				params["resellerCompanyId"] = formatCLIParamValue(flagResellerCompanyId)
 			}
 			if flagCustomerCompanyId != "" {
-				params["customerCompanyId"] = fmt.Sprintf("%v", flagCustomerCompanyId)
+				params["customerCompanyId"] = formatCLIParamValue(flagCustomerCompanyId)
 			}
 			if flagSearchText != "" {
-				params["searchText"] = fmt.Sprintf("%v", flagSearchText)
+				params["searchText"] = formatCLIParamValue(flagSearchText)
 			}
 			if flagCreatedOn != "" {
-				params["createdOn"] = fmt.Sprintf("%v", flagCreatedOn)
+				params["createdOn"] = formatCLIParamValue(flagCreatedOn)
 			}
 			if flagSort != "" {
-				params["sort"] = fmt.Sprintf("%v", flagSort)
+				params["sort"] = formatCLIParamValue(flagSort)
 			}
 			if flagNumber != 0 {
-				params["number"] = fmt.Sprintf("%v", flagNumber)
+				params["number"] = formatCLIParamValue(flagNumber)
 			}
 			if flagSize != 0 {
-				params["size"] = fmt.Sprintf("%v", flagSize)
+				params["size"] = formatCLIParamValue(flagSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "app-reseller", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

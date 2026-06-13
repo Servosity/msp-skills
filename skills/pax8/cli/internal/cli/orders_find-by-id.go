@@ -17,7 +17,7 @@ func newOrdersFindByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "find-by-id <orderId>",
 		Aliases:     []string{"get"},
 		Short:       "Returns the Order record specified by OrderId. Currently NOT supported for scheduled orders",
-		Example:     "  pax8-cli orders find-by-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pax8-cli orders find-by-id 8f72220b-2a13-4856-a647-b80448722bbb",
 		Annotations: map[string]string{"pp:endpoint": "orders.find-by-id", "pp:method": "GET", "pp:path": "/orders/{orderId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -40,19 +40,19 @@ func newCrmGetAccountsListSummaryCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/crm/accounts/summary"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "crm", path, map[string]string{
-				"Filter.AccountName":     fmt.Sprintf("%v", flagFilterAccountName),
-				"Filter.AccountCode":     fmt.Sprintf("%v", flagFilterAccountCode),
-				"Filter.AccountTypeId":   fmt.Sprintf("%v", flagFilterAccountTypeId),
-				"Filter.AccountTypeName": fmt.Sprintf("%v", flagFilterAccountTypeName),
-				"Filter.CreatedOnFrom":   fmt.Sprintf("%v", flagFilterCreatedOnFrom),
-				"Filter.CreatedOnTo":     fmt.Sprintf("%v", flagFilterCreatedOnTo),
-				"Filter.ModifiedOnFrom":  fmt.Sprintf("%v", flagFilterModifiedOnFrom),
-				"Filter.ModifiedOnTo":    fmt.Sprintf("%v", flagFilterModifiedOnTo),
-				"Filter.IsActive":        fmt.Sprintf("%v", flagFilterIsActive),
-				"Sort":                   fmt.Sprintf("%v", flagSort),
-				"Exclude":                fmt.Sprintf("%v", flagExclude),
-				"PageSize":               fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":             fmt.Sprintf("%v", flagPageNumber),
+				"Filter.AccountName":     formatCLIParamValue(flagFilterAccountName),
+				"Filter.AccountCode":     formatCLIParamValue(flagFilterAccountCode),
+				"Filter.AccountTypeId":   formatCLIParamValue(flagFilterAccountTypeId),
+				"Filter.AccountTypeName": formatCLIParamValue(flagFilterAccountTypeName),
+				"Filter.CreatedOnFrom":   formatCLIParamValue(flagFilterCreatedOnFrom),
+				"Filter.CreatedOnTo":     formatCLIParamValue(flagFilterCreatedOnTo),
+				"Filter.ModifiedOnFrom":  formatCLIParamValue(flagFilterModifiedOnFrom),
+				"Filter.ModifiedOnTo":    formatCLIParamValue(flagFilterModifiedOnTo),
+				"Filter.IsActive":        formatCLIParamValue(flagFilterIsActive),
+				"Sort":                   formatCLIParamValue(flagSort),
+				"Exclude":                formatCLIParamValue(flagExclude),
+				"PageSize":               formatCLIParamValue(flagPageSize),
+				"PageNumber":             formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

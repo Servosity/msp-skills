@@ -23,7 +23,7 @@ func newWorkspacesMembersAddCmd(flags *rootFlags) *cobra.Command {
 		Use:         "add <workspace_id>",
 		Aliases:     []string{"create"},
 		Short:       "Add an existing user to a workspace. - You must be an organization admin or a workspace admin to add members.",
-		Example:     "  pandadoc-cli workspaces members add 550e8400-e29b-41d4-a716-446655440000 --role Admin",
+		Example:     "  pandadoc-cli workspaces members add BhVzRcxH9Z2LgfPPGXFUBa --role Member",
 		Annotations: map[string]string{"pp:endpoint": "members.add", "pp:method": "POST", "pp:path": "/workspaces/{workspace_id}/members"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
@@ -52,10 +52,10 @@ func newWorkspacesMembersAddCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "workspace_id", args[0])
 			params := map[string]string{}
 			if flagNotifyUser != false {
-				params["notify_user"] = fmt.Sprintf("%v", flagNotifyUser)
+				params["notify_user"] = formatCLIParamValue(flagNotifyUser)
 			}
 			if flagNotifyWsAdmins != false {
-				params["notify_ws_admins"] = fmt.Sprintf("%v", flagNotifyWsAdmins)
+				params["notify_ws_admins"] = formatCLIParamValue(flagNotifyWsAdmins)
 			}
 			var body map[string]any
 			if stdinBody {

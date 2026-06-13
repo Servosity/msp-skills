@@ -35,13 +35,13 @@ func newDeviceOsPatchInstallsGetDeviceInstalledOspatchesCmd(flags *rootFlags) *c
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagStatus != "" {
-				params["status"] = fmt.Sprintf("%v", flagStatus)
+				params["status"] = formatCLIParamValue(flagStatus)
 			}
 			if flagInstalledBefore != "" {
-				params["installedBefore"] = fmt.Sprintf("%v", flagInstalledBefore)
+				params["installedBefore"] = formatCLIParamValue(flagInstalledBefore)
 			}
 			if flagInstalledAfter != "" {
-				params["installedAfter"] = fmt.Sprintf("%v", flagInstalledAfter)
+				params["installedAfter"] = formatCLIParamValue(flagInstalledAfter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "os-patch-installs", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

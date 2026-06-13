@@ -29,7 +29,7 @@ func newInspectorsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/inspectors"
 			params := map[string]string{}
 			if flagFields != "" {
-				params["fields[]"] = fmt.Sprintf("%v", flagFields)
+				params["fields[]"] = formatCLIParamValue(flagFields)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "inspectors", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {
@@ -84,7 +84,7 @@ func newInspectorsPromotedCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&flagFields, "fields", "", "Will only return the fields specified from this parameter, multiple uses of the parameter required for multiple fields")
 
 	// Wire sibling endpoints and sub-resources as subcommands
-
 	cmd.AddCommand(newNovelInspectorsCoverageCmd(flags))
+
 	return cmd
 }

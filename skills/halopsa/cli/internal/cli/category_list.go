@@ -33,22 +33,22 @@ func newCategoryListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Category"
 			params := map[string]string{}
 			if flagClientId != "" {
-				params["client_id"] = fmt.Sprintf("%v", flagClientId)
+				params["client_id"] = formatCLIParamValue(flagClientId)
 			}
 			if flagServiceId != "" {
-				params["service_id"] = fmt.Sprintf("%v", flagServiceId)
+				params["service_id"] = formatCLIParamValue(flagServiceId)
 			}
 			if flagTeamId != "" {
-				params["team_id"] = fmt.Sprintf("%v", flagTeamId)
+				params["team_id"] = formatCLIParamValue(flagTeamId)
 			}
 			if flagTeamName != "" {
-				params["team_name"] = fmt.Sprintf("%v", flagTeamName)
+				params["team_name"] = formatCLIParamValue(flagTeamName)
 			}
 			if flagTickettypeId != "" {
-				params["tickettype_id"] = fmt.Sprintf("%v", flagTickettypeId)
+				params["tickettype_id"] = formatCLIParamValue(flagTickettypeId)
 			}
 			if flagTypeId != "" {
-				params["type_id"] = fmt.Sprintf("%v", flagTypeId)
+				params["type_id"] = formatCLIParamValue(flagTypeId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "category", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

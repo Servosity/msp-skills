@@ -18,8 +18,9 @@ func newResourceGroupsLinkCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "link",
-		Short:       "Link a resource group at MSP level",
+		Use:   "link",
+		Short: "Link a resource group at MSP level",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  nerdio-cli resource-groups link --resource-group example-value",
 		Annotations: map[string]string{"pp:endpoint": "resource-groups.link", "pp:method": "POST", "pp:path": "/rest-api/v1/resource-group/linked"},
 		RunE: func(cmd *cobra.Command, args []string) error {

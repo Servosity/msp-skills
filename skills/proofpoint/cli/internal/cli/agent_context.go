@@ -130,7 +130,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "proofpoint-cli",
-			Description: "Every TAP Threat Insight endpoint",
+			Description: "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions — who is both attacked and clicking, what touched this user — inside Proofpoint's punishing daily quotas.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

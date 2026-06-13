@@ -34,8 +34,8 @@ func newJobComponentsGetJobCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/job/{jobUid}/components"
 			path = replacePathParam(path, "jobUid", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "components", path, map[string]string{
-				"page": fmt.Sprintf("%v", flagPage),
-				"max":  fmt.Sprintf("%v", flagMax),
+				"page": formatCLIParamValue(flagPage),
+				"max":  formatCLIParamValue(flagMax),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -46,10 +46,10 @@ func newLegacyTeamsGetUserTeamsCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagOrderBy != "" {
-				params["order_by"] = fmt.Sprintf("%v", flagOrderBy)
+				params["order_by"] = formatCLIParamValue(flagOrderBy)
 			}
 			if flagSkipUsers != 0.0 {
-				params["skip_users"] = fmt.Sprintf("%v", flagSkipUsers)
+				params["skip_users"] = formatCLIParamValue(flagSkipUsers)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "legacy-teams", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

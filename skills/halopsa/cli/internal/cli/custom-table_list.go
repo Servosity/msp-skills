@@ -33,22 +33,22 @@ func newCustomTableListCmd(flags *rootFlags) *cobra.Command {
 			path := "/CustomTable"
 			params := map[string]string{}
 			if flagAccessControlLevel != 0 {
-				params["access_control_level"] = fmt.Sprintf("%v", flagAccessControlLevel)
+				params["access_control_level"] = formatCLIParamValue(flagAccessControlLevel)
 			}
 			if flagCustomonly != false {
-				params["customonly"] = fmt.Sprintf("%v", flagCustomonly)
+				params["customonly"] = formatCLIParamValue(flagCustomonly)
 			}
 			if flagIsconfig != false {
-				params["isconfig"] = fmt.Sprintf("%v", flagIsconfig)
+				params["isconfig"] = formatCLIParamValue(flagIsconfig)
 			}
 			if flagIswebhookmapping != false {
-				params["iswebhookmapping"] = fmt.Sprintf("%v", flagIswebhookmapping)
+				params["iswebhookmapping"] = formatCLIParamValue(flagIswebhookmapping)
 			}
 			if flagSystemonly != false {
-				params["systemonly"] = fmt.Sprintf("%v", flagSystemonly)
+				params["systemonly"] = formatCLIParamValue(flagSystemonly)
 			}
 			if flagUsage != 0 {
-				params["usage"] = fmt.Sprintf("%v", flagUsage)
+				params["usage"] = formatCLIParamValue(flagUsage)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "custom-table", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

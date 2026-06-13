@@ -20,7 +20,7 @@ func newItemsUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update <ItemID>",
 		Short:       "Updates a specific item",
-		Example:     "  xero-cli items update 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  xero-cli items update 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "items.update", "pp:method": "POST", "pp:path": "/Items/{ItemID}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -37,7 +37,7 @@ func newItemsUpdateCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "ItemID", args[0])
 			params := map[string]string{}
 			if flagUnitdp != 0 {
-				params["unitdp"] = fmt.Sprintf("%v", flagUnitdp)
+				params["unitdp"] = formatCLIParamValue(flagUnitdp)
 			}
 			var body map[string]any
 			if stdinBody {

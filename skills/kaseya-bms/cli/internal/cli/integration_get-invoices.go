@@ -46,16 +46,16 @@ func newIntegrationGetInvoicesCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/integration/qbd/invoices"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration", path, map[string]string{
-				"Filter.InvoiceNumber": fmt.Sprintf("%v", flagFilterInvoiceNumber),
-				"Filter.AccountName":   fmt.Sprintf("%v", flagFilterAccountName),
-				"Filter.StartDate":     fmt.Sprintf("%v", flagFilterStartDate),
-				"Filter.EndDate":       fmt.Sprintf("%v", flagFilterEndDate),
-				"Filter.ClassName":     fmt.Sprintf("%v", flagFilterClassName),
-				"ExternalTenantId":     fmt.Sprintf("%v", flagExternalTenantId),
-				"Sort":                 fmt.Sprintf("%v", flagSort),
-				"Exclude":              fmt.Sprintf("%v", flagExclude),
-				"PageSize":             fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":           fmt.Sprintf("%v", flagPageNumber),
+				"Filter.InvoiceNumber": formatCLIParamValue(flagFilterInvoiceNumber),
+				"Filter.AccountName":   formatCLIParamValue(flagFilterAccountName),
+				"Filter.StartDate":     formatCLIParamValue(flagFilterStartDate),
+				"Filter.EndDate":       formatCLIParamValue(flagFilterEndDate),
+				"Filter.ClassName":     formatCLIParamValue(flagFilterClassName),
+				"ExternalTenantId":     formatCLIParamValue(flagExternalTenantId),
+				"Sort":                 formatCLIParamValue(flagSort),
+				"Exclude":              formatCLIParamValue(flagExclude),
+				"PageSize":             formatCLIParamValue(flagPageSize),
+				"PageNumber":           formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

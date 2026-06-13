@@ -49,13 +49,13 @@ func newIncidentsAlertsUpdateIncidentCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagLimit != 0 {
-				params["limit"] = fmt.Sprintf("%v", flagLimit)
+				params["limit"] = formatCLIParamValue(flagLimit)
 			}
 			if flagOffset != "" {
-				params["offset"] = fmt.Sprintf("%v", flagOffset)
+				params["offset"] = formatCLIParamValue(flagOffset)
 			}
 			if flagTotal != false {
-				params["total"] = fmt.Sprintf("%v", flagTotal)
+				params["total"] = formatCLIParamValue(flagTotal)
 			}
 			var body map[string]any
 			if stdinBody {

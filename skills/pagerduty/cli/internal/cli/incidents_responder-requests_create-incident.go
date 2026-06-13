@@ -19,9 +19,10 @@ func newIncidentsResponderRequestsCreateIncidentCmd(flags *rootFlags) *cobra.Com
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create-incident <id>",
-		Aliases:     []string{"create"},
-		Short:       "Send a new responder request for the specified incident.",
+		Use:     "create-incident <id>",
+		Aliases: []string{"create"},
+		Short:   "Send a new responder request for the specified incident.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pagerduty-cli incidents responder-requests create-incident 550e8400-e29b-41d4-a716-446655440000 --message example-value",
 		Annotations: map[string]string{"pp:endpoint": "responder-requests.create-incident", "pp:method": "POST", "pp:path": "/incidents/{id}/responder_requests"},
 		RunE: func(cmd *cobra.Command, args []string) error {

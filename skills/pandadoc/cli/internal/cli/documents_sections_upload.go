@@ -21,7 +21,7 @@ func newDocumentsSectionsUploadCmd(flags *rootFlags) *cobra.Command {
 		Use:         "upload <document_id>",
 		Aliases:     []string{"create"},
 		Short:       "With this endpoint, you can add a new section to an existing PandaDoc document (create a bundle).",
-		Example:     "  pandadoc-cli documents sections upload 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents sections upload CFz2UnLXDck3UJkeGGEuB3",
 		Annotations: map[string]string{"pp:endpoint": "sections.upload", "pp:method": "POST", "pp:path": "/documents/{document_id}/sections/uploads"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
@@ -60,7 +60,7 @@ func newDocumentsSectionsUploadCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "document_id", args[0])
 			params := map[string]string{}
 			if flagMergeFieldScope != "" {
-				params["merge_field_scope"] = fmt.Sprintf("%v", flagMergeFieldScope)
+				params["merge_field_scope"] = formatCLIParamValue(flagMergeFieldScope)
 			}
 			var body map[string]any
 			if stdinBody {

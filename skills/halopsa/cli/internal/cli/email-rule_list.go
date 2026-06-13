@@ -29,10 +29,10 @@ func newEmailRuleListCmd(flags *rootFlags) *cobra.Command {
 			path := "/EmailRule"
 			params := map[string]string{}
 			if flagFromaddress != "" {
-				params["fromaddress"] = fmt.Sprintf("%v", flagFromaddress)
+				params["fromaddress"] = formatCLIParamValue(flagFromaddress)
 			}
 			if flagType != 0 {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "email-rule", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

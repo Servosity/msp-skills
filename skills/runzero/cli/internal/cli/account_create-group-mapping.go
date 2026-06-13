@@ -27,7 +27,7 @@ func newAccountCreateGroupMappingCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-group-mapping",
 		Short:       "Create a new SSO group mapping",
-		Example:     "  runzero-cli account create-group-mapping --group-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  runzero-cli account create-group-mapping --group-id 2b096711-4d28-4417-8635-64af4f62c1ae",
 		Annotations: map[string]string{"pp:endpoint": "account.create-group-mapping", "pp:method": "POST", "pp:path": "/account/sso/groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

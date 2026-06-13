@@ -34,22 +34,22 @@ func newIntegrationFieldMappingPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/IntegrationFieldMapping"
 			params := map[string]string{}
 			if flagMsid != "" {
-				params["msid"] = fmt.Sprintf("%v", flagMsid)
+				params["msid"] = formatCLIParamValue(flagMsid)
 			}
 			if flagProductId != "" {
-				params["product_id"] = fmt.Sprintf("%v", flagProductId)
+				params["product_id"] = formatCLIParamValue(flagProductId)
 			}
 			if flagSubtypeid != "" {
-				params["subtypeid"] = fmt.Sprintf("%v", flagSubtypeid)
+				params["subtypeid"] = formatCLIParamValue(flagSubtypeid)
 			}
 			if flagSyncfields != false {
-				params["syncfields"] = fmt.Sprintf("%v", flagSyncfields)
+				params["syncfields"] = formatCLIParamValue(flagSyncfields)
 			}
 			if flagTypeid != "" {
-				params["typeid"] = fmt.Sprintf("%v", flagTypeid)
+				params["typeid"] = formatCLIParamValue(flagTypeid)
 			}
 			if flagXmvalue != "" {
-				params["xmvalue"] = fmt.Sprintf("%v", flagXmvalue)
+				params["xmvalue"] = formatCLIParamValue(flagXmvalue)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-field-mapping", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

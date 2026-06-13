@@ -14,9 +14,10 @@ import (
 func newChecksCsbulkrunChecksCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "checks <target> <pk>",
-		Aliases:     []string{"get"},
-		Short:       "GET /checks/{target}/{pk}/csbulkrun/",
+		Use:     "checks <target> <pk>",
+		Aliases: []string{"get"},
+		Short:   "GET /checks/{target}/{pk}/csbulkrun/",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  tactical-rmm-cli checks csbulkrun checks example-value 42",
 		Annotations: map[string]string{"pp:endpoint": "csbulkrun.checks", "pp:method": "GET", "pp:path": "/checks/{target}/{pk}/csbulkrun/", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

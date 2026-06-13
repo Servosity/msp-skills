@@ -48,14 +48,14 @@ func newLogsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/logs"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "logs", path, map[string]string{
-				"since":            fmt.Sprintf("%v", flagSince),
-				"to":               fmt.Sprintf("%v", flagTo),
-				"count":            fmt.Sprintf("%v", flagCount),
-				"page":             fmt.Sprintf("%v", flagPage),
-				"statuses":         fmt.Sprintf("%v", flagStatuses),
-				"methods":          fmt.Sprintf("%v", flagMethods),
-				"search":           fmt.Sprintf("%v", flagSearch),
-				"environment_type": fmt.Sprintf("%v", flagEnvironmentType),
+				"since":            formatCLIParamValue(flagSince),
+				"to":               formatCLIParamValue(flagTo),
+				"count":            formatCLIParamValue(flagCount),
+				"page":             formatCLIParamValue(flagPage),
+				"statuses":         formatCLIParamValue(flagStatuses),
+				"methods":          formatCLIParamValue(flagMethods),
+				"search":           formatCLIParamValue(flagSearch),
+				"environment_type": formatCLIParamValue(flagEnvironmentType),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

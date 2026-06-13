@@ -6,7 +6,117 @@ A single CLI for MSPs running ThreatLocker across many customer tenants. It matc
 
 ## Install
 
-For the short install path see [README.md](./README.md). For wiring the MCP server into every agent (Claude Desktop, ChatGPT, Codex, Cursor, Gemini, and more), see [mcp-install.md](./mcp-install.md). This file is the command reference.
+The recommended path installs both the `threatlocker-cli` binary and the `pp-threatlocker` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+
+```bash
+npx -y @mvanhorn/printing-press-library install threatlocker
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install threatlocker --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install threatlocker --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install threatlocker --agent claude-code
+npx -y @mvanhorn/printing-press-library install threatlocker --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/threatlocker/cmd/threatlocker-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/threatlocker-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install threatlocker --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-threatlocker --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-threatlocker --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install threatlocker --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/threatlocker-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `THREATLOCKER_API_KEY` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/threatlocker/cmd/threatlocker-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "threatlocker": {
+      "command": "threatlocker-mcp",
+      "env": {
+        "THREATLOCKER_API_KEY": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Authentication
 
@@ -51,7 +161,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   threatlocker-cli audit drift --since 7d --all-tenants --agent
   ```
-- **`devices health`**  -  Joins computers, online-devices, and last-checkin data to classify every endpoint online / offline / stale / isolated, rolled up per tenant.
+- **`devices health`**  -  Joins computers, online-devices, and last-checkin data to classify every endpoint healthy / offline / stale / isolated, rolled up per tenant.
 
   _Reach for this for the daily 'which agents are dark across all customers' sweep and post-patch verification._
 
@@ -83,7 +193,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   threatlocker-cli audit export --all-tenants --since 2026-04-01 --agent
   ```
-- **`audit retention-check`**  -  Reports, per tenant, the oldest audit row you have versus the 31-day cliff and how stale your last sync is  -  flagging tenants about to lose evidence.
+- **`audit retention-check`**  -  Reports, per tenant, the oldest audit row you have versus the 31-day cliff and how stale your last export is  -  flagging tenants about to lose evidence.
 
   _Pick this to catch a broken export before the data it should have captured ages off the 31-day window forever._
 
@@ -109,7 +219,7 @@ These capabilities aren't available in any other tool for this API.
 threatlocker-cli approvals triage --all-tenants --agent --select organizationName,fileName,hash,ageHours,duplicateCount
 ```
 
-Drain the overnight backlog ranked by age with duplicate hashes collapsed, then batch-approve the trusted ones.
+Drain the overnight backlog ranked by age with duplicate hashes collapsed, then batch-approve the trusted ones. Requires a recent sync --resources approvals.
 
 ### Nightly audit archive before the 31-day cliff
 
@@ -117,7 +227,7 @@ Drain the overnight backlog ranked by age with duplicate hashes collapsed, then 
 threatlocker-cli audit export --all-tenants --since 2026-04-01 --csv > audit-archive.csv
 ```
 
-Persist Unified Audit beyond ThreatLocker's retention window for SIEM and compliance.
+Persist Unified Audit beyond ThreatLocker's retention window for SIEM and compliance. Requires a recent sync --resources audit  -  the export materializes from the local archive.
 
 ### Who disabled protection this week
 
@@ -125,7 +235,7 @@ Persist Unified Audit beyond ThreatLocker's retention window for SIEM and compli
 threatlocker-cli audit drift --since 7d --all-tenants --agent
 ```
 
-One ranked table of protection-off / policy-change / maintenance events across every customer.
+One ranked table of protection-off / policy-change / maintenance events across every customer. Requires a recent sync --resources audit,system-audit.
 
 ### Dark-agent health sweep
 
@@ -133,7 +243,7 @@ One ranked table of protection-off / policy-change / maintenance events across e
 threatlocker-cli devices health --all-tenants --agent --select organizationName,computerName,healthClass,lastCheckin
 ```
 
-Classify every endpoint online/offline/stale/isolated across all tenants in one pass.
+Classify every endpoint healthy/offline/stale/isolated across all tenants in one pass. Requires a recent sync --resources computers,online-devices.
 
 ### Diagnose a broken automation
 
@@ -346,7 +456,7 @@ Environment variables:
 
 ### agentcookie (optional)
 
-If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `threatlocker-cli doctor` reports `agentcookie: detected (managing credentials)` and `auth status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `threatlocker-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**

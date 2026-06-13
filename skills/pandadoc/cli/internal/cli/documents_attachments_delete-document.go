@@ -17,7 +17,7 @@ func newDocumentsAttachmentsDeleteDocumentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "delete-document <id> <attachment_id>",
 		Aliases:     []string{"delete"},
 		Short:       "Deletes an attachment from the document.",
-		Example:     "  pandadoc-cli documents attachments delete-document 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents attachments delete-document BhVzRcxH9Z2LgfPPGXFUBa 89ce2f49-10fb-4e9b-b5f3-e28be2a5c042",
 		Annotations: map[string]string{"pp:endpoint": "attachments.delete-document", "pp:method": "DELETE", "pp:path": "/documents/{id}/attachments/{attachment_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

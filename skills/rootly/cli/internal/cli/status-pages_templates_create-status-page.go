@@ -27,9 +27,10 @@ func newStatusPagesTemplatesCreateStatusPageCmd(flags *rootFlags) *cobra.Command
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create-status-page <status_page_id>",
-		Aliases:     []string{"create"},
-		Short:       "Creates a new template from provided data",
+		Use:     "create-status-page <status_page_id>",
+		Aliases: []string{"create"},
+		Short:   "Creates a new template from provided data",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  rootly-cli status-pages templates create-status-page 550e8400-e29b-41d4-a716-446655440000 --body example-value",
 		Annotations: map[string]string{"pp:endpoint": "templates.create-status-page", "pp:method": "POST", "pp:path": "/v1/status-pages/{status_page_id}/templates"},
 		RunE: func(cmd *cobra.Command, args []string) error {

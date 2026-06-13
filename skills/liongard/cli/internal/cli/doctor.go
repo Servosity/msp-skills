@@ -173,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export LIONGARD_INSTANCE=<your-subdomain> and either LIONGARD_ACCESS_KEY_ID=<id> + LIONGARD_ACCESS_KEY_SECRET=<secret>, or a pre-encoded LIONGARD_API_KEY=<base64(id:secret)>"
+					report["auth_hint"] = "Set your API key with: export LIONGARD_API_KEY=\"your-token-here\""
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"
@@ -188,27 +188,16 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			authEnvOptionalNames := []string{}
 			// Validation rejects multi-OR-group specs upstream, so the single optional-satisfied state is sufficient at runtime.
 			authEnvOptionalSatisfied := false
-			if strings.Contains("", " OR ") {
-				authEnvOptionalNames = append(authEnvOptionalNames, "LIONGARD_API_KEY")
-				if os.Getenv("LIONGARD_API_KEY") != "" {
-					authEnvSet = append(authEnvSet, "LIONGARD_API_KEY")
-					authEnvOptionalSatisfied = true
-				}
-			} else if os.Getenv("LIONGARD_API_KEY") != "" {
+			if os.Getenv("LIONGARD_API_KEY") != "" {
 				authEnvSet = append(authEnvSet, "LIONGARD_API_KEY")
-			} else {
-				authEnvInfo = append(authEnvInfo, "LIONGARD_API_KEY optional")
-			}
-			if strings.Contains("", " OR ") {
-				authEnvOptionalNames = append(authEnvOptionalNames, "LIONGARD_ENDPOINTS_API_KEY")
-				if os.Getenv("LIONGARD_ENDPOINTS_API_KEY") != "" {
-					authEnvSet = append(authEnvSet, "LIONGARD_ENDPOINTS_API_KEY")
-					authEnvOptionalSatisfied = true
+			} else if authConfigured {
+				authSource, _ := report["auth_source"].(string)
+				if authSource == "" {
+					authSource = "config"
 				}
-			} else if os.Getenv("LIONGARD_ENDPOINTS_API_KEY") != "" {
-				authEnvSet = append(authEnvSet, "LIONGARD_ENDPOINTS_API_KEY")
+				authEnvInfo = append(authEnvInfo, "credentials available from "+authSource)
 			} else {
-				authEnvInfo = append(authEnvInfo, "LIONGARD_ENDPOINTS_API_KEY optional")
+				authEnvRequiredMissing = append(authEnvRequiredMissing, "LIONGARD_API_KEY")
 			}
 			switch {
 			case len(authEnvRequiredMissing) > 0:
@@ -220,7 +209,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			case len(authEnvInfo) > 0:
 				report["env_vars"] = "INFO " + strings.Join(authEnvInfo, "; ")
 			default:
-				report["env_vars"] = fmt.Sprintf("OK %d/%d available", len(authEnvSet), 2)
+				report["env_vars"] = fmt.Sprintf("OK %d/%d available", len(authEnvSet), 1)
 			}
 
 			// Check API connectivity and validate credentials.

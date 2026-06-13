@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "n-central-mcp",
   "display_name": "N-central",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, issue-triage rollups, and a JWT-expiry guardian no other N-central tool has.",
   "author": {
     "name": "Servosity Inc."
@@ -15,8 +15,7 @@
       "command": "${__dirname}/bin/n-central-mcp",
       "args": [],
       "env": {
-        "NCENTRAL_JWT": "${user_config.ncentral_jwt}",
-        "N_CENTRAL_BASE_URL": "${user_config.n_central_base_url}"
+        "NCENTRAL_JWT": "${user_config.ncentral_jwt}"
       }
     }
   },
@@ -26,12 +25,6 @@
       "title": "NCENTRAL_JWT",
       "description": "Sets NCENTRAL_JWT for the N-central MCP server.",
       "sensitive": true,
-      "required": true
-    },
-    "n_central_base_url": {
-      "type": "string",
-      "title": "N_CENTRAL_BASE_URL",
-      "description": "Your N-central tenant API base URL, e.g. https://yourmsp.ncod.n-able.com/api.",
       "required": true
     }
   },
@@ -43,10 +36,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-05T19:34:07.08984Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T03:59:00.699894Z",
     "spec_checksum": "sha256:eff724d99786e20e65150d2ff3ff266fbca09acd14cb3d424f330fdcaf619b9e",
     "spec_format": "internal"
   }

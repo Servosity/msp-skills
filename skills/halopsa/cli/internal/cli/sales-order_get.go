@@ -36,19 +36,19 @@ func newSalesOrderGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagConsignablelines != false {
-				params["consignablelines"] = fmt.Sprintf("%v", flagConsignablelines)
+				params["consignablelines"] = formatCLIParamValue(flagConsignablelines)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagInvoiceablelines != false {
-				params["invoiceablelines"] = fmt.Sprintf("%v", flagInvoiceablelines)
+				params["invoiceablelines"] = formatCLIParamValue(flagInvoiceablelines)
 			}
 			if flagOneline != 0 {
-				params["oneline"] = fmt.Sprintf("%v", flagOneline)
+				params["oneline"] = formatCLIParamValue(flagOneline)
 			}
 			if flagPendingpolines != false {
-				params["pendingpolines"] = fmt.Sprintf("%v", flagPendingpolines)
+				params["pendingpolines"] = formatCLIParamValue(flagPendingpolines)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "sales-order", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -11,6 +11,7 @@ func newServiceOrgsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "service-orgs",
 		Short:       "Service Organizations — the top level of the N-central org tree.",
+		Hidden:      true,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

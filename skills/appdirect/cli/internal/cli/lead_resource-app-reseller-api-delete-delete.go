@@ -59,10 +59,10 @@ func newLeadResourceAppResellerApiDeleteDeleteCmd(flags *rootFlags) *cobra.Comma
 			path = replacePathParam(path, "leadId", args[0])
 			params := map[string]string{}
 			if flagContext != "" {
-				params["context"] = fmt.Sprintf("%v", flagContext)
+				params["context"] = formatCLIParamValue(flagContext)
 			}
 			if flagCompanyId != "" {
-				params["companyId"] = fmt.Sprintf("%v", flagCompanyId)
+				params["companyId"] = formatCLIParamValue(flagCompanyId)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

@@ -34,13 +34,13 @@ func newCustomIntegrationRepositoryGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagIncludemethods != false {
-				params["includemethods"] = fmt.Sprintf("%v", flagIncludemethods)
+				params["includemethods"] = formatCLIParamValue(flagIncludemethods)
 			}
 			if flagModuleId != "" {
-				params["module_id"] = fmt.Sprintf("%v", flagModuleId)
+				params["module_id"] = formatCLIParamValue(flagModuleId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "custom-integration-repository", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

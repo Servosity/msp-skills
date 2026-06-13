@@ -138,7 +138,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "blumira-cli",
-			Description: "Every Blumira finding, detection",
+			Description: "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account — in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

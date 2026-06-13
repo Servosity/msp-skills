@@ -17,8 +17,9 @@ func newRmmMappingsDeleteCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "delete <integrationType> <entityType>",
-		Short:       "Delete",
+		Use:   "delete <integrationType> <entityType>",
+		Short: "Delete",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli rmm mappings delete example-value example-value",
 		Annotations: map[string]string{"pp:endpoint": "mappings.delete", "pp:method": "DELETE", "pp:path": "/v2/rmm/{integrationType}/mappings/{entityType}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

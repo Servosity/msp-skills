@@ -11,7 +11,7 @@ func newNovelSnapshotCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "snapshot",
-		Short:       "Local sync snapshot retention and diffing.",
+		Short:       "snapshot subcommands: diff",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

@@ -30,10 +30,10 @@ func newSmsOptOutsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/sms-opt-outs"
 			params := map[string]string{}
 			if flagTimestampFrom != "" {
-				params["timestamp_from"] = fmt.Sprintf("%v", flagTimestampFrom)
+				params["timestamp_from"] = formatCLIParamValue(flagTimestampFrom)
 			}
 			if flagTimestampTo != "" {
-				params["timestamp_to"] = fmt.Sprintf("%v", flagTimestampTo)
+				params["timestamp_to"] = formatCLIParamValue(flagTimestampTo)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "sms-opt-outs", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

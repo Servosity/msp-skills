@@ -17,7 +17,7 @@ func newDocumentsEsignDisclosureDocumentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "document <document_id>",
 		Aliases:     []string{"get"},
 		Short:       "Retrieves the current version of eSign disclosure text for a specified document.",
-		Example:     "  pandadoc-cli documents esign-disclosure document 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents esign-disclosure document BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "esign-disclosure.document", "pp:method": "GET", "pp:path": "/documents/{document_id}/esign-disclosure", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

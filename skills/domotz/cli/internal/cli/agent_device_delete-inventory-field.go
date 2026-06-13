@@ -14,8 +14,9 @@ import (
 func newAgentDeviceDeleteInventoryFieldCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "delete-inventory-field <agent_id> <device_id> <inventory_field>",
-		Short:       "Deletes the Inventory field for the device.",
+		Use:   "delete-inventory-field <agent_id> <device_id> <inventory_field>",
+		Short: "Deletes the Inventory field for the device.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  domotz-cli agent device delete-inventory-field 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "device.delete-inventory-field", "pp:method": "DELETE", "pp:path": "/agent/{agent_id}/device/{device_id}/inventory/{inventory_field}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

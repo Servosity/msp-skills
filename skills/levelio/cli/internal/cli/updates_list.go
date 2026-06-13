@@ -46,12 +46,12 @@ func newUpdatesListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/updates"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "updates", path, map[string]string{
-				"device_id":      fmt.Sprintf("%v", flagDeviceId),
-				"status":         fmt.Sprintf("%v", flagStatus),
-				"category":       fmt.Sprintf("%v", flagCategory),
-				"limit":          fmt.Sprintf("%v", flagLimit),
-				"starting_after": fmt.Sprintf("%v", flagStartingAfter),
-				"ending_before":  fmt.Sprintf("%v", flagEndingBefore),
+				"device_id":      formatCLIParamValue(flagDeviceId),
+				"status":         formatCLIParamValue(flagStatus),
+				"category":       formatCLIParamValue(flagCategory),
+				"limit":          formatCLIParamValue(flagLimit),
+				"starting_after": formatCLIParamValue(flagStartingAfter),
+				"ending_before":  formatCLIParamValue(flagEndingBefore),
 			}, nil, flagAll, "", "cursor", "limit", "", "has_more", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,11 +25,20 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
+)
+
 // RegisterTools registers all API operations as MCP tools.
 func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("health_search",
-			mcplib.WithDescription("Check the Blumira Public API's health and report its build metadata. Takes no parameters beyond auth. Returns a status field ('OK' on any non-error response) plus the API name, version/commit hash, and build time. Use this to confirm connectivity and the deployed API version before running other commands; it does not read any organization or finding data."),
+			mcplib.WithDescription("Get API health. Returns the ResponseHealth."),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -68,7 +79,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/msp/accounts/{account_id}/agents/devices", true, false, nil, []mcpParamBinding{{PublicName: "account_id", WireName: "account_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "page_size", WireName: "page_size", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "order_by", WireName: "order_by", Location: "query"}}, []string{"account_id"}),
+		makeAPIHandler("GET", "/msp/accounts/{account_id}/agents/devices", true, false, nil, []mcpParamBinding{{PublicName: "account_id", WireName: "account_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "page_size", WireName: "page_size", Location: "query", Default: "50"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "200"}, {PublicName: "order_by", WireName: "order_by", Location: "query", Default: "created;desc"}}, []string{"account_id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("msp_get-account-agents-keys",
@@ -82,7 +93,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/msp/accounts/{account_id}/agents/keys", true, false, nil, []mcpParamBinding{{PublicName: "account_id", WireName: "account_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "page_size", WireName: "page_size", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "order_by", WireName: "order_by", Location: "query"}}, []string{"account_id"}),
+		makeAPIHandler("GET", "/msp/accounts/{account_id}/agents/keys", true, false, nil, []mcpParamBinding{{PublicName: "account_id", WireName: "account_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "page_size", WireName: "page_size", Location: "query", Default: "50"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "200"}, {PublicName: "order_by", WireName: "order_by", Location: "query", Default: "created;desc"}}, []string{"account_id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("msp_get-account-finding",
@@ -119,7 +130,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/msp/accounts/{account_id}/findings/{finding_id}/evidence", true, false, nil, []mcpParamBinding{{PublicName: "account_id", WireName: "account_id", Location: "path"}, {PublicName: "finding_id", WireName: "finding_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "page_size", WireName: "page_size", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "order_by", WireName: "order_by", Location: "query"}}, []string{"account_id", "finding_id"}),
+		makeAPIHandler("GET", "/msp/accounts/{account_id}/findings/{finding_id}/evidence", true, false, nil, []mcpParamBinding{{PublicName: "account_id", WireName: "account_id", Location: "path"}, {PublicName: "finding_id", WireName: "finding_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "page_size", WireName: "page_size", Location: "query", Default: "50"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "200"}, {PublicName: "order_by", WireName: "order_by", Location: "query", Default: "created;desc"}}, []string{"account_id", "finding_id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("msp_get-account-findings",
@@ -203,7 +214,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/msp/accounts/{account_id}/findings", true, false, nil, []mcpParamBinding{{PublicName: "account_id", WireName: "account_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "page_size", WireName: "page_size", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "order_by", WireName: "order_by", Location: "query"}, {PublicName: "blocked", WireName: "blocked", Location: "query"}, {PublicName: "blocked.eq", WireName: "blocked.eq", Location: "query"}, {PublicName: "blocked-eq-2", WireName: "blocked.!eq", Location: "query"}, {PublicName: "category", WireName: "category", Location: "query"}, {PublicName: "category.eq", WireName: "category.eq", Location: "query"}, {PublicName: "category-eq-2", WireName: "category.!eq", Location: "query"}, {PublicName: "category.in", WireName: "category.in", Location: "query"}, {PublicName: "category-in-2", WireName: "category.!in", Location: "query"}, {PublicName: "created", WireName: "created", Location: "query"}, {PublicName: "created_after", WireName: "created_after", Location: "query"}, {PublicName: "created_before", WireName: "created_before", Location: "query"}, {PublicName: "created.eq", WireName: "created.eq", Location: "query"}, {PublicName: "created-eq-2", WireName: "created.!eq", Location: "query"}, {PublicName: "created.lt", WireName: "created.lt", Location: "query"}, {PublicName: "created-lt-2", WireName: "created.!lt", Location: "query"}, {PublicName: "created.gt", WireName: "created.gt", Location: "query"}, {PublicName: "created-gt-2", WireName: "created.!gt", Location: "query"}, {PublicName: "created_by", WireName: "created_by", Location: "query"}, {PublicName: "modified", WireName: "modified", Location: "query"}, {PublicName: "modified_after", WireName: "modified_after", Location: "query"}, {PublicName: "modified_before", WireName: "modified_before", Location: "query"}, {PublicName: "modified.eq", WireName: "modified.eq", Location: "query"}, {PublicName: "modified-eq-2", WireName: "modified.!eq", Location: "query"}, {PublicName: "modified.lt", WireName: "modified.lt", Location: "query"}, {PublicName: "modified-lt-2", WireName: "modified.!lt", Location: "query"}, {PublicName: "modified.gt", WireName: "modified.gt", Location: "query"}, {PublicName: "modified-gt-2", WireName: "modified.!gt", Location: "query"}, {PublicName: "modified_by", WireName: "modified_by", Location: "query"}, {PublicName: "modified_by.eq", WireName: "modified_by.eq", Location: "query"}, {PublicName: "modified-by-eq-2", WireName: "modified_by.!eq", Location: "query"}, {PublicName: "modified_by.in", WireName: "modified_by.in", Location: "query"}, {PublicName: "modified-by-in-2", WireName: "modified_by.!in", Location: "query"}, {PublicName: "name", WireName: "name", Location: "query"}, {PublicName: "name.eq", WireName: "name.eq", Location: "query"}, {PublicName: "name-eq-2", WireName: "name.!eq", Location: "query"}, {PublicName: "name.in", WireName: "name.in", Location: "query"}, {PublicName: "name-in-2", WireName: "name.!in", Location: "query"}, {PublicName: "name.contains", WireName: "name.contains", Location: "query"}, {PublicName: "name-contains-2", WireName: "name.!contains", Location: "query"}, {PublicName: "name.regex", WireName: "name.regex", Location: "query"}, {PublicName: "name-regex-2", WireName: "name.!regex", Location: "query"}, {PublicName: "priority", WireName: "priority", Location: "query"}, {PublicName: "priority.eq", WireName: "priority.eq", Location: "query"}, {PublicName: "priority-eq-2", WireName: "priority.!eq", Location: "query"}, {PublicName: "priority.in", WireName: "priority.in", Location: "query"}, {PublicName: "priority-in-2", WireName: "priority.!in", Location: "query"}, {PublicName: "priority.lt", WireName: "priority.lt", Location: "query"}, {PublicName: "priority-lt-2", WireName: "priority.!lt", Location: "query"}, {PublicName: "priority.gt", WireName: "priority.gt", Location: "query"}, {PublicName: "priority-gt-2", WireName: "priority.!gt", Location: "query"}, {PublicName: "resolution", WireName: "resolution", Location: "query"}, {PublicName: "resolution.eq", WireName: "resolution.eq", Location: "query"}, {PublicName: "resolution-eq-2", WireName: "resolution.!eq", Location: "query"}, {PublicName: "resolution.in", WireName: "resolution.in", Location: "query"}, {PublicName: "resolution-in-2", WireName: "resolution.!in", Location: "query"}, {PublicName: "status", WireName: "status", Location: "query"}, {PublicName: "status.eq", WireName: "status.eq", Location: "query"}, {PublicName: "status-eq-2", WireName: "status.!eq", Location: "query"}, {PublicName: "status.in", WireName: "status.in", Location: "query"}, {PublicName: "status-in-2", WireName: "status.!in", Location: "query"}, {PublicName: "status_modified_by", WireName: "status_modified_by", Location: "query"}, {PublicName: "status_modified_by.eq", WireName: "status_modified_by.eq", Location: "query"}, {PublicName: "status-modified-by-eq-2", WireName: "status_modified_by.!eq", Location: "query"}, {PublicName: "status_modified_by.in", WireName: "status_modified_by.in", Location: "query"}, {PublicName: "status-modified-by-in-2", WireName: "status_modified_by.!in", Location: "query"}, {PublicName: "type", WireName: "type", Location: "query"}, {PublicName: "type.eq", WireName: "type.eq", Location: "query"}, {PublicName: "type-eq-2", WireName: "type.!eq", Location: "query"}, {PublicName: "type.in", WireName: "type.in", Location: "query"}, {PublicName: "type-in-2", WireName: "type.!in", Location: "query"}}, []string{"account_id"}),
+		makeAPIHandler("GET", "/msp/accounts/{account_id}/findings", true, false, nil, []mcpParamBinding{{PublicName: "account_id", WireName: "account_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "page_size", WireName: "page_size", Location: "query", Default: "50"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "200"}, {PublicName: "order_by", WireName: "order_by", Location: "query", Default: "created;desc"}, {PublicName: "blocked", WireName: "blocked", Location: "query"}, {PublicName: "blocked.eq", WireName: "blocked.eq", Location: "query"}, {PublicName: "blocked-eq-2", WireName: "blocked.!eq", Location: "query"}, {PublicName: "category", WireName: "category", Location: "query"}, {PublicName: "category.eq", WireName: "category.eq", Location: "query"}, {PublicName: "category-eq-2", WireName: "category.!eq", Location: "query"}, {PublicName: "category.in", WireName: "category.in", Location: "query"}, {PublicName: "category-in-2", WireName: "category.!in", Location: "query"}, {PublicName: "created", WireName: "created", Location: "query"}, {PublicName: "created_after", WireName: "created_after", Location: "query"}, {PublicName: "created_before", WireName: "created_before", Location: "query"}, {PublicName: "created.eq", WireName: "created.eq", Location: "query"}, {PublicName: "created-eq-2", WireName: "created.!eq", Location: "query"}, {PublicName: "created.lt", WireName: "created.lt", Location: "query"}, {PublicName: "created-lt-2", WireName: "created.!lt", Location: "query"}, {PublicName: "created.gt", WireName: "created.gt", Location: "query"}, {PublicName: "created-gt-2", WireName: "created.!gt", Location: "query"}, {PublicName: "created_by", WireName: "created_by", Location: "query"}, {PublicName: "modified", WireName: "modified", Location: "query"}, {PublicName: "modified_after", WireName: "modified_after", Location: "query"}, {PublicName: "modified_before", WireName: "modified_before", Location: "query"}, {PublicName: "modified.eq", WireName: "modified.eq", Location: "query"}, {PublicName: "modified-eq-2", WireName: "modified.!eq", Location: "query"}, {PublicName: "modified.lt", WireName: "modified.lt", Location: "query"}, {PublicName: "modified-lt-2", WireName: "modified.!lt", Location: "query"}, {PublicName: "modified.gt", WireName: "modified.gt", Location: "query"}, {PublicName: "modified-gt-2", WireName: "modified.!gt", Location: "query"}, {PublicName: "modified_by", WireName: "modified_by", Location: "query"}, {PublicName: "modified_by.eq", WireName: "modified_by.eq", Location: "query"}, {PublicName: "modified-by-eq-2", WireName: "modified_by.!eq", Location: "query"}, {PublicName: "modified_by.in", WireName: "modified_by.in", Location: "query"}, {PublicName: "modified-by-in-2", WireName: "modified_by.!in", Location: "query"}, {PublicName: "name", WireName: "name", Location: "query"}, {PublicName: "name.eq", WireName: "name.eq", Location: "query"}, {PublicName: "name-eq-2", WireName: "name.!eq", Location: "query"}, {PublicName: "name.in", WireName: "name.in", Location: "query"}, {PublicName: "name-in-2", WireName: "name.!in", Location: "query"}, {PublicName: "name.contains", WireName: "name.contains", Location: "query"}, {PublicName: "name-contains-2", WireName: "name.!contains", Location: "query"}, {PublicName: "name.regex", WireName: "name.regex", Location: "query"}, {PublicName: "name-regex-2", WireName: "name.!regex", Location: "query"}, {PublicName: "priority", WireName: "priority", Location: "query"}, {PublicName: "priority.eq", WireName: "priority.eq", Location: "query"}, {PublicName: "priority-eq-2", WireName: "priority.!eq", Location: "query"}, {PublicName: "priority.in", WireName: "priority.in", Location: "query"}, {PublicName: "priority-in-2", WireName: "priority.!in", Location: "query"}, {PublicName: "priority.lt", WireName: "priority.lt", Location: "query"}, {PublicName: "priority-lt-2", WireName: "priority.!lt", Location: "query"}, {PublicName: "priority.gt", WireName: "priority.gt", Location: "query"}, {PublicName: "priority-gt-2", WireName: "priority.!gt", Location: "query"}, {PublicName: "resolution", WireName: "resolution", Location: "query"}, {PublicName: "resolution.eq", WireName: "resolution.eq", Location: "query"}, {PublicName: "resolution-eq-2", WireName: "resolution.!eq", Location: "query"}, {PublicName: "resolution.in", WireName: "resolution.in", Location: "query"}, {PublicName: "resolution-in-2", WireName: "resolution.!in", Location: "query"}, {PublicName: "status", WireName: "status", Location: "query"}, {PublicName: "status.eq", WireName: "status.eq", Location: "query"}, {PublicName: "status-eq-2", WireName: "status.!eq", Location: "query"}, {PublicName: "status.in", WireName: "status.in", Location: "query"}, {PublicName: "status-in-2", WireName: "status.!in", Location: "query"}, {PublicName: "status_modified_by", WireName: "status_modified_by", Location: "query"}, {PublicName: "status_modified_by.eq", WireName: "status_modified_by.eq", Location: "query"}, {PublicName: "status-modified-by-eq-2", WireName: "status_modified_by.!eq", Location: "query"}, {PublicName: "status_modified_by.in", WireName: "status_modified_by.in", Location: "query"}, {PublicName: "status-modified-by-in-2", WireName: "status_modified_by.!in", Location: "query"}, {PublicName: "type", WireName: "type", Location: "query"}, {PublicName: "type.eq", WireName: "type.eq", Location: "query"}, {PublicName: "type-eq-2", WireName: "type.!eq", Location: "query"}, {PublicName: "type.in", WireName: "type.in", Location: "query"}, {PublicName: "type-in-2", WireName: "type.!in", Location: "query"}}, []string{"account_id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("msp_get-accounts",
@@ -216,7 +227,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/msp/accounts", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "page_size", WireName: "page_size", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "order_by", WireName: "order_by", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/msp/accounts", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "page_size", WireName: "page_size", Location: "query", Default: "50"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "200"}, {PublicName: "order_by", WireName: "order_by", Location: "query", Default: "created;desc"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("msp_get-accounts-findings",
@@ -299,7 +310,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/msp/accounts/findings", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "page_size", WireName: "page_size", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "order_by", WireName: "order_by", Location: "query"}, {PublicName: "blocked", WireName: "blocked", Location: "query"}, {PublicName: "blocked.eq", WireName: "blocked.eq", Location: "query"}, {PublicName: "blocked-eq-2", WireName: "blocked.!eq", Location: "query"}, {PublicName: "category", WireName: "category", Location: "query"}, {PublicName: "category.eq", WireName: "category.eq", Location: "query"}, {PublicName: "category-eq-2", WireName: "category.!eq", Location: "query"}, {PublicName: "category.in", WireName: "category.in", Location: "query"}, {PublicName: "category-in-2", WireName: "category.!in", Location: "query"}, {PublicName: "created", WireName: "created", Location: "query"}, {PublicName: "created_after", WireName: "created_after", Location: "query"}, {PublicName: "created_before", WireName: "created_before", Location: "query"}, {PublicName: "created.eq", WireName: "created.eq", Location: "query"}, {PublicName: "created-eq-2", WireName: "created.!eq", Location: "query"}, {PublicName: "created.lt", WireName: "created.lt", Location: "query"}, {PublicName: "created-lt-2", WireName: "created.!lt", Location: "query"}, {PublicName: "created.gt", WireName: "created.gt", Location: "query"}, {PublicName: "created-gt-2", WireName: "created.!gt", Location: "query"}, {PublicName: "created_by", WireName: "created_by", Location: "query"}, {PublicName: "modified", WireName: "modified", Location: "query"}, {PublicName: "modified_after", WireName: "modified_after", Location: "query"}, {PublicName: "modified_before", WireName: "modified_before", Location: "query"}, {PublicName: "modified.eq", WireName: "modified.eq", Location: "query"}, {PublicName: "modified-eq-2", WireName: "modified.!eq", Location: "query"}, {PublicName: "modified.lt", WireName: "modified.lt", Location: "query"}, {PublicName: "modified-lt-2", WireName: "modified.!lt", Location: "query"}, {PublicName: "modified.gt", WireName: "modified.gt", Location: "query"}, {PublicName: "modified-gt-2", WireName: "modified.!gt", Location: "query"}, {PublicName: "modified_by", WireName: "modified_by", Location: "query"}, {PublicName: "modified_by.eq", WireName: "modified_by.eq", Location: "query"}, {PublicName: "modified-by-eq-2", WireName: "modified_by.!eq", Location: "query"}, {PublicName: "modified_by.in", WireName: "modified_by.in", Location: "query"}, {PublicName: "modified-by-in-2", WireName: "modified_by.!in", Location: "query"}, {PublicName: "name", WireName: "name", Location: "query"}, {PublicName: "name.eq", WireName: "name.eq", Location: "query"}, {PublicName: "name-eq-2", WireName: "name.!eq", Location: "query"}, {PublicName: "name.in", WireName: "name.in", Location: "query"}, {PublicName: "name-in-2", WireName: "name.!in", Location: "query"}, {PublicName: "name.contains", WireName: "name.contains", Location: "query"}, {PublicName: "name-contains-2", WireName: "name.!contains", Location: "query"}, {PublicName: "name.regex", WireName: "name.regex", Location: "query"}, {PublicName: "name-regex-2", WireName: "name.!regex", Location: "query"}, {PublicName: "priority", WireName: "priority", Location: "query"}, {PublicName: "priority.eq", WireName: "priority.eq", Location: "query"}, {PublicName: "priority-eq-2", WireName: "priority.!eq", Location: "query"}, {PublicName: "priority.in", WireName: "priority.in", Location: "query"}, {PublicName: "priority-in-2", WireName: "priority.!in", Location: "query"}, {PublicName: "priority.lt", WireName: "priority.lt", Location: "query"}, {PublicName: "priority-lt-2", WireName: "priority.!lt", Location: "query"}, {PublicName: "priority.gt", WireName: "priority.gt", Location: "query"}, {PublicName: "priority-gt-2", WireName: "priority.!gt", Location: "query"}, {PublicName: "resolution", WireName: "resolution", Location: "query"}, {PublicName: "resolution.eq", WireName: "resolution.eq", Location: "query"}, {PublicName: "resolution-eq-2", WireName: "resolution.!eq", Location: "query"}, {PublicName: "resolution.in", WireName: "resolution.in", Location: "query"}, {PublicName: "resolution-in-2", WireName: "resolution.!in", Location: "query"}, {PublicName: "status", WireName: "status", Location: "query"}, {PublicName: "status.eq", WireName: "status.eq", Location: "query"}, {PublicName: "status-eq-2", WireName: "status.!eq", Location: "query"}, {PublicName: "status.in", WireName: "status.in", Location: "query"}, {PublicName: "status-in-2", WireName: "status.!in", Location: "query"}, {PublicName: "status_modified_by", WireName: "status_modified_by", Location: "query"}, {PublicName: "status_modified_by.eq", WireName: "status_modified_by.eq", Location: "query"}, {PublicName: "status-modified-by-eq-2", WireName: "status_modified_by.!eq", Location: "query"}, {PublicName: "status_modified_by.in", WireName: "status_modified_by.in", Location: "query"}, {PublicName: "status-modified-by-in-2", WireName: "status_modified_by.!in", Location: "query"}, {PublicName: "type", WireName: "type", Location: "query"}, {PublicName: "type.eq", WireName: "type.eq", Location: "query"}, {PublicName: "type-eq-2", WireName: "type.!eq", Location: "query"}, {PublicName: "type.in", WireName: "type.in", Location: "query"}, {PublicName: "type-in-2", WireName: "type.!in", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/msp/accounts/findings", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "page_size", WireName: "page_size", Location: "query", Default: "50"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "200"}, {PublicName: "order_by", WireName: "order_by", Location: "query", Default: "created;desc"}, {PublicName: "blocked", WireName: "blocked", Location: "query"}, {PublicName: "blocked.eq", WireName: "blocked.eq", Location: "query"}, {PublicName: "blocked-eq-2", WireName: "blocked.!eq", Location: "query"}, {PublicName: "category", WireName: "category", Location: "query"}, {PublicName: "category.eq", WireName: "category.eq", Location: "query"}, {PublicName: "category-eq-2", WireName: "category.!eq", Location: "query"}, {PublicName: "category.in", WireName: "category.in", Location: "query"}, {PublicName: "category-in-2", WireName: "category.!in", Location: "query"}, {PublicName: "created", WireName: "created", Location: "query"}, {PublicName: "created_after", WireName: "created_after", Location: "query"}, {PublicName: "created_before", WireName: "created_before", Location: "query"}, {PublicName: "created.eq", WireName: "created.eq", Location: "query"}, {PublicName: "created-eq-2", WireName: "created.!eq", Location: "query"}, {PublicName: "created.lt", WireName: "created.lt", Location: "query"}, {PublicName: "created-lt-2", WireName: "created.!lt", Location: "query"}, {PublicName: "created.gt", WireName: "created.gt", Location: "query"}, {PublicName: "created-gt-2", WireName: "created.!gt", Location: "query"}, {PublicName: "created_by", WireName: "created_by", Location: "query"}, {PublicName: "modified", WireName: "modified", Location: "query"}, {PublicName: "modified_after", WireName: "modified_after", Location: "query"}, {PublicName: "modified_before", WireName: "modified_before", Location: "query"}, {PublicName: "modified.eq", WireName: "modified.eq", Location: "query"}, {PublicName: "modified-eq-2", WireName: "modified.!eq", Location: "query"}, {PublicName: "modified.lt", WireName: "modified.lt", Location: "query"}, {PublicName: "modified-lt-2", WireName: "modified.!lt", Location: "query"}, {PublicName: "modified.gt", WireName: "modified.gt", Location: "query"}, {PublicName: "modified-gt-2", WireName: "modified.!gt", Location: "query"}, {PublicName: "modified_by", WireName: "modified_by", Location: "query"}, {PublicName: "modified_by.eq", WireName: "modified_by.eq", Location: "query"}, {PublicName: "modified-by-eq-2", WireName: "modified_by.!eq", Location: "query"}, {PublicName: "modified_by.in", WireName: "modified_by.in", Location: "query"}, {PublicName: "modified-by-in-2", WireName: "modified_by.!in", Location: "query"}, {PublicName: "name", WireName: "name", Location: "query"}, {PublicName: "name.eq", WireName: "name.eq", Location: "query"}, {PublicName: "name-eq-2", WireName: "name.!eq", Location: "query"}, {PublicName: "name.in", WireName: "name.in", Location: "query"}, {PublicName: "name-in-2", WireName: "name.!in", Location: "query"}, {PublicName: "name.contains", WireName: "name.contains", Location: "query"}, {PublicName: "name-contains-2", WireName: "name.!contains", Location: "query"}, {PublicName: "name.regex", WireName: "name.regex", Location: "query"}, {PublicName: "name-regex-2", WireName: "name.!regex", Location: "query"}, {PublicName: "priority", WireName: "priority", Location: "query"}, {PublicName: "priority.eq", WireName: "priority.eq", Location: "query"}, {PublicName: "priority-eq-2", WireName: "priority.!eq", Location: "query"}, {PublicName: "priority.in", WireName: "priority.in", Location: "query"}, {PublicName: "priority-in-2", WireName: "priority.!in", Location: "query"}, {PublicName: "priority.lt", WireName: "priority.lt", Location: "query"}, {PublicName: "priority-lt-2", WireName: "priority.!lt", Location: "query"}, {PublicName: "priority.gt", WireName: "priority.gt", Location: "query"}, {PublicName: "priority-gt-2", WireName: "priority.!gt", Location: "query"}, {PublicName: "resolution", WireName: "resolution", Location: "query"}, {PublicName: "resolution.eq", WireName: "resolution.eq", Location: "query"}, {PublicName: "resolution-eq-2", WireName: "resolution.!eq", Location: "query"}, {PublicName: "resolution.in", WireName: "resolution.in", Location: "query"}, {PublicName: "resolution-in-2", WireName: "resolution.!in", Location: "query"}, {PublicName: "status", WireName: "status", Location: "query"}, {PublicName: "status.eq", WireName: "status.eq", Location: "query"}, {PublicName: "status-eq-2", WireName: "status.!eq", Location: "query"}, {PublicName: "status.in", WireName: "status.in", Location: "query"}, {PublicName: "status-in-2", WireName: "status.!in", Location: "query"}, {PublicName: "status_modified_by", WireName: "status_modified_by", Location: "query"}, {PublicName: "status_modified_by.eq", WireName: "status_modified_by.eq", Location: "query"}, {PublicName: "status-modified-by-eq-2", WireName: "status_modified_by.!eq", Location: "query"}, {PublicName: "status_modified_by.in", WireName: "status_modified_by.in", Location: "query"}, {PublicName: "status-modified-by-in-2", WireName: "status_modified_by.!in", Location: "query"}, {PublicName: "type", WireName: "type", Location: "query"}, {PublicName: "type.eq", WireName: "type.eq", Location: "query"}, {PublicName: "type-eq-2", WireName: "type.!eq", Location: "query"}, {PublicName: "type.in", WireName: "type.in", Location: "query"}, {PublicName: "type-in-2", WireName: "type.!in", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("msp_get-agents-device",
@@ -346,7 +357,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/msp/accounts/{account_id}/detection-rules", true, false, nil, []mcpParamBinding{{PublicName: "account_id", WireName: "account_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "page_size", WireName: "page_size", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "order_by", WireName: "order_by", Location: "query"}}, []string{"account_id"}),
+		makeAPIHandler("GET", "/msp/accounts/{account_id}/detection-rules", true, false, nil, []mcpParamBinding{{PublicName: "account_id", WireName: "account_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "page_size", WireName: "page_size", Location: "query", Default: "50"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "200"}, {PublicName: "order_by", WireName: "order_by", Location: "query", Default: "created;desc"}}, []string{"account_id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("msp_get-msp-detection-rule",
@@ -369,7 +380,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/msp/basis-detection-rules", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "page_size", WireName: "page_size", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "order_by", WireName: "order_by", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/msp/basis-detection-rules", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "page_size", WireName: "page_size", Location: "query", Default: "50"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "200"}, {PublicName: "order_by", WireName: "order_by", Location: "query", Default: "created;desc"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("msp_list-users",
@@ -382,7 +393,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/msp/accounts/{account_id}/users", true, false, nil, []mcpParamBinding{{PublicName: "account_id", WireName: "account_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "page_size", WireName: "page_size", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}}, []string{"account_id"}),
+		makeAPIHandler("GET", "/msp/accounts/{account_id}/users", true, false, nil, []mcpParamBinding{{PublicName: "account_id", WireName: "account_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "page_size", WireName: "page_size", Location: "query", Default: "50"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "200"}}, []string{"account_id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("msp_resolve-finding",
@@ -450,7 +461,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/org/agents/devices", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "page_size", WireName: "page_size", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "order_by", WireName: "order_by", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/org/agents/devices", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "page_size", WireName: "page_size", Location: "query", Default: "50"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "200"}, {PublicName: "order_by", WireName: "order_by", Location: "query", Default: "created;desc"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("org_controller-direct-get-agents-key",
@@ -473,7 +484,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/org/agents/keys", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "page_size", WireName: "page_size", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "order_by", WireName: "order_by", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/org/agents/keys", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "page_size", WireName: "page_size", Location: "query", Default: "50"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "200"}, {PublicName: "order_by", WireName: "order_by", Location: "query", Default: "created;desc"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("org_controller-direct-get-by",
@@ -556,7 +567,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/org/findings", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "page_size", WireName: "page_size", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "order_by", WireName: "order_by", Location: "query"}, {PublicName: "blocked", WireName: "blocked", Location: "query"}, {PublicName: "blocked.eq", WireName: "blocked.eq", Location: "query"}, {PublicName: "blocked-eq-2", WireName: "blocked.!eq", Location: "query"}, {PublicName: "category", WireName: "category", Location: "query"}, {PublicName: "category.eq", WireName: "category.eq", Location: "query"}, {PublicName: "category-eq-2", WireName: "category.!eq", Location: "query"}, {PublicName: "category.in", WireName: "category.in", Location: "query"}, {PublicName: "category-in-2", WireName: "category.!in", Location: "query"}, {PublicName: "created", WireName: "created", Location: "query"}, {PublicName: "created_after", WireName: "created_after", Location: "query"}, {PublicName: "created_before", WireName: "created_before", Location: "query"}, {PublicName: "created.eq", WireName: "created.eq", Location: "query"}, {PublicName: "created-eq-2", WireName: "created.!eq", Location: "query"}, {PublicName: "created.lt", WireName: "created.lt", Location: "query"}, {PublicName: "created-lt-2", WireName: "created.!lt", Location: "query"}, {PublicName: "created.gt", WireName: "created.gt", Location: "query"}, {PublicName: "created-gt-2", WireName: "created.!gt", Location: "query"}, {PublicName: "created_by", WireName: "created_by", Location: "query"}, {PublicName: "modified", WireName: "modified", Location: "query"}, {PublicName: "modified_after", WireName: "modified_after", Location: "query"}, {PublicName: "modified_before", WireName: "modified_before", Location: "query"}, {PublicName: "modified.eq", WireName: "modified.eq", Location: "query"}, {PublicName: "modified-eq-2", WireName: "modified.!eq", Location: "query"}, {PublicName: "modified.lt", WireName: "modified.lt", Location: "query"}, {PublicName: "modified-lt-2", WireName: "modified.!lt", Location: "query"}, {PublicName: "modified.gt", WireName: "modified.gt", Location: "query"}, {PublicName: "modified-gt-2", WireName: "modified.!gt", Location: "query"}, {PublicName: "modified_by", WireName: "modified_by", Location: "query"}, {PublicName: "modified_by.eq", WireName: "modified_by.eq", Location: "query"}, {PublicName: "modified-by-eq-2", WireName: "modified_by.!eq", Location: "query"}, {PublicName: "modified_by.in", WireName: "modified_by.in", Location: "query"}, {PublicName: "modified-by-in-2", WireName: "modified_by.!in", Location: "query"}, {PublicName: "name", WireName: "name", Location: "query"}, {PublicName: "name.eq", WireName: "name.eq", Location: "query"}, {PublicName: "name-eq-2", WireName: "name.!eq", Location: "query"}, {PublicName: "name.in", WireName: "name.in", Location: "query"}, {PublicName: "name-in-2", WireName: "name.!in", Location: "query"}, {PublicName: "name.contains", WireName: "name.contains", Location: "query"}, {PublicName: "name-contains-2", WireName: "name.!contains", Location: "query"}, {PublicName: "name.regex", WireName: "name.regex", Location: "query"}, {PublicName: "name-regex-2", WireName: "name.!regex", Location: "query"}, {PublicName: "priority", WireName: "priority", Location: "query"}, {PublicName: "priority.eq", WireName: "priority.eq", Location: "query"}, {PublicName: "priority-eq-2", WireName: "priority.!eq", Location: "query"}, {PublicName: "priority.in", WireName: "priority.in", Location: "query"}, {PublicName: "priority-in-2", WireName: "priority.!in", Location: "query"}, {PublicName: "priority.lt", WireName: "priority.lt", Location: "query"}, {PublicName: "priority-lt-2", WireName: "priority.!lt", Location: "query"}, {PublicName: "priority.gt", WireName: "priority.gt", Location: "query"}, {PublicName: "priority-gt-2", WireName: "priority.!gt", Location: "query"}, {PublicName: "resolution", WireName: "resolution", Location: "query"}, {PublicName: "resolution.eq", WireName: "resolution.eq", Location: "query"}, {PublicName: "resolution-eq-2", WireName: "resolution.!eq", Location: "query"}, {PublicName: "resolution.in", WireName: "resolution.in", Location: "query"}, {PublicName: "resolution-in-2", WireName: "resolution.!in", Location: "query"}, {PublicName: "status", WireName: "status", Location: "query"}, {PublicName: "status.eq", WireName: "status.eq", Location: "query"}, {PublicName: "status-eq-2", WireName: "status.!eq", Location: "query"}, {PublicName: "status.in", WireName: "status.in", Location: "query"}, {PublicName: "status-in-2", WireName: "status.!in", Location: "query"}, {PublicName: "status_modified_by", WireName: "status_modified_by", Location: "query"}, {PublicName: "status_modified_by.eq", WireName: "status_modified_by.eq", Location: "query"}, {PublicName: "status-modified-by-eq-2", WireName: "status_modified_by.!eq", Location: "query"}, {PublicName: "status_modified_by.in", WireName: "status_modified_by.in", Location: "query"}, {PublicName: "status-modified-by-in-2", WireName: "status_modified_by.!in", Location: "query"}, {PublicName: "type", WireName: "type", Location: "query"}, {PublicName: "type.eq", WireName: "type.eq", Location: "query"}, {PublicName: "type-eq-2", WireName: "type.!eq", Location: "query"}, {PublicName: "type.in", WireName: "type.in", Location: "query"}, {PublicName: "type-in-2", WireName: "type.!in", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/org/findings", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "page_size", WireName: "page_size", Location: "query", Default: "50"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "200"}, {PublicName: "order_by", WireName: "order_by", Location: "query", Default: "created;desc"}, {PublicName: "blocked", WireName: "blocked", Location: "query"}, {PublicName: "blocked.eq", WireName: "blocked.eq", Location: "query"}, {PublicName: "blocked-eq-2", WireName: "blocked.!eq", Location: "query"}, {PublicName: "category", WireName: "category", Location: "query"}, {PublicName: "category.eq", WireName: "category.eq", Location: "query"}, {PublicName: "category-eq-2", WireName: "category.!eq", Location: "query"}, {PublicName: "category.in", WireName: "category.in", Location: "query"}, {PublicName: "category-in-2", WireName: "category.!in", Location: "query"}, {PublicName: "created", WireName: "created", Location: "query"}, {PublicName: "created_after", WireName: "created_after", Location: "query"}, {PublicName: "created_before", WireName: "created_before", Location: "query"}, {PublicName: "created.eq", WireName: "created.eq", Location: "query"}, {PublicName: "created-eq-2", WireName: "created.!eq", Location: "query"}, {PublicName: "created.lt", WireName: "created.lt", Location: "query"}, {PublicName: "created-lt-2", WireName: "created.!lt", Location: "query"}, {PublicName: "created.gt", WireName: "created.gt", Location: "query"}, {PublicName: "created-gt-2", WireName: "created.!gt", Location: "query"}, {PublicName: "created_by", WireName: "created_by", Location: "query"}, {PublicName: "modified", WireName: "modified", Location: "query"}, {PublicName: "modified_after", WireName: "modified_after", Location: "query"}, {PublicName: "modified_before", WireName: "modified_before", Location: "query"}, {PublicName: "modified.eq", WireName: "modified.eq", Location: "query"}, {PublicName: "modified-eq-2", WireName: "modified.!eq", Location: "query"}, {PublicName: "modified.lt", WireName: "modified.lt", Location: "query"}, {PublicName: "modified-lt-2", WireName: "modified.!lt", Location: "query"}, {PublicName: "modified.gt", WireName: "modified.gt", Location: "query"}, {PublicName: "modified-gt-2", WireName: "modified.!gt", Location: "query"}, {PublicName: "modified_by", WireName: "modified_by", Location: "query"}, {PublicName: "modified_by.eq", WireName: "modified_by.eq", Location: "query"}, {PublicName: "modified-by-eq-2", WireName: "modified_by.!eq", Location: "query"}, {PublicName: "modified_by.in", WireName: "modified_by.in", Location: "query"}, {PublicName: "modified-by-in-2", WireName: "modified_by.!in", Location: "query"}, {PublicName: "name", WireName: "name", Location: "query"}, {PublicName: "name.eq", WireName: "name.eq", Location: "query"}, {PublicName: "name-eq-2", WireName: "name.!eq", Location: "query"}, {PublicName: "name.in", WireName: "name.in", Location: "query"}, {PublicName: "name-in-2", WireName: "name.!in", Location: "query"}, {PublicName: "name.contains", WireName: "name.contains", Location: "query"}, {PublicName: "name-contains-2", WireName: "name.!contains", Location: "query"}, {PublicName: "name.regex", WireName: "name.regex", Location: "query"}, {PublicName: "name-regex-2", WireName: "name.!regex", Location: "query"}, {PublicName: "priority", WireName: "priority", Location: "query"}, {PublicName: "priority.eq", WireName: "priority.eq", Location: "query"}, {PublicName: "priority-eq-2", WireName: "priority.!eq", Location: "query"}, {PublicName: "priority.in", WireName: "priority.in", Location: "query"}, {PublicName: "priority-in-2", WireName: "priority.!in", Location: "query"}, {PublicName: "priority.lt", WireName: "priority.lt", Location: "query"}, {PublicName: "priority-lt-2", WireName: "priority.!lt", Location: "query"}, {PublicName: "priority.gt", WireName: "priority.gt", Location: "query"}, {PublicName: "priority-gt-2", WireName: "priority.!gt", Location: "query"}, {PublicName: "resolution", WireName: "resolution", Location: "query"}, {PublicName: "resolution.eq", WireName: "resolution.eq", Location: "query"}, {PublicName: "resolution-eq-2", WireName: "resolution.!eq", Location: "query"}, {PublicName: "resolution.in", WireName: "resolution.in", Location: "query"}, {PublicName: "resolution-in-2", WireName: "resolution.!in", Location: "query"}, {PublicName: "status", WireName: "status", Location: "query"}, {PublicName: "status.eq", WireName: "status.eq", Location: "query"}, {PublicName: "status-eq-2", WireName: "status.!eq", Location: "query"}, {PublicName: "status.in", WireName: "status.in", Location: "query"}, {PublicName: "status-in-2", WireName: "status.!in", Location: "query"}, {PublicName: "status_modified_by", WireName: "status_modified_by", Location: "query"}, {PublicName: "status_modified_by.eq", WireName: "status_modified_by.eq", Location: "query"}, {PublicName: "status-modified-by-eq-2", WireName: "status_modified_by.!eq", Location: "query"}, {PublicName: "status_modified_by.in", WireName: "status_modified_by.in", Location: "query"}, {PublicName: "status-modified-by-in-2", WireName: "status_modified_by.!in", Location: "query"}, {PublicName: "type", WireName: "type", Location: "query"}, {PublicName: "type.eq", WireName: "type.eq", Location: "query"}, {PublicName: "type-eq-2", WireName: "type.!eq", Location: "query"}, {PublicName: "type.in", WireName: "type.in", Location: "query"}, {PublicName: "type-in-2", WireName: "type.!in", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("org_controller-direct-get-comments",
@@ -599,7 +610,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/org/detection-rules", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "page_size", WireName: "page_size", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "order_by", WireName: "order_by", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/org/detection-rules", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "page_size", WireName: "page_size", Location: "query", Default: "50"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "200"}, {PublicName: "order_by", WireName: "order_by", Location: "query", Default: "created;desc"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("org_controller-direct-get-evidence",
@@ -613,7 +624,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/org/findings/{finding_id}/evidence", true, false, nil, []mcpParamBinding{{PublicName: "finding_id", WireName: "finding_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "page_size", WireName: "page_size", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "order_by", WireName: "order_by", Location: "query"}}, []string{"finding_id"}),
+		makeAPIHandler("GET", "/org/findings/{finding_id}/evidence", true, false, nil, []mcpParamBinding{{PublicName: "finding_id", WireName: "finding_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "page_size", WireName: "page_size", Location: "query", Default: "50"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "200"}, {PublicName: "order_by", WireName: "order_by", Location: "query", Default: "created;desc"}}, []string{"finding_id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("org_controller-direct-list-users",
@@ -625,7 +636,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/org/users", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "page_size", WireName: "page_size", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/org/users", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "page_size", WireName: "page_size", Location: "query", Default: "50"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "200"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("org_controller-direct-resolve-finding",
@@ -658,6 +669,8 @@ func RegisterTools(s *server.MCPServer) {
 		),
 		makeAPIHandler("GET", "/resolutions", true, false, nil, []mcpParamBinding{}, []string{}),
 	)
+	// Intent tools — higher-level compositions declared in the spec or lifted from recipes.
+	RegisterIntents(s)
 	// Search tool — faster than iterating list endpoints for finding specific items
 	s.AddTool(
 		mcplib.NewTool("search",
@@ -673,7 +686,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -700,6 +713,35 @@ type mcpParamBinding struct {
 	PublicName string
 	WireName   string
 	Location   string
+	Default    string
+}
+
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // makeAPIHandler creates a generic MCP tool handler for an API endpoint.
@@ -740,17 +782,21 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			knownArgs[binding.PublicName] = true
 			v, ok := args[binding.PublicName]
 			if !ok {
-				continue
+				if binding.Default != "" {
+					v = binding.Default
+				} else {
+					continue
+				}
 			}
 			switch binding.Location {
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				bodyArgs[binding.WireName] = v
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -760,7 +806,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -772,7 +818,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "POST", "PUT", "PATCH":
 				bodyArgs[k] = v
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -828,17 +874,17 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key: export BLUMIRA_API_TOKEN=<your-key>" +
+					"\n      Run 'blumira-cli auth setup' for credential setup steps." +
 					"\n      Run 'blumira-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your token." +
-					"\n      Set it with: export BLUMIRA_API_TOKEN=<your-key>" +
+					"\n      Run 'blumira-cli auth setup' for credential setup steps." +
 					"\n      Run 'blumira-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: your credentials are valid but lack access to this resource." +
-					"\n      Set it with: export BLUMIRA_API_TOKEN=<your-key>" +
+					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
+					"\n      Run 'blumira-cli auth setup' for credential setup steps." +
 					"\n      Run 'blumira-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
 				if method == "DELETE" {
@@ -852,21 +898,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -875,8 +906,129 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
@@ -886,7 +1038,7 @@ func newMCPClient() (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -935,22 +1087,27 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -982,6 +1139,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -1049,7 +1297,7 @@ func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
 func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	ctx := map[string]any{
 		"api":         "blumira",
-		"description": "Blumira cloud SIEM + XDR: query security findings, evidence, detection rules, agent devices",
+		"description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account — in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
 		"archetype":   "generic",
 		"tool_count":  36,
 		// tool_surface tells agents which surface a capability lives on.
@@ -1118,36 +1366,36 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "Unified cross-account triage queue", "command": "triage", "description": "One globally-ranked open-findings queue across every MSP client account.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Finding drift since last sync", "command": "drift", "description": "New, status-changed, and newly-resolved findings since the last sync, per account.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "MTTR & response velocity", "command": "velocity", "description": "Mean-time-to-resolve and open-rate per account or overall.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "SLA aging watchlist", "command": "sla", "description": "Findings about to breach an age-based SLA across all accounts, ranked.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Detection coverage drift vs basis", "command": "coverage", "description": "Detection rules missing or disabled in your org versus the MSP basis ruleset.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Agent & domain-controller exposure map", "command": "exposure", "description": "Cross-account agent rollup that flags stale or unprotected domain controllers.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Resolution re-fire audit", "command": "audit", "description": "Findings that were resolved and then re-fired (reopened).", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Recurring-finding fingerprint", "command": "recurring", "description": "The same detection firing repeatedly across accounts and time.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Self-minting OAuth2 auth login", "command": "auth login", "description": "Mints, caches, and auto-refreshes the Blumira JWT from a Client ID + Secret.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Cross-account MSP overview", "command": "overview", "description": "One-screen per-account rollup: open findings by priority, agent coverage", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Ticketing reconciliation export", "command": "reconcile", "description": "Flat finding-to-org-to-assignee-to-status table for diffing against ConnectWise, Jira, or Zendesk.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Evidence keyword search", "command": "evidence-search", "description": "Full-text search over synced finding evidence to find which findings mention an IOC, hostname, or user.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Domain-controller roster", "command": "dc-roster", "description": "Every domain controller across all accounts with last check-in and protected/stale state.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Per-analyst workload balance", "command": "workload", "description": "Open assigned findings grouped by owner across all accounts, with age buckets.", "rationale": "", "via": "mcp-command-mirror"},
+			{"name": "Unified cross-account triage queue", "command": "triage", "description": "One globally-ranked open-findings queue across every MSP client account.", "rationale": "Merges cross-account findings with per-account context and re-ranks locally; the API only returns per-account slices it cannot sort or de-dupe across orgs.", "via": "mcp-command-mirror"},
+			{"name": "Finding drift since last sync", "command": "drift", "description": "New, status-changed, and newly-resolved findings since the last sync, per account.", "rationale": "Diffs the current sync against stored prior snapshots; the API has no 'what changed since yesterday' anywhere.", "via": "mcp-command-mirror"},
+			{"name": "MTTR & response velocity", "command": "velocity", "description": "Mean-time-to-resolve and open-rate per account or overall.", "rationale": "Computed from the finding status-change history recorded at every sync; the API exposes current status only, never the transitions.", "via": "mcp-command-mirror"},
+			{"name": "SLA aging watchlist", "command": "sla", "description": "Findings about to breach an age-based SLA across all accounts, ranked.", "rationale": "Tracks each finding's created/age against a locally-defined SLA policy across every account — a time axis plus cross-account rollup the API gives for neither.", "via": "mcp-command-mirror"},
+			{"name": "Detection coverage drift vs basis", "command": "coverage", "description": "Detection rules missing or disabled in your org versus the MSP basis ruleset.", "rationale": "Joins the MSP basis detection rules against the org's deployed rules by name — a multi-endpoint join no single call performs.", "via": "mcp-command-mirror"},
+			{"name": "Agent & domain-controller exposure map", "command": "exposure", "description": "Cross-account agent rollup that flags stale or unprotected domain controllers.", "rationale": "Rolls up agent devices across accounts and flags is_domain_controller machines whose check-in went stale versus the prior snapshot — aggregation the API never performs.", "via": "mcp-command-mirror"},
+			{"name": "Resolution re-fire audit", "command": "audit", "description": "Findings that were resolved and then re-fired (reopened).", "rationale": "Re-open detection compares finding status across stored syncs — impossible without the historical corpus the local store keeps.", "via": "mcp-command-mirror"},
+			{"name": "Recurring-finding fingerprint", "command": "recurring", "description": "The same detection firing repeatedly across accounts and time.", "rationale": "Pattern-matches the historical corpus to surface chronic noisy rules or unremediated root causes; one API call only ever sees one snapshot.", "via": "mcp-command-mirror"},
+			{"name": "Self-minting OAuth2 auth login", "command": "auth login", "description": "Mints, caches, and auto-refreshes the Blumira JWT from a Client ID + Secret.", "rationale": "Performs the client_credentials exchange against auth.blumira.com and rotates the ~30-day token automatically; the incumbent MCP makes you bring and refresh your own JWT.", "via": "mcp-command-mirror"},
+			{"name": "Cross-account MSP overview", "command": "overview", "description": "One-screen per-account rollup: open findings by priority, agent coverage, and detection-coverage drift across every client.", "rationale": "Aggregates findings, agents, and coverage state from the local store across all accounts — three synced tables joined into one rollup no API call returns.", "via": "mcp-command-mirror"},
+			{"name": "Ticketing reconciliation export", "command": "reconcile", "description": "Flat finding-to-org-to-assignee-to-status table for diffing against ConnectWise, Jira, or Zendesk.", "rationale": "Projects synced findings across all accounts into one ticket-shaped row set; the API returns per-account slices that must be manually stitched.", "via": "mcp-command-mirror"},
+			{"name": "Evidence keyword search", "command": "evidence-search", "description": "Full-text search over synced finding evidence to find which findings mention an IOC, hostname, or user.", "rationale": "The API returns evidence only for a known finding ID; asking 'which findings mention this IP' requires the local FTS corpus built at sync.", "via": "mcp-command-mirror"},
+			{"name": "Domain-controller roster", "command": "dc-roster", "description": "Every domain controller across all accounts with last check-in and protected/stale state.", "rationale": "Rolls up the is_domain_controller flag across every synced account - the API only lists devices one org at a time.", "via": "mcp-command-mirror"},
+			{"name": "Per-analyst workload balance", "command": "workload", "description": "Open assigned findings grouped by owner across all accounts, with age buckets.", "rationale": "Groups synced findings by assignee across every org - the API never aggregates by owner across accounts.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
-			{"topic": "Unified cross-account triage queue", "insight": ""},
-			{"topic": "Finding drift since last sync", "insight": ""},
-			{"topic": "MTTR & response velocity", "insight": ""},
-			{"topic": "SLA aging watchlist", "insight": ""},
-			{"topic": "Detection coverage drift vs basis", "insight": ""},
-			{"topic": "Agent & domain-controller exposure map", "insight": ""},
-			{"topic": "Resolution re-fire audit", "insight": ""},
-			{"topic": "Recurring-finding fingerprint", "insight": ""},
-			{"topic": "Self-minting OAuth2 auth login", "insight": ""},
-			{"topic": "Cross-account MSP overview", "insight": ""},
-			{"topic": "Ticketing reconciliation export", "insight": ""},
-			{"topic": "Evidence keyword search", "insight": ""},
-			{"topic": "Domain-controller roster", "insight": ""},
-			{"topic": "Per-analyst workload balance", "insight": ""},
+			{"topic": "Unified cross-account triage queue", "insight": "Merges cross-account findings with per-account context and re-ranks locally; the API only returns per-account slices it cannot sort or de-dupe across orgs."},
+			{"topic": "Finding drift since last sync", "insight": "Diffs the current sync against stored prior snapshots; the API has no 'what changed since yesterday' anywhere."},
+			{"topic": "MTTR & response velocity", "insight": "Computed from the finding status-change history recorded at every sync; the API exposes current status only, never the transitions."},
+			{"topic": "SLA aging watchlist", "insight": "Tracks each finding's created/age against a locally-defined SLA policy across every account — a time axis plus cross-account rollup the API gives for neither."},
+			{"topic": "Detection coverage drift vs basis", "insight": "Joins the MSP basis detection rules against the org's deployed rules by name — a multi-endpoint join no single call performs."},
+			{"topic": "Agent & domain-controller exposure map", "insight": "Rolls up agent devices across accounts and flags is_domain_controller machines whose check-in went stale versus the prior snapshot — aggregation the API never performs."},
+			{"topic": "Resolution re-fire audit", "insight": "Re-open detection compares finding status across stored syncs — impossible without the historical corpus the local store keeps."},
+			{"topic": "Recurring-finding fingerprint", "insight": "Pattern-matches the historical corpus to surface chronic noisy rules or unremediated root causes; one API call only ever sees one snapshot."},
+			{"topic": "Self-minting OAuth2 auth login", "insight": "Performs the client_credentials exchange against auth.blumira.com and rotates the ~30-day token automatically; the incumbent MCP makes you bring and refresh your own JWT."},
+			{"topic": "Cross-account MSP overview", "insight": "Aggregates findings, agents, and coverage state from the local store across all accounts — three synced tables joined into one rollup no API call returns."},
+			{"topic": "Ticketing reconciliation export", "insight": "Projects synced findings across all accounts into one ticket-shaped row set; the API returns per-account slices that must be manually stitched."},
+			{"topic": "Evidence keyword search", "insight": "The API returns evidence only for a known finding ID; asking 'which findings mention this IP' requires the local FTS corpus built at sync."},
+			{"topic": "Domain-controller roster", "insight": "Rolls up the is_domain_controller flag across every synced account - the API only lists devices one org at a time."},
+			{"topic": "Per-analyst workload balance", "insight": "Groups synced findings by assignee across every org - the API never aggregates by owner across accounts."},
 		},
 	}
 	return toolResultJSON(ctx)

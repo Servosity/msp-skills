@@ -29,8 +29,8 @@ func newDevicesSearchCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/devices/search"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "devices", path, map[string]string{
-				"q":     fmt.Sprintf("%v", flagQ),
-				"limit": fmt.Sprintf("%v", flagLimit),
+				"q":     formatCLIParamValue(flagQ),
+				"limit": formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

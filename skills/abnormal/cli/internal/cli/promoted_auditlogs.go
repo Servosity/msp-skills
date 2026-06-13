@@ -35,13 +35,13 @@ func newAuditlogsPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/auditlogs"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "auditlogs", path, map[string]string{
-				"filter":     fmt.Sprintf("%v", flagFilter),
-				"action":     fmt.Sprintf("%v", flagAction),
-				"category":   fmt.Sprintf("%v", flagCategory),
-				"status":     fmt.Sprintf("%v", flagStatus),
-				"sourceIp":   fmt.Sprintf("%v", flagSourceIp),
-				"pageSize":   fmt.Sprintf("%v", flagPageSize),
-				"pageNumber": fmt.Sprintf("%v", flagPageNumber),
+				"filter":     formatCLIParamValue(flagFilter),
+				"action":     formatCLIParamValue(flagAction),
+				"category":   formatCLIParamValue(flagCategory),
+				"status":     formatCLIParamValue(flagStatus),
+				"sourceIp":   formatCLIParamValue(flagSourceIp),
+				"pageSize":   formatCLIParamValue(flagPageSize),
+				"pageNumber": formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "pageNumber", "page", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

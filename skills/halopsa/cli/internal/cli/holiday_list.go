@@ -37,34 +37,34 @@ func newHolidayListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Holiday"
 			params := map[string]string{}
 			if flagAgentId != "" {
-				params["agent_id"] = fmt.Sprintf("%v", flagAgentId)
+				params["agent_id"] = formatCLIParamValue(flagAgentId)
 			}
 			if flagApprovedOnly != false {
-				params["approved_only"] = fmt.Sprintf("%v", flagApprovedOnly)
+				params["approved_only"] = formatCLIParamValue(flagApprovedOnly)
 			}
 			if flagEndDate != "" {
-				params["end_date"] = fmt.Sprintf("%v", flagEndDate)
+				params["end_date"] = formatCLIParamValue(flagEndDate)
 			}
 			if flagEntity != 0 {
-				params["entity"] = fmt.Sprintf("%v", flagEntity)
+				params["entity"] = formatCLIParamValue(flagEntity)
 			}
 			if flagIncludeApid != false {
-				params["include_apid"] = fmt.Sprintf("%v", flagIncludeApid)
+				params["include_apid"] = formatCLIParamValue(flagIncludeApid)
 			}
 			if flagInclusiveEnd != false {
-				params["inclusive_end"] = fmt.Sprintf("%v", flagInclusiveEnd)
+				params["inclusive_end"] = formatCLIParamValue(flagInclusiveEnd)
 			}
 			if flagInclusiveStart != false {
-				params["inclusive_start"] = fmt.Sprintf("%v", flagInclusiveStart)
+				params["inclusive_start"] = formatCLIParamValue(flagInclusiveStart)
 			}
 			if flagMyApprovals != false {
-				params["my_approvals"] = fmt.Sprintf("%v", flagMyApprovals)
+				params["my_approvals"] = formatCLIParamValue(flagMyApprovals)
 			}
 			if flagStartDate != "" {
-				params["start_date"] = fmt.Sprintf("%v", flagStartDate)
+				params["start_date"] = formatCLIParamValue(flagStartDate)
 			}
 			if flagWorkdayid != "" {
-				params["workdayid"] = fmt.Sprintf("%v", flagWorkdayid)
+				params["workdayid"] = formatCLIParamValue(flagWorkdayid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "holiday", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -28,7 +28,7 @@ func newAlertGroupsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/v1/alert_groups"
 			params := map[string]string{}
 			if flagInclude != "" {
-				params["include"] = fmt.Sprintf("%v", flagInclude)
+				params["include"] = formatCLIParamValue(flagInclude)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "alert-groups", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

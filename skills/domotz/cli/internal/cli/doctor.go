@@ -100,7 +100,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export DOMOTZ_API_KEY=<your-key>"
+					report["auth_hint"] = "Set your API key with: export DOMOTZ_API_KEY=\"your-token-here\""
 					report["auth_key_url"] = "https://portal.domotz.com/portal/settings/services?selected_menu=api_keys"
 				} else {
 					authConfigured = true
@@ -116,27 +116,16 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			authEnvOptionalNames := []string{}
 			// Validation rejects multi-OR-group specs upstream, so the single optional-satisfied state is sufficient at runtime.
 			authEnvOptionalSatisfied := false
-			if strings.Contains("", " OR ") {
-				authEnvOptionalNames = append(authEnvOptionalNames, "DOMOTZ_API_KEY")
-				if os.Getenv("DOMOTZ_API_KEY") != "" {
-					authEnvSet = append(authEnvSet, "DOMOTZ_API_KEY")
-					authEnvOptionalSatisfied = true
-				}
-			} else if os.Getenv("DOMOTZ_API_KEY") != "" {
+			if os.Getenv("DOMOTZ_API_KEY") != "" {
 				authEnvSet = append(authEnvSet, "DOMOTZ_API_KEY")
-			} else {
-				authEnvInfo = append(authEnvInfo, "DOMOTZ_API_KEY optional")
-			}
-			if strings.Contains("", " OR ") {
-				authEnvOptionalNames = append(authEnvOptionalNames, "DOMOTZ_PUBLIC_API_KEY")
-				if os.Getenv("DOMOTZ_PUBLIC_API_KEY") != "" {
-					authEnvSet = append(authEnvSet, "DOMOTZ_PUBLIC_API_KEY")
-					authEnvOptionalSatisfied = true
+			} else if authConfigured {
+				authSource, _ := report["auth_source"].(string)
+				if authSource == "" {
+					authSource = "config"
 				}
-			} else if os.Getenv("DOMOTZ_PUBLIC_API_KEY") != "" {
-				authEnvSet = append(authEnvSet, "DOMOTZ_PUBLIC_API_KEY")
+				authEnvInfo = append(authEnvInfo, "credentials available from "+authSource)
 			} else {
-				authEnvInfo = append(authEnvInfo, "DOMOTZ_PUBLIC_API_KEY optional")
+				authEnvRequiredMissing = append(authEnvRequiredMissing, "DOMOTZ_API_KEY")
 			}
 			switch {
 			case len(authEnvRequiredMissing) > 0:
@@ -148,7 +137,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			case len(authEnvInfo) > 0:
 				report["env_vars"] = "INFO " + strings.Join(authEnvInfo, "; ")
 			default:
-				report["env_vars"] = fmt.Sprintf("OK %d/%d available", len(authEnvSet), 2)
+				report["env_vars"] = fmt.Sprintf("OK %d/%d available", len(authEnvSet), 1)
 			}
 
 			// Check API connectivity and validate credentials.

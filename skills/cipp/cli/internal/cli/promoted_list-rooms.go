@@ -16,9 +16,10 @@ func newListRoomsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-rooms",
-		Short:       "List rooms",
-		Long:        "List rooms",
+		Use:   "list-rooms",
+		Short: "List rooms",
+		Long:  "List rooms",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-rooms --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-rooms.list", "pp:method": "GET", "pp:path": "/ListRooms", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,10 +41,10 @@ func newListRoomsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListRooms"
 			params := map[string]string{}
 			if flagRoomId != "" {
-				params["roomId"] = fmt.Sprintf("%v", flagRoomId)
+				params["roomId"] = formatCLIParamValue(flagRoomId)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-rooms", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

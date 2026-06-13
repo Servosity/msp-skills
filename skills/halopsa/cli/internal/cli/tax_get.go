@@ -33,10 +33,10 @@ func newTaxGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagIncludeqbotaxrates != false {
-				params["includeqbotaxrates"] = fmt.Sprintf("%v", flagIncludeqbotaxrates)
+				params["includeqbotaxrates"] = formatCLIParamValue(flagIncludeqbotaxrates)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "tax", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

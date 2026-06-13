@@ -45,11 +45,11 @@ func newAlertsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/alerts"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "alerts", path, map[string]string{
-				"device_id":      fmt.Sprintf("%v", flagDeviceId),
-				"status":         fmt.Sprintf("%v", flagStatus),
-				"limit":          fmt.Sprintf("%v", flagLimit),
-				"starting_after": fmt.Sprintf("%v", flagStartingAfter),
-				"ending_before":  fmt.Sprintf("%v", flagEndingBefore),
+				"device_id":      formatCLIParamValue(flagDeviceId),
+				"status":         formatCLIParamValue(flagStatus),
+				"limit":          formatCLIParamValue(flagLimit),
+				"starting_after": formatCLIParamValue(flagStartingAfter),
+				"ending_before":  formatCLIParamValue(flagEndingBefore),
 			}, nil, flagAll, "", "cursor", "limit", "", "has_more", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

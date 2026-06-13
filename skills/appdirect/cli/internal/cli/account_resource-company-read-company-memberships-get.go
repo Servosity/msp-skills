@@ -68,17 +68,17 @@ func newAccountResourceCompanyReadCompanyMembershipsGetCmd(flags *rootFlags) *co
 			path := "/account/v2/companies/{companyUuid}/memberships"
 			path = replacePathParam(path, "companyUuid", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "account", path, map[string]string{
-				"active":                      fmt.Sprintf("%v", flagActive),
-				"enabled":                     fmt.Sprintf("%v", flagEnabled),
-				"roleName":                    fmt.Sprintf("%v", flagRoleName),
-				"groupUuid":                   fmt.Sprintf("%v", flagGroupUuid),
-				"page":                        fmt.Sprintf("%v", flagPage),
-				"searchText":                  fmt.Sprintf("%v", flagSearchText),
-				"size":                        fmt.Sprintf("%v", flagSize),
-				"sortField":                   fmt.Sprintf("%v", flagSortField),
-				"sortOrder":                   fmt.Sprintf("%v", flagSortOrder),
-				"includeCompanies":            fmt.Sprintf("%v", flagIncludeCompanies),
-				"includeUserCustomAttributes": fmt.Sprintf("%v", flagIncludeUserCustomAttributes),
+				"active":                      formatCLIParamValue(flagActive),
+				"enabled":                     formatCLIParamValue(flagEnabled),
+				"roleName":                    formatCLIParamValue(flagRoleName),
+				"groupUuid":                   formatCLIParamValue(flagGroupUuid),
+				"page":                        formatCLIParamValue(flagPage),
+				"searchText":                  formatCLIParamValue(flagSearchText),
+				"size":                        formatCLIParamValue(flagSize),
+				"sortField":                   formatCLIParamValue(flagSortField),
+				"sortOrder":                   formatCLIParamValue(flagSortOrder),
+				"includeCompanies":            formatCLIParamValue(flagIncludeCompanies),
+				"includeUserCustomAttributes": formatCLIParamValue(flagIncludeUserCustomAttributes),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -41,7 +41,7 @@ func newOrganizationsCreateCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/organizations"
 			params := map[string]string{}
 			if flagTemplateOrganizationId != "" {
-				params["templateOrganizationId"] = fmt.Sprintf("%v", flagTemplateOrganizationId)
+				params["templateOrganizationId"] = formatCLIParamValue(flagTemplateOrganizationId)
 			}
 			var body map[string]any
 			if stdinBody {

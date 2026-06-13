@@ -58,7 +58,7 @@ func newCheckoutCreateShoppingCartValidationByShoppingCartIdCmd(flags *rootFlags
 			path = replacePathParam(path, "shoppingCartId", args[0])
 			params := map[string]string{}
 			if flagLevel != "" {
-				params["level"] = fmt.Sprintf("%v", flagLevel)
+				params["level"] = formatCLIParamValue(flagLevel)
 			}
 			var body map[string]any
 			if stdinBody {

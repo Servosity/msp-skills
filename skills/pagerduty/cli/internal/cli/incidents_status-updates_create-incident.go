@@ -19,9 +19,10 @@ func newIncidentsStatusUpdatesCreateIncidentCmd(flags *rootFlags) *cobra.Command
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create-incident <id>",
-		Aliases:     []string{"create"},
-		Short:       "Create a new status update for the specified incident.",
+		Use:     "create-incident <id>",
+		Aliases: []string{"create"},
+		Short:   "Create a new status update for the specified incident.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pagerduty-cli incidents status-updates create-incident 550e8400-e29b-41d4-a716-446655440000 --message example-value",
 		Annotations: map[string]string{"pp:endpoint": "status-updates.create-incident", "pp:method": "POST", "pp:path": "/incidents/{id}/status_updates"},
 		RunE: func(cmd *cobra.Command, args []string) error {

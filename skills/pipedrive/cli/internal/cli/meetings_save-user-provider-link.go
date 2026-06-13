@@ -23,7 +23,7 @@ func newMeetingsSaveUserProviderLinkCmd(flags *rootFlags) *cobra.Command {
 		Use:         "save-user-provider-link",
 		Aliases:     []string{"create"},
 		Short:       "A video calling provider must call this endpoint after a user has installed the video calling app so that the new",
-		Example:     "  pipedrive-cli meetings save-user-provider-link --marketplace-client-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pipedrive-cli meetings save-user-provider-link --marketplace-client-id 57da5c3c55a82bb4",
 		Annotations: map[string]string{"pp:endpoint": "meetings.save-user-provider-link", "pp:method": "POST", "pp:path": "/meetings/userProviderLinks"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

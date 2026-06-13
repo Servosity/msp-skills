@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +23,15 @@ import (
 	"quickbooks-pp-cli/internal/config"
 	"quickbooks-pp-cli/internal/mcp/cobratree"
 	"quickbooks-pp-cli/internal/store"
+)
+
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
 )
 
 // RegisterTools registers all API operations as MCP tools.
@@ -43,7 +54,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -70,6 +81,35 @@ type mcpParamBinding struct {
 	PublicName string
 	WireName   string
 	Location   string
+	Default    string
+}
+
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // makeAPIHandler creates a generic MCP tool handler for an API endpoint.
@@ -110,17 +150,21 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			knownArgs[binding.PublicName] = true
 			v, ok := args[binding.PublicName]
 			if !ok {
-				continue
+				if binding.Default != "" {
+					v = binding.Default
+				} else {
+					continue
+				}
 			}
 			switch binding.Location {
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				bodyArgs[binding.WireName] = v
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -130,7 +174,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -142,7 +186,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "POST", "PUT", "PATCH":
 				bodyArgs[k] = v
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -198,17 +242,17 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key: export QUICKBOOKS_ACCESS_TOKEN=<your-key>" +
+					"\n      Set it with: quickbooks-cli auth set-token <token> or export QUICKBOOKS_ACCESS_TOKEN=\"your-token-here\"" +
 					"\n      Run 'quickbooks-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your token." +
-					"\n      Set it with: export QUICKBOOKS_ACCESS_TOKEN=<your-key>" +
+					"\n      Set it with: quickbooks-cli auth set-token <token> or export QUICKBOOKS_ACCESS_TOKEN=\"your-token-here\"" +
 					"\n      Run 'quickbooks-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: your credentials are valid but lack access to this resource." +
-					"\n      Set it with: export QUICKBOOKS_ACCESS_TOKEN=<your-key>" +
+					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
+					"\n      Set it with: quickbooks-cli auth set-token <token> or export QUICKBOOKS_ACCESS_TOKEN=\"your-token-here\"" +
 					"\n      Run 'quickbooks-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
 				if method == "DELETE" {
@@ -222,21 +266,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -245,8 +274,129 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
@@ -256,7 +406,7 @@ func newMCPClient() (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -305,22 +455,27 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -352,6 +507,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -419,7 +665,7 @@ func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
 func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	ctx := map[string]any{
 		"api":         "quickbooks",
-		"description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity full-text search, AR/AP aging",
+		"description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
 		"archetype":   "payments",
 		"tool_count":  38,
 		// tool_surface tells agents which surface a capability lives on.
@@ -517,36 +763,36 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "AR aging buckets", "command": "ar-aging", "description": "See exactly who owes you and how overdue, bucketed 0-30 / 31-60 / 61-90 / 90+ and rolled up by customer.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "AP aging buckets", "command": "ap-aging", "description": "The payables mirror of AR aging: open bills bucketed by age and rolled up by vendor, so you know what's due and when.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Cash & balance snapshot", "command": "balances", "description": "One view of bank/AR/AP account balances plus total customer receivables and total vendor payables.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Stale-invoice collection list", "command": "invoices stale", "description": "Overdue invoices older than N days, ranked by age times balance so the biggest, oldest debts surface first.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Unapplied payments leak", "command": "payments unapplied", "description": "Payments with money received but not applied to any invoice — a reconciliation leak that quietly distorts AR.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Top customers by balance", "command": "customers top", "description": "Rank customers by outstanding balance (or lifetime invoiced) to see concentration and collection focus.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Duplicate name-list detection", "command": "dupes customers", "description": "Fuzzy-match customers (or vendors) by display name and email to catch duplicate records before they fragment AR/AP.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Vendor spend over a window", "command": "vendors spend", "description": "Total billed per vendor over a date window, ranked — see where the money goes.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Aging delta vs last sync", "command": "aging-delta", "description": "See what changed in receivables and payables since the previous sync — who slipped an aging bucket and whose balance", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Customer profitability / net position", "command": "customer-profitability", "description": "Per-customer net position: total invoiced minus payments received, open balance, and average days-to-pay", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Days Sales Outstanding", "command": "dso", "description": "Rolling DSO plus per-customer average days-to-pay — the headline collections-efficiency KPI.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Cash-flow due-date forecast", "command": "cash-forecast", "description": "Projected net cash movement by week", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Reconcile / close health check", "command": "reconcile", "description": "One month-end hygiene sweep: unapplied payments, duplicate names, unbalanced journal entries", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Unbalanced journal-entry check", "command": "journal-entries check", "description": "Flag journal entries whose debit and credit lines don't net to zero or that touch suspense accounts.", "rationale": "", "via": "mcp-command-mirror"},
+			{"name": "AR aging buckets", "command": "ar-aging", "description": "See exactly who owes you and how overdue, bucketed 0-30 / 31-60 / 61-90 / 90+ and rolled up by customer.", "rationale": "No single QuickBooks API call returns aging — it requires joining open invoices to customers and computing per-bucket date math across the whole synced set.", "via": "mcp-command-mirror"},
+			{"name": "AP aging buckets", "command": "ap-aging", "description": "The payables mirror of AR aging: open bills bucketed by age and rolled up by vendor, so you know what's due and when.", "rationale": "Requires joining open bills to vendors and bucketing by due date locally — the API returns bills one page at a time with no aging.", "via": "mcp-command-mirror"},
+			{"name": "Cash & balance snapshot", "command": "balances", "description": "One view of bank/AR/AP account balances plus total customer receivables and total vendor payables.", "rationale": "Spans three entity types (accounts, customers, vendors) — only possible once they coexist in the local store.", "via": "mcp-command-mirror"},
+			{"name": "Stale-invoice collection list", "command": "invoices stale", "description": "Overdue invoices older than N days, ranked by age times balance so the biggest, oldest debts surface first.", "rationale": "Collection priority is a local sort over the full open-invoice set with date math the API can't express in one query.", "via": "mcp-command-mirror"},
+			{"name": "Unapplied payments leak", "command": "payments unapplied", "description": "Payments with money received but not applied to any invoice — a reconciliation leak that quietly distorts AR.", "rationale": "Filters the synced payment set on UnappliedAmt > 0 offline; no competitor surfaces this as a view.", "via": "mcp-command-mirror"},
+			{"name": "Top customers by balance", "command": "customers top", "description": "Rank customers by outstanding balance (or lifetime invoiced) to see concentration and collection focus.", "rationale": "A sort/aggregate over the entire synced customer set — the API can ORDERBY one page, not rank the whole book offline.", "via": "mcp-command-mirror"},
+			{"name": "Duplicate name-list detection", "command": "dupes customers", "description": "Fuzzy-match customers (or vendors) by display name and email to catch duplicate records before they fragment AR/AP.", "rationale": "Cross-record fuzzy comparison over the full synced set — impossible per-call, and a classic QuickBooks data-hygiene problem.", "via": "mcp-command-mirror"},
+			{"name": "Vendor spend over a window", "command": "vendors spend", "description": "Total billed per vendor over a date window, ranked — see where the money goes.", "rationale": "Sums bills per vendor across a window locally; a join+aggregate the API can't return in one shot.", "via": "mcp-command-mirror"},
+			{"name": "Aging delta vs last sync", "command": "aging-delta", "description": "See what changed in receivables and payables since the previous sync — who slipped an aging bucket and whose balance grew.", "rationale": "Requires diffing the current aging snapshot against a prior snapshot retained in the local store — QuickBooks reports are point-in-time with no memory.", "via": "mcp-command-mirror"},
+			{"name": "Customer profitability / net position", "command": "customer-profitability", "description": "Per-customer net position: total invoiced minus payments received, open balance, and average days-to-pay, ranked across the whole book.", "rationale": "Joins invoices, payments, and customers across the full synced set — a three-table aggregate no single QuickBooks call returns.", "via": "mcp-command-mirror"},
+			{"name": "Days Sales Outstanding", "command": "dso", "description": "Rolling DSO plus per-customer average days-to-pay — the headline collections-efficiency KPI.", "rationale": "DSO spans the AR balance and windowed credit sales across invoices and payments — computed locally over the synced set.", "via": "mcp-command-mirror"},
+			{"name": "Cash-flow due-date forecast", "command": "cash-forecast", "description": "Projected net cash movement by week: expected invoice inflows minus bill outflows bucketed by due date over the next N weeks.", "rationale": "Joins open invoices and open bills on due dates into forward weekly buckets — no QuickBooks endpoint projects cash.", "via": "mcp-command-mirror"},
+			{"name": "Reconcile / close health check", "command": "reconcile", "description": "One month-end hygiene sweep: unapplied payments, duplicate names, unbalanced journal entries, and inactive records on open transactions in a single findings list.", "rationale": "Composes multiple cross-entity local scans over the synced store into one verdict — impossible to express as API calls.", "via": "mcp-command-mirror"},
+			{"name": "Unbalanced journal-entry check", "command": "journal-entries check", "description": "Flag journal entries whose debit and credit lines don't net to zero or that touch suspense accounts.", "rationale": "Sums each entry's Line array across the whole synced GL locally — a scan the query endpoint cannot express.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
-			{"topic": "AR aging buckets", "insight": ""},
-			{"topic": "AP aging buckets", "insight": ""},
-			{"topic": "Cash & balance snapshot", "insight": ""},
-			{"topic": "Stale-invoice collection list", "insight": ""},
-			{"topic": "Unapplied payments leak", "insight": ""},
-			{"topic": "Top customers by balance", "insight": ""},
-			{"topic": "Duplicate name-list detection", "insight": ""},
-			{"topic": "Vendor spend over a window", "insight": ""},
-			{"topic": "Aging delta vs last sync", "insight": ""},
-			{"topic": "Customer profitability / net position", "insight": ""},
-			{"topic": "Days Sales Outstanding", "insight": ""},
-			{"topic": "Cash-flow due-date forecast", "insight": ""},
-			{"topic": "Reconcile / close health check", "insight": ""},
-			{"topic": "Unbalanced journal-entry check", "insight": ""},
+			{"topic": "AR aging buckets", "insight": "No single QuickBooks API call returns aging — it requires joining open invoices to customers and computing per-bucket date math across the whole synced set."},
+			{"topic": "AP aging buckets", "insight": "Requires joining open bills to vendors and bucketing by due date locally — the API returns bills one page at a time with no aging."},
+			{"topic": "Cash & balance snapshot", "insight": "Spans three entity types (accounts, customers, vendors) — only possible once they coexist in the local store."},
+			{"topic": "Stale-invoice collection list", "insight": "Collection priority is a local sort over the full open-invoice set with date math the API can't express in one query."},
+			{"topic": "Unapplied payments leak", "insight": "Filters the synced payment set on UnappliedAmt > 0 offline; no competitor surfaces this as a view."},
+			{"topic": "Top customers by balance", "insight": "A sort/aggregate over the entire synced customer set — the API can ORDERBY one page, not rank the whole book offline."},
+			{"topic": "Duplicate name-list detection", "insight": "Cross-record fuzzy comparison over the full synced set — impossible per-call, and a classic QuickBooks data-hygiene problem."},
+			{"topic": "Vendor spend over a window", "insight": "Sums bills per vendor across a window locally; a join+aggregate the API can't return in one shot."},
+			{"topic": "Aging delta vs last sync", "insight": "Requires diffing the current aging snapshot against a prior snapshot retained in the local store — QuickBooks reports are point-in-time with no memory."},
+			{"topic": "Customer profitability / net position", "insight": "Joins invoices, payments, and customers across the full synced set — a three-table aggregate no single QuickBooks call returns."},
+			{"topic": "Days Sales Outstanding", "insight": "DSO spans the AR balance and windowed credit sales across invoices and payments — computed locally over the synced set."},
+			{"topic": "Cash-flow due-date forecast", "insight": "Joins open invoices and open bills on due dates into forward weekly buckets — no QuickBooks endpoint projects cash."},
+			{"topic": "Reconcile / close health check", "insight": "Composes multiple cross-entity local scans over the synced store into one verdict — impossible to express as API calls."},
+			{"topic": "Unbalanced journal-entry check", "insight": "Sums each entry's Line array across the whole synced GL locally — a scan the query endpoint cannot express."},
 			{"topic": "Financial data", "insight": "Always use read-only operations for financial queries. Never use create/update tools for payment data without explicit user confirmation."},
 			{"topic": "Reconciliation", "insight": "For reconciliation tasks, sync first then use sql for cross-referencing. API pagination over financial records is slow and rate-limited."},
 		},

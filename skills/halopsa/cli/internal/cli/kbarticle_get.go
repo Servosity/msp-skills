@@ -35,16 +35,16 @@ func newKbarticleGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagLanguageCode != "" {
-				params["language_code"] = fmt.Sprintf("%v", flagLanguageCode)
+				params["language_code"] = formatCLIParamValue(flagLanguageCode)
 			}
 			if flagLanguageOverride != "" {
-				params["language_override"] = fmt.Sprintf("%v", flagLanguageOverride)
+				params["language_override"] = formatCLIParamValue(flagLanguageOverride)
 			}
 			if flagOrganisationId != "" {
-				params["organisation_id"] = fmt.Sprintf("%v", flagOrganisationId)
+				params["organisation_id"] = formatCLIParamValue(flagOrganisationId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "kbarticle", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -38,7 +38,7 @@ func newIntegrationResourceOtherBillUsagePostCmd(flags *rootFlags) *cobra.Comman
 			path := "/integration/v1/billing/usage"
 			params := map[string]string{}
 			if flagAsync != false {
-				params["async"] = fmt.Sprintf("%v", flagAsync)
+				params["async"] = formatCLIParamValue(flagAsync)
 			}
 			var body map[string]any
 			if stdinBody {

@@ -16,7 +16,7 @@ func newSchedulesRotationsDeleteEventCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete-event <id> <rotation_id> <event_id>",
 		Short:       "<!",
-		Example:     "  pagerduty-cli schedules rotations delete-event 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pagerduty-cli schedules rotations delete-event PSJUKNI AGO462IDT5ZMNFBVSROUDT6B4M AGO462IDT55XVGN74FDAQUUNHY",
 		Annotations: map[string]string{"pp:endpoint": "rotations.delete-event", "pp:method": "DELETE", "pp:path": "/v3/schedules/{id}/rotations/{rotation_id}/events/{event_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

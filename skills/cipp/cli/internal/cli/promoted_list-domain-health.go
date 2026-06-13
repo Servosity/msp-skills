@@ -34,22 +34,22 @@ func newListDomainHealthPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListDomainHealth"
 			params := map[string]string{}
 			if flagAction != "" {
-				params["Action"] = fmt.Sprintf("%v", flagAction)
+				params["Action"] = formatCLIParamValue(flagAction)
 			}
 			if flagDomain != "" {
-				params["Domain"] = fmt.Sprintf("%v", flagDomain)
+				params["Domain"] = formatCLIParamValue(flagDomain)
 			}
 			if flagExpectedInclude != "" {
-				params["ExpectedInclude"] = fmt.Sprintf("%v", flagExpectedInclude)
+				params["ExpectedInclude"] = formatCLIParamValue(flagExpectedInclude)
 			}
 			if flagRecord != "" {
-				params["Record"] = fmt.Sprintf("%v", flagRecord)
+				params["Record"] = formatCLIParamValue(flagRecord)
 			}
 			if flagSelector != "" {
-				params["Selector"] = fmt.Sprintf("%v", flagSelector)
+				params["Selector"] = formatCLIParamValue(flagSelector)
 			}
 			if flagSubdomains != "" {
-				params["Subdomains"] = fmt.Sprintf("%v", flagSubdomains)
+				params["Subdomains"] = formatCLIParamValue(flagSubdomains)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-domain-health", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

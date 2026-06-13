@@ -37,8 +37,9 @@ func newRmmCreateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create <integrationType>",
-		Short:       "Create",
+		Use:   "create <integrationType>",
+		Short: "Create",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli rmm create example-value",
 		Annotations: map[string]string{"pp:endpoint": "rmm.create", "pp:method": "POST", "pp:path": "/v2/rmm/{integrationType}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -28,9 +28,10 @@ func newTasksConfigurationGetChildScopeTaskConfigurationCmd(flags *rootFlags) *c
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "get-child-scope-task-configuration",
-		Aliases:     []string{"list"},
-		Short:       "Get the task configuration of child scopes of the given scope, if the tasks are not inherited.",
+		Use:     "get-child-scope-task-configuration",
+		Aliases: []string{"list"},
+		Short:   "Get the task configuration of child scopes of the given scope, if the tasks are not inherited.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli tasks-configuration get-child-scope-task-configuration --task-type example-value",
 		Annotations: map[string]string{"pp:endpoint": "tasks-configuration.get-child-scope-task-configuration", "pp:method": "GET", "pp:path": "/tasks-configuration/explicit-subscopes", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -50,19 +51,19 @@ func newTasksConfigurationGetChildScopeTaskConfigurationCmd(flags *rootFlags) *c
 
 			path := "/tasks-configuration/explicit-subscopes"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "tasks-configuration", path, map[string]string{
-				"siteIds":    fmt.Sprintf("%v", flagSiteIds),
-				"sortBy":     fmt.Sprintf("%v", flagSortBy),
-				"groupIds":   fmt.Sprintf("%v", flagGroupIds),
-				"tenant":     fmt.Sprintf("%v", flagTenant),
-				"limit":      fmt.Sprintf("%v", flagLimit),
-				"skipCount":  fmt.Sprintf("%v", flagSkipCount),
-				"skip":       fmt.Sprintf("%v", flagSkip),
-				"sortOrder":  fmt.Sprintf("%v", flagSortOrder),
-				"query":      fmt.Sprintf("%v", flagQuery),
-				"accountIds": fmt.Sprintf("%v", flagAccountIds),
-				"countOnly":  fmt.Sprintf("%v", flagCountOnly),
-				"cursor":     fmt.Sprintf("%v", flagCursor),
-				"taskType":   fmt.Sprintf("%v", flagTaskType),
+				"siteIds":    formatCLIParamValue(flagSiteIds),
+				"sortBy":     formatCLIParamValue(flagSortBy),
+				"groupIds":   formatCLIParamValue(flagGroupIds),
+				"tenant":     formatCLIParamValue(flagTenant),
+				"limit":      formatCLIParamValue(flagLimit),
+				"skipCount":  formatCLIParamValue(flagSkipCount),
+				"skip":       formatCLIParamValue(flagSkip),
+				"sortOrder":  formatCLIParamValue(flagSortOrder),
+				"query":      formatCLIParamValue(flagQuery),
+				"accountIds": formatCLIParamValue(flagAccountIds),
+				"countOnly":  formatCLIParamValue(flagCountOnly),
+				"cursor":     formatCLIParamValue(flagCursor),
+				"taskType":   formatCLIParamValue(flagTaskType),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

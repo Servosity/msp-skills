@@ -16,8 +16,9 @@ func newHostsRestartCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "restart <account_id> <subscription_id> <resource_group> <pool_name> <host_name>",
-		Short:       "Restart a session host VM",
+		Use:   "restart <account_id> <subscription_id> <resource_group> <pool_name> <host_name>",
+		Short: "Restart a session host VM",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  nerdio-cli hosts restart 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 example-value example-resource example-resource",
 		Annotations: map[string]string{"pp:endpoint": "hosts.restart", "pp:method": "POST", "pp:path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/hosts/{host_name}/restart"},
 		RunE: func(cmd *cobra.Command, args []string) error {

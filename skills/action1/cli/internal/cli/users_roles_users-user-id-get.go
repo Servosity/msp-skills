@@ -34,8 +34,8 @@ func newUsersRolesUsersUserIdGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/users/{userId}/roles"
 			path = replacePathParam(path, "userId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "roles", path, map[string]string{
-				"from":  fmt.Sprintf("%v", flagFrom),
-				"limit": fmt.Sprintf("%v", flagLimit),
+				"from":  formatCLIParamValue(flagFrom),
+				"limit": formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

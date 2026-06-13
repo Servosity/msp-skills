@@ -138,7 +138,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "sherweb-cli",
-			Description: "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics",
+			Description: "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

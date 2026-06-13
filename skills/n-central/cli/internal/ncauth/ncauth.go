@@ -85,7 +85,7 @@ func Ensure(ctx context.Context, cfg *config.Config) error {
 func exchange(ctx context.Context, cfg *config.Config) error {
 	jwt := strings.TrimSpace(cfg.NcentralJwt)
 	if jwt == "" {
-		return fmt.Errorf("no N-central JWT configured: set NCENTRAL_JWT or run 'n-central-pp-cli auth set-token <jwt>'")
+		return fmt.Errorf("no N-central JWT configured: set NCENTRAL_JWT or run 'n-central-cli auth set-token <jwt>'")
 	}
 	url := authBase(cfg) + "/auth/authenticate"
 	resp, err := postBearer(ctx, url, jwt, nil)

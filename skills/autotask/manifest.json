@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "autotask-mcp",
   "display_name": "Autotask PSA",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can.",
   "author": {
     "name": "Servosity Inc."
@@ -15,17 +15,17 @@
       "command": "${__dirname}/bin/autotask-mcp",
       "args": [],
       "env": {
-        "AUTOTASK_PSA_API_INTEGRATION_CODE": "${user_config.autotask_psa_api_integration_code}",
+        "AUTOTASK_API_INTEGRATION_CODE": "${user_config.autotask_api_integration_code}",
         "AUTOTASK_PSA_SECRET": "${user_config.autotask_psa_secret}",
         "AUTOTASK_PSA_USER_NAME": "${user_config.autotask_psa_user_name}"
       }
     }
   },
   "user_config": {
-    "autotask_psa_api_integration_code": {
+    "autotask_api_integration_code": {
       "type": "string",
-      "title": "AUTOTASK_PSA_API_INTEGRATION_CODE",
-      "description": "Sets AUTOTASK_PSA_API_INTEGRATION_CODE for the Autotask PSA MCP server.",
+      "title": "AUTOTASK_API_INTEGRATION_CODE",
+      "description": "Sets AUTOTASK_API_INTEGRATION_CODE for the Autotask PSA MCP server.",
       "sensitive": true,
       "required": true
     },
@@ -52,10 +52,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T12:01:54.517905Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:35:22.109087Z",
     "spec_checksum": "sha256:bd5d7d9a1b0b9094812c7a701ff3ec74e0ab9edea5369707266c701f1f764588",
     "spec_format": "openapi3"
   }

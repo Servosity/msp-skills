@@ -80,40 +80,40 @@ func newAppResellerResourceBillingV1OrderUiapiGetCmd(flags *rootFlags) *cobra.Co
 			path := "/appReseller/v1/orders"
 			params := map[string]string{}
 			if flagContext != "" {
-				params["context"] = fmt.Sprintf("%v", flagContext)
+				params["context"] = formatCLIParamValue(flagContext)
 			}
 			if flagNumber != 0 {
-				params["number"] = fmt.Sprintf("%v", flagNumber)
+				params["number"] = formatCLIParamValue(flagNumber)
 			}
 			if flagSize != 0 {
-				params["size"] = fmt.Sprintf("%v", flagSize)
+				params["size"] = formatCLIParamValue(flagSize)
 			}
 			if flagSort != "" {
-				params["sort"] = fmt.Sprintf("%v", flagSort)
+				params["sort"] = formatCLIParamValue(flagSort)
 			}
 			if flagUserId != "" {
-				params["userId"] = fmt.Sprintf("%v", flagUserId)
+				params["userId"] = formatCLIParamValue(flagUserId)
 			}
 			if flagResellerCompanyId != "" {
-				params["resellerCompanyId"] = fmt.Sprintf("%v", flagResellerCompanyId)
+				params["resellerCompanyId"] = formatCLIParamValue(flagResellerCompanyId)
 			}
 			if flagCustomerCompanyId != "" {
-				params["customerCompanyId"] = fmt.Sprintf("%v", flagCustomerCompanyId)
+				params["customerCompanyId"] = formatCLIParamValue(flagCustomerCompanyId)
 			}
 			if flagCreatedOn != "" {
-				params["createdOn"] = fmt.Sprintf("%v", flagCreatedOn)
+				params["createdOn"] = formatCLIParamValue(flagCreatedOn)
 			}
 			if flagStatus != "" {
-				params["status"] = fmt.Sprintf("%v", flagStatus)
+				params["status"] = formatCLIParamValue(flagStatus)
 			}
 			if flagPaidStatus != "" {
-				params["paidStatus"] = fmt.Sprintf("%v", flagPaidStatus)
+				params["paidStatus"] = formatCLIParamValue(flagPaidStatus)
 			}
 			if flagPending != false {
-				params["pending"] = fmt.Sprintf("%v", flagPending)
+				params["pending"] = formatCLIParamValue(flagPending)
 			}
 			if flagSearchText != "" {
-				params["searchText"] = fmt.Sprintf("%v", flagSearchText)
+				params["searchText"] = formatCLIParamValue(flagSearchText)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "app-reseller", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -49,7 +49,7 @@ func newStatusPagesPostsListStatusPageUpdatesCmd(flags *rootFlags) *cobra.Comman
 			path = replacePathParam(path, "post_id", args[1])
 			params := map[string]string{}
 			if flagReviewedStatus != "" {
-				params["reviewed_status"] = fmt.Sprintf("%v", flagReviewedStatus)
+				params["reviewed_status"] = formatCLIParamValue(flagReviewedStatus)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "posts", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

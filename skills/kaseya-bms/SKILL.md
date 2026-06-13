@@ -1,6 +1,6 @@
 ---
 name: kaseya-bms
-description: "Use when the user asks to run their Kaseya BMS service desk from the terminal - check the queue, find stale or aging tickets, balance technician workload, review unbilled billable time, see per-contract burn-down, walk the sales pipeline, or create and update tickets, accounts, and contracts - backed by a local SQLite mirror so the daily questions answer offline. Trigger phrases: `check the BMS queue`, `stale tickets in Kaseya BMS`, `how much contract has burned`, `unbilled time in BMS`, `BMS sales pipeline`, `use kaseya-bms`, `run kaseya-bms-cli`."
+description: "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute. Trigger phrases: `check the BMS queue`, `stale tickets in Kaseya BMS`, `how many contract hours are left`, `unbilled time in BMS`, `BMS sales pipeline`, `use kaseya-bms`, `run kaseya-bms`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Kaseya BMS"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - kaseya-bms-cli
+    install:
+      - kind: go
+        bins: [kaseya-bms-cli]
+        module: github.com/mvanhorn/printing-press-library/library/project-management/kaseya-bms/cmd/kaseya-bms-cli
 ---
 
-# Kaseya BMS Claude Code Skill
+# Kaseya BMS  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `kaseya-bms-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-bms/install.sh)
+   npx -y @mvanhorn/printing-press-library install kaseya-bms --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-bms/install.ps1 | iex
-   ```
-3. Verify: `kaseya-bms-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `kaseya-bms-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/project-management/kaseya-bms/cmd/kaseya-bms-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Kaseya BMS has a 433-operation official API and zero CLI ecosystem. This binary covers the whole surface - tickets, CRM, contracts, finance, projects - and mirrors core entities into local SQLite so dispatch questions like 'queue-health', 'stale-tickets', and 'contract-burn' answer instantly without burning the 1500/hour/endpoint rate limit.
 
@@ -76,7 +82,7 @@ These capabilities aren't available in any other tool for this API.
 ### Money on the table
 - **`contract-burn`**  -  Per-contract burn picture: hours consumed, open tickets, and how much of the contract period has elapsed - at-risk agreements surface first.
 
-  _Use this when reviewing contract health before a renewal - it surfaces hours consumed and percent of each contract period elapsed, fleet-wide, in one call; the BMS API does not expose allotted block hours, so this flags burn, not a remaining balance._
+  _Use this before authorizing work on an account - it answers whether the contract still has hours left, fleet-wide, in one call._
 
   ```bash
   kaseya-bms-cli contract-burn --agent --select items.account,items.contract,items.hours_consumed
@@ -637,7 +643,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  kaseya-bms-cli project get <projectId> --agent --select id,name,status
+  kaseya-bms-cli project get <id> --agent --select id,name,status
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
@@ -689,7 +695,7 @@ A profile is a saved set of flag values, reused across invocations. Use it when 
 
 ```
 kaseya-bms-cli profile save briefing --json
-kaseya-bms-cli --profile briefing project get <projectId>
+kaseya-bms-cli --profile briefing project get <id>
 kaseya-bms-cli profile list --json
 kaseya-bms-cli profile show briefing
 kaseya-bms-cli profile delete briefing --yes
@@ -731,13 +737,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `kaseya-bms-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add kaseya-bms-mcp -- kaseya-bms-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/project-management/kaseya-bms/cmd/kaseya-bms-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add kaseya-bms-mcp -- kaseya-bms-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

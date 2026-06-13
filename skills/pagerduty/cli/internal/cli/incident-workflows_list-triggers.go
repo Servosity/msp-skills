@@ -62,15 +62,15 @@ func newIncidentWorkflowsListTriggersCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/incident_workflows/triggers"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "incident-workflows", path, map[string]string{
-				"workflow_id":            fmt.Sprintf("%v", flagWorkflowId),
-				"incident_id":            fmt.Sprintf("%v", flagIncidentId),
-				"service_id":             fmt.Sprintf("%v", flagServiceId),
-				"trigger_type":           fmt.Sprintf("%v", flagTriggerType),
-				"workflow_name_contains": fmt.Sprintf("%v", flagWorkflowNameContains),
-				"is_disabled":            fmt.Sprintf("%v", flagIsDisabled),
-				"sort_by":                fmt.Sprintf("%v", flagSortBy),
-				"limit":                  fmt.Sprintf("%v", flagLimit),
-				"cursor":                 fmt.Sprintf("%v", flagCursor),
+				"workflow_id":            formatCLIParamValue(flagWorkflowId),
+				"incident_id":            formatCLIParamValue(flagIncidentId),
+				"service_id":             formatCLIParamValue(flagServiceId),
+				"trigger_type":           formatCLIParamValue(flagTriggerType),
+				"workflow_name_contains": formatCLIParamValue(flagWorkflowNameContains),
+				"is_disabled":            formatCLIParamValue(flagIsDisabled),
+				"sort_by":                formatCLIParamValue(flagSortBy),
+				"limit":                  formatCLIParamValue(flagLimit),
+				"cursor":                 formatCLIParamValue(flagCursor),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

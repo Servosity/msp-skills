@@ -17,8 +17,9 @@ func newCrmPostV4AssociationsFromObjectTypeToObjectTypeBatchAssociateDefaultCrea
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-v4-associations-from-object-type-to-object-type-batch-associate-default-create-default <fromObjectType> <toObjectType>",
-		Short:       "Create the default (most generic) association type between two object types",
+		Use:   "post-v4-associations-from-object-type-to-object-type-batch-associate-default-create-default <fromObjectType> <toObjectType>",
+		Short: "Create the default (most generic) association type between two object types",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli crm post-v4-associations-from-object-type-to-object-type-batch-associate-default-create-default example-value example-value",
 		Annotations: map[string]string{"pp:endpoint": "crm.post-v4-associations-from-object-type-to-object-type-batch-associate-default-create-default", "pp:method": "POST", "pp:path": "/crm/v4/associations/{fromObjectType}/{toObjectType}/batch/associate/default"},
 		RunE: func(cmd *cobra.Command, args []string) error {

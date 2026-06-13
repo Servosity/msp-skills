@@ -24,7 +24,7 @@ func newStorageStatsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "stats",
 		Short:       "Storage usage statistics per location (JSON-RPC EnumerateStorageStatistics)",
 		Example:     "  cove-cli storage stats",
-		Annotations: map[string]string{"pp:endpoint": "storage.stats", "pp:method": "POST", "pp:path": "/jsonapi", "mcp:read-only": "true"},
+		Annotations: map[string]string{"pp:endpoint": "storage.stats", "pp:method": "POST", "pp:path": "/jsonapi"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
 			// instead of pflag's terse "required flag not set" error. Optional-
@@ -79,7 +79,7 @@ func newStorageStatsCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 			}
-			data, statusCode, err := c.PostQueryWithParams(cmd.Context(), path, params, body)
+			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -100,6 +100,9 @@ func newStorageStatsCmd(flags *rootFlags) *cobra.Command {
 						fmt.Fprintf(os.Stderr, "         succeeded: %d operation(s)\n", len(partialFailure.ResourceNames))
 					}
 				}
+			}
+			if !flags.dryRun && statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure) {
+				writeMutationResponseToStore(cmd.Context(), "storage", data, "result.result")
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")

@@ -31,10 +31,10 @@ func newInventoryGetProductCategoriesLookupCmd(flags *rootFlags) *cobra.Command 
 
 			path := "/v2/inventory/products/categories/lookup"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "inventory", path, map[string]string{
-				"Filter.Name":     fmt.Sprintf("%v", flagFilterName),
-				"Filter.IsActive": fmt.Sprintf("%v", flagFilterIsActive),
-				"PageSize":        fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":      fmt.Sprintf("%v", flagPageNumber),
+				"Filter.Name":     formatCLIParamValue(flagFilterName),
+				"Filter.IsActive": formatCLIParamValue(flagFilterIsActive),
+				"PageSize":        formatCLIParamValue(flagPageSize),
+				"PageNumber":      formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

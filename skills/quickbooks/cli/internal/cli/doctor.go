@@ -173,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export QUICKBOOKS_ACCESS_TOKEN=<your-key>"
+					report["auth_hint"] = "Set it with: quickbooks-cli auth set-token <token> or export QUICKBOOKS_ACCESS_TOKEN=\"your-token-here\""
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"

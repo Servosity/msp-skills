@@ -1,6 +1,6 @@
 ---
 name: rocketcyber
-description: "Use when the user asks to triage their RocketCyber managed SOC, see what broke across clients overnight, rank devices at risk in Defender, compute incident MTTR for a QBR, trend Microsoft 365 secure scores, find offline or stale agents, or audit suppression rules - backed by a local SQLite mirror so cross-account questions answer offline. Trigger phrases: `check rocketcyber incidents`, `soc triage board`, `which rocketcyber agents are offline`, `rocketcyber secure score trend`, `audit rocketcyber suppression rules`, `use rocketcyber`, `run rocketcyber-cli`."
+description: "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes. Trigger phrases: `check rocketcyber incidents`, `soc triage board`, `which rocketcyber agents are offline`, `rocketcyber secure score trend`, `audit rocketcyber suppression rules`, `use rocketcyber`, `run rocketcyber-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "RocketCyber"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - rocketcyber-cli
+    install:
+      - kind: go
+        bins: [rocketcyber-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/rocketcyber/cmd/rocketcyber-cli
 ---
 
-# RocketCyber Claude Code Skill
+# RocketCyber  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `rocketcyber-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rocketcyber/install.sh)
+   npx -y @mvanhorn/printing-press-library install rocketcyber --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rocketcyber/install.ps1 | iex
-   ```
-3. Verify: `rocketcyber-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `rocketcyber-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/rocketcyber/cmd/rocketcyber-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Every RocketCyber Customer API v3 endpoint as an agent-ready command, including the suppression rules and CSV report export that the only other tool (a PowerShell module) lacks. On top sit computed SOC analytics: a cross-account triage board, incident MTTR, stale-agent detection, Defender risk ranking, and secure-score trends, backed by an offline SQLite store with full-text search.
 
@@ -41,7 +47,7 @@ Use this CLI for read-only RocketCyber Managed SOC operations: morning triage ac
 ## Anti-triggers
 
 Do not use this CLI for:
-- Do not use this CLI to acknowledge, resolve, or modify incidents - it has no incident-mutating commands; incident response actions happen in the RocketCyber console
+- Do not use this CLI to acknowledge, resolve, or modify incidents - the Customer API is read-only; incident response actions happen in the RocketCyber console
 - Do not use this CLI to install or manage RocketCyber agents on endpoints - that is the RMM or installer's job
 - Do not use this CLI for real-time alert streaming or webhooks - it polls REST endpoints; use console notification integrations for push alerting
 - Do not use this CLI to manage Kaseya VSA or other Kaseya module resources - it only speaks the RocketCyber Customer API
@@ -151,7 +157,7 @@ Covered paths:
 - `rocketcyber-cli apps`
 - `rocketcyber-cli firewalls`
 - `rocketcyber-cli incidents`
-- `rocketcyber-cli suppression rules`
+- `rocketcyber-cli suppression`
 
 When JSON output uses the generated provenance envelope, freshness metadata appears at `meta.freshness`. Treat it as current-cache freshness for the covered command path, not a guarantee of complete historical backfill or API-specific enrichment.
 
@@ -226,7 +232,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
-- **Read-first**  -  the only command that writes to the API is `import` (create/upsert from a JSONL file, with `--dry-run` to preview); every other command reads. Preview imports with `--dry-run` and get human approval before sending
+- **Read-only**  -  do not use this CLI for create, update, delete, publish, comment, upvote, invite, order, send, or other mutating requests
 
 ### Response envelope
 
@@ -303,13 +309,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `rocketcyber-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add rocketcyber-mcp -- rocketcyber-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/rocketcyber/cmd/rocketcyber-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add rocketcyber-mcp -- rocketcyber-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

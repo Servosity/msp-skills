@@ -18,9 +18,10 @@ func newExecAssignmentFilterPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "exec-assignment-filter",
-		Short:       "Exec assignment filter",
-		Long:        "Exec assignment filter",
+		Use:   "exec-assignment-filter",
+		Short: "Exec assignment filter",
+		Long:  "Exec assignment filter",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-assignment-filter --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-assignment-filter.delete", "pp:method": "DELETE", "pp:path": "/ExecAssignmentFilter"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -45,7 +46,7 @@ func newExecAssignmentFilterPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecAssignmentFilter"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			body := map[string]any{}
 			if bodyAction != "" {
@@ -59,10 +60,10 @@ func newExecAssignmentFilterPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, _, err := c.DeleteWithParamsAndBody(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope

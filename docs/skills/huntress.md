@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Huntress MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "Every Huntress endpoint, plus a local SQLite mirror that delivers fleet-wide incident, coverage, and billing rollups the API and official MCP can't."
+description: "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't."
 permalink: /skills/huntress/
 skill_name: "Huntress MCP"
 image: /assets/social/huntress/wide-1200x630.png

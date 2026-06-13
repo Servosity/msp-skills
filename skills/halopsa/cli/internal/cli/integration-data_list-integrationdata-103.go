@@ -28,7 +28,7 @@ func newIntegrationDataListIntegrationdata103Cmd(flags *rootFlags) *cobra.Comman
 			path := "/IntegrationData/Get/Zabbix"
 			params := map[string]string{}
 			if flagMethod != "" {
-				params["method"] = fmt.Sprintf("%v", flagMethod)
+				params["method"] = formatCLIParamValue(flagMethod)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -15,8 +15,9 @@ func newGroupsGetCrmV3PropertiesObjectTypeGetAllCmd(flags *rootFlags) *cobra.Com
 	var flagLocale string
 
 	cmd := &cobra.Command{
-		Use:         "get-crm-v3-properties-object-type-get-all <objectType>",
-		Short:       "Read all existing property groups for the specified object type and HubSpot account.",
+		Use:   "get-crm-v3-properties-object-type-get-all <objectType>",
+		Short: "Read all existing property groups for the specified object type and HubSpot account.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli groups get-crm-v3-properties-object-type-get-all example-value",
 		Annotations: map[string]string{"pp:endpoint": "groups.get-crm-v3-properties-object-type-get-all", "pp:method": "GET", "pp:path": "/crm/v3/properties/{objectType}/groups", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -32,7 +33,7 @@ func newGroupsGetCrmV3PropertiesObjectTypeGetAllCmd(flags *rootFlags) *cobra.Com
 			path = replacePathParam(path, "objectType", args[0])
 			params := map[string]string{}
 			if flagLocale != "" {
-				params["locale"] = fmt.Sprintf("%v", flagLocale)
+				params["locale"] = formatCLIParamValue(flagLocale)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "groups", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

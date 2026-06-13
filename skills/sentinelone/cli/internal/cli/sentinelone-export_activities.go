@@ -46,58 +46,58 @@ func newSentineloneExportActivitiesCmd(flags *rootFlags) *cobra.Command {
 			path := "/export/activities"
 			params := map[string]string{}
 			if flagSiteIds != "" {
-				params["siteIds"] = fmt.Sprintf("%v", flagSiteIds)
+				params["siteIds"] = formatCLIParamValue(flagSiteIds)
 			}
 			if flagActivityTypes != "" {
-				params["activityTypes"] = fmt.Sprintf("%v", flagActivityTypes)
+				params["activityTypes"] = formatCLIParamValue(flagActivityTypes)
 			}
 			if flagThreatIds != "" {
-				params["threatIds"] = fmt.Sprintf("%v", flagThreatIds)
+				params["threatIds"] = formatCLIParamValue(flagThreatIds)
 			}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			if flagGroupIds != "" {
-				params["groupIds"] = fmt.Sprintf("%v", flagGroupIds)
+				params["groupIds"] = formatCLIParamValue(flagGroupIds)
 			}
 			if flagCreatedAtBetween != "" {
-				params["createdAt__between"] = fmt.Sprintf("%v", flagCreatedAtBetween)
+				params["createdAt__between"] = formatCLIParamValue(flagCreatedAtBetween)
 			}
 			if flagCreatedAtLt != "" {
-				params["createdAt__lt"] = fmt.Sprintf("%v", flagCreatedAtLt)
+				params["createdAt__lt"] = formatCLIParamValue(flagCreatedAtLt)
 			}
 			if flagAgentIds != "" {
-				params["agentIds"] = fmt.Sprintf("%v", flagAgentIds)
+				params["agentIds"] = formatCLIParamValue(flagAgentIds)
 			}
 			if flagUserIds != "" {
-				params["userIds"] = fmt.Sprintf("%v", flagUserIds)
+				params["userIds"] = formatCLIParamValue(flagUserIds)
 			}
 			if flagRuleIds != "" {
-				params["ruleIds"] = fmt.Sprintf("%v", flagRuleIds)
+				params["ruleIds"] = formatCLIParamValue(flagRuleIds)
 			}
 			if flagCreatedAtLte != "" {
-				params["createdAt__lte"] = fmt.Sprintf("%v", flagCreatedAtLte)
+				params["createdAt__lte"] = formatCLIParamValue(flagCreatedAtLte)
 			}
 			if flagRowsLimit != "" {
-				params["rowsLimit"] = fmt.Sprintf("%v", flagRowsLimit)
+				params["rowsLimit"] = formatCLIParamValue(flagRowsLimit)
 			}
 			if flagUserEmails != "" {
-				params["userEmails"] = fmt.Sprintf("%v", flagUserEmails)
+				params["userEmails"] = formatCLIParamValue(flagUserEmails)
 			}
 			if flagCreatedAtGte != "" {
-				params["createdAt__gte"] = fmt.Sprintf("%v", flagCreatedAtGte)
+				params["createdAt__gte"] = formatCLIParamValue(flagCreatedAtGte)
 			}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			if flagAlertIds != "" {
-				params["alertIds"] = fmt.Sprintf("%v", flagAlertIds)
+				params["alertIds"] = formatCLIParamValue(flagAlertIds)
 			}
 			if flagCreatedAtGt != "" {
-				params["createdAt__gt"] = fmt.Sprintf("%v", flagCreatedAtGt)
+				params["createdAt__gt"] = formatCLIParamValue(flagCreatedAtGt)
 			}
 			if flagIncludeHidden != "" {
-				params["includeHidden"] = fmt.Sprintf("%v", flagIncludeHidden)
+				params["includeHidden"] = formatCLIParamValue(flagIncludeHidden)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "sentinelone-export", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -46,7 +46,7 @@ func newTagBatchUpdateCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			path := "/v2/tag/{assetType}"
-			path = replacePathParam(path, "assetType", fmt.Sprintf("%v", flagAssetType))
+			path = replacePathParam(path, "assetType", formatCLIParamValue(flagAssetType))
 			params := map[string]string{}
 			var body map[string]any
 			if stdinBody {

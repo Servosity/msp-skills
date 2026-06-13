@@ -20,9 +20,10 @@ func newExecExcludeTenantPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyValue string
 
 	cmd := &cobra.Command{
-		Use:         "exec-exclude-tenant",
-		Short:       "Exec exclude tenant",
-		Long:        "Exec exclude tenant",
+		Use:   "exec-exclude-tenant",
+		Short: "Exec exclude tenant",
+		Long:  "Exec exclude tenant",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-exclude-tenant --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-exclude-tenant.create", "pp:method": "POST", "pp:path": "/ExecExcludeTenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -44,19 +45,19 @@ func newExecExcludeTenantPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecExcludeTenant"
 			params := map[string]string{}
 			if flagAddExclusion != "" {
-				params["AddExclusion"] = fmt.Sprintf("%v", flagAddExclusion)
+				params["AddExclusion"] = formatCLIParamValue(flagAddExclusion)
 			}
 			if flagList != "" {
-				params["List"] = fmt.Sprintf("%v", flagList)
+				params["List"] = formatCLIParamValue(flagList)
 			}
 			if flagListAll != "" {
-				params["ListAll"] = fmt.Sprintf("%v", flagListAll)
+				params["ListAll"] = formatCLIParamValue(flagListAll)
 			}
 			if flagRemoveExclusion != "" {
-				params["RemoveExclusion"] = fmt.Sprintf("%v", flagRemoveExclusion)
+				params["RemoveExclusion"] = formatCLIParamValue(flagRemoveExclusion)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -68,10 +69,10 @@ func newExecExcludeTenantPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

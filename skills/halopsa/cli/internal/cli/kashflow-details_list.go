@@ -30,13 +30,13 @@ func newKashflowDetailsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/KashflowDetails"
 			params := map[string]string{}
 			if flagIncludedisabled != false {
-				params["includedisabled"] = fmt.Sprintf("%v", flagIncludedisabled)
+				params["includedisabled"] = formatCLIParamValue(flagIncludedisabled)
 			}
 			if flagIncludeenabled != false {
-				params["includeenabled"] = fmt.Sprintf("%v", flagIncludeenabled)
+				params["includeenabled"] = formatCLIParamValue(flagIncludeenabled)
 			}
 			if flagTenantid != "" {
-				params["tenantid"] = fmt.Sprintf("%v", flagTenantid)
+				params["tenantid"] = formatCLIParamValue(flagTenantid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "kashflow-details", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

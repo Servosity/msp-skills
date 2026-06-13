@@ -29,10 +29,10 @@ func newPriorityListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Priority"
 			params := map[string]string{}
 			if flagIncludedistinct != false {
-				params["includedistinct"] = fmt.Sprintf("%v", flagIncludedistinct)
+				params["includedistinct"] = formatCLIParamValue(flagIncludedistinct)
 			}
 			if flagSlaid != "" {
-				params["slaid"] = fmt.Sprintf("%v", flagSlaid)
+				params["slaid"] = formatCLIParamValue(flagSlaid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "priority", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "syncro-cli",
-			Description: "Every Syncro PSA and RMM workflow in your terminal, plus a local database, offline search",
+			Description: "Every Syncro PSA and RMM workflow in your terminal, plus a local database, offline search, and cross-entity reports no other Syncro tool has.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

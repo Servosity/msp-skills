@@ -42,9 +42,8 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "See API docs: https://help.proofpoint.com/Threat_Insight_Dashboard/API_Documentation")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export PROOFPOINT_SERVICE_PRINCIPAL=\"<your-token>\"")
-			fmt.Fprintln(w, "  export PROOFPOINT_API_SECRET=\"<your-token>\"")
-			fmt.Fprintln(w, "  proofpoint-cli auth set-token <token>")
+			fmt.Fprintln(w, "  export PROOFPOINT_SERVICE_PRINCIPAL=\"your-token-here\"")
+			fmt.Fprintln(w, "  export PROOFPOINT_API_SECRET=\"your-token-here\"")
 			if !launch {
 				return nil
 			}
@@ -115,10 +114,9 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			if !authed {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
-				fmt.Fprintln(w, "Set your token:")
+				fmt.Fprintln(w, "Set your credentials:")
 				fmt.Fprintln(w, "  export PROOFPOINT_SERVICE_PRINCIPAL=\"your-token-here\"")
 				fmt.Fprintln(w, "  export PROOFPOINT_API_SECRET=\"your-token-here\"")
-				fmt.Fprintf(w, "  proofpoint-cli auth set-token <token>\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
 

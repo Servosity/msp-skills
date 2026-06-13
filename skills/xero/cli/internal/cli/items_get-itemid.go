@@ -17,7 +17,7 @@ func newItemsGetItemidCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-itemid <ItemID>",
 		Short:       "Retrieves a specific item using a unique item Id",
-		Example:     "  xero-cli items get-itemid 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  xero-cli items get-itemid 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "items.get-itemid", "pp:method": "GET", "pp:path": "/Items/{ItemID}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -32,7 +32,7 @@ func newItemsGetItemidCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "ItemID", args[0])
 			params := map[string]string{}
 			if flagUnitdp != 0 {
-				params["unitdp"] = fmt.Sprintf("%v", flagUnitdp)
+				params["unitdp"] = formatCLIParamValue(flagUnitdp)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "items", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

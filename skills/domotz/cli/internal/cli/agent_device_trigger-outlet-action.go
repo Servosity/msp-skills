@@ -55,7 +55,7 @@ func newAgentDeviceTriggerOutletActionCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("power_outlet_id is required\nUsage: %s <%s>", cmd.CommandPath(), "power_outlet_id"))
 			}
 			path = replacePathParam(path, "power_outlet_id", args[2])
-			path = replacePathParam(path, "action", fmt.Sprintf("%v", flagAction))
+			path = replacePathParam(path, "action", formatCLIParamValue(flagAction))
 			params := map[string]string{}
 			var body map[string]any
 			if stdinBody {

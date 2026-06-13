@@ -17,8 +17,9 @@ func newApplicationsForensicsExportApplicationCmd(flags *rootFlags) *cobra.Comma
 	var flagAccountIds string
 
 	cmd := &cobra.Command{
-		Use:         "export-application <application_id> <export_format>",
-		Short:       "[DEPRECATED] Returns an empty array",
+		Use:   "export-application <application_id> <export_format>",
+		Short: "[DEPRECATED] Returns an empty array",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli applications forensics export-application 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "forensics.export-application", "pp:method": "GET", "pp:path": "/applications/{application_id}/forensics/export/{export_format}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -38,13 +39,13 @@ func newApplicationsForensicsExportApplicationCmd(flags *rootFlags) *cobra.Comma
 			path = replacePathParam(path, "export_format", args[1])
 			params := map[string]string{}
 			if flagSiteIds != "" {
-				params["siteIds"] = fmt.Sprintf("%v", flagSiteIds)
+				params["siteIds"] = formatCLIParamValue(flagSiteIds)
 			}
 			if flagGroupIds != "" {
-				params["groupIds"] = fmt.Sprintf("%v", flagGroupIds)
+				params["groupIds"] = formatCLIParamValue(flagGroupIds)
 			}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "forensics", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

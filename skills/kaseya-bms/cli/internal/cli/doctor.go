@@ -173,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export KASEYA_BMS_TOKEN=<your-key>"
+					report["auth_hint"] = "Set one of: export KASEYA_BMS_TOKEN=\"your-token-here\" or export KASEYA_BMS_BEARER_AUTH=\"your-token-here\""
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"

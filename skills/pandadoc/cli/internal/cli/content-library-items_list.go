@@ -34,13 +34,13 @@ func newContentLibraryItemsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/content-library-items"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "content-library-items", path, map[string]string{
-				"q":           fmt.Sprintf("%v", flagQ),
-				"id":          fmt.Sprintf("%v", flagId),
-				"deleted":     fmt.Sprintf("%v", flagDeleted),
-				"folder_uuid": fmt.Sprintf("%v", flagFolderUuid),
-				"count":       fmt.Sprintf("%v", flagCount),
-				"page":        fmt.Sprintf("%v", flagPage),
-				"tag":         fmt.Sprintf("%v", flagTag),
+				"q":           formatCLIParamValue(flagQ),
+				"id":          formatCLIParamValue(flagId),
+				"deleted":     formatCLIParamValue(flagDeleted),
+				"folder_uuid": formatCLIParamValue(flagFolderUuid),
+				"count":       formatCLIParamValue(flagCount),
+				"page":        formatCLIParamValue(flagPage),
+				"tag":         formatCLIParamValue(flagTag),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

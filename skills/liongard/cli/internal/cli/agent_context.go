@@ -107,14 +107,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		{
 			Name:        "LIONGARD_API_KEY",
 			Kind:        "per_call",
-			Required:    false,
-			Sensitive:   true,
-			Description: "Set to your API credential.",
-		},
-		{
-			Name:        "LIONGARD_ENDPOINTS_API_KEY",
-			Kind:        "per_call",
-			Required:    false,
+			Required:    true,
 			Sensitive:   true,
 			Description: "Set to your API credential.",
 		},
@@ -131,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "liongard-cli",
-			Description: "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search",
+			Description: "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

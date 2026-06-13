@@ -18,8 +18,9 @@ func newHubspotTicketsCrmPostV3ObjectsTicketsMergeMergeCmd(flags *rootFlags) *co
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-v3-objects-tickets-merge-merge",
-		Short:       "Merge two tickets, combining them into one ticket record.",
+		Use:   "post-v3-objects-tickets-merge-merge",
+		Short: "Merge two tickets, combining them into one ticket record.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-tickets-crm post-v3-objects-tickets-merge-merge --object-id-to-merge example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-tickets-crm.post-v3-objects-tickets-merge-merge", "pp:method": "POST", "pp:path": "/crm/v3/objects/tickets/merge"},
 		RunE: func(cmd *cobra.Command, args []string) error {

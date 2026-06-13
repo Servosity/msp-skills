@@ -30,8 +30,8 @@ func newRatesGetExpensesCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/rates/expenses"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "rates", path, map[string]string{
-				"page":        fmt.Sprintf("%v", flagPage),
-				"itemsInPage": fmt.Sprintf("%v", flagItemsInPage),
+				"page":        formatCLIParamValue(flagPage),
+				"itemsInPage": formatCLIParamValue(flagItemsInPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

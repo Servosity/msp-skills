@@ -11,7 +11,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"hubspot-pp-cli/internal/cliutil"
-	"hubspot-pp-cli/internal/store"
 )
 
 // pp:data-source local
@@ -48,7 +47,7 @@ func newNovelNurtureQueueCmd(flags *rootFlags) *cobra.Command {
 			if dbPath == "" {
 				dbPath = defaultDBPath("hubspot-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := hsOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w", err)
 			}

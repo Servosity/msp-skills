@@ -1,6 +1,6 @@
 ---
 name: pagerduty
-description: "Use when the user asks to triage the PagerDuty incident queue, see who's on call for a service now or next, check MTTA/MTTR or responder workload, audit escalation coverage or on-call schedule gaps, acknowledge or resolve a PagerDuty incident, or reconstruct an incident timeline. Wraps the PagerDuty REST API plus an offline SQLite mirror with cross-object analytics. Trigger phrases: `who is on call for this service`, `show me the open pagerduty incidents`, `what's the mttr by service`, `acknowledge the pagerduty incident`, `which services have no on-call coverage`, `PagerDuty + ChatGPT`, `PagerDuty + Claude`, `use pagerduty`, `run pagerduty-cli`."
+description: "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions  -  MTTA/MTTR, on-call coverage gaps, responder load  -  that neither the API nor the web UI can. Trigger phrases: `who is on call for this service`, `show me the open pagerduty incidents`, `what's the mttr for this service`, `acknowledge the pagerduty incident`, `which services have no on-call coverage`, `use pagerduty`, `run pagerduty-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "PagerDuty"
@@ -11,49 +11,46 @@ metadata:
     requires:
       bins:
         - pagerduty-cli
+    install:
+      - kind: go
+        bins: [pagerduty-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/pagerduty/cmd/pagerduty-cli
 ---
 
-# PagerDuty Claude Code Skill
+# PagerDuty  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `pagerduty-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pagerduty/install.sh)
+   npx -y @mvanhorn/printing-press-library install pagerduty --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pagerduty/install.ps1 | iex
-   ```
-3. Verify: `pagerduty-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `pagerduty-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
 
-Triage the incident queue, resolve who's on call now and next, and run service and escalation hygiene checks without leaving the shell. Sync once and the local store powers offline analytics with no Analytics add-on and no live call per question: pulse for what's hot right now, oncall who for the live escalation chain, audit coverage for escalation gaps, and insights mttr/responders/noisy for post-incident analytics.
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/pagerduty/cmd/pagerduty-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+
+Triage the incident queue, resolve who's on call now and next, and run service and escalation hygiene checks without leaving the shell. Sync once and the local store powers analytics no single API call exposes: pulse for what's hot right now, oncall who for the live escalation chain, audit coverage for escalation gaps, and insights mttr/responders/noisy for offline post-incident analytics.
 
 ## When to Use This CLI
 
 Choose this CLI when an agent or operator needs to manage PagerDuty incidents, on-call schedules, services and escalation policies from the terminal, or when they need cross-entity analytics (MTTA/MTTR, on-call coverage, responder workload, noisy services) that the live API exposes only through the paid Analytics product or not at all. It is the right tool for MSP NOC triage, on-call resolution under pressure, and monthly reliability reviews.
 
-## Quick Start (sync first)
+## Anti-triggers
 
-Every unique capability below reads the local SQLite mirror  -  run a sync before trusting results:
-
-```bash
-pagerduty-cli doctor --dry-run        # health: auth + connectivity
-pagerduty-cli sync --since 30d        # mirror incidents, log entries, on-calls, services, schedules
-pagerduty-cli pulse --agent           # what's hot right now, offline
-```
-
-## When NOT to Use This CLI
-
-- Sending or ingesting events/alerts (triggering incidents from monitoring tools)  -  that is the PagerDuty Events API v2, a separate ingestion surface this CLI does not wrap.
-- Real-time push: this CLI polls REST; use PagerDuty webhook subscriptions for push delivery.
-- Billing-grade analytics: `insights mttr/responders/noisy` are offline reconstructions from synced log entries  -  only as complete as the last sync window, not a paid-Analytics replacement for billing disputes.
-- Account administration (users/SSO/billing)  -  use the PagerDuty web admin console.
+Do not use this CLI for:
+- Do not use this CLI to send or ingest events/alerts (triggering incidents from monitoring)  -  that is the PagerDuty Events API v2, a separate ingestion surface this CLI does not wrap.
+- Do not use it for real-time push notifications or webhook delivery  -  it polls REST; use PagerDuty webhook subscriptions for push.
+- Do not treat insights mttr/responders/noisy as a replacement for paid PagerDuty Analytics in billing disputes  -  they are offline reconstructions from synced log entries and only as complete as the last sync window.
+- Do not use it to administer users/SSO/billing at the account level  -  account provisioning belongs in the PagerDuty web admin console.
 
 ## Unique Capabilities
 
@@ -667,13 +664,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `pagerduty-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add pagerduty-mcp -- pagerduty-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/pagerduty/cmd/pagerduty-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add pagerduty-mcp -- pagerduty-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

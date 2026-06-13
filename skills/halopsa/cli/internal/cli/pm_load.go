@@ -9,7 +9,6 @@ import (
 	"sort"
 
 	"github.com/spf13/cobra"
-	"halopsa-pp-cli/internal/store"
 )
 
 func newLoadCmd(flags *rootFlags) *cobra.Command {
@@ -35,7 +34,7 @@ person. Helps identify overloaded team members and unbalanced workload.`,
 				dbPath = defaultDBPath("halopsa-cli")
 			}
 
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := halopsaOpenStoreSchemaAware(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'halopsa-cli sync' first.", err)
 			}

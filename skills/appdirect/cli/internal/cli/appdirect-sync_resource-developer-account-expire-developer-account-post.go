@@ -19,8 +19,9 @@ func newAppdirectSyncResourceDeveloperAccountExpireDeveloperAccountPostCmd(flags
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "resource-developer-account-expire-developer-account-post",
-		Short:       "This call expires a developer account. Maximum of global requests of 20 per 2 seconds.",
+		Use:   "resource-developer-account-expire-developer-account-post",
+		Short: "This call expires a developer account. Maximum of global requests of 20 per 2 seconds.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli appdirect-sync resource-developer-account-expire-developer-account-post --operation example-value",
 		Annotations: map[string]string{"pp:endpoint": "appdirect-sync.resource-developer-account-expire-developer-account-post", "pp:method": "POST", "pp:path": "/sync/v1/tasks#expire"},
 		RunE: func(cmd *cobra.Command, args []string) error {

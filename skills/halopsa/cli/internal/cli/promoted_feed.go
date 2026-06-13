@@ -43,49 +43,49 @@ func newFeedPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/Feed"
 			params := map[string]string{}
 			if flagAccountmanagerId != "" {
-				params["accountmanager_id"] = fmt.Sprintf("%v", flagAccountmanagerId)
+				params["accountmanager_id"] = formatCLIParamValue(flagAccountmanagerId)
 			}
 			if flagAgentOnly != false {
-				params["agent_only"] = fmt.Sprintf("%v", flagAgentOnly)
+				params["agent_only"] = formatCLIParamValue(flagAgentOnly)
 			}
 			if flagCount != 0 {
-				params["count"] = fmt.Sprintf("%v", flagCount)
+				params["count"] = formatCLIParamValue(flagCount)
 			}
 			if flagExcludePrivate != false {
-				params["exclude_private"] = fmt.Sprintf("%v", flagExcludePrivate)
+				params["exclude_private"] = formatCLIParamValue(flagExcludePrivate)
 			}
 			if flagFollowedOnly != false {
-				params["followed_only"] = fmt.Sprintf("%v", flagFollowedOnly)
+				params["followed_only"] = formatCLIParamValue(flagFollowedOnly)
 			}
 			if flagNewerThanId != "" {
-				params["newer_than_id"] = fmt.Sprintf("%v", flagNewerThanId)
+				params["newer_than_id"] = formatCLIParamValue(flagNewerThanId)
 			}
 			if flagOlderThanId != "" {
-				params["older_than_id"] = fmt.Sprintf("%v", flagOlderThanId)
+				params["older_than_id"] = formatCLIParamValue(flagOlderThanId)
 			}
 			if flagOneAgentId != "" {
-				params["one_agent_id"] = fmt.Sprintf("%v", flagOneAgentId)
+				params["one_agent_id"] = formatCLIParamValue(flagOneAgentId)
 			}
 			if flagOneAgentsTicketsId != "" {
-				params["one_agents_tickets_id"] = fmt.Sprintf("%v", flagOneAgentsTicketsId)
+				params["one_agents_tickets_id"] = formatCLIParamValue(flagOneAgentsTicketsId)
 			}
 			if flagOneUserId != "" {
-				params["one_user_id"] = fmt.Sprintf("%v", flagOneUserId)
+				params["one_user_id"] = formatCLIParamValue(flagOneUserId)
 			}
 			if flagRelatedAssetId != "" {
-				params["related_asset_id"] = fmt.Sprintf("%v", flagRelatedAssetId)
+				params["related_asset_id"] = formatCLIParamValue(flagRelatedAssetId)
 			}
 			if flagRelatedClientId != "" {
-				params["related_client_id"] = fmt.Sprintf("%v", flagRelatedClientId)
+				params["related_client_id"] = formatCLIParamValue(flagRelatedClientId)
 			}
 			if flagRelatedSiteId != "" {
-				params["related_site_id"] = fmt.Sprintf("%v", flagRelatedSiteId)
+				params["related_site_id"] = formatCLIParamValue(flagRelatedSiteId)
 			}
 			if flagRelatedUserId != "" {
-				params["related_user_id"] = fmt.Sprintf("%v", flagRelatedUserId)
+				params["related_user_id"] = formatCLIParamValue(flagRelatedUserId)
 			}
 			if flagUserOnly != false {
-				params["user_only"] = fmt.Sprintf("%v", flagUserOnly)
+				params["user_only"] = formatCLIParamValue(flagUserOnly)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "feed", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

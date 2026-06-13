@@ -11,7 +11,7 @@ func newNovelAssetsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "assets",
-		Short:       "Cross-customer asset analytics computed from the local store.",
+		Short:       "assets subcommands: patch-gaps",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

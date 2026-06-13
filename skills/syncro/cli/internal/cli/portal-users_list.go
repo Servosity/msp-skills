@@ -30,9 +30,9 @@ func newPortalUsersListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/portal_users"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "portal-users", path, map[string]string{
-				"customer_id": fmt.Sprintf("%v", flagCustomerId),
-				"email":       fmt.Sprintf("%v", flagEmail),
-				"page":        fmt.Sprintf("%v", flagPage),
+				"customer_id": formatCLIParamValue(flagCustomerId),
+				"email":       formatCLIParamValue(flagEmail),
+				"page":        formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

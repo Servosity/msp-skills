@@ -14,8 +14,9 @@ import (
 func newAssetGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "get <serialNumber> <volumeName>",
-		Short:       "Get a single asset by its volume name",
+		Use:   "get <serialNumber> <volumeName>",
+		Short: "Get a single asset by its volume name",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  datto-bcdr-cli asset get example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "asset.get", "pp:method": "GET", "pp:path": "/bcdr/device/{serialNumber}/asset/{volumeName}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

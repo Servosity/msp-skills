@@ -14,8 +14,9 @@ import (
 func newContactCompanyPublicGetByExternalIdentifierCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "company-public-get-by-external-identifier <externalIdentifier>",
-		Short:       "Get by ext ID",
+		Use:   "company-public-get-by-external-identifier <externalIdentifier>",
+		Short: "Get by ext ID",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  salesbuildr-cli contact company-public-get-by-external-identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "contact.company-public-get-by-external-identifier", "pp:method": "GET", "pp:path": "/contact/ext/{externalIdentifier}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

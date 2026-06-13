@@ -34,13 +34,13 @@ func newIntegrationDataListIntegrationdata44Cmd(flags *rootFlags) *cobra.Command
 
 			path := "/IntegrationData/Get/IngramMicro"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", path, map[string]string{
-				"include_this_id": fmt.Sprintf("%v", flagIncludeThisId),
-				"offset":          fmt.Sprintf("%v", flagOffset),
-				"paginate":        fmt.Sprintf("%v", flagPaginate),
-				"remove_existing": fmt.Sprintf("%v", flagRemoveExisting),
-				"resource":        fmt.Sprintf("%v", flagResource),
-				"tenant":          fmt.Sprintf("%v", flagTenant),
-				"third_party_id":  fmt.Sprintf("%v", flagThirdPartyId),
+				"include_this_id": formatCLIParamValue(flagIncludeThisId),
+				"offset":          formatCLIParamValue(flagOffset),
+				"paginate":        formatCLIParamValue(flagPaginate),
+				"remove_existing": formatCLIParamValue(flagRemoveExisting),
+				"resource":        formatCLIParamValue(flagResource),
+				"tenant":          formatCLIParamValue(flagTenant),
+				"third_party_id":  formatCLIParamValue(flagThirdPartyId),
 			}, nil, flagAll, "offset", "offset", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

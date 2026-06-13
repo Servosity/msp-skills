@@ -58,10 +58,10 @@ func newLeadResourceAppResellerApiConvertApprovalPostCmd(flags *rootFlags) *cobr
 			path := "/lead/v2/conversionApproval"
 			params := map[string]string{}
 			if flagContext != "" {
-				params["context"] = fmt.Sprintf("%v", flagContext)
+				params["context"] = formatCLIParamValue(flagContext)
 			}
 			if flagLeadId != "" {
-				params["leadId"] = fmt.Sprintf("%v", flagLeadId)
+				params["leadId"] = formatCLIParamValue(flagLeadId)
 			}
 			var body map[string]any
 			if stdinBody {

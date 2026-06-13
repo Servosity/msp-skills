@@ -22,7 +22,7 @@ func newSettingsOrgIdPostCmd(flags *rootFlags) *cobra.Command {
 		Use:         "org-id-post",
 		Aliases:     []string{"create"},
 		Short:       "**Requires permission: `manage_advanced_settings`** Creates a new setting.",
-		Example:     "  action1-cli settings org-id-post --template-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  action1-cli settings org-id-post --template-id endpoint_custom_attributes",
 		Annotations: map[string]string{"pp:endpoint": "settings.org-id-post", "pp:method": "POST", "pp:path": "/settings/all"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

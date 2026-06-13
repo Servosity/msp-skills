@@ -43,7 +43,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "  Generate an API key in your IT Glue account settings, then choose the base URL for your IT Glue data region.")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export ITGLUE_API_KEY=\"<your-token>\"")
+			fmt.Fprintln(w, "  export ITGLUE_API_KEY=\"your-token-here\"")
 			fmt.Fprintln(w, "  itglue-cli auth set-token <token>")
 			if !launch {
 				return nil

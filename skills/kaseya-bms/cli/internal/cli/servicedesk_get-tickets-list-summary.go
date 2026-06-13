@@ -35,14 +35,14 @@ func newServicedeskGetTicketsListSummaryCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/servicedesk/tickets/summary"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "servicedesk", path, map[string]string{
-				"Filter.AccountId":         fmt.Sprintf("%v", flagFilterAccountId),
-				"Filter.ContactId":         fmt.Sprintf("%v", flagFilterContactId),
-				"Filter.SLAEventStatusIds": fmt.Sprintf("%v", flagFilterSLAEventStatusIds),
-				"Filter.ExcludedIds":       fmt.Sprintf("%v", flagFilterExcludedIds),
-				"Sort":                     fmt.Sprintf("%v", flagSort),
-				"Exclude":                  fmt.Sprintf("%v", flagExclude),
-				"PageSize":                 fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":               fmt.Sprintf("%v", flagPageNumber),
+				"Filter.AccountId":         formatCLIParamValue(flagFilterAccountId),
+				"Filter.ContactId":         formatCLIParamValue(flagFilterContactId),
+				"Filter.SLAEventStatusIds": formatCLIParamValue(flagFilterSLAEventStatusIds),
+				"Filter.ExcludedIds":       formatCLIParamValue(flagFilterExcludedIds),
+				"Sort":                     formatCLIParamValue(flagSort),
+				"Exclude":                  formatCLIParamValue(flagExclude),
+				"PageSize":                 formatCLIParamValue(flagPageSize),
+				"PageNumber":               formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

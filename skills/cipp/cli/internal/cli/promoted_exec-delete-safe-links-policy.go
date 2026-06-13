@@ -20,9 +20,10 @@ func newExecDeleteSafeLinksPolicyPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "exec-delete-safe-links-policy",
-		Short:       "This function deletes a Safe Links rule and its associated policy.",
-		Long:        "This function deletes a Safe Links rule and its associated policy.",
+		Use:   "exec-delete-safe-links-policy",
+		Short: "This function deletes a Safe Links rule and its associated policy.",
+		Long:  "This function deletes a Safe Links rule and its associated policy.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-delete-safe-links-policy --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-delete-safe-links-policy.create", "pp:method": "POST", "pp:path": "/ExecDeleteSafeLinksPolicy"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -47,13 +48,13 @@ func newExecDeleteSafeLinksPolicyPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecDeleteSafeLinksPolicy"
 			params := map[string]string{}
 			if flagPolicyName != "" {
-				params["PolicyName"] = fmt.Sprintf("%v", flagPolicyName)
+				params["PolicyName"] = formatCLIParamValue(flagPolicyName)
 			}
 			if flagRuleName != "" {
-				params["RuleName"] = fmt.Sprintf("%v", flagRuleName)
+				params["RuleName"] = formatCLIParamValue(flagRuleName)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -71,10 +72,10 @@ func newExecDeleteSafeLinksPolicyPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

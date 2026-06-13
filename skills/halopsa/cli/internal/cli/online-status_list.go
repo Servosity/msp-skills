@@ -39,40 +39,40 @@ func newOnlineStatusListCmd(flags *rootFlags) *cobra.Command {
 			path := "/OnlineStatus"
 			params := map[string]string{}
 			if flagTechID != "" {
-				params["TechID"] = fmt.Sprintf("%v", flagTechID)
+				params["TechID"] = formatCLIParamValue(flagTechID)
 			}
 			if flagLastOnlineDate != "" {
-				params["LastOnlineDate"] = fmt.Sprintf("%v", flagLastOnlineDate)
+				params["LastOnlineDate"] = formatCLIParamValue(flagLastOnlineDate)
 			}
 			if flagIsOnline != false {
-				params["IsOnline"] = fmt.Sprintf("%v", flagIsOnline)
+				params["IsOnline"] = formatCLIParamValue(flagIsOnline)
 			}
 			if flagLastOnline != "" {
-				params["LastOnline"] = fmt.Sprintf("%v", flagLastOnline)
+				params["LastOnline"] = formatCLIParamValue(flagLastOnline)
 			}
 			if flagAgentStatus != 0 {
-				params["agent_status"] = fmt.Sprintf("%v", flagAgentStatus)
+				params["agent_status"] = formatCLIParamValue(flagAgentStatus)
 			}
 			if flagStatusOveridden != false {
-				params["status_overidden"] = fmt.Sprintf("%v", flagStatusOveridden)
+				params["status_overidden"] = formatCLIParamValue(flagStatusOveridden)
 			}
 			if flagFetchAll != false {
-				params["fetch_all"] = fmt.Sprintf("%v", flagFetchAll)
+				params["fetch_all"] = formatCLIParamValue(flagFetchAll)
 			}
 			if flagIsLogout != false {
-				params["is_logout"] = fmt.Sprintf("%v", flagIsLogout)
+				params["is_logout"] = formatCLIParamValue(flagIsLogout)
 			}
 			if flagCommand != "" {
-				params["command"] = fmt.Sprintf("%v", flagCommand)
+				params["command"] = formatCLIParamValue(flagCommand)
 			}
 			if flagLastActive != "" {
-				params["last_active"] = fmt.Sprintf("%v", flagLastActive)
+				params["last_active"] = formatCLIParamValue(flagLastActive)
 			}
 			if flagIsIdle != false {
-				params["is_idle"] = fmt.Sprintf("%v", flagIsIdle)
+				params["is_idle"] = formatCLIParamValue(flagIsIdle)
 			}
 			if flagIdleWarn != false {
-				params["idle_warn"] = fmt.Sprintf("%v", flagIdleWarn)
+				params["idle_warn"] = formatCLIParamValue(flagIdleWarn)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "online-status", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

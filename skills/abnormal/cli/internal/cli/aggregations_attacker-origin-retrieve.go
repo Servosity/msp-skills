@@ -42,10 +42,10 @@ func newAggregationsAttackerOriginRetrieveCmd(flags *rootFlags) *cobra.Command {
 			path := "/aggregations/attacker_origin"
 			params := map[string]string{}
 			if flagFilter != "" {
-				params["filter"] = fmt.Sprintf("%v", flagFilter)
+				params["filter"] = formatCLIParamValue(flagFilter)
 			}
 			if flagSource != "" {
-				params["source"] = fmt.Sprintf("%v", flagSource)
+				params["source"] = formatCLIParamValue(flagSource)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "aggregations", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

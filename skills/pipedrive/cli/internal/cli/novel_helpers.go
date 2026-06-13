@@ -7,8 +7,12 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"os"
+	"time"
 
 	"github.com/spf13/cobra"
+
+	"pipedrive-pp-cli/internal/store"
 )
 
 // novelDBPath resolves the local-store path for a read-only intelligence
@@ -80,4 +84,44 @@ func nullI64(i sql.NullInt64) int64 {
 		return i.Int64
 	}
 	return 0
+}
+
+// pdOpenStore opens the local mirror for the read-only novel commands:
+// read-only when the schema exists (no write lock -> no SQLITE_BUSY under
+// parallel reads), else read-write-migrate, with a short retry to ride out the
+// first-run create/migrate race. Resolves the path via novelDBPath.
+func pdOpenStore(ctx context.Context, dbPath string) (*store.Store, error) {
+	path := novelDBPath(dbPath)
+	var lastErr error
+	for attempt := 0; attempt < 8; attempt++ {
+		if st, ok := pdTryReadOnlyMigrated(path); ok {
+			return st, nil
+		}
+		st, err := store.OpenWithContext(ctx, path)
+		if err == nil {
+			return st, nil
+		}
+		lastErr = err
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		time.Sleep(time.Duration(20*(attempt+1)) * time.Millisecond)
+	}
+	return nil, lastErr
+}
+
+func pdTryReadOnlyMigrated(path string) (*store.Store, bool) {
+	if _, err := os.Stat(path); err != nil {
+		return nil, false
+	}
+	st, err := store.OpenReadOnly(path)
+	if err != nil {
+		return nil, false
+	}
+	var one int
+	if err := st.DB().QueryRow(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='resources' LIMIT 1`).Scan(&one); err != nil {
+		_ = st.Close()
+		return nil, false
+	}
+	return st, true
 }

@@ -16,7 +16,7 @@ func newJournalsGetByNumberCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-by-number <JournalNumber>",
 		Short:       "Retrieves a specific journal using a unique journal number.",
-		Example:     "  xero-cli journals get-by-number 42",
+		Example:     "  xero-cli journals get-by-number 1000",
 		Annotations: map[string]string{"pp:endpoint": "journals.get-by-number", "pp:method": "GET", "pp:path": "/Journals/{JournalNumber}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

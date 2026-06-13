@@ -28,7 +28,7 @@ func newCallLogListCmd(flags *rootFlags) *cobra.Command {
 			path := "/CallLog"
 			params := map[string]string{}
 			if flagShowall != false {
-				params["showall"] = fmt.Sprintf("%v", flagShowall)
+				params["showall"] = formatCLIParamValue(flagShowall)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "call-log", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

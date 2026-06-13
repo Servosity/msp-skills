@@ -36,7 +36,7 @@ func newHubspotListsCrmGetV3ListsObjectTypeIdObjectTypeIdNameListNameV3ListsObje
 			path = replacePathParam(path, "objectTypeId", args[1])
 			params := map[string]string{}
 			if flagIncludeFilters != false {
-				params["includeFilters"] = fmt.Sprintf("%v", flagIncludeFilters)
+				params["includeFilters"] = formatCLIParamValue(flagIncludeFilters)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-lists-crm", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

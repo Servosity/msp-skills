@@ -59,11 +59,11 @@ Run 'api <interface>' to see that interface's methods.`,
 						for _, method := range methods {
 							fmt.Fprintf(cmd.OutOrStdout(), "  %-50s %s\n", child.Name()+" "+method.Name(), method.Short)
 						}
-						fmt.Fprintf(cmd.OutOrStdout(), "\nUse '%s-pp-cli %s <method> --help' for details.\n", "mspbots", child.Name())
+						fmt.Fprintf(cmd.OutOrStdout(), "\nUse '%s-cli %s <method> --help' for details.\n", "mspbots", child.Name())
 						return nil
 					}
 				}
-				return fmt.Errorf("interface %q not found. Run '%s-pp-cli api' to list all interfaces", args[0], "mspbots")
+				return fmt.Errorf("interface %q not found. Run '%s-cli api' to list all interfaces", args[0], "mspbots")
 			}
 
 			// Pre-formatting human strings ahead of time would block the JSON
@@ -100,7 +100,7 @@ Run 'api <interface>' to see that interface's methods.`,
 			for _, e := range ifaces {
 				fmt.Fprintf(cmd.OutOrStdout(), "  %-45s %s\n", e.Name, e.Short)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "\nUse '%s-pp-cli api <interface>' to see methods.\n", "mspbots")
+			fmt.Fprintf(cmd.OutOrStdout(), "\nUse '%s-cli api <interface>' to see methods.\n", "mspbots")
 			return nil
 		},
 	}

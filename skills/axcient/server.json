@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/axcient-mcp",
   "title": "Axcient MCP",
   "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/axcient/axcient-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/axcient-v0.2.2/axcient-mcp.mcpb",
-      "version": "0.2.2",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/axcient-v0.2.3/axcient-mcp.mcpb",
+      "version": "0.2.3",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

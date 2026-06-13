@@ -30,10 +30,10 @@ func newDocumentTemplatesGetWithAttributesCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/document-templates"
 			params := map[string]string{}
 			if flagTemplateName != "" {
-				params["templateName"] = fmt.Sprintf("%v", flagTemplateName)
+				params["templateName"] = formatCLIParamValue(flagTemplateName)
 			}
 			if flagIncludeTechnicianRoles != false {
-				params["includeTechnicianRoles"] = fmt.Sprintf("%v", flagIncludeTechnicianRoles)
+				params["includeTechnicianRoles"] = formatCLIParamValue(flagIncludeTechnicianRoles)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "document-templates", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

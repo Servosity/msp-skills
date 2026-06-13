@@ -33,22 +33,22 @@ func newIntegrationDataListIntegrationdata69Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/Passportal"
 			params := map[string]string{}
 			if flagClientid != "" {
-				params["clientid"] = fmt.Sprintf("%v", flagClientid)
+				params["clientid"] = formatCLIParamValue(flagClientid)
 			}
 			if flagDocumenttype != "" {
-				params["documenttype"] = fmt.Sprintf("%v", flagDocumenttype)
+				params["documenttype"] = formatCLIParamValue(flagDocumenttype)
 			}
 			if flagEndpoint != "" {
-				params["endpoint"] = fmt.Sprintf("%v", flagEndpoint)
+				params["endpoint"] = formatCLIParamValue(flagEndpoint)
 			}
 			if flagPagenum != 0 {
-				params["pagenum"] = fmt.Sprintf("%v", flagPagenum)
+				params["pagenum"] = formatCLIParamValue(flagPagenum)
 			}
 			if flagReturntype != "" {
-				params["returntype"] = fmt.Sprintf("%v", flagReturntype)
+				params["returntype"] = formatCLIParamValue(flagReturntype)
 			}
 			if flagValidate != false {
-				params["validate"] = fmt.Sprintf("%v", flagValidate)
+				params["validate"] = formatCLIParamValue(flagValidate)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

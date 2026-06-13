@@ -69,14 +69,14 @@ func newAgentDeviceListVariablesCmd(flags *rootFlags) *cobra.Command {
 			}
 			path = replacePathParam(path, "device_id", args[1])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "device", path, map[string]string{
-				"page_size":         fmt.Sprintf("%v", flagPageSize),
-				"page_number":       fmt.Sprintf("%v", flagPageNumber),
-				"value":             fmt.Sprintf("%v", flagValue),
-				"path":              fmt.Sprintf("%v", flagPath),
-				"sort_by":           fmt.Sprintf("%v", flagSortBy),
-				"sorting_direction": fmt.Sprintf("%v", flagSortingDirection),
-				"has_history":       fmt.Sprintf("%v", flagHasHistory),
-				"metric":            fmt.Sprintf("%v", flagMetric),
+				"page_size":         formatCLIParamValue(flagPageSize),
+				"page_number":       formatCLIParamValue(flagPageNumber),
+				"value":             formatCLIParamValue(flagValue),
+				"path":              formatCLIParamValue(flagPath),
+				"sort_by":           formatCLIParamValue(flagSortBy),
+				"sorting_direction": formatCLIParamValue(flagSortingDirection),
+				"has_history":       formatCLIParamValue(flagHasHistory),
+				"metric":            formatCLIParamValue(flagMetric),
 			}, nil, flagAll, "page_number", "page", "page_size", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

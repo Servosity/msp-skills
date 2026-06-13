@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +23,15 @@ import (
 	"xero-pp-cli/internal/config"
 	"xero-pp-cli/internal/mcp/cobratree"
 	"xero-pp-cli/internal/store"
+)
+
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
 )
 
 // RegisterTools registers all API operations as MCP tools.
@@ -105,7 +116,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("pagination-page-size", mcplib.Description("Page size")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/BankTransactions", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query"}, {PublicName: "unitdp", WireName: "unitdp", Location: "query"}, {PublicName: "BankTransactions", WireName: "BankTransactions", Location: "body"}, {PublicName: "Warnings", WireName: "Warnings", Location: "body"}, {PublicName: "pagination-item-count", WireName: "itemCount", Location: "body", BodyPath: []string{"pagination", "itemCount"}}, {PublicName: "pagination-page", WireName: "page", Location: "body", BodyPath: []string{"pagination", "page"}}, {PublicName: "pagination-page-count", WireName: "pageCount", Location: "body", BodyPath: []string{"pagination", "pageCount"}}, {PublicName: "pagination-page-size", WireName: "pageSize", Location: "body", BodyPath: []string{"pagination", "pageSize"}}}, []string{}),
+		makeAPIHandler("PUT", "/BankTransactions", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query", Default: "false"}, {PublicName: "unitdp", WireName: "unitdp", Location: "query"}, {PublicName: "BankTransactions", WireName: "BankTransactions", Location: "body"}, {PublicName: "Warnings", WireName: "Warnings", Location: "body"}, {PublicName: "pagination-item-count", WireName: "itemCount", Location: "body", BodyPath: []string{"pagination", "itemCount"}}, {PublicName: "pagination-page", WireName: "page", Location: "body", BodyPath: []string{"pagination", "page"}}, {PublicName: "pagination-page-count", WireName: "pageCount", Location: "body", BodyPath: []string{"pagination", "pageCount"}}, {PublicName: "pagination-page-size", WireName: "pageSize", Location: "body", BodyPath: []string{"pagination", "pageSize"}}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("bank-transactions_get",
@@ -162,7 +173,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/BankTransactions", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query"}, {PublicName: "unitdp", WireName: "unitdp", Location: "query"}, {PublicName: "BankTransactions", WireName: "BankTransactions", Location: "body"}, {PublicName: "Warnings", WireName: "Warnings", Location: "body"}, {PublicName: "pagination-item-count", WireName: "itemCount", Location: "body", BodyPath: []string{"pagination", "itemCount"}}, {PublicName: "pagination-page", WireName: "page", Location: "body", BodyPath: []string{"pagination", "page"}}, {PublicName: "pagination-page-count", WireName: "pageCount", Location: "body", BodyPath: []string{"pagination", "pageCount"}}, {PublicName: "pagination-page-size", WireName: "pageSize", Location: "body", BodyPath: []string{"pagination", "pageSize"}}}, []string{}),
+		makeAPIHandler("POST", "/BankTransactions", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query", Default: "false"}, {PublicName: "unitdp", WireName: "unitdp", Location: "query"}, {PublicName: "BankTransactions", WireName: "BankTransactions", Location: "body"}, {PublicName: "Warnings", WireName: "Warnings", Location: "body"}, {PublicName: "pagination-item-count", WireName: "itemCount", Location: "body", BodyPath: []string{"pagination", "itemCount"}}, {PublicName: "pagination-page", WireName: "page", Location: "body", BodyPath: []string{"pagination", "page"}}, {PublicName: "pagination-page-count", WireName: "pageCount", Location: "body", BodyPath: []string{"pagination", "pageCount"}}, {PublicName: "pagination-page-size", WireName: "pageSize", Location: "body", BodyPath: []string{"pagination", "pageSize"}}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("bank-transactions_history_create-bank-transaction-record",
@@ -195,7 +206,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("pagination-page-size", mcplib.Description("Page size")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/Contacts", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query"}, {PublicName: "Contacts", WireName: "Contacts", Location: "body"}, {PublicName: "Warnings", WireName: "Warnings", Location: "body"}, {PublicName: "pagination-item-count", WireName: "itemCount", Location: "body", BodyPath: []string{"pagination", "itemCount"}}, {PublicName: "pagination-page", WireName: "page", Location: "body", BodyPath: []string{"pagination", "page"}}, {PublicName: "pagination-page-count", WireName: "pageCount", Location: "body", BodyPath: []string{"pagination", "pageCount"}}, {PublicName: "pagination-page-size", WireName: "pageSize", Location: "body", BodyPath: []string{"pagination", "pageSize"}}}, []string{}),
+		makeAPIHandler("PUT", "/Contacts", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query", Default: "false"}, {PublicName: "Contacts", WireName: "Contacts", Location: "body"}, {PublicName: "Warnings", WireName: "Warnings", Location: "body"}, {PublicName: "pagination-item-count", WireName: "itemCount", Location: "body", BodyPath: []string{"pagination", "itemCount"}}, {PublicName: "pagination-page", WireName: "page", Location: "body", BodyPath: []string{"pagination", "page"}}, {PublicName: "pagination-page-count", WireName: "pageCount", Location: "body", BodyPath: []string{"pagination", "pageCount"}}, {PublicName: "pagination-page-size", WireName: "pageSize", Location: "body", BodyPath: []string{"pagination", "pageSize"}}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("contacts_get",
@@ -212,7 +223,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/Contacts", true, false, nil, []mcpParamBinding{{PublicName: "where", WireName: "where", Location: "query"}, {PublicName: "order", WireName: "order", Location: "query"}, {PublicName: "IDs", WireName: "IDs", Location: "query"}, {PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "includeArchived", WireName: "includeArchived", Location: "query"}, {PublicName: "summaryOnly", WireName: "summaryOnly", Location: "query"}, {PublicName: "searchTerm", WireName: "searchTerm", Location: "query"}, {PublicName: "pageSize", WireName: "pageSize", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/Contacts", true, false, nil, []mcpParamBinding{{PublicName: "where", WireName: "where", Location: "query"}, {PublicName: "order", WireName: "order", Location: "query"}, {PublicName: "IDs", WireName: "IDs", Location: "query"}, {PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "includeArchived", WireName: "includeArchived", Location: "query"}, {PublicName: "summaryOnly", WireName: "summaryOnly", Location: "query", Default: "false"}, {PublicName: "searchTerm", WireName: "searchTerm", Location: "query"}, {PublicName: "pageSize", WireName: "pageSize", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("contacts_get-by-number",
@@ -262,7 +273,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/Contacts", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query"}, {PublicName: "Contacts", WireName: "Contacts", Location: "body"}, {PublicName: "Warnings", WireName: "Warnings", Location: "body"}, {PublicName: "pagination-item-count", WireName: "itemCount", Location: "body", BodyPath: []string{"pagination", "itemCount"}}, {PublicName: "pagination-page", WireName: "page", Location: "body", BodyPath: []string{"pagination", "page"}}, {PublicName: "pagination-page-count", WireName: "pageCount", Location: "body", BodyPath: []string{"pagination", "pageCount"}}, {PublicName: "pagination-page-size", WireName: "pageSize", Location: "body", BodyPath: []string{"pagination", "pageSize"}}}, []string{}),
+		makeAPIHandler("POST", "/Contacts", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query", Default: "false"}, {PublicName: "Contacts", WireName: "Contacts", Location: "body"}, {PublicName: "Warnings", WireName: "Warnings", Location: "body"}, {PublicName: "pagination-item-count", WireName: "itemCount", Location: "body", BodyPath: []string{"pagination", "itemCount"}}, {PublicName: "pagination-page", WireName: "page", Location: "body", BodyPath: []string{"pagination", "page"}}, {PublicName: "pagination-page-count", WireName: "pageCount", Location: "body", BodyPath: []string{"pagination", "pageCount"}}, {PublicName: "pagination-page-size", WireName: "pageSize", Location: "body", BodyPath: []string{"pagination", "pageSize"}}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("contacts_history_create-contact",
@@ -296,7 +307,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("pagination-page-size", mcplib.Description("Page size")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/Invoices", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query"}, {PublicName: "unitdp", WireName: "unitdp", Location: "query"}, {PublicName: "Invoices", WireName: "Invoices", Location: "body"}, {PublicName: "Warnings", WireName: "Warnings", Location: "body"}, {PublicName: "pagination-item-count", WireName: "itemCount", Location: "body", BodyPath: []string{"pagination", "itemCount"}}, {PublicName: "pagination-page", WireName: "page", Location: "body", BodyPath: []string{"pagination", "page"}}, {PublicName: "pagination-page-count", WireName: "pageCount", Location: "body", BodyPath: []string{"pagination", "pageCount"}}, {PublicName: "pagination-page-size", WireName: "pageSize", Location: "body", BodyPath: []string{"pagination", "pageSize"}}}, []string{}),
+		makeAPIHandler("PUT", "/Invoices", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query", Default: "false"}, {PublicName: "unitdp", WireName: "unitdp", Location: "query"}, {PublicName: "Invoices", WireName: "Invoices", Location: "body"}, {PublicName: "Warnings", WireName: "Warnings", Location: "body"}, {PublicName: "pagination-item-count", WireName: "itemCount", Location: "body", BodyPath: []string{"pagination", "itemCount"}}, {PublicName: "pagination-page", WireName: "page", Location: "body", BodyPath: []string{"pagination", "page"}}, {PublicName: "pagination-page-count", WireName: "pageCount", Location: "body", BodyPath: []string{"pagination", "pageCount"}}, {PublicName: "pagination-page-size", WireName: "pageSize", Location: "body", BodyPath: []string{"pagination", "pageSize"}}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("invoices_get",
@@ -318,7 +329,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/Invoices", true, false, nil, []mcpParamBinding{{PublicName: "where", WireName: "where", Location: "query"}, {PublicName: "order", WireName: "order", Location: "query"}, {PublicName: "IDs", WireName: "IDs", Location: "query"}, {PublicName: "InvoiceNumbers", WireName: "InvoiceNumbers", Location: "query"}, {PublicName: "ContactIDs", WireName: "ContactIDs", Location: "query"}, {PublicName: "Statuses", WireName: "Statuses", Location: "query"}, {PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "includeArchived", WireName: "includeArchived", Location: "query"}, {PublicName: "createdByMyApp", WireName: "createdByMyApp", Location: "query"}, {PublicName: "unitdp", WireName: "unitdp", Location: "query"}, {PublicName: "summaryOnly", WireName: "summaryOnly", Location: "query"}, {PublicName: "pageSize", WireName: "pageSize", Location: "query"}, {PublicName: "searchTerm", WireName: "searchTerm", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/Invoices", true, false, nil, []mcpParamBinding{{PublicName: "where", WireName: "where", Location: "query"}, {PublicName: "order", WireName: "order", Location: "query"}, {PublicName: "IDs", WireName: "IDs", Location: "query"}, {PublicName: "InvoiceNumbers", WireName: "InvoiceNumbers", Location: "query"}, {PublicName: "ContactIDs", WireName: "ContactIDs", Location: "query"}, {PublicName: "Statuses", WireName: "Statuses", Location: "query"}, {PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "includeArchived", WireName: "includeArchived", Location: "query"}, {PublicName: "createdByMyApp", WireName: "createdByMyApp", Location: "query"}, {PublicName: "unitdp", WireName: "unitdp", Location: "query"}, {PublicName: "summaryOnly", WireName: "summaryOnly", Location: "query", Default: "false"}, {PublicName: "pageSize", WireName: "pageSize", Location: "query"}, {PublicName: "searchTerm", WireName: "searchTerm", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("invoices_get-invoiceid",
@@ -361,7 +372,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/Invoices", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query"}, {PublicName: "unitdp", WireName: "unitdp", Location: "query"}, {PublicName: "Invoices", WireName: "Invoices", Location: "body"}, {PublicName: "Warnings", WireName: "Warnings", Location: "body"}, {PublicName: "pagination-item-count", WireName: "itemCount", Location: "body", BodyPath: []string{"pagination", "itemCount"}}, {PublicName: "pagination-page", WireName: "page", Location: "body", BodyPath: []string{"pagination", "page"}}, {PublicName: "pagination-page-count", WireName: "pageCount", Location: "body", BodyPath: []string{"pagination", "pageCount"}}, {PublicName: "pagination-page-size", WireName: "pageSize", Location: "body", BodyPath: []string{"pagination", "pageSize"}}}, []string{}),
+		makeAPIHandler("POST", "/Invoices", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query", Default: "false"}, {PublicName: "unitdp", WireName: "unitdp", Location: "query"}, {PublicName: "Invoices", WireName: "Invoices", Location: "body"}, {PublicName: "Warnings", WireName: "Warnings", Location: "body"}, {PublicName: "pagination-item-count", WireName: "itemCount", Location: "body", BodyPath: []string{"pagination", "itemCount"}}, {PublicName: "pagination-page", WireName: "page", Location: "body", BodyPath: []string{"pagination", "page"}}, {PublicName: "pagination-page-count", WireName: "pageCount", Location: "body", BodyPath: []string{"pagination", "pageCount"}}, {PublicName: "pagination-page-size", WireName: "pageSize", Location: "body", BodyPath: []string{"pagination", "pageSize"}}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("invoices_history_create-invoice",
@@ -390,11 +401,11 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("Items", mcplib.Description("Items")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/Items", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query"}, {PublicName: "unitdp", WireName: "unitdp", Location: "query"}, {PublicName: "Items", WireName: "Items", Location: "body"}}, []string{}),
+		makeAPIHandler("PUT", "/Items", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query", Default: "false"}, {PublicName: "unitdp", WireName: "unitdp", Location: "query"}, {PublicName: "Items", WireName: "Items", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("items_delete",
-			mcplib.WithDescription("Permanently delete an inventory or sales/purchase item from the Xero organisation. Required: ItemID (the item's Xero GUID; resolve a human name to its id with items_list or the items name-resolution path first). Returns 204 No Content on success — there is no response body, so confirm by re-querying items_list. Destructive and irreversible: an item that has been used on invoices or transactions cannot be deleted and the API returns a 400. Prefer items_update to deactivate or amend an item; use this only when the item should be removed entirely."),
+			mcplib.WithDescription("Deletes a specific item. Required: ItemID. Destructive."),
 			mcplib.WithString("ItemID", mcplib.Required(), mcplib.Description("Unique identifier for an Item")),
 			mcplib.WithDestructiveHintAnnotation(true),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -444,7 +455,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/Items", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query"}, {PublicName: "unitdp", WireName: "unitdp", Location: "query"}, {PublicName: "Items", WireName: "Items", Location: "body"}}, []string{}),
+		makeAPIHandler("POST", "/Items", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query", Default: "false"}, {PublicName: "unitdp", WireName: "unitdp", Location: "query"}, {PublicName: "Items", WireName: "Items", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("items_history_create-item",
@@ -864,7 +875,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("pagination-page-size", mcplib.Description("Page size")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/Payments", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query"}, {PublicName: "Payments", WireName: "Payments", Location: "body"}, {PublicName: "Warnings", WireName: "Warnings", Location: "body"}, {PublicName: "pagination-item-count", WireName: "itemCount", Location: "body", BodyPath: []string{"pagination", "itemCount"}}, {PublicName: "pagination-page", WireName: "page", Location: "body", BodyPath: []string{"pagination", "page"}}, {PublicName: "pagination-page-count", WireName: "pageCount", Location: "body", BodyPath: []string{"pagination", "pageCount"}}, {PublicName: "pagination-page-size", WireName: "pageSize", Location: "body", BodyPath: []string{"pagination", "pageSize"}}}, []string{}),
+		makeAPIHandler("PUT", "/Payments", false, false, nil, []mcpParamBinding{{PublicName: "summarizeErrors", WireName: "summarizeErrors", Location: "query", Default: "false"}, {PublicName: "Payments", WireName: "Payments", Location: "body"}, {PublicName: "Warnings", WireName: "Warnings", Location: "body"}, {PublicName: "pagination-item-count", WireName: "itemCount", Location: "body", BodyPath: []string{"pagination", "itemCount"}}, {PublicName: "pagination-page", WireName: "page", Location: "body", BodyPath: []string{"pagination", "page"}}, {PublicName: "pagination-page-count", WireName: "pageCount", Location: "body", BodyPath: []string{"pagination", "pageCount"}}, {PublicName: "pagination-page-size", WireName: "pageSize", Location: "body", BodyPath: []string{"pagination", "pageSize"}}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("payments_delete",
@@ -933,7 +944,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -961,8 +972,36 @@ type mcpParamBinding struct {
 	WireName   string
 	Location   string
 	BodyPath   []string
+	Default    string
 }
 
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
 func setNestedBodyArg(body map[string]any, path []string, value any) {
 	if len(path) == 0 {
 		return
@@ -1021,13 +1060,17 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			knownArgs[binding.PublicName] = true
 			v, ok := args[binding.PublicName]
 			if !ok {
-				continue
+				if binding.Default != "" {
+					v = binding.Default
+				} else {
+					continue
+				}
 			}
 			switch binding.Location {
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				if len(binding.BodyPath) > 0 {
 					setNestedBodyArg(bodyArgs, binding.BodyPath, v)
@@ -1035,7 +1078,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 					bodyArgs[binding.WireName] = v
 				}
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -1045,7 +1088,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -1057,7 +1100,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "POST", "PUT", "PATCH":
 				bodyArgs[k] = v
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -1113,19 +1156,19 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key: export XERO_OAUTH2=<your-key>" +
+					"\n      Set one of: export XERO_ACCESS_TOKEN=\"your-token-here\" or export XERO_OAUTH2=\"your-token-here\"" +
 					"\n      See API docs: https://developer.xero.com" +
 					"\n      Run 'xero-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your token." +
-					"\n      Set it with: export XERO_OAUTH2=<your-key>" +
+					"\n      Set one of: export XERO_ACCESS_TOKEN=\"your-token-here\" or export XERO_OAUTH2=\"your-token-here\"" +
 					"\n      See API docs: https://developer.xero.com" +
 					"\n      Run 'xero-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: your credentials are valid but lack access to this resource." +
-					"\n      Set it with: export XERO_OAUTH2=<your-key>" +
+					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
+					"\n      Set one of: export XERO_ACCESS_TOKEN=\"your-token-here\" or export XERO_OAUTH2=\"your-token-here\"" +
 					"\n      See API docs: https://developer.xero.com" +
 					"\n      Run 'xero-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
@@ -1140,21 +1183,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -1163,8 +1191,129 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
@@ -1174,7 +1323,7 @@ func newMCPClient() (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -1223,22 +1372,27 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -1270,6 +1424,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -1337,7 +1582,7 @@ func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
 func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	ctx := map[string]any{
 		"api":         "xero",
-		"description": "Printing Press CLI for Xero.",
+		"description": "Every Xero Accounting read plus a local SQLite ledger — aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
 		"archetype":   "payments",
 		"tool_count":  45,
 		// tool_surface tells agents which surface a capability lives on.
@@ -1346,9 +1591,16 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			"type": "bearer_token",
 			"env_vars": []map[string]any{
 				{
+					"name":        "XERO_ACCESS_TOKEN",
+					"kind":        "per_call",
+					"required":    false,
+					"sensitive":   true,
+					"description": "Set to your API credential.",
+				},
+				{
 					"name":        "XERO_OAUTH2",
 					"kind":        "per_call",
-					"required":    true,
+					"required":    false,
 					"sensitive":   true,
 					"description": "Set to your API credential.",
 				},
@@ -1416,24 +1668,24 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "AR/AP aging buckets", "command": "aging", "description": "Bucket outstanding invoices into current / 1-30 / 31-60 / 61-90 / 90+ days overdue with totals per bucket", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Payment reconciliation gaps", "command": "reconcile", "description": "Cross-join invoices and payments locally to surface AUTHORISED invoices with an amount still due and no (or partial)", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Bank reconciliation prep", "command": "bank-recon", "description": "List bank transactions still flagged unreconciled and match them to invoices and payments by contact and exact amount", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "GL-to-invoice tie-out", "command": "tie-out", "description": "Sum the immutable journal lines by account code and compare the receivable/payable control-account totals against the", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Immutable GL ledger walk", "command": "ledger", "description": "Replay the immutable journals feed for one account code as an ordered running-balance statement (date, journal number", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "What changed since sync", "command": "since", "description": "List records across every synced entity whose last-modified timestamp is newer than a given time", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Top-contact AR exposure", "command": "exposure", "description": "Rank contacts by total outstanding amount due across their authorised invoices, with an overdue split and invoice count", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Offline org snapshot", "command": "snapshot", "description": "One offline call returning total receivable and payable outstanding, overdue count, unreconciled bank-transaction count", "rationale": "", "via": "mcp-command-mirror"},
+			{"name": "AR/AP aging buckets", "command": "aging", "description": "Bucket outstanding invoices into current / 1-30 / 31-60 / 61-90 / 90+ days overdue with totals per bucket, computed locally from your synced ledger.", "rationale": "Xero has no aging view without exporting and pivoting, and the Reports API is out of scope — this is a pure local aggregation over the synced invoices table that no single Xero call returns.", "via": "mcp-command-mirror"},
+			{"name": "Payment reconciliation gaps", "command": "reconcile", "description": "Cross-join invoices and payments locally to surface AUTHORISED invoices with an amount still due and no (or partial) applied payment, plus payments not fully applied.", "rationale": "The reconciliation gap between what an invoice says is owed and what payments were actually applied is impossible to see in one Xero API call — it requires joining the invoices and payments tables.", "via": "mcp-command-mirror"},
+			{"name": "Bank reconciliation prep", "command": "bank-recon", "description": "List bank transactions still flagged unreconciled and match them to invoices and payments by contact and exact amount to suggest likely reconciliation matches.", "rationale": "Uses the real synced IsReconciled flag and a cross-entity contact+amount match that no single Xero endpoint performs within the accounting scope.", "via": "mcp-command-mirror"},
+			{"name": "GL-to-invoice tie-out", "command": "tie-out", "description": "Sum the immutable journal lines by account code and compare the receivable/payable control-account totals against the sum of outstanding invoice amounts, reporting the variance.", "rationale": "Ties the immutable double-entry general ledger to the source documents — the general ledger is the independent oracle, so this is a real audit join, not a self-graded restatement.", "via": "mcp-command-mirror"},
+			{"name": "Immutable GL ledger walk", "command": "ledger", "description": "Replay the immutable journals feed for one account code as an ordered running-balance statement (date, journal number, debit, credit, running balance), entirely offline.", "rationale": "Reconstructs a running-balance account statement from the read-only general-ledger feed that Xero exposes only as a paginated, balance-less list.", "via": "mcp-command-mirror"},
+			{"name": "What changed since sync", "command": "since", "description": "List records across every synced entity whose last-modified timestamp is newer than a given time, read entirely from the local store's sync cursor with zero API calls.", "rationale": "Reads the If-Modified-Since-driven sync cursor and modified timestamps already in the local store — the delta an agent polls without re-fetching unchanged records.", "via": "mcp-command-mirror"},
+			{"name": "Top-contact AR exposure", "command": "exposure", "description": "Rank contacts by total outstanding amount due across their authorised invoices, with an overdue split and invoice count; drill into one contact for a running-balance statement.", "rationale": "Joins invoices to contacts and groups by contact — a ranked exposure view no Xero endpoint, SDK method, or endpoint-mirroring MCP returns.", "via": "mcp-command-mirror"},
+			{"name": "Offline org snapshot", "command": "snapshot", "description": "One offline call returning total receivable and payable outstanding, overdue count, unreconciled bank-transaction count, and per-table sync staleness as a single structured object.", "rationale": "Composes cross-table aggregates and the local sync-staleness cursor into one agent-shaped object, replacing several API round-trips.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
-			{"topic": "AR/AP aging buckets", "insight": ""},
-			{"topic": "Payment reconciliation gaps", "insight": ""},
-			{"topic": "Bank reconciliation prep", "insight": ""},
-			{"topic": "GL-to-invoice tie-out", "insight": ""},
-			{"topic": "Immutable GL ledger walk", "insight": ""},
-			{"topic": "What changed since sync", "insight": ""},
-			{"topic": "Top-contact AR exposure", "insight": ""},
-			{"topic": "Offline org snapshot", "insight": ""},
+			{"topic": "AR/AP aging buckets", "insight": "Xero has no aging view without exporting and pivoting, and the Reports API is out of scope — this is a pure local aggregation over the synced invoices table that no single Xero call returns."},
+			{"topic": "Payment reconciliation gaps", "insight": "The reconciliation gap between what an invoice says is owed and what payments were actually applied is impossible to see in one Xero API call — it requires joining the invoices and payments tables."},
+			{"topic": "Bank reconciliation prep", "insight": "Uses the real synced IsReconciled flag and a cross-entity contact+amount match that no single Xero endpoint performs within the accounting scope."},
+			{"topic": "GL-to-invoice tie-out", "insight": "Ties the immutable double-entry general ledger to the source documents — the general ledger is the independent oracle, so this is a real audit join, not a self-graded restatement."},
+			{"topic": "Immutable GL ledger walk", "insight": "Reconstructs a running-balance account statement from the read-only general-ledger feed that Xero exposes only as a paginated, balance-less list."},
+			{"topic": "What changed since sync", "insight": "Reads the If-Modified-Since-driven sync cursor and modified timestamps already in the local store — the delta an agent polls without re-fetching unchanged records."},
+			{"topic": "Top-contact AR exposure", "insight": "Joins invoices to contacts and groups by contact — a ranked exposure view no Xero endpoint, SDK method, or endpoint-mirroring MCP returns."},
+			{"topic": "Offline org snapshot", "insight": "Composes cross-table aggregates and the local sync-staleness cursor into one agent-shaped object, replacing several API round-trips."},
 			{"topic": "Financial data", "insight": "Always use read-only operations for financial queries. Never use create/update tools for payment data without explicit user confirmation."},
 			{"topic": "Reconciliation", "insight": "For reconciliation tasks, sync first then use sql for cross-referencing. API pagination over financial records is slow and rate-limited."},
 		},

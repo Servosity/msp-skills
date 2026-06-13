@@ -16,7 +16,7 @@ func newSchedulesOverridesGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <id> <override_id>",
 		Short:       "<!",
-		Example:     "  pagerduty-cli schedules overrides get 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pagerduty-cli schedules overrides get PSJUKNI AGO4642RBB5RBGG65Q6I5X34VI",
 		Annotations: map[string]string{"pp:endpoint": "overrides.get", "pp:method": "GET", "pp:path": "/v3/schedules/{id}/overrides/{override_id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

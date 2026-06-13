@@ -100,7 +100,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export AXCIENT_API_KEY=<your-key>"
+					report["auth_hint"] = "Set your API key with: export AXCIENT_API_KEY=\"your-token-here\""
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"
@@ -204,7 +204,6 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						authParams := map[string]string{}
 						authHeaders := map[string]string{}
 						authHeaders["X-Api-Key"] = authHeader
-						authHeaders["User-Agent"] = "axcient-cli"
 						verifyPath := "/user"
 						if !strings.HasPrefix(verifyPath, "/") {
 							verifyPath = "/" + verifyPath

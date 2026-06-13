@@ -60,12 +60,12 @@ func newOrganizationsGetV1Cmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/organizations"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "organizations", path, map[string]string{
-				"limit":          fmt.Sprintf("%v", flagLimit),
-				"page_token":     fmt.Sprintf("%v", flagPageToken),
-				"sort_field":     fmt.Sprintf("%v", flagSortField),
-				"sort_direction": fmt.Sprintf("%v", flagSortDirection),
-				"name":           fmt.Sprintf("%v", flagName),
-				"key":            fmt.Sprintf("%v", flagKey),
+				"limit":          formatCLIParamValue(flagLimit),
+				"page_token":     formatCLIParamValue(flagPageToken),
+				"sort_field":     formatCLIParamValue(flagSortField),
+				"sort_direction": formatCLIParamValue(flagSortDirection),
+				"name":           formatCLIParamValue(flagName),
+				"key":            formatCLIParamValue(flagKey),
 			}, nil, flagAll, "page_token", "page_token", "limit", "nextPageToken", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

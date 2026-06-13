@@ -20,7 +20,7 @@ func newPaymentsHistoryCreatePaymentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-payment <PaymentID>",
 		Aliases:     []string{"update"},
 		Short:       "Creates a history record for a specific payment",
-		Example:     "  xero-cli payments history create-payment 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  xero-cli payments history create-payment 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "history.create-payment", "pp:method": "PUT", "pp:path": "/Payments/{PaymentID}/History"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"kaseya-bms-pp-cli/internal/store"
 )
 
 type contractBurnItem struct {
@@ -210,7 +209,7 @@ contract period elapsed from the synced contract summary.`, "\n"),
 			if dbPath == "" {
 				dbPath = defaultDBPath("kaseya-bms-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := kbmsOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening database: %w", err)
 			}

@@ -40,25 +40,25 @@ func newExecSamsetupPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecSAMSetup"
 			params := map[string]string{}
 			if flagCheckSetupProcess != "" {
-				params["CheckSetupProcess"] = fmt.Sprintf("%v", flagCheckSetupProcess)
+				params["CheckSetupProcess"] = formatCLIParamValue(flagCheckSetupProcess)
 			}
 			if flagCode != "" {
-				params["code"] = fmt.Sprintf("%v", flagCode)
+				params["code"] = formatCLIParamValue(flagCode)
 			}
 			if flagCount != "" {
-				params["count"] = fmt.Sprintf("%v", flagCount)
+				params["count"] = formatCLIParamValue(flagCount)
 			}
 			if flagCreateSAM != "" {
-				params["CreateSAM"] = fmt.Sprintf("%v", flagCreateSAM)
+				params["CreateSAM"] = formatCLIParamValue(flagCreateSAM)
 			}
 			if flagError != "" {
-				params["error"] = fmt.Sprintf("%v", flagError)
+				params["error"] = formatCLIParamValue(flagError)
 			}
 			if flagErrorDescription != "" {
-				params["error_description"] = fmt.Sprintf("%v", flagErrorDescription)
+				params["error_description"] = formatCLIParamValue(flagErrorDescription)
 			}
 			if flagStep != "" {
-				params["step"] = fmt.Sprintf("%v", flagStep)
+				params["step"] = formatCLIParamValue(flagStep)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -82,10 +82,10 @@ func newExecSamsetupPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

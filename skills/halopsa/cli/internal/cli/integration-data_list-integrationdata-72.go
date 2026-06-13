@@ -31,10 +31,10 @@ func newIntegrationDataListIntegrationdata72Cmd(flags *rootFlags) *cobra.Command
 
 			path := "/IntegrationData/Get/Qualys"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", path, map[string]string{
-				"mappingid": fmt.Sprintf("%v", flagMappingid),
-				"offset":    fmt.Sprintf("%v", flagOffset),
-				"paginate":  fmt.Sprintf("%v", flagPaginate),
-				"resource":  fmt.Sprintf("%v", flagResource),
+				"mappingid": formatCLIParamValue(flagMappingid),
+				"offset":    formatCLIParamValue(flagOffset),
+				"paginate":  formatCLIParamValue(flagPaginate),
+				"resource":  formatCLIParamValue(flagResource),
 			}, nil, flagAll, "offset", "offset", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

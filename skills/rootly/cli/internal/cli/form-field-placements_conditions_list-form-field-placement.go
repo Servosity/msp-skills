@@ -36,10 +36,10 @@ func newFormFieldPlacementsConditionsListFormFieldPlacementCmd(flags *rootFlags)
 			path := "/v1/form_field_placements/{form_field_placement_id}/conditions"
 			path = replacePathParam(path, "form_field_placement_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "conditions", path, map[string]string{
-				"include":               fmt.Sprintf("%v", flagInclude),
-				"page[number]":          fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":            fmt.Sprintf("%v", flagPageSize),
-				"filter[form_field_id]": fmt.Sprintf("%v", flagFilterFormFieldId),
+				"include":               formatCLIParamValue(flagInclude),
+				"page[number]":          formatCLIParamValue(flagPageNumber),
+				"page[size]":            formatCLIParamValue(flagPageSize),
+				"filter[form_field_id]": formatCLIParamValue(flagFilterFormFieldId),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

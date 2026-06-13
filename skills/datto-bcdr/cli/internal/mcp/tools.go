@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +23,15 @@ import (
 	"datto-bcdr-pp-cli/internal/store"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+)
+
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
 )
 
 // RegisterTools registers all API operations as MCP tools.
@@ -35,7 +46,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/bcdr/device/{serialNumber}/asset/agent", true, false, nil, []mcpParamBinding{{PublicName: "serial", WireName: "serialNumber", Location: "path"}, {PublicName: "page", WireName: "_page", Location: "query"}, {PublicName: "per-page", WireName: "_perPage", Location: "query"}}, []string{"serialNumber"}),
+		makeAPIHandler("GET", "/bcdr/device/{serialNumber}/asset/agent", true, false, nil, []mcpParamBinding{{PublicName: "serial", WireName: "serialNumber", Location: "path"}, {PublicName: "page", WireName: "_page", Location: "query", Default: "1"}, {PublicName: "per-page", WireName: "_perPage", Location: "query", Default: "100"}}, []string{"serialNumber"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("agent_list",
@@ -46,7 +57,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/bcdr/agent", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "_page", Location: "query"}, {PublicName: "per-page", WireName: "_perPage", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/bcdr/agent", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "_page", Location: "query", Default: "1"}, {PublicName: "per-page", WireName: "_perPage", Location: "query", Default: "100"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("alert_list",
@@ -58,7 +69,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/bcdr/device/{serialNumber}/alert", true, false, nil, []mcpParamBinding{{PublicName: "serial", WireName: "serialNumber", Location: "path"}, {PublicName: "page", WireName: "_page", Location: "query"}, {PublicName: "per-page", WireName: "_perPage", Location: "query"}}, []string{"serialNumber"}),
+		makeAPIHandler("GET", "/bcdr/device/{serialNumber}/alert", true, false, nil, []mcpParamBinding{{PublicName: "serial", WireName: "serialNumber", Location: "path"}, {PublicName: "page", WireName: "_page", Location: "query", Default: "1"}, {PublicName: "per-page", WireName: "_perPage", Location: "query", Default: "100"}}, []string{"serialNumber"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("asset_get",
@@ -81,7 +92,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/bcdr/device/{serialNumber}/asset", true, false, nil, []mcpParamBinding{{PublicName: "serial", WireName: "serialNumber", Location: "path"}, {PublicName: "page", WireName: "_page", Location: "query"}, {PublicName: "per-page", WireName: "_perPage", Location: "query"}}, []string{"serialNumber"}),
+		makeAPIHandler("GET", "/bcdr/device/{serialNumber}/asset", true, false, nil, []mcpParamBinding{{PublicName: "serial", WireName: "serialNumber", Location: "path"}, {PublicName: "page", WireName: "_page", Location: "query", Default: "1"}, {PublicName: "per-page", WireName: "_perPage", Location: "query", Default: "100"}}, []string{"serialNumber"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("device_get",
@@ -104,7 +115,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/bcdr/device", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "_page", Location: "query"}, {PublicName: "per-page", WireName: "_perPage", Location: "query"}, {PublicName: "show-hidden", WireName: "showHiddenDevices", Location: "query"}, {PublicName: "show-child-reseller", WireName: "showChildResellerDevices", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/bcdr/device", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "_page", Location: "query", Default: "1"}, {PublicName: "per-page", WireName: "_perPage", Location: "query", Default: "100"}, {PublicName: "show-hidden", WireName: "showHiddenDevices", Location: "query"}, {PublicName: "show-child-reseller", WireName: "showChildResellerDevices", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("shares_list",
@@ -116,7 +127,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/bcdr/device/{serialNumber}/asset/share", true, false, nil, []mcpParamBinding{{PublicName: "serial", WireName: "serialNumber", Location: "path"}, {PublicName: "page", WireName: "_page", Location: "query"}, {PublicName: "per-page", WireName: "_perPage", Location: "query"}}, []string{"serialNumber"}),
+		makeAPIHandler("GET", "/bcdr/device/{serialNumber}/asset/share", true, false, nil, []mcpParamBinding{{PublicName: "serial", WireName: "serialNumber", Location: "path"}, {PublicName: "page", WireName: "_page", Location: "query", Default: "1"}, {PublicName: "per-page", WireName: "_perPage", Location: "query", Default: "100"}}, []string{"serialNumber"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("vm-restore_list",
@@ -143,7 +154,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -170,6 +181,35 @@ type mcpParamBinding struct {
 	PublicName string
 	WireName   string
 	Location   string
+	Default    string
+}
+
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // makeAPIHandler creates a generic MCP tool handler for an API endpoint.
@@ -210,17 +250,21 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			knownArgs[binding.PublicName] = true
 			v, ok := args[binding.PublicName]
 			if !ok {
-				continue
+				if binding.Default != "" {
+					v = binding.Default
+				} else {
+					continue
+				}
 			}
 			switch binding.Location {
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				bodyArgs[binding.WireName] = v
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -230,7 +274,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -242,7 +286,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "POST", "PUT", "PATCH":
 				bodyArgs[k] = v
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -298,17 +342,17 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key: export DATTO_BCDR_PUBLIC_KEY=<your-key>" +
+					"\n      Set Basic credentials with: export DATTO_BCDR_PUBLIC_KEY=\"your-token-here\" DATTO_BCDR_SECRET_KEY=\"your-token-here\"" +
 					"\n      Run 'datto-bcdr-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: check your API key." +
-					"\n      Set it with: export DATTO_BCDR_PUBLIC_KEY=<your-key>" +
+					"\nhint: check your Basic credentials." +
+					"\n      Set Basic credentials with: export DATTO_BCDR_PUBLIC_KEY=\"your-token-here\" DATTO_BCDR_SECRET_KEY=\"your-token-here\"" +
 					"\n      Run 'datto-bcdr-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: your credentials are valid but lack access to this resource." +
-					"\n      Set it with: export DATTO_BCDR_PUBLIC_KEY=<your-key>" +
+					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
+					"\n      Set Basic credentials with: export DATTO_BCDR_PUBLIC_KEY=\"your-token-here\" DATTO_BCDR_SECRET_KEY=\"your-token-here\"" +
 					"\n      Run 'datto-bcdr-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
 				if method == "DELETE" {
@@ -322,21 +366,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -345,8 +374,129 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
@@ -356,7 +506,7 @@ func newMCPClient() (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -405,22 +555,27 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -452,6 +607,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -519,7 +765,7 @@ func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
 func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	ctx := map[string]any{
 		"api":         "datto-bcdr",
-		"description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't",
+		"description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk.",
 		"archetype":   "content",
 		"tool_count":  9,
 		// tool_surface tells agents which surface a capability lives on.
@@ -593,15 +839,15 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "Fleet Screenshot Failures", "command": "screenshots", "description": "See every protected machine whose last backup-bootability screenshot failed, across your entire fleet", "rationale": "Only possible because the last screenshot-verification status for every agent on every device lives in one local store", "via": "mcp-command-mirror"},
-			{"name": "Client Risk Roll-up", "command": "client-risk", "description": "Per-client risk scorecard that rolls up screenshot failures, stale backups, open alerts, storage pressure", "rationale": "Only the local store can group devices, agents, and alerts by client company and compute a composite score", "via": "mcp-command-mirror"},
-			{"name": "Stale Backup Detector", "command": "stale-backups", "description": "Find every agent whose last local snapshot or last offsite sync is older than a threshold", "rationale": "Requires a time-window comparison of last-snapshot and last-offsite epochs joined across every device in the store — no", "via": "mcp-command-mirror"},
-			{"name": "Orphaned & Paused Assets", "command": "forgotten-assets", "description": "List agents that are paused or archived and devices that haven't checked in recently, across the whole fleet", "rationale": "Needs a fleet-wide scan of isPaused and isArchived across all agents joined to device last-seen dates", "via": "mcp-command-mirror"},
-			{"name": "Per-Client Recoverability Report", "command": "client-report", "description": "One QBR-ready health report for a single client: devices, agents, screenshot pass rate, stale backups", "rationale": "Requires a client-scoped join across devices, agents, screenshot status", "via": "mcp-command-mirror"},
-			{"name": "Fleet Recoverability Scorecard", "command": "recoverability", "description": "One headline KPI", "rationale": "Joins screenshot-verification status AND backup recency across every agent in the local store into a single verifiable", "via": "mcp-command-mirror"},
-			{"name": "Fleet Alert Triage", "command": "alert-triage", "description": "Every open alert across the whole fleet in one ranked view, grouped by client and device", "rationale": "Fans per-device alert lists into one local table and groups by client and severity — the API only serves alerts for one", "via": "mcp-command-mirror"},
-			{"name": "Storage Runway Forecast", "command": "storage-runway", "description": "Rank every appliance by remaining local and offsite storage and flag the devices and clients closest to running out of", "rationale": "Requires aggregating per-device storage fields across the whole fleet and sorting by headroom — the API exposes storage", "via": "mcp-command-mirror"},
-			{"name": "Outdated Agent Fleet Audit", "command": "agent-versions", "description": "Audit agent software versions across the entire fleet and flag every machine running an outdated agent", "rationale": "Requires computing the fleet's prevailing and newest agent version and joining every lagging agent back to its device", "via": "mcp-command-mirror"},
+			{"name": "Fleet Screenshot Failures", "command": "screenshots", "description": "See every protected machine whose last backup-bootability screenshot failed, across your entire fleet, ranked by how long it's been failing and grouped by client.", "rationale": "Only possible because the last screenshot-verification status for every agent on every device lives in one local store; the Datto API returns this per-device only.", "via": "mcp-command-mirror"},
+			{"name": "Client Risk Roll-up", "command": "client-risk", "description": "Per-client risk scorecard that rolls up screenshot failures, stale backups, open alerts, storage pressure, and warranty status into one ranked list of which clients are most at risk.", "rationale": "Only the local store can group devices, agents, and alerts by client company and compute a composite score; the API has no concept of a client rollup.", "via": "mcp-command-mirror"},
+			{"name": "Stale Backup Detector", "command": "stale-backups", "description": "Find every agent whose last local snapshot or last offsite sync is older than a threshold, across all devices and clients at once.", "rationale": "Requires a time-window comparison of last-snapshot and last-offsite epochs joined across every device in the store — no single Datto call spans the fleet.", "via": "mcp-command-mirror"},
+			{"name": "Orphaned & Paused Assets", "command": "forgotten-assets", "description": "List agents that are paused or archived and devices that haven't checked in recently, across the whole fleet, so silently-unprotected machines and dead appliances get caught.", "rationale": "Needs a fleet-wide scan of isPaused and isArchived across all agents joined to device last-seen dates; the API only reveals paused state per device you already know to ask about.", "via": "mcp-command-mirror"},
+			{"name": "Per-Client Recoverability Report", "command": "client-report", "description": "One QBR-ready health report for a single client: devices, agents, screenshot pass rate, stale backups, and open alerts in one bundled view.", "rationale": "Requires a client-scoped join across devices, agents, screenshot status, and alerts that only exists together in the local store; the API and Portal organize by appliance serial, not client.", "via": "mcp-command-mirror"},
+			{"name": "Fleet Recoverability Scorecard", "command": "recoverability", "description": "One headline KPI: the percentage of fleet agents whose latest recovery point is both fresh and screenshot-verified bootable, with a breakdown of what drags it down.", "rationale": "Joins screenshot-verification status AND backup recency across every agent in the local store into a single verifiable metric — no Datto endpoint scores the fleet.", "via": "mcp-command-mirror"},
+			{"name": "Fleet Alert Triage", "command": "alert-triage", "description": "Every open alert across the whole fleet in one ranked view, grouped by client and device, instead of pulling alerts one appliance at a time.", "rationale": "Fans per-device alert lists into one local table and groups by client and severity — the API only serves alerts for one serial number at a time.", "via": "mcp-command-mirror"},
+			{"name": "Storage Runway Forecast", "command": "storage-runway", "description": "Rank every appliance by remaining local and offsite storage and flag the devices and clients closest to running out of capacity.", "rationale": "Requires aggregating per-device storage fields across the whole fleet and sorting by headroom — the API exposes storage one device at a time with no fleet ranking.", "via": "mcp-command-mirror"},
+			{"name": "Outdated Agent Fleet Audit", "command": "agent-versions", "description": "Audit agent software versions across the entire fleet and flag every machine running an outdated agent, grouped by client and device.", "rationale": "Requires computing the fleet's prevailing and newest agent version and joining every lagging agent back to its device and client — a cross-device comparison no single endpoint performs.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
 			{"topic": "Fleet Screenshot Failures", "insight": "Only possible because the last screenshot-verification status for every agent on every device lives in one local store; the Datto API returns this per-device only."},

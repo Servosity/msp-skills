@@ -33,11 +33,11 @@ func newBankTransactionsGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/BankTransactions"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "bank-transactions", path, map[string]string{
-				"where":    fmt.Sprintf("%v", flagWhere),
-				"order":    fmt.Sprintf("%v", flagOrder),
-				"page":     fmt.Sprintf("%v", flagPage),
-				"unitdp":   fmt.Sprintf("%v", flagUnitdp),
-				"pageSize": fmt.Sprintf("%v", flagPageSize),
+				"where":    formatCLIParamValue(flagWhere),
+				"order":    formatCLIParamValue(flagOrder),
+				"page":     formatCLIParamValue(flagPage),
+				"unitdp":   formatCLIParamValue(flagUnitdp),
+				"pageSize": formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "page", "page", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

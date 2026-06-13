@@ -30,13 +30,13 @@ func newChatMessageListCmd(flags *rootFlags) *cobra.Command {
 			path := "/ChatMessage"
 			params := map[string]string{}
 			if flagChatId != "" {
-				params["chat_id"] = fmt.Sprintf("%v", flagChatId)
+				params["chat_id"] = formatCLIParamValue(flagChatId)
 			}
 			if flagLastId != "" {
-				params["last_id"] = fmt.Sprintf("%v", flagLastId)
+				params["last_id"] = formatCLIParamValue(flagLastId)
 			}
 			if flagMaxId != "" {
-				params["max_id"] = fmt.Sprintf("%v", flagMaxId)
+				params["max_id"] = formatCLIParamValue(flagMaxId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "chat-message", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

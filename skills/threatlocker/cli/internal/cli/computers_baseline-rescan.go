@@ -17,8 +17,9 @@ func newComputersBaselineRescanCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "baseline-rescan",
-		Short:       "Restart Baseline (learning) on computers",
+		Use:   "baseline-rescan",
+		Short: "Restart Baseline (learning) on computers",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  threatlocker-cli computers baseline-rescan --computer-ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "computers.baseline-rescan", "pp:method": "POST", "pp:path": "/Computer/ComputerUpdateBaselineRescan"},
 		RunE: func(cmd *cobra.Command, args []string) error {

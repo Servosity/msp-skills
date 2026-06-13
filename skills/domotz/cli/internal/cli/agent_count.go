@@ -29,10 +29,10 @@ func newAgentCountCmd(flags *rootFlags) *cobra.Command {
 			path := "/agent"
 			params := map[string]string{}
 			if flagDisplayName != "" {
-				params["display_name"] = fmt.Sprintf("%v", flagDisplayName)
+				params["display_name"] = formatCLIParamValue(flagDisplayName)
 			}
 			if flagTeamName != "" {
-				params["team_name"] = fmt.Sprintf("%v", flagTeamName)
+				params["team_name"] = formatCLIParamValue(flagTeamName)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "agent", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

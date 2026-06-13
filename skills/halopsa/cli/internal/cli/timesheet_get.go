@@ -33,10 +33,10 @@ func newTimesheetGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagAgentId != "" {
-				params["agent_id"] = fmt.Sprintf("%v", flagAgentId)
+				params["agent_id"] = formatCLIParamValue(flagAgentId)
 			}
 			if flagDate != "" {
-				params["date"] = fmt.Sprintf("%v", flagDate)
+				params["date"] = formatCLIParamValue(flagDate)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "timesheet", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

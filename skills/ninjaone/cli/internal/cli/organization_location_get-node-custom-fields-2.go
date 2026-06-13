@@ -36,7 +36,7 @@ func newOrganizationLocationGetNodeCustomFields2Cmd(flags *rootFlags) *cobra.Com
 			path = replacePathParam(path, "locationId", args[1])
 			params := map[string]string{}
 			if flagWithInheritance != false {
-				params["withInheritance"] = fmt.Sprintf("%v", flagWithInheritance)
+				params["withInheritance"] = formatCLIParamValue(flagWithInheritance)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "location", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

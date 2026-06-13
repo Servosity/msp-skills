@@ -29,10 +29,10 @@ func newProductListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Product"
 			params := map[string]string{}
 			if flagDevopsInstance != 0 {
-				params["devops_instance"] = fmt.Sprintf("%v", flagDevopsInstance)
+				params["devops_instance"] = formatCLIParamValue(flagDevopsInstance)
 			}
 			if flagThirdPartyOnly != false {
-				params["third_party_only"] = fmt.Sprintf("%v", flagThirdPartyOnly)
+				params["third_party_only"] = formatCLIParamValue(flagThirdPartyOnly)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "product", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

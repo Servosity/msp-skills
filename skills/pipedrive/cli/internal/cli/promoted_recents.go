@@ -55,10 +55,10 @@ func newRecentsPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/recents"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "recents", path, map[string]string{
-				"since_timestamp": fmt.Sprintf("%v", flagSinceTimestamp),
-				"items":           fmt.Sprintf("%v", flagItems),
-				"start":           fmt.Sprintf("%v", flagStart),
-				"limit":           fmt.Sprintf("%v", flagLimit),
+				"since_timestamp": formatCLIParamValue(flagSinceTimestamp),
+				"items":           formatCLIParamValue(flagItems),
+				"start":           formatCLIParamValue(flagStart),
+				"limit":           formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

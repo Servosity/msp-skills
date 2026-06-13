@@ -35,10 +35,10 @@ func newServicedeskGetTicketLogsCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/servicedesk/tickets/{ticketId}/auditlogs"
 			path = replacePathParam(path, "ticketId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "servicedesk", path, map[string]string{
-				"PageSize":   fmt.Sprintf("%v", flagPageSize),
-				"PageNumber": fmt.Sprintf("%v", flagPageNumber),
-				"Sort":       fmt.Sprintf("%v", flagSort),
-				"Exclude":    fmt.Sprintf("%v", flagExclude),
+				"PageSize":   formatCLIParamValue(flagPageSize),
+				"PageNumber": formatCLIParamValue(flagPageNumber),
+				"Sort":       formatCLIParamValue(flagSort),
+				"Exclude":    formatCLIParamValue(flagExclude),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

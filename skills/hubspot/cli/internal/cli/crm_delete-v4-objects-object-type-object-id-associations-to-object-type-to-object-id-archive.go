@@ -14,8 +14,9 @@ import (
 func newCrmDeleteV4ObjectsObjectTypeObjectIdAssociationsToObjectTypeToObjectIdArchiveCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "delete-v4-objects-object-type-object-id-associations-to-object-type-to-object-id-archive <objectId> <objectType> <toObjectId> <toObjectType>",
-		Short:       "deletes all associations between two records.",
+		Use:   "delete-v4-objects-object-type-object-id-associations-to-object-type-to-object-id-archive <objectId> <objectType> <toObjectId> <toObjectType>",
+		Short: "deletes all associations between two records.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli crm delete-v4-objects-object-type-object-id-associations-to-object-type-to-object-id-archive 550e8400-e29b-41d4-a716-446655440000 example-value 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "crm.delete-v4-objects-object-type-object-id-associations-to-object-type-to-object-id-archive", "pp:method": "DELETE", "pp:path": "/crm/v4/objects/{objectType}/{objectId}/associations/{toObjectType}/{toObjectId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

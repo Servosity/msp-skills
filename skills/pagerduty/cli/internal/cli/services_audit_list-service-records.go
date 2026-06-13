@@ -22,7 +22,7 @@ func newServicesAuditListServiceRecordsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "list-service-records <id>",
 		Aliases:     []string{"get"},
 		Short:       "The returned records are sorted by the `execution_time` from newest to oldest.",
-		Example:     "  pagerduty-cli services audit list-service-records 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pagerduty-cli services audit list-service-records P2LJD7G",
 		Annotations: map[string]string{"pp:endpoint": "audit.list-service-records", "pp:method": "GET", "pp:path": "/services/{id}/audit/records", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -36,10 +36,10 @@ func newServicesAuditListServiceRecordsCmd(flags *rootFlags) *cobra.Command {
 			path := "/services/{id}/audit/records"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "audit", path, map[string]string{
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"cursor": fmt.Sprintf("%v", flagCursor),
-				"since":  fmt.Sprintf("%v", flagSince),
-				"until":  fmt.Sprintf("%v", flagUntil),
+				"limit":  formatCLIParamValue(flagLimit),
+				"cursor": formatCLIParamValue(flagCursor),
+				"since":  formatCLIParamValue(flagSince),
+				"until":  formatCLIParamValue(flagUntil),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

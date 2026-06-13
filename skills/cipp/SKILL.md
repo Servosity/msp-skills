@@ -1,6 +1,6 @@
 ---
 name: cipp
-description: "Use when the user asks to roll up Microsoft 365 posture across all their CIPP tenants (MFA, Conditional Access, Standards, BPA), find unused M365 licenses, flag stale accounts, detect security-baseline drift, fan one read out across every client tenant, or drive bulk user changes from a CSV. The first single-binary CLI and MCP server for CIPP (CyberDrain Improved Partner Portal) we could find (June 2026): cross-tenant fan-out, an offline SQLite store, and fleet rollups the one-tenant-at-a-time portal never renders. Trigger phrases: `check MFA across all my tenants`, `find unused M365 licenses`, `offboard users from a CSV in CIPP`, `which tenants drifted off baseline`, `list CIPP tenants`, `use cipp`, `run cipp-cli`."
+description: "First single-binary CLI for CIPP  -  offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has. Trigger phrases: `check MFA across all my tenants`, `find unused M365 licenses`, `offboard users from a CSV in CIPP`, `which tenants drifted off baseline`, `list CIPP tenants`, `use cipp`, `run cipp-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "CIPP"
@@ -13,36 +13,35 @@ metadata:
         - cipp-cli
 ---
 
-# CIPP Claude Code Skill
+# CIPP  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `cipp-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cipp/install.sh)
+   npx -y @mvanhorn/printing-press-library install cipp --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cipp/install.ps1 | iex
-   ```
-3. Verify: `cipp-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `cipp-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails before this CLI has a public-library category, install Node or use the category-specific Go fallback after publish.
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 CIPP (CyberDrain Improved Partner Portal) is how MSPs manage many Microsoft 365 tenants from one place. This CLI wraps the full 496-endpoint API as typed commands, then goes further: `fanout --save` pulls tenants, users, licenses, and standards into a local SQLite database so you can run fleet-wide queries (`posture`, `licenses waste`, `users stale`), detect baseline drift (`standards drift`), and execute throttle-aware bulk operations (`bulk`) that survive Microsoft Graph 429s  -  all with --json, --dry-run, and typed exit codes.
 
 ## When to Use This CLI
 
-Reach for this CLI whenever an MSP task spans more than one Microsoft 365 tenant or needs to be scripted: cross-tenant posture and license reporting, baseline drift detection, burst onboarding/offboarding from a CSV, or any CIPP action wired into cron/RMM automation. It is the headless, scriptable alternative to clicking through the CIPP web UI one tenant at a time.
+Reach for this CLI whenever an MSP task spans more than one Microsoft 365 tenant or needs to be scripted: cross-tenant posture and license reporting, baseline drift detection, burst onboarding/offboarding from a CSV, or any CIPP action wired into cron/RMM automation. It is the headless, agent-native alternative to clicking through the CIPP web UI one tenant at a time.
 
-**When NOT to use this CLI:**
+## Anti-triggers
 
+Do not use this CLI for:
 - Managing a single Microsoft 365 tenant directly without a CIPP instance  -  use Microsoft Graph tooling; this CLI drives a self-hosted CIPP deployment.
 - Driving destructive or write actions across tenants with `fanout`  -  fanout is read fan-out; use `bulk` for CSV-driven write batches.
-- Expecting `standards drift` on first run  -  drift needs two snapshots over time (`fanout --endpoint /ListStandards --all-tenants --save` twice); use `posture` for a point-in-time read.
+- Expecting `standards drift` on first run  -  drift needs two snapshots over time (`fanout --endpoint /ListStandards --save` twice); use `posture` for a point-in-time read.
 - Bulk-populating the store with the framework `sync` command  -  CIPP's tenant-scoped endpoints require tenantFilter, so `fanout --save` is the population path.
 
 ## Unique Capabilities
@@ -2147,9 +2146,9 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
   cipp-cli best-practice-analyser-list --agent --select id,name,status
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
-- **Offline-friendly**  -  the analytics commands (`posture`, `licenses waste`, `users stale`, `standards drift`, `analytics`) read the local SQLite store populated by `fanout --save`
+- **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
-- **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success
+- **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success, and `--ignore-missing` only when a missing delete target should count as success
 
 ### Response envelope
 
@@ -2226,17 +2225,13 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server (the installer drops both `cipp-cli` and `cipp-mcp`):
-   ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cipp/install.sh)
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add cipp-mcp -- cipp-mcp
-   ```
-3. Verify: `claude mcp list`
+Install the MCP binary from this CLI's published public-library entry or pre-built release, then register it:
 
-For Claude Desktop, ChatGPT, GitHub Copilot, and the remote path, see [mcp-install.md](./mcp-install.md).
+```bash
+claude mcp add cipp-mcp -- cipp-mcp
+```
+
+Verify: `claude mcp list`
 
 ## Direct Use
 

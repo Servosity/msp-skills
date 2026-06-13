@@ -34,22 +34,22 @@ func newExpirationsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/expirations"
 			params := map[string]string{}
 			if flagCompanyId != "" {
-				params["company_id"] = fmt.Sprintf("%v", flagCompanyId)
+				params["company_id"] = formatCLIParamValue(flagCompanyId)
 			}
 			if flagExpirationType != "" {
-				params["expiration_type"] = fmt.Sprintf("%v", flagExpirationType)
+				params["expiration_type"] = formatCLIParamValue(flagExpirationType)
 			}
 			if flagResourceType != "" {
-				params["resource_type"] = fmt.Sprintf("%v", flagResourceType)
+				params["resource_type"] = formatCLIParamValue(flagResourceType)
 			}
 			if flagResourceId != "" {
-				params["resource_id"] = fmt.Sprintf("%v", flagResourceId)
+				params["resource_id"] = formatCLIParamValue(flagResourceId)
 			}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPageSize != 0 {
-				params["page_size"] = fmt.Sprintf("%v", flagPageSize)
+				params["page_size"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "expirations", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

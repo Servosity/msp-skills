@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +23,15 @@ import (
 	"rootly-pp-cli/internal/config"
 	"rootly-pp-cli/internal/mcp/cobratree"
 	"rootly-pp-cli/internal/store"
+)
+
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
 )
 
 // RegisterTools registers all API operations as MCP tools.
@@ -43,7 +54,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -73,6 +84,33 @@ type mcpParamBinding struct {
 	BodyPath   []string
 }
 
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
 func setNestedBodyArg(body map[string]any, path []string, value any) {
 	if len(path) == 0 {
 		return
@@ -137,7 +175,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				if len(binding.BodyPath) > 0 {
 					setNestedBodyArg(bodyArgs, binding.BodyPath, v)
@@ -145,7 +183,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 					bodyArgs[binding.WireName] = v
 				}
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -155,7 +193,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -167,7 +205,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "POST", "PUT", "PATCH":
 				bodyArgs[k] = v
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -223,19 +261,19 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key: export ROOTLY_API_KEY=<your-key>" +
+					"\n      Set it with: rootly-cli auth set-token <token> or export ROOTLY_API_KEY=\"your-token-here\"" +
 					"\n      Get a key at: https://api.rootly.com/v1" +
 					"\n      Run 'rootly-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your token." +
-					"\n      Set it with: export ROOTLY_API_KEY=<your-key>" +
+					"\n      Set it with: rootly-cli auth set-token <token> or export ROOTLY_API_KEY=\"your-token-here\"" +
 					"\n      Get a key at: https://api.rootly.com/v1" +
 					"\n      Run 'rootly-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: your credentials are valid but lack access to this resource." +
-					"\n      Set it with: export ROOTLY_API_KEY=<your-key>" +
+					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
+					"\n      Set it with: rootly-cli auth set-token <token> or export ROOTLY_API_KEY=\"your-token-here\"" +
 					"\n      Get a key at: https://api.rootly.com/v1" +
 					"\n      Run 'rootly-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
@@ -250,21 +288,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -273,8 +296,129 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
@@ -284,7 +428,7 @@ func newMCPClient() (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -333,22 +477,27 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -380,6 +529,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -1120,7 +1360,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"query_tips": []string{
 			"Pagination uses cursor-based paging. Pass page[number] parameter for subsequent pages.",
 			"Control page size with the page[size] parameter (default 100).",
-			"Use filter[updated_at][gt] for incremental fetches (filter by modification time).",
+			"Use filter[updated_at][lte] for incremental fetches (filter by modification time).",
 			"Use the sql tool for ad-hoc analysis on synced data. Run sync first to populate the local database.",
 			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints.",
 			"Prefer sql/search over repeated API calls when the data is already synced.",
@@ -1128,23 +1368,23 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "Related past incidents", "command": "related", "description": "Find the past incidents most similar to a given one, ranked, so you can see how this class of problem played out before.", "rationale": "Local TF-IDF over the FTS5 incident corpus — matches Rootly's remote find_related_incidents tool with zero per-call API", "via": "mcp-command-mirror"},
-			{"name": "Incident war room", "command": "war-room", "description": "One screen for an active incident: header, severity/status, full timeline, open action items", "rationale": "Joins incidents + events + action_items + services + schedules + escalation_paths in local SQLite — no single JSON", "via": "mcp-command-mirror"},
-			{"name": "What fixed it last time", "command": "fixed-last-time", "description": "Mine the resolution notes and action items from a service's past incidents to surface what actually resolved this class", "rationale": "Extracts resolution text + action_items from synced incidents joined to a service — matches Rootly's remote", "via": "mcp-command-mirror"},
-			{"name": "Coverage gap detector", "command": "coverage-gaps", "description": "Scan every on-call schedule for unstaffed windows over the next N days so you catch holiday and weekend gaps before a", "rationale": "Interval-gap computation over schedule_rotations vs shift coverage across all schedules — no Rootly endpoint returns", "via": "mcp-command-mirror"},
-			{"name": "MTTR / MTTA analytics", "command": "mttr", "description": "Compute mean time to acknowledge and resolve from incident timestamps, grouped by service, team, or severity", "rationale": "SQL aggregation over incident created/acknowledged/resolved timestamps — the spec has no analytics endpoint", "via": "mcp-command-mirror"},
-			{"name": "Service reliability scorecard", "command": "service-health", "description": "Per-service scorecard: incident count, MTTR, last incident, open action items, current on-call", "rationale": "Wide local join of incidents + services + slas + schedules + action_items per service — a reliability view no single", "via": "mcp-command-mirror"},
-			{"name": "Who's on call everywhere", "command": "oncall-now", "description": "Show who is on call right now across every schedule and service in one table, escalation tier included.", "rationale": "Joins schedules + rotations + escalation_policies + services locally — per-schedule 'who' is parity", "via": "mcp-command-mirror"},
-			{"name": "Shift handoff summary", "command": "handoff", "description": "End-of-shift summary: incidents opened, closed, and still open during the outgoing shift window", "rationale": "Windows incidents + action_items to the shift's time bounds via a local join — matches Rootly's remote", "via": "mcp-command-mirror"},
-			{"name": "Post-mortem skeleton", "command": "postmortem-skeleton", "description": "Emit a paste-ready post-mortem markdown skeleton for an incident: timeline, action items, severity, duration", "rationale": "Renders markdown from synced incident + events + action_items — pure local extraction, zero API round-trips", "via": "mcp-command-mirror"},
-			{"name": "Pre-deploy guard", "command": "deploy-guard", "description": "Pre-deploy gate for a service: checks for an open incident, confirms someone is on call, and flags recent flakiness", "rationale": "Local join of open + recent incidents to service + on-call with a typed exit code — gates a CI pipeline in a way the", "via": "mcp-command-mirror"},
-			{"name": "On-call burden report", "command": "oncall-load", "description": "Rank people by on-call hours and pages received across every schedule", "rationale": "Joins shifts + rotations + incidents/alerts + users in local SQLite — no Rootly screen or endpoint totals per-person", "via": "mcp-command-mirror"},
-			{"name": "Escalation path trace", "command": "escalation-trace", "description": "Print the full ordered escalation ladder for a service or incident — every rung, the policy it comes from", "rationale": "Walks services → escalation_policies → escalation_paths → rotations → on-call users in one local multi-hop join", "via": "mcp-command-mirror"},
-			{"name": "Action-item backlog", "command": "action-items-overdue", "description": "List every open or overdue incident action item across all incidents, grouped by owner or team, with incident, severity", "rationale": "Aggregates action_items + incidents + users/teams across the whole corpus in SQLite — Rootly never aggregates", "via": "mcp-command-mirror"},
-			{"name": "Config drift / snapshot diff", "command": "config-diff", "description": "Diff two sync snapshots of Rootly config objects (services, escalation policies, workflows, severities, schedules)", "rationale": "Compares config tables across local sync snapshots by stable id — drift detection without terraform plan or any API", "via": "mcp-command-mirror"},
-			{"name": "Severity SLA breach watch", "command": "sla-breach", "description": "List incidents that have breached or are about to breach their SLA target, sorted by time remaining", "rationale": "Computes breach state from incident timestamps vs synced SLA definitions locally — the API stores SLAs but never", "via": "mcp-command-mirror"},
-			{"name": "Alert noise / flapping report", "command": "alert-noise", "description": "Rank alert sources and services by alert volume, repeat-fire rate", "rationale": "Joins alerts + alert sources + services to incidents in SQLite to compute alert→incident conversion — no Rootly view", "via": "mcp-command-mirror"},
-			{"name": "Incident digest since", "command": "digest", "description": "Time-windowed rollup of everything that moved since a timestamp: incidents opened/resolved, severity changes", "rationale": "Windows incidents + incident events + action_items + alerts to a --since bound in one local query — the 'what did I", "via": "mcp-command-mirror"},
+			{"name": "Related past incidents", "command": "related", "description": "Find the past incidents most similar to a given one, ranked, so you can see how this class of problem played out before.", "rationale": "Local TF-IDF over the FTS5 incident corpus — matches Rootly's remote find_related_incidents tool with zero per-call API cost and no running ML service.", "via": "mcp-command-mirror"},
+			{"name": "Incident war room", "command": "war-room", "description": "One screen for an active incident: header, severity/status, full timeline, open action items, the on-call for the affected service, and the next escalation rung.", "rationale": "Joins incidents + events + action_items + services + schedules + escalation_paths in local SQLite — no single JSON:API call returns this composite.", "via": "mcp-command-mirror"},
+			{"name": "What fixed it last time", "command": "fixed-last-time", "description": "Mine the resolution notes and action items from a service's past incidents to surface what actually resolved this class of problem.", "rationale": "Extracts resolution text + action_items from synced incidents joined to a service — matches Rootly's remote suggest_solutions, emits raw pipe-friendly rows, no summarization cost.", "via": "mcp-command-mirror"},
+			{"name": "Coverage gap detector", "command": "coverage-gaps", "description": "Scan every on-call schedule for unstaffed windows over the next N days so you catch holiday and weekend gaps before a page is missed.", "rationale": "Interval-gap computation over schedule_rotations vs shift coverage across all schedules — no Rootly endpoint returns 'unstaffed windows', and it spans every schedule at once.", "via": "mcp-command-mirror"},
+			{"name": "MTTR / MTTA analytics", "command": "mttr", "description": "Compute mean time to acknowledge and resolve from incident timestamps, grouped by service, team, or severity, with optional volume counts.", "rationale": "SQL aggregation over incident created/acknowledged/resolved timestamps — the spec has no analytics endpoint, so this is the weekly ops-review spreadsheet as one local query.", "via": "mcp-command-mirror"},
+			{"name": "Service reliability scorecard", "command": "service-health", "description": "Per-service scorecard: incident count, MTTR, last incident, open action items, current on-call, and SLA status in one row.", "rationale": "Wide local join of incidents + services + slas + schedules + action_items per service — a reliability view no single Rootly screen assembles.", "via": "mcp-command-mirror"},
+			{"name": "Who's on call everywhere", "command": "oncall-now", "description": "Show who is on call right now across every schedule and service in one table, escalation tier included.", "rationale": "Joins schedules + rotations + escalation_policies + services locally — per-schedule 'who' is parity, but the cross-portfolio view in one shot is the leverage.", "via": "mcp-command-mirror"},
+			{"name": "Shift handoff summary", "command": "handoff", "description": "End-of-shift summary: incidents opened, closed, and still open during the outgoing shift window, plus open action items and severity mix.", "rationale": "Windows incidents + action_items to the shift's time bounds via a local join — matches Rootly's remote get_oncall_handoff_summary, mechanical, no LLM.", "via": "mcp-command-mirror"},
+			{"name": "Post-mortem skeleton", "command": "postmortem-skeleton", "description": "Emit a paste-ready post-mortem markdown skeleton for an incident: timeline, action items, severity, duration, and affected services.", "rationale": "Renders markdown from synced incident + events + action_items — pure local extraction, zero API round-trips, ready to drop into a retro doc.", "via": "mcp-command-mirror"},
+			{"name": "Pre-deploy guard", "command": "deploy-guard", "description": "Pre-deploy gate for a service: checks for an open incident, confirms someone is on call, and flags recent flakiness, returning a non-zero exit code when it is unsafe to ship.", "rationale": "Local join of open + recent incidents to service + on-call with a typed exit code — gates a CI pipeline in a way the web UI cannot.", "via": "mcp-command-mirror"},
+			{"name": "On-call burden report", "command": "oncall-load", "description": "Rank people by on-call hours and pages received across every schedule, so uneven rotations and burnout risk surface before someone quits.", "rationale": "Joins shifts + rotations + incidents/alerts + users in local SQLite — no Rootly screen or endpoint totals per-person load across all schedules.", "via": "mcp-command-mirror"},
+			{"name": "Escalation path trace", "command": "escalation-trace", "description": "Print the full ordered escalation ladder for a service or incident — every rung, the policy it comes from, who currently sits at each level, and the delay before the next page.", "rationale": "Walks services → escalation_policies → escalation_paths → rotations → on-call users in one local multi-hop join; the API returns these as separate normalized objects you must assemble by hand.", "via": "mcp-command-mirror"},
+			{"name": "Action-item backlog", "command": "action-items-overdue", "description": "List every open or overdue incident action item across all incidents, grouped by owner or team, with incident, severity, and age.", "rationale": "Aggregates action_items + incidents + users/teams across the whole corpus in SQLite — Rootly never aggregates follow-through outside a single incident.", "via": "mcp-command-mirror"},
+			{"name": "Config drift / snapshot diff", "command": "config-diff", "description": "Diff the current synced Rootly config (services, escalation policies, workflows, severities, schedules) against the last saved snapshot to see what was added, removed, or changed — 'config-diff --save' records the baseline.", "rationale": "Compares config tables across local sync snapshots by stable id — drift detection without terraform plan or any API round-trip.", "via": "mcp-command-mirror"},
+			{"name": "Severity SLA breach watch", "command": "sla-breach", "description": "List incidents that have breached or are about to breach their SLA target, sorted by time remaining, with a non-zero exit when any active breach exists.", "rationale": "Computes breach state from incident timestamps vs synced SLA definitions locally — the API stores SLAs but never surfaces live breach status.", "via": "mcp-command-mirror"},
+			{"name": "Alert noise / flapping report", "command": "alert-noise", "description": "Rank alert sources and services by alert volume, repeat-fire rate, and how many alerts never became incidents — the signal-to-noise view that finds a flapping integration.", "rationale": "Joins alerts + alert sources + services to incidents in SQLite to compute alert→incident conversion — no Rootly view exposes noise ratios.", "via": "mcp-command-mirror"},
+			{"name": "Incident digest since", "command": "digest", "description": "Time-windowed rollup of everything that moved since a timestamp: incidents opened/resolved, severity changes, new action items, alerts fired.", "rationale": "Windows incidents + incident events + action_items + alerts to a --since bound in one local query — the 'what did I miss' view no single API call returns.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
 			{"topic": "Related past incidents", "insight": "Local TF-IDF over the FTS5 incident corpus — matches Rootly's remote find_related_incidents tool with zero per-call API cost and no running ML service."},

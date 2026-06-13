@@ -48,13 +48,13 @@ func newShiftsPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/shifts"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "shifts", path, map[string]string{
-				"include":        fmt.Sprintf("%v", flagInclude),
-				"from":           fmt.Sprintf("%v", flagFrom),
-				"to":             fmt.Sprintf("%v", flagTo),
-				"user_ids[]":     fmt.Sprintf("%v", flagUserIds),
-				"schedule_ids[]": fmt.Sprintf("%v", flagScheduleIds),
-				"page[number]":   fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":     fmt.Sprintf("%v", flagPageSize),
+				"include":        formatCLIParamValue(flagInclude),
+				"from":           formatCLIParamValue(flagFrom),
+				"to":             formatCLIParamValue(flagTo),
+				"user_ids[]":     formatCLIParamValue(flagUserIds),
+				"schedule_ids[]": formatCLIParamValue(flagScheduleIds),
+				"page[number]":   formatCLIParamValue(flagPageNumber),
+				"page[size]":     formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

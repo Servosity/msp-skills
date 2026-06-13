@@ -52,25 +52,25 @@ func newNotesGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/notes"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "notes", path, map[string]string{
-				"user_id":                     fmt.Sprintf("%v", flagUserId),
-				"lead_id":                     fmt.Sprintf("%v", flagLeadId),
-				"deal_id":                     fmt.Sprintf("%v", flagDealId),
-				"person_id":                   fmt.Sprintf("%v", flagPersonId),
-				"org_id":                      fmt.Sprintf("%v", flagOrgId),
-				"project_id":                  fmt.Sprintf("%v", flagProjectId),
-				"task_id":                     fmt.Sprintf("%v", flagTaskId),
-				"start":                       fmt.Sprintf("%v", flagStart),
-				"limit":                       fmt.Sprintf("%v", flagLimit),
-				"sort":                        fmt.Sprintf("%v", flagSort),
-				"start_date":                  fmt.Sprintf("%v", flagStartDate),
-				"end_date":                    fmt.Sprintf("%v", flagEndDate),
-				"updated_since":               fmt.Sprintf("%v", flagUpdatedSince),
-				"pinned_to_lead_flag":         fmt.Sprintf("%v", flagPinnedToLeadFlag),
-				"pinned_to_deal_flag":         fmt.Sprintf("%v", flagPinnedToDealFlag),
-				"pinned_to_organization_flag": fmt.Sprintf("%v", flagPinnedToOrganizationFlag),
-				"pinned_to_person_flag":       fmt.Sprintf("%v", flagPinnedToPersonFlag),
-				"pinned_to_project_flag":      fmt.Sprintf("%v", flagPinnedToProjectFlag),
-				"pinned_to_task_flag":         fmt.Sprintf("%v", flagPinnedToTaskFlag),
+				"user_id":                     formatCLIParamValue(flagUserId),
+				"lead_id":                     formatCLIParamValue(flagLeadId),
+				"deal_id":                     formatCLIParamValue(flagDealId),
+				"person_id":                   formatCLIParamValue(flagPersonId),
+				"org_id":                      formatCLIParamValue(flagOrgId),
+				"project_id":                  formatCLIParamValue(flagProjectId),
+				"task_id":                     formatCLIParamValue(flagTaskId),
+				"start":                       formatCLIParamValue(flagStart),
+				"limit":                       formatCLIParamValue(flagLimit),
+				"sort":                        formatCLIParamValue(flagSort),
+				"start_date":                  formatCLIParamValue(flagStartDate),
+				"end_date":                    formatCLIParamValue(flagEndDate),
+				"updated_since":               formatCLIParamValue(flagUpdatedSince),
+				"pinned_to_lead_flag":         formatCLIParamValue(flagPinnedToLeadFlag),
+				"pinned_to_deal_flag":         formatCLIParamValue(flagPinnedToDealFlag),
+				"pinned_to_organization_flag": formatCLIParamValue(flagPinnedToOrganizationFlag),
+				"pinned_to_person_flag":       formatCLIParamValue(flagPinnedToPersonFlag),
+				"pinned_to_project_flag":      formatCLIParamValue(flagPinnedToProjectFlag),
+				"pinned_to_task_flag":         formatCLIParamValue(flagPinnedToTaskFlag),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)
@@ -82,14 +82,14 @@ func newNotesGetCmd(flags *rootFlags) *cobra.Command {
 					Endpoint:       "get",
 					Status:         "submitted",
 					StatusResource: "tasks",
-					StatusEndpoint: "get",
+					StatusEndpoint: "get-id",
 				})
 				if flagWait {
 					ctx := cmd.Context()
 					if ctx == nil {
 						ctx = context.Background()
 					}
-					final, werr := WaitForJob(ctx, c, "/tasks", asyncJobID, WaitOptions{
+					final, werr := WaitForJob(ctx, c, "/tasks/{id}", asyncJobID, WaitOptions{
 						Interval: flagWaitInterval,
 						Timeout:  flagWaitTimeout,
 					})

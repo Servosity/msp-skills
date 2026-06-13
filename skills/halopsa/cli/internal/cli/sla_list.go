@@ -31,16 +31,16 @@ func newSlaListCmd(flags *rootFlags) *cobra.Command {
 			path := "/SLA"
 			params := map[string]string{}
 			if flagAccessControlLevel != 0 {
-				params["access_control_level"] = fmt.Sprintf("%v", flagAccessControlLevel)
+				params["access_control_level"] = formatCLIParamValue(flagAccessControlLevel)
 			}
 			if flagIsconfig != false {
-				params["isconfig"] = fmt.Sprintf("%v", flagIsconfig)
+				params["isconfig"] = formatCLIParamValue(flagIsconfig)
 			}
 			if flagShowpriorities != false {
-				params["showpriorities"] = fmt.Sprintf("%v", flagShowpriorities)
+				params["showpriorities"] = formatCLIParamValue(flagShowpriorities)
 			}
 			if flagShowworkdays != false {
-				params["showworkdays"] = fmt.Sprintf("%v", flagShowworkdays)
+				params["showworkdays"] = formatCLIParamValue(flagShowworkdays)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "sla", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

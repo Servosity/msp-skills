@@ -56,10 +56,10 @@ func newScriptsOrgIdGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/scripts/all"
 			params := map[string]string{}
 			if flagBuiltin != "" {
-				params["builtin"] = fmt.Sprintf("%v", flagBuiltin)
+				params["builtin"] = formatCLIParamValue(flagBuiltin)
 			}
 			if flagPlatform != "" {
-				params["platform"] = fmt.Sprintf("%v", flagPlatform)
+				params["platform"] = formatCLIParamValue(flagPlatform)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "scripts", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

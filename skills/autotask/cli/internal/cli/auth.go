@@ -39,7 +39,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "No setup URL is configured for this CLI; check the API's docs.")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export AUTOTASK_PSA_API_INTEGRATION_CODE=\"<your-token>\"")
+			fmt.Fprintln(w, "  export AUTOTASK_API_INTEGRATION_CODE=\"your-token-here\"")
 			fmt.Fprintln(w, "  autotask-cli auth set-token <token>")
 			if !launch {
 				return nil
@@ -88,7 +88,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Set your token:")
-				fmt.Fprintln(w, "  export AUTOTASK_PSA_API_INTEGRATION_CODE=\"your-token-here\"")
+				fmt.Fprintln(w, "  export AUTOTASK_API_INTEGRATION_CODE=\"your-token-here\"")
 				fmt.Fprintf(w, "  autotask-cli auth set-token <token>\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
@@ -159,8 +159,8 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 			// Identify which (if any) auth env var is still exported so the
 			// JSON envelope and the human prose can both surface it.
 			envStillSet := ""
-			if envStillSet == "" && os.Getenv("AUTOTASK_PSA_API_INTEGRATION_CODE") != "" {
-				envStillSet = "AUTOTASK_PSA_API_INTEGRATION_CODE"
+			if envStillSet == "" && os.Getenv("AUTOTASK_API_INTEGRATION_CODE") != "" {
+				envStillSet = "AUTOTASK_API_INTEGRATION_CODE"
 			}
 
 			// JSON envelope: {cleared: true, note?: "<env_var> env var is still set"}.

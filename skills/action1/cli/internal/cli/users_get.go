@@ -45,10 +45,10 @@ func newUsersGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/users"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "users", path, map[string]string{
-				"from":      fmt.Sprintf("%v", flagFrom),
-				"limit":     fmt.Sprintf("%v", flagLimit),
-				"filter":    fmt.Sprintf("%v", flagFilter),
-				"user_type": fmt.Sprintf("%v", flagUserType),
+				"from":      formatCLIParamValue(flagFrom),
+				"limit":     formatCLIParamValue(flagLimit),
+				"filter":    formatCLIParamValue(flagFilter),
+				"user_type": formatCLIParamValue(flagUserType),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

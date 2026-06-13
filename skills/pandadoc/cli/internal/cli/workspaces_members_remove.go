@@ -17,7 +17,7 @@ func newWorkspacesMembersRemoveCmd(flags *rootFlags) *cobra.Command {
 		Use:         "remove <workspace_id> <member_id>",
 		Aliases:     []string{"delete"},
 		Short:       "This operation removes a specified member from a workspace by providing the workspace ID and member ID.",
-		Example:     "  pandadoc-cli workspaces members remove 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli workspaces members remove BhVzRcxH9Z2LgfPPGXFUBa nPh2PDhFdDqAES9k64h9qX",
 		Annotations: map[string]string{"pp:endpoint": "members.remove", "pp:method": "DELETE", "pp:path": "/workspaces/{workspace_id}/members/{member_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

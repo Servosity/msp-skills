@@ -77,10 +77,10 @@ func newLeadResourceAppResellerApiUpdatePatchCmd(flags *rootFlags) *cobra.Comman
 			path = replacePathParam(path, "leadId", args[0])
 			params := map[string]string{}
 			if flagContext != "" {
-				params["context"] = fmt.Sprintf("%v", flagContext)
+				params["context"] = formatCLIParamValue(flagContext)
 			}
 			if flagCompanyId != "" {
-				params["companyId"] = fmt.Sprintf("%v", flagCompanyId)
+				params["companyId"] = formatCLIParamValue(flagCompanyId)
 			}
 			var body map[string]any
 			if stdinBody {

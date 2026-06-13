@@ -17,8 +17,9 @@ func newComputersDeleteCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "delete",
-		Short:       "Delete/remove computers by id",
+		Use:   "delete",
+		Short: "Delete/remove computers by id",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  threatlocker-cli computers delete --computer-ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "computers.delete", "pp:method": "POST", "pp:path": "/Computer/ComputerUpdateForDeleteByIds"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -30,13 +30,13 @@ func newSqlimportListCmd(flags *rootFlags) *cobra.Command {
 			path := "/SQLImport"
 			params := map[string]string{}
 			if flagClientidoverride != "" {
-				params["clientidoverride"] = fmt.Sprintf("%v", flagClientidoverride)
+				params["clientidoverride"] = formatCLIParamValue(flagClientidoverride)
 			}
 			if flagIntegratorenabled != false {
-				params["integratorenabled"] = fmt.Sprintf("%v", flagIntegratorenabled)
+				params["integratorenabled"] = formatCLIParamValue(flagIntegratorenabled)
 			}
 			if flagShowpositiveonly != false {
-				params["showpositiveonly"] = fmt.Sprintf("%v", flagShowpositiveonly)
+				params["showpositiveonly"] = formatCLIParamValue(flagShowpositiveonly)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "sqlimport", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

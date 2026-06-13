@@ -15,8 +15,9 @@ func newPublicSearchDocumentsAiCmd(flags *rootFlags) *cobra.Command {
 	var flagQ string
 
 	cmd := &cobra.Command{
-		Use:         "search-documents-ai",
-		Short:       "Find documents from a natural-language query. PandaDoc AI interprets the query and returns the matching documents.",
+		Use:   "search-documents-ai",
+		Short: "Find documents from a natural-language query. PandaDoc AI interprets the query and returns the matching documents.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pandadoc-cli public search-documents-ai --q example-value",
 		Annotations: map[string]string{"pp:endpoint": "public.search-documents-ai", "pp:method": "GET", "pp:path": "/public/beta/documents/search", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newPublicSearchDocumentsAiCmd(flags *rootFlags) *cobra.Command {
 			path := "/public/beta/documents/search"
 			params := map[string]string{}
 			if flagQ != "" {
-				params["q"] = fmt.Sprintf("%v", flagQ)
+				params["q"] = formatCLIParamValue(flagQ)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "public", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

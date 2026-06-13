@@ -32,7 +32,7 @@ func newOrganizationEndUsersGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagIncludeRoles != false {
-				params["includeRoles"] = fmt.Sprintf("%v", flagIncludeRoles)
+				params["includeRoles"] = formatCLIParamValue(flagIncludeRoles)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "end-users", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

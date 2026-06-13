@@ -118,18 +118,18 @@ func newThreatsRetrieveCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/threats"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "threats", path, map[string]string{
-				"filter":            fmt.Sprintf("%v", flagFilter),
-				"pageSize":          fmt.Sprintf("%v", flagPageSize),
-				"pageNumber":        fmt.Sprintf("%v", flagPageNumber),
-				"source":            fmt.Sprintf("%v", flagSource),
-				"sender":            fmt.Sprintf("%v", flagSender),
-				"recipient":         fmt.Sprintf("%v", flagRecipient),
-				"subject":           fmt.Sprintf("%v", flagSubject),
-				"topic":             fmt.Sprintf("%v", flagTopic),
-				"attackType":        fmt.Sprintf("%v", flagAttackType),
-				"attackVector":      fmt.Sprintf("%v", flagAttackVector),
-				"attackStrategy":    fmt.Sprintf("%v", flagAttackStrategy),
-				"impersonatedParty": fmt.Sprintf("%v", flagImpersonatedParty),
+				"filter":            formatCLIParamValue(flagFilter),
+				"pageSize":          formatCLIParamValue(flagPageSize),
+				"pageNumber":        formatCLIParamValue(flagPageNumber),
+				"source":            formatCLIParamValue(flagSource),
+				"sender":            formatCLIParamValue(flagSender),
+				"recipient":         formatCLIParamValue(flagRecipient),
+				"subject":           formatCLIParamValue(flagSubject),
+				"topic":             formatCLIParamValue(flagTopic),
+				"attackType":        formatCLIParamValue(flagAttackType),
+				"attackVector":      formatCLIParamValue(flagAttackVector),
+				"attackStrategy":    formatCLIParamValue(flagAttackStrategy),
+				"impersonatedParty": formatCLIParamValue(flagImpersonatedParty),
 			}, nil, flagAll, "pageNumber", "page", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -37,34 +37,34 @@ func newAddressListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Address"
 			params := map[string]string{}
 			if flagCount != 0 {
-				params["count"] = fmt.Sprintf("%v", flagCount)
+				params["count"] = formatCLIParamValue(flagCount)
 			}
 			if flagPostcode != "" {
-				params["postcode"] = fmt.Sprintf("%v", flagPostcode)
+				params["postcode"] = formatCLIParamValue(flagPostcode)
 			}
 			if flagSiteId != "" {
-				params["site_id"] = fmt.Sprintf("%v", flagSiteId)
+				params["site_id"] = formatCLIParamValue(flagSiteId)
 			}
 			if flagTypeId != "" {
-				params["type_id"] = fmt.Sprintf("%v", flagTypeId)
+				params["type_id"] = formatCLIParamValue(flagTypeId)
 			}
 			if flagUserId != "" {
-				params["user_id"] = fmt.Sprintf("%v", flagUserId)
+				params["user_id"] = formatCLIParamValue(flagUserId)
 			}
 			if flagOpenedafter != false {
-				params["openedafter"] = fmt.Sprintf("%v", flagOpenedafter)
+				params["openedafter"] = formatCLIParamValue(flagOpenedafter)
 			}
 			if flagOnholdonly != false {
-				params["onholdonly"] = fmt.Sprintf("%v", flagOnholdonly)
+				params["onholdonly"] = formatCLIParamValue(flagOnholdonly)
 			}
 			if flagOverrideclientid != "" {
-				params["overrideclientid"] = fmt.Sprintf("%v", flagOverrideclientid)
+				params["overrideclientid"] = formatCLIParamValue(flagOverrideclientid)
 			}
 			if flagOverridesiteid != "" {
-				params["overridesiteid"] = fmt.Sprintf("%v", flagOverridesiteid)
+				params["overridesiteid"] = formatCLIParamValue(flagOverridesiteid)
 			}
 			if flagOverrideuserid != "" {
-				params["overrideuserid"] = fmt.Sprintf("%v", flagOverrideuserid)
+				params["overrideuserid"] = formatCLIParamValue(flagOverrideuserid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "address", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

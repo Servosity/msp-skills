@@ -40,6 +40,13 @@ type Client struct {
 	limiter    *cliutil.AdaptiveLimiter
 }
 
+// RequestBaseURL returns the base URL used for requests.
+// Novel commands that build request URLs by hand should use this instead of
+// concatenating c.BaseURL directly.
+func (c *Client) RequestBaseURL() string {
+	return c.BaseURL
+}
+
 // APIError carries HTTP status information for structured exit codes.
 type APIError struct {
 	Method     string
@@ -58,7 +65,7 @@ func newHTTPClient(timeout time.Duration, jar http.CookieJar) *http.Client {
 
 func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 	homeDir, _ := os.UserHomeDir()
-	cacheDir := filepath.Join(homeDir, ".cache", "n-central-pp-cli", "http")
+	cacheDir := filepath.Join(homeDir, ".cache", "n-central-cli", "http")
 	httpClient := newHTTPClient(timeout, nil)
 	c := &Client{
 		BaseURL:    strings.TrimRight(cfg.BaseURL, "/"),
@@ -105,13 +112,6 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 // RateLimit returns the current effective rate limit in req/s. Returns 0 if disabled.
 func (c *Client) RateLimit() float64 {
 	return c.limiter.Rate()
-}
-
-// RequestBaseURL returns the base URL used for requests.
-// Novel commands that build request URLs by hand should use this instead of
-// concatenating c.BaseURL directly.
-func (c *Client) RequestBaseURL() string {
-	return c.BaseURL
 }
 
 func (c *Client) Get(ctx context.Context, path string, params map[string]string) (json.RawMessage, error) {
@@ -248,9 +248,9 @@ func (c *Client) readCache(path string, params map[string]string) (json.RawMessa
 }
 
 func (c *Client) writeCache(path string, params map[string]string, data json.RawMessage) {
-	os.MkdirAll(c.cacheDir, 0o755)
+	os.MkdirAll(c.cacheDir, 0o700)
 	cacheFile := filepath.Join(c.cacheDir, c.cacheKey(path, params)+".json")
-	os.WriteFile(cacheFile, []byte(data), 0o644)
+	os.WriteFile(cacheFile, []byte(data), 0o600)
 }
 
 // invalidateCache wholesale-removes the cache directory so the next read
@@ -526,7 +526,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			req.Header.Del(BinaryResponseHeader)
 		}
 		if req.Header.Get("User-Agent") == "" {
-			req.Header.Set("User-Agent", "n-central-pp-cli/2024.6")
+			req.Header.Set("User-Agent", "n-central-cli/2024.6")
 		}
 		// Go's net/http omits Accept by default; browsers, curl, and other
 		// stdlibs always send it. Fingerprint-checking WAFs (Imperva, Akamai,
@@ -727,7 +727,7 @@ func looksLikeCredentialPlaceholder(value string) bool {
 }
 
 func authPlaceholderCredentialError(cfg *config.Config) error {
-	return authPlaceholderCredentialErrorWithSetup(cfg, "export NCENTRAL_JWT=<your-token> or n-central-pp-cli auth set-token <token>")
+	return authPlaceholderCredentialErrorWithSetup(cfg, "export NCENTRAL_JWT=<your-token> or n-central-cli auth set-token <token>")
 }
 
 func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) error {

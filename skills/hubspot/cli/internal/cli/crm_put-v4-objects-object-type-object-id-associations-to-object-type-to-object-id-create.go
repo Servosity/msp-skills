@@ -17,8 +17,9 @@ func newCrmPutV4ObjectsObjectTypeObjectIdAssociationsToObjectTypeToObjectIdCreat
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "put-v4-objects-object-type-object-id-associations-to-object-type-to-object-id-create <objectId> <objectType> <toObjectId> <toObjectType>",
-		Short:       "Set association labels between two records.",
+		Use:   "put-v4-objects-object-type-object-id-associations-to-object-type-to-object-id-create <objectId> <objectType> <toObjectId> <toObjectType>",
+		Short: "Set association labels between two records.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli crm put-v4-objects-object-type-object-id-associations-to-object-type-to-object-id-create 550e8400-e29b-41d4-a716-446655440000 example-value 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "crm.put-v4-objects-object-type-object-id-associations-to-object-type-to-object-id-create", "pp:method": "PUT", "pp:path": "/crm/v4/objects/{objectType}/{objectId}/associations/{toObjectType}/{toObjectId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

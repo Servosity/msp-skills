@@ -4,11 +4,125 @@
 
 Wraps the full Halo REST API (952 endpoints across tickets, clients, assets, contracts, time, KB, and workflows) with offline-first search, agent-native JSON output, and cross-entity commands like `triage`, `client card`, and `contracts burn` that join tables Halo's UI scatters across five tabs.
 
-For the short install path see [README.md](./README.md). This file is the command reference.
+## Install
+
+The recommended path installs both the `halopsa-cli` binary and the `pp-halopsa` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+
+```bash
+npx -y @mvanhorn/printing-press-library install halopsa
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install halopsa --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install halopsa --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install halopsa --agent claude-code
+npx -y @mvanhorn/printing-press-library install halopsa --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/project-management/halopsa/cmd/halopsa-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/halopsa-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install halopsa --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-halopsa --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-halopsa --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install halopsa --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/halopsa-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `HALOPSA_CLIENT_ID` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/project-management/halopsa/cmd/halopsa-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "halopsa": {
+      "command": "halopsa-mcp",
+      "env": {
+        "HALOPSA_TENANT": "<tenant>",
+        "HALOPSA_DOMAIN": "<domain>",
+        "HALOPSA_CLIENT_ID": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Authentication
 
-Halo uses OAuth2 client_credentials. Create an API application in your tenant under Configuration > Integrations > Halo PSA API (Authentication Method: Client ID and Secret  -  Services), then run `HALOPSA_TENANT=<yoursub> halopsa-cli auth login --client-id <id> --client-secret <secret>`. The CLI exchanges the credentials at https://<tenant>.halopsa.com/auth/token and caches the access token (auto-refreshed before expiry).
+Halo uses OAuth2 client_credentials. Create an API application in your tenant under Configuration > Integrations > Halo PSA API (Authentication Method: Client ID and Secret  -  Services), set `HALOPSA_TENANT=<yoursub>` in your env, then run `halopsa-cli auth login --client-id <id> --client-secret <secret>`. The CLI exchanges the credentials at https://<tenant>.halopsa.com/auth/token and caches the access token (auto-refreshed before expiry).
 
 ## Quick Start
 
@@ -93,7 +207,7 @@ These capabilities aren't available in any other tool for this API.
   _Reach for this on Friday before submitting the timesheet. Stops 'I know I worked that ticket but where is it' archaeology._
 
   ```bash
-  halopsa-cli time gaps --agent me --week current
+  halopsa-cli time gaps --agent=me --week current
   ```
 - **`contracts burn`**  -  Per contract: hours bank, hours consumed this period (sum of billable time on that client's tickets), days remaining, projected overage.
 
@@ -195,7 +309,7 @@ Get the client's complete situation in one query before answering the phone. Use
 ### Friday timesheet reconcile
 
 ```bash
-halopsa-cli time gaps --agent me --week current --json
+halopsa-cli time gaps --agent=me --week current --json
 ```
 
 Find every ticket you touched this week with zero time logged so the gap doesn't ship with your timesheet.
@@ -4107,7 +4221,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/halopsa-cli/config.toml`
+Config file: `~/.config/halo-pp-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
@@ -4121,7 +4235,7 @@ Environment variables:
 | `HALOPSA_CLIENT_SECRET` | auth_flow_input | Yes | Set during initial auth setup. |
 | `HALOPSA_TENANT` | auth_flow_input | Yes | Your Halo tenant subdomain (e.g. "acme-msp" for acme-msp.halopsa.com) |
 | `HALOPSA_DOMAIN` | auth_flow_input | No | Halo domain root: halopsa.com (default), haloitsm.com, or halocrm.com |
-| `HALOPSA_OAUTH_SCOPE` | auth_flow_input | No | OAuth2 scope (defaults to "all"); set to a narrower scope when your API application requires it |
+| `HALOPSA_SCOPE` | auth_flow_input | No | OAuth2 scope (defaults to "all"); set to a narrower scope when your API application requires it |
 | `HALOPSA_TOKEN` | per_call | No | Set to your API credential. |
 
 ### agentcookie (optional)
@@ -4141,7 +4255,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - **Empty list results that should have data**  -  Pass `--include-inactive` (clients/users) or `--include-deleted` (tickets)  -  Halo filters these by default. Verify with `halopsa-cli sql "SELECT COUNT(*) FROM tickets"`.
 - **`sync` runs slowly on first call**  -  Initial sync pulls all 952 endpoints' top resources. Subsequent `sync` runs use `lastupdatedfrom` and are fast. Use `--only tickets,clients` to scope.
 - **429 Too Many Requests during a burst**  -  The client auto-retries with exponential backoff. If it persists, lower `--concurrency` (default 4) on batch commands.
-- **Tenant URL wrong / DNS error**  -  Confirm your Halo subdomain at https://<tenant>.halopsa.com (or .haloitsm.com / .halocrm.com). Set `HALOPSA_DOMAIN=haloitsm.com` to override the default `.halopsa.com`.
+- **Tenant URL wrong / DNS error**  -  Confirm your Halo subdomain at https://<tenant>.halopsa.com (or .haloitsm.com / .halocrm.com). Pass `--tenant-domain haloitsm.com` to override the default `.halopsa.com`.
 
 ## Sources & Inspiration
 
@@ -4157,8 +4271,3 @@ This CLI was built by studying these projects and resources:
 - [**lwhitelock/HaloPSA-Automation**](https://github.com/lwhitelock/HaloPSA-Automation)  -  PowerShell
 
 Generated by [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press)
-
-## Known Gaps
-
-- **Mock-mode sync row validation cannot pass for this API.** Halo's vendor Swagger leaves 751 of 806 GET responses without a typed schema, so the verification mock cannot fabricate list payloads and `verify`'s data-pipeline row check reports 0 rows in mock mode (upstream: cli-printing-press#2687). The sync engine itself is unchanged from the live-verified prior print; run `halopsa-cli sync && halopsa-cli sql "SELECT COUNT(*) FROM tickets"` against a real tenant to confirm rows flow.
-- **`tickets reopens` requires the tenant's ticket payloads to carry `$.reopened`.** When absent the command says detection is unavailable rather than reporting zero boomerangs.

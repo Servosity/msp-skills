@@ -16,8 +16,9 @@ func newAuditFileHistoryCmd(flags *rootFlags) *cobra.Command {
 	var flagComputerId string
 
 	cmd := &cobra.Command{
-		Use:         "file-history",
-		Short:       "All audit events for a given file path",
+		Use:   "file-history",
+		Short: "All audit events for a given file path",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  threatlocker-cli audit file-history --full-path example-value",
 		Annotations: map[string]string{"pp:endpoint": "audit.file-history", "pp:method": "GET", "pp:path": "/ActionLog/ActionLogGetAllForFileHistoryV2", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -38,10 +39,10 @@ func newAuditFileHistoryCmd(flags *rootFlags) *cobra.Command {
 			path := "/ActionLog/ActionLogGetAllForFileHistoryV2"
 			params := map[string]string{}
 			if flagFullPath != "" {
-				params["fullPath"] = fmt.Sprintf("%v", flagFullPath)
+				params["fullPath"] = formatCLIParamValue(flagFullPath)
 			}
 			if flagComputerId != "" {
-				params["computerId"] = fmt.Sprintf("%v", flagComputerId)
+				params["computerId"] = formatCLIParamValue(flagComputerId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "audit", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

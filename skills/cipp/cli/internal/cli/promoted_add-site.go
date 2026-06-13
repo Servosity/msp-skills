@@ -21,9 +21,10 @@ func newAddSitePromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "add-site",
-		Short:       "Add site",
-		Long:        "Add site",
+		Use:   "add-site",
+		Short: "Add site",
+		Long:  "Add site",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli add-site --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "add-site.create", "pp:method": "POST", "pp:path": "/AddSite"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -90,10 +91,10 @@ func newAddSitePromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

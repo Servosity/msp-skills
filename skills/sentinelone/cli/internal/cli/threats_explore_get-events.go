@@ -43,17 +43,17 @@ func newThreatsExploreGetEventsCmd(flags *rootFlags) *cobra.Command {
 			path := "/threats/{threat_id}/explore/events"
 			path = replacePathParam(path, "threat_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "explore", path, map[string]string{
-				"sortBy":            fmt.Sprintf("%v", flagSortBy),
-				"eventId":           fmt.Sprintf("%v", flagEventId),
-				"eventSubTypes":     fmt.Sprintf("%v", flagEventSubTypes),
-				"limit":             fmt.Sprintf("%v", flagLimit),
-				"skipCount":         fmt.Sprintf("%v", flagSkipCount),
-				"skip":              fmt.Sprintf("%v", flagSkip),
-				"sortOrder":         fmt.Sprintf("%v", flagSortOrder),
-				"eventTypes":        fmt.Sprintf("%v", flagEventTypes),
-				"processName__like": fmt.Sprintf("%v", flagProcessNameLike),
-				"countOnly":         fmt.Sprintf("%v", flagCountOnly),
-				"cursor":            fmt.Sprintf("%v", flagCursor),
+				"sortBy":            formatCLIParamValue(flagSortBy),
+				"eventId":           formatCLIParamValue(flagEventId),
+				"eventSubTypes":     formatCLIParamValue(flagEventSubTypes),
+				"limit":             formatCLIParamValue(flagLimit),
+				"skipCount":         formatCLIParamValue(flagSkipCount),
+				"skip":              formatCLIParamValue(flagSkip),
+				"sortOrder":         formatCLIParamValue(flagSortOrder),
+				"eventTypes":        formatCLIParamValue(flagEventTypes),
+				"processName__like": formatCLIParamValue(flagProcessNameLike),
+				"countOnly":         formatCLIParamValue(flagCountOnly),
+				"cursor":            formatCLIParamValue(flagCursor),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

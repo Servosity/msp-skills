@@ -31,7 +31,7 @@ func newOrgExportAssetTopTypesCsvCmd(flags *rootFlags) *cobra.Command {
 			}
 			params := map[string]string{}
 			if flagOid != "" {
-				params["_oid"] = fmt.Sprintf("%v", flagOid)
+				params["_oid"] = formatCLIParamValue(flagOid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "org", false, path, params, headerOverrides, cmd.ErrOrStderr())
 			if err != nil {

@@ -36,19 +36,19 @@ func newHubspotCompaniesCrmGetV3ObjectsCompaniesCompanyIdGetByIdCmd(flags *rootF
 			path = replacePathParam(path, "companyId", args[0])
 			params := map[string]string{}
 			if flagArchived != false {
-				params["archived"] = fmt.Sprintf("%v", flagArchived)
+				params["archived"] = formatCLIParamValue(flagArchived)
 			}
 			if flagAssociations != "" {
-				params["associations"] = fmt.Sprintf("%v", flagAssociations)
+				params["associations"] = formatCLIParamValue(flagAssociations)
 			}
 			if flagIdProperty != "" {
-				params["idProperty"] = fmt.Sprintf("%v", flagIdProperty)
+				params["idProperty"] = formatCLIParamValue(flagIdProperty)
 			}
 			if flagProperties != "" {
-				params["properties"] = fmt.Sprintf("%v", flagProperties)
+				params["properties"] = formatCLIParamValue(flagProperties)
 			}
 			if flagPropertiesWithHistory != "" {
-				params["propertiesWithHistory"] = fmt.Sprintf("%v", flagPropertiesWithHistory)
+				params["propertiesWithHistory"] = formatCLIParamValue(flagPropertiesWithHistory)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-companies-crm", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

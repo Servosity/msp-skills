@@ -38,10 +38,10 @@ func newUsersLoginByTokenCmd(flags *rootFlags) *cobra.Command {
 			path := "/users/login/by-token"
 			params := map[string]string{}
 			if flagRemovedSavedScope != "" {
-				params["removedSavedScope"] = fmt.Sprintf("%v", flagRemovedSavedScope)
+				params["removedSavedScope"] = formatCLIParamValue(flagRemovedSavedScope)
 			}
 			if flagToken != "" {
-				params["token"] = fmt.Sprintf("%v", flagToken)
+				params["token"] = formatCLIParamValue(flagToken)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "users", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {
@@ -92,7 +92,7 @@ func newUsersLoginByTokenCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&flagRemovedSavedScope, "removed-saved-scope", "", "Removed saved scope")
-	cmd.Flags().StringVar(&flagToken, "token", "", "User token. Example: '<your-user-token>'.")
+	cmd.Flags().StringVar(&flagToken, "token", "", "User token. Example: 'bfd9070c1afa88516d3cdfd722e62fe433e42bad6bb14da27088140ad785585f8582adaccd56fb69'.")
 
 	return cmd
 }

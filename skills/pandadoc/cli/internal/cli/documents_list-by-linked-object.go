@@ -21,7 +21,7 @@ func newDocumentsListByLinkedObjectCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list-by-linked-object",
 		Short:       "Get a list of documents connected to a linked object - an entity from an integration.",
-		Example:     "  pandadoc-cli documents list-by-linked-object --entity-id 550e8400-e29b-41d4-a716-446655440000 --entity-type example-value --provider example-value",
+		Example:     "  pandadoc-cli documents list-by-linked-object --entity-id 12345 --entity-type deal --provider hubspot",
 		Annotations: map[string]string{"pp:endpoint": "documents.list-by-linked-object", "pp:method": "GET", "pp:path": "/documents/linked-objects", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
@@ -47,19 +47,19 @@ func newDocumentsListByLinkedObjectCmd(flags *rootFlags) *cobra.Command {
 			path := "/documents/linked-objects"
 			params := map[string]string{}
 			if flagEntityId != "" {
-				params["entity_id"] = fmt.Sprintf("%v", flagEntityId)
+				params["entity_id"] = formatCLIParamValue(flagEntityId)
 			}
 			if flagEntityType != "" {
-				params["entity_type"] = fmt.Sprintf("%v", flagEntityType)
+				params["entity_type"] = formatCLIParamValue(flagEntityType)
 			}
 			if flagProvider != "" {
-				params["provider"] = fmt.Sprintf("%v", flagProvider)
+				params["provider"] = formatCLIParamValue(flagProvider)
 			}
 			if flagOrderBy != "" {
-				params["order_by"] = fmt.Sprintf("%v", flagOrderBy)
+				params["order_by"] = formatCLIParamValue(flagOrderBy)
 			}
 			if flagOwnerIds != "" {
-				params["owner_ids"] = fmt.Sprintf("%v", flagOwnerIds)
+				params["owner_ids"] = formatCLIParamValue(flagOwnerIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "documents", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

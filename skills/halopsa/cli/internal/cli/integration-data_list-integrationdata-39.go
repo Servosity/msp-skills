@@ -29,10 +29,10 @@ func newIntegrationDataListIntegrationdata39Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/HaloLink"
 			params := map[string]string{}
 			if flagResource != "" {
-				params["resource"] = fmt.Sprintf("%v", flagResource)
+				params["resource"] = formatCLIParamValue(flagResource)
 			}
 			if flagUriparams != "" {
-				params["uriparams"] = fmt.Sprintf("%v", flagUriparams)
+				params["uriparams"] = formatCLIParamValue(flagUriparams)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

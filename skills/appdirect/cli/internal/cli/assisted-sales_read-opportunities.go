@@ -66,40 +66,40 @@ func newAssistedSalesReadOpportunitiesCmd(flags *rootFlags) *cobra.Command {
 			path := "/assistedSales/v1/opportunities"
 			params := map[string]string{}
 			if flagOwnerId != "" {
-				params["ownerId"] = fmt.Sprintf("%v", flagOwnerId)
+				params["ownerId"] = formatCLIParamValue(flagOwnerId)
 			}
 			if flagOwnerCompanyId != "" {
-				params["ownerCompanyId"] = fmt.Sprintf("%v", flagOwnerCompanyId)
+				params["ownerCompanyId"] = formatCLIParamValue(flagOwnerCompanyId)
 			}
 			if flagCustomerId != "" {
-				params["customerId"] = fmt.Sprintf("%v", flagCustomerId)
+				params["customerId"] = formatCLIParamValue(flagCustomerId)
 			}
 			if flagCustomerCompanyId != "" {
-				params["customerCompanyId"] = fmt.Sprintf("%v", flagCustomerCompanyId)
+				params["customerCompanyId"] = formatCLIParamValue(flagCustomerCompanyId)
 			}
 			if flagContext != "" {
-				params["context"] = fmt.Sprintf("%v", flagContext)
+				params["context"] = formatCLIParamValue(flagContext)
 			}
 			if flagStatus != "" {
-				params["status"] = fmt.Sprintf("%v", flagStatus)
+				params["status"] = formatCLIParamValue(flagStatus)
 			}
 			if flagPurchaseEffectiveDate != "" {
-				params["purchaseEffectiveDate"] = fmt.Sprintf("%v", flagPurchaseEffectiveDate)
+				params["purchaseEffectiveDate"] = formatCLIParamValue(flagPurchaseEffectiveDate)
 			}
 			if flagCreatedOn != "" {
-				params["createdOn"] = fmt.Sprintf("%v", flagCreatedOn)
+				params["createdOn"] = formatCLIParamValue(flagCreatedOn)
 			}
 			if flagSearchText != "" {
-				params["searchText"] = fmt.Sprintf("%v", flagSearchText)
+				params["searchText"] = formatCLIParamValue(flagSearchText)
 			}
 			if flagNumber != 0 {
-				params["number"] = fmt.Sprintf("%v", flagNumber)
+				params["number"] = formatCLIParamValue(flagNumber)
 			}
 			if flagSize != 0 {
-				params["size"] = fmt.Sprintf("%v", flagSize)
+				params["size"] = formatCLIParamValue(flagSize)
 			}
 			if flagSort != "" {
-				params["sort"] = fmt.Sprintf("%v", flagSort)
+				params["sort"] = formatCLIParamValue(flagSort)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "assisted-sales", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

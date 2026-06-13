@@ -23,9 +23,10 @@ func newPricingBookPublicCreateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "public-create",
-		Aliases:     []string{"create"},
-		Short:       "Create a new pricing book",
+		Use:     "public-create",
+		Aliases: []string{"create"},
+		Short:   "Create a new pricing book",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  salesbuildr-cli pricing-book public-create --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "pricing-book.public-create", "pp:method": "POST", "pp:path": "/pricing-book"},
 		RunE: func(cmd *cobra.Command, args []string) error {

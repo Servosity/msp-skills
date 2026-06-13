@@ -39,10 +39,10 @@ func newSystemGetAttachmentsCmd(flags *rootFlags) *cobra.Command {
 			}
 			path = replacePathParam(path, "moduleId", args[1])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "system", path, map[string]string{
-				"PageSize":   fmt.Sprintf("%v", flagPageSize),
-				"PageNumber": fmt.Sprintf("%v", flagPageNumber),
-				"Sort":       fmt.Sprintf("%v", flagSort),
-				"Exclude":    fmt.Sprintf("%v", flagExclude),
+				"PageSize":   formatCLIParamValue(flagPageSize),
+				"PageNumber": formatCLIParamValue(flagPageNumber),
+				"Sort":       formatCLIParamValue(flagSort),
+				"Exclude":    formatCLIParamValue(flagExclude),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

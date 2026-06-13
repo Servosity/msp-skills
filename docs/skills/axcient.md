@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Axcient x360Recover MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "Every x360Recover endpoint plus the fleet-wide backup-health answers the API alone cannot give: offline, joined, and agent-ready."
+description: "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give \u2014 offline, joined, and agent-ready."
 permalink: /skills/axcient/
 skill_name: "Axcient x360Recover MCP"
 image: /assets/social/axcient/wide-1200x630.png

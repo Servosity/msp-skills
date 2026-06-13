@@ -15,9 +15,10 @@ func newExecSyncVppPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "exec-sync-vpp",
-		Short:       "Exec sync vpp",
-		Long:        "Exec sync vpp",
+		Use:   "exec-sync-vpp",
+		Short: "Exec sync vpp",
+		Long:  "Exec sync vpp",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-sync-vpp --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-sync-vpp.create", "pp:method": "POST", "pp:path": "/ExecSyncVPP"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -48,10 +49,10 @@ func newExecSyncVppPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

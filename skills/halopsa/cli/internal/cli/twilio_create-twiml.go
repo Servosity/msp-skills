@@ -29,7 +29,7 @@ func newTwilioCreateTwimlCmd(flags *rootFlags) *cobra.Command {
 			path := "/Twilio/twiml"
 			params := map[string]string{}
 			if flagGuid != "" {
-				params["guid"] = fmt.Sprintf("%v", flagGuid)
+				params["guid"] = formatCLIParamValue(flagGuid)
 			}
 			fields := map[string]string{}
 			fileFields := map[string]string{}

@@ -44,10 +44,10 @@ func newDatasetPromotedCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "resourceId", args[0])
 			params := map[string]string{}
 			if flagCurrent != 0 {
-				params["current"] = fmt.Sprintf("%v", flagCurrent)
+				params["current"] = formatCLIParamValue(flagCurrent)
 			}
 			if flagSize != 0 {
-				params["size"] = fmt.Sprintf("%v", flagSize)
+				params["size"] = formatCLIParamValue(flagSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "dataset", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

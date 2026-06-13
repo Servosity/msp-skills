@@ -72,13 +72,13 @@ func newSchedulesCreatePreviewCmd(flags *rootFlags) *cobra.Command {
 			path := "/schedules/preview"
 			params := map[string]string{}
 			if flagSince != "" {
-				params["since"] = fmt.Sprintf("%v", flagSince)
+				params["since"] = formatCLIParamValue(flagSince)
 			}
 			if flagUntil != "" {
-				params["until"] = fmt.Sprintf("%v", flagUntil)
+				params["until"] = formatCLIParamValue(flagUntil)
 			}
 			if flagOverflow != false {
-				params["overflow"] = fmt.Sprintf("%v", flagOverflow)
+				params["overflow"] = formatCLIParamValue(flagOverflow)
 			}
 			var body map[string]any
 			if stdinBody {

@@ -37,8 +37,9 @@ func newRmmUpdateIntegrationtypeCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update-integrationtype <integrationType>",
-		Short:       "Update integrationtype",
+		Use:   "update-integrationtype <integrationType>",
+		Short: "Update integrationtype",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli rmm update-integrationtype example-value",
 		Annotations: map[string]string{"pp:endpoint": "rmm.update-integrationtype", "pp:method": "PUT", "pp:path": "/v2/rmm/{integrationType}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

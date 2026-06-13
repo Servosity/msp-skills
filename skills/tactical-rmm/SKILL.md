@@ -1,6 +1,6 @@
 ---
 name: tactical-rmm
-description: "Use when the user asks to check Tactical RMM fleet health, triage the agents that need attention first, sweep patch posture across every client, find agents that have gone dark, see what changed across the fleet, run a command or script across a filtered cohort of agents, or pull clean JSON from a self-hosted Tactical RMM instance. Wraps the Tactical RMM REST API plus an offline SQLite mirror with cross-entity fleet queries. Trigger phrases: `tactical rmm fleet health`, `which agents are offline`, `triage my rmm fleet`, `patch posture by client`, `run a command on all windows agents`, `Tactical RMM + ChatGPT`, `Tactical RMM + Claude`, `use tactical-rmm`, `run tactical-rmm-cli`."
+description: "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express. Trigger phrases: `tactical rmm fleet health`, `which agents are offline`, `triage my rmm fleet`, `patch posture by client`, `run a script on all windows agents`, `use tactical-rmm`, `run tactical-rmm`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Tactical RMM"
@@ -11,32 +11,46 @@ metadata:
     requires:
       bins:
         - tactical-rmm-cli
+    install:
+      - kind: go
+        bins: [tactical-rmm-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/tactical-rmm/cmd/tactical-rmm-cli
 ---
 
-# Tactical RMM Claude Code Skill
+# Tactical RMM  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `tactical-rmm-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/install.sh)
+   npx -y @mvanhorn/printing-press-library install tactical-rmm --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/install.ps1 | iex
-   ```
-3. Verify: `tactical-rmm-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `tactical-rmm-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/tactical-rmm/cmd/tactical-rmm-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 A terminal-native, agent-native control plane for self-hosted Tactical RMM. Mirror your fleet into local SQLite, run cross-entity queries (fleet health, triage, patch posture, coverage) that no single API call returns, fan scripts out across a filtered cohort, and pipe clean JSON anywhere.
 
 ## When to Use This CLI
 
 Operating a self-hosted Tactical RMM fleet from the terminal or an agent: triaging endpoints, sweeping software/patch posture, fanning a script to a cohort, or pulling clean JSON for automation.
+
+## Anti-triggers
+
+Do not use this CLI for:
+- Ticketing/PSA work (invoices, tickets, time entries) - Tactical RMM is an RMM; use your PSA's tooling instead
+- Cloud/hosted RMMs (NinjaOne, Datto RMM, N-central) - this CLI only speaks self-hosted Tactical RMM's API
+- Installing or enrolling new agents on endpoints - use the TRMM installer/deployment flow, not this CLI
+- Editing automation policies or check definitions in bulk - policy authoring stays in the web UI; this CLI reads and reports on them
 
 ## Unique Capabilities
 
@@ -92,7 +106,7 @@ These capabilities aren't available in any other tool for this API.
   _Answer who is exposed during a CVE scramble._
 
   ```bash
-  tactical-rmm-cli software find --name openssl
+  tactical-rmm-cli software find <name>
   ```
 - **`services down`**  -  Agents where a named Windows service is stopped, across the whole fleet. Live fan-out: requires TRMM_API_KEY (agent list comes from the local store).
 
@@ -383,7 +397,7 @@ Ranked attention list across offline state, failing checks, reboots, patches.
 ### CVE exposure sweep
 
 ```bash
-tactical-rmm-cli software find --name openssl --select agent_id,name,version
+tactical-rmm-cli software find <name> --select agent_id,name,version
 ```
 
 Which agents carry a package, narrowed to the fields that matter.
@@ -427,7 +441,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 
 ### Response envelope
 
-Generated endpoint (CRUD) commands wrap output in a provenance envelope; the cross-entity fleet commands (`fleet health`, `triage`, `software find`, etc.) emit purpose-built JSON instead - check each command's `--help` for its shape. Envelope shape for endpoint commands:
+Commands that read from the local store or the API wrap output in a provenance envelope:
 
 ```json
 {
@@ -437,13 +451,6 @@ Generated endpoint (CRUD) commands wrap output in a provenance envelope; the cro
 ```
 
 Parse `.results` for data and `.meta.source` to know whether it's live or local. A human-readable `N results (live)` summary is printed to stderr only when stdout is a terminal AND no machine-format flag (`--json`, `--csv`, `--compact`, `--quiet`, `--plain`, `--select`) is set  -  piped/agent consumers and explicit-format runs get pure JSON on stdout.
-
-## When NOT to use this CLI
-
-- Ticketing/PSA work (invoices, tickets, time entries) - Tactical RMM is an RMM; use your PSA's tooling instead.
-- Cloud/hosted RMMs (NinjaOne, Datto RMM, N-central) - this CLI only speaks self-hosted Tactical RMM's API.
-- Installing or enrolling new agents on endpoints - use the TRMM installer/deployment flow, not this CLI.
-- Editing automation policies or check definitions in bulk - policy authoring stays in the web UI; this CLI reads and reports on them.
 
 ## Agent Feedback
 
@@ -507,13 +514,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `tactical-rmm-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add tactical-rmm-mcp -- tactical-rmm-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/tactical-rmm/cmd/tactical-rmm-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add tactical-rmm-mcp -- tactical-rmm-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

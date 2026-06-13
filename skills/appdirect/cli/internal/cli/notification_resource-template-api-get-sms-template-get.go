@@ -15,8 +15,9 @@ func newNotificationResourceTemplateApiGetSmsTemplateGetCmd(flags *rootFlags) *c
 	var flagDirectSales bool
 
 	cmd := &cobra.Command{
-		Use:         "resource-template-api-get-sms-template-get <type>",
-		Short:       "This call returns all details for a specific sms template type.",
+		Use:   "resource-template-api-get-sms-template-get <type>",
+		Short: "This call returns all details for a specific sms template type.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli notification resource-template-api-get-sms-template-get example-value",
 		Annotations: map[string]string{"pp:endpoint": "notification.resource-template-api-get-sms-template-get", "pp:method": "GET", "pp:path": "/notification/v1/templates/sms/{type}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -32,7 +33,7 @@ func newNotificationResourceTemplateApiGetSmsTemplateGetCmd(flags *rootFlags) *c
 			path = replacePathParam(path, "type", args[0])
 			params := map[string]string{}
 			if flagDirectSales != false {
-				params["directSales"] = fmt.Sprintf("%v", flagDirectSales)
+				params["directSales"] = formatCLIParamValue(flagDirectSales)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "notification", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

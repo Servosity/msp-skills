@@ -32,11 +32,11 @@ func newQueriesGetSoftwareCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/queries/software"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "queries", path, map[string]string{
-				"df":              fmt.Sprintf("%v", flagDf),
-				"cursor":          fmt.Sprintf("%v", flagCursor),
-				"pageSize":        fmt.Sprintf("%v", flagPageSize),
-				"installedBefore": fmt.Sprintf("%v", flagInstalledBefore),
-				"installedAfter":  fmt.Sprintf("%v", flagInstalledAfter),
+				"df":              formatCLIParamValue(flagDf),
+				"cursor":          formatCLIParamValue(flagCursor),
+				"pageSize":        formatCLIParamValue(flagPageSize),
+				"installedBefore": formatCLIParamValue(flagInstalledBefore),
+				"installedAfter":  formatCLIParamValue(flagInstalledAfter),
 			}, nil, flagAll, "cursor", "cursor", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

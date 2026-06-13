@@ -18,9 +18,10 @@ func newExecSetRetentionHoldPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "exec-set-retention-hold",
-		Short:       "Exec set retention hold",
-		Long:        "Exec set retention hold",
+		Use:   "exec-set-retention-hold",
+		Short: "Exec set retention hold",
+		Long:  "Exec set retention hold",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-set-retention-hold --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-set-retention-hold.create", "pp:method": "POST", "pp:path": "/ExecSetRetentionHold"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -60,10 +61,10 @@ func newExecSetRetentionHoldPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

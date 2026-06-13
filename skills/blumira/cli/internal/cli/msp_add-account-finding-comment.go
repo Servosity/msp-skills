@@ -18,9 +18,10 @@ func newMspAddAccountFindingCommentCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "add-account-finding-comment <account_id> <finding_id>",
-		Aliases:     []string{"create"},
-		Short:       "Add a comment to a finding for your MSP sub-account",
+		Use:     "add-account-finding-comment <account_id> <finding_id>",
+		Aliases: []string{"create"},
+		Short:   "Add a comment to a finding for your MSP sub-account",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  blumira-cli msp add-account-finding-comment 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --body example-value",
 		Annotations: map[string]string{"pp:endpoint": "msp.add-account-finding-comment", "pp:method": "POST", "pp:path": "/msp/accounts/{account_id}/findings/{finding_id}/comments"},
 		RunE: func(cmd *cobra.Command, args []string) error {

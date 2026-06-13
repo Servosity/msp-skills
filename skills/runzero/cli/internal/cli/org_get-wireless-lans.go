@@ -29,10 +29,10 @@ func newOrgGetWirelessLansCmd(flags *rootFlags) *cobra.Command {
 			path := "/org/wireless"
 			params := map[string]string{}
 			if flagOid != "" {
-				params["_oid"] = fmt.Sprintf("%v", flagOid)
+				params["_oid"] = formatCLIParamValue(flagOid)
 			}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "org", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

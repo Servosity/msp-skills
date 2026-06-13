@@ -16,8 +16,9 @@ func newIntegrationGetInvoiceDetailsCmd(flags *rootFlags) *cobra.Command {
 	var flagInvoiceNumbers string
 
 	cmd := &cobra.Command{
-		Use:         "get-invoice-details",
-		Short:       "Get invoice details",
+		Use:   "get-invoice-details",
+		Short: "Get invoice details",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli integration get-invoice-details --external-tenant-id 550e8400-e29b-41d4-a716-446655440000 --invoice-numbers example-value",
 		Annotations: map[string]string{"pp:endpoint": "integration.get-invoice-details", "pp:method": "GET", "pp:path": "/v2/integration/qbd/invoices/detail", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,10 +42,10 @@ func newIntegrationGetInvoiceDetailsCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/integration/qbd/invoices/detail"
 			params := map[string]string{}
 			if flagExternalTenantId != "" {
-				params["ExternalTenantId"] = fmt.Sprintf("%v", flagExternalTenantId)
+				params["ExternalTenantId"] = formatCLIParamValue(flagExternalTenantId)
 			}
 			if flagInvoiceNumbers != "" {
-				params["InvoiceNumbers"] = fmt.Sprintf("%v", flagInvoiceNumbers)
+				params["InvoiceNumbers"] = formatCLIParamValue(flagInvoiceNumbers)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -11,7 +11,7 @@ func newNovelStandardsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "standards",
-		Short:       "TODO: implement standards",
+		Short:       "standards subcommands: drift",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

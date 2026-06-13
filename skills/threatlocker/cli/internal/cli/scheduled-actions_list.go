@@ -29,10 +29,10 @@ func newScheduledActionsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/ScheduledAgentAction/List"
 			params := map[string]string{}
 			if flagScheduledType != 0 {
-				params["scheduledType"] = fmt.Sprintf("%v", flagScheduledType)
+				params["scheduledType"] = formatCLIParamValue(flagScheduledType)
 			}
 			if flagIncludeChildren != false {
-				params["includeChildren"] = fmt.Sprintf("%v", flagIncludeChildren)
+				params["includeChildren"] = formatCLIParamValue(flagIncludeChildren)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "scheduled-actions", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

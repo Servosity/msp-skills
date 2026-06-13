@@ -33,7 +33,7 @@ func newIncidentsRelatedChangeEventsListIncidentCmd(flags *rootFlags) *cobra.Com
 			path := "/incidents/{id}/related_change_events"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "related-change-events", path, map[string]string{
-				"limit": fmt.Sprintf("%v", flagLimit),
+				"limit": formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

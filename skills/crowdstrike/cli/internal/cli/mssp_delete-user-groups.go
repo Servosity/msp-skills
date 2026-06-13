@@ -15,8 +15,9 @@ func newMsspDeleteUserGroupsCmd(flags *rootFlags) *cobra.Command {
 	var flagUserGroupIds string
 
 	cmd := &cobra.Command{
-		Use:         "delete-user-groups",
-		Short:       "Delete user groups by ID.",
+		Use:   "delete-user-groups",
+		Short: "Delete user groups by ID.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  crowdstrike-cli mssp delete-user-groups --user-group-ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "mssp.delete-user-groups", "pp:method": "DELETE", "pp:path": "/mssp/entities/user-groups/v1"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newMsspDeleteUserGroupsCmd(flags *rootFlags) *cobra.Command {
 			path := "/mssp/entities/user-groups/v1"
 			params := map[string]string{}
 			if flagUserGroupIds != "" {
-				params["user_group_ids"] = fmt.Sprintf("%v", flagUserGroupIds)
+				params["user_group_ids"] = formatCLIParamValue(flagUserGroupIds)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

@@ -16,7 +16,7 @@ func newDocumentsSectionsDeleteCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete <document_id> <section_id>",
 		Short:       "Removes selected section from the document.",
-		Example:     "  pandadoc-cli documents sections delete 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents sections delete ZPeAfcpzr9aiVs5vqUf6jg BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "sections.delete", "pp:method": "DELETE", "pp:path": "/documents/{document_id}/sections/{section_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

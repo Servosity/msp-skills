@@ -23,9 +23,10 @@ func newDataSourcesAllPostCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "all-post",
-		Aliases:     []string{"create"},
-		Short:       "**Requires permission: `manage_data_sources`** Creates a new custom data source.",
+		Use:     "all-post",
+		Aliases: []string{"create"},
+		Short:   "**Requires permission: `manage_data_sources`** Creates a new custom data source.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  action1-cli data-sources all-post --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "data-sources.all-post", "pp:method": "POST", "pp:path": "/data-sources/all"},
 		RunE: func(cmd *cobra.Command, args []string) error {

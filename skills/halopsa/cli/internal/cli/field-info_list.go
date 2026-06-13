@@ -46,61 +46,61 @@ func newFieldInfoListCmd(flags *rootFlags) *cobra.Command {
 			path := "/FieldInfo"
 			params := map[string]string{}
 			if flagAccessControlLevel != 0 {
-				params["access_control_level"] = fmt.Sprintf("%v", flagAccessControlLevel)
+				params["access_control_level"] = formatCLIParamValue(flagAccessControlLevel)
 			}
 			if flagDomain != "" {
-				params["domain"] = fmt.Sprintf("%v", flagDomain)
+				params["domain"] = formatCLIParamValue(flagDomain)
 			}
 			if flagExcluderanges != false {
-				params["excluderanges"] = fmt.Sprintf("%v", flagExcluderanges)
+				params["excluderanges"] = formatCLIParamValue(flagExcluderanges)
 			}
 			if flagExcludetables != false {
-				params["excludetables"] = fmt.Sprintf("%v", flagExcludetables)
+				params["excludetables"] = formatCLIParamValue(flagExcludetables)
 			}
 			if flagExcludetableself != false {
-				params["excludetableself"] = fmt.Sprintf("%v", flagExcludetableself)
+				params["excludetableself"] = formatCLIParamValue(flagExcludetableself)
 			}
 			if flagExtratype != 0 {
-				params["extratype"] = fmt.Sprintf("%v", flagExtratype)
+				params["extratype"] = formatCLIParamValue(flagExtratype)
 			}
 			if flagFieldtype != 0 {
-				params["fieldtype"] = fmt.Sprintf("%v", flagFieldtype)
+				params["fieldtype"] = formatCLIParamValue(flagFieldtype)
 			}
 			if flagFieldtypemultiple != "" {
-				params["fieldtypemultiple"] = fmt.Sprintf("%v", flagFieldtypemultiple)
+				params["fieldtypemultiple"] = formatCLIParamValue(flagFieldtypemultiple)
 			}
 			if flagIncludecategories != false {
-				params["includecategories"] = fmt.Sprintf("%v", flagIncludecategories)
+				params["includecategories"] = formatCLIParamValue(flagIncludecategories)
 			}
 			if flagIncludedatefields != false {
-				params["includedatefields"] = fmt.Sprintf("%v", flagIncludedatefields)
+				params["includedatefields"] = formatCLIParamValue(flagIncludedatefields)
 			}
 			if flagIncludejirafields != false {
-				params["includejirafields"] = fmt.Sprintf("%v", flagIncludejirafields)
+				params["includejirafields"] = formatCLIParamValue(flagIncludejirafields)
 			}
 			if flagIncluderemotefields != false {
-				params["includeremotefields"] = fmt.Sprintf("%v", flagIncluderemotefields)
+				params["includeremotefields"] = formatCLIParamValue(flagIncluderemotefields)
 			}
 			if flagIncludevalues != false {
-				params["includevalues"] = fmt.Sprintf("%v", flagIncludevalues)
+				params["includevalues"] = formatCLIParamValue(flagIncludevalues)
 			}
 			if flagInputtype != 0 {
-				params["inputtype"] = fmt.Sprintf("%v", flagInputtype)
+				params["inputtype"] = formatCLIParamValue(flagInputtype)
 			}
 			if flagIsapprovalstep != false {
-				params["isapprovalstep"] = fmt.Sprintf("%v", flagIsapprovalstep)
+				params["isapprovalstep"] = formatCLIParamValue(flagIsapprovalstep)
 			}
 			if flagIsconfig != false {
-				params["isconfig"] = fmt.Sprintf("%v", flagIsconfig)
+				params["isconfig"] = formatCLIParamValue(flagIsconfig)
 			}
 			if flagIscustomfieldsetup != false {
-				params["iscustomfieldsetup"] = fmt.Sprintf("%v", flagIscustomfieldsetup)
+				params["iscustomfieldsetup"] = formatCLIParamValue(flagIscustomfieldsetup)
 			}
 			if flagSystemid != "" {
-				params["systemid"] = fmt.Sprintf("%v", flagSystemid)
+				params["systemid"] = formatCLIParamValue(flagSystemid)
 			}
 			if flagTypeid != "" {
-				params["typeid"] = fmt.Sprintf("%v", flagTypeid)
+				params["typeid"] = formatCLIParamValue(flagTypeid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "field-info", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

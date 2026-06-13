@@ -43,52 +43,52 @@ func newStatusListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Status"
 			params := map[string]string{}
 			if flagDomain != "" {
-				params["domain"] = fmt.Sprintf("%v", flagDomain)
+				params["domain"] = formatCLIParamValue(flagDomain)
 			}
 			if flagExcludeclosed != false {
-				params["excludeclosed"] = fmt.Sprintf("%v", flagExcludeclosed)
+				params["excludeclosed"] = formatCLIParamValue(flagExcludeclosed)
 			}
 			if flagExcludepending != false {
-				params["excludepending"] = fmt.Sprintf("%v", flagExcludepending)
+				params["excludepending"] = formatCLIParamValue(flagExcludepending)
 			}
 			if flagOutcomeId != "" {
-				params["outcome_id"] = fmt.Sprintf("%v", flagOutcomeId)
+				params["outcome_id"] = formatCLIParamValue(flagOutcomeId)
 			}
 			if flagShowall != false {
-				params["showall"] = fmt.Sprintf("%v", flagShowall)
+				params["showall"] = formatCLIParamValue(flagShowall)
 			}
 			if flagShowcounts != false {
-				params["showcounts"] = fmt.Sprintf("%v", flagShowcounts)
+				params["showcounts"] = formatCLIParamValue(flagShowcounts)
 			}
 			if flagShowquickchangeoptions != false {
-				params["showquickchangeoptions"] = fmt.Sprintf("%v", flagShowquickchangeoptions)
+				params["showquickchangeoptions"] = formatCLIParamValue(flagShowquickchangeoptions)
 			}
 			if flagSplitClosed != false {
-				params["split_closed"] = fmt.Sprintf("%v", flagSplitClosed)
+				params["split_closed"] = formatCLIParamValue(flagSplitClosed)
 			}
 			if flagTicketId != "" {
-				params["ticket_id"] = fmt.Sprintf("%v", flagTicketId)
+				params["ticket_id"] = formatCLIParamValue(flagTicketId)
 			}
 			if flagTicketIdFirstchild != 0 {
-				params["ticket_id_firstchild"] = fmt.Sprintf("%v", flagTicketIdFirstchild)
+				params["ticket_id_firstchild"] = formatCLIParamValue(flagTicketIdFirstchild)
 			}
 			if flagTicketareaId != "" {
-				params["ticketarea_id"] = fmt.Sprintf("%v", flagTicketareaId)
+				params["ticketarea_id"] = formatCLIParamValue(flagTicketareaId)
 			}
 			if flagTickettypeGroupId != "" {
-				params["tickettype_group_id"] = fmt.Sprintf("%v", flagTickettypeGroupId)
+				params["tickettype_group_id"] = formatCLIParamValue(flagTickettypeGroupId)
 			}
 			if flagTickettypeId != "" {
-				params["tickettype_id"] = fmt.Sprintf("%v", flagTickettypeId)
+				params["tickettype_id"] = formatCLIParamValue(flagTickettypeId)
 			}
 			if flagTickettypeIds != "" {
-				params["tickettype_ids"] = fmt.Sprintf("%v", flagTickettypeIds)
+				params["tickettype_ids"] = formatCLIParamValue(flagTickettypeIds)
 			}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			if flagViewId != "" {
-				params["view_id"] = fmt.Sprintf("%v", flagViewId)
+				params["view_id"] = formatCLIParamValue(flagViewId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "status", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

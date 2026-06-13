@@ -21,7 +21,6 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 	cmd.AddCommand(newAuthStatusCmd(flags))
 	cmd.AddCommand(newAuthSetTokenCmd(flags))
 	cmd.AddCommand(newAuthLogoutCmd(flags))
-
 	cmd.AddCommand(newAuthLoginCmd(flags))
 
 	return cmd
@@ -42,7 +41,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "  Generate a JSON Web Token for an API-only user in N-central: Administration -> User Management -> Users -> select the API user -> API Access -> GENERATE JSON WEB TOKEN. MFA must be OFF on that user, and watch the password-expiry (default 90 days) which silently invalidates the JWT. Also set N_CENTRAL_BASE_URL to your tenant, e.g. https://yourmsp.ncod.n-able.com/api")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export NCENTRAL_JWT=\"<your-token>\"")
+			fmt.Fprintln(w, "  export NCENTRAL_JWT=\"your-token-here\"")
 			fmt.Fprintln(w, "  n-central-cli auth set-token <token>")
 			if !launch {
 				return nil

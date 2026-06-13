@@ -15,9 +15,10 @@ func newListSharepointQuotaPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-sharepoint-quota",
-		Short:       "List sharepoint quota",
-		Long:        "List sharepoint quota",
+		Use:   "list-sharepoint-quota",
+		Short: "List sharepoint quota",
+		Long:  "List sharepoint quota",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-sharepoint-quota --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-sharepoint-quota.list", "pp:method": "GET", "pp:path": "/ListSharepointQuota", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,7 @@ func newListSharepointQuotaPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListSharepointQuota"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-sharepoint-quota", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

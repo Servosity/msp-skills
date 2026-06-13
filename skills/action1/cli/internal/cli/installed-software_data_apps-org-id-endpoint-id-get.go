@@ -40,10 +40,10 @@ func newInstalledSoftwareDataAppsOrgIdEndpointIdGetCmd(flags *rootFlags) *cobra.
 			}
 			path = replacePathParam(path, "endpointId", args[1])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "data", path, map[string]string{
-				"from":   fmt.Sprintf("%v", flagFrom),
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"sortby": fmt.Sprintf("%v", flagSortby),
-				"filter": fmt.Sprintf("%v", flagFilter),
+				"from":   formatCLIParamValue(flagFrom),
+				"limit":  formatCLIParamValue(flagLimit),
+				"sortby": formatCLIParamValue(flagSortby),
+				"filter": formatCLIParamValue(flagFilter),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

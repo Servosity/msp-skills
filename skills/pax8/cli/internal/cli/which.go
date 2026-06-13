@@ -28,7 +28,7 @@ type whichEntry struct {
 // query to one of the commands the skill says matter most.
 var whichIndex = []whichEntry{
 	{Command: "reconcile", Description: "Flag invoice lines that no longer match an active subscription, and active subscriptions that never got billed; --draft pre-checks the next unposted invoice.", Group: "Local state that compounds", WhyItMatters: "Reach for this when an MSP needs to catch billing leakage the Pax8 portal can't surface in one place."},
-	{Command: "mrr", Description: "Compute monthly recurring revenue and margin from subscriptions and product pricing, trended across syncs, with --group-by product breakdowns.", Group: "Local state that compounds", WhyItMatters: "Reach for this when an agent needs the revenue number the portal makes you build in a spreadsheet."},
+	{Command: "mrr", Description: "Compute monthly recurring revenue and margin from subscriptions and product pricing, trended across syncs, with a per-product breakdown.", Group: "Local state that compounds", WhyItMatters: "Reach for this when an agent needs the revenue number the portal makes you build in a spreadsheet."},
 	{Command: "overage", Description: "Aggregate usage-lines per subscription and surface overages before they land on the customer invoice.", Group: "Local state that compounds", WhyItMatters: "Reach for this to catch metered overages proactively instead of after the invoice posts."},
 	{Command: "since", Description: "Diff subscription snapshots and history over time to show new, cancelled, and quantity-changed subscriptions.", Group: "Local state that compounds", WhyItMatters: "Reach for this to answer 'what changed in my book of business' without diffing exports by hand."},
 	{Command: "company show", Description: "One view of a company with its subscriptions, contacts, invoices, and usage.", Group: "Local state that compounds", WhyItMatters: "Reach for this when an agent needs a full picture of one customer in a single call."},
@@ -136,6 +136,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

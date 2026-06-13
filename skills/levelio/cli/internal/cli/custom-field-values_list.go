@@ -32,11 +32,11 @@ func newCustomFieldValuesListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/custom_field_values"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "custom-field-values", path, map[string]string{
-				"assigned_to_id":  fmt.Sprintf("%v", flagAssignedToId),
-				"custom_field_id": fmt.Sprintf("%v", flagCustomFieldId),
-				"limit":           fmt.Sprintf("%v", flagLimit),
-				"starting_after":  fmt.Sprintf("%v", flagStartingAfter),
-				"ending_before":   fmt.Sprintf("%v", flagEndingBefore),
+				"assigned_to_id":  formatCLIParamValue(flagAssignedToId),
+				"custom_field_id": formatCLIParamValue(flagCustomFieldId),
+				"limit":           formatCLIParamValue(flagLimit),
+				"starting_after":  formatCLIParamValue(flagStartingAfter),
+				"ending_before":   formatCLIParamValue(flagEndingBefore),
 			}, nil, flagAll, "", "cursor", "limit", "", "has_more", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

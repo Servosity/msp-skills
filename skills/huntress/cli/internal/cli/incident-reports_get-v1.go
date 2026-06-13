@@ -116,16 +116,16 @@ func newIncidentReportsGetV1Cmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/incident_reports"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "incident-reports", path, map[string]string{
-				"limit":           fmt.Sprintf("%v", flagLimit),
-				"page_token":      fmt.Sprintf("%v", flagPageToken),
-				"sort_field":      fmt.Sprintf("%v", flagSortField),
-				"sort_direction":  fmt.Sprintf("%v", flagSortDirection),
-				"indicator_type":  fmt.Sprintf("%v", flagIndicatorType),
-				"status":          fmt.Sprintf("%v", flagStatus),
-				"severity":        fmt.Sprintf("%v", flagSeverity),
-				"platform":        fmt.Sprintf("%v", flagPlatform),
-				"organization_id": fmt.Sprintf("%v", flagOrganizationId),
-				"agent_id":        fmt.Sprintf("%v", flagAgentId),
+				"limit":           formatCLIParamValue(flagLimit),
+				"page_token":      formatCLIParamValue(flagPageToken),
+				"sort_field":      formatCLIParamValue(flagSortField),
+				"sort_direction":  formatCLIParamValue(flagSortDirection),
+				"indicator_type":  formatCLIParamValue(flagIndicatorType),
+				"status":          formatCLIParamValue(flagStatus),
+				"severity":        formatCLIParamValue(flagSeverity),
+				"platform":        formatCLIParamValue(flagPlatform),
+				"organization_id": formatCLIParamValue(flagOrganizationId),
+				"agent_id":        formatCLIParamValue(flagAgentId),
 			}, nil, flagAll, "page_token", "page_token", "limit", "nextPageToken", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

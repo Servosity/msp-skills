@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"pipedrive-pp-cli/internal/pipeintel"
-	"pipedrive-pp-cli/internal/store"
 )
 
 type dupeMember struct {
@@ -96,7 +95,7 @@ Reads the local store, so run 'pipedrive-cli sync' first.`,
 // runDupes clusters likely-duplicate records of one entity using a union-find
 // over normalized name and (for persons) primary email + phone.
 func runDupes(cmd *cobra.Command, flags *rootFlags, entity string, limit int, dbPath string) error {
-	db, err := store.OpenWithContext(cmd.Context(), novelDBPath(dbPath))
+	db, err := pdOpenStore(cmd.Context(), dbPath)
 	if err != nil {
 		return fmt.Errorf("opening local store: %w", err)
 	}

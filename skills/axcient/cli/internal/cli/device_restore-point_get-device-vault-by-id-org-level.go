@@ -20,7 +20,7 @@ func newDeviceRestorePointGetDeviceVaultByIdOrgLevelCmd(flags *rootFlags) *cobra
 		Use:         "get-device-vault-by-id-org-level <device_id>",
 		Aliases:     []string{"get"},
 		Short:       "Returns information about device's restore points grouped by Cloud Vaults it is replicated on",
-		Example:     "  axcient-cli device restore-point get-device-vault-by-id-org-level 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  axcient-cli device restore-point get-device-vault-by-id-org-level 555",
 		Annotations: map[string]string{"pp:endpoint": "restore-point.get-device-vault-by-id-org-level", "pp:method": "GET", "pp:path": "/device/{device_id}/restore_point", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -34,8 +34,8 @@ func newDeviceRestorePointGetDeviceVaultByIdOrgLevelCmd(flags *rootFlags) *cobra
 			path := "/device/{device_id}/restore_point"
 			path = replacePathParam(path, "device_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "restore-point", path, map[string]string{
-				"max_timestamp": fmt.Sprintf("%v", flagMaxTimestamp),
-				"limit":         fmt.Sprintf("%v", flagLimit),
+				"max_timestamp": formatCLIParamValue(flagMaxTimestamp),
+				"limit":         formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

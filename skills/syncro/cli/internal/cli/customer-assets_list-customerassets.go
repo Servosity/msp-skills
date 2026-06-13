@@ -15,8 +15,9 @@ func newCustomerAssetsListCustomerassetsCmd(flags *rootFlags) *cobra.Command {
 	var flagIds string
 
 	cmd := &cobra.Command{
-		Use:         "list-customerassets",
-		Short:       "Required permission: Assets - Assets - List/Search.",
+		Use:   "list-customerassets",
+		Short: "Required permission: Assets - Assets - List/Search.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  syncro-cli customer-assets list-customerassets --ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "customer-assets.list-customerassets", "pp:method": "GET", "pp:path": "/customer_assets/chat_information_by_ids", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newCustomerAssetsListCustomerassetsCmd(flags *rootFlags) *cobra.Command {
 			path := "/customer_assets/chat_information_by_ids"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "customer-assets", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

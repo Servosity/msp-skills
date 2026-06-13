@@ -66,18 +66,18 @@ func newActivityLogsPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/activity-logs"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "activity-logs", path, map[string]string{
-				"size":        fmt.Sprintf("%v", flagSize),
-				"order":       fmt.Sprintf("%v", flagOrder),
-				"searchAfter": fmt.Sprintf("%v", flagSearchAfter),
-				"page":        fmt.Sprintf("%v", flagPage),
-				"from":        fmt.Sprintf("%v", flagFrom),
-				"until":       fmt.Sprintf("%v", flagUntil),
-				"entities":    fmt.Sprintf("%v", flagEntities),
-				"categories":  fmt.Sprintf("%v", flagCategories),
-				"actions":     fmt.Sprintf("%v", flagActions),
-				"siteIds":     fmt.Sprintf("%v", flagSiteIds),
-				"userIds":     fmt.Sprintf("%v", flagUserIds),
-				"searchQuery": fmt.Sprintf("%v", flagSearchQuery),
+				"size":        formatCLIParamValue(flagSize),
+				"order":       formatCLIParamValue(flagOrder),
+				"searchAfter": formatCLIParamValue(flagSearchAfter),
+				"page":        formatCLIParamValue(flagPage),
+				"from":        formatCLIParamValue(flagFrom),
+				"until":       formatCLIParamValue(flagUntil),
+				"entities":    formatCLIParamValue(flagEntities),
+				"categories":  formatCLIParamValue(flagCategories),
+				"actions":     formatCLIParamValue(flagActions),
+				"siteIds":     formatCLIParamValue(flagSiteIds),
+				"userIds":     formatCLIParamValue(flagUserIds),
+				"searchQuery": formatCLIParamValue(flagSearchQuery),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

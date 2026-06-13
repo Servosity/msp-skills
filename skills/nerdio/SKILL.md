@@ -1,6 +1,6 @@
 ---
 name: nerdio
-description: "Use when the user asks to audit autoscale across all their Nerdio Manager customers, sweep session-host power state, reconcile per-customer billing and usage, list customer accounts, manage AVD host pools or session hosts, run scripted actions across accounts, or wait on an async NMM job. Wraps the Nerdio Manager for MSP (NMM) Partner REST API plus an offline SQLite mirror with full-text search. Trigger phrases: `list nerdio accounts`, `audit autoscale across customers`, `which AVD hosts are running`, `nerdio billing rollup`, `wait for nerdio job`, `use nerdio`, `run nerdio-cli`."
+description: "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has. Trigger phrases: `list nerdio accounts`, `audit autoscale across customers`, `which AVD hosts are running`, `nerdio billing rollup`, `wait for nerdio job`, `use nerdio`, `run nerdio-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Nerdio Manager"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - nerdio-cli
+    install:
+      - kind: go
+        bins: [nerdio-cli]
+        module: github.com/mvanhorn/printing-press-library/library/cloud/nerdio/cmd/nerdio-cli
 ---
 
-# Nerdio Manager Claude Code Skill
+# Nerdio Manager  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `nerdio-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/nerdio/install.sh)
+   npx -y @mvanhorn/printing-press-library install nerdio --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/nerdio/install.ps1 | iex
-   ```
-3. Verify: `nerdio-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `nerdio-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/cloud/nerdio/cmd/nerdio-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Manage Azure Virtual Desktop fleets across every customer account from one terminal: audit autoscale posture fleet-wide with `fleet autoscale-audit`, sweep session-host power state with `fleet host-estate`, reconcile billing with `fleet billing-rollup`, and tame NMM's async job model with `job wait`. Includes a local SQLite store with full-text search over accounts, profiles, and scripted actions - the only offline Nerdio client in existence.
 
@@ -473,13 +479,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `nerdio-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add nerdio-mcp -- nerdio-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/cloud/nerdio/cmd/nerdio-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add nerdio-mcp -- nerdio-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

@@ -29,7 +29,7 @@ func newClientsGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/client"
 			params := map[string]string{}
 			if flagIncludeAppliances != false {
-				params["include_appliances"] = fmt.Sprintf("%v", flagIncludeAppliances)
+				params["include_appliances"] = formatCLIParamValue(flagIncludeAppliances)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "clients", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

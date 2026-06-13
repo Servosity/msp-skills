@@ -16,9 +16,10 @@ func newListDbcachePromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagType string
 
 	cmd := &cobra.Command{
-		Use:         "list-dbcache",
-		Short:       "List dbcache",
-		Long:        "List dbcache",
+		Use:   "list-dbcache",
+		Short: "List dbcache",
+		Long:  "List dbcache",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-dbcache --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-dbcache.list", "pp:method": "GET", "pp:path": "/ListDBCache", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,10 +41,10 @@ func newListDbcachePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListDBCache"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-dbcache", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

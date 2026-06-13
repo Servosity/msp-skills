@@ -38,7 +38,7 @@ Add (or merge with your existing `mcpServers` block):
       "command": "hudu-mcp",
       "env": {
         "HUDU_API_KEY": "<your-hudu_api_key>",
-        "HUDU_BASE_URL": "https://<your-subdomain>.huducloud.com/api/v1"
+        "HUDU_BASE_URL": "<your-hudu_base_url>"
       }
     }
   }
@@ -64,7 +64,7 @@ Configuration**) and add:
       "command": "hudu-mcp",
       "env": {
         "HUDU_API_KEY": "<your-hudu_api_key>",
-        "HUDU_BASE_URL": "https://<your-subdomain>.huducloud.com/api/v1"
+        "HUDU_BASE_URL": "<your-hudu_base_url>"
       }
     }
   }
@@ -86,7 +86,7 @@ Claude Desktop:
       "command": "hudu-mcp",
       "env": {
         "HUDU_API_KEY": "<your-hudu_api_key>",
-        "HUDU_BASE_URL": "https://<your-subdomain>.huducloud.com/api/v1"
+        "HUDU_BASE_URL": "<your-hudu_base_url>"
       }
     }
   }
@@ -104,7 +104,7 @@ All remote agents need `hudu-mcp` reachable as a public **HTTPS** endpoint. Run 
 in HTTP mode with your credentials in the environment:
 
 ```bash
-HUDU_BASE_URL=https://<your-subdomain>.huducloud.com/api/v1 HUDU_API_KEY=<value> hudu-mcp --transport http --addr :7777
+HUDU_API_KEY=<value> HUDU_BASE_URL=<value> hudu-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel
@@ -160,7 +160,7 @@ endpoint. For a local, no-hosting path on Google, use **Gemini CLI** (above) ins
 hermes mcp add hudu -- hudu-mcp
 
 # OpenClaw
-openclaw mcp set hudu '{"command":"hudu-mcp","env":{"HUDU_API_KEY":"<your-key>","HUDU_BASE_URL":"https://<your-subdomain>.huducloud.com/api/v1"}}'
+openclaw mcp set hudu '{"command":"hudu-mcp"}'
 ```
 
 Same env vars as the blocks above. For the Skill-install path (no MCP wiring), see

@@ -29,7 +29,7 @@ func newAzureadmappingPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/azureadmapping"
 			params := map[string]string{}
 			if flagConnectionId != "" {
-				params["connection_id"] = fmt.Sprintf("%v", flagConnectionId)
+				params["connection_id"] = formatCLIParamValue(flagConnectionId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "azureadmapping", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

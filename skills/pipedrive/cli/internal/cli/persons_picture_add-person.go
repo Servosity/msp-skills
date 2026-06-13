@@ -19,9 +19,10 @@ func newPersonsPictureAddPersonCmd(flags *rootFlags) *cobra.Command {
 	var bodyFile string
 
 	cmd := &cobra.Command{
-		Use:         "add-person <id>",
-		Aliases:     []string{"create"},
-		Short:       "Adds a picture to a person. If a picture is already set, the old picture will be replaced.",
+		Use:     "add-person <id>",
+		Aliases: []string{"create"},
+		Short:   "Adds a picture to a person. If a picture is already set, the old picture will be replaced.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pipedrive-cli persons picture add-person 550e8400-e29b-41d4-a716-446655440000 --file example-value",
 		Annotations: map[string]string{"pp:endpoint": "picture.add-person", "pp:method": "POST", "pp:path": "/persons/{id}/picture"},
 		RunE: func(cmd *cobra.Command, args []string) error {

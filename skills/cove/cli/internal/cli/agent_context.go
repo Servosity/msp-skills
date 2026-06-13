@@ -116,7 +116,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "cove-cli",
-			Description: "The first CLI and MCP server for Cove Data Protection — fleet-wide backup health, billing usage",
+			Description: "The first CLI and MCP server for Cove Data Protection — fleet-wide backup health, billing usage, and storage trends from a terminal, with the local history the vendor console doesn't keep.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

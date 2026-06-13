@@ -29,8 +29,8 @@ func newServiceProviderListCustomersCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/service-provider/v1/customers"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "service-provider", path, map[string]string{
-				"page":     fmt.Sprintf("%v", flagPage),
-				"pageSize": fmt.Sprintf("%v", flagPageSize),
+				"page":     formatCLIParamValue(flagPage),
+				"pageSize": formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "page", "page", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

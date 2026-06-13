@@ -39,8 +39,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "No setup URL is configured for this CLI; check the API's docs.")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export LIONGARD_API_KEY=\"<your-token>\"")
-			fmt.Fprintln(w, "  export LIONGARD_ENDPOINTS_API_KEY=\"<your-token>\"")
+			fmt.Fprintln(w, "  export LIONGARD_API_KEY=\"your-token-here\"")
 			fmt.Fprintln(w, "  liongard-cli auth set-token <token>")
 			if !launch {
 				return nil
@@ -90,7 +89,6 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Set your token:")
 				fmt.Fprintln(w, "  export LIONGARD_API_KEY=\"your-token-here\"")
-				fmt.Fprintln(w, "  export LIONGARD_ENDPOINTS_API_KEY=\"your-token-here\"")
 				fmt.Fprintf(w, "  liongard-cli auth set-token <token>\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
@@ -163,9 +161,6 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 			envStillSet := ""
 			if envStillSet == "" && os.Getenv("LIONGARD_API_KEY") != "" {
 				envStillSet = "LIONGARD_API_KEY"
-			}
-			if envStillSet == "" && os.Getenv("LIONGARD_ENDPOINTS_API_KEY") != "" {
-				envStillSet = "LIONGARD_ENDPOINTS_API_KEY"
 			}
 
 			// JSON envelope: {cleared: true, note?: "<env_var> env var is still set"}.

@@ -20,7 +20,7 @@ func newItemsHistoryCreateItemCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-item <ItemID>",
 		Aliases:     []string{"update"},
 		Short:       "Creates a history record for a specific item",
-		Example:     "  xero-cli items history create-item 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  xero-cli items history create-item 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "history.create-item", "pp:method": "PUT", "pp:path": "/Items/{ItemID}/History"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

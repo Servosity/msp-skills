@@ -18,7 +18,7 @@ func newDefenderPromotedCmd(flags *rootFlags) *cobra.Command {
 		Use:         "defender",
 		Short:       "Get Defender detection summary, devices at risk, and device health",
 		Long:        "Get Defender detection summary, devices at risk, and device health",
-		Example:     "  rocketcyber-cli defender",
+		Example:     "  rocketcyber-cli defender --account-id 2 --agent --select devicesAtRisk.data.hostname,devicesAtRisk.data.detections.malicious",
 		Annotations: map[string]string{"pp:endpoint": "defender.get", "pp:method": "GET", "pp:path": "/defender", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()
@@ -29,7 +29,7 @@ func newDefenderPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/defender"
 			params := map[string]string{}
 			if flagAccountId != "" {
-				params["accountId"] = fmt.Sprintf("%v", flagAccountId)
+				params["accountId"] = formatCLIParamValue(flagAccountId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "defender", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {
@@ -84,6 +84,7 @@ func newDefenderPromotedCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&flagAccountId, "account-id", "", "Account ID to scope the report")
 
 	// Wire sibling endpoints and sub-resources as subcommands
+	cmd.AddCommand(newNovelDefenderRiskiestCmd(flags))
 
 	return cmd
 }

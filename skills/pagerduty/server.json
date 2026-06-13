@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/pagerduty-mcp",
   "title": "PagerDuty MCP",
   "description": "Operate PagerDuty from your AI agent via MCP.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/pagerduty/pagerduty-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/pagerduty-v0.1.0/pagerduty-mcp.mcpb",
-      "version": "0.1.0",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/pagerduty-v0.1.1/pagerduty-mcp.mcpb",
+      "version": "0.1.1",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

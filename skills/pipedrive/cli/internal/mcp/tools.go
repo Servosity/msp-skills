@@ -8,9 +8,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +24,15 @@ import (
 	"pipedrive-pp-cli/internal/config"
 	"pipedrive-pp-cli/internal/mcp/cobratree"
 	"pipedrive-pp-cli/internal/store"
+)
+
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
 )
 
 // RegisterTools registers all API operations as MCP tools.
@@ -44,7 +55,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -74,8 +85,36 @@ type mcpParamBinding struct {
 	BodyPath           []string
 	Format             string
 	RequestContentType string
+	Default            string
 }
 
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
 func mcpMultipartFieldValue(v any) string {
 	if s, ok := v.(string); ok {
 		return s
@@ -163,13 +202,17 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			v, ok := args[binding.PublicName]
 			if !ok {
-				continue
+				if binding.Default != "" {
+					v = binding.Default
+				} else {
+					continue
+				}
 			}
 			switch binding.Location {
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				if len(binding.BodyPath) > 0 {
 					setNestedBodyArg(bodyArgs, binding.BodyPath, v)
@@ -187,7 +230,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 					formFields.Set(binding.WireName, mcpFormFieldValue(v))
 				}
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -197,7 +240,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -215,7 +258,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 					formFields.Set(k, mcpFormFieldValue(v))
 				}
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -319,21 +362,21 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key: export PIPEDRIVE_API_KEY=<your-key>" +
+					"\n      Set your API key with: export PIPEDRIVE_API_KEY=\"your-token-here\"" +
 					"\n      Get a key at: https://app.pipedrive.com/settings/personal/api" +
 					"\n      Copy your personal API token from Personal preferences -> API." +
 					"\n      Run 'pipedrive-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your API key." +
-					"\n      Set it with: export PIPEDRIVE_API_KEY=<your-key>" +
+					"\n      Set your API key with: export PIPEDRIVE_API_KEY=\"your-token-here\"" +
 					"\n      Get a key at: https://app.pipedrive.com/settings/personal/api" +
 					"\n      Copy your personal API token from Personal preferences -> API." +
 					"\n      Run 'pipedrive-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: your credentials are valid but lack access to this resource." +
-					"\n      Set it with: export PIPEDRIVE_API_KEY=<your-key>" +
+					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
+					"\n      Set your API key with: export PIPEDRIVE_API_KEY=\"your-token-here\"" +
 					"\n      Get a key at: https://app.pipedrive.com/settings/personal/api" +
 					"\n      Copy your personal API token from Personal preferences -> API." +
 					"\n      Run 'pipedrive-cli doctor' to check auth status."), nil
@@ -349,21 +392,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -372,8 +400,129 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
@@ -383,7 +532,7 @@ func newMCPClient() (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -432,22 +581,27 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -479,6 +633,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -842,7 +1087,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"query_tips": []string{
 			"Pagination uses cursor-based paging. Pass cursor parameter for subsequent pages.",
 			"Control page size with the limit parameter (default 100).",
-			"Use updated_since for incremental fetches (filter by modification time).",
+			"Use start_date for incremental fetches (filter by modification time).",
 			"Use the sql tool for ad-hoc analysis on synced data. Run sync first to populate the local database.",
 			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints.",
 			"Prefer sql/search over repeated API calls when the data is already synced.",
@@ -850,16 +1095,16 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "Stale-deal detection", "command": "stale", "description": "List open deals nobody has touched in N days, ranked by the dollar value at risk.", "rationale": "Joins your local deals, their last activity", "via": "mcp-command-mirror"},
-			{"name": "Weighted forecast", "command": "forecast", "description": "Weighted pipeline value (deal value times stage probability) by pipeline, plus what is expected to close this period.", "rationale": "Multiplies each open deal's value by its stage's win probability and sums across the local store — the equivalent", "via": "mcp-command-mirror"},
-			{"name": "Stage-aging / bottleneck", "command": "aging", "description": "Show which deals are stuck in a stage longer than that stage's typical dwell time.", "rationale": "Computes the median time-in-stage across all your deals", "via": "mcp-command-mirror"},
-			{"name": "Daily standup digest", "command": "digest", "description": "One-shot standup rollup: new deals since yesterday, deals gone stale today, overdue and due-today activities", "rationale": "Composes several local joins into one deterministic view that no single API call returns together", "via": "mcp-command-mirror"},
-			{"name": "Since-window change feed", "command": "changes", "description": "Everything whose update time moved since a timestamp, grouped by entity.", "rationale": "Diffs each entity's update_time against the stored sync cursor in the local store — impossible without prior local", "via": "mcp-command-mirror"},
-			{"name": "Duplicate detection", "command": "dupes", "description": "Find likely-duplicate persons or organizations by normalized name, email, and phone.", "rationale": "Runs an FTS5 plus normalized-key scan across the entire local contact set at once — duplicate clustering is impossible", "via": "mcp-command-mirror"},
-			{"name": "Owner leaderboard", "command": "leaderboard", "description": "Per-rep open/won/lost counts, weighted pipeline, won value, and activity count over a window.", "rationale": "A per-owner GROUP BY across deals, status", "via": "mcp-command-mirror"},
-			{"name": "No-next-activity (cold) deals", "command": "next-activity", "description": "List open deals with no future activity scheduled, ranked by the value at risk of falling through the cracks.", "rationale": "Local query for open deals with next_activity_date NULL joined to value and owner — Pipedrive shows deals and", "via": "mcp-command-mirror"},
-			{"name": "Lost-deal re-engagement list", "command": "lost", "description": "All deals marked Lost in the last N months with their person, org, owner, and lost reason — ready for re-enrollment.", "rationale": "Local query over lost deals joined to contacts and lost_reason in one pass", "via": "mcp-command-mirror"},
-			{"name": "Contact 360", "command": "who", "description": "One-shot card for a person: their org, open deals and value, last and next activity", "rationale": "FTS5 name lookup then joins person, org, deals, activities", "via": "mcp-command-mirror"},
+			{"name": "Stale-deal detection", "command": "stale", "description": "List open deals nobody has touched in N days, ranked by the dollar value at risk.", "rationale": "Joins your local deals, their last activity, and their value in one pass — no single Pipedrive API call returns 'open deals untouched for two weeks, sorted by value at risk.'", "via": "mcp-command-mirror"},
+			{"name": "Weighted forecast", "command": "forecast", "description": "Weighted pipeline value (deal value times stage probability) by pipeline, plus what is expected to close this period.", "rationale": "Multiplies each open deal's value by its stage's win probability and sums across the local store — the equivalent native view is gated behind paid-tier Insights.", "via": "mcp-command-mirror"},
+			{"name": "Stage-aging / bottleneck", "command": "aging", "description": "Show which deals are stuck in a stage longer than that stage's typical dwell time.", "rationale": "Computes the median time-in-stage across all your deals, then flags the ones exceeding their stage norm — there is no Pipedrive endpoint that aggregates dwell time.", "via": "mcp-command-mirror"},
+			{"name": "Daily standup digest", "command": "digest", "description": "One-shot standup rollup: new deals since yesterday, deals gone stale today, overdue and due-today activities, and deals won or lost since.", "rationale": "Composes several local joins into one deterministic view that no single API call returns together; --for-me narrows it to your own ordered call list.", "via": "mcp-command-mirror"},
+			{"name": "Since-window change feed", "command": "changes", "description": "Everything whose update time moved since a timestamp, grouped by entity.", "rationale": "Diffs each entity's update_time against the stored sync cursor in the local store — impossible without prior local state to compare against.", "via": "mcp-command-mirror"},
+			{"name": "Duplicate detection", "command": "dupes", "description": "Find likely-duplicate persons or organizations by normalized name, email, and phone.", "rationale": "Runs an FTS5 plus normalized-key scan across the entire local contact set at once — duplicate clustering is impossible while paging the API record by record.", "via": "mcp-command-mirror"},
+			{"name": "Owner leaderboard", "command": "leaderboard", "description": "Per-rep open/won/lost counts, weighted pipeline, won value, and activity count over a window.", "rationale": "A per-owner GROUP BY across deals, status, and activities in the local store — the per-rep contribution table managers rebuild in spreadsheets every week.", "via": "mcp-command-mirror"},
+			{"name": "No-next-activity (cold) deals", "command": "next-activity", "description": "List open deals with no future activity scheduled, ranked by the value at risk of falling through the cracks.", "rationale": "Local query for open deals with next_activity_date NULL joined to value and owner — Pipedrive shows deals and activities in separate views and never lists open deals with nothing scheduled.", "via": "mcp-command-mirror"},
+			{"name": "Lost-deal re-engagement list", "command": "lost", "description": "All deals marked Lost in a recent window with their person, org, owner, and lost reason — ready for re-enrollment.", "rationale": "Local query over lost deals joined to contacts and lost_reason in one pass; the API needs separate per-deal person/org lookups to build the same list.", "via": "mcp-command-mirror"},
+			{"name": "Contact 360", "command": "who", "description": "One-shot card for a person: their org, open deals and value, last and next activity, and recent notes — joined from the local store.", "rationale": "FTS5 name lookup then joins person, org, deals, activities, and notes across five local tables — no single Pipedrive API call returns this profile.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
 			{"topic": "Stale-deal detection", "insight": "Joins your local deals, their last activity, and their value in one pass — no single Pipedrive API call returns 'open deals untouched for two weeks, sorted by value at risk.'"},

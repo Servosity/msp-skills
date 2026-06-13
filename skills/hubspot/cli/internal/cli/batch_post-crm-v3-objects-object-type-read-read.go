@@ -22,8 +22,9 @@ func newBatchPostCrmV3ObjectsObjectTypeReadReadCmd(flags *rootFlags) *cobra.Comm
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-crm-v3-objects-object-type-read-read <objectType>",
-		Short:       "Retrieve records by record ID or include the `idProperty` parameter to retrieve records by a custom unique value",
+		Use:   "post-crm-v3-objects-object-type-read-read <objectType>",
+		Short: "Retrieve records by record ID or include the `idProperty` parameter to retrieve records by a custom unique value",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli batch post-crm-v3-objects-object-type-read-read example-value",
 		Annotations: map[string]string{"pp:endpoint": "batch.post-crm-v3-objects-object-type-read-read", "pp:method": "POST", "pp:path": "/crm/v3/objects/{objectType}/batch/read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -56,7 +57,7 @@ func newBatchPostCrmV3ObjectsObjectTypeReadReadCmd(flags *rootFlags) *cobra.Comm
 			path = replacePathParam(path, "objectType", args[0])
 			params := map[string]string{}
 			if flagArchived != false {
-				params["archived"] = fmt.Sprintf("%v", flagArchived)
+				params["archived"] = formatCLIParamValue(flagArchived)
 			}
 			var body map[string]any
 			if stdinBody {

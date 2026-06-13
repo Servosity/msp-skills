@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "betterstack-mcp",
   "display_name": "Better Stack",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics \u2014 what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift \u2014 that the API alone can't answer.",
   "author": {
     "name": "Servosity Inc."
@@ -36,10 +36,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T22:43:12.424824Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:07:57.408203Z",
     "spec_checksum": "sha256:d7184736b4d89bebca34eaeeddead81125b612bdf498e99cf2abae97c41d2853",
     "spec_format": "internal"
   }

@@ -34,10 +34,10 @@ func newSchedulesShiftsGetScheduleCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagTo != "" {
-				params["to"] = fmt.Sprintf("%v", flagTo)
+				params["to"] = formatCLIParamValue(flagTo)
 			}
 			if flagFrom != "" {
-				params["from"] = fmt.Sprintf("%v", flagFrom)
+				params["from"] = formatCLIParamValue(flagFrom)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "shifts", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

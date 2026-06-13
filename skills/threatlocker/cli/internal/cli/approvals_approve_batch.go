@@ -8,7 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"threatlocker-pp-cli/internal/cliutil"
-	"threatlocker-pp-cli/internal/store"
 )
 
 // batchTarget is one pending approval that matches the requested hash.
@@ -51,7 +50,7 @@ Sync first: threatlocker-cli sync --resources approvals`,
 			// Resolve the target set from the local store (no network).
 			var targets []batchTarget
 			if hash != "" {
-				db, err := store.OpenWithContext(cmd.Context(), dbPath)
+				db, err := tlOpenStore(cmd.Context(), dbPath)
 				if err != nil {
 					return fmt.Errorf("opening local database: %w\nRun 'threatlocker-cli sync --resources approvals' first.", err)
 				}

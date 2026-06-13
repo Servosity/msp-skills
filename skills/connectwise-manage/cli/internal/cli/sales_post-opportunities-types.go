@@ -20,8 +20,9 @@ func newSalesPostOpportunitiesTypesCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-opportunities-types",
-		Short:       "Post OpportunityType",
+		Use:   "post-opportunities-types",
+		Short: "Post OpportunityType",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  connectwise-manage-cli sales post-opportunities-types --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "sales.post-opportunities-types", "pp:method": "POST", "pp:path": "/sales/opportunities/types"},
 		RunE: func(cmd *cobra.Command, args []string) error {

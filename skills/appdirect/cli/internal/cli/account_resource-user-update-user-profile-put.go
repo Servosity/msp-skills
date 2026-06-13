@@ -50,7 +50,7 @@ func newAccountResourceUserUpdateUserProfilePutCmd(flags *rootFlags) *cobra.Comm
 			path = replacePathParam(path, "userUuid", args[0])
 			params := map[string]string{}
 			if flagRemoveUnspecifiedCustomAttributes != false {
-				params["removeUnspecifiedCustomAttributes"] = fmt.Sprintf("%v", flagRemoveUnspecifiedCustomAttributes)
+				params["removeUnspecifiedCustomAttributes"] = formatCLIParamValue(flagRemoveUnspecifiedCustomAttributes)
 			}
 			var body map[string]any
 			if stdinBody {

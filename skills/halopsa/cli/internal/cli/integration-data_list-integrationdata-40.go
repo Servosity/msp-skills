@@ -31,16 +31,16 @@ func newIntegrationDataListIntegrationdata40Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/HolidayAPI"
 			params := map[string]string{}
 			if flagCountry != "" {
-				params["country"] = fmt.Sprintf("%v", flagCountry)
+				params["country"] = formatCLIParamValue(flagCountry)
 			}
 			if flagDataOnly != false {
-				params["dataOnly"] = fmt.Sprintf("%v", flagDataOnly)
+				params["dataOnly"] = formatCLIParamValue(flagDataOnly)
 			}
 			if flagEndpoint != "" {
-				params["endpoint"] = fmt.Sprintf("%v", flagEndpoint)
+				params["endpoint"] = formatCLIParamValue(flagEndpoint)
 			}
 			if flagYear != 0 {
-				params["year"] = fmt.Sprintf("%v", flagYear)
+				params["year"] = formatCLIParamValue(flagYear)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

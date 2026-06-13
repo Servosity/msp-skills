@@ -29,7 +29,7 @@ func newPagerdutymappingPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/pagerdutymapping"
 			params := map[string]string{}
 			if flagServiceId != "" {
-				params["service_id"] = fmt.Sprintf("%v", flagServiceId)
+				params["service_id"] = formatCLIParamValue(flagServiceId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "pagerdutymapping", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

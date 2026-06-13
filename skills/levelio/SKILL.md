@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - levelio-cli
+    install:
+      - kind: go
+        bins: [levelio-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/levelio/cmd/levelio-cli
 ---
 
-# Level Claude Code Skill
+# Level  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `levelio-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/levelio/install.sh)
+   npx -y @mvanhorn/printing-press-library install levelio --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/levelio/install.ps1 | iex
-   ```
-3. Verify: `levelio-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `levelio-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/levelio/cmd/levelio-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 levelio-cli syncs your entire Level estate  -  devices, groups, tags, custom fields, alerts, and OS updates  -  into a local SQLite database, then answers portfolio-wide questions offline that the Level web UI shows one device at a time. Match every API operation with agent-native output (--json/--select/--csv), then transcend with weighted at-risk ranking, fleet-wide patch posture, per-client posture scorecards, group-clustered alert triage, reboot-debt tracking, and custom-field coverage audits.
 
@@ -38,14 +44,12 @@ levelio-cli syncs your entire Level estate  -  devices, groups, tags, custom fie
 
 Use levelio-cli when an agent or technician needs a portfolio-wide answer about a Level-managed fleet  -  at-risk endpoints, patch exposure, alert clusters, stale agents, security-score distribution, or custom-field gaps  -  rather than a single device's detail. It is the right tool for cross-entity rollups, anti-joins (what is missing), and scriptable RMM automation, all offline against a synced local store.
 
-## When NOT to Use
+## Anti-triggers
 
-- Single-device detail lookups when you already know the device  -  `devices show <device-id>` covers it; the analytics commands are portfolio-wide rollups.
-- Real-time/live monitoring without a prior `sync`  -  every analytics command reads the local SQLite store; unsynced data means empty or stale answers (a stderr hint will say so).
-- Clustering current fires by client group  -  that is `alert-triage`; `alert-recurrence` is for ranking chronically noisy monitors across history.
-- Per-client posture rollups via `group-tree` or `fleet`  -  use `client-scorecard`; `group-tree` renders the nested hierarchy, `fleet` cross-tabs inventory.
-- Tag hygiene via `cf-coverage` (or custom-field gaps via `tag-audit`)  -  they audit different data: custom-field values vs tag membership.
-- Creating/editing automations, scripts, or monitoring policies  -  the Level v2 public API only exposes automation webhook *triggering* (`automations <token>`); authoring happens in the Level web UI.
+Do not use this CLI for:
+- single-device detail lookups (use devices show <device-id>, not the fleet analytics commands)
+- real-time monitoring without a prior sync  -  analytics commands read the local store
+- authoring automations, scripts, or monitoring policies  -  the public API only triggers automation webhooks
 
 ## Unique Capabilities
 
@@ -358,13 +362,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `levelio-mcp` alongside the CLI. Register it (the server reads `LEVEL_API_TOKEN` from the environment):
-
-```bash
-claude mcp add levelio-mcp -- levelio-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/levelio/cmd/levelio-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add levelio-mcp -- levelio-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

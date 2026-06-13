@@ -18,8 +18,9 @@ func newHubspotListsCrmPutV3ListsListIdUpdateListFiltersV3ListsListIdUpdateListF
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "put-v3-lists-list-id-update-list-filters-v3-lists-list-id-update-list-filters <listId>",
-		Short:       "Put v3 lists list id update list filters v3 lists list id update list filters",
+		Use:   "put-v3-lists-list-id-update-list-filters-v3-lists-list-id-update-list-filters <listId>",
+		Short: "Put v3 lists list id update list filters v3 lists list id update list filters",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-lists-crm put-v3-lists-list-id-update-list-filters-v3-lists-list-id-update-list-filters 550e8400-e29b-41d4-a716-446655440000 --filter-branch example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-lists-crm.put-v3-lists-list-id-update-list-filters-v3-lists-list-id-update-list-filters", "pp:method": "PUT", "pp:path": "/crm/v3/lists/{listId}/update-list-filters"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -46,7 +47,7 @@ func newHubspotListsCrmPutV3ListsListIdUpdateListFiltersV3ListsListIdUpdateListF
 			path = replacePathParam(path, "listId", args[0])
 			params := map[string]string{}
 			if flagEnrollObjectsInWorkflows != false {
-				params["enrollObjectsInWorkflows"] = fmt.Sprintf("%v", flagEnrollObjectsInWorkflows)
+				params["enrollObjectsInWorkflows"] = formatCLIParamValue(flagEnrollObjectsInWorkflows)
 			}
 			var body map[string]any
 			if stdinBody {

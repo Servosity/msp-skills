@@ -41,10 +41,10 @@ func newAppMarketGetPaymentMethodsCmd(flags *rootFlags) *cobra.Command {
 			path := "/appMarket/v2/paymentMethods"
 			params := map[string]string{}
 			if flagOwnerId != "" {
-				params["ownerId"] = fmt.Sprintf("%v", flagOwnerId)
+				params["ownerId"] = formatCLIParamValue(flagOwnerId)
 			}
 			if flagCompanyId != "" {
-				params["companyId"] = fmt.Sprintf("%v", flagCompanyId)
+				params["companyId"] = formatCLIParamValue(flagCompanyId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "app-market", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

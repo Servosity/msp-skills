@@ -18,9 +18,10 @@ func newMetricsEvaluationCmd(flags *rootFlags) *cobra.Command {
 	var flagIncludeNonVisible bool
 
 	cmd := &cobra.Command{
-		Use:         "evaluation",
-		Aliases:     []string{"list"},
-		Short:       "For each system ID passed",
+		Use:     "evaluation",
+		Aliases: []string{"list"},
+		Short:   "For each system ID passed",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  liongard-cli metrics evaluation --systems example-value --uuids example-value",
 		Annotations: map[string]string{"pp:endpoint": "metrics.evaluation", "pp:method": "GET", "pp:path": "/metrics/bulk", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -44,16 +45,16 @@ func newMetricsEvaluationCmd(flags *rootFlags) *cobra.Command {
 			path := "/metrics/bulk"
 			params := map[string]string{}
 			if flagSystems != "" {
-				params["systems"] = fmt.Sprintf("%v", flagSystems)
+				params["systems"] = formatCLIParamValue(flagSystems)
 			}
 			if flagMetrics != "" {
-				params["metrics"] = fmt.Sprintf("%v", flagMetrics)
+				params["metrics"] = formatCLIParamValue(flagMetrics)
 			}
 			if flagUuids != "" {
-				params["uuids"] = fmt.Sprintf("%v", flagUuids)
+				params["uuids"] = formatCLIParamValue(flagUuids)
 			}
 			if flagIncludeNonVisible != false {
-				params["includeNonVisible"] = fmt.Sprintf("%v", flagIncludeNonVisible)
+				params["includeNonVisible"] = formatCLIParamValue(flagIncludeNonVisible)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "metrics", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

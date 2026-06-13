@@ -35,25 +35,25 @@ func newAreaAzureTenantPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/AreaAzureTenant"
 			params := map[string]string{}
 			if flagAzureTenantId != "" {
-				params["azure_tenant_id"] = fmt.Sprintf("%v", flagAzureTenantId)
+				params["azure_tenant_id"] = formatCLIParamValue(flagAzureTenantId)
 			}
 			if flagClientId != "" {
-				params["client_id"] = fmt.Sprintf("%v", flagClientId)
+				params["client_id"] = formatCLIParamValue(flagClientId)
 			}
 			if flagDetailsId != "" {
-				params["details_id"] = fmt.Sprintf("%v", flagDetailsId)
+				params["details_id"] = formatCLIParamValue(flagDetailsId)
 			}
 			if flagIgnoreDecrypt != false {
-				params["ignore_decrypt"] = fmt.Sprintf("%v", flagIgnoreDecrypt)
+				params["ignore_decrypt"] = formatCLIParamValue(flagIgnoreDecrypt)
 			}
 			if flagNotset != false {
-				params["notset"] = fmt.Sprintf("%v", flagNotset)
+				params["notset"] = formatCLIParamValue(flagNotset)
 			}
 			if flagReturnalliflinked != false {
-				params["returnalliflinked"] = fmt.Sprintf("%v", flagReturnalliflinked)
+				params["returnalliflinked"] = formatCLIParamValue(flagReturnalliflinked)
 			}
 			if flagSiteId != "" {
-				params["site_id"] = fmt.Sprintf("%v", flagSiteId)
+				params["site_id"] = formatCLIParamValue(flagSiteId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "area-azure-tenant", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

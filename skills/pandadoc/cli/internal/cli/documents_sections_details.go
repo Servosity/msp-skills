@@ -15,8 +15,9 @@ func newDocumentsSectionsDetailsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "details <document_id> <upload_id>",
+		Aliases:     []string{"get"},
 		Short:       "Receive the upload status of the document and sections by their `upload_id`.",
-		Example:     "  pandadoc-cli documents sections details 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents sections details BhVzRcxH9Z2LgfPPGXFUBa LQ6cUT7xevPLUEgJeF8Zrm",
 		Annotations: map[string]string{"pp:endpoint": "sections.details", "pp:method": "GET", "pp:path": "/documents/{document_id}/sections/uploads/{upload_id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

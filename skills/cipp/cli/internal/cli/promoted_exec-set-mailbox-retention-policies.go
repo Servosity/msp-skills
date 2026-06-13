@@ -18,9 +18,10 @@ func newExecSetMailboxRetentionPoliciesPromotedCmd(flags *rootFlags) *cobra.Comm
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "exec-set-mailbox-retention-policies",
-		Short:       "Exec set mailbox retention policies",
-		Long:        "Exec set mailbox retention policies",
+		Use:   "exec-set-mailbox-retention-policies",
+		Short: "Exec set mailbox retention policies",
+		Long:  "Exec set mailbox retention policies",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-set-mailbox-retention-policies --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-set-mailbox-retention-policies.create", "pp:method": "POST", "pp:path": "/ExecSetMailboxRetentionPolicies"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -45,7 +46,7 @@ func newExecSetMailboxRetentionPoliciesPromotedCmd(flags *rootFlags) *cobra.Comm
 			path := "/ExecSetMailboxRetentionPolicies"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -63,10 +64,10 @@ func newExecSetMailboxRetentionPoliciesPromotedCmd(flags *rootFlags) *cobra.Comm
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

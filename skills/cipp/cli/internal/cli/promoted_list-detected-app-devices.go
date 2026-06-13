@@ -16,9 +16,10 @@ func newListDetectedAppDevicesPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-detected-app-devices",
-		Short:       "List detected app devices",
-		Long:        "List detected app devices",
+		Use:   "list-detected-app-devices",
+		Short: "List detected app devices",
+		Long:  "List detected app devices",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-detected-app-devices --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-detected-app-devices.list", "pp:method": "GET", "pp:path": "/ListDetectedAppDevices", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,10 +41,10 @@ func newListDetectedAppDevicesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListDetectedAppDevices"
 			params := map[string]string{}
 			if flagAppID != "" {
-				params["AppID"] = fmt.Sprintf("%v", flagAppID)
+				params["AppID"] = formatCLIParamValue(flagAppID)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-detected-app-devices", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

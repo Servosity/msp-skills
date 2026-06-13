@@ -31,13 +31,13 @@ func newForensicsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/forensics"
 			params := map[string]string{}
 			if flagThreatId != "" {
-				params["threatId"] = fmt.Sprintf("%v", flagThreatId)
+				params["threatId"] = formatCLIParamValue(flagThreatId)
 			}
 			if flagCampaignId != "" {
-				params["campaignId"] = fmt.Sprintf("%v", flagCampaignId)
+				params["campaignId"] = formatCLIParamValue(flagCampaignId)
 			}
 			if flagIncludeCampaignForensics != false {
-				params["includeCampaignForensics"] = fmt.Sprintf("%v", flagIncludeCampaignForensics)
+				params["includeCampaignForensics"] = formatCLIParamValue(flagIncludeCampaignForensics)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "forensics", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

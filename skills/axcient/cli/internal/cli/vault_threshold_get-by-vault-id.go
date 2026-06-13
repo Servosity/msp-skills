@@ -17,7 +17,7 @@ func newVaultThresholdGetByVaultIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-by-vault-id <vault_id>",
 		Aliases:     []string{"get"},
 		Short:       "This request returns information about all available vault thresholds.",
-		Example:     "  axcient-cli vault threshold get-by-vault-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  axcient-cli vault threshold get-by-vault-id 222",
 		Annotations: map[string]string{"pp:endpoint": "threshold.get-by-vault-id", "pp:method": "GET", "pp:path": "/vault/{vault_id}/threshold/connectivity", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

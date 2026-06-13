@@ -1,6 +1,6 @@
 ---
 name: hudu
-description: "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output. Trigger phrases: `hudu hygiene scorecard`, `audit hudu documentation`, `find stale hudu passwords`, `what hudu certs expire soon`, `score hudu documentation completeness`, `onboard a new client in hudu`, `use hudu`, `run hudu`."
+description: "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships. Trigger phrases: `hudu hygiene scorecard`, `audit hudu documentation`, `find stale hudu passwords`, `what hudu certs expire soon`, `score hudu documentation completeness`, `onboard a new client in hudu`, `use hudu`, `run hudu`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Hudu"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - hudu-cli
+    install:
+      - kind: go
+        bins: [hudu-cli]
+        module: github.com/mvanhorn/printing-press-library/library/other/hudu/cmd/hudu-cli
 ---
 
-# Hudu Claude Code Skill
+# Hudu  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `hudu-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hudu/install.sh)
+   npx -y @mvanhorn/printing-press-library install hudu --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hudu/install.ps1 | iex
-   ```
-3. Verify: `hudu-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `hudu-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/other/hudu/cmd/hudu-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 The first general-purpose Hudu CLI. It covers the full ~120-operation Hudu API surface with write support, adds full write parity plus a local SQLite mirror not present in read-only MCP servers, and makes documentation-hygiene audits possible offline: completeness scoring, stale-password and stale-article detection, an expiration radar, a cross-tenant hygiene rollup, and integration reconciliation  -  none of which exist in the Hudu UI or API. Built for MSP technicians who live in a terminal and for AI agents that need --json/--select and typed exit codes.
 
@@ -38,13 +44,14 @@ The first general-purpose Hudu CLI. It covers the full ~120-operation Hudu API s
 
 Use this CLI when an agent or technician needs to read, write, or audit Hudu IT documentation from the terminal: bulk asset and company maintenance, password-vault and expiration audits, documentation-completeness scoring before a QBR, new-client onboarding scaffolding, or reconciling PSA/RMM integration records. Prefer `sync` then local `audit`/`search`/`analytics` for anything that would otherwise make many live calls against the 300/min limit.
 
-## When NOT to Use
+## Anti-triggers
 
-- Fuzzy keyword discovery across resources  -  use `search` (full-text), not `resolve` (exact URL/name lookup).
-- `onboard --apply` with a company-scoped API key  -  creating layouts/folders needs a global key; the preview plan works with any key.
-- Reading or exporting password secret values  -  the vault mirror stores metadata only (name, username, dates); fetch secrets in the Hudu portal.
-- `flags`/`flag-types` or recent procedure-task shapes on Hudu instances older than 2.4.0  -  these endpoints are version-gated; run `doctor` first.
-- Bulk live reads in a tight loop  -  Hudu rate-limits at 300 req/min over a 5-minute window; `sync` once and run audits/search locally.
+Do not use this CLI for:
+- Do not use this CLI for fuzzy keyword discovery when you mean full-text search across resources  -  that is `search`, not `resolve` (resolve is exact URL/name lookup).
+- Do not use the write path of `onboard` with a company-scoped API key  -  creating layouts/folders needs a global key; preview (`onboard` without --apply) works regardless.
+- Do not use this CLI to read or export password secret values  -  the vault mirror stores metadata only (name, username, dates); fetch secrets in the Hudu portal.
+- Do not use this CLI against Hudu instances older than 2.4.0 for flags/flag-types or recent procedure-task shapes  -  run `doctor` first; those endpoints are version-gated.
+- Do not script bulk live reads in a tight loop  -  Hudu rate-limits at 300 req/min over a 5-minute window; `sync` once and run audits/search locally instead.
 
 ## Unique Capabilities
 
@@ -404,7 +411,7 @@ Reports which ConnectWise integrator records no longer resolve to a live Hudu as
 
 ## Auth Setup
 
-Hudu is per-tenant. Set HUDU_BASE_URL to your instance's /api/v1 URL (self-hosted, *.huducloud.com, or a custom domain) and HUDU_API_KEY to a key created under Admin -> API Keys. The key is sent as the x-api-key header. Keys are global or company-scoped; a company-scoped key cannot call the global `assets list` (use `assets list-by-company`). Run `doctor` to confirm the key, base URL, and reachability; use `api-info` for the Hudu version. Save the key with `auth set-token` (or env vars) and check it with `auth status`.
+Hudu is per-tenant. Set HUDU_BASE_URL to your instance's /api/v1 URL (self-hosted, *.huducloud.com, or a custom domain) and HUDU_API_KEY to a key created under Admin -> API Keys. The key is sent as the x-api-key header. Keys are global or company-scoped; a company-scoped key cannot call the global `assets list` (use `assets list-by-company`). Run `doctor` to confirm the key, base URL, and reachability; use `api-info get` for the Hudu version. Save the key with `auth set-token` (or env vars) and check it with `auth status`.
 
 Run `hudu-cli doctor` to verify setup.
 
@@ -498,13 +505,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `hudu-mcp` alongside the CLI. Register it (the server reads `HUDU_API_KEY` and `HUDU_BASE_URL` from the environment):
-
-```bash
-claude mcp add hudu-mcp -- hudu-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/other/hudu/cmd/hudu-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add hudu-mcp -- hudu-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

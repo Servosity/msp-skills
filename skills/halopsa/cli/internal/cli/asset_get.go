@@ -37,22 +37,22 @@ func newAssetGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagAssettypeId != "" {
-				params["assettype_id"] = fmt.Sprintf("%v", flagAssettypeId)
+				params["assettype_id"] = formatCLIParamValue(flagAssettypeId)
 			}
 			if flagIncludeactivity != false {
-				params["includeactivity"] = fmt.Sprintf("%v", flagIncludeactivity)
+				params["includeactivity"] = formatCLIParamValue(flagIncludeactivity)
 			}
 			if flagIncludeallowedstatus != false {
-				params["includeallowedstatus"] = fmt.Sprintf("%v", flagIncludeallowedstatus)
+				params["includeallowedstatus"] = formatCLIParamValue(flagIncludeallowedstatus)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagIncludediagramdetails != false {
-				params["includediagramdetails"] = fmt.Sprintf("%v", flagIncludediagramdetails)
+				params["includediagramdetails"] = formatCLIParamValue(flagIncludediagramdetails)
 			}
 			if flagIncludehierarchy != false {
-				params["includehierarchy"] = fmt.Sprintf("%v", flagIncludehierarchy)
+				params["includehierarchy"] = formatCLIParamValue(flagIncludehierarchy)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "asset", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

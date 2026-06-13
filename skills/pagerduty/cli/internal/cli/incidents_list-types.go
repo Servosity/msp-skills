@@ -41,7 +41,7 @@ func newIncidentsListTypesCmd(flags *rootFlags) *cobra.Command {
 			path := "/incidents/types"
 			params := map[string]string{}
 			if flagFilter != "" {
-				params["filter"] = fmt.Sprintf("%v", flagFilter)
+				params["filter"] = formatCLIParamValue(flagFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "incidents", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

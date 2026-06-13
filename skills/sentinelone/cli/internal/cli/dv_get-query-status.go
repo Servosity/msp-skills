@@ -37,7 +37,7 @@ func newDvGetQueryStatusCmd(flags *rootFlags) *cobra.Command {
 			path := "/dv/query-status"
 			params := map[string]string{}
 			if flagQueryId != "" {
-				params["queryId"] = fmt.Sprintf("%v", flagQueryId)
+				params["queryId"] = formatCLIParamValue(flagQueryId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "dv", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -29,7 +29,7 @@ func newListCommunityReposPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListCommunityRepos"
 			params := map[string]string{}
 			if flagWriteAccess != "" {
-				params["WriteAccess"] = fmt.Sprintf("%v", flagWriteAccess)
+				params["WriteAccess"] = formatCLIParamValue(flagWriteAccess)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-community-repos", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

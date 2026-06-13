@@ -31,10 +31,10 @@ func newDevicesGetHttpdevicesCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/devices/httpdevices"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "devices", path, map[string]string{
-				"page":              fmt.Sprintf("%v", flagPage),
-				"itemsInPage":       fmt.Sprintf("%v", flagItemsInPage),
-				"customerId":        fmt.Sprintf("%v", flagCustomerId),
-				"monitoringAgentId": fmt.Sprintf("%v", flagMonitoringAgentId),
+				"page":              formatCLIParamValue(flagPage),
+				"itemsInPage":       formatCLIParamValue(flagItemsInPage),
+				"customerId":        formatCLIParamValue(flagCustomerId),
+				"monitoringAgentId": formatCLIParamValue(flagMonitoringAgentId),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

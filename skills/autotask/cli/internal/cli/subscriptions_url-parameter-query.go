@@ -15,8 +15,9 @@ func newSubscriptionsUrlParameterQueryCmd(flags *rootFlags) *cobra.Command {
 	var flagSearch string
 
 	cmd := &cobra.Command{
-		Use:         "url-parameter-query",
-		Short:       "Url parameter query",
+		Use:   "url-parameter-query",
+		Short: "Url parameter query",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  autotask-cli subscriptions url-parameter-query --search example-value",
 		Annotations: map[string]string{"pp:endpoint": "subscriptions.url-parameter-query", "pp:method": "GET", "pp:path": "/Subscriptions/query", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newSubscriptionsUrlParameterQueryCmd(flags *rootFlags) *cobra.Command {
 			path := "/Subscriptions/query"
 			params := map[string]string{}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "subscriptions", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

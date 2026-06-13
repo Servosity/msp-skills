@@ -39,10 +39,10 @@ func newExecGdaproleTemplatePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecGDAPRoleTemplate"
 			params := map[string]string{}
 			if flagAction != "" {
-				params["Action"] = fmt.Sprintf("%v", flagAction)
+				params["Action"] = formatCLIParamValue(flagAction)
 			}
 			if flagTemplateId != "" {
-				params["TemplateId"] = fmt.Sprintf("%v", flagTemplateId)
+				params["TemplateId"] = formatCLIParamValue(flagTemplateId)
 			}
 			body := map[string]any{}
 			if bodyGroupId != "" {
@@ -86,10 +86,10 @@ func newExecGdaproleTemplatePromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, _, err := c.DeleteWithParamsAndBody(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope

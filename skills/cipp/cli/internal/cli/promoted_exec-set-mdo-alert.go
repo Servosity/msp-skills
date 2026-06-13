@@ -26,9 +26,10 @@ func newExecSetMdoAlertPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "exec-set-mdo-alert",
-		Short:       "Exec set mdo alert",
-		Long:        "Exec set mdo alert",
+		Use:   "exec-set-mdo-alert",
+		Short: "Exec set mdo alert",
+		Long:  "Exec set mdo alert",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-set-mdo-alert --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-set-mdo-alert.create", "pp:method": "POST", "pp:path": "/ExecSetMdoAlert"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -53,22 +54,22 @@ func newExecSetMdoAlertPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecSetMdoAlert"
 			params := map[string]string{}
 			if flagAssigned != "" {
-				params["Assigned"] = fmt.Sprintf("%v", flagAssigned)
+				params["Assigned"] = formatCLIParamValue(flagAssigned)
 			}
 			if flagClassification != "" {
-				params["Classification"] = fmt.Sprintf("%v", flagClassification)
+				params["Classification"] = formatCLIParamValue(flagClassification)
 			}
 			if flagDetermination != "" {
-				params["Determination"] = fmt.Sprintf("%v", flagDetermination)
+				params["Determination"] = formatCLIParamValue(flagDetermination)
 			}
 			if flagGUID != "" {
-				params["GUID"] = fmt.Sprintf("%v", flagGUID)
+				params["GUID"] = formatCLIParamValue(flagGUID)
 			}
 			if flagStatus != "" {
-				params["Status"] = fmt.Sprintf("%v", flagStatus)
+				params["Status"] = formatCLIParamValue(flagStatus)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -95,10 +96,10 @@ func newExecSetMdoAlertPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

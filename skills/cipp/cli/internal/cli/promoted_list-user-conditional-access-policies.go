@@ -16,9 +16,10 @@ func newListUserConditionalAccessPoliciesPromotedCmd(flags *rootFlags) *cobra.Co
 	var flagUserID string
 
 	cmd := &cobra.Command{
-		Use:         "list-user-conditional-access-policies",
-		Short:       "List user conditional access policies",
-		Long:        "List user conditional access policies",
+		Use:   "list-user-conditional-access-policies",
+		Short: "List user conditional access policies",
+		Long:  "List user conditional access policies",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-user-conditional-access-policies --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-user-conditional-access-policies.list", "pp:method": "GET", "pp:path": "/ListUserConditionalAccessPolicies", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,10 +41,10 @@ func newListUserConditionalAccessPoliciesPromotedCmd(flags *rootFlags) *cobra.Co
 			path := "/ListUserConditionalAccessPolicies"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagUserID != "" {
-				params["UserID"] = fmt.Sprintf("%v", flagUserID)
+				params["UserID"] = formatCLIParamValue(flagUserID)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-user-conditional-access-policies", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -188,11 +188,11 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.PersistentFlags().BoolVar(&flags.agent, "agent", false, "Set all agent-friendly defaults (--json --compact --no-input --no-color --yes)")
 	rootCmd.PersistentFlags().BoolVar(&flags.allowPartialFailure, "allow-partial-failure", false, "Downgrade response-body partial-failure (e.g. partialFailureError) to a warning instead of a non-zero exit")
 	rootCmd.PersistentFlags().StringVar(&flags.dataSource, "data-source", "auto", "Data source for read commands: auto (live with local fallback), live (API only), local (synced data only)")
+	rootCmd.PersistentFlags().StringVar(&flags.orgID, "org", "", "ThreatLocker managed organization (tenant) GUID, sent as the ManagedOrganizationId header (env: THREATLOCKER_ORG_ID)")
 	rootCmd.PersistentFlags().DurationVar(&flags.maxAge, "max-age", 30*time.Minute, "Maximum acceptable age of local-store data before a stderr hint suggests sync; 0 disables")
 	rootCmd.PersistentFlags().StringVar(&flags.profileName, "profile", "", "Apply values from a saved profile (see 'threatlocker-cli profile list')")
 	rootCmd.PersistentFlags().StringVar(&flags.deliverSpec, "deliver", "", "Route output to a sink: stdout (default), file:<path>, webhook:<url>")
 	rootCmd.PersistentFlags().Float64Var(&flags.rateLimit, "rate-limit", 0, "Max requests per second (0 to disable)")
-	rootCmd.PersistentFlags().StringVar(&flags.orgID, "org", "", "ThreatLocker managed organization (tenant) GUID, sent as the ManagedOrganizationId header (env: THREATLOCKER_ORG_ID)")
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if flags.deliverSpec != "" {
@@ -298,8 +298,8 @@ func (f *rootFlags) newClient() (*client.Client, error) {
 	}
 	// Multi-tenant: inject the ManagedOrganizationId header from --org (or the
 	// THREATLOCKER_ORG_ID env var) so every Portal API request is scoped to the
-	// target tenant. OverrideManagedOrganizationId mirrors it, matching the
-	// reference client's behavior. The client applies cfg.Headers on every call.
+	// target tenant. OverrideManagedOrganizationId mirrors it. The client
+	// applies cfg.Headers on every call.
 	org := f.orgID
 	if org == "" {
 		org = os.Getenv("THREATLOCKER_ORG_ID")

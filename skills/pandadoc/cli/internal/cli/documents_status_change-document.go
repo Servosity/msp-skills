@@ -22,7 +22,7 @@ func newDocumentsStatusChangeDocumentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "change-document <id>",
 		Aliases:     []string{"update"},
 		Short:       "PandaDoc has eight document statuses, but you can manually set your document status to only four",
-		Example:     "  pandadoc-cli documents status change-document 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents status change-document iGsFiaV2hEEvQdhr2WAkMk",
 		Annotations: map[string]string{"pp:endpoint": "status.change-document", "pp:method": "PATCH", "pp:path": "/documents/{id}/status"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

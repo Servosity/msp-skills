@@ -43,7 +43,7 @@ func newRelatedItemsGetWithEntityCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/related-items/with-related-entity/{relEntityType}/{relEntityId}"
 			path = replacePathParam(path, "relEntityId", args[0])
-			path = replacePathParam(path, "relEntityType", fmt.Sprintf("%v", flagRelEntityType))
+			path = replacePathParam(path, "relEntityType", formatCLIParamValue(flagRelEntityType))
 			params := map[string]string{}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "related-items", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

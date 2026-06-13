@@ -29,7 +29,7 @@ func newListGdapaccessAssignmentsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListGDAPAccessAssignments"
 			params := map[string]string{}
 			if flagId != "" {
-				params["Id"] = fmt.Sprintf("%v", flagId)
+				params["Id"] = formatCLIParamValue(flagId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-gdapaccess-assignments", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

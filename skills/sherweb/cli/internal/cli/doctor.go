@@ -173,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export SHERWEB_CLIENT_ID=<your-key>"
+					report["auth_hint"] = "Set credentials with: export SHERWEB_CLIENT_ID=\"your-token-here\" SHERWEB_CLIENT_SECRET=\"your-token-here\""
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"

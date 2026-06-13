@@ -29,7 +29,7 @@ func newSettingTemplatesOrgIdGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/setting-templates/all"
 			params := map[string]string{}
 			if flagFilter != "" {
-				params["filter"] = fmt.Sprintf("%v", flagFilter)
+				params["filter"] = formatCLIParamValue(flagFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "setting-templates", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

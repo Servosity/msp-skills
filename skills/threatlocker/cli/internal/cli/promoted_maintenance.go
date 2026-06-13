@@ -41,13 +41,13 @@ func newMaintenancePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/MaintenanceMode/MaintenanceModeGetByComputerIdV2"
 			params := map[string]string{}
 			if flagComputerId != "" {
-				params["computerId"] = fmt.Sprintf("%v", flagComputerId)
+				params["computerId"] = formatCLIParamValue(flagComputerId)
 			}
 			if flagPageNumber != 0 {
-				params["pageNumber"] = fmt.Sprintf("%v", flagPageNumber)
+				params["pageNumber"] = formatCLIParamValue(flagPageNumber)
 			}
 			if flagPageSize != 0 {
-				params["pageSize"] = fmt.Sprintf("%v", flagPageSize)
+				params["pageSize"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "maintenance", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

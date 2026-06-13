@@ -14,9 +14,10 @@ import (
 func newVendorsDetailsVendorsRetrieveCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "vendors-retrieve <vendor_domain>",
-		Aliases:     []string{"get"},
-		Short:       "Get details of a vendor your organization has interacted with",
+		Use:     "vendors-retrieve <vendor_domain>",
+		Aliases: []string{"get"},
+		Short:   "Get details of a vendor your organization has interacted with",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  abnormal-cli vendors details vendors-retrieve example-value",
 		Annotations: map[string]string{"pp:endpoint": "details.vendors-retrieve", "pp:method": "GET", "pp:path": "/vendors/{vendor_domain}/details", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

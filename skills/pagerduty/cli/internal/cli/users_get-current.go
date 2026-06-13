@@ -41,7 +41,7 @@ func newUsersGetCurrentCmd(flags *rootFlags) *cobra.Command {
 			path := "/users/me"
 			params := map[string]string{}
 			if flagInclude != "" {
-				params["include[]"] = fmt.Sprintf("%v", flagInclude)
+				params["include[]"] = formatCLIParamValue(flagInclude)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "users", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

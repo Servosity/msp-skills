@@ -19,7 +19,7 @@ func newDocumentsDraftDocumentRevertToCmd(flags *rootFlags) *cobra.Command {
 		Use:         "document-revert-to <id>",
 		Aliases:     []string{"create"},
 		Short:       "Revert your document back to draft to continue editing it.",
-		Example:     "  pandadoc-cli documents draft document-revert-to 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents draft document-revert-to iGsFiaV2hEEvQdhr2WAkMk",
 		Annotations: map[string]string{"pp:endpoint": "draft.document-revert-to", "pp:method": "POST", "pp:path": "/documents/{id}/draft"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

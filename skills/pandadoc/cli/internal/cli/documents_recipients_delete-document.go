@@ -17,7 +17,7 @@ func newDocumentsRecipientsDeleteDocumentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "delete-document <id> <recipient_id>",
 		Aliases:     []string{"delete"},
 		Short:       "Remove a recipient from a document.",
-		Example:     "  pandadoc-cli documents recipients delete-document 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents recipients delete-document BhVzRcxH9Z2LgfPPGXFUBa tf5dGS3Tmu3cj228ao6fnc",
 		Annotations: map[string]string{"pp:endpoint": "recipients.delete-document", "pp:method": "DELETE", "pp:path": "/documents/{id}/recipients/{recipient_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

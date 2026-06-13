@@ -29,7 +29,7 @@ func newListBpatemplatesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListBPATemplates"
 			params := map[string]string{}
 			if flagRawJson != "" {
-				params["RawJson"] = fmt.Sprintf("%v", flagRawJson)
+				params["RawJson"] = formatCLIParamValue(flagRawJson)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-bpatemplates", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

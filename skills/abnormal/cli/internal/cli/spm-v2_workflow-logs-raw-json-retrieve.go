@@ -41,7 +41,7 @@ func newSpmV2WorkflowLogsRawJsonRetrieveCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "workflow_log_id", args[0])
 			params := map[string]string{}
 			if flagWorkflowLogId != "" {
-				params["workflow_log_id"] = fmt.Sprintf("%v", flagWorkflowLogId)
+				params["workflow_log_id"] = formatCLIParamValue(flagWorkflowLogId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "spm-v2", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -21,7 +21,7 @@ func newTemplatesEditingSessionsCreateTemplateCmd(flags *rootFlags) *cobra.Comma
 		Use:         "create-template <id>",
 		Aliases:     []string{"create"},
 		Short:       "Creates a new editing session for the Embedded Editor.",
-		Example:     "  pandadoc-cli templates editing-sessions create-template 550e8400-e29b-41d4-a716-446655440000 --email user@example.com",
+		Example:     "  pandadoc-cli templates editing-sessions create-template a53a2f96b91d47f99ee33f --email user@example.com",
 		Annotations: map[string]string{"pp:endpoint": "editing-sessions.create-template", "pp:method": "POST", "pp:path": "/templates/{id}/editing-sessions"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

@@ -28,7 +28,7 @@ func TestAllThreeAutotaskHeadersSent(t *testing.T) {
 
 	cfg := &config.Config{
 		BaseURL:                       srv.URL,
-		AutotaskPsaApiIntegrationCode: "integration-code-123",
+		AutotaskApiIntegrationCode: "integration-code-123",
 		AutotaskPsaUserName:           "api-user@example.com",
 		AutotaskPsaSecret:             "secret-456",
 	}
@@ -73,7 +73,7 @@ func TestCrossHostRedirectStripsAutotaskHeaders(t *testing.T) {
 
 	cfg := &config.Config{
 		BaseURL:                       origin.URL,
-		AutotaskPsaApiIntegrationCode: "integration-code-123",
+		AutotaskApiIntegrationCode: "integration-code-123",
 		AutotaskPsaUserName:           "api-user@example.com",
 		AutotaskPsaSecret:             "secret-456",
 	}

@@ -29,7 +29,7 @@ func newExecExtensionTestPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecExtensionTest"
 			params := map[string]string{}
 			if flagExtensionName != "" {
-				params["extensionName"] = fmt.Sprintf("%v", flagExtensionName)
+				params["extensionName"] = formatCLIParamValue(flagExtensionName)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-extension-test", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

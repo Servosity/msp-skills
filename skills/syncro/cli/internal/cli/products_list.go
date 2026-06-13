@@ -36,15 +36,15 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/products"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "products", path, map[string]string{
-				"sort":        fmt.Sprintf("%v", flagSort),
-				"sku":         fmt.Sprintf("%v", flagSku),
-				"name":        fmt.Sprintf("%v", flagName),
-				"upc_code":    fmt.Sprintf("%v", flagUpcCode),
-				"category_id": fmt.Sprintf("%v", flagCategoryId),
-				"id":          fmt.Sprintf("%v", flagId),
-				"id_not":      fmt.Sprintf("%v", flagIdNot),
-				"query":       fmt.Sprintf("%v", flagQuery),
-				"page":        fmt.Sprintf("%v", flagPage),
+				"sort":        formatCLIParamValue(flagSort),
+				"sku":         formatCLIParamValue(flagSku),
+				"name":        formatCLIParamValue(flagName),
+				"upc_code":    formatCLIParamValue(flagUpcCode),
+				"category_id": formatCLIParamValue(flagCategoryId),
+				"id":          formatCLIParamValue(flagId),
+				"id_not":      formatCLIParamValue(flagIdNot),
+				"query":       formatCLIParamValue(flagQuery),
+				"page":        formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

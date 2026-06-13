@@ -64,7 +64,7 @@ func newHTTPClient(timeout time.Duration, jar http.CookieJar) *http.Client {
 
 func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 	homeDir, _ := os.UserHomeDir()
-	cacheDir := filepath.Join(homeDir, ".cache", "mspbots-pp-cli", "http")
+	cacheDir := filepath.Join(homeDir, ".cache", "mspbots-cli", "http")
 	httpClient := newHTTPClient(timeout, nil)
 	c := &Client{
 		BaseURL:    strings.TrimRight(cfg.BaseURL, "/"),
@@ -247,9 +247,9 @@ func (c *Client) readCache(path string, params map[string]string) (json.RawMessa
 }
 
 func (c *Client) writeCache(path string, params map[string]string, data json.RawMessage) {
-	os.MkdirAll(c.cacheDir, 0o755)
+	os.MkdirAll(c.cacheDir, 0o700)
 	cacheFile := filepath.Join(c.cacheDir, c.cacheKey(path, params)+".json")
-	os.WriteFile(cacheFile, []byte(data), 0o644)
+	os.WriteFile(cacheFile, []byte(data), 0o600)
 }
 
 // invalidateCache wholesale-removes the cache directory so the next read
@@ -511,7 +511,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			req.Header.Del(BinaryResponseHeader)
 		}
 		if req.Header.Get("User-Agent") == "" {
-			req.Header.Set("User-Agent", "mspbots-pp-cli/0.1.0")
+			req.Header.Set("User-Agent", "mspbots-cli/0.1.0")
 		}
 		// Go's net/http omits Accept by default; browsers, curl, and other
 		// stdlibs always send it. Fingerprint-checking WAFs (Imperva, Akamai,
@@ -712,7 +712,7 @@ func looksLikeCredentialPlaceholder(value string) bool {
 }
 
 func authPlaceholderCredentialError(cfg *config.Config) error {
-	return authPlaceholderCredentialErrorWithSetup(cfg, "export MSPBOTS_API_KEY=<your-token> or mspbots-pp-cli auth set-token <token>")
+	return authPlaceholderCredentialErrorWithSetup(cfg, "export MSPBOTS_API_KEY=<your-token> or mspbots-cli auth set-token <token>")
 }
 
 func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) error {

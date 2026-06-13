@@ -45,19 +45,19 @@ func newOrganizationGetClientDocumentsWithAttributeValuesCmd(flags *rootFlags) *
 			path := "/v2/organization/documents"
 			params := map[string]string{}
 			if flagGroupBy != "" {
-				params["groupBy"] = fmt.Sprintf("%v", flagGroupBy)
+				params["groupBy"] = formatCLIParamValue(flagGroupBy)
 			}
 			if flagOrganizationIds != "" {
-				params["organizationIds"] = fmt.Sprintf("%v", flagOrganizationIds)
+				params["organizationIds"] = formatCLIParamValue(flagOrganizationIds)
 			}
 			if flagTemplateIds != "" {
-				params["templateIds"] = fmt.Sprintf("%v", flagTemplateIds)
+				params["templateIds"] = formatCLIParamValue(flagTemplateIds)
 			}
 			if flagTemplateName != "" {
-				params["templateName"] = fmt.Sprintf("%v", flagTemplateName)
+				params["templateName"] = formatCLIParamValue(flagTemplateName)
 			}
 			if flagDocumentName != "" {
-				params["documentName"] = fmt.Sprintf("%v", flagDocumentName)
+				params["documentName"] = formatCLIParamValue(flagDocumentName)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "organization", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

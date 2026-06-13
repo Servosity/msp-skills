@@ -30,7 +30,7 @@ func newExecDeleteGdaprelationshipPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecDeleteGDAPRelationship"
 			params := map[string]string{}
 			if flagGDAPId != "" {
-				params["GDAPId"] = fmt.Sprintf("%v", flagGDAPId)
+				params["GDAPId"] = formatCLIParamValue(flagGDAPId)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -42,10 +42,10 @@ func newExecDeleteGdaprelationshipPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

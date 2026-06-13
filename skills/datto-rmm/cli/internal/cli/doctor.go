@@ -100,7 +100,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export DATTO_RMM_API_KEY=<your-key>"
+					report["auth_hint"] = "Run 'datto-rmm-cli auth setup' for credential setup steps."
 					report["auth_key_url"] = "https://rmm.datto.com/help/en/Content/2SETUP/APIv2.htm"
 				} else {
 					authConfigured = true

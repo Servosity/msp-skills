@@ -16,7 +16,7 @@ func newPublicDocumentSettingsGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "document-settings-get <document_id>",
 		Short:       "Retrieves the settings for a specified document.",
-		Example:     "  pandadoc-cli public document-settings-get 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli public document-settings-get BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "public.document-settings-get", "pp:method": "GET", "pp:path": "/public/v2/documents/{document_id}/settings", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

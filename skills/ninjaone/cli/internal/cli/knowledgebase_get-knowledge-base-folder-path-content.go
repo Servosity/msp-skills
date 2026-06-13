@@ -30,13 +30,13 @@ func newKnowledgebaseGetKnowledgeBaseFolderPathContentCmd(flags *rootFlags) *cob
 			path := "/v2/knowledgebase/folder"
 			params := map[string]string{}
 			if flagFolderPath != "" {
-				params["folderPath"] = fmt.Sprintf("%v", flagFolderPath)
+				params["folderPath"] = formatCLIParamValue(flagFolderPath)
 			}
 			if flagFolderId != "" {
-				params["folderId"] = fmt.Sprintf("%v", flagFolderId)
+				params["folderId"] = formatCLIParamValue(flagFolderId)
 			}
 			if flagOrganizationId != "" {
-				params["organizationId"] = fmt.Sprintf("%v", flagOrganizationId)
+				params["organizationId"] = formatCLIParamValue(flagOrganizationId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "knowledgebase", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

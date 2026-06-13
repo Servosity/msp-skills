@@ -30,13 +30,13 @@ func newCrmGetRecurringServicesPerformanceCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/crm/dashboard/recurringservices/performance"
 			params := map[string]string{}
 			if flagPipelineCommitment != 0.0 {
-				params["PipelineCommitment"] = fmt.Sprintf("%v", flagPipelineCommitment)
+				params["PipelineCommitment"] = formatCLIParamValue(flagPipelineCommitment)
 			}
 			if flagStartDate != "" {
-				params["StartDate"] = fmt.Sprintf("%v", flagStartDate)
+				params["StartDate"] = formatCLIParamValue(flagStartDate)
 			}
 			if flagEndDate != "" {
-				params["EndDate"] = fmt.Sprintf("%v", flagEndDate)
+				params["EndDate"] = formatCLIParamValue(flagEndDate)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "crm", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

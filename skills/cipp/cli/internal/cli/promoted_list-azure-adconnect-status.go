@@ -16,9 +16,10 @@ func newListAzureAdconnectStatusPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-azure-adconnect-status",
-		Short:       "List azure adconnect status",
-		Long:        "List azure adconnect status",
+		Use:   "list-azure-adconnect-status",
+		Short: "List azure adconnect status",
+		Long:  "List azure adconnect status",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-azure-adconnect-status --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-azure-adconnect-status.list", "pp:method": "GET", "pp:path": "/ListAzureADConnectStatus", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,10 +41,10 @@ func newListAzureAdconnectStatusPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListAzureADConnectStatus"
 			params := map[string]string{}
 			if flagDataToReturn != "" {
-				params["DataToReturn"] = fmt.Sprintf("%v", flagDataToReturn)
+				params["DataToReturn"] = formatCLIParamValue(flagDataToReturn)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-azure-adconnect-status", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

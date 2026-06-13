@@ -37,10 +37,7 @@ Add (or merge with your existing `mcpServers` block):
     "cove": {
       "command": "cove-mcp",
       "env": {
-        "COVE_USERNAME": "<your-cove_username>",
-        "COVE_PASSWORD": "<your-cove_password>",
-        "COVE_PARTNER": "<your-cove_partner>",
-        "COVE_BASE_URL": "<your-cove_base_url>"
+        "EXAMPLE_TOKEN": "<your-token>"
       }
     }
   }
@@ -65,10 +62,7 @@ Configuration**) and add:
       "type": "stdio",
       "command": "cove-mcp",
       "env": {
-        "COVE_USERNAME": "<your-cove_username>",
-        "COVE_PASSWORD": "<your-cove_password>",
-        "COVE_PARTNER": "<your-cove_partner>",
-        "COVE_BASE_URL": "<your-cove_base_url>"
+        "EXAMPLE_TOKEN": "<your-token>"
       }
     }
   }
@@ -89,10 +83,7 @@ Claude Desktop:
     "cove": {
       "command": "cove-mcp",
       "env": {
-        "COVE_USERNAME": "<your-cove_username>",
-        "COVE_PASSWORD": "<your-cove_password>",
-        "COVE_PARTNER": "<your-cove_partner>",
-        "COVE_BASE_URL": "<your-cove_base_url>"
+        "EXAMPLE_TOKEN": "<your-token>"
       }
     }
   }
@@ -110,7 +101,7 @@ All remote agents need `cove-mcp` reachable as a public **HTTPS** endpoint. Run 
 in HTTP mode with your credentials in the environment:
 
 ```bash
-COVE_USERNAME=<value> COVE_PASSWORD=<value> COVE_PARTNER=<value> COVE_BASE_URL=<value> cove-mcp --transport http --addr :7777
+TOKEN=<value> cove-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

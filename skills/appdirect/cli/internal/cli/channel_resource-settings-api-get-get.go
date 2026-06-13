@@ -14,8 +14,9 @@ import (
 func newChannelResourceSettingsApiGetGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "resource-settings-api-get-get <partner>",
-		Short:       "Use the GET method to list channel settings for a specific channel.",
+		Use:   "resource-settings-api-get-get <partner>",
+		Short: "Use the GET method to list channel settings for a specific channel.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli channel resource-settings-api-get-get example-value",
 		Annotations: map[string]string{"pp:endpoint": "channel.resource-settings-api-get-get", "pp:method": "GET", "pp:path": "/channel/v1/settings/{partner}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

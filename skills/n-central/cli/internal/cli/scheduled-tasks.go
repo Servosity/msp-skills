@@ -11,6 +11,7 @@ func newScheduledTasksCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "scheduled-tasks",
 		Short:       "Scheduled tasks — run scripts/automation policies on devices and track them.",
+		Hidden:      true,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

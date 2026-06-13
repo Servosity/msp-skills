@@ -15,8 +15,9 @@ func newMsspGetUserGroupMembersByIdv2Cmd(flags *rootFlags) *cobra.Command {
 	var flagIds string
 
 	cmd := &cobra.Command{
-		Use:         "get-user-group-members-by-idv2",
-		Short:       "Get user group members by user group ID.",
+		Use:   "get-user-group-members-by-idv2",
+		Short: "Get user group members by user group ID.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  crowdstrike-cli mssp get-user-group-members-by-idv2 --ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "mssp.get-user-group-members-by-idv2", "pp:method": "GET", "pp:path": "/mssp/entities/user-group-members/v2", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newMsspGetUserGroupMembersByIdv2Cmd(flags *rootFlags) *cobra.Command {
 			path := "/mssp/entities/user-group-members/v2"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "mssp", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

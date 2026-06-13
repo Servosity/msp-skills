@@ -42,7 +42,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "Get a key at: https://syncromsp.com")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export SYNCRO_API_KEY=\"<your-token>\"")
+			fmt.Fprintln(w, "  export SYNCRO_API_KEY=\"your-token-here\"")
 			fmt.Fprintln(w, "  syncro-cli auth set-token <token>")
 			if !launch {
 				return nil

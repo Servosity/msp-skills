@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "gradient-mcp",
   "display_name": "Gradient MSP",
-  "version": "0.1.0",
-  "description": "The Gradient MSP Synthesize vendor API from your terminal: bulk usage pushes with a single billing rebuild, a local push-drift ledger, and alert-to-ticket tracing the portal and SDK don't offer.",
+  "version": "0.1.1",
+  "description": "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has.",
   "author": {
     "name": "Servosity Inc."
   },
@@ -36,10 +36,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-07T13:32:05.62562Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:26:10.503559Z",
     "spec_checksum": "sha256:28e232440e648e5601ff5b25e974ae181744bee8f13ef22c27ccd18db86a9500",
     "spec_format": "openapi3"
   }

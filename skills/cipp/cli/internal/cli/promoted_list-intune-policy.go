@@ -17,9 +17,10 @@ func newListIntunePolicyPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagURLName string
 
 	cmd := &cobra.Command{
-		Use:         "list-intune-policy",
-		Short:       "List intune policy",
-		Long:        "List intune policy",
+		Use:   "list-intune-policy",
+		Short: "List intune policy",
+		Long:  "List intune policy",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-intune-policy --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-intune-policy.list", "pp:method": "GET", "pp:path": "/ListIntunePolicy", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,13 +42,13 @@ func newListIntunePolicyPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListIntunePolicy"
 			params := map[string]string{}
 			if flagID != "" {
-				params["ID"] = fmt.Sprintf("%v", flagID)
+				params["ID"] = formatCLIParamValue(flagID)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagURLName != "" {
-				params["URLName"] = fmt.Sprintf("%v", flagURLName)
+				params["URLName"] = formatCLIParamValue(flagURLName)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-intune-policy", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

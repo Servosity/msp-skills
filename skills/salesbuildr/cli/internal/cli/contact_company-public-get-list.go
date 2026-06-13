@@ -33,19 +33,19 @@ func newContactCompanyPublicGetListCmd(flags *rootFlags) *cobra.Command {
 			path := "/contact"
 			params := map[string]string{}
 			if flagSort != "" {
-				params["sort"] = fmt.Sprintf("%v", flagSort)
+				params["sort"] = formatCLIParamValue(flagSort)
 			}
 			if flagFilters != "" {
-				params["filters"] = fmt.Sprintf("%v", flagFilters)
+				params["filters"] = formatCLIParamValue(flagFilters)
 			}
 			if flagQuery != "" {
-				params["query"] = fmt.Sprintf("%v", flagQuery)
+				params["query"] = formatCLIParamValue(flagQuery)
 			}
 			if flagSize != 0.0 {
-				params["size"] = fmt.Sprintf("%v", flagSize)
+				params["size"] = formatCLIParamValue(flagSize)
 			}
 			if flagFrom != 0.0 {
-				params["from"] = fmt.Sprintf("%v", flagFrom)
+				params["from"] = formatCLIParamValue(flagFrom)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "contact", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

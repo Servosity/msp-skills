@@ -28,7 +28,7 @@ func newBudgetTypeListCmd(flags *rootFlags) *cobra.Command {
 			path := "/BudgetType"
 			params := map[string]string{}
 			if flagTicketId != "" {
-				params["ticket_id"] = fmt.Sprintf("%v", flagTicketId)
+				params["ticket_id"] = formatCLIParamValue(flagTicketId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "budget-type", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

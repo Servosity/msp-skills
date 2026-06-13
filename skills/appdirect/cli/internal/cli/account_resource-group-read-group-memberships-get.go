@@ -39,10 +39,10 @@ func newAccountResourceGroupReadGroupMembershipsGetCmd(flags *rootFlags) *cobra.
 			}
 			path = replacePathParam(path, "groupUuid", args[1])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "account", path, map[string]string{
-				"searchText": fmt.Sprintf("%v", flagSearchText),
-				"member":     fmt.Sprintf("%v", flagMember),
-				"page":       fmt.Sprintf("%v", flagPage),
-				"size":       fmt.Sprintf("%v", flagSize),
+				"searchText": formatCLIParamValue(flagSearchText),
+				"member":     formatCLIParamValue(flagMember),
+				"page":       formatCLIParamValue(flagPage),
+				"size":       formatCLIParamValue(flagSize),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

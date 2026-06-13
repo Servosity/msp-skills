@@ -71,8 +71,9 @@ func newProcurementPostPurchaseordersByParentIdLineitemsCmd(flags *rootFlags) *c
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-purchaseorders-by-parent-id-lineitems <parentId>",
-		Short:       "Post PurchaseOrderLineItem",
+		Use:   "post-purchaseorders-by-parent-id-lineitems <parentId>",
+		Short: "Post PurchaseOrderLineItem",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  connectwise-manage-cli procurement post-purchaseorders-by-parent-id-lineitems 42 --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "procurement.post-purchaseorders-by-parent-id-lineitems", "pp:method": "POST", "pp:path": "/procurement/purchaseorders/{parentId}/lineitems"},
 		RunE: func(cmd *cobra.Command, args []string) error {

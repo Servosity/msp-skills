@@ -21,8 +21,9 @@ func newAppResellerResourceBillingV1SubscriptionApiPostCmd(flags *rootFlags) *co
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "resource-billing-v1-subscription-api-post",
-		Short:       "Note: This endpoint is being deprecated.",
+		Use:   "resource-billing-v1-subscription-api-post",
+		Short: "Note: This endpoint is being deprecated.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli app-reseller resource-billing-v1-subscription-api-post --order-lines example-value",
 		Annotations: map[string]string{"pp:endpoint": "app-reseller.resource-billing-v1-subscription-api-post", "pp:method": "POST", "pp:path": "/appReseller/v1/subscriptions"},
 		RunE: func(cmd *cobra.Command, args []string) error {

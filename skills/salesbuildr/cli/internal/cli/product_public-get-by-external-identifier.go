@@ -14,9 +14,10 @@ import (
 func newProductPublicGetByExternalIdentifierCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "public-get-by-external-identifier <externalIdentifier>",
-		Aliases:     []string{"get"},
-		Short:       "Get product by external identifier",
+		Use:     "public-get-by-external-identifier <externalIdentifier>",
+		Aliases: []string{"get"},
+		Short:   "Get product by external identifier",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  salesbuildr-cli product public-get-by-external-identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "product.public-get-by-external-identifier", "pp:method": "GET", "pp:path": "/product/ext/{externalIdentifier}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

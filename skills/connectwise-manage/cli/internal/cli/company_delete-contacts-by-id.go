@@ -41,7 +41,7 @@ func newCompanyDeleteContactsByIdCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagTransferContactId != "" {
-				params["transferContactId"] = fmt.Sprintf("%v", flagTransferContactId)
+				params["transferContactId"] = formatCLIParamValue(flagTransferContactId)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

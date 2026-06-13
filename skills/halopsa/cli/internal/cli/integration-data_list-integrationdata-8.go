@@ -31,16 +31,16 @@ func newIntegrationDataListIntegrationdata8Cmd(flags *rootFlags) *cobra.Command 
 			path := "/IntegrationData/Get/AzureAD"
 			params := map[string]string{}
 			if flagConnectionid != "" {
-				params["connectionid"] = fmt.Sprintf("%v", flagConnectionid)
+				params["connectionid"] = formatCLIParamValue(flagConnectionid)
 			}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			if flagMappingid != "" {
-				params["mappingid"] = fmt.Sprintf("%v", flagMappingid)
+				params["mappingid"] = formatCLIParamValue(flagMappingid)
 			}
 			if flagTenantid != "" {
-				params["tenantid"] = fmt.Sprintf("%v", flagTenantid)
+				params["tenantid"] = formatCLIParamValue(flagTenantid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

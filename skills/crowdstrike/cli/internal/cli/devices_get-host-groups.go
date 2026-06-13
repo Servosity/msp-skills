@@ -15,8 +15,9 @@ func newDevicesGetHostGroupsCmd(flags *rootFlags) *cobra.Command {
 	var flagIds string
 
 	cmd := &cobra.Command{
-		Use:         "get-host-groups",
-		Short:       "Retrieve a set of Host Groups by specifying their IDs",
+		Use:   "get-host-groups",
+		Short: "Retrieve a set of Host Groups by specifying their IDs",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  crowdstrike-cli devices get-host-groups --ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "devices.get-host-groups", "pp:method": "GET", "pp:path": "/devices/entities/host-groups/v1", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newDevicesGetHostGroupsCmd(flags *rootFlags) *cobra.Command {
 			path := "/devices/entities/host-groups/v1"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "devices", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

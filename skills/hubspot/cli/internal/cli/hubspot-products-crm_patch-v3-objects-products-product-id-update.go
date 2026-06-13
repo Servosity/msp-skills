@@ -46,7 +46,7 @@ func newHubspotProductsCrmPatchV3ObjectsProductsProductIdUpdateCmd(flags *rootFl
 			path = replacePathParam(path, "productId", args[0])
 			params := map[string]string{}
 			if flagIdProperty != "" {
-				params["idProperty"] = fmt.Sprintf("%v", flagIdProperty)
+				params["idProperty"] = formatCLIParamValue(flagIdProperty)
 			}
 			var body map[string]any
 			if stdinBody {

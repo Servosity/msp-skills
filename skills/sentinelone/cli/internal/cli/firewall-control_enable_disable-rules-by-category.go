@@ -16,9 +16,10 @@ func newFirewallControlEnableDisableRulesByCategoryCmd(flags *rootFlags) *cobra.
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "disable-rules-by-category <firewall_rule_category>",
-		Aliases:     []string{"update"},
-		Short:       "Change the status of a set of Firewall Control rules that match the filter to 'Enabled' or 'Disabled'.",
+		Use:     "disable-rules-by-category <firewall_rule_category>",
+		Aliases: []string{"update"},
+		Short:   "Change the status of a set of Firewall Control rules that match the filter to 'Enabled' or 'Disabled'.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli firewall-control enable disable-rules-by-category example-value",
 		Annotations: map[string]string{"pp:endpoint": "enable.disable-rules-by-category", "pp:method": "PUT", "pp:path": "/firewall-control/{firewall_rule_category}/enable"},
 		RunE: func(cmd *cobra.Command, args []string) error {

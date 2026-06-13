@@ -23,7 +23,7 @@ func newStorageNodesCmd(flags *rootFlags) *cobra.Command {
 		Use:         "nodes",
 		Short:       "Enumerate all storage nodes (JSON-RPC EnumerateAllStorageNodes)",
 		Example:     "  cove-cli storage nodes",
-		Annotations: map[string]string{"pp:endpoint": "storage.nodes", "pp:method": "POST", "pp:path": "/jsonapi", "mcp:read-only": "true"},
+		Annotations: map[string]string{"pp:endpoint": "storage.nodes", "pp:method": "POST", "pp:path": "/jsonapi"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {
 			}
@@ -60,7 +60,7 @@ func newStorageNodesCmd(flags *rootFlags) *cobra.Command {
 					body["visa"] = bodyVisa
 				}
 			}
-			data, statusCode, err := c.PostQueryWithParams(cmd.Context(), path, params, body)
+			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -81,6 +81,9 @@ func newStorageNodesCmd(flags *rootFlags) *cobra.Command {
 						fmt.Fprintf(os.Stderr, "         succeeded: %d operation(s)\n", len(partialFailure.ResourceNames))
 					}
 				}
+			}
+			if !flags.dryRun && statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure) {
+				writeMutationResponseToStore(cmd.Context(), "storage", data, "result.result")
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")

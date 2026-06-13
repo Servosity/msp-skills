@@ -27,7 +27,7 @@ func newAccountUpdateGroupMappingCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update-group-mapping",
 		Short:       "Update an existing SSO group mapping",
-		Example:     "  runzero-cli account update-group-mapping --group-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  runzero-cli account update-group-mapping --group-id 2b096711-4d28-4417-8635-64af4f62c1ae",
 		Annotations: map[string]string{"pp:endpoint": "account.update-group-mapping", "pp:method": "PUT", "pp:path": "/account/sso/groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

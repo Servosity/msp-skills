@@ -34,13 +34,13 @@ func newPdfTemplateRepositoryGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagLicencename != "" {
-				params["licencename"] = fmt.Sprintf("%v", flagLicencename)
+				params["licencename"] = formatCLIParamValue(flagLicencename)
 			}
 			if flagSystemUse != "" {
-				params["system_use"] = fmt.Sprintf("%v", flagSystemUse)
+				params["system_use"] = formatCLIParamValue(flagSystemUse)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "pdf-template-repository", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

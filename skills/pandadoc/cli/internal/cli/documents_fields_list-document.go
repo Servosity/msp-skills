@@ -17,7 +17,7 @@ func newDocumentsFieldsListDocumentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "list-document <id>",
 		Aliases:     []string{"get"},
 		Short:       "Return the list of fields for a particular document.",
-		Example:     "  pandadoc-cli documents fields list-document 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents fields list-document BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "fields.list-document", "pp:method": "GET", "pp:path": "/documents/{id}/fields", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

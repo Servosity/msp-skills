@@ -21,8 +21,9 @@ func newEnvironmentsUpdateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update <EnvironmentID>",
-		Short:       "Update a single environment, If you want to update a child environment, set the Parent Environment, if not set to null",
+		Use:   "update <EnvironmentID>",
+		Short: "Update a single environment, If you want to update a child environment, set the Parent Environment, if not set to null",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  liongard-cli environments update 42 --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "environments.update", "pp:method": "PUT", "pp:path": "/environments/{EnvironmentID}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

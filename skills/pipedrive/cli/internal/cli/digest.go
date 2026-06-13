@@ -16,7 +16,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"pipedrive-pp-cli/internal/pipeintel"
-	"pipedrive-pp-cli/internal/store"
 )
 
 type digestItem struct {
@@ -87,7 +86,7 @@ func newNovelDigestCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(cmd.ErrOrStderr(), "note: --for-me has no --owner to scope by; showing the team-wide digest. Pass --owner <your user id>.")
 			}
 
-			db, err := store.OpenWithContext(cmd.Context(), novelDBPath(dbPath))
+			db, err := pdOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local store: %w", err)
 			}

@@ -30,10 +30,10 @@ func newRecurringItemPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/RecurringItem"
 			params := map[string]string{}
 			if flagClientId != "" {
-				params["client_id"] = fmt.Sprintf("%v", flagClientId)
+				params["client_id"] = formatCLIParamValue(flagClientId)
 			}
 			if flagPendingRecurringInvoice != false {
-				params["pending_recurring_invoice"] = fmt.Sprintf("%v", flagPendingRecurringInvoice)
+				params["pending_recurring_invoice"] = formatCLIParamValue(flagPendingRecurringInvoice)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "recurring-item", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

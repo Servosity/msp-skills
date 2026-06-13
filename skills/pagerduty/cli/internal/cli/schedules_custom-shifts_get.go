@@ -16,7 +16,7 @@ func newSchedulesCustomShiftsGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <id> <custom_shift_id>",
 		Short:       "<!",
-		Example:     "  pagerduty-cli schedules custom-shifts get 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pagerduty-cli schedules custom-shifts get PSJUKNI AGO4624VGZ44ZJDFTW5NSZ2CG4",
 		Annotations: map[string]string{"pp:endpoint": "custom-shifts.get", "pp:method": "GET", "pp:path": "/v3/schedules/{id}/custom_shifts/{custom_shift_id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

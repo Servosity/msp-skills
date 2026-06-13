@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "threatlocker-cli",
-			Description: "Every ThreatLocker Portal API feature",
+			Description: "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

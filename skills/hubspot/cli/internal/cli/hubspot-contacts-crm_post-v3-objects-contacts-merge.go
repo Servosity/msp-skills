@@ -18,8 +18,9 @@ func newHubspotContactsCrmPostV3ObjectsContactsMergeCmd(flags *rootFlags) *cobra
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-v3-objects-contacts-merge",
-		Short:       "Merge two contacts with same type",
+		Use:   "post-v3-objects-contacts-merge",
+		Short: "Merge two contacts with same type",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-contacts-crm post-v3-objects-contacts-merge --object-id-to-merge example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-contacts-crm.post-v3-objects-contacts-merge", "pp:method": "POST", "pp:path": "/crm/v3/objects/contacts/merge"},
 		RunE: func(cmd *cobra.Command, args []string) error {

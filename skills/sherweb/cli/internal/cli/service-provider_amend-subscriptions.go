@@ -46,7 +46,7 @@ func newServiceProviderAmendSubscriptionsCmd(flags *rootFlags) *cobra.Command {
 			path := "/service-provider/v1/billing/subscriptions/amendments"
 			params := map[string]string{}
 			if flagCustomerId != "" {
-				params["customerId"] = fmt.Sprintf("%v", flagCustomerId)
+				params["customerId"] = formatCLIParamValue(flagCustomerId)
 			}
 			var body map[string]any
 			if stdinBody {

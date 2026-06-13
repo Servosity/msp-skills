@@ -11,7 +11,7 @@ func newNovelAuditCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "audit",
-		Short:       "Documentation-hygiene audits over the local mirror: completeness, stale passwords, expirations, stale articles, layout drift, and a cross-tenant summary.",
+		Short:       "audit subcommands: completeness, expirations, layout-drift, stale-articles, stale-passwords, summary",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

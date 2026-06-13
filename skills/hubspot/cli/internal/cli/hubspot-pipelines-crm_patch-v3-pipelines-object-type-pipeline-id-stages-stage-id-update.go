@@ -20,8 +20,9 @@ func newHubspotPipelinesCrmPatchV3PipelinesObjectTypePipelineIdStagesStageIdUpda
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "patch-v3-pipelines-object-type-pipeline-id-stages-stage-id-update <objectType> <pipelineId> <stageId>",
-		Short:       "Patch v3 pipelines object type pipeline id stages stage id update",
+		Use:   "patch-v3-pipelines-object-type-pipeline-id-stages-stage-id-update <objectType> <pipelineId> <stageId>",
+		Short: "Patch v3 pipelines object type pipeline id stages stage id update",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-pipelines-crm patch-v3-pipelines-object-type-pipeline-id-stages-stage-id-update example-value 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-pipelines-crm.patch-v3-pipelines-object-type-pipeline-id-stages-stage-id-update", "pp:method": "PATCH", "pp:path": "/crm/v3/pipelines/{objectType}/{pipelineId}/stages/{stageId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

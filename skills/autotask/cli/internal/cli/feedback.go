@@ -184,6 +184,9 @@ func newFeedbackListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List recent feedback entries",
+		Annotations: map[string]string{
+			"mcp:read-only": "true",
+		},
 		Example: `  autotask-cli feedback list
   autotask-cli feedback list --limit 5
   autotask-cli feedback list --json`,

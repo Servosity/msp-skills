@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "levelio-mcp",
   "display_name": "Level",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command.",
   "author": {
     "name": "Servosity Inc."
@@ -15,12 +15,12 @@
       "command": "${__dirname}/bin/levelio-mcp",
       "args": [],
       "env": {
-        "LEVEL_API_TOKEN": "${user_config.level_api_token}"
+        "LEVEL_API_TOKEN": "${user_config.levelio_api_token}"
       }
     }
   },
   "user_config": {
-    "level_api_token": {
+    "levelio_api_token": {
       "type": "string",
       "title": "LEVEL_API_TOKEN",
       "description": "Sets LEVEL_API_TOKEN for the Level MCP server.",
@@ -36,10 +36,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T22:21:32.711627Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:23:18.887294Z",
     "spec_checksum": "sha256:8b94dfd8cba311e1cabe910368cca7a890e6565c4413f7bbff1b7b533688c331",
     "spec_format": "openapi3"
   }

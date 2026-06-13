@@ -28,7 +28,7 @@ func newSystemGetColorsLookupCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/system/colors/lookup"
 			params := map[string]string{}
 			if flagModuleId != "" {
-				params["moduleId"] = fmt.Sprintf("%v", flagModuleId)
+				params["moduleId"] = formatCLIParamValue(flagModuleId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "system", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -25,7 +25,7 @@ func newCompaniesContactsCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <companyId>",
 		Short:       "Creates a new Contact",
-		Example:     "  pax8-cli companies contacts create 550e8400-e29b-41d4-a716-446655440000 --email user@example.com",
+		Example:     "  pax8-cli companies contacts create f7fc273a-8d86-45c9-a26f-ffd42416adda --email user@example.com",
 		Annotations: map[string]string{"pp:endpoint": "contacts.create", "pp:method": "POST", "pp:path": "/companies/{companyId}/contacts"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

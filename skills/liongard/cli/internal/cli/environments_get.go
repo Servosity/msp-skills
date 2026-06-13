@@ -18,7 +18,7 @@ func newEnvironmentsGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get",
 		Short:       "Fetch all environments in your Service Provider.",
-		Example:     "  liongard-cli environments get",
+		Example:     "  liongard-cli environments get --json",
 		Annotations: map[string]string{"pp:endpoint": "environments.get", "pp:method": "GET", "pp:path": "/environments", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()
@@ -29,10 +29,10 @@ func newEnvironmentsGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/environments"
 			params := map[string]string{}
 			if flagFields != "" {
-				params["fields[]"] = fmt.Sprintf("%v", flagFields)
+				params["fields[]"] = formatCLIParamValue(flagFields)
 			}
 			if flagConditions != "" {
-				params["conditions[]"] = fmt.Sprintf("%v", flagConditions)
+				params["conditions[]"] = formatCLIParamValue(flagConditions)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "environments", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

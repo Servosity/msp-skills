@@ -29,7 +29,7 @@ func newCurrenciesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/currencies"
 			params := map[string]string{}
 			if flagTerm != "" {
-				params["term"] = fmt.Sprintf("%v", flagTerm)
+				params["term"] = formatCLIParamValue(flagTerm)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "currencies", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -30,10 +30,10 @@ func newExecMaintenanceScriptsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecMaintenanceScripts"
 			params := map[string]string{}
 			if flagMakeLink != "" {
-				params["MakeLink"] = fmt.Sprintf("%v", flagMakeLink)
+				params["MakeLink"] = formatCLIParamValue(flagMakeLink)
 			}
 			if flagScriptFile != "" {
-				params["ScriptFile"] = fmt.Sprintf("%v", flagScriptFile)
+				params["ScriptFile"] = formatCLIParamValue(flagScriptFile)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-maintenance-scripts", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

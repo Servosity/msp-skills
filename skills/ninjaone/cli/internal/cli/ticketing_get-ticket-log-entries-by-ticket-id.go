@@ -48,10 +48,10 @@ func newTicketingGetTicketLogEntriesByTicketIdCmd(flags *rootFlags) *cobra.Comma
 			path := "/v2/ticketing/ticket/{ticketId}/log-entry"
 			path = replacePathParam(path, "ticketId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "ticketing", path, map[string]string{
-				"type":       fmt.Sprintf("%v", flagType),
-				"createTime": fmt.Sprintf("%v", flagCreateTime),
-				"anchorId":   fmt.Sprintf("%v", flagAnchorId),
-				"pageSize":   fmt.Sprintf("%v", flagPageSize),
+				"type":       formatCLIParamValue(flagType),
+				"createTime": formatCLIParamValue(flagCreateTime),
+				"anchorId":   formatCLIParamValue(flagAnchorId),
+				"pageSize":   formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "", "offset", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

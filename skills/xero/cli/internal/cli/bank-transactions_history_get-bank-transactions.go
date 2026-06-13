@@ -17,7 +17,7 @@ func newBankTransactionsHistoryGetBankTransactionsCmd(flags *rootFlags) *cobra.C
 		Use:         "get-bank-transactions <BankTransactionID>",
 		Aliases:     []string{"get"},
 		Short:       "Retrieves history from a specific bank transaction using a unique bank transaction Id",
-		Example:     "  xero-cli bank-transactions history get-bank-transactions 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  xero-cli bank-transactions history get-bank-transactions 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "history.get-bank-transactions", "pp:method": "GET", "pp:path": "/BankTransactions/{BankTransactionID}/History", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

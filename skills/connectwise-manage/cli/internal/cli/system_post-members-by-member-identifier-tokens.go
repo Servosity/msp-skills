@@ -16,8 +16,9 @@ func newSystemPostMembersByMemberIdentifierTokensCmd(flags *rootFlags) *cobra.Co
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-members-by-member-identifier-tokens <memberIdentifier>",
-		Short:       "Post Token",
+		Use:   "post-members-by-member-identifier-tokens <memberIdentifier>",
+		Short: "Post Token",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  connectwise-manage-cli system post-members-by-member-identifier-tokens example-value",
 		Annotations: map[string]string{"pp:endpoint": "system.post-members-by-member-identifier-tokens", "pp:method": "POST", "pp:path": "/system/members/{memberIdentifier}/tokens"},
 		RunE: func(cmd *cobra.Command, args []string) error {

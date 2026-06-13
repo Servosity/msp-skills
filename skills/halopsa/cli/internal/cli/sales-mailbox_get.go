@@ -33,10 +33,10 @@ func newSalesMailboxGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagTestAccess != false {
-				params["_test_access"] = fmt.Sprintf("%v", flagTestAccess)
+				params["_test_access"] = formatCLIParamValue(flagTestAccess)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "sales-mailbox", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

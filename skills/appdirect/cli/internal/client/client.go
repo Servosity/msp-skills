@@ -258,9 +258,9 @@ func (c *Client) readCache(path string, params map[string]string) (json.RawMessa
 }
 
 func (c *Client) writeCache(path string, params map[string]string, data json.RawMessage) {
-	os.MkdirAll(c.cacheDir, 0o755)
+	os.MkdirAll(c.cacheDir, 0o700)
 	cacheFile := filepath.Join(c.cacheDir, c.cacheKey(path, params)+".json")
-	os.WriteFile(cacheFile, []byte(data), 0o644)
+	os.WriteFile(cacheFile, []byte(data), 0o600)
 }
 
 // invalidateCache wholesale-removes the cache directory so the next read
@@ -965,6 +965,9 @@ func (c *Client) refreshAccessToken(ctx context.Context) error {
 	}
 	if c.Config.RefreshToken == "" {
 		return nil
+	}
+	if strings.TrimSpace(c.Config.ClientID) == "" {
+		return fmt.Errorf("refreshing access token: OAuth2 client ID is required when a refresh token is configured; set client_id in config or the client ID environment variable")
 	}
 
 	tokenURL := ResolveAppDirectTokenURL(c.Config)

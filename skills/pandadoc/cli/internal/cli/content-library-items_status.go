@@ -17,7 +17,7 @@ func newContentLibraryItemsStatusCmd(flags *rootFlags) *cobra.Command {
 		Use:         "status <id>",
 		Aliases:     []string{"get"},
 		Short:       "Requesting the CLI status helps verify that a CLI is in the expected state before invoking additional API methods.",
-		Example:     "  pandadoc-cli content-library-items status 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli content-library-items status EE8yUNg5HztqVAuH85He8V",
 		Annotations: map[string]string{"pp:endpoint": "content-library-items.status", "pp:method": "GET", "pp:path": "/content-library-items/{id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

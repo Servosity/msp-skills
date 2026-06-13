@@ -36,7 +36,7 @@ func newServicedeskCreateTickets2Cmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "ticketId", args[0])
 			params := map[string]string{}
 			if flagDoSaveResult != false {
-				params["doSaveResult"] = fmt.Sprintf("%v", flagDoSaveResult)
+				params["doSaveResult"] = formatCLIParamValue(flagDoSaveResult)
 			}
 			var body map[string]any
 			if stdinBody {

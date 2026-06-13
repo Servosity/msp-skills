@@ -14,9 +14,10 @@ import (
 func newContactCompanyPublicDeleteCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "company-public-delete <externalIdentifier>",
-		Aliases:     []string{"delete"},
-		Short:       "Delete by ext ID",
+		Use:     "company-public-delete <externalIdentifier>",
+		Aliases: []string{"delete"},
+		Short:   "Delete by ext ID",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  salesbuildr-cli contact company-public-delete example-value",
 		Annotations: map[string]string{"pp:endpoint": "contact.company-public-delete", "pp:method": "DELETE", "pp:path": "/contact/ext/{externalIdentifier}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

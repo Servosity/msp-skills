@@ -46,11 +46,11 @@ func newVaultGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/vault"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "vault", path, map[string]string{
-				"vault_type":      fmt.Sprintf("%v", flagVaultType),
-				"active":          fmt.Sprintf("%v", flagActive),
-				"with_url":        fmt.Sprintf("%v", flagWithUrl),
-				"limit":           fmt.Sprintf("%v", flagLimit),
-				"include_devices": fmt.Sprintf("%v", flagIncludeDevices),
+				"vault_type":      formatCLIParamValue(flagVaultType),
+				"active":          formatCLIParamValue(flagActive),
+				"with_url":        formatCLIParamValue(flagWithUrl),
+				"limit":           formatCLIParamValue(flagLimit),
+				"include_devices": formatCLIParamValue(flagIncludeDevices),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

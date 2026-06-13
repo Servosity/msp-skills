@@ -88,14 +88,14 @@ func newEscalationsGetV1Cmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/escalations"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "escalations", path, map[string]string{
-				"limit":           fmt.Sprintf("%v", flagLimit),
-				"page_token":      fmt.Sprintf("%v", flagPageToken),
-				"sort_field":      fmt.Sprintf("%v", flagSortField),
-				"sort_direction":  fmt.Sprintf("%v", flagSortDirection),
-				"status":          fmt.Sprintf("%v", flagStatus),
-				"severity":        fmt.Sprintf("%v", flagSeverity),
-				"subtype":         fmt.Sprintf("%v", flagSubtype),
-				"organization_id": fmt.Sprintf("%v", flagOrganizationId),
+				"limit":           formatCLIParamValue(flagLimit),
+				"page_token":      formatCLIParamValue(flagPageToken),
+				"sort_field":      formatCLIParamValue(flagSortField),
+				"sort_direction":  formatCLIParamValue(flagSortDirection),
+				"status":          formatCLIParamValue(flagStatus),
+				"severity":        formatCLIParamValue(flagSeverity),
+				"subtype":         formatCLIParamValue(flagSubtype),
+				"organization_id": formatCLIParamValue(flagOrganizationId),
 			}, nil, flagAll, "page_token", "page_token", "limit", "nextPageToken", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

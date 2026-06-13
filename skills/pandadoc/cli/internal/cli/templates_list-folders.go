@@ -30,9 +30,9 @@ func newTemplatesListFoldersCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/templates/folders"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "templates", path, map[string]string{
-				"parent_uuid": fmt.Sprintf("%v", flagParentUuid),
-				"count":       fmt.Sprintf("%v", flagCount),
-				"page":        fmt.Sprintf("%v", flagPage),
+				"parent_uuid": formatCLIParamValue(flagParentUuid),
+				"count":       formatCLIParamValue(flagCount),
+				"page":        formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -45,11 +45,11 @@ func newWebhookSubscriptionsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/webhook_subscriptions"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "webhook-subscriptions", path, map[string]string{
-				"limit":       fmt.Sprintf("%v", flagLimit),
-				"offset":      fmt.Sprintf("%v", flagOffset),
-				"total":       fmt.Sprintf("%v", flagTotal),
-				"filter_type": fmt.Sprintf("%v", flagFilterType),
-				"filter_id":   fmt.Sprintf("%v", flagFilterId),
+				"limit":       formatCLIParamValue(flagLimit),
+				"offset":      formatCLIParamValue(flagOffset),
+				"total":       formatCLIParamValue(flagTotal),
+				"filter_type": formatCLIParamValue(flagFilterType),
+				"filter_id":   formatCLIParamValue(flagFilterId),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

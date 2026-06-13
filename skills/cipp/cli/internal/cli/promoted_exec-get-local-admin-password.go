@@ -16,9 +16,10 @@ func newExecGetLocalAdminPasswordPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyGuid string
 
 	cmd := &cobra.Command{
-		Use:         "exec-get-local-admin-password",
-		Short:       "Exec get local admin password",
-		Long:        "Exec get local admin password",
+		Use:   "exec-get-local-admin-password",
+		Short: "Exec get local admin password",
+		Long:  "Exec get local admin password",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-get-local-admin-password --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-get-local-admin-password.create", "pp:method": "POST", "pp:path": "/ExecGetLocalAdminPassword"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -52,10 +53,10 @@ func newExecGetLocalAdminPasswordPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

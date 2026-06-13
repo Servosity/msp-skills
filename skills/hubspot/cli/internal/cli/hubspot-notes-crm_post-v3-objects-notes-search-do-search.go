@@ -23,8 +23,9 @@ func newHubspotNotesCrmPostV3ObjectsNotesSearchDoSearchCmd(flags *rootFlags) *co
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-v3-objects-notes-search-do-search",
-		Short:       "Execute a search for notes using filters, sorting options, and other query parameters to refine the results.",
+		Use:   "post-v3-objects-notes-search-do-search",
+		Short: "Execute a search for notes using filters, sorting options, and other query parameters to refine the results.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-notes-crm post-v3-objects-notes-search-do-search --after example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-notes-crm.post-v3-objects-notes-search-do-search", "pp:method": "POST", "pp:path": "/crm/v3/objects/notes/search"},
 		RunE: func(cmd *cobra.Command, args []string) error {

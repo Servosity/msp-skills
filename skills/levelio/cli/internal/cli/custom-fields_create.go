@@ -20,7 +20,7 @@ func newCustomFieldsCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Creates a custom field.",
-		Example:     "  levelio-cli custom-fields create --name example-resource",
+		Example:     "  levelio-cli custom-fields create --name Region",
 		Annotations: map[string]string{"pp:endpoint": "custom-fields.create", "pp:method": "POST", "pp:path": "/v2/custom_fields"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

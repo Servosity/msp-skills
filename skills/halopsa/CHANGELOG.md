@@ -4,10 +4,15 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.1] - unreleased
+
+### Changed
+- Regenerated on the printing-press 4.24.0 engine: more reliable fleet sync, corrected pagination across large result sets, robust numeric-ID handling, and dependency security updates. Same commands and workflows, sturdier local mirror.
+
 ## [0.2.0] - unreleased
 
 ### Changed
-- Describe the changes in this release.
+- Maintenance and packaging updates.
 
 ## [0.1.1] - 2026-06-02
 

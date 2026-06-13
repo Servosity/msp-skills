@@ -15,8 +15,9 @@ func newConfigurationItemsUrlParameterQueryCountCmd(flags *rootFlags) *cobra.Com
 	var flagSearch string
 
 	cmd := &cobra.Command{
-		Use:         "url-parameter-query-count",
-		Short:       "Url parameter query count",
+		Use:   "url-parameter-query-count",
+		Short: "Url parameter query count",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  autotask-cli configuration-items url-parameter-query-count --search example-value",
 		Annotations: map[string]string{"pp:endpoint": "configuration-items.url-parameter-query-count", "pp:method": "GET", "pp:path": "/ConfigurationItems/query/count", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newConfigurationItemsUrlParameterQueryCountCmd(flags *rootFlags) *cobra.Com
 			path := "/ConfigurationItems/query/count"
 			params := map[string]string{}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "configuration-items", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

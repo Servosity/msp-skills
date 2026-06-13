@@ -30,10 +30,10 @@ func newAccountsGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/Accounts"
 			params := map[string]string{}
 			if flagWhere != "" {
-				params["where"] = fmt.Sprintf("%v", flagWhere)
+				params["where"] = formatCLIParamValue(flagWhere)
 			}
 			if flagOrder != "" {
-				params["order"] = fmt.Sprintf("%v", flagOrder)
+				params["order"] = formatCLIParamValue(flagOrder)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "accounts", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

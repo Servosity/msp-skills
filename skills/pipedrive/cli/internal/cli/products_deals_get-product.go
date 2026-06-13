@@ -48,9 +48,9 @@ func newProductsDealsGetProductCmd(flags *rootFlags) *cobra.Command {
 			path := "/products/{id}/deals"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "deals", path, map[string]string{
-				"start":  fmt.Sprintf("%v", flagStart),
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"status": fmt.Sprintf("%v", flagStatus),
+				"start":  formatCLIParamValue(flagStart),
+				"limit":  formatCLIParamValue(flagLimit),
+				"status": formatCLIParamValue(flagStatus),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

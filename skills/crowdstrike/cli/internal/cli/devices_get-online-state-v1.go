@@ -15,8 +15,9 @@ func newDevicesGetOnlineStateV1Cmd(flags *rootFlags) *cobra.Command {
 	var flagIds string
 
 	cmd := &cobra.Command{
-		Use:         "get-online-state-v1",
-		Short:       "Get the online status for one or more hosts by specifying each host’s unique ID.",
+		Use:   "get-online-state-v1",
+		Short: "Get the online status for one or more hosts by specifying each host’s unique ID.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  crowdstrike-cli devices get-online-state-v1 --ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "devices.get-online-state-v1", "pp:method": "GET", "pp:path": "/devices/entities/online-state/v1", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newDevicesGetOnlineStateV1Cmd(flags *rootFlags) *cobra.Command {
 			path := "/devices/entities/online-state/v1"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "devices", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

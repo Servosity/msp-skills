@@ -19,7 +19,7 @@ func newWebhookSubscriptionsSharedKeyUpdateWebhookSubscriptionCmd(flags *rootFla
 		Use:         "update-webhook-subscription <id>",
 		Aliases:     []string{"update"},
 		Short:       "This operation regenerates the shared key for a specific webhook subscription identified by its UUID.",
-		Example:     "  pandadoc-cli webhook-subscriptions shared-key update-webhook-subscription 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli webhook-subscriptions shared-key update-webhook-subscription d173751d-0057-4d5c-ab75-49a670a4ca68",
 		Annotations: map[string]string{"pp:endpoint": "shared-key.update-webhook-subscription", "pp:method": "PATCH", "pp:path": "/webhook-subscriptions/{id}/shared-key"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

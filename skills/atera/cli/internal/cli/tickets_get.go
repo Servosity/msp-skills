@@ -33,11 +33,11 @@ func newTicketsGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/tickets"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "tickets", path, map[string]string{
-				"page":             fmt.Sprintf("%v", flagPage),
-				"itemsInPage":      fmt.Sprintf("%v", flagItemsInPage),
-				"customerId":       fmt.Sprintf("%v", flagCustomerId),
-				"ticketStatus":     fmt.Sprintf("%v", flagTicketStatus),
-				"includeRelations": fmt.Sprintf("%v", flagIncludeRelations),
+				"page":             formatCLIParamValue(flagPage),
+				"itemsInPage":      formatCLIParamValue(flagItemsInPage),
+				"customerId":       formatCLIParamValue(flagCustomerId),
+				"ticketStatus":     formatCLIParamValue(flagTicketStatus),
+				"includeRelations": formatCLIParamValue(flagIncludeRelations),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

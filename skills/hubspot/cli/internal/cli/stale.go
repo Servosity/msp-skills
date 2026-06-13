@@ -9,7 +9,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"hubspot-pp-cli/internal/cliutil"
-	"hubspot-pp-cli/internal/store"
 )
 
 // filterDescription is the help-text for every novel command that exposes
@@ -64,7 +63,7 @@ func newStaleContactsCmd(flags *rootFlags) *cobra.Command {
 			if dbPath == "" {
 				dbPath = defaultDBPath("hubspot-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := hsOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w", err)
 			}
@@ -205,7 +204,7 @@ func newStaleDealsCmd(flags *rootFlags) *cobra.Command {
 			if dbPath == "" {
 				dbPath = defaultDBPath("hubspot-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := hsOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w", err)
 			}

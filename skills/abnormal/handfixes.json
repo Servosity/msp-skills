@@ -10,10 +10,26 @@
       "status": "active",
       "spec_encode_followup": "These ARE spec-encoded (x-pp-resource on the affected paths in the abnormal spec); the markers below assert the rename survived into the generated CLI + store schema. Keep the x-pp-resource annotations on any spec re-copy.",
       "asserts": [
-        {"file": "cli/internal/cli/email_search.go", "contains": "Use:         \"email-search\"", "min_count": 1},
-        {"file": "cli/internal/cli/api_resources.go", "contains": "Use:         \"api-resources\"", "min_count": 1},
-        {"file": "cli/internal/store/store.go", "contains": "\"api_resources\"", "min_count": 1},
-        {"file": "cli/internal/store/store.go", "contains": "\"email_search\"", "min_count": 1}
+        {
+          "file": "cli/internal/cli/email_search.go",
+          "contains": "Use:         \"email-search\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/api_resources.go",
+          "contains": "Use:         \"api-resources\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"api_resources\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"email_search\"",
+          "min_count": 1
+        }
       ]
     },
     {
@@ -22,8 +38,16 @@
       "why": "config.go reads ABNORMAL_BASE_URL as an optional override for EU tenants (https://eu.api.abnormalplatform.com/v1); the press doc generator only documents the bearer token (ABNORMAL_API_TOKEN). Without the override documented, EU customers get empty results / 4xx with no guidance. A reprint drops the EU-host documentation.",
       "status": "active",
       "asserts": [
-        {"file": "guide.md", "contains": "ABNORMAL_BASE_URL", "min_count": 1},
-        {"file": "cli/internal/config/config.go", "contains": "ABNORMAL_BASE_URL", "min_count": 1}
+        {
+          "file": "guide.md",
+          "contains": "ABNORMAL_BASE_URL",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "ABNORMAL_BASE_URL",
+          "min_count": 1
+        }
       ]
     },
     {
@@ -32,7 +56,22 @@
       "why": "The vendor spec prose put a markdown backtick after 'integrations', which the press harvested verbatim into helpers/auth/doctor/mcp-tools output (a runtime artifact, not just docs). Stripped during onboarding. A reprint re-harvests the trailing backtick.",
       "status": "active",
       "asserts": [
-        {"file": "cli/internal/cli/auth.go", "not_contains": "integrations`"}
+        {
+          "file": "cli/internal/cli/auth.go",
+          "not_contains": "integrations`"
+        }
+      ]
+    },
+    {
+      "id": "manifest-portal-url-no-fs-path",
+      "summary": "manifest.json env-var description must use prose, not the literal portal URL (its /home/settings path trips the ci_guards personal-path guard)",
+      "why": "The vendor portal URL https://portal.abnormalsecurity.com/home/settings/integrations contains a /home/<word>/ segment that ci_guards' personal-filesystem-path guard false-flags as a hardcoded /home path. Original onboard de-pathed it to prose; a re-vendor re-introduces the URL.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "not_contains": "/home/settings"
+        }
       ]
     }
   ]

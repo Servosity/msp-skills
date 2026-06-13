@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"kaseya-bms-pp-cli/internal/store"
 )
 
 type staleTicketItem struct {
@@ -124,7 +123,7 @@ then CreatedOn) on the synced local mirror.`, "\n"),
 			if dbPath == "" {
 				dbPath = defaultDBPath("kaseya-bms-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := kbmsOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening database: %w", err)
 			}

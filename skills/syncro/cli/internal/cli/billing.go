@@ -11,7 +11,7 @@ func newNovelBillingCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "billing",
-		Short:       "Billing leakage and AR analytics computed from the local store.",
+		Short:       "billing subcommands: ar-aging, drift, uninvoiced",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

@@ -28,7 +28,7 @@ func newCustomersListAutocompleteCmd(flags *rootFlags) *cobra.Command {
 			path := "/customers/autocomplete"
 			params := map[string]string{}
 			if flagQuery != "" {
-				params["query"] = fmt.Sprintf("%v", flagQuery)
+				params["query"] = formatCLIParamValue(flagQuery)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "customers", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

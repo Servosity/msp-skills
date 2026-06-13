@@ -30,13 +30,13 @@ func newRolesListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Roles"
 			params := map[string]string{}
 			if flagAccessControlLevel != 0 {
-				params["access_control_level"] = fmt.Sprintf("%v", flagAccessControlLevel)
+				params["access_control_level"] = formatCLIParamValue(flagAccessControlLevel)
 			}
 			if flagAgentid != "" {
-				params["agentid"] = fmt.Sprintf("%v", flagAgentid)
+				params["agentid"] = formatCLIParamValue(flagAgentid)
 			}
 			if flagIsconfig != false {
-				params["isconfig"] = fmt.Sprintf("%v", flagIsconfig)
+				params["isconfig"] = formatCLIParamValue(flagIsconfig)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "roles", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

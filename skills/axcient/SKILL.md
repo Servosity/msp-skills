@@ -1,6 +1,6 @@
 ---
 name: axcient
-description: "Use when the user asks to check Axcient x360Recover backups across an MSP fleet - whose backups failed or went stale last night, who is breaching RPO, per-client backup-compliance evidence (restore-point age + AutoVerify), or month-end usage reconciliation. Wraps the x360Recover public API plus an offline SQLite mirror that joins device, job, restore-point, and client data the raw API leaves unconnected. Trigger phrases: `check axcient backups`, `which backups failed last night`, `x360recover fleet health`, `backup compliance report for client`, `axcient usage reconciliation`, `Axcient + ChatGPT`, `Axcient + Claude`, `use axcient`, `run axcient-cli`."
+description: "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give  -  offline, joined, and agent-ready. Trigger phrases: `check axcient backups`, `which backups failed last night`, `x360recover fleet health`, `backup compliance report for client`, `axcient usage reconciliation`, `use axcient`, `run axcient-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Axcient"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - axcient-cli
+    install:
+      - kind: go
+        bins: [axcient-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/axcient/cmd/axcient-cli
 ---
 
-# Axcient x360Recover Claude Code Skill
+# Axcient x360Recover  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `axcient-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/axcient/install.sh)
+   npx -y @mvanhorn/printing-press-library install axcient --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/axcient/install.ps1 | iex
-   ```
-3. Verify: `axcient-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `axcient-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/axcient/cmd/axcient-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 The only CLI and MCP surface for Axcient's x360Recover BCDR platform. It absorbs the full public API (vaults, appliances, devices, jobs, restore points, AutoVerify, usage, D2C agent tokens), then syncs everything into local SQLite so commands like 'health', 'client-rollup', and 'compliance' answer fleet-wide questions the per-entity API cannot  -  including the client-to-device correlation the raw API famously omits.
 
@@ -95,6 +101,10 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   axcient-cli rpo --hours 24 --agent
   ```
+
+## HTTP Transport
+
+This CLI uses Chrome-compatible HTTP transport for browser-facing endpoints. It does not require a resident browser process for normal API calls.
 
 ## Command Reference
 
@@ -198,7 +208,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  axcient-cli appliance get --agent --select id_,alias,health_status
+  axcient-cli appliance get --agent --select id,name,status
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
@@ -280,13 +290,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `axcient-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add axcient-mcp -- axcient-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/axcient/cmd/axcient-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add axcient-mcp -- axcient-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

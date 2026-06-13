@@ -14,9 +14,10 @@ import (
 func newRmmRemotesessionsGetRemoteSessionsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "get-remote-sessions <integrationType> <assetId>",
-		Aliases:     []string{"get"},
-		Short:       "Get remote sessions",
+		Use:     "get-remote-sessions <integrationType> <assetId>",
+		Aliases: []string{"get"},
+		Short:   "Get remote sessions",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli rmm remotesessions get-remote-sessions example-value 42",
 		Annotations: map[string]string{"pp:endpoint": "remotesessions.get-remote-sessions", "pp:method": "GET", "pp:path": "/v2/rmm/{integrationType}/remotesessions/{assetId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

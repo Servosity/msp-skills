@@ -17,8 +17,9 @@ func newAssetListCmd(flags *rootFlags) *cobra.Command {
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "list <serialNumber>",
-		Short:       "List all assets (agents + shares) on a device",
+		Use:   "list <serialNumber>",
+		Short: "List all assets (agents + shares) on a device",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  datto-bcdr-cli asset list example-value",
 		Annotations: map[string]string{"pp:endpoint": "asset.list", "pp:method": "GET", "pp:path": "/bcdr/device/{serialNumber}/asset", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -33,8 +34,8 @@ func newAssetListCmd(flags *rootFlags) *cobra.Command {
 			path := "/bcdr/device/{serialNumber}/asset"
 			path = replacePathParam(path, "serialNumber", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "asset", path, map[string]string{
-				"_page":    fmt.Sprintf("%v", flagPage),
-				"_perPage": fmt.Sprintf("%v", flagPerPage),
+				"_page":    formatCLIParamValue(flagPage),
+				"_perPage": formatCLIParamValue(flagPerPage),
 			}, nil, flagAll, "", "offset", "", "", "pagination.totalPages", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -22,7 +22,7 @@ func newTicketsQueryCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "query",
 		Short:       "Query",
-		Example:     "  autotask-cli tickets query",
+		Example:     "  autotask-cli tickets query --agent",
 		Annotations: map[string]string{"pp:endpoint": "tickets.query", "pp:method": "POST", "pp:path": "/Tickets/query", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

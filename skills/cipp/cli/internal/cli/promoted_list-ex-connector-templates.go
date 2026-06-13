@@ -29,7 +29,7 @@ func newListExConnectorTemplatesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListExConnectorTemplates"
 			params := map[string]string{}
 			if flagId != "" {
-				params["id"] = fmt.Sprintf("%v", flagId)
+				params["id"] = formatCLIParamValue(flagId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-ex-connector-templates", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

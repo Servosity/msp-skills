@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"huntress-pp-cli/internal/store"
@@ -64,11 +65,49 @@ func resolveDB(dbPath string) string {
 
 // openStore opens the local store at the resolved path.
 func openStore(ctx context.Context, dbPath string) (*store.Store, error) {
-	st, err := store.OpenWithContext(ctx, resolveDB(dbPath))
-	if err != nil {
-		return nil, fmt.Errorf("opening local store: %w (run `sync` first)", err)
+	path := resolveDB(dbPath)
+	// Prefer a read-only handle when the schema already exists: read-only takes
+	// no write lock, so parallel transcendence reads don't collide with
+	// SQLITE_BUSY. Only fall back to a read-write open (which migrates) when the
+	// DB is absent or not yet migrated. A short retry resolves the first-run
+	// race where one command is mid-migration and another sees the half-built
+	// file (read-only would otherwise hit "no such table: resources").
+	var lastErr error
+	for attempt := 0; attempt < 8; attempt++ {
+		if st, ok := tryOpenReadOnlyMigrated(path); ok {
+			return st, nil
+		}
+		st, err := store.OpenWithContext(ctx, path)
+		if err == nil {
+			return st, nil
+		}
+		lastErr = err
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		time.Sleep(time.Duration(20*(attempt+1)) * time.Millisecond)
 	}
-	return st, nil
+	return nil, fmt.Errorf("opening local store: %w (run `sync` first)", lastErr)
+}
+
+// tryOpenReadOnlyMigrated opens the store read-only only when the file exists
+// AND the resources table is present (i.e. a prior read-write open finished
+// migrating). Returns ok=false otherwise so the caller migrates via a
+// read-write open.
+func tryOpenReadOnlyMigrated(path string) (*store.Store, bool) {
+	if _, err := os.Stat(path); err != nil {
+		return nil, false
+	}
+	st, err := store.OpenReadOnly(path)
+	if err != nil {
+		return nil, false
+	}
+	var one int
+	if err := st.DB().QueryRow(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='resources' LIMIT 1`).Scan(&one); err != nil {
+		_ = st.Close()
+		return nil, false
+	}
+	return st, true
 }
 
 // openStoreFor opens the local store for a transcendence command: rejects

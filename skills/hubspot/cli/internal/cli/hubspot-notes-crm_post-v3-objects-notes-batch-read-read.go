@@ -52,7 +52,7 @@ func newHubspotNotesCrmPostV3ObjectsNotesBatchReadReadCmd(flags *rootFlags) *cob
 			path := "/crm/v3/objects/notes/batch/read"
 			params := map[string]string{}
 			if flagArchived != false {
-				params["archived"] = fmt.Sprintf("%v", flagArchived)
+				params["archived"] = formatCLIParamValue(flagArchived)
 			}
 			var body map[string]any
 			if stdinBody {

@@ -53,10 +53,10 @@ func newUsersStatusUpdateNotificationRulesGetUserUsersCmd(flags *rootFlags) *cob
 
 			path := "/users/{id}/status_update_notification_rules/{status_update_notification_rule_id}"
 			path = replacePathParam(path, "id", args[0])
-			path = replacePathParam(path, "status_update_notification_rule_id", fmt.Sprintf("%v", flagStatusUpdateNotificationRuleId))
+			path = replacePathParam(path, "status_update_notification_rule_id", formatCLIParamValue(flagStatusUpdateNotificationRuleId))
 			params := map[string]string{}
 			if flagInclude != "" {
-				params["include[]"] = fmt.Sprintf("%v", flagInclude)
+				params["include[]"] = formatCLIParamValue(flagInclude)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "status-update-notification-rules", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

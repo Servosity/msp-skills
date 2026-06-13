@@ -58,10 +58,10 @@ func newLeadResourceAppResellerApiGetGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "leadId", args[0])
 			params := map[string]string{}
 			if flagContext != "" {
-				params["context"] = fmt.Sprintf("%v", flagContext)
+				params["context"] = formatCLIParamValue(flagContext)
 			}
 			if flagCompanyId != "" {
-				params["companyId"] = fmt.Sprintf("%v", flagCompanyId)
+				params["companyId"] = formatCLIParamValue(flagCompanyId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "lead", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

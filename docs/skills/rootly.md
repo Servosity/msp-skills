@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Rootly MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "Every Rootly incident, alert, and on-call object as a typed command - plus a local SQLite mirror that answers related-incident, MTTR, coverage-gap, and on-call questions offline and instantly."
+description: "Every Rootly incident, alert, and on-call object as a typed command, with a local SQLite mirror for offline analytics."
 permalink: /skills/rootly/
 skill_name: "Rootly MCP"
 image: /assets/social/rootly/wide-1200x630.png

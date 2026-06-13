@@ -30,8 +30,8 @@ func newCustomersGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/customers"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "customers", path, map[string]string{
-				"page":        fmt.Sprintf("%v", flagPage),
-				"itemsInPage": fmt.Sprintf("%v", flagItemsInPage),
+				"page":        formatCLIParamValue(flagPage),
+				"itemsInPage": formatCLIParamValue(flagItemsInPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

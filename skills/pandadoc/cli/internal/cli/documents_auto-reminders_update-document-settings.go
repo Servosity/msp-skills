@@ -25,7 +25,7 @@ func newDocumentsAutoRemindersUpdateDocumentSettingsCmd(flags *rootFlags) *cobra
 		Use:         "update-document-settings <document_id>",
 		Aliases:     []string{"update"},
 		Short:       "Configures automatic reminders for document recipients. These reminders are sent after the document's initial dispatch.",
-		Example:     "  pandadoc-cli documents auto-reminders update-document-settings 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents auto-reminders update-document-settings BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "auto-reminders.update-document-settings", "pp:method": "PATCH", "pp:path": "/documents/{document_id}/auto-reminders"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

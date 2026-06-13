@@ -60,13 +60,13 @@ func newBillingResourceSubscriptionReadAddonInstancesGetCmd(flags *rootFlags) *c
 			path = replacePathParam(path, "subscriptionId", args[0])
 			params := map[string]string{}
 			if flagFilter != "" {
-				params["filter"] = fmt.Sprintf("%v", flagFilter)
+				params["filter"] = formatCLIParamValue(flagFilter)
 			}
 			if flagSortField != "" {
-				params["sortField"] = fmt.Sprintf("%v", flagSortField)
+				params["sortField"] = formatCLIParamValue(flagSortField)
 			}
 			if flagSortOrder != "" {
-				params["sortOrder"] = fmt.Sprintf("%v", flagSortOrder)
+				params["sortOrder"] = formatCLIParamValue(flagSortOrder)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "billing", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

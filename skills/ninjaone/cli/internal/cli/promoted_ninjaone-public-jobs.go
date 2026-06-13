@@ -32,16 +32,16 @@ func newNinjaonePublicJobsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/jobs"
 			params := map[string]string{}
 			if flagJobType != "" {
-				params["jobType"] = fmt.Sprintf("%v", flagJobType)
+				params["jobType"] = formatCLIParamValue(flagJobType)
 			}
 			if flagDf != "" {
-				params["df"] = fmt.Sprintf("%v", flagDf)
+				params["df"] = formatCLIParamValue(flagDf)
 			}
 			if flagLang != "" {
-				params["lang"] = fmt.Sprintf("%v", flagLang)
+				params["lang"] = formatCLIParamValue(flagLang)
 			}
 			if flagTz != "" {
-				params["tz"] = fmt.Sprintf("%v", flagTz)
+				params["tz"] = formatCLIParamValue(flagTz)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "ninjaone-public-jobs", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

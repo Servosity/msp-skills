@@ -44,43 +44,43 @@ func newReportRepositoryGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagClientId != "" {
-				params["client_id"] = fmt.Sprintf("%v", flagClientId)
+				params["client_id"] = formatCLIParamValue(flagClientId)
 			}
 			if flagClientname != "" {
-				params["clientname"] = fmt.Sprintf("%v", flagClientname)
+				params["clientname"] = formatCLIParamValue(flagClientname)
 			}
 			if flagDashboardId != "" {
-				params["dashboard_id"] = fmt.Sprintf("%v", flagDashboardId)
+				params["dashboard_id"] = formatCLIParamValue(flagDashboardId)
 			}
 			if flagDashboardPublishedId != "" {
-				params["dashboard_published_id"] = fmt.Sprintf("%v", flagDashboardPublishedId)
+				params["dashboard_published_id"] = formatCLIParamValue(flagDashboardPublishedId)
 			}
 			if flagDontloadsystemreport != false {
-				params["dontloadsystemreport"] = fmt.Sprintf("%v", flagDontloadsystemreport)
+				params["dontloadsystemreport"] = formatCLIParamValue(flagDontloadsystemreport)
 			}
 			if flagGetcompositetoken != false {
-				params["getcompositetoken"] = fmt.Sprintf("%v", flagGetcompositetoken)
+				params["getcompositetoken"] = formatCLIParamValue(flagGetcompositetoken)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagInvoiceId != "" {
-				params["invoice_id"] = fmt.Sprintf("%v", flagInvoiceId)
+				params["invoice_id"] = formatCLIParamValue(flagInvoiceId)
 			}
 			if flagLoadreport != false {
-				params["loadreport"] = fmt.Sprintf("%v", flagLoadreport)
+				params["loadreport"] = formatCLIParamValue(flagLoadreport)
 			}
 			if flagReportAccessToken != "" {
-				params["report_access_token"] = fmt.Sprintf("%v", flagReportAccessToken)
+				params["report_access_token"] = formatCLIParamValue(flagReportAccessToken)
 			}
 			if flagReportingperiod != 0 {
-				params["reportingperiod"] = fmt.Sprintf("%v", flagReportingperiod)
+				params["reportingperiod"] = formatCLIParamValue(flagReportingperiod)
 			}
 			if flagReportingperiodenddate != "" {
-				params["reportingperiodenddate"] = fmt.Sprintf("%v", flagReportingperiodenddate)
+				params["reportingperiodenddate"] = formatCLIParamValue(flagReportingperiodenddate)
 			}
 			if flagReportingperiodstartdate != "" {
-				params["reportingperiodstartdate"] = fmt.Sprintf("%v", flagReportingperiodstartdate)
+				params["reportingperiodstartdate"] = formatCLIParamValue(flagReportingperiodstartdate)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "report-repository", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

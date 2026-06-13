@@ -17,9 +17,10 @@ func newEventOrchestrationsCacheVariablesUpdateCacheVarOnGlobalOrchCmd(flags *ro
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update-cache-var-on-global-orch <id> <cache_variable_id>",
-		Aliases:     []string{"update"},
-		Short:       "Update a Cache Variable for a Global Event Orchestration.",
+		Use:     "update-cache-var-on-global-orch <id> <cache_variable_id>",
+		Aliases: []string{"update"},
+		Short:   "Update a Cache Variable for a Global Event Orchestration.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pagerduty-cli event-orchestrations cache-variables update-cache-var-on-global-orch 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --cache-variable example-value",
 		Annotations: map[string]string{"pp:endpoint": "cache-variables.update-cache-var-on-global-orch", "pp:method": "PUT", "pp:path": "/event_orchestrations/{id}/cache_variables/{cache_variable_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

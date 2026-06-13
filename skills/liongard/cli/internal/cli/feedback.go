@@ -184,6 +184,9 @@ func newFeedbackListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List recent feedback entries",
+		Annotations: map[string]string{
+			"mcp:read-only": "true",
+		},
 		Example: `  liongard-cli feedback list
   liongard-cli feedback list --limit 5
   liongard-cli feedback list --json`,

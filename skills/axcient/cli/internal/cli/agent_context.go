@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "axcient-cli",
-			Description: "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give — offline, joined",
+			Description: "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give — offline, joined, and agent-ready.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

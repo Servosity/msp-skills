@@ -16,9 +16,10 @@ func newFirewallControlSetLocationByCategoryCmd(flags *rootFlags) *cobra.Command
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "by-category <firewall_rule_category>",
-		Aliases:     []string{"create"},
-		Short:       "Set location attributes for a Location Aware Firewall Control rule.",
+		Use:     "by-category <firewall_rule_category>",
+		Aliases: []string{"create"},
+		Short:   "Set location attributes for a Location Aware Firewall Control rule.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli firewall-control set-location by-category example-value",
 		Annotations: map[string]string{"pp:endpoint": "set-location.by-category", "pp:method": "POST", "pp:path": "/firewall-control/{firewall_rule_category}/set-location"},
 		RunE: func(cmd *cobra.Command, args []string) error {

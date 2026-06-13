@@ -4,12 +4,124 @@
 
 Query and manage your whole SentinelOne fleet from the terminal: agents, threats, activities, sites, groups, exclusions, Ranger, and more. Sync to a local store for offline full-text search, then run analytics the console can't  -  `fleet-health stale` ranks decaying endpoints, `threats blast-radius` traces one hash across the fleet, `whatchanged --since 24h` diffs overnight, and `posture` rolls up a per-tenant scorecard. Ships an MCP server so an AI agent can drive all of it.
 
-Learn more at [SentinelOne](https://www.sentinelone.com).
+Learn more at [SentinelOne](https://twitter.com/frikkylikeme).
 
 Created by [@dstevens](https://github.com/dstevens) (Damien Stevens).
 Contributors: [@DamienStevens](https://github.com/DamienStevens) (Damien Stevens).
 
-For the short install path see [README.md](./README.md). For per-agent wire-up (Claude Desktop, ChatGPT, GitHub Copilot, Gemini, Hermes, OpenClaw) see [mcp-install.md](./mcp-install.md). This file is the command reference.
+## Install
+
+The recommended path installs both the `sentinelone-cli` binary and the `pp-sentinelone` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+
+```bash
+npx -y @mvanhorn/printing-press-library install sentinelone
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install sentinelone --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install sentinelone --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install sentinelone --agent claude-code
+npx -y @mvanhorn/printing-press-library install sentinelone --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/sentinelone/cmd/sentinelone-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/sentinelone-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install sentinelone --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-sentinelone --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-sentinelone --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install sentinelone --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/sentinelone-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `SENTINELONE_API_TOKEN` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/sentinelone/cmd/sentinelone-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "sentinelone": {
+      "command": "sentinelone-mcp",
+      "env": {
+        "SENTINELONE_API_TOKEN": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Authentication
 
@@ -596,7 +708,7 @@ system operations
 - **`sentinelone-cli system cache-status`** - Get an indication of the system's cache health status. <br>This command returns a positive response when the cache server is up and running. <br>This command does not require authentication. <br>Rate limit: 1 call per second for each IP address that communicates with the Console.
 - **`sentinelone-cli system database-status`** - Get an indication of the system's database health status. <br>This command returns a positive response when the DB server is up and running. <br>This command does not require authentication. <br>Rate limit: 1 call per second for each IP address that communicates with the Console.
 - **`sentinelone-cli system get-config`** - Get the configuration of your SentinelOne system. <br>The response shows basic information of the deployed SKUs and licenses, 2FA, and the Management URL.
-- **`sentinelone-cli system get`** - Get the Console build, version, patch, and release information.
+- **`sentinelone-cli system info`** - Get the Console build, version, patch, and release information.
 - **`sentinelone-cli system set-config`** - Change the system configuration. <br>Before you run this, see Get System Config. <br>This command requires a Global Admin user or Support.
 - **`sentinelone-cli system status`** - Get an indication of the system's health status. <br>This command returns a positive response when the Management Console and API server are up and running. This command does not require authentication.<br>Rate limit: 1 call per second for each IP address that communicates with the Console.
 

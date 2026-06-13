@@ -16,9 +16,10 @@ func newSingularityMarketplaceEnableOrDisableApplicationCmd(flags *rootFlags) *c
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "enable-or-disable-application <mode>",
-		Aliases:     []string{"create"},
-		Short:       "Use this command to enable or disable application integrations that match the filter.",
+		Use:     "enable-or-disable-application <mode>",
+		Aliases: []string{"create"},
+		Short:   "Use this command to enable or disable application integrations that match the filter.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli singularity-marketplace enable-or-disable-application example-value",
 		Annotations: map[string]string{"pp:endpoint": "singularity-marketplace.enable-or-disable-application", "pp:method": "POST", "pp:path": "/singularity-marketplace/applications/{mode}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

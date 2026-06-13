@@ -27,12 +27,38 @@ type whichEntry struct {
 // `--help`; `which` exists to resolve a natural-language capability
 // query to one of the commands the skill says matter most.
 var whichIndex = []whichEntry{
-	{Command: "fanout", Description: "Search every configured N-central server at once — find a device, customer, or active issue across all your tenants without clicking through each console.", Group: "Cross-tenant intelligence", WhyItMatters: "Reach for this when an MSP runs more than one N-central server and needs one answer across all of them."},
-	{Command: "props audit", Description: "Report which devices or org units are missing a required custom-property value, as a coverage percentage grouped by customer.", Group: "Local state that compounds", WhyItMatters: "Reach for this when custom properties drive automation and you need coverage, not a manual CSV spot-check."},
-	{Command: "triage", Description: "Group active monitoring issues by customer, device, or monitor type and rank by severity — the daily NOC sweep as one command.", Group: "Cross-tenant intelligence", WhyItMatters: "Reach for this to start a shift with one ranked view instead of per-customer Active Issues screens."},
-	{Command: "guardian", Description: "Validate the access token, warn when the API user's password (and thus the JWT) is about to expire, and detect N-central's HTTP-200-with-error-body failures.", Group: "Reachability mitigation", WhyItMatters: "Reach for this in CI or a cron check so a silent JWT expiry never takes your integrations down at day 90."},
-	{Command: "maint coverage", Description: "List devices and sites with no maintenance window before a reboot/patch wave, so nothing reboots in business hours.", Group: "Local state that compounds", WhyItMatters: "Reach for this before a patch wave to find the blind spots the per-device view can't show."},
-	{Command: "whereis", Description: "Given a device name fragment, return its full path — server, service org, customer, site — plus its current active-issue count.", Group: "Cross-tenant intelligence", WhyItMatters: "Reach for this when a ticket names a device but not which customer or server it lives on."},
+	{Command: "access-groups get", Description: "Retrieve detailed information for an access group by ID.", Group: "access-groups"},
+	{Command: "customers get", Description: "Retrieve a single customer by ID.", Group: "customers"},
+	{Command: "customers list", Description: "List all customers across the instance.", Group: "customers"},
+	{Command: "customers registration-token", Description: "Retrieve the agent registration token for a customer (used to enroll new devices).", Group: "customers"},
+	{Command: "device-filters list", Description: "List saved device filters for the API user.", Group: "device-filters"},
+	{Command: "devices assets", Description: "Retrieve hardware/software asset inventory for a device.", Group: "devices"},
+	{Command: "devices get", Description: "Retrieve a single device by ID.", Group: "devices"},
+	{Command: "devices list", Description: "List all devices visible to the API user, across the org tree.", Group: "devices"},
+	{Command: "devices maintenance", Description: "List patch maintenance windows configured for a device.", Group: "devices"},
+	{Command: "devices properties", Description: "List custom property values for a device (the backbone of MSP automation/documentation).", Group: "devices"},
+	{Command: "devices status", Description: "Retrieve the service-monitoring status (active issues / health) for a device.", Group: "devices"},
+	{Command: "devices tasks", Description: "List scheduled/automation tasks targeting this device.", Group: "devices"},
+	{Command: "org-units access-groups", Description: "List access groups for an org unit.", Group: "org-units"},
+	{Command: "org-units active-issues", Description: "Fetch active monitoring issues for an org unit (the daily NOC triage feed).", Group: "org-units"},
+	{Command: "org-units children", Description: "List the direct children of an org unit.", Group: "org-units"},
+	{Command: "org-units devices", Description: "List devices scoped to a specific org unit.", Group: "org-units"},
+	{Command: "org-units get", Description: "Retrieve a single org unit by ID.", Group: "org-units"},
+	{Command: "org-units job-statuses", Description: "Fetch job statuses for an org unit.", Group: "org-units"},
+	{Command: "org-units list", Description: "List all organization units (SO, customer, and site nodes).", Group: "org-units"},
+	{Command: "org-units registration-token", Description: "Retrieve the agent registration token for an org unit.", Group: "org-units"},
+	{Command: "org-units user-roles", Description: "List user roles defined for an org unit.", Group: "org-units"},
+	{Command: "scheduled-tasks get", Description: "Retrieve general information for a scheduled task.", Group: "scheduled-tasks"},
+	{Command: "scheduled-tasks run", Description: "Create a direct-support scheduled task (run an Automation Policy, Script, or MacScript on a device).", Group: "scheduled-tasks"},
+	{Command: "scheduled-tasks status", Description: "Retrieve aggregated status for a scheduled task.", Group: "scheduled-tasks"},
+	{Command: "server health", Description: "Return the start and current time of the server (lightweight reachability check).", Group: "server"},
+	{Command: "server info", Description: "Return version information for the N-central API service and systems.", Group: "server"},
+	{Command: "service-orgs customers", Description: "List all customers under a service organization.", Group: "service-orgs"},
+	{Command: "service-orgs get", Description: "Retrieve a single service organization by ID.", Group: "service-orgs"},
+	{Command: "service-orgs list", Description: "List all service organizations.", Group: "service-orgs"},
+	{Command: "sites get", Description: "Retrieve a single site by ID.", Group: "sites"},
+	{Command: "sites list", Description: "List all sites across the instance.", Group: "sites"},
+	{Command: "users list", Description: "List N-central users.", Group: "users"},
 }
 
 // whichMatch pairs an index entry with its ranking score for a query.
@@ -136,6 +162,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

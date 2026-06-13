@@ -44,9 +44,9 @@ func newAlertsGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/alerts"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "alerts", path, map[string]string{
-				"page":        fmt.Sprintf("%v", flagPage),
-				"itemsInPage": fmt.Sprintf("%v", flagItemsInPage),
-				"alertStatus": fmt.Sprintf("%v", flagAlertStatus),
+				"page":        formatCLIParamValue(flagPage),
+				"itemsInPage": formatCLIParamValue(flagItemsInPage),
+				"alertStatus": formatCLIParamValue(flagAlertStatus),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

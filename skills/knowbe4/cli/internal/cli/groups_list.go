@@ -30,9 +30,9 @@ func newGroupsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/groups"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "groups", path, map[string]string{
-				"page":     fmt.Sprintf("%v", flagPage),
-				"per_page": fmt.Sprintf("%v", flagPerPage),
-				"status":   fmt.Sprintf("%v", flagStatus),
+				"page":     formatCLIParamValue(flagPage),
+				"per_page": formatCLIParamValue(flagPerPage),
+				"status":   formatCLIParamValue(flagStatus),
 			}, nil, flagAll, "page", "page", "per_page", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

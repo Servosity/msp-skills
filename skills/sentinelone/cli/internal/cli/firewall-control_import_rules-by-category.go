@@ -16,9 +16,10 @@ func newFirewallControlImportRulesByCategoryCmd(flags *rootFlags) *cobra.Command
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "rules-by-category <firewall_rule_category>",
-		Aliases:     []string{"create"},
-		Short:       "Import Firewall Control rules from an exported JSON file to scopes specified by ID (run 'accounts', 'sites', 'groups'",
+		Use:     "rules-by-category <firewall_rule_category>",
+		Aliases: []string{"create"},
+		Short:   "Import Firewall Control rules from an exported JSON file to scopes specified by ID (run 'accounts', 'sites', 'groups'",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli firewall-control import rules-by-category example-value",
 		Annotations: map[string]string{"pp:endpoint": "import.rules-by-category", "pp:method": "POST", "pp:path": "/firewall-control/{firewall_rule_category}/import"},
 		RunE: func(cmd *cobra.Command, args []string) error {

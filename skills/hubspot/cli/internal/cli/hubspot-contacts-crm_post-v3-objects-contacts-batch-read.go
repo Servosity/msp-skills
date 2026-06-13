@@ -52,7 +52,7 @@ func newHubspotContactsCrmPostV3ObjectsContactsBatchReadCmd(flags *rootFlags) *c
 			path := "/crm/v3/objects/contacts/batch/read"
 			params := map[string]string{}
 			if flagArchived != false {
-				params["archived"] = fmt.Sprintf("%v", flagArchived)
+				params["archived"] = formatCLIParamValue(flagArchived)
 			}
 			var body map[string]any
 			if stdinBody {

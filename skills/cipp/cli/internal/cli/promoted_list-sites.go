@@ -18,9 +18,10 @@ func newListSitesPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagUserUPN string
 
 	cmd := &cobra.Command{
-		Use:         "list-sites",
-		Short:       "List sites",
-		Long:        "List sites",
+		Use:   "list-sites",
+		Short: "List sites",
+		Long:  "List sites",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-sites --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-sites.list", "pp:method": "GET", "pp:path": "/ListSites", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -42,16 +43,16 @@ func newListSitesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListSites"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagType != "" {
-				params["Type"] = fmt.Sprintf("%v", flagType)
+				params["Type"] = formatCLIParamValue(flagType)
 			}
 			if flagURLOnly != "" {
-				params["URLOnly"] = fmt.Sprintf("%v", flagURLOnly)
+				params["URLOnly"] = formatCLIParamValue(flagURLOnly)
 			}
 			if flagUserUPN != "" {
-				params["UserUPN"] = fmt.Sprintf("%v", flagUserUPN)
+				params["UserUPN"] = formatCLIParamValue(flagUserUPN)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-sites", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

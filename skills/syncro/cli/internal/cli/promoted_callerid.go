@@ -40,10 +40,10 @@ func newCalleridPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/callerid"
 			params := map[string]string{}
 			if flagDid != "" {
-				params["did"] = fmt.Sprintf("%v", flagDid)
+				params["did"] = formatCLIParamValue(flagDid)
 			}
 			if flagOutbound != false {
-				params["outbound"] = fmt.Sprintf("%v", flagOutbound)
+				params["outbound"] = formatCLIParamValue(flagOutbound)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "callerid", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

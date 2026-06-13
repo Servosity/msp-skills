@@ -34,13 +34,13 @@ func newAccountGetUserDevicesCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/account/devices"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "account", path, map[string]string{
-				"page":            fmt.Sprintf("%v", flagPage),
-				"max":             fmt.Sprintf("%v", flagMax),
-				"filterId":        fmt.Sprintf("%v", flagFilterId),
-				"hostname":        fmt.Sprintf("%v", flagHostname),
-				"deviceType":      fmt.Sprintf("%v", flagDeviceType),
-				"operatingSystem": fmt.Sprintf("%v", flagOperatingSystem),
-				"siteName":        fmt.Sprintf("%v", flagSiteName),
+				"page":            formatCLIParamValue(flagPage),
+				"max":             formatCLIParamValue(flagMax),
+				"filterId":        formatCLIParamValue(flagFilterId),
+				"hostname":        formatCLIParamValue(flagHostname),
+				"deviceType":      formatCLIParamValue(flagDeviceType),
+				"operatingSystem": formatCLIParamValue(flagOperatingSystem),
+				"siteName":        formatCLIParamValue(flagSiteName),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

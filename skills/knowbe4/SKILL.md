@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - knowbe4-cli
+    install:
+      - kind: go
+        bins: [knowbe4-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/knowbe4/cmd/knowbe4-cli
 ---
 
-# KnowBe4 Claude Code Skill
+# KnowBe4  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `knowbe4-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/knowbe4/install.sh)
+   npx -y @mvanhorn/printing-press-library install knowbe4 --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/knowbe4/install.ps1 | iex
-   ```
-3. Verify: `knowbe4-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `knowbe4-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/knowbe4/cmd/knowbe4-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 knowbe4-cli mirrors the KnowBe4 Reporting API (users, groups, phishing security tests and campaigns, training campaigns and enrollments, policies, and risk-score history) and syncs it all into a local SQLite database. That local store powers transcendence commands no other KnowBe4 tool has: repeat-clickers finds humans who failed multiple phishing tests, untrained-clickers anti-joins phishing failures against training records, risk-drift ranks who deteriorated this quarter, and qbr assembles a full client quarterly review in one shot.
 
@@ -38,9 +44,13 @@ knowbe4-cli mirrors the KnowBe4 Reporting API (users, groups, phishing security 
 
 Use knowbe4-cli when an agent or MSP analyst needs to answer security-awareness-posture questions that span entities or time: who keeps clicking phishing, who failed a test but never trained, whose risk worsened this quarter, which groups drove account risk up, or to assemble a client QBR. It is the right tool whenever the answer requires joining KnowBe4's separate reporting endpoints or diffing risk over time - work the console and a single API call cannot do.
 
-## When Not to Use This CLI
+## Anti-triggers
 
-Do not activate this CLI for requests that create or modify KnowBe4 users, groups, phishing or training campaigns, enroll users in training, launch a real phishing test, or change console settings - the reporting endpoints are read-only. There are two write paths, both preview-able with `--dry-run`: pushing or deleting custom user risk events via the `events` group (`events create` / `events delete`), which talks to the separate User Event API and needs its own `KNOWBE4_USER_EVENT_API_KEY`; and `import`, which bulk-upserts JSONL records through the main Reporting API key (`KNOWBE4_API_KEY`). Treat both as reviewed writes. Do not use this CLI for mutations outside KnowBe4 either (ticketing, email, CRM, ordering, purchasing, booking).
+Do not use this CLI for:
+- creating or modifying KnowBe4 users, groups, or phishing/training campaigns (the Reporting API surface is read-only)
+- launching or scheduling a real phishing test or training enrollment
+- any mutation other than pushing/deleting custom user risk events via the events group (separate KNOWBE4_USER_EVENT_API_KEY, --dry-run-previewable)
+- mutations outside KnowBe4: ticketing, email, CRM, ordering, purchasing, booking
 
 ## Unique Capabilities
 
@@ -267,7 +277,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
-- **Read-mostly against the Reporting API**  -  the only mutating commands are `events create` / `events delete` (separate User Event API key) and `import` (bulk JSONL upsert via the main Reporting API key), all `--dry-run`-previewable; do not use this CLI for any other create, update, delete, publish, or send request
+- **Read-only**  -  do not use this CLI for create, update, delete, publish, comment, upvote, invite, order, send, or other mutating requests
 
 ### Response envelope
 
@@ -310,7 +320,7 @@ Unknown schemes are refused with a structured error naming the supported set. We
 
 ## Named Profiles
 
-A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration.
+A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration - HeyGen's "Beacon" pattern.
 
 ```
 knowbe4-cli profile save briefing --json
@@ -344,13 +354,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `knowbe4-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add knowbe4-mcp -- knowbe4-mcp
-```
-
-Then verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/knowbe4/cmd/knowbe4-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add knowbe4-mcp -- knowbe4-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

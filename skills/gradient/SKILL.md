@@ -1,6 +1,6 @@
 ---
 name: gradient
-description: "Use when the user asks to push usage counts into Gradient MSP Synthesize for billing reconciliation, see which accounts' counts drifted since the last push, confirm a dispatched alert became a PSA ticket, find unmapped accounts or services missing a SKU, or check whether the integration is ready to flip to active - backed by a local push ledger and SQLite mirror so audits answer offline. Trigger phrases: `push usage counts to gradient`, `sync usage to synthesize`, `check my gradient integration status`, `find unmapped gradient accounts`, `did my gradient alert create a ticket`, `use gradient`, `run gradient-cli`."
+description: "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has. Trigger phrases: `push usage counts to gradient`, `sync usage to synthesize`, `check my synthesize integration status`, `find unmapped gradient accounts`, `did my gradient alert create a ticket`, `use gradient`, `run gradient-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Gradient MSP"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - gradient-cli
+    install:
+      - kind: go
+        bins: [gradient-cli]
+        module: github.com/mvanhorn/printing-press-library/library/payments/gradient/cmd/gradient-cli
 ---
 
-# Gradient MSP Claude Code Skill
+# Gradient MSP  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `gradient-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/gradient/install.sh)
+   npx -y @mvanhorn/printing-press-library install gradient --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/gradient/install.ps1 | iex
-   ```
-3. Verify: `gradient-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `gradient-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/payments/gradient/cmd/gradient-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Gradient MSP's Synthesize platform reconciles vendor usage against MSP billing, but its only tooling is a PowerShell SDK that makes you write a script project per integration. This CLI covers the full vendor API surface agent-natively with an offline SQLite mirror of your accounts, and adds what the API itself cannot: a local ledger of every count you push (usage drift), debounce-aware bulk pushes (usage push), mapping-hygiene rollups (hygiene unmapped), and async alert-to-ticket confirmation (alert send --wait).
 
@@ -105,7 +111,7 @@ These capabilities aren't available in any other tool for this API.
 - `gradient-cli accounts create`  -  Creates an account
 - `gradient-cli accounts list`  -  Get Organization Accounts
 - `gradient-cli accounts update`  -  Updates 1 or more fields per Account
-- `gradient-cli accounts update-one <accountId>`  -  Updates 1 or more fields of a single Account
+- `gradient-cli accounts update-one`  -  Updates 1 or more fields of a single Account
 
 **alerting**  -  Manage alerting
 
@@ -127,7 +133,7 @@ These capabilities aren't available in any other tool for this API.
 **mappings**  -  Manage mappings
 
 - `gradient-cli mappings create`  -  Create Service for a Vendor for an Organization
-- `gradient-cli mappings update <serviceId>`  -  Updates 1 or more fields of a single Service
+- `gradient-cli mappings update`  -  Updates 1 or more fields of a single Service
 - `gradient-cli mappings update-bulk`  -  Updates 1 or more fields for each Service
 
 **services**  -  Manage services
@@ -212,7 +218,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
   gradient-cli accounts list --agent --select id,name,status
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
-- **Offline-friendly**  -  sync/analytics/stale commands can use the local SQLite store when available
+- **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
 - **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success
 
@@ -291,13 +297,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `gradient-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add gradient-mcp -- gradient-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/payments/gradient/cmd/gradient-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add gradient-mcp -- gradient-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

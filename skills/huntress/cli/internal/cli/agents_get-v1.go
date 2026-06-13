@@ -45,10 +45,10 @@ func newAgentsGetV1Cmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/agents"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "agents", path, map[string]string{
-				"limit":           fmt.Sprintf("%v", flagLimit),
-				"page_token":      fmt.Sprintf("%v", flagPageToken),
-				"organization_id": fmt.Sprintf("%v", flagOrganizationId),
-				"platform":        fmt.Sprintf("%v", flagPlatform),
+				"limit":           formatCLIParamValue(flagLimit),
+				"page_token":      formatCLIParamValue(flagPageToken),
+				"organization_id": formatCLIParamValue(flagOrganizationId),
+				"platform":        formatCLIParamValue(flagPlatform),
 			}, nil, flagAll, "page_token", "page_token", "limit", "nextPageToken", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

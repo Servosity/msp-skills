@@ -32,16 +32,16 @@ func newAlertsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/alerts"
 			params := map[string]string{}
 			if flagSourceType != "" {
-				params["sourceType"] = fmt.Sprintf("%v", flagSourceType)
+				params["sourceType"] = formatCLIParamValue(flagSourceType)
 			}
 			if flagDf != "" {
-				params["df"] = fmt.Sprintf("%v", flagDf)
+				params["df"] = formatCLIParamValue(flagDf)
 			}
 			if flagLang != "" {
-				params["lang"] = fmt.Sprintf("%v", flagLang)
+				params["lang"] = formatCLIParamValue(flagLang)
 			}
 			if flagTz != "" {
-				params["tz"] = fmt.Sprintf("%v", flagTz)
+				params["tz"] = formatCLIParamValue(flagTz)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "alerts", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

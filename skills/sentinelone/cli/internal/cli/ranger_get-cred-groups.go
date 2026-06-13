@@ -42,21 +42,21 @@ func newRangerGetCredGroupsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/ranger/cred-groups"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "ranger", path, map[string]string{
-				"siteIds":          fmt.Sprintf("%v", flagSiteIds),
-				"sortBy":           fmt.Sprintf("%v", flagSortBy),
-				"ids":              fmt.Sprintf("%v", flagIds),
-				"totalDetails__gt": fmt.Sprintf("%v", flagTotalDetailsGt),
-				"groupIds":         fmt.Sprintf("%v", flagGroupIds),
-				"tenant":           fmt.Sprintf("%v", flagTenant),
-				"limit":            fmt.Sprintf("%v", flagLimit),
-				"skipCount":        fmt.Sprintf("%v", flagSkipCount),
-				"skip":             fmt.Sprintf("%v", flagSkip),
-				"sortOrder":        fmt.Sprintf("%v", flagSortOrder),
-				"groupName":        fmt.Sprintf("%v", flagGroupName),
-				"groupNameLike":    fmt.Sprintf("%v", flagGroupNameLike),
-				"accountIds":       fmt.Sprintf("%v", flagAccountIds),
-				"countOnly":        fmt.Sprintf("%v", flagCountOnly),
-				"cursor":           fmt.Sprintf("%v", flagCursor),
+				"siteIds":          formatCLIParamValue(flagSiteIds),
+				"sortBy":           formatCLIParamValue(flagSortBy),
+				"ids":              formatCLIParamValue(flagIds),
+				"totalDetails__gt": formatCLIParamValue(flagTotalDetailsGt),
+				"groupIds":         formatCLIParamValue(flagGroupIds),
+				"tenant":           formatCLIParamValue(flagTenant),
+				"limit":            formatCLIParamValue(flagLimit),
+				"skipCount":        formatCLIParamValue(flagSkipCount),
+				"skip":             formatCLIParamValue(flagSkip),
+				"sortOrder":        formatCLIParamValue(flagSortOrder),
+				"groupName":        formatCLIParamValue(flagGroupName),
+				"groupNameLike":    formatCLIParamValue(flagGroupNameLike),
+				"accountIds":       formatCLIParamValue(flagAccountIds),
+				"countOnly":        formatCLIParamValue(flagCountOnly),
+				"cursor":           formatCLIParamValue(flagCursor),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -32,10 +32,10 @@ func newContactsGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/contacts"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "contacts", path, map[string]string{
-				"page":                fmt.Sprintf("%v", flagPage),
-				"itemsInPage":         fmt.Sprintf("%v", flagItemsInPage),
-				"searchOptions.email": fmt.Sprintf("%v", flagSearchOptionsEmail),
-				"searchOptions.phone": fmt.Sprintf("%v", flagSearchOptionsPhone),
+				"page":                formatCLIParamValue(flagPage),
+				"itemsInPage":         formatCLIParamValue(flagItemsInPage),
+				"searchOptions.email": formatCLIParamValue(flagSearchOptionsEmail),
+				"searchOptions.phone": formatCLIParamValue(flagSearchOptionsPhone),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -33,12 +33,12 @@ func newHubspotLineItemsCrmGetV3ObjectsLineItemsGetPageCmd(flags *rootFlags) *co
 
 			path := "/crm/v3/objects/line_items"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-line-items-crm", path, map[string]string{
-				"after":                 fmt.Sprintf("%v", flagAfter),
-				"archived":              fmt.Sprintf("%v", flagArchived),
-				"associations":          fmt.Sprintf("%v", flagAssociations),
-				"limit":                 fmt.Sprintf("%v", flagLimit),
-				"properties":            fmt.Sprintf("%v", flagProperties),
-				"propertiesWithHistory": fmt.Sprintf("%v", flagPropertiesWithHistory),
+				"after":                 formatCLIParamValue(flagAfter),
+				"archived":              formatCLIParamValue(flagArchived),
+				"associations":          formatCLIParamValue(flagAssociations),
+				"limit":                 formatCLIParamValue(flagLimit),
+				"properties":            formatCLIParamValue(flagProperties),
+				"propertiesWithHistory": formatCLIParamValue(flagPropertiesWithHistory),
 			}, nil, flagAll, "after", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

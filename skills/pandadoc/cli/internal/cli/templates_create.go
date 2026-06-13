@@ -39,7 +39,7 @@ func newTemplatesCreateCmd(flags *rootFlags) *cobra.Command {
 			path := "/templates"
 			params := map[string]string{}
 			if flagFields != "" {
-				params["fields"] = fmt.Sprintf("%v", flagFields)
+				params["fields"] = formatCLIParamValue(flagFields)
 			}
 			var body map[string]any
 			if stdinBody {

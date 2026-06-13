@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"halopsa-pp-cli/internal/store"
 )
 
 // pp:data-source auto
@@ -44,7 +43,7 @@ through the API per ticket.`,
 			if dbPath == "" {
 				dbPath = defaultDBPath("halopsa-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := halopsaOpenStoreSchemaAware(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'halopsa-cli sync' first.", err)
 			}
@@ -186,7 +185,7 @@ Backed by incremental sync; replaces brittle 'tickets updated since' ETLs.`,
 			if dbPath == "" {
 				dbPath = defaultDBPath("halopsa-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := halopsaOpenStoreSchemaAware(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'halopsa-cli sync' first.", err)
 			}

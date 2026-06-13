@@ -31,10 +31,10 @@ func newGroupsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/groups"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "groups", path, map[string]string{
-				"parent_id":      fmt.Sprintf("%v", flagParentId),
-				"limit":          fmt.Sprintf("%v", flagLimit),
-				"starting_after": fmt.Sprintf("%v", flagStartingAfter),
-				"ending_before":  fmt.Sprintf("%v", flagEndingBefore),
+				"parent_id":      formatCLIParamValue(flagParentId),
+				"limit":          formatCLIParamValue(flagLimit),
+				"starting_after": formatCLIParamValue(flagStartingAfter),
+				"ending_before":  formatCLIParamValue(flagEndingBefore),
 			}, nil, flagAll, "", "cursor", "limit", "", "has_more", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

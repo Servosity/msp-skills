@@ -23,8 +23,9 @@ func newLeadsSearchCmd(flags *rootFlags) *cobra.Command {
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "search",
-		Short:       "Searches all leads by title, notes and/or custom fields.",
+		Use:   "search",
+		Short: "Searches all leads by title, notes and/or custom fields.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pipedrive-cli leads search --term example-value",
 		Annotations: map[string]string{"pp:endpoint": "leads.search", "pp:method": "GET", "pp:path": "/leads/search", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -70,14 +71,14 @@ func newLeadsSearchCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/leads/search"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "leads", path, map[string]string{
-				"term":            fmt.Sprintf("%v", flagTerm),
-				"fields":          fmt.Sprintf("%v", flagFields),
-				"exact_match":     fmt.Sprintf("%v", flagExactMatch),
-				"person_id":       fmt.Sprintf("%v", flagPersonId),
-				"organization_id": fmt.Sprintf("%v", flagOrganizationId),
-				"include_fields":  fmt.Sprintf("%v", flagIncludeFields),
-				"start":           fmt.Sprintf("%v", flagStart),
-				"limit":           fmt.Sprintf("%v", flagLimit),
+				"term":            formatCLIParamValue(flagTerm),
+				"fields":          formatCLIParamValue(flagFields),
+				"exact_match":     formatCLIParamValue(flagExactMatch),
+				"person_id":       formatCLIParamValue(flagPersonId),
+				"organization_id": formatCLIParamValue(flagOrganizationId),
+				"include_fields":  formatCLIParamValue(flagIncludeFields),
+				"start":           formatCLIParamValue(flagStart),
+				"limit":           formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

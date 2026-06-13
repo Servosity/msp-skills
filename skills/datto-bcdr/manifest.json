@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "datto-bcdr-mcp",
   "display_name": "Datto BCDR",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk.",
   "author": {
     "name": "Servosity Inc."
@@ -44,10 +44,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T14:56:04.707439Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T03:37:08.341788Z",
     "spec_checksum": "sha256:203fe07fd8be9cbdf93be4d5debbb7507583051b606b2c4794026ccc2a8c81d1",
     "spec_format": "internal"
   }

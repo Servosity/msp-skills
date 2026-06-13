@@ -184,6 +184,9 @@ func newFeedbackListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List recent feedback entries",
+		Annotations: map[string]string{
+			"mcp:read-only": "true",
+		},
 		Example: `  microsoft-graph-cli feedback list
   microsoft-graph-cli feedback list --limit 5
   microsoft-graph-cli feedback list --json`,

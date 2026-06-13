@@ -37,16 +37,16 @@ func newServicedeskGetSoftwareAssetsListSearchSelectCmd(flags *rootFlags) *cobra
 
 			path := "/v2/servicedesk/softwareAssets/searchselect"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "servicedesk", path, map[string]string{
-				"Filter.CategoryIds":  fmt.Sprintf("%v", flagFilterCategoryIds),
-				"Filter.SoftwareName": fmt.Sprintf("%v", flagFilterSoftwareName),
-				"Filter.AccountId":    fmt.Sprintf("%v", flagFilterAccountId),
-				"Filter.ContactId":    fmt.Sprintf("%v", flagFilterContactId),
-				"Filter.ContactName":  fmt.Sprintf("%v", flagFilterContactName),
-				"Filter.ExcludedId":   fmt.Sprintf("%v", flagFilterExcludedId),
-				"Sort":                fmt.Sprintf("%v", flagSort),
-				"Exclude":             fmt.Sprintf("%v", flagExclude),
-				"PageSize":            fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":          fmt.Sprintf("%v", flagPageNumber),
+				"Filter.CategoryIds":  formatCLIParamValue(flagFilterCategoryIds),
+				"Filter.SoftwareName": formatCLIParamValue(flagFilterSoftwareName),
+				"Filter.AccountId":    formatCLIParamValue(flagFilterAccountId),
+				"Filter.ContactId":    formatCLIParamValue(flagFilterContactId),
+				"Filter.ContactName":  formatCLIParamValue(flagFilterContactName),
+				"Filter.ExcludedId":   formatCLIParamValue(flagFilterExcludedId),
+				"Sort":                formatCLIParamValue(flagSort),
+				"Exclude":             formatCLIParamValue(flagExclude),
+				"PageSize":            formatCLIParamValue(flagPageSize),
+				"PageNumber":          formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

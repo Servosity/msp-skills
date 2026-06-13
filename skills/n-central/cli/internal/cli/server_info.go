@@ -14,10 +14,9 @@ import (
 func newServerInfoCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "get",
-		Aliases:     []string{"info"},
+		Use:         "info",
 		Short:       "Return version information for the N-central API service and systems.",
-		Example:     "  n-central-cli server get",
+		Example:     "  n-central-cli server info",
 		Annotations: map[string]string{"pp:endpoint": "server.info", "pp:method": "GET", "pp:path": "/server-info", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()

@@ -17,8 +17,9 @@ func newAssistedSalesExecuteActionCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "execute-action <quoteId>",
-		Short:       "Execute the action passed by the parameter on the quote version Required: Accept-Language header with Locale format.",
+		Use:   "execute-action <quoteId>",
+		Short: "Execute the action passed by the parameter on the quote version Required: Accept-Language header with Locale format.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli assisted-sales execute-action 550e8400-e29b-41d4-a716-446655440000 --action example-value",
 		Annotations: map[string]string{"pp:endpoint": "assisted-sales.execute-action", "pp:method": "POST", "pp:path": "/assistedSales/v1/quotes/{quoteId}/executeAction"},
 		RunE: func(cmd *cobra.Command, args []string) error {

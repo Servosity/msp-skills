@@ -11,7 +11,7 @@ func newNovelAlertCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "alert",
-		Short:       "Alert dispatch with PSA ticket correlation and tracing",
+		Short:       "alert subcommands: send, trace",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

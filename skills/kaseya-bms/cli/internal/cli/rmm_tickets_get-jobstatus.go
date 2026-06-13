@@ -14,9 +14,10 @@ import (
 func newRmmTicketsGetJobstatusCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "get-jobstatus <integrationType> <jobId>",
-		Aliases:     []string{"get"},
-		Short:       "Get jobstatus",
+		Use:     "get-jobstatus <integrationType> <jobId>",
+		Aliases: []string{"get"},
+		Short:   "Get jobstatus",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli rmm tickets get-jobstatus example-value 42",
 		Annotations: map[string]string{"pp:endpoint": "tickets.get-jobstatus", "pp:method": "GET", "pp:path": "/v2/rmm/{integrationType}/tickets/status/{jobId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "PandaDoc MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has  -  stalled deals, aging, recipient engagement, and open quote value from a local store."
+description: "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has \u2014 stalled deals, aging, recipient engagement, and open quote value from a local store."
 permalink: /skills/pandadoc/
 skill_name: "PandaDoc MCP"
 image: /assets/social/pandadoc/wide-1200x630.png

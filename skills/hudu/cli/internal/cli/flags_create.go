@@ -20,8 +20,9 @@ func newFlagsCreateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a flag. Requires Hudu 2.4.0+.",
+		Use:   "create",
+		Short: "Create a flag. Requires Hudu 2.4.0+.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hudu-cli flags create --flaggable-type example-value",
 		Annotations: map[string]string{"pp:endpoint": "flags.create", "pp:method": "POST", "pp:path": "/flags"},
 		RunE: func(cmd *cobra.Command, args []string) error {

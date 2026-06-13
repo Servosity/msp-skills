@@ -55,20 +55,20 @@ func newActivitiesPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/activities"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "activities", path, map[string]string{
-				"class":           fmt.Sprintf("%v", flagClass),
-				"before":          fmt.Sprintf("%v", flagBefore),
-				"after":           fmt.Sprintf("%v", flagAfter),
-				"olderThan":       fmt.Sprintf("%v", flagOlderThan),
-				"newerThan":       fmt.Sprintf("%v", flagNewerThan),
-				"type":            fmt.Sprintf("%v", flagType),
-				"status":          fmt.Sprintf("%v", flagStatus),
-				"user":            fmt.Sprintf("%v", flagUser),
-				"seriesUid":       fmt.Sprintf("%v", flagSeriesUid),
-				"df":              fmt.Sprintf("%v", flagDf),
-				"pageSize":        fmt.Sprintf("%v", flagPageSize),
-				"lang":            fmt.Sprintf("%v", flagLang),
-				"tz":              fmt.Sprintf("%v", flagTz),
-				"sourceConfigUid": fmt.Sprintf("%v", flagSourceConfigUid),
+				"class":           formatCLIParamValue(flagClass),
+				"before":          formatCLIParamValue(flagBefore),
+				"after":           formatCLIParamValue(flagAfter),
+				"olderThan":       formatCLIParamValue(flagOlderThan),
+				"newerThan":       formatCLIParamValue(flagNewerThan),
+				"type":            formatCLIParamValue(flagType),
+				"status":          formatCLIParamValue(flagStatus),
+				"user":            formatCLIParamValue(flagUser),
+				"seriesUid":       formatCLIParamValue(flagSeriesUid),
+				"df":              formatCLIParamValue(flagDf),
+				"pageSize":        formatCLIParamValue(flagPageSize),
+				"lang":            formatCLIParamValue(flagLang),
+				"tz":              formatCLIParamValue(flagTz),
+				"sourceConfigUid": formatCLIParamValue(flagSourceConfigUid),
 			}, nil, flagAll, "after", "cursor", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

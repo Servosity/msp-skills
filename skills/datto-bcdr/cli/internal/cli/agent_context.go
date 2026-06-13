@@ -131,7 +131,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "datto-bcdr-cli",
-			Description: "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't",
+			Description: "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

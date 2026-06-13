@@ -42,7 +42,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "See API docs: http://www.pagerduty.com/support")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export PAGERDUTY_API_KEY=\"<your-token>\"")
+			fmt.Fprintln(w, "  export PAGERDUTY_API_KEY=\"your-token-here\"")
 			fmt.Fprintln(w, "  pagerduty-cli auth set-token <token>")
 			if !launch {
 				return nil

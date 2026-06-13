@@ -37,11 +37,11 @@ func newStagesDealsGetStageCmd(flags *rootFlags) *cobra.Command {
 			path := "/stages/{id}/deals"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "deals", path, map[string]string{
-				"filter_id": fmt.Sprintf("%v", flagFilterId),
-				"user_id":   fmt.Sprintf("%v", flagUserId),
-				"everyone":  fmt.Sprintf("%v", flagEveryone),
-				"start":     fmt.Sprintf("%v", flagStart),
-				"limit":     fmt.Sprintf("%v", flagLimit),
+				"filter_id": formatCLIParamValue(flagFilterId),
+				"user_id":   formatCLIParamValue(flagUserId),
+				"everyone":  formatCLIParamValue(flagEveryone),
+				"start":     formatCLIParamValue(flagStart),
+				"limit":     formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

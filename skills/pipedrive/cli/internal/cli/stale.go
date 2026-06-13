@@ -13,8 +13,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/spf13/cobra"
-
-	"pipedrive-pp-cli/internal/store"
 )
 
 type staleDeal struct {
@@ -85,7 +83,7 @@ to roll the value at risk up per organization.`,
 			if groupBy != "" && groupBy != "org" {
 				return fmt.Errorf("--group-by only supports 'org' (got %q)", groupBy)
 			}
-			db, err := store.OpenWithContext(cmd.Context(), novelDBPath(dbPath))
+			db, err := pdOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local store: %w", err)
 			}

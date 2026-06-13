@@ -46,8 +46,9 @@ func newChannelResourceOtherUpdateDiscountPutCmd(flags *rootFlags) *cobra.Comman
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "resource-other-update-discount-put <discountId>",
-		Short:       "Updates the specified discount with the provided data.",
+		Use:   "resource-other-update-discount-put <discountId>",
+		Short: "Updates the specified discount with the provided data.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli channel resource-other-update-discount-put 550e8400-e29b-41d4-a716-446655440000 --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "channel.resource-other-update-discount-put", "pp:method": "PUT", "pp:path": "/channel/v1/discounts/{discountId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

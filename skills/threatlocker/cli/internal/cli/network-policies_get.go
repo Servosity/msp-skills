@@ -37,7 +37,7 @@ func newNetworkPoliciesGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/NetworkAccessPolicy/NetworkAccessPolicyGetById"
 			params := map[string]string{}
 			if flagNetworkAccessPolicyId != "" {
-				params["networkAccessPolicyId"] = fmt.Sprintf("%v", flagNetworkAccessPolicyId)
+				params["networkAccessPolicyId"] = formatCLIParamValue(flagNetworkAccessPolicyId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "network-policies", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

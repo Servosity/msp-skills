@@ -32,16 +32,16 @@ func newChecklistGetTemplatesCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/checklist/templates"
 			params := map[string]string{}
 			if flagChecklistTemplateIds != "" {
-				params["checklistTemplateIds"] = fmt.Sprintf("%v", flagChecklistTemplateIds)
+				params["checklistTemplateIds"] = formatCLIParamValue(flagChecklistTemplateIds)
 			}
 			if flagChecklistTemplateName != "" {
-				params["checklistTemplateName"] = fmt.Sprintf("%v", flagChecklistTemplateName)
+				params["checklistTemplateName"] = formatCLIParamValue(flagChecklistTemplateName)
 			}
 			if flagRequired != false {
-				params["required"] = fmt.Sprintf("%v", flagRequired)
+				params["required"] = formatCLIParamValue(flagRequired)
 			}
 			if flagIncludeArchived != false {
-				params["includeArchived"] = fmt.Sprintf("%v", flagIncludeArchived)
+				params["includeArchived"] = formatCLIParamValue(flagIncludeArchived)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "checklist", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -44,7 +44,7 @@ func newAccountResourceGroupBatchCreateOrUpdateGroupMembershipsPostCmd(flags *ro
 			path = replacePathParam(path, "groupUuid", args[1])
 			params := map[string]string{}
 			if flagValidateOnly != false {
-				params["validateOnly"] = fmt.Sprintf("%v", flagValidateOnly)
+				params["validateOnly"] = formatCLIParamValue(flagValidateOnly)
 			}
 			var body map[string]any
 			if stdinBody {

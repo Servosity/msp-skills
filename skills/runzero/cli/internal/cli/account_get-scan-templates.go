@@ -28,7 +28,7 @@ func newAccountGetScanTemplatesCmd(flags *rootFlags) *cobra.Command {
 			path := "/account/tasks/templates"
 			params := map[string]string{}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "account", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

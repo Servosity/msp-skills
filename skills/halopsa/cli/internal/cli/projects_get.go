@@ -57,82 +57,82 @@ func newProjectsGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagAmailentryid != "" {
-				params["amailentryid"] = fmt.Sprintf("%v", flagAmailentryid)
+				params["amailentryid"] = formatCLIParamValue(flagAmailentryid)
 			}
 			if flagAssignedto != 0 {
-				params["assignedto"] = fmt.Sprintf("%v", flagAssignedto)
+				params["assignedto"] = formatCLIParamValue(flagAssignedto)
 			}
 			if flagConsignablelines != false {
-				params["consignablelines"] = fmt.Sprintf("%v", flagConsignablelines)
+				params["consignablelines"] = formatCLIParamValue(flagConsignablelines)
 			}
 			if flagDebug != false {
-				params["debug"] = fmt.Sprintf("%v", flagDebug)
+				params["debug"] = formatCLIParamValue(flagDebug)
 			}
 			if flagDodatabaselookup != false {
-				params["dodatabaselookup"] = fmt.Sprintf("%v", flagDodatabaselookup)
+				params["dodatabaselookup"] = formatCLIParamValue(flagDodatabaselookup)
 			}
 			if flagEmail != "" {
-				params["email"] = fmt.Sprintf("%v", flagEmail)
+				params["email"] = formatCLIParamValue(flagEmail)
 			}
 			if flagIncludeAuditing != false {
-				params["include_auditing"] = fmt.Sprintf("%v", flagIncludeAuditing)
+				params["include_auditing"] = formatCLIParamValue(flagIncludeAuditing)
 			}
 			if flagIncludeagent != false {
-				params["includeagent"] = fmt.Sprintf("%v", flagIncludeagent)
+				params["includeagent"] = formatCLIParamValue(flagIncludeagent)
 			}
 			if flagIncludechildids != false {
-				params["includechildids"] = fmt.Sprintf("%v", flagIncludechildids)
+				params["includechildids"] = formatCLIParamValue(flagIncludechildids)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagIncludelastaction != false {
-				params["includelastaction"] = fmt.Sprintf("%v", flagIncludelastaction)
+				params["includelastaction"] = formatCLIParamValue(flagIncludelastaction)
 			}
 			if flagIncludelastappointment != false {
-				params["includelastappointment"] = fmt.Sprintf("%v", flagIncludelastappointment)
+				params["includelastappointment"] = formatCLIParamValue(flagIncludelastappointment)
 			}
 			if flagIncludelinkedobjects != false {
-				params["includelinkedobjects"] = fmt.Sprintf("%v", flagIncludelinkedobjects)
+				params["includelinkedobjects"] = formatCLIParamValue(flagIncludelinkedobjects)
 			}
 			if flagIncludenextappointment != false {
-				params["includenextappointment"] = fmt.Sprintf("%v", flagIncludenextappointment)
+				params["includenextappointment"] = formatCLIParamValue(flagIncludenextappointment)
 			}
 			if flagIncludeparentchangeinfo != false {
-				params["includeparentchangeinfo"] = fmt.Sprintf("%v", flagIncludeparentchangeinfo)
+				params["includeparentchangeinfo"] = formatCLIParamValue(flagIncludeparentchangeinfo)
 			}
 			if flagIncludeparentsubject != false {
-				params["includeparentsubject"] = fmt.Sprintf("%v", flagIncludeparentsubject)
+				params["includeparentsubject"] = formatCLIParamValue(flagIncludeparentsubject)
 			}
 			if flagIncludeseenby != false {
-				params["includeseenby"] = fmt.Sprintf("%v", flagIncludeseenby)
+				params["includeseenby"] = formatCLIParamValue(flagIncludeseenby)
 			}
 			if flagIsPortal != false {
-				params["is_portal"] = fmt.Sprintf("%v", flagIsPortal)
+				params["is_portal"] = formatCLIParamValue(flagIsPortal)
 			}
 			if flagIsdetailscreen != false {
-				params["isdetailscreen"] = fmt.Sprintf("%v", flagIsdetailscreen)
+				params["isdetailscreen"] = formatCLIParamValue(flagIsdetailscreen)
 			}
 			if flagIshalolink != false {
-				params["ishalolink"] = fmt.Sprintf("%v", flagIshalolink)
+				params["ishalolink"] = formatCLIParamValue(flagIshalolink)
 			}
 			if flagIspreview != false {
-				params["ispreview"] = fmt.Sprintf("%v", flagIspreview)
+				params["ispreview"] = formatCLIParamValue(flagIspreview)
 			}
 			if flagIsteams != false {
-				params["isteams"] = fmt.Sprintf("%v", flagIsteams)
+				params["isteams"] = formatCLIParamValue(flagIsteams)
 			}
 			if flagNocache != false {
-				params["nocache"] = fmt.Sprintf("%v", flagNocache)
+				params["nocache"] = formatCLIParamValue(flagNocache)
 			}
 			if flagSubject != "" {
-				params["subject"] = fmt.Sprintf("%v", flagSubject)
+				params["subject"] = formatCLIParamValue(flagSubject)
 			}
 			if flagTicketidonly != false {
-				params["ticketidonly"] = fmt.Sprintf("%v", flagTicketidonly)
+				params["ticketidonly"] = formatCLIParamValue(flagTicketidonly)
 			}
 			if flagUtcoffset != 0.0 {
-				params["utcoffset"] = fmt.Sprintf("%v", flagUtcoffset)
+				params["utcoffset"] = formatCLIParamValue(flagUtcoffset)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "projects", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

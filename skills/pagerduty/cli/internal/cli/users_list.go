@@ -46,12 +46,12 @@ func newUsersListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/users"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "users", path, map[string]string{
-				"query":      fmt.Sprintf("%v", flagQuery),
-				"team_ids[]": fmt.Sprintf("%v", flagTeamIds),
-				"limit":      fmt.Sprintf("%v", flagLimit),
-				"offset":     fmt.Sprintf("%v", flagOffset),
-				"total":      fmt.Sprintf("%v", flagTotal),
-				"include[]":  fmt.Sprintf("%v", flagInclude),
+				"query":      formatCLIParamValue(flagQuery),
+				"team_ids[]": formatCLIParamValue(flagTeamIds),
+				"limit":      formatCLIParamValue(flagLimit),
+				"offset":     formatCLIParamValue(flagOffset),
+				"total":      formatCLIParamValue(flagTotal),
+				"include[]":  formatCLIParamValue(flagInclude),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

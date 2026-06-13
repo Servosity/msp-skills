@@ -32,7 +32,7 @@ func newTicketsGetTicketidCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "ticketId", args[0])
 			params := map[string]string{}
 			if flagIncludeRelations != false {
-				params["includeRelations"] = fmt.Sprintf("%v", flagIncludeRelations)
+				params["includeRelations"] = formatCLIParamValue(flagIncludeRelations)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "tickets", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

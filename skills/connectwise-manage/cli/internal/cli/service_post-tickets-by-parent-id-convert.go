@@ -25,8 +25,9 @@ func newServicePostTicketsByParentIdConvertCmd(flags *rootFlags) *cobra.Command 
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-tickets-by-parent-id-convert <parentId>",
-		Short:       "Post SuccessResponse",
+		Use:   "post-tickets-by-parent-id-convert <parentId>",
+		Short: "Post SuccessResponse",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  connectwise-manage-cli service post-tickets-by-parent-id-convert 42 --wbs-code example-value",
 		Annotations: map[string]string{"pp:endpoint": "service.post-tickets-by-parent-id-convert", "pp:method": "POST", "pp:path": "/service/tickets/{parentId}/convert"},
 		RunE: func(cmd *cobra.Command, args []string) error {

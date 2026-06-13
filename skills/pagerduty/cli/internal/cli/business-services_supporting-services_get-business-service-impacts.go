@@ -47,10 +47,10 @@ func newBusinessServicesSupportingServicesGetBusinessServiceImpactsCmd(flags *ro
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagAdditionalFields != "" {
-				params["additional_fields[]"] = fmt.Sprintf("%v", flagAdditionalFields)
+				params["additional_fields[]"] = formatCLIParamValue(flagAdditionalFields)
 			}
 			if flagIds != "" {
-				params["ids[]"] = fmt.Sprintf("%v", flagIds)
+				params["ids[]"] = formatCLIParamValue(flagIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "supporting-services", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

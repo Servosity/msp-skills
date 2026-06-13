@@ -46,22 +46,22 @@ func newReportingResourceReportReadReportsV2GetCmd(flags *rootFlags) *cobra.Comm
 			path := "/reporting/v2/reports"
 			params := map[string]string{}
 			if flagOwnerType != "" {
-				params["ownerType"] = fmt.Sprintf("%v", flagOwnerType)
+				params["ownerType"] = formatCLIParamValue(flagOwnerType)
 			}
 			if flagReportName != "" {
-				params["reportName"] = fmt.Sprintf("%v", flagReportName)
+				params["reportName"] = formatCLIParamValue(flagReportName)
 			}
 			if flagDate != "" {
-				params["date"] = fmt.Sprintf("%v", flagDate)
+				params["date"] = formatCLIParamValue(flagDate)
 			}
 			if flagNumber != 0 {
-				params["number"] = fmt.Sprintf("%v", flagNumber)
+				params["number"] = formatCLIParamValue(flagNumber)
 			}
 			if flagSize != 0 {
-				params["size"] = fmt.Sprintf("%v", flagSize)
+				params["size"] = formatCLIParamValue(flagSize)
 			}
 			if flagSearchText != "" {
-				params["searchText"] = fmt.Sprintf("%v", flagSearchText)
+				params["searchText"] = formatCLIParamValue(flagSearchText)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "reporting", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

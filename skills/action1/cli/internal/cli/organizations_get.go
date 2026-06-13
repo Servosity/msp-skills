@@ -18,7 +18,7 @@ func newOrganizationsGetCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get",
 		Aliases:     []string{"list"},
 		Short:       "Gets a list of organizations within the current Action1 enterprise.",
-		Example:     "  action1-cli organizations list --json",
+		Example:     "  action1-cli organizations get --json",
 		Annotations: map[string]string{"pp:endpoint": "organizations.get", "pp:method": "GET", "pp:path": "/organizations", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("admin") {
@@ -42,7 +42,7 @@ func newOrganizationsGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/organizations"
 			params := map[string]string{}
 			if flagAdmin != "" {
-				params["admin"] = fmt.Sprintf("%v", flagAdmin)
+				params["admin"] = formatCLIParamValue(flagAdmin)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "organizations", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

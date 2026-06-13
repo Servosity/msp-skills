@@ -58,19 +58,19 @@ func newChannelResourceOtherReadDiscountsGetCmd(flags *rootFlags) *cobra.Command
 			path := "/channel/v1/discounts"
 			params := map[string]string{}
 			if flagCode != "" {
-				params["code"] = fmt.Sprintf("%v", flagCode)
+				params["code"] = formatCLIParamValue(flagCode)
 			}
 			if flagCount != 0 {
-				params["count"] = fmt.Sprintf("%v", flagCount)
+				params["count"] = formatCLIParamValue(flagCount)
 			}
 			if flagSortField != "" {
-				params["sortField"] = fmt.Sprintf("%v", flagSortField)
+				params["sortField"] = formatCLIParamValue(flagSortField)
 			}
 			if flagSortOrder != "" {
-				params["sortOrder"] = fmt.Sprintf("%v", flagSortOrder)
+				params["sortOrder"] = formatCLIParamValue(flagSortOrder)
 			}
 			if flagStart != 0 {
-				params["start"] = fmt.Sprintf("%v", flagStart)
+				params["start"] = formatCLIParamValue(flagStart)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "channel", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

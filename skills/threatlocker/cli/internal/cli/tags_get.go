@@ -37,7 +37,7 @@ func newTagsGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/Tag/TagGetById"
 			params := map[string]string{}
 			if flagTagId != "" {
-				params["tagId"] = fmt.Sprintf("%v", flagTagId)
+				params["tagId"] = formatCLIParamValue(flagTagId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "tags", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -173,8 +173,8 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export ABNORMAL_API_TOKEN=<your-key>"
-					report["auth_key_url"] = "https://portal.abnormalsecurity.com/home/settings/integrations"
+					report["auth_hint"] = "Set it with: abnormal-cli auth set-token <token> or export ABNORMAL_API_TOKEN=\"your-token-here\""
+					report["auth_key_url"] = "https://portal.abnormalsecurity.com/home/settings/integrations`"
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"

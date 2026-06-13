@@ -32,19 +32,19 @@ func newIntegrationDataListIntegrationdata81Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/Sherweb"
 			params := map[string]string{}
 			if flagCustomerId != "" {
-				params["customer_id"] = fmt.Sprintf("%v", flagCustomerId)
+				params["customer_id"] = formatCLIParamValue(flagCustomerId)
 			}
 			if flagIncludeThisId != "" {
-				params["include_this_id"] = fmt.Sprintf("%v", flagIncludeThisId)
+				params["include_this_id"] = formatCLIParamValue(flagIncludeThisId)
 			}
 			if flagRemoveExisting != false {
-				params["remove_existing"] = fmt.Sprintf("%v", flagRemoveExisting)
+				params["remove_existing"] = formatCLIParamValue(flagRemoveExisting)
 			}
 			if flagResetToken != false {
-				params["reset_token"] = fmt.Sprintf("%v", flagResetToken)
+				params["reset_token"] = formatCLIParamValue(flagResetToken)
 			}
 			if flagResource != "" {
-				params["resource"] = fmt.Sprintf("%v", flagResource)
+				params["resource"] = formatCLIParamValue(flagResource)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -32,7 +32,7 @@ func newMarketplaceResourceProductReadProductGetCmd(flags *rootFlags) *cobra.Com
 			path = replacePathParam(path, "applicationId", args[0])
 			params := map[string]string{}
 			if flagLocale != "" {
-				params["locale"] = fmt.Sprintf("%v", flagLocale)
+				params["locale"] = formatCLIParamValue(flagLocale)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "marketplace", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

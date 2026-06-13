@@ -31,10 +31,10 @@ func newAdminGetChartOfAccountTypesCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/admin/finance/chartofaccounts/types"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "admin", path, map[string]string{
-				"Sort":       fmt.Sprintf("%v", flagSort),
-				"Exclude":    fmt.Sprintf("%v", flagExclude),
-				"PageSize":   fmt.Sprintf("%v", flagPageSize),
-				"PageNumber": fmt.Sprintf("%v", flagPageNumber),
+				"Sort":       formatCLIParamValue(flagSort),
+				"Exclude":    formatCLIParamValue(flagExclude),
+				"PageSize":   formatCLIParamValue(flagPageSize),
+				"PageNumber": formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

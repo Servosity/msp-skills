@@ -46,12 +46,12 @@ func newPublicListNotarizationRequestsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/public/v2/notary/notarization-requests"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "public", path, map[string]string{
-				"status":             fmt.Sprintf("%v", flagStatus),
-				"created_by_user_id": fmt.Sprintf("%v", flagCreatedByUserId),
-				"document_id":        fmt.Sprintf("%v", flagDocumentId),
-				"offset":             fmt.Sprintf("%v", flagOffset),
-				"limit":              fmt.Sprintf("%v", flagLimit),
-				"order_by":           fmt.Sprintf("%v", flagOrderBy),
+				"status":             formatCLIParamValue(flagStatus),
+				"created_by_user_id": formatCLIParamValue(flagCreatedByUserId),
+				"document_id":        formatCLIParamValue(flagDocumentId),
+				"offset":             formatCLIParamValue(flagOffset),
+				"limit":              formatCLIParamValue(flagLimit),
+				"order_by":           formatCLIParamValue(flagOrderBy),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

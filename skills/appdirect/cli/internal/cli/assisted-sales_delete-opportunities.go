@@ -38,7 +38,7 @@ func newAssistedSalesDeleteOpportunitiesCmd(flags *rootFlags) *cobra.Command {
 			path := "/assistedSales/v1/opportunities"
 			params := map[string]string{}
 			if flagOpportunityId != "" {
-				params["opportunityId"] = fmt.Sprintf("%v", flagOpportunityId)
+				params["opportunityId"] = formatCLIParamValue(flagOpportunityId)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

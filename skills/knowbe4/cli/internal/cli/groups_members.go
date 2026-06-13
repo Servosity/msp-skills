@@ -33,8 +33,8 @@ func newGroupsMembersCmd(flags *rootFlags) *cobra.Command {
 			path := "/groups/{group_id}/members"
 			path = replacePathParam(path, "group_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "groups", path, map[string]string{
-				"page":     fmt.Sprintf("%v", flagPage),
-				"per_page": fmt.Sprintf("%v", flagPerPage),
+				"page":     formatCLIParamValue(flagPage),
+				"per_page": formatCLIParamValue(flagPerPage),
 			}, nil, flagAll, "page", "page", "per_page", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

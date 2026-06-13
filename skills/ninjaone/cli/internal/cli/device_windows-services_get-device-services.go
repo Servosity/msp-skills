@@ -47,10 +47,10 @@ func newDeviceWindowsServicesGetDeviceServicesCmd(flags *rootFlags) *cobra.Comma
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagName != "" {
-				params["name"] = fmt.Sprintf("%v", flagName)
+				params["name"] = formatCLIParamValue(flagName)
 			}
 			if flagState != "" {
-				params["state"] = fmt.Sprintf("%v", flagState)
+				params["state"] = formatCLIParamValue(flagState)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "windows-services", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

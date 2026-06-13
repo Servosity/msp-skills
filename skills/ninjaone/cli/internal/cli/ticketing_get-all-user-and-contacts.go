@@ -45,11 +45,11 @@ func newTicketingGetAllUserAndContactsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/ticketing/app-user-contact"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "ticketing", path, map[string]string{
-				"pageSize":        fmt.Sprintf("%v", flagPageSize),
-				"anchorNaturalId": fmt.Sprintf("%v", flagAnchorNaturalId),
-				"searchCriteria":  fmt.Sprintf("%v", flagSearchCriteria),
-				"userType":        fmt.Sprintf("%v", flagUserType),
-				"clientId":        fmt.Sprintf("%v", flagClientId),
+				"pageSize":        formatCLIParamValue(flagPageSize),
+				"anchorNaturalId": formatCLIParamValue(flagAnchorNaturalId),
+				"searchCriteria":  formatCLIParamValue(flagSearchCriteria),
+				"userType":        formatCLIParamValue(flagUserType),
+				"clientId":        formatCLIParamValue(flagClientId),
 			}, nil, flagAll, "", "offset", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

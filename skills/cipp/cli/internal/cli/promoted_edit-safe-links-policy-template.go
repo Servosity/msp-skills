@@ -43,9 +43,10 @@ func newEditSafeLinksPolicyTemplatePromotedCmd(flags *rootFlags) *cobra.Command 
 	var bodyTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "edit-safe-links-policy-template",
-		Short:       "This function updates an existing Safe Links policy template. #> [CmdletBinding()] param($Request, $TriggerMetadata)",
-		Long:        "This function updates an existing Safe Links policy template. #> [CmdletBinding()] param($Request, $TriggerMetadata)",
+		Use:   "edit-safe-links-policy-template",
+		Short: "This function updates an existing Safe Links policy template. #> [CmdletBinding()] param($Request, $TriggerMetadata)",
+		Long:  "This function updates an existing Safe Links policy template. #> [CmdletBinding()] param($Request, $TriggerMetadata)",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli edit-safe-links-policy-template --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "edit-safe-links-policy-template.create", "pp:method": "POST", "pp:path": "/EditSafeLinksPolicyTemplate"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -157,10 +158,10 @@ func newEditSafeLinksPolicyTemplatePromotedCmd(flags *rootFlags) *cobra.Command 
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

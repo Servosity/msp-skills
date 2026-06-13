@@ -16,7 +16,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"pipedrive-pp-cli/internal/pipeintel"
-	"pipedrive-pp-cli/internal/store"
 )
 
 type lostDeal struct {
@@ -81,7 +80,7 @@ with --since and filter the lost reason with --reason.`,
 			}
 			cutoff := cutoffT.Format("2006-01-02 15:04:05")
 
-			db, err := store.OpenWithContext(cmd.Context(), novelDBPath(dbPath))
+			db, err := pdOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local store: %w", err)
 			}

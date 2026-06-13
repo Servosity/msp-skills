@@ -42,12 +42,12 @@ func newIntegrationGetWorkTypesCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/integration/qbd/worktypes"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration", path, map[string]string{
-				"Filter.ItemName":  fmt.Sprintf("%v", flagFilterItemName),
-				"ExternalTenantId": fmt.Sprintf("%v", flagExternalTenantId),
-				"Sort":             fmt.Sprintf("%v", flagSort),
-				"Exclude":          fmt.Sprintf("%v", flagExclude),
-				"PageSize":         fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":       fmt.Sprintf("%v", flagPageNumber),
+				"Filter.ItemName":  formatCLIParamValue(flagFilterItemName),
+				"ExternalTenantId": formatCLIParamValue(flagExternalTenantId),
+				"Sort":             formatCLIParamValue(flagSort),
+				"Exclude":          formatCLIParamValue(flagExclude),
+				"PageSize":         formatCLIParamValue(flagPageSize),
+				"PageNumber":       formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

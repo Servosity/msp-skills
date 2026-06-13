@@ -19,8 +19,9 @@ func newAssistedSalesUpdateRequiredFieldsOnItemsCmd(flags *rootFlags) *cobra.Com
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update-required-fields-on-items <opportunityId>",
-		Short:       "Update required fields for all products from the same vendor on an opportunity, with identical required field values.",
+		Use:   "update-required-fields-on-items <opportunityId>",
+		Short: "Update required fields for all products from the same vendor on an opportunity, with identical required field values.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli assisted-sales update-required-fields-on-items 550e8400-e29b-41d4-a716-446655440000 --required-fields example-value",
 		Annotations: map[string]string{"pp:endpoint": "assisted-sales.update-required-fields-on-items", "pp:method": "PUT", "pp:path": "/assistedSales/v1/opportunities/{opportunityId}/items/requiredFields"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -35,16 +35,16 @@ func newAgentDeviceCountAgentVariablesCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "agent_id", args[0])
 			params := map[string]string{}
 			if flagValue != "" {
-				params["value"] = fmt.Sprintf("%v", flagValue)
+				params["value"] = formatCLIParamValue(flagValue)
 			}
 			if flagPath != "" {
-				params["path"] = fmt.Sprintf("%v", flagPath)
+				params["path"] = formatCLIParamValue(flagPath)
 			}
 			if flagHasHistory != false {
-				params["has_history"] = fmt.Sprintf("%v", flagHasHistory)
+				params["has_history"] = formatCLIParamValue(flagHasHistory)
 			}
 			if flagMetric != "" {
-				params["metric"] = fmt.Sprintf("%v", flagMetric)
+				params["metric"] = formatCLIParamValue(flagMetric)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "device", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

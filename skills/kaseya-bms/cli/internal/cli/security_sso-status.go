@@ -16,9 +16,10 @@ func newSecuritySsoStatusCmd(flags *rootFlags) *cobra.Command {
 	var flagUserName string
 
 	cmd := &cobra.Command{
-		Use:         "sso-status",
-		Aliases:     []string{"list"},
-		Short:       "Sso status",
+		Use:     "sso-status",
+		Aliases: []string{"list"},
+		Short:   "Sso status",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli security sso-status --tenant example-value",
 		Annotations: map[string]string{"pp:endpoint": "security.sso-status", "pp:method": "GET", "pp:path": "/v2/security/ssostatus", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,10 +40,10 @@ func newSecuritySsoStatusCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/security/ssostatus"
 			params := map[string]string{}
 			if flagTenant != "" {
-				params["Tenant"] = fmt.Sprintf("%v", flagTenant)
+				params["Tenant"] = formatCLIParamValue(flagTenant)
 			}
 			if flagUserName != "" {
-				params["UserName"] = fmt.Sprintf("%v", flagUserName)
+				params["UserName"] = formatCLIParamValue(flagUserName)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "security", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

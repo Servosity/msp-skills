@@ -30,13 +30,13 @@ func newAssetGroupListCmd(flags *rootFlags) *cobra.Command {
 			path := "/AssetGroup"
 			params := map[string]string{}
 			if flagIncludetypesforgroups != "" {
-				params["includetypesforgroups"] = fmt.Sprintf("%v", flagIncludetypesforgroups)
+				params["includetypesforgroups"] = formatCLIParamValue(flagIncludetypesforgroups)
 			}
 			if flagIstree != false {
-				params["istree"] = fmt.Sprintf("%v", flagIstree)
+				params["istree"] = formatCLIParamValue(flagIstree)
 			}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "asset-group", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

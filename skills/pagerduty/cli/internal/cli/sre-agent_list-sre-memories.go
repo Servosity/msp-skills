@@ -45,10 +45,10 @@ func newSreAgentListSreMemoriesCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/sre_agent/memories"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "sre-agent", path, map[string]string{
-				"limit":       fmt.Sprintf("%v", flagLimit),
-				"service_id":  fmt.Sprintf("%v", flagServiceId),
-				"incident_id": fmt.Sprintf("%v", flagIncidentId),
-				"type":        fmt.Sprintf("%v", flagType),
+				"limit":       formatCLIParamValue(flagLimit),
+				"service_id":  formatCLIParamValue(flagServiceId),
+				"incident_id": formatCLIParamValue(flagIncidentId),
+				"type":        formatCLIParamValue(flagType),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -16,7 +16,7 @@ func newPublicGetCatalogItemCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-catalog-item <item_uuid>",
 		Short:       "Catalog Item Details",
-		Example:     "  pandadoc-cli public get-catalog-item 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli public get-catalog-item 2e39c7e0-acb0-4ff2-b4cd-ea3141f95db8",
 		Annotations: map[string]string{"pp:endpoint": "public.get-catalog-item", "pp:method": "GET", "pp:path": "/public/v2/product-catalog/items/{item_uuid}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

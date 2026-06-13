@@ -31,10 +31,10 @@ func newQueriesGetDeviceHealthReportCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/queries/device-health"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "queries", path, map[string]string{
-				"df":       fmt.Sprintf("%v", flagDf),
-				"health":   fmt.Sprintf("%v", flagHealth),
-				"cursor":   fmt.Sprintf("%v", flagCursor),
-				"pageSize": fmt.Sprintf("%v", flagPageSize),
+				"df":       formatCLIParamValue(flagDf),
+				"health":   formatCLIParamValue(flagHealth),
+				"cursor":   formatCLIParamValue(flagCursor),
+				"pageSize": formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "cursor", "cursor", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

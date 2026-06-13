@@ -29,10 +29,10 @@ func newSecureSecretLinkListSecuresecretlinkCmd(flags *rootFlags) *cobra.Command
 			path := "/SecureSecretLink/validate"
 			params := map[string]string{}
 			if flagToken != "" {
-				params["token"] = fmt.Sprintf("%v", flagToken)
+				params["token"] = formatCLIParamValue(flagToken)
 			}
 			if flagPassphrase != "" {
-				params["passphrase"] = fmt.Sprintf("%v", flagPassphrase)
+				params["passphrase"] = formatCLIParamValue(flagPassphrase)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "secure-secret-link", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

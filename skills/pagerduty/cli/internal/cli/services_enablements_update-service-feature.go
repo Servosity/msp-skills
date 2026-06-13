@@ -62,7 +62,7 @@ func newServicesEnablementsUpdateServiceFeatureCmd(flags *rootFlags) *cobra.Comm
 
 			path := "/services/{id}/enablements/{feature_name}"
 			path = replacePathParam(path, "id", args[0])
-			path = replacePathParam(path, "feature_name", fmt.Sprintf("%v", flagFeatureName))
+			path = replacePathParam(path, "feature_name", formatCLIParamValue(flagFeatureName))
 			params := map[string]string{}
 			var body map[string]any
 			if stdinBody {

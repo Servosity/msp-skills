@@ -15,9 +15,10 @@ func newMsspGetChildrenCmd(flags *rootFlags) *cobra.Command {
 	var flagIds string
 
 	cmd := &cobra.Command{
-		Use:         "get-children",
-		Aliases:     []string{"list"},
-		Short:       "Get link to child customer by child CID(s)",
+		Use:     "get-children",
+		Aliases: []string{"list"},
+		Short:   "Get link to child customer by child CID(s)",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  crowdstrike-cli mssp get-children --ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "mssp.get-children", "pp:method": "GET", "pp:path": "/mssp/entities/children/v1", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -38,7 +39,7 @@ func newMsspGetChildrenCmd(flags *rootFlags) *cobra.Command {
 			path := "/mssp/entities/children/v1"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "mssp", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

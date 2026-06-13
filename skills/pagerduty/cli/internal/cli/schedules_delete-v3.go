@@ -16,7 +16,7 @@ func newSchedulesDeleteV3Cmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete-v3 <id>",
 		Short:       "<!",
-		Example:     "  pagerduty-cli schedules delete-v3 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pagerduty-cli schedules delete-v3 PSJUKNI",
 		Annotations: map[string]string{"pp:endpoint": "schedules.delete-v3", "pp:method": "DELETE", "pp:path": "/v3/schedules/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

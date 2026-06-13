@@ -16,7 +16,7 @@ func newTemplatesDeleteCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete <id>",
 		Short:       "Delete a template",
-		Example:     "  pandadoc-cli templates delete 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli templates delete EE8yUNg5HztqVAuH85He8V",
 		Annotations: map[string]string{"pp:endpoint": "templates.delete", "pp:method": "DELETE", "pp:path": "/templates/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

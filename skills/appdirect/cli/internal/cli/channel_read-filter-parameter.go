@@ -28,7 +28,7 @@ func newChannelReadFilterParameterCmd(flags *rootFlags) *cobra.Command {
 			path := "/channel/v1/segments/dynamicSegments/filterParameters"
 			params := map[string]string{}
 			if flagLocale != "" {
-				params["locale"] = fmt.Sprintf("%v", flagLocale)
+				params["locale"] = formatCLIParamValue(flagLocale)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "channel", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

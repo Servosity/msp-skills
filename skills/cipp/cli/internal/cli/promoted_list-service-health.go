@@ -17,9 +17,10 @@ func newListServiceHealthPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-service-health",
-		Short:       "List service health",
-		Long:        "List service health",
+		Use:   "list-service-health",
+		Short: "List service health",
+		Long:  "List service health",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-service-health --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-service-health.list", "pp:method": "GET", "pp:path": "/ListServiceHealth", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,13 +42,13 @@ func newListServiceHealthPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListServiceHealth"
 			params := map[string]string{}
 			if flagDefaultDomainName != "" {
-				params["defaultDomainName"] = fmt.Sprintf("%v", flagDefaultDomainName)
+				params["defaultDomainName"] = formatCLIParamValue(flagDefaultDomainName)
 			}
 			if flagDisplayName != "" {
-				params["displayName"] = fmt.Sprintf("%v", flagDisplayName)
+				params["displayName"] = formatCLIParamValue(flagDisplayName)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-service-health", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -11,7 +11,7 @@ func newNovelMeetingsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "meetings",
-		Short:       "Property-history reporting for meetings (history, ever-had, status-report)",
+		Short:       "meetings subcommands: ever-had, history, status-report",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

@@ -32,16 +32,16 @@ func newExecServicePrincipalsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecServicePrincipals"
 			params := map[string]string{}
 			if flagAction != "" {
-				params["Action"] = fmt.Sprintf("%v", flagAction)
+				params["Action"] = formatCLIParamValue(flagAction)
 			}
 			if flagAppId != "" {
-				params["AppId"] = fmt.Sprintf("%v", flagAppId)
+				params["AppId"] = formatCLIParamValue(flagAppId)
 			}
 			if flagId != "" {
-				params["Id"] = fmt.Sprintf("%v", flagId)
+				params["Id"] = formatCLIParamValue(flagId)
 			}
 			if flagSelect != "" {
-				params["Select"] = fmt.Sprintf("%v", flagSelect)
+				params["Select"] = formatCLIParamValue(flagSelect)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-service-principals", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

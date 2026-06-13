@@ -43,7 +43,7 @@ func newRelatedItemsDeleteRelateditemsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/related-items/{entityType}/{entityId}"
 			path = replacePathParam(path, "entityId", args[0])
-			path = replacePathParam(path, "entityType", fmt.Sprintf("%v", flagEntityType))
+			path = replacePathParam(path, "entityType", formatCLIParamValue(flagEntityType))
 			params := map[string]string{}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

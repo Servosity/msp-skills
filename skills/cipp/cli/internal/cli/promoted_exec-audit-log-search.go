@@ -23,9 +23,10 @@ func newExecAuditLogSearchPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "exec-audit-log-search",
-		Short:       "Exec audit log search",
-		Long:        "Exec audit log search",
+		Use:   "exec-audit-log-search",
+		Short: "Exec audit log search",
+		Long:  "Exec audit log search",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-audit-log-search --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-audit-log-search.create", "pp:method": "POST", "pp:path": "/ExecAuditLogSearch"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -50,13 +51,13 @@ func newExecAuditLogSearchPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecAuditLogSearch"
 			params := map[string]string{}
 			if flagAction != "" {
-				params["Action"] = fmt.Sprintf("%v", flagAction)
+				params["Action"] = formatCLIParamValue(flagAction)
 			}
 			if flagSearchId != "" {
-				params["SearchId"] = fmt.Sprintf("%v", flagSearchId)
+				params["SearchId"] = formatCLIParamValue(flagSearchId)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -83,10 +84,10 @@ func newExecAuditLogSearchPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

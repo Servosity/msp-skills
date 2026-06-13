@@ -43,10 +43,10 @@ func newAppsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/apps"
 			params := map[string]string{}
 			if flagAccountId != "" {
-				params["accountId"] = fmt.Sprintf("%v", flagAccountId)
+				params["accountId"] = formatCLIParamValue(flagAccountId)
 			}
 			if flagStatus != "" {
-				params["status"] = fmt.Sprintf("%v", flagStatus)
+				params["status"] = formatCLIParamValue(flagStatus)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "apps", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

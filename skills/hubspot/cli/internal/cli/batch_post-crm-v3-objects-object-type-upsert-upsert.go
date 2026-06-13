@@ -17,8 +17,9 @@ func newBatchPostCrmV3ObjectsObjectTypeUpsertUpsertCmd(flags *rootFlags) *cobra.
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-crm-v3-objects-object-type-upsert-upsert <objectType>",
-		Short:       "Create or update records identified by a unique property value as specified by the `idProperty` query param.",
+		Use:   "post-crm-v3-objects-object-type-upsert-upsert <objectType>",
+		Short: "Create or update records identified by a unique property value as specified by the `idProperty` query param.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli batch post-crm-v3-objects-object-type-upsert-upsert example-value",
 		Annotations: map[string]string{"pp:endpoint": "batch.post-crm-v3-objects-object-type-upsert-upsert", "pp:method": "POST", "pp:path": "/crm/v3/objects/{objectType}/batch/upsert"},
 		RunE: func(cmd *cobra.Command, args []string) error {

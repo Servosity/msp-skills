@@ -33,22 +33,22 @@ func newIntegrationDataListIntegrationdata29Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/ExchangeCalendars"
 			params := map[string]string{}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			if flagMasterid != "" {
-				params["masterid"] = fmt.Sprintf("%v", flagMasterid)
+				params["masterid"] = formatCLIParamValue(flagMasterid)
 			}
 			if flagNexturl != "" {
-				params["nexturl"] = fmt.Sprintf("%v", flagNexturl)
+				params["nexturl"] = formatCLIParamValue(flagNexturl)
 			}
 			if flagOverrideenddate != "" {
-				params["overrideenddate"] = fmt.Sprintf("%v", flagOverrideenddate)
+				params["overrideenddate"] = formatCLIParamValue(flagOverrideenddate)
 			}
 			if flagOverridestartdate != "" {
-				params["overridestartdate"] = fmt.Sprintf("%v", flagOverridestartdate)
+				params["overridestartdate"] = formatCLIParamValue(flagOverridestartdate)
 			}
 			if flagUserprincipalname != "" {
-				params["userprincipalname"] = fmt.Sprintf("%v", flagUserprincipalname)
+				params["userprincipalname"] = formatCLIParamValue(flagUserprincipalname)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

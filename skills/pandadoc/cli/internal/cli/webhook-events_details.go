@@ -17,7 +17,7 @@ func newWebhookEventsDetailsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "details <id>",
 		Aliases:     []string{"get"},
 		Short:       "This operation fetches detailed information about a specific webhook event using its unique identifier.",
-		Example:     "  pandadoc-cli webhook-events details 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli webhook-events details 8b61d111-5e0b-406d-a150-e8305fc7e97a",
 		Annotations: map[string]string{"pp:endpoint": "webhook-events.details", "pp:method": "GET", "pp:path": "/webhook-events/{id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

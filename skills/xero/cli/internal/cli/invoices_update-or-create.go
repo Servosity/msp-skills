@@ -39,10 +39,10 @@ func newInvoicesUpdateOrCreateCmd(flags *rootFlags) *cobra.Command {
 			path := "/Invoices"
 			params := map[string]string{}
 			if flagSummarizeErrors != false {
-				params["summarizeErrors"] = fmt.Sprintf("%v", flagSummarizeErrors)
+				params["summarizeErrors"] = formatCLIParamValue(flagSummarizeErrors)
 			}
 			if flagUnitdp != 0 {
-				params["unitdp"] = fmt.Sprintf("%v", flagUnitdp)
+				params["unitdp"] = formatCLIParamValue(flagUnitdp)
 			}
 			var body map[string]any
 			if stdinBody {

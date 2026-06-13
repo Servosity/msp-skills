@@ -40,43 +40,43 @@ func newOutcomeListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Outcome"
 			params := map[string]string{}
 			if flagAccessControlLevel != 0 {
-				params["access_control_level"] = fmt.Sprintf("%v", flagAccessControlLevel)
+				params["access_control_level"] = formatCLIParamValue(flagAccessControlLevel)
 			}
 			if flagDebug != false {
-				params["debug"] = fmt.Sprintf("%v", flagDebug)
+				params["debug"] = formatCLIParamValue(flagDebug)
 			}
 			if flagExcludesystemactions != false {
-				params["excludesystemactions"] = fmt.Sprintf("%v", flagExcludesystemactions)
+				params["excludesystemactions"] = formatCLIParamValue(flagExcludesystemactions)
 			}
 			if flagQuickOnly != false {
-				params["quick_only"] = fmt.Sprintf("%v", flagQuickOnly)
+				params["quick_only"] = formatCLIParamValue(flagQuickOnly)
 			}
 			if flagShowhidden != false {
-				params["showhidden"] = fmt.Sprintf("%v", flagShowhidden)
+				params["showhidden"] = formatCLIParamValue(flagShowhidden)
 			}
 			if flagShowsystemactions != "" {
-				params["showsystemactions"] = fmt.Sprintf("%v", flagShowsystemactions)
+				params["showsystemactions"] = formatCLIParamValue(flagShowsystemactions)
 			}
 			if flagSlastate != 0 {
-				params["slastate"] = fmt.Sprintf("%v", flagSlastate)
+				params["slastate"] = formatCLIParamValue(flagSlastate)
 			}
 			if flagStatus != 0 {
-				params["status"] = fmt.Sprintf("%v", flagStatus)
+				params["status"] = formatCLIParamValue(flagStatus)
 			}
 			if flagSupplierId != "" {
-				params["supplier_id"] = fmt.Sprintf("%v", flagSupplierId)
+				params["supplier_id"] = formatCLIParamValue(flagSupplierId)
 			}
 			if flagSupplierStatus != 0 {
-				params["supplier_status"] = fmt.Sprintf("%v", flagSupplierStatus)
+				params["supplier_status"] = formatCLIParamValue(flagSupplierStatus)
 			}
 			if flagTickettypeId != "" {
-				params["tickettype_id"] = fmt.Sprintf("%v", flagTickettypeId)
+				params["tickettype_id"] = formatCLIParamValue(flagTickettypeId)
 			}
 			if flagWorkflowId != "" {
-				params["workflow_id"] = fmt.Sprintf("%v", flagWorkflowId)
+				params["workflow_id"] = formatCLIParamValue(flagWorkflowId)
 			}
 			if flagWorkflowStep != 0 {
-				params["workflow_step"] = fmt.Sprintf("%v", flagWorkflowStep)
+				params["workflow_step"] = formatCLIParamValue(flagWorkflowStep)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "outcome", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

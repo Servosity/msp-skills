@@ -17,9 +17,10 @@ func newEventOrchestrationsCreateCacheVarOnServiceOrchCmd(flags *rootFlags) *cob
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create-cache-var-on-service-orch <service_id>",
-		Aliases:     []string{"create"},
-		Short:       "Create a Cache Variable for a Service Event Orchestration.",
+		Use:     "create-cache-var-on-service-orch <service_id>",
+		Aliases: []string{"create"},
+		Short:   "Create a Cache Variable for a Service Event Orchestration.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pagerduty-cli event-orchestrations create-cache-var-on-service-orch 550e8400-e29b-41d4-a716-446655440000 --cache-variable example-value",
 		Annotations: map[string]string{"pp:endpoint": "event-orchestrations.create-cache-var-on-service-orch", "pp:method": "POST", "pp:path": "/event_orchestrations/services/{service_id}/cache_variables"},
 		RunE: func(cmd *cobra.Command, args []string) error {

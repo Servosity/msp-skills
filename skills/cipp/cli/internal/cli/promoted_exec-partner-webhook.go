@@ -34,10 +34,10 @@ func newExecPartnerWebhookPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecPartnerWebhook"
 			params := map[string]string{}
 			if flagAction != "" {
-				params["Action"] = fmt.Sprintf("%v", flagAction)
+				params["Action"] = formatCLIParamValue(flagAction)
 			}
 			if flagCorrelationId != "" {
-				params["CorrelationId"] = fmt.Sprintf("%v", flagCorrelationId)
+				params["CorrelationId"] = formatCLIParamValue(flagCorrelationId)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -64,10 +64,10 @@ func newExecPartnerWebhookPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

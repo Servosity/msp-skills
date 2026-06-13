@@ -100,7 +100,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export MICROSOFT_GRAPH_TOKEN=<your-key>"
+					report["auth_hint"] = "Set it with: microsoft-graph-cli auth set-token <token> or export MICROSOFT_GRAPH_TOKEN=\"your-token-here\""
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"

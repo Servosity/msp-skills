@@ -20,7 +20,7 @@ func newDocumentsSendReminderCreateManualReminderCmd(flags *rootFlags) *cobra.Co
 		Use:         "create-manual-reminder <document_id>",
 		Aliases:     []string{"create"},
 		Short:       "Sends manual reminders to one or more recipients of a specified document.",
-		Example:     "  pandadoc-cli documents send-reminder create-manual-reminder 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents send-reminder create-manual-reminder BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "send-reminder.create-manual-reminder", "pp:method": "POST", "pp:path": "/documents/{document_id}/send-reminder"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

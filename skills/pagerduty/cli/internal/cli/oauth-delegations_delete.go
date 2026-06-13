@@ -54,10 +54,10 @@ func newOauthDelegationsDeleteCmd(flags *rootFlags) *cobra.Command {
 			path := "/oauth_delegations"
 			params := map[string]string{}
 			if flagUserId != "" {
-				params["user_id"] = fmt.Sprintf("%v", flagUserId)
+				params["user_id"] = formatCLIParamValue(flagUserId)
 			}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

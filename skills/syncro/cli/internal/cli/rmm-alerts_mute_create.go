@@ -17,8 +17,9 @@ func newRmmAlertsMuteCreateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create <id>",
-		Short:       "Required permission: RMM Alerts - Clear/Manage Single-Customer Users can only access own RMM Alerts.",
+		Use:   "create <id>",
+		Short: "Required permission: RMM Alerts - Clear/Manage Single-Customer Users can only access own RMM Alerts.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  syncro-cli rmm-alerts mute create 550e8400-e29b-41d4-a716-446655440000 --mute-for example-value",
 		Annotations: map[string]string{"pp:endpoint": "mute.create", "pp:method": "POST", "pp:path": "/rmm_alerts/{id}/mute"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -45,7 +46,7 @@ func newRmmAlertsMuteCreateCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagMuteFor != "" {
-				params["mute_for"] = fmt.Sprintf("%v", flagMuteFor)
+				params["mute_for"] = formatCLIParamValue(flagMuteFor)
 			}
 			var body map[string]any
 			if stdinBody {

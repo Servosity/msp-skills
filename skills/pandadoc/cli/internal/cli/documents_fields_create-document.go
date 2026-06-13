@@ -20,7 +20,7 @@ func newDocumentsFieldsCreateDocumentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-document <id>",
 		Aliases:     []string{"create"},
 		Short:       "Creates fields for a particular document.",
-		Example:     "  pandadoc-cli documents fields create-document 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents fields create-document BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "fields.create-document", "pp:method": "POST", "pp:path": "/documents/{id}/fields"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -46,11 +46,11 @@ func newProductsFindAllCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/products"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "products", path, map[string]string{
-				"page":       fmt.Sprintf("%v", flagPage),
-				"size":       fmt.Sprintf("%v", flagSize),
-				"sort":       fmt.Sprintf("%v", flagSort),
-				"search":     fmt.Sprintf("%v", flagSearch),
-				"vendorName": fmt.Sprintf("%v", flagVendorName),
+				"page":       formatCLIParamValue(flagPage),
+				"size":       formatCLIParamValue(flagSize),
+				"sort":       formatCLIParamValue(flagSort),
+				"search":     formatCLIParamValue(flagSearch),
+				"vendorName": formatCLIParamValue(flagVendorName),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -77,7 +77,7 @@ func newAssistedSalesCreateOpportunityCmd(flags *rootFlags) *cobra.Command {
 			path := "/assistedSales/v1/opportunities"
 			params := map[string]string{}
 			if flagContext != "" {
-				params["context"] = fmt.Sprintf("%v", flagContext)
+				params["context"] = formatCLIParamValue(flagContext)
 			}
 			var body map[string]any
 			if stdinBody {

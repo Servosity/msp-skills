@@ -17,9 +17,10 @@ func newChangesPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagMinorversion int
 
 	cmd := &cobra.Command{
-		Use:         "changes",
-		Short:       "Fetch entities changed since a timestamp (RFC3339), e.g. for incremental sync",
-		Long:        "Fetch entities changed since a timestamp (RFC3339), e.g. for incremental sync",
+		Use:   "changes",
+		Short: "Fetch entities changed since a timestamp (RFC3339), e.g. for incremental sync",
+		Long:  "Fetch entities changed since a timestamp (RFC3339), e.g. for incremental sync",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  quickbooks-cli changes --changed-since example-value",
 		Annotations: map[string]string{"pp:endpoint": "changes.cdc", "pp:method": "GET", "pp:path": "/cdc", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,13 +42,13 @@ func newChangesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/cdc"
 			params := map[string]string{}
 			if flagEntities != "" {
-				params["entities"] = fmt.Sprintf("%v", flagEntities)
+				params["entities"] = formatCLIParamValue(flagEntities)
 			}
 			if flagChangedSince != "" {
-				params["changedSince"] = fmt.Sprintf("%v", flagChangedSince)
+				params["changedSince"] = formatCLIParamValue(flagChangedSince)
 			}
 			if flagMinorversion != 0 {
-				params["minorversion"] = fmt.Sprintf("%v", flagMinorversion)
+				params["minorversion"] = formatCLIParamValue(flagMinorversion)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "changes", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

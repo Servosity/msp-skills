@@ -17,7 +17,7 @@ func newContentLibraryItemsDetailsContentLibraryItemCmd(flags *rootFlags) *cobra
 		Use:         "content-library-item <id>",
 		Aliases:     []string{"get"},
 		Short:       "Retrieve detailed information about a specific content library item using its ID.",
-		Example:     "  pandadoc-cli content-library-items details content-library-item 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli content-library-items details content-library-item UXdP7Lnbvvr4WEb2wzM2hc",
 		Annotations: map[string]string{"pp:endpoint": "details.content-library-item", "pp:method": "GET", "pp:path": "/content-library-items/{id}/details", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

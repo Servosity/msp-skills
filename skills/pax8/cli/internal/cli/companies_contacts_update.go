@@ -25,7 +25,7 @@ func newCompaniesContactsUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update <companyId> <contactId>",
 		Short:       "Update a contacts information",
-		Example:     "  pax8-cli companies contacts update 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --email user@example.com",
+		Example:     "  pax8-cli companies contacts update f7fc273a-8d86-45c9-a26f-ffd42416adda 5ba26319-00e4-4a8f-986b-02a1170af269 --email user@example.com",
 		Annotations: map[string]string{"pp:endpoint": "contacts.update", "pp:method": "PUT", "pp:path": "/companies/{companyId}/contacts/{contactId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

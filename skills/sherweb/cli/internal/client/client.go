@@ -257,9 +257,9 @@ func (c *Client) readCache(path string, params map[string]string) (json.RawMessa
 }
 
 func (c *Client) writeCache(path string, params map[string]string, data json.RawMessage) {
-	os.MkdirAll(c.cacheDir, 0o755)
+	os.MkdirAll(c.cacheDir, 0o700)
 	cacheFile := filepath.Join(c.cacheDir, c.cacheKey(path, params)+".json")
-	os.WriteFile(cacheFile, []byte(data), 0o644)
+	os.WriteFile(cacheFile, []byte(data), 0o600)
 }
 
 // invalidateCache wholesale-removes the cache directory so the next read
@@ -844,11 +844,6 @@ func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecr
 		return fmt.Errorf("building token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	// Sherweb's APIM gateway requires the subscription key on EVERY call,
-	// including the token request itself (spec: subscriptionKey scheme).
-	if c.Config != nil && c.Config.SherwebSubscriptionKey != "" {
-		req.Header.Set("Ocp-Apim-Subscription-Key", c.Config.SherwebSubscriptionKey)
-	}
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("calling token endpoint: %w", err)
@@ -889,6 +884,9 @@ func (c *Client) refreshAccessToken(ctx context.Context) error {
 	if c.Config.RefreshToken == "" {
 		return nil
 	}
+	if strings.TrimSpace(c.Config.ClientID) == "" {
+		return fmt.Errorf("refreshing access token: OAuth2 client ID is required when a refresh token is configured; set client_id in config or the client ID environment variable")
+	}
 
 	tokenURL := c.Config.TokenURL
 	if tokenURL == "" {
@@ -909,11 +907,6 @@ func (c *Client) refreshAccessToken(ctx context.Context) error {
 		return fmt.Errorf("building refresh request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	// Sherweb's APIM gateway requires the subscription key on EVERY call,
-	// including the token request itself (spec: subscriptionKey scheme).
-	if c.Config != nil && c.Config.SherwebSubscriptionKey != "" {
-		req.Header.Set("Ocp-Apim-Subscription-Key", c.Config.SherwebSubscriptionKey)
-	}
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("refreshing access token: %w", err)

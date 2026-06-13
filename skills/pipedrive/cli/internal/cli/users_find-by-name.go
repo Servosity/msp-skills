@@ -16,9 +16,10 @@ func newUsersFindByNameCmd(flags *rootFlags) *cobra.Command {
 	var flagSearchByEmail float64
 
 	cmd := &cobra.Command{
-		Use:         "find-by-name",
-		Aliases:     []string{"list"},
-		Short:       "Finds users by their name.",
+		Use:     "find-by-name",
+		Aliases: []string{"list"},
+		Short:   "Finds users by their name.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pipedrive-cli users find-by-name --term example-value",
 		Annotations: map[string]string{"pp:endpoint": "users.find-by-name", "pp:method": "GET", "pp:path": "/users/find", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,10 +40,10 @@ func newUsersFindByNameCmd(flags *rootFlags) *cobra.Command {
 			path := "/users/find"
 			params := map[string]string{}
 			if flagTerm != "" {
-				params["term"] = fmt.Sprintf("%v", flagTerm)
+				params["term"] = formatCLIParamValue(flagTerm)
 			}
 			if flagSearchByEmail != 0.0 {
-				params["search_by_email"] = fmt.Sprintf("%v", flagSearchByEmail)
+				params["search_by_email"] = formatCLIParamValue(flagSearchByEmail)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "users", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

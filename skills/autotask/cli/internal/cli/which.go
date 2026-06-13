@@ -37,6 +37,11 @@ var whichIndex = []whichEntry{
 	{Command: "project-health", Description: "Flag projects with overdue tasks or past end dates.", Group: "Account 360", WhyItMatters: "Use for PM standups and status reporting."},
 	{Command: "since", Description: "See what changed across tickets in the last N hours or days.", Group: "Service-desk intelligence", WhyItMatters: "Use for shift handoff and 'what did I miss'."},
 	{Command: "triage", Description: "Rank open unassigned tickets by priority and age into a workable queue.", Group: "Service-desk intelligence", WhyItMatters: "Use as the dispatcher's first command of the day."},
+	{Command: "reconcile", Description: "One month-end table: approved time vs invoiced, contract blocks consumed vs purchased, and the money left on the table.", Group: "Money and contracts", WhyItMatters: "Reach for this when an agent needs the full billing-close picture, not just unbilled hours."},
+	{Command: "account-brief", Description: "What changed on one account since a point in time — new tickets, contract burn movement, opportunities, stale items.", Group: "Account 360", WhyItMatters: "Use before an account call to see what moved since the last one; company-360 is the full current snapshot."},
+	{Command: "retainer", Description: "Block-hour contracts ranked by percent consumed, with projected run-out dates from recent burn rate.", Group: "Money and contracts", WhyItMatters: "Use to flag retainers about to run dry before the customer disputes an overage."},
+	{Command: "data-gaps", Description: "Find tickets with no contract, time entries with no ticket, contacts and config items with no company.", Group: "Data hygiene and metadata", WhyItMatters: "Run before billing or reporting to catch the broken links that silently corrupt both."},
+	{Command: "picklist", Description: "Print the label-to-ID map for any picklist field (status, priority, queue) from cached field metadata.", Group: "Data hygiene and metadata", WhyItMatters: "Use to translate Autotask integer IDs before building filters; use the entity's query-field-definitions command to list all fields."},
 }
 
 // whichMatch pairs an index entry with its ranking score for a query.
@@ -140,6 +145,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

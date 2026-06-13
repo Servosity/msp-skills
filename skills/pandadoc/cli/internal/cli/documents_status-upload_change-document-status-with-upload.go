@@ -19,7 +19,7 @@ func newDocumentsStatusUploadChangeDocumentStatusWithUploadCmd(flags *rootFlags)
 		Use:         "change-document-status-with-upload <id>",
 		Aliases:     []string{"update"},
 		Short:       "PandaDoc has eight document statuses, but you can manually set your document status to only four",
-		Example:     "  pandadoc-cli documents status-upload change-document-status-with-upload 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents status-upload change-document-status-with-upload iGsFiaV2hEEvQdhr2WAkMk",
 		Annotations: map[string]string{"pp:endpoint": "status-upload.change-document-status-with-upload", "pp:method": "PATCH", "pp:path": "/documents/{id}/status?upload"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

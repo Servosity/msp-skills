@@ -142,8 +142,8 @@ func isCobraUsageError(err error) bool {
 func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "abnormal-cli",
-		Short: `Abnormal CLI — The full Abnormal Security REST API as an agent-native CLI — with a local threat store, ranked SOC triage, and one-shot…`,
-		Long: `Abnormal CLI — The full Abnormal Security REST API as an agent-native CLI — with a local threat store, ranked SOC triage, and one-shot…
+		Short: `Abnormal CLI — The full Abnormal Security REST API as an agent-ready CLI — with a local threat store, ranked SOC triage, and one-shot…`,
+		Long: `Abnormal CLI — The full Abnormal Security REST API as an agent-ready CLI — with a local threat store, ranked SOC triage, and one-shot…
 
 Highlights (not in the official API docs):
   • triage   Surface the newest, highest-severity, still-unremediated threats first so an analyst starts the shift on what actually matters.

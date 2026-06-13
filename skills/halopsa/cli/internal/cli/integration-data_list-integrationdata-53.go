@@ -32,19 +32,19 @@ func newIntegrationDataListIntegrationdata53Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/Lansweeper"
 			params := map[string]string{}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			if flagExportid != "" {
-				params["exportid"] = fmt.Sprintf("%v", flagExportid)
+				params["exportid"] = formatCLIParamValue(flagExportid)
 			}
 			if flagExportUrl != "" {
-				params["exportUrl"] = fmt.Sprintf("%v", flagExportUrl)
+				params["exportUrl"] = formatCLIParamValue(flagExportUrl)
 			}
 			if flagHalositeid != "" {
-				params["halositeid"] = fmt.Sprintf("%v", flagHalositeid)
+				params["halositeid"] = formatCLIParamValue(flagHalositeid)
 			}
 			if flagSiteid != "" {
-				params["siteid"] = fmt.Sprintf("%v", flagSiteid)
+				params["siteid"] = formatCLIParamValue(flagSiteid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

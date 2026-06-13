@@ -14,8 +14,9 @@ import (
 func newHostPoolsAdCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "ad <account_id> <subscription_id> <resource_group> <pool_name>",
-		Short:       "Get host pool Active Directory settings",
+		Use:   "ad <account_id> <subscription_id> <resource_group> <pool_name>",
+		Short: "Get host pool Active Directory settings",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  nerdio-cli host-pools ad 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "host-pools.ad", "pp:method": "GET", "pp:path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/active-directory", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

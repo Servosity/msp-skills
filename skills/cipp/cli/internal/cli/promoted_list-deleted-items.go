@@ -15,9 +15,10 @@ func newListDeletedItemsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-deleted-items",
-		Short:       "List deleted items",
-		Long:        "List deleted items",
+		Use:   "list-deleted-items",
+		Short: "List deleted items",
+		Long:  "List deleted items",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-deleted-items --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-deleted-items.list", "pp:method": "GET", "pp:path": "/ListDeletedItems", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,7 @@ func newListDeletedItemsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListDeletedItems"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-deleted-items", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

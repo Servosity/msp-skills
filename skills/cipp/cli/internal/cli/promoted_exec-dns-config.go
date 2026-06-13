@@ -36,16 +36,16 @@ func newExecDnsConfigPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecDnsConfig"
 			params := map[string]string{}
 			if flagAction != "" {
-				params["Action"] = fmt.Sprintf("%v", flagAction)
+				params["Action"] = formatCLIParamValue(flagAction)
 			}
 			if flagDomain != "" {
-				params["Domain"] = fmt.Sprintf("%v", flagDomain)
+				params["Domain"] = formatCLIParamValue(flagDomain)
 			}
 			if flagResolver != "" {
-				params["Resolver"] = fmt.Sprintf("%v", flagResolver)
+				params["Resolver"] = formatCLIParamValue(flagResolver)
 			}
 			if flagSelector != "" {
-				params["Selector"] = fmt.Sprintf("%v", flagSelector)
+				params["Selector"] = formatCLIParamValue(flagSelector)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -66,10 +66,10 @@ func newExecDnsConfigPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

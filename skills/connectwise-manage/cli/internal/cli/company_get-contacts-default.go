@@ -45,15 +45,15 @@ func newCompanyGetContactsDefaultCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/company/contacts/default"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "company", path, map[string]string{
-				"conditions":            fmt.Sprintf("%v", flagConditions),
-				"childConditions":       fmt.Sprintf("%v", flagChildConditions),
-				"customFieldConditions": fmt.Sprintf("%v", flagCustomFieldConditions),
-				"orderBy":               fmt.Sprintf("%v", flagOrderBy),
-				"fields":                fmt.Sprintf("%v", flagFields),
-				"page":                  fmt.Sprintf("%v", flagPage),
-				"pageSize":              fmt.Sprintf("%v", flagPageSize),
-				"pageId":                fmt.Sprintf("%v", flagPageId),
-				"companyId":             fmt.Sprintf("%v", flagCompanyId),
+				"conditions":            formatCLIParamValue(flagConditions),
+				"childConditions":       formatCLIParamValue(flagChildConditions),
+				"customFieldConditions": formatCLIParamValue(flagCustomFieldConditions),
+				"orderBy":               formatCLIParamValue(flagOrderBy),
+				"fields":                formatCLIParamValue(flagFields),
+				"page":                  formatCLIParamValue(flagPage),
+				"pageSize":              formatCLIParamValue(flagPageSize),
+				"pageId":                formatCLIParamValue(flagPageId),
+				"companyId":             formatCLIParamValue(flagCompanyId),
 			}, nil, flagAll, "page", "page", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

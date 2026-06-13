@@ -68,16 +68,16 @@ func newCatalogEntitiesPropertiesListCatalogEntityCmd(flags *rootFlags) *cobra.C
 			path := "/v1/catalog_entities/{catalog_entity_id}/properties"
 			path = replacePathParam(path, "catalog_entity_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "properties", path, map[string]string{
-				"include":                  fmt.Sprintf("%v", flagInclude),
-				"sort":                     fmt.Sprintf("%v", flagSort),
-				"page[number]":             fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":               fmt.Sprintf("%v", flagPageSize),
-				"filter[catalog_field_id]": fmt.Sprintf("%v", flagFilterCatalogFieldId),
-				"filter[key]":              fmt.Sprintf("%v", flagFilterKey),
-				"filter[created_at][gt]":   fmt.Sprintf("%v", flagFilterCreatedAtGt),
-				"filter[created_at][gte]":  fmt.Sprintf("%v", flagFilterCreatedAtGte),
-				"filter[created_at][lt]":   fmt.Sprintf("%v", flagFilterCreatedAtLt),
-				"filter[created_at][lte]":  fmt.Sprintf("%v", flagFilterCreatedAtLte),
+				"include":                  formatCLIParamValue(flagInclude),
+				"sort":                     formatCLIParamValue(flagSort),
+				"page[number]":             formatCLIParamValue(flagPageNumber),
+				"page[size]":               formatCLIParamValue(flagPageSize),
+				"filter[catalog_field_id]": formatCLIParamValue(flagFilterCatalogFieldId),
+				"filter[key]":              formatCLIParamValue(flagFilterKey),
+				"filter[created_at][gt]":   formatCLIParamValue(flagFilterCreatedAtGt),
+				"filter[created_at][gte]":  formatCLIParamValue(flagFilterCreatedAtGte),
+				"filter[created_at][lt]":   formatCLIParamValue(flagFilterCreatedAtLt),
+				"filter[created_at][lte]":  formatCLIParamValue(flagFilterCreatedAtLte),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

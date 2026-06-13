@@ -31,10 +31,10 @@ func newTagsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/tags"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "tags", path, map[string]string{
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"offset": fmt.Sprintf("%v", flagOffset),
-				"total":  fmt.Sprintf("%v", flagTotal),
-				"query":  fmt.Sprintf("%v", flagQuery),
+				"limit":  formatCLIParamValue(flagLimit),
+				"offset": formatCLIParamValue(flagOffset),
+				"total":  formatCLIParamValue(flagTotal),
+				"query":  formatCLIParamValue(flagQuery),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

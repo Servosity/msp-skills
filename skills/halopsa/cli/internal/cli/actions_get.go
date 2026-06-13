@@ -39,28 +39,28 @@ func newActionsGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagAgentonly != false {
-				params["agentonly"] = fmt.Sprintf("%v", flagAgentonly)
+				params["agentonly"] = formatCLIParamValue(flagAgentonly)
 			}
 			if flagEmailonly != false {
-				params["emailonly"] = fmt.Sprintf("%v", flagEmailonly)
+				params["emailonly"] = formatCLIParamValue(flagEmailonly)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagIncludeemail != false {
-				params["includeemail"] = fmt.Sprintf("%v", flagIncludeemail)
+				params["includeemail"] = formatCLIParamValue(flagIncludeemail)
 			}
 			if flagMostrecent != false {
-				params["mostrecent"] = fmt.Sprintf("%v", flagMostrecent)
+				params["mostrecent"] = formatCLIParamValue(flagMostrecent)
 			}
 			if flagNonsystem != false {
-				params["nonsystem"] = fmt.Sprintf("%v", flagNonsystem)
+				params["nonsystem"] = formatCLIParamValue(flagNonsystem)
 			}
 			if flagPenultimate != false {
-				params["penultimate"] = fmt.Sprintf("%v", flagPenultimate)
+				params["penultimate"] = formatCLIParamValue(flagPenultimate)
 			}
 			if flagTicketId != "" {
-				params["ticket_id"] = fmt.Sprintf("%v", flagTicketId)
+				params["ticket_id"] = formatCLIParamValue(flagTicketId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "actions", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

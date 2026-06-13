@@ -17,7 +17,7 @@ func newPublicGetDocumentSummaryCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-document-summary <document_id>",
 		Short:       "Returns a summary for the specified document. Use query parameter `type` to select summary granularity.",
-		Example:     "  pandadoc-cli public get-document-summary 550e8400-e29b-41d4-a716-446655440000 --type detailed",
+		Example:     "  pandadoc-cli public get-document-summary D3okRfgHRX7NEhavcACReB --type detailed",
 		Annotations: map[string]string{"pp:endpoint": "public.get-document-summary", "pp:method": "GET", "pp:path": "/public/beta/documents/{document_id}/summary", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
@@ -54,7 +54,7 @@ func newPublicGetDocumentSummaryCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "document_id", args[0])
 			params := map[string]string{}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "public", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

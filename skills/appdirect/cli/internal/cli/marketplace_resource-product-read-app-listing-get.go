@@ -57,55 +57,55 @@ func newMarketplaceResourceProductReadAppListingGetCmd(flags *rootFlags) *cobra.
 			path := "/marketplace/v1/listing"
 			params := map[string]string{}
 			if flagA != "" {
-				params["a"] = fmt.Sprintf("%v", flagA)
+				params["a"] = formatCLIParamValue(flagA)
 			}
 			if flagApprovalAfter != 0.0 {
-				params["approvalAfter"] = fmt.Sprintf("%v", flagApprovalAfter)
+				params["approvalAfter"] = formatCLIParamValue(flagApprovalAfter)
 			}
 			if flagApprovalBefore != 0.0 {
-				params["approvalBefore"] = fmt.Sprintf("%v", flagApprovalBefore)
+				params["approvalBefore"] = formatCLIParamValue(flagApprovalBefore)
 			}
 			if flagPublishedAfter != 0.0 {
-				params["publishedAfter"] = fmt.Sprintf("%v", flagPublishedAfter)
+				params["publishedAfter"] = formatCLIParamValue(flagPublishedAfter)
 			}
 			if flagPublishedBefore != 0.0 {
-				params["publishedBefore"] = fmt.Sprintf("%v", flagPublishedBefore)
+				params["publishedBefore"] = formatCLIParamValue(flagPublishedBefore)
 			}
 			if flagC != "" {
-				params["c"] = fmt.Sprintf("%v", flagC)
+				params["c"] = formatCLIParamValue(flagC)
 			}
 			if flagCount != "" {
-				params["count"] = fmt.Sprintf("%v", flagCount)
+				params["count"] = formatCLIParamValue(flagCount)
 			}
 			if flagFilter != "" {
-				params["filter"] = fmt.Sprintf("%v", flagFilter)
+				params["filter"] = formatCLIParamValue(flagFilter)
 			}
 			if flagS != "" {
-				params["s"] = fmt.Sprintf("%v", flagS)
+				params["s"] = formatCLIParamValue(flagS)
 			}
 			if flagOrder != "" {
-				params["order"] = fmt.Sprintf("%v", flagOrder)
+				params["order"] = formatCLIParamValue(flagOrder)
 			}
 			if flagPl != "" {
-				params["pl"] = fmt.Sprintf("%v", flagPl)
+				params["pl"] = formatCLIParamValue(flagPl)
 			}
 			if flagPlatform != "" {
-				params["platform"] = fmt.Sprintf("%v", flagPlatform)
+				params["platform"] = formatCLIParamValue(flagPlatform)
 			}
 			if flagQ != "" {
-				params["q"] = fmt.Sprintf("%v", flagQ)
+				params["q"] = formatCLIParamValue(flagQ)
 			}
 			if flagStart != 0 {
-				params["start"] = fmt.Sprintf("%v", flagStart)
+				params["start"] = formatCLIParamValue(flagStart)
 			}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			if flagVendor != "" {
-				params["vendor"] = fmt.Sprintf("%v", flagVendor)
+				params["vendor"] = formatCLIParamValue(flagVendor)
 			}
 			if flagLocale != "" {
-				params["locale"] = fmt.Sprintf("%v", flagLocale)
+				params["locale"] = formatCLIParamValue(flagLocale)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "marketplace", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

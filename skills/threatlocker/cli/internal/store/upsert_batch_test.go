@@ -317,6 +317,48 @@ func TestUpsertBatch_ExtractFailuresReturnedForPerItemMisses(t *testing.T) {
 	}
 }
 
+func TestSearchQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "ip", "value": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "cidr", "value": "172.16.192.0/18"}`),
+		json.RawMessage(`{"id": "host", "value": "host.example.com"}`),
+		json.RawMessage(`{"id": "email", "value": "user@example.com"}`),
+		json.RawMessage(`{"id": "mac", "value": "aa:bb:cc:dd:ee:ff"}`),
+		json.RawMessage(`{"id": "hyphen", "value": "some-name"}`),
+		json.RawMessage(`{"id": "multi", "value": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("search-regression", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"172.16.192.0/18",
+		"host.example.com",
+		"user@example.com",
+		"aa:bb:cc:dd:ee:ff",
+		"some-name",
+		"error timeout",
+	} {
+		results, err := s.Search(query, 10)
+		if err != nil {
+			t.Fatalf("Search(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("Search(%q) returned no results", query)
+		}
+	}
+}
+
 // TestUpsertBatch_PopulatesApplicationFilesTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed application_files table. Regression for issue #268: before the fix, paginated
@@ -398,6 +440,40 @@ func TestUpsertBatch_PopulatesApplicationsTable(t *testing.T) {
 	}
 	if typed != len(items) {
 		t.Fatalf("applications count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
+	}
+}
+
+func TestSearchApplicationsQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "name": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "name": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "name": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("applications", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchApplications(query, 10)
+		if err != nil {
+			t.Fatalf("SearchApplications(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchApplications(%q) returned no results", query)
+		}
 	}
 }
 
@@ -524,6 +600,40 @@ func TestUpsertBatch_PopulatesComputerGroupsTable(t *testing.T) {
 	}
 	if typed != len(items) {
 		t.Fatalf("computer_groups count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
+	}
+}
+
+func TestSearchComputerGroupsQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "label": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "label": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "label": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("computer-groups", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchComputerGroups(query, 10)
+		if err != nil {
+			t.Fatalf("SearchComputerGroups(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchComputerGroups(%q) returned no results", query)
+		}
 	}
 }
 
@@ -986,6 +1096,40 @@ func TestUpsertBatch_PopulatesTagsTable(t *testing.T) {
 	}
 	if typed != len(items) {
 		t.Fatalf("tags count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
+	}
+}
+
+func TestSearchTagsQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "label": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "label": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "label": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("tags", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchTags(query, 10)
+		if err != nil {
+			t.Fatalf("SearchTags(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchTags(%q) returned no results", query)
+		}
 	}
 }
 

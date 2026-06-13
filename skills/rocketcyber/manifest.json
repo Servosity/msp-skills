@@ -1,18 +1,18 @@
 {
   "manifest_version": "0.3",
-  "name": "rocketcyber-pp-mcp",
+  "name": "rocketcyber-mcp",
   "display_name": "RocketCyber",
-  "version": "0.1.0",
-  "description": "The first CLI and MCP server for RocketCyber Managed SOC: triage, incident MTTR, device risk ranking, and posture analytics the console doesn't compute.",
+  "version": "0.1.1",
+  "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
   "author": {
     "name": "Servosity Inc."
   },
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/rocketcyber-pp-mcp",
+    "entry_point": "bin/rocketcyber-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/rocketcyber-pp-mcp",
+      "command": "${__dirname}/bin/rocketcyber-mcp",
       "args": [],
       "env": {
         "ROCKETCYBER_API_TOKEN": "${user_config.rocketcyber_api_token}"
@@ -36,10 +36,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-07T02:44:42.462825Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:19:25.763972Z",
     "spec_checksum": "sha256:406b76914cddb89289e9b6f6034e6df8f3a3e818e37dfc370d5d2de29ff092b7",
     "spec_format": "internal"
   }

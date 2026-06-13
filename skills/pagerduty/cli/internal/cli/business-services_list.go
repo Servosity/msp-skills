@@ -30,9 +30,9 @@ func newBusinessServicesListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/business_services"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "business-services", path, map[string]string{
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"offset": fmt.Sprintf("%v", flagOffset),
-				"total":  fmt.Sprintf("%v", flagTotal),
+				"limit":  formatCLIParamValue(flagLimit),
+				"offset": formatCLIParamValue(flagOffset),
+				"total":  formatCLIParamValue(flagTotal),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

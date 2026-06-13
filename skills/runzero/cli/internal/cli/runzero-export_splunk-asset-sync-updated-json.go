@@ -31,16 +31,16 @@ func newRunzeroExportSplunkAssetSyncUpdatedJsonCmd(flags *rootFlags) *cobra.Comm
 			path := "/export/org/assets/sync/updated/assets.json"
 			params := map[string]string{}
 			if flagOid != "" {
-				params["_oid"] = fmt.Sprintf("%v", flagOid)
+				params["_oid"] = formatCLIParamValue(flagOid)
 			}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			if flagFields != "" {
-				params["fields"] = fmt.Sprintf("%v", flagFields)
+				params["fields"] = formatCLIParamValue(flagFields)
 			}
 			if flagSince != 0 {
-				params["since"] = fmt.Sprintf("%v", flagSince)
+				params["since"] = formatCLIParamValue(flagSince)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "runzero-export", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

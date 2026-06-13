@@ -63,15 +63,15 @@ func newAccountResourceCompanyReadAllCompaniesGetCmd(flags *rootFlags) *cobra.Co
 
 			path := "/account/v2/companies"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "account", path, map[string]string{
-				"name":                       fmt.Sprintf("%v", flagName),
-				"includeCustomAttributes":    fmt.Sprintf("%v", flagIncludeCustomAttributes),
-				"includePurchaseLimitData":   fmt.Sprintf("%v", flagIncludePurchaseLimitData),
-				"vendor":                     fmt.Sprintf("%v", flagVendor),
-				"page":                       fmt.Sprintf("%v", flagPage),
-				"size":                       fmt.Sprintf("%v", flagSize),
-				"sortField":                  fmt.Sprintf("%v", flagSortField),
-				"sortOrder":                  fmt.Sprintf("%v", flagSortOrder),
-				"custom.customAttributeName": fmt.Sprintf("%v", flagCustomCustomAttributeName),
+				"name":                       formatCLIParamValue(flagName),
+				"includeCustomAttributes":    formatCLIParamValue(flagIncludeCustomAttributes),
+				"includePurchaseLimitData":   formatCLIParamValue(flagIncludePurchaseLimitData),
+				"vendor":                     formatCLIParamValue(flagVendor),
+				"page":                       formatCLIParamValue(flagPage),
+				"size":                       formatCLIParamValue(flagSize),
+				"sortField":                  formatCLIParamValue(flagSortField),
+				"sortOrder":                  formatCLIParamValue(flagSortOrder),
+				"custom.customAttributeName": formatCLIParamValue(flagCustomCustomAttributeName),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -31,10 +31,10 @@ func newEstimatesListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/estimates"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "estimates", path, map[string]string{
-				"mine":          fmt.Sprintf("%v", flagMine),
-				"status":        fmt.Sprintf("%v", flagStatus),
-				"page":          fmt.Sprintf("%v", flagPage),
-				"created_after": fmt.Sprintf("%v", flagCreatedAfter),
+				"mine":          formatCLIParamValue(flagMine),
+				"status":        formatCLIParamValue(flagStatus),
+				"page":          formatCLIParamValue(flagPage),
+				"created_after": formatCLIParamValue(flagCreatedAfter),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

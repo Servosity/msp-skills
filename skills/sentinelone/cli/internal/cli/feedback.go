@@ -184,6 +184,9 @@ func newFeedbackListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List recent feedback entries",
+		Annotations: map[string]string{
+			"mcp:read-only": "true",
+		},
 		Example: `  sentinelone-cli feedback list
   sentinelone-cli feedback list --limit 5
   sentinelone-cli feedback list --json`,

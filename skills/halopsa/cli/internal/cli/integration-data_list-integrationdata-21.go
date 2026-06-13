@@ -34,25 +34,25 @@ func newIntegrationDataListIntegrationdata21Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/DevOps"
 			params := map[string]string{}
 			if flagDataOnly != false {
-				params["data_only"] = fmt.Sprintf("%v", flagDataOnly)
+				params["data_only"] = formatCLIParamValue(flagDataOnly)
 			}
 			if flagHaloProduct != 0 {
-				params["haloProduct"] = fmt.Sprintf("%v", flagHaloProduct)
+				params["haloProduct"] = formatCLIParamValue(flagHaloProduct)
 			}
 			if flagInstanceId != "" {
-				params["instance_id"] = fmt.Sprintf("%v", flagInstanceId)
+				params["instance_id"] = formatCLIParamValue(flagInstanceId)
 			}
 			if flagProductId != "" {
-				params["product_id"] = fmt.Sprintf("%v", flagProductId)
+				params["product_id"] = formatCLIParamValue(flagProductId)
 			}
 			if flagResource != "" {
-				params["resource"] = fmt.Sprintf("%v", flagResource)
+				params["resource"] = formatCLIParamValue(flagResource)
 			}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			if flagWorkItemTypes != "" {
-				params["workItemTypes"] = fmt.Sprintf("%v", flagWorkItemTypes)
+				params["workItemTypes"] = formatCLIParamValue(flagWorkItemTypes)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

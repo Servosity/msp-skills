@@ -54,12 +54,12 @@ func newAccountResourceGroupReadCompanyGroupsForUserGetCmd(flags *rootFlags) *co
 			}
 			path = replacePathParam(path, "userUuid", args[1])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "account", path, map[string]string{
-				"ldap":       fmt.Sprintf("%v", flagLdap),
-				"page":       fmt.Sprintf("%v", flagPage),
-				"searchText": fmt.Sprintf("%v", flagSearchText),
-				"size":       fmt.Sprintf("%v", flagSize),
-				"sortField":  fmt.Sprintf("%v", flagSortField),
-				"sortOrder":  fmt.Sprintf("%v", flagSortOrder),
+				"ldap":       formatCLIParamValue(flagLdap),
+				"page":       formatCLIParamValue(flagPage),
+				"searchText": formatCLIParamValue(flagSearchText),
+				"size":       formatCLIParamValue(flagSize),
+				"sortField":  formatCLIParamValue(flagSortField),
+				"sortOrder":  formatCLIParamValue(flagSortOrder),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

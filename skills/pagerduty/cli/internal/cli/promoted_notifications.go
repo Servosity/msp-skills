@@ -75,14 +75,14 @@ func newNotificationsPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/notifications"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "notifications", path, map[string]string{
-				"limit":     fmt.Sprintf("%v", flagLimit),
-				"offset":    fmt.Sprintf("%v", flagOffset),
-				"total":     fmt.Sprintf("%v", flagTotal),
-				"time_zone": fmt.Sprintf("%v", flagTimeZone),
-				"since":     fmt.Sprintf("%v", flagSince),
-				"until":     fmt.Sprintf("%v", flagUntil),
-				"filter":    fmt.Sprintf("%v", flagFilter),
-				"include[]": fmt.Sprintf("%v", flagInclude),
+				"limit":     formatCLIParamValue(flagLimit),
+				"offset":    formatCLIParamValue(flagOffset),
+				"total":     formatCLIParamValue(flagTotal),
+				"time_zone": formatCLIParamValue(flagTimeZone),
+				"since":     formatCLIParamValue(flagSince),
+				"until":     formatCLIParamValue(flagUntil),
+				"filter":    formatCLIParamValue(flagFilter),
+				"include[]": formatCLIParamValue(flagInclude),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -48,52 +48,52 @@ func newRbacGetSpecificRoleDefinitionCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "role_id", args[0])
 			params := map[string]string{}
 			if flagSiteIds != "" {
-				params["siteIds"] = fmt.Sprintf("%v", flagSiteIds)
+				params["siteIds"] = formatCLIParamValue(flagSiteIds)
 			}
 			if flagName != "" {
-				params["name"] = fmt.Sprintf("%v", flagName)
+				params["name"] = formatCLIParamValue(flagName)
 			}
 			if flagUpdatedAtGt != "" {
-				params["updatedAt__gt"] = fmt.Sprintf("%v", flagUpdatedAtGt)
+				params["updatedAt__gt"] = formatCLIParamValue(flagUpdatedAtGt)
 			}
 			if flagUpdatedAtLt != "" {
-				params["updatedAt__lt"] = fmt.Sprintf("%v", flagUpdatedAtLt)
+				params["updatedAt__lt"] = formatCLIParamValue(flagUpdatedAtLt)
 			}
 			if flagGroupIds != "" {
-				params["groupIds"] = fmt.Sprintf("%v", flagGroupIds)
+				params["groupIds"] = formatCLIParamValue(flagGroupIds)
 			}
 			if flagTenant != "" {
-				params["tenant"] = fmt.Sprintf("%v", flagTenant)
+				params["tenant"] = formatCLIParamValue(flagTenant)
 			}
 			if flagCreatedAtLt != "" {
-				params["createdAt__lt"] = fmt.Sprintf("%v", flagCreatedAtLt)
+				params["createdAt__lt"] = formatCLIParamValue(flagCreatedAtLt)
 			}
 			if flagCreatedAtBetween != "" {
-				params["createdAt__between"] = fmt.Sprintf("%v", flagCreatedAtBetween)
+				params["createdAt__between"] = formatCLIParamValue(flagCreatedAtBetween)
 			}
 			if flagCreatedAtLte != "" {
-				params["createdAt__lte"] = fmt.Sprintf("%v", flagCreatedAtLte)
+				params["createdAt__lte"] = formatCLIParamValue(flagCreatedAtLte)
 			}
 			if flagQuery != "" {
-				params["query"] = fmt.Sprintf("%v", flagQuery)
+				params["query"] = formatCLIParamValue(flagQuery)
 			}
 			if flagUpdatedAtBetween != "" {
-				params["updatedAt__between"] = fmt.Sprintf("%v", flagUpdatedAtBetween)
+				params["updatedAt__between"] = formatCLIParamValue(flagUpdatedAtBetween)
 			}
 			if flagCreatedAtGte != "" {
-				params["createdAt__gte"] = fmt.Sprintf("%v", flagCreatedAtGte)
+				params["createdAt__gte"] = formatCLIParamValue(flagCreatedAtGte)
 			}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			if flagUpdatedAtLte != "" {
-				params["updatedAt__lte"] = fmt.Sprintf("%v", flagUpdatedAtLte)
+				params["updatedAt__lte"] = formatCLIParamValue(flagUpdatedAtLte)
 			}
 			if flagUpdatedAtGte != "" {
-				params["updatedAt__gte"] = fmt.Sprintf("%v", flagUpdatedAtGte)
+				params["updatedAt__gte"] = formatCLIParamValue(flagUpdatedAtGte)
 			}
 			if flagCreatedAtGt != "" {
-				params["createdAt__gt"] = fmt.Sprintf("%v", flagCreatedAtGt)
+				params["createdAt__gt"] = formatCLIParamValue(flagCreatedAtGt)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "rbac", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

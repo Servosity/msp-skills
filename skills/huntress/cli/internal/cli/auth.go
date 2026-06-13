@@ -42,9 +42,8 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "Get a key at: https://www.huntress.com/terms-of-service")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export HUNTRESS_API_KEY=\"<your-token>\"")
-			fmt.Fprintln(w, "  export HUNTRESS_API_SECRET=\"<your-token>\"")
-			fmt.Fprintln(w, "  huntress-cli auth set-token <token>")
+			fmt.Fprintln(w, "  export HUNTRESS_API_KEY=\"your-token-here\"")
+			fmt.Fprintln(w, "  export HUNTRESS_API_SECRET=\"your-token-here\"")
 			if !launch {
 				return nil
 			}
@@ -115,10 +114,9 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			if !authed {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
-				fmt.Fprintln(w, "Set your token:")
+				fmt.Fprintln(w, "Set your credentials:")
 				fmt.Fprintln(w, "  export HUNTRESS_API_KEY=\"your-token-here\"")
 				fmt.Fprintln(w, "  export HUNTRESS_API_SECRET=\"your-token-here\"")
-				fmt.Fprintf(w, "  huntress-cli auth set-token <token>\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
 

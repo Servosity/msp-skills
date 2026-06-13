@@ -14,9 +14,10 @@ import (
 func newFieldPublicGetValuesCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "public-get-values <field>",
-		Aliases:     []string{"get"},
-		Short:       "Get the list of values from a field",
+		Use:     "public-get-values <field>",
+		Aliases: []string{"get"},
+		Short:   "Get the list of values from a field",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  salesbuildr-cli field public-get-values example-value",
 		Annotations: map[string]string{"pp:endpoint": "field.public-get-values", "pp:method": "GET", "pp:path": "/field/{field}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

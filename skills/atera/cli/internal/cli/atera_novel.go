@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -24,6 +25,26 @@ import (
 	"atera-pp-cli/internal/cliutil"
 	"atera-pp-cli/internal/store"
 )
+
+// nvOpenRead opens the local mirror read-only for the read-only transcendence
+// commands. Read-only handles take no write lock, so several novel commands can
+// run concurrently against the same mirror without SQLITE_BUSY (the failure the
+// scorecard's parallel sample probe surfaced). ok is false (nil store, nil err)
+// when no mirror exists yet; nvLoad and the sync hints already tolerate a nil
+// store, so callers render that as an empty "run sync first" result.
+func nvOpenRead(dbPath string) (*store.Store, bool, error) {
+	if dbPath == "" {
+		dbPath = defaultDBPath("atera-cli")
+	}
+	if _, err := os.Stat(dbPath); err != nil {
+		return nil, false, nil
+	}
+	s, err := store.OpenReadOnly(dbPath)
+	if err != nil {
+		return nil, false, err
+	}
+	return s, true, nil
+}
 
 // nvObj is one decoded resource row: top-level JSON keys → raw values.
 type nvObj map[string]json.RawMessage
@@ -39,6 +60,9 @@ var nvNow = time.Now
 // An empty or absent store yields an empty slice so callers emit [] / {} and
 // exit 0 rather than erroring.
 func nvLoad(s *store.Store, resourceType string) ([]nvObj, error) {
+	if s == nil {
+		return nil, nil // no mirror yet -> empty result, caller emits [] / {}
+	}
 	rows, err := s.Query(`SELECT data FROM resources WHERE resource_type = ?`, resourceType)
 	if err != nil {
 		return nil, err

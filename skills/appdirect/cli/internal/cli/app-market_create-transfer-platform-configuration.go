@@ -18,8 +18,9 @@ func newAppMarketCreateTransferPlatformConfigurationCmd(flags *rootFlags) *cobra
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create-transfer-platform-configuration",
-		Short:       "Create a transfer platform configuration in the marketplace of the current user",
+		Use:   "create-transfer-platform-configuration",
+		Short: "Create a transfer platform configuration in the marketplace of the current user",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli app-market create-transfer-platform-configuration --platform-type example-value",
 		Annotations: map[string]string{"pp:endpoint": "app-market.create-transfer-platform-configuration", "pp:method": "POST", "pp:path": "/api/appMarket/v2/transferPlatformConfigurations"},
 		RunE: func(cmd *cobra.Command, args []string) error {

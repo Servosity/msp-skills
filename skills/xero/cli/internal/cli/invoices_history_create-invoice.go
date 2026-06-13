@@ -20,7 +20,7 @@ func newInvoicesHistoryCreateInvoiceCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-invoice <InvoiceID>",
 		Aliases:     []string{"update"},
 		Short:       "Creates a history record for a specific invoice",
-		Example:     "  xero-cli invoices history create-invoice 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  xero-cli invoices history create-invoice 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "history.create-invoice", "pp:method": "PUT", "pp:path": "/Invoices/{InvoiceID}/History"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

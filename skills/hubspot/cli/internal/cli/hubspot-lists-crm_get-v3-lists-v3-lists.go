@@ -29,10 +29,10 @@ func newHubspotListsCrmGetV3ListsV3ListsCmd(flags *rootFlags) *cobra.Command {
 			path := "/crm/v3/lists"
 			params := map[string]string{}
 			if flagIncludeFilters != false {
-				params["includeFilters"] = fmt.Sprintf("%v", flagIncludeFilters)
+				params["includeFilters"] = formatCLIParamValue(flagIncludeFilters)
 			}
 			if flagListIds != "" {
-				params["listIds"] = fmt.Sprintf("%v", flagListIds)
+				params["listIds"] = formatCLIParamValue(flagListIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-lists-crm", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -19,9 +19,10 @@ func newExecDeviceActionPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUser string
 
 	cmd := &cobra.Command{
-		Use:         "exec-device-action",
-		Short:       "Exec device action",
-		Long:        "Exec device action",
+		Use:   "exec-device-action",
+		Short: "Exec device action",
+		Long:  "Exec device action",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-device-action --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-device-action.create", "pp:method": "POST", "pp:path": "/ExecDeviceAction"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -64,10 +65,10 @@ func newExecDeviceActionPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

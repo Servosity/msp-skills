@@ -38,17 +38,17 @@ func newNotificationsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/Notifications"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "notifications", path, map[string]string{
-				"checkhalointegrator": fmt.Sprintf("%v", flagCheckhalointegrator),
-				"checknhserver":       fmt.Sprintf("%v", flagChecknhserver),
-				"clientversion":       fmt.Sprintf("%v", flagClientversion),
-				"count":               fmt.Sprintf("%v", flagCount),
-				"newer_than_id":       fmt.Sprintf("%v", flagNewerThanId),
-				"older_than_id":       fmt.Sprintf("%v", flagOlderThanId),
-				"page_no":             fmt.Sprintf("%v", flagPageNo),
-				"page_size":           fmt.Sprintf("%v", flagPageSize),
-				"pageinate":           fmt.Sprintf("%v", flagPageinate),
-				"update_shown":        fmt.Sprintf("%v", flagUpdateShown),
-				"utc_offset":          fmt.Sprintf("%v", flagUtcOffset),
+				"checkhalointegrator": formatCLIParamValue(flagCheckhalointegrator),
+				"checknhserver":       formatCLIParamValue(flagChecknhserver),
+				"clientversion":       formatCLIParamValue(flagClientversion),
+				"count":               formatCLIParamValue(flagCount),
+				"newer_than_id":       formatCLIParamValue(flagNewerThanId),
+				"older_than_id":       formatCLIParamValue(flagOlderThanId),
+				"page_no":             formatCLIParamValue(flagPageNo),
+				"page_size":           formatCLIParamValue(flagPageSize),
+				"pageinate":           formatCLIParamValue(flagPageinate),
+				"update_shown":        formatCLIParamValue(flagUpdateShown),
+				"utc_offset":          formatCLIParamValue(flagUtcOffset),
 			}, nil, flagAll, "", "offset", "page_size", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -14,9 +14,10 @@ import (
 func newNotificationResourceDefaultTemplateApiGetDefaultCommonEmailTemplateGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "resource-default-template-api-get-default-common-email-template-get <type>",
-		Aliases:     []string{"get"},
-		Short:       "Read default common email element by type.",
+		Use:     "resource-default-template-api-get-default-common-email-template-get <type>",
+		Aliases: []string{"get"},
+		Short:   "Read default common email element by type.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli notification resource-default-template-api-get-default-common-email-template-get example-value",
 		Annotations: map[string]string{"pp:endpoint": "notification.resource-default-template-api-get-default-common-email-template-get", "pp:method": "GET", "pp:path": "/notification/v1/templates/default/common/email/{type}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

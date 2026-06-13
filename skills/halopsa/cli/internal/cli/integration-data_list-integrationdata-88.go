@@ -29,10 +29,10 @@ func newIntegrationDataListIntegrationdata88Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/SolarWindsRMM"
 			params := map[string]string{}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			if flagGfisiteid != "" {
-				params["gfisiteid"] = fmt.Sprintf("%v", flagGfisiteid)
+				params["gfisiteid"] = formatCLIParamValue(flagGfisiteid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

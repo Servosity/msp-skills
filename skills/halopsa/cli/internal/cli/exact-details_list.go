@@ -29,10 +29,10 @@ func newExactDetailsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExactDetails"
 			params := map[string]string{}
 			if flagConnectedonly != false {
-				params["connectedonly"] = fmt.Sprintf("%v", flagConnectedonly)
+				params["connectedonly"] = formatCLIParamValue(flagConnectedonly)
 			}
 			if flagDivision != "" {
-				params["division"] = fmt.Sprintf("%v", flagDivision)
+				params["division"] = formatCLIParamValue(flagDivision)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exact-details", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

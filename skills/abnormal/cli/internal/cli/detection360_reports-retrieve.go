@@ -54,16 +54,16 @@ func newDetection360ReportsRetrieveCmd(flags *rootFlags) *cobra.Command {
 			path := "/detection360/reports"
 			params := map[string]string{}
 			if flagInquiryType != "" {
-				params["inquiry_type"] = fmt.Sprintf("%v", flagInquiryType)
+				params["inquiry_type"] = formatCLIParamValue(flagInquiryType)
 			}
 			if flagStart != "" {
-				params["start"] = fmt.Sprintf("%v", flagStart)
+				params["start"] = formatCLIParamValue(flagStart)
 			}
 			if flagEnd != "" {
-				params["end"] = fmt.Sprintf("%v", flagEnd)
+				params["end"] = formatCLIParamValue(flagEnd)
 			}
 			if flagStatus != "" {
-				params["status"] = fmt.Sprintf("%v", flagStatus)
+				params["status"] = formatCLIParamValue(flagStatus)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "detection360", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

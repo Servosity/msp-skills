@@ -33,12 +33,12 @@ func newIntegrationDataListIntegrationdata80Cmd(flags *rootFlags) *cobra.Command
 
 			path := "/IntegrationData/Get/ServiceNowIntegration"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", path, map[string]string{
-				"alternate_sys_id": fmt.Sprintf("%v", flagAlternateSysId),
-				"customer_id":      fmt.Sprintf("%v", flagCustomerId),
-				"datatype":         fmt.Sprintf("%v", flagDatatype),
-				"offset":           fmt.Sprintf("%v", flagOffset),
-				"search":           fmt.Sprintf("%v", flagSearch),
-				"updateddate":      fmt.Sprintf("%v", flagUpdateddate),
+				"alternate_sys_id": formatCLIParamValue(flagAlternateSysId),
+				"customer_id":      formatCLIParamValue(flagCustomerId),
+				"datatype":         formatCLIParamValue(flagDatatype),
+				"offset":           formatCLIParamValue(flagOffset),
+				"search":           formatCLIParamValue(flagSearch),
+				"updateddate":      formatCLIParamValue(flagUpdateddate),
 			}, nil, flagAll, "offset", "offset", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

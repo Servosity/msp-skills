@@ -16,8 +16,9 @@ func newCustomvaluesCustomValuesSetContactFieldContactfield2Cmd(flags *rootFlags
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "custom-values-set-contact-field-contactfield-2 <contactId> <fieldName> <value>",
-		Short:       "Set value of custom field for specified Contact",
+		Use:   "custom-values-set-contact-field-contactfield-2 <contactId> <fieldName> <value>",
+		Short: "Set value of custom field for specified Contact",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  atera-cli customvalues custom-values-set-contact-field-contactfield-2 42 example-resource example-value",
 		Annotations: map[string]string{"pp:endpoint": "customvalues.custom-values-set-contact-field-contactfield-2", "pp:method": "PUT", "pp:path": "/customvalues/contactfield/{contactId}/{fieldName}/{value}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

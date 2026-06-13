@@ -2,10 +2,7 @@
 
 **Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.**
 
-SuperOps unifies PSA and RMM on one relational database; this CLI syncs your whole tenant into local SQLite so you can grep, jq, and join across tickets, assets, clients, contracts, and invoices offline. Match every entity the GraphQL API exposes, then go further with cross-entity views like sla-watch, unbilled, at-risk-assets, and alert-coverage that no single SuperOps call answers.
-
-Created by [@dstevens](https://github.com/dstevens) (Damien Stevens).
-Contributors: [@DamienStevens](https://github.com/DamienStevens) (Damien Stevens).
+SuperOps unifies PSA and RMM on one relational database; this CLI syncs your whole tenant into local SQLite so you can grep, jq, and join across tickets, assets, clients, contracts, and invoices offline. Match every entity the GraphQL API exposes, then transcend with commands like sla-watch, unbilled, at-risk-assets, and alert-coverage that no single SuperOps call answers.
 
 ## Install
 
@@ -123,18 +120,14 @@ Authenticate with a SuperOps API token (Settings - My Profile - API token) plus 
 # Verify token, subdomain, and API reachability before anything else
 superops-cli doctor
 
-
 # Pull the tenant into local SQLite so offline and cross-entity commands work
 superops-cli sync
-
 
 # List recent tickets as structured output an agent can parse
 superops-cli tickets list --first 20 --agent
 
-
 # See who is about to breach SLA grouped by technician
 superops-cli sla-watch --by tech
-
 
 # Surface worklog time that never got invoiced
 superops-cli unbilled --since 2026-05-01
@@ -146,7 +139,6 @@ superops-cli unbilled --since 2026-05-01
 These capabilities aren't available in any other tool for this API.
 
 ### Cross-entity insight from local state
-
 - **`sla-watch`**  -  See which open tickets are breaching or about to breach SLA, grouped by technician or client.
 
   _Reach for this to answer 'who is about to miss SLA and on whose queue' in one call instead of five filtered views._
@@ -154,9 +146,9 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   superops-cli sla-watch --by tech --window 4h --agent
   ```
-- **`unbilled`**  -  Total billable logged worklog per client - the month-end reconciliation target. (The SuperOps list API exposes no per-entry "already billed" flag, so this is billable time per client, not a strict worklog-minus-invoice diff.)
+- **`unbilled`**  -  Find logged worklog time that never landed on an invoice, totaled in dollars per client.
 
-  _Reach for this at month-end to see where billable time is concentrated before invoicing._
+  _Reach for this at month-end to surface revenue leaking out of the billing pipeline._
 
   ```bash
   superops-cli unbilled --since 2026-05-01 --agent
@@ -180,7 +172,7 @@ These capabilities aren't available in any other tool for this API.
   _Reach for this before a QBR or escalation to load the full client picture in one command._
 
   ```bash
-  superops-cli client-360 "Acme Corp" --agent
+  superops-cli client-360 <client> --agent
   ```
 - **`stale-tickets`**  -  Open tickets with no conversation, note, or worklog activity in N days.
 
@@ -191,7 +183,6 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Agent-native plumbing
-
 - **`context-ticket`**  -  Assemble a ticket plus its worklogs, client, and SLA into one agent-shaped JSON blob (conversation/notes fetched live).
 
   _Reach for this as an AI triage agent's single read to ground a decision without six round-trips._
@@ -211,10 +202,10 @@ superops-cli sla-watch --by tech --window 4h
 
 Groups at-risk tickets per tech so the service desk knows where to push first.
 
-### Month-end billable-time reconciliation
+### Month-end revenue leak check
 
 ```bash
-superops-cli unbilled --since 2026-05-01 --agent
+superops-cli unbilled --agent --select client.name,worklog.minutes,worklog.amount
 ```
 
 Lists unbilled worklog per client with just the fields billing needs.
@@ -405,13 +396,10 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Run the `list` command to see available items
 
 ### API-specific
-
 - **graphql access denied / UNAUTHENTICATED**  -  Regenerate the API token in Settings - My Profile and re-export SUPEROPS_API_TOKEN; only one token is valid per user at a time.
 - **Empty results despite data existing**  -  Confirm SUPEROPS_SUBDOMAIN matches Settings - MSP Information exactly; the CustomerSubDomain header scopes every query to that tenant.
 - **Wrong data center / connection errors**  -  Set SUPEROPS_REGION=eu if your tenant is hosted in the EU (euapi.superops.ai); default is us.
 - **HTTP 429 / rate limited**  -  SuperOps caps at 800 requests per minute; lower sync --concurrency or let the adaptive limiter back off.
-
----
 
 ## Sources & Inspiration
 

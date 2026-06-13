@@ -17,7 +17,7 @@ func newContactsDetailsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "details <id>",
 		Aliases:     []string{"get"},
 		Short:       "Returns contact details by its ID.",
-		Example:     "  pandadoc-cli contacts details 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli contacts details SyoufNkJiHRn24LpuJ7RXb",
 		Annotations: map[string]string{"pp:endpoint": "contacts.details", "pp:method": "GET", "pp:path": "/contacts/{id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

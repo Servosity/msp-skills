@@ -1,6 +1,6 @@
 ---
 name: microsoft-graph
-description: "Use when the user asks to find wasted Microsoft 365 licenses, see who holds global admin or other privileged roles, triage new Microsoft Defender security alerts, flag non-compliant or stale Intune devices, pull a whole-tenant posture snapshot, or run any cross-entity question across a Microsoft 365 / Entra tenant. The lightweight single-binary successor to the retiring mgc (no .NET or PowerShell runtime), wrapping the MSP-relevant Microsoft Graph surface plus an offline SQLite mirror; read-only by default with a single previewable `import` write path. Trigger phrases: `find unused microsoft 365 licenses`, `who has global admin in this tenant`, `triage microsoft defender alerts`, `list non-compliant intune devices`, `microsoft graph tenant snapshot`, `Microsoft Graph + ChatGPT`, `Microsoft Graph + Claude`, `use microsoft-graph`, `run microsoft-graph-cli`."
+description: "The maintained single-binary successor to the retiring mgc  -  every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can. Trigger phrases: `find unused microsoft 365 licenses`, `who has global admin in this tenant`, `triage microsoft defender alerts`, `list non-compliant intune devices`, `microsoft graph tenant snapshot`, `use microsoft-graph`, `run microsoft-graph`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Microsoft Graph"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - microsoft-graph-cli
+    install:
+      - kind: go
+        bins: [microsoft-graph-cli]
+        module: github.com/mvanhorn/printing-press-library/library/cloud/microsoft-graph/cmd/microsoft-graph-cli
 ---
 
-# Microsoft Graph Claude Code Skill
+# Microsoft Graph  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `microsoft-graph-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/microsoft-graph/install.sh)
+   npx -y @mvanhorn/printing-press-library install microsoft-graph --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/microsoft-graph/install.ps1 | iex
-   ```
-3. Verify: `microsoft-graph-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `microsoft-graph-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/cloud/microsoft-graph/cmd/microsoft-graph-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Microsoft is retiring the Microsoft Graph CLI (mgc) in August 2026, leaving M365 admins and MSPs without a lightweight, scriptable replacement scoped to the directory, security, licensing, and device core. This is that replacement: one cross-platform Go binary (no .NET or PowerShell runtime), with a local SQLite store that powers cross-entity answers  -  licenses waste, admins audit, security triage, managed-devices drift, tenant snapshot  -  that no single Graph endpoint returns.
 
@@ -38,9 +44,11 @@ Microsoft is retiring the Microsoft Graph CLI (mgc) in August 2026, leaving M365
 
 Reach for this CLI for read-side Microsoft 365 / Entra tenant administration from a terminal, script, or agent: directory lookups (users, groups, roles), licensing and cost questions, security-alert triage, and Intune device-compliance reporting. It is the right tool when you want one cross-platform binary instead of the retiring mgc, the PowerShell Microsoft.Graph module, or the M365 admin portals  -  and especially when the question spans entities (waste, orphaned licenses, privileged access, compliance drift, tenant posture) that no single Graph call answers. It is read-focused; apart from the explicit `import` command (a JSONL create path, previewable with `--dry-run`), it does not create, update, or delete directory objects. The cross-entity analytics commands (licenses waste/orphans/map, admins audit, security triage, managed-devices drift, tenant snapshot, groups risk) read the LOCAL SQLite store  -  run `microsoft-graph-cli pull` first to populate it, or they will honestly return empty results with a stderr sync hint.
 
-## When Not to Use This CLI
+## Anti-triggers
 
-Do not activate this CLI for requests that require creating, updating, deleting, publishing, commenting, upvoting, inviting, ordering, sending messages, booking, purchasing, or changing remote state. This printed CLI exposes read-only commands for inspection, export, sync, and analysis; the only write path is the explicit `import` command.
+Do not use this CLI for:
+- Do not use this CLI to create, update, or delete directory objects, send mail, or change tenant state  -  the only write path is the explicit `import` command (JSONL create, previewable with `--dry-run`).
+- Do not use the cross-entity analytics commands against a never-synced store and treat empty output as a real answer  -  run `pull` first; an unsynced store returns honest empties with a stderr hint.
 
 ## Unique Capabilities
 
@@ -225,7 +233,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
-- **Read-only**  -  do not use this CLI for create, update, delete, publish, comment, upvote, invite, order, send, or other mutating requests (the explicit `import` command is the sole, opt-in create path)
+- **Read-only**  -  do not use this CLI for create, update, delete, publish, comment, upvote, invite, order, send, or other mutating requests
 
 ### Response envelope
 
@@ -302,13 +310,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-Install the MCP binary via the installer in Prerequisites above (it drops both `microsoft-graph-cli` and `microsoft-graph-mcp` into your user bin path), then register it:
-
-```bash
-claude mcp add microsoft-graph-mcp -- microsoft-graph-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/cloud/microsoft-graph/cmd/microsoft-graph-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add microsoft-graph-mcp -- microsoft-graph-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

@@ -15,9 +15,10 @@ func newListDefenderTvmPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-defender-tvm",
-		Short:       "List defender tvm",
-		Long:        "List defender tvm",
+		Use:   "list-defender-tvm",
+		Short: "List defender tvm",
+		Long:  "List defender tvm",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-defender-tvm --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-defender-tvm.list", "pp:method": "GET", "pp:path": "/ListDefenderTVM", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,7 @@ func newListDefenderTvmPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListDefenderTVM"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-defender-tvm", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

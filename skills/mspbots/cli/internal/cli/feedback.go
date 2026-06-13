@@ -81,7 +81,7 @@ func postFeedback(url string, entry FeedbackEntry) error {
 		return fmt.Errorf("building feedback request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "mspbots-pp-cli/feedback")
+	req.Header.Set("User-Agent", "mspbots-cli/feedback")
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -100,7 +100,7 @@ func newFeedbackCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "feedback [text]",
 		Short: "Record feedback about this CLI (local by default; upstream opt-in)",
-		Long: `Feedback is captured locally first at ~/.local/share/mspbots-pp-cli/feedback.jsonl.
+		Long: `Feedback is captured locally first at ~/.local/share/mspbots-cli/feedback.jsonl.
 When ` + "`MSPBOTS_FEEDBACK_ENDPOINT`" + ` is set and either --send is
 passed or ` + "`MSPBOTS_FEEDBACK_AUTO_SEND=true`" + `, the entry is
 POSTed as JSON after the local write.
@@ -184,6 +184,9 @@ func newFeedbackListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List recent feedback entries",
+		Annotations: map[string]string{
+			"mcp:read-only": "true",
+		},
 		Example: `  mspbots-cli feedback list
   mspbots-cli feedback list --limit 5
   mspbots-cli feedback list --json`,

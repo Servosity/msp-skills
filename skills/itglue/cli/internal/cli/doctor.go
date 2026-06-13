@@ -173,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export ITGLUE_API_KEY=<your-key>"
+					report["auth_hint"] = "Set your API key with: export ITGLUE_API_KEY=\"your-token-here\""
 					report["auth_key_url"] = "https://api.itglue.com/developer/"
 					report["auth_instructions"] = "Generate an API key in your IT Glue account settings, then choose the base URL for your IT Glue data region."
 				} else {

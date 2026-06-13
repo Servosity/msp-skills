@@ -33,10 +33,10 @@ func newItemGroupGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagGroupQuantity != 0 {
-				params["groupQuantity"] = fmt.Sprintf("%v", flagGroupQuantity)
+				params["groupQuantity"] = formatCLIParamValue(flagGroupQuantity)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "item-group", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

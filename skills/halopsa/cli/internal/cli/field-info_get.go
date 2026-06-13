@@ -36,19 +36,19 @@ func newFieldInfoGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagEntityid != "" {
-				params["entityid"] = fmt.Sprintf("%v", flagEntityid)
+				params["entityid"] = formatCLIParamValue(flagEntityid)
 			}
 			if flagGetlookupvalues != false {
-				params["getlookupvalues"] = fmt.Sprintf("%v", flagGetlookupvalues)
+				params["getlookupvalues"] = formatCLIParamValue(flagGetlookupvalues)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagLivecustomfields != "" {
-				params["livecustomfields"] = fmt.Sprintf("%v", flagLivecustomfields)
+				params["livecustomfields"] = formatCLIParamValue(flagLivecustomfields)
 			}
 			if flagUserid != "" {
-				params["userid"] = fmt.Sprintf("%v", flagUserid)
+				params["userid"] = formatCLIParamValue(flagUserid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "field-info", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

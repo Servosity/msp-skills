@@ -33,7 +33,7 @@ func newSoftwareRepositoryMatchConflictsPackagesAllGetCmd(flags *rootFlags) *cob
 			path = replacePathParam(path, "orgId", args[0])
 			params := map[string]string{}
 			if flagAppNameMatch != "" {
-				params["app_name_match"] = fmt.Sprintf("%v", flagAppNameMatch)
+				params["app_name_match"] = formatCLIParamValue(flagAppNameMatch)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "match-conflicts", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

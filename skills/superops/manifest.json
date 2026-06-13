@@ -1,8 +1,8 @@
 {
   "manifest_version": "0.3",
-  "name": "superops-pp-mcp",
+  "name": "superops-mcp",
   "display_name": "SuperOps",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
   "author": {
     "name": "Servosity Inc."
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/superops-pp-mcp",
+    "entry_point": "bin/superops-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/superops-pp-mcp",
+      "command": "${__dirname}/bin/superops-mcp",
       "args": [],
       "env": {
         "SUPEROPS_API_TOKEN": "${user_config.superops_api_token}"
@@ -36,10 +36,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-05T19:55:55.556113Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:37:08.461331Z",
     "spec_checksum": "sha256:75c960f532ac96efb29a77b04304be15626dfca8c78be0092351be6ed34748fb",
     "spec_format": "internal"
   }

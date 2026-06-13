@@ -30,8 +30,8 @@ func newProjectTemplatesGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/projectTemplates"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "project-templates", path, map[string]string{
-				"cursor": fmt.Sprintf("%v", flagCursor),
-				"limit":  fmt.Sprintf("%v", flagLimit),
+				"cursor": formatCLIParamValue(flagCursor),
+				"limit":  formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

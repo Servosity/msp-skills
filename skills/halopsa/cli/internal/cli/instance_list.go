@@ -28,7 +28,7 @@ func newInstanceListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Instance"
 			params := map[string]string{}
 			if flagComparewith != 0 {
-				params["comparewith"] = fmt.Sprintf("%v", flagComparewith)
+				params["comparewith"] = formatCLIParamValue(flagComparewith)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "instance", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

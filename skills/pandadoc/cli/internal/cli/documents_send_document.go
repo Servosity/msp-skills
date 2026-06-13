@@ -28,7 +28,7 @@ func newDocumentsSendDocumentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "document <id>",
 		Aliases:     []string{"create"},
 		Short:       "> 🚧 Using the Sandbox Key > > When you use a [sandbox API key](https://developers.pandadoc.",
-		Example:     "  pandadoc-cli documents send document 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents send document ZPeAfcpzr9aiVs5vqUf6jg",
 		Annotations: map[string]string{"pp:endpoint": "send.document", "pp:method": "POST", "pp:path": "/documents/{id}/send"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

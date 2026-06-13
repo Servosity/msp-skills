@@ -41,8 +41,8 @@ var whichIndex = []whichEntry{
 	{Command: "standup", Description: "Per-agent for the window: tickets closed, tickets reopened, time logged, top client.", Group: "Local-only analytics", WhyItMatters: "Reach for this the moment before standup. One paste, everyone sees yesterday's progress."},
 	{Command: "client overlay", Description: "Rank all clients by a chosen metric (open tickets, stale, SLA at-risk, hours over bank). Top N out.", Group: "Local-only analytics", WhyItMatters: "Reach for this when looking for the next escalation to invest time in. Whichever client is on top is the one to call."},
 	{Command: "time leaks", Description: "Billable time entries not yet attached to any invoice, summed by client and agent — the revenue sitting un-invoiced.", Group: "Local state that compounds", WhyItMatters: "Reach for this in Monday billing prep to catch revenue leaks before invoices go out."},
-	{Command: "sla scorecard", Description: "Historical SLA pass-rate for closed tickets — % met first-response and resolution targets, by team or agent.", Group: "Reporting that writes itself", WhyItMatters: "Reach for this for the weekly leadership report instead of a brittle export pipeline."},
-	{Command: "assets expiring", Description: "Assets whose warranty or linked contract ends in the next N days, joined to client and site, sorted by days-to-expiry.", Group: "Cross-entity intelligence", WhyItMatters: "Reach for this in renewal prep and proactive replacement planning."},
+	{Command: "sla scorecard", Description: "Historical SLA pass-rate for closed tickets — % met resolution targets, by team or agent.", Group: "Reporting that writes itself", WhyItMatters: "Reach for this for the weekly leadership report instead of a brittle export pipeline."},
+	{Command: "assets expiring", Description: "Assets whose linked contract ends in the next N days, joined to the owning client and sorted by days-to-expiry.", Group: "Cross-entity intelligence", WhyItMatters: "Reach for this in renewal prep and proactive replacement planning."},
 	{Command: "tickets reopens", Description: "Tickets that bounced from closed back to open in the window, grouped by agent and client with reopen counts.", Group: "Cross-entity intelligence", WhyItMatters: "Reach for this in quality audits to find boomerang patterns by agent or client."},
 }
 
@@ -147,6 +147,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "RocketCyber MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "The first CLI and MCP server for RocketCyber Managed SOC: triage, incident MTTR, device risk ranking, and posture analytics the console doesn't compute."
+description: "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes."
 permalink: /skills/rocketcyber/
 skill_name: "RocketCyber MCP"
 image: /assets/social/rocketcyber/wide-1200x630.png

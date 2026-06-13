@@ -59,10 +59,10 @@ func newLogsPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			path = replacePathParam(path, "orgId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "logs", path, map[string]string{
-				"from":   fmt.Sprintf("%v", flagFrom),
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"sortby": fmt.Sprintf("%v", flagSortby),
-				"level":  fmt.Sprintf("%v", flagLevel),
+				"from":   formatCLIParamValue(flagFrom),
+				"limit":  formatCLIParamValue(flagLimit),
+				"sortby": formatCLIParamValue(flagSortby),
+				"level":  formatCLIParamValue(flagLevel),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -20,7 +20,7 @@ func newOrgUpdateAssetCriticalityCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update-asset-criticality <asset_id>",
 		Short:       "Update asset criticality",
-		Example:     "  runzero-cli org update-asset-criticality 550e8400-e29b-41d4-a716-446655440000 --criticality example-value",
+		Example:     "  runzero-cli org update-asset-criticality 550e8400-e29b-41d4-a716-446655440000 --criticality high",
 		Annotations: map[string]string{"pp:endpoint": "org.update-asset-criticality", "pp:method": "PATCH", "pp:path": "/org/assets/{asset_id}/criticality"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
@@ -46,7 +46,7 @@ func newOrgUpdateAssetCriticalityCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "asset_id", args[0])
 			params := map[string]string{}
 			if flagOid != "" {
-				params["_oid"] = fmt.Sprintf("%v", flagOid)
+				params["_oid"] = formatCLIParamValue(flagOid)
 			}
 			var body map[string]any
 			if stdinBody {

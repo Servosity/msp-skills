@@ -17,8 +17,9 @@ func newCrmGetV4ObjectsObjectTypeObjectIdAssociationsToObjectTypeGetPageCmd(flag
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "get-v4-objects-object-type-object-id-associations-to-object-type-get-page <objectId> <objectType> <toObjectType>",
-		Short:       "Retrieve all associations between a specific record and an object type. Limit 500 per call.",
+		Use:   "get-v4-objects-object-type-object-id-associations-to-object-type-get-page <objectId> <objectType> <toObjectType>",
+		Short: "Retrieve all associations between a specific record and an object type. Limit 500 per call.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli crm get-v4-objects-object-type-object-id-associations-to-object-type-get-page 550e8400-e29b-41d4-a716-446655440000 example-value example-value",
 		Annotations: map[string]string{"pp:endpoint": "crm.get-v4-objects-object-type-object-id-associations-to-object-type-get-page", "pp:method": "GET", "pp:path": "/crm/v4/objects/{objectType}/{objectId}/associations/{toObjectType}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,8 +42,8 @@ func newCrmGetV4ObjectsObjectTypeObjectIdAssociationsToObjectTypeGetPageCmd(flag
 			}
 			path = replacePathParam(path, "toObjectType", args[2])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "crm", path, map[string]string{
-				"after": fmt.Sprintf("%v", flagAfter),
-				"limit": fmt.Sprintf("%v", flagLimit),
+				"after": formatCLIParamValue(flagAfter),
+				"limit": formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "after", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

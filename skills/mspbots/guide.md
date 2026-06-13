@@ -1,10 +1,122 @@
 # MSPbots CLI
 
-**The first MSPbots tool we could find anywhere (June 2026)  -  readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.**
+**The first MSPbots tool anywhere  -  readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.**
 
 MSPbots' Public API shares your BI datasets and widgets but ships with 19-digit IDs, a comma-encoded filter DSL, manual pagination, and no history. This CLI turns a shared API key into a usable data faucet: register aliases once, filter with readable predicates, export whole tables in one command, and snapshot KPIs into local SQLite for diffs and trends no MSPbots surface can show.
 
-For the short install path see [README.md](./README.md). This file is the command reference.
+## Install
+
+The recommended path installs both the `mspbots-cli` binary and the `pp-mspbots` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+
+```bash
+npx -y @mvanhorn/printing-press-library install mspbots
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install mspbots --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install mspbots --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install mspbots --agent claude-code
+npx -y @mvanhorn/printing-press-library install mspbots --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/mspbots/cmd/mspbots-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/mspbots-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install mspbots --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-mspbots --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-mspbots --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install mspbots --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/mspbots-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `MSPBOTS_API_KEY` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/mspbots/cmd/mspbots-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "mspbots": {
+      "command": "mspbots-mcp",
+      "env": {
+        "MSPBOTS_API_KEY": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Authentication
 
@@ -17,16 +129,16 @@ MSPbots uses a raw API key sent as an `apikey` request header. An MSPbots admin 
 mspbots-cli doctor --dry-run
 
 # Name a dataset your admin bound to the key  -  aliases replace 19-digit IDs everywhere
-mspbots-cli registry add open_tickets 1534956341424005122 --type dataset
+mspbots-cli registry add <alias> <resourceId> --type dataset
 
 # Fetch the first page of rows as clean JSON
-mspbots-cli pull open_tickets --page-size 10 --json
+mspbots-cli pull <alias> --page-size 10 --json
 
 # Store a timestamped local copy  -  this builds the history MSPbots doesn't keep
-mspbots-cli snapshot open_tickets
+mspbots-cli snapshot <alias>
 
 # See week-over-week movement once two or more snapshots exist
-mspbots-cli trend open_tickets --column "Open Count"
+mspbots-cli trend <alias> --column "Open Count"
 
 ```
 
@@ -40,28 +152,28 @@ These capabilities aren't available in any other tool for this API.
   _Agents and scripts can address resources by stable, human-readable names instead of copy-pasted snowflake IDs._
 
   ```bash
-  mspbots-cli registry add open_tickets 1534956341424005122 --type dataset
+  mspbots-cli registry add <alias> <resourceId> --type dataset
   ```
 - **`snapshot`**  -  Capture point-in-time copies of any dataset or widget into local SQLite  -  the history MSPbots doesn't keep.
 
   _Run it on a schedule and every later question about "how has this changed" becomes answerable offline._
 
   ```bash
-  mspbots-cli snapshot open_tickets
+  mspbots-cli snapshot <alias>
   ```
 - **`trend`**  -  Time-series and point-over-point deltas for any numeric column across stored snapshots.
 
   _Answers "is this KPI up or down since last week"  -  the question the live API structurally cannot answer._
 
   ```bash
-  mspbots-cli trend open_tickets --column "Open Count"
+  mspbots-cli trend <alias> --column "Open Count"
   ```
 - **`diff`**  -  Row-level added/removed/changed comparison between two stored snapshots of the same resource.
 
   _Shows exactly which tickets entered or left a queue between two captures, not just the count._
 
   ```bash
-  mspbots-cli diff open_tickets
+  mspbots-cli diff <alias>
   ```
 
 ### Agent-native plumbing
@@ -70,21 +182,21 @@ These capabilities aren't available in any other tool for this API.
   _Reach for this instead of hand-building query strings; it handles operator encoding, spaces in column names, and URL-escaping._
 
   ```bash
-  mspbots-cli pull open_tickets --where "Update Date >= 2026-05-29" --where "Status = Open" --json
+  mspbots-cli pull <alias> --where "Update Date >= 2026-05-29" --where "Status = Open" --json
   ```
 - **`export`**  -  Dump an entire dataset or widget to CSV or JSONL, walking every page automatically.
 
   _One command replaces a babysat pagination loop when feeding spreadsheets or downstream pipelines._
 
   ```bash
-  mspbots-cli export open_tickets --format csv
+  mspbots-cli export <alias> --format csv
   ```
 - **`describe`**  -  Sample live rows and infer the column names and types of a dataset or widget.
 
   _Run it before building --where filters so column names and types are known instead of guessed._
 
   ```bash
-  mspbots-cli describe open_tickets
+  mspbots-cli describe <alias>
   ```
 
 ## Recipes
@@ -93,15 +205,15 @@ These capabilities aren't available in any other tool for this API.
 ### Register and pull a shared dataset
 
 ```bash
-mspbots-cli registry add sla_queue 1534956341424005122 --type dataset
+mspbots-cli registry add <alias> <resourceId> --type dataset
 ```
 
-One-time alias setup; every later command addresses the resource as sla_queue.
+One-time alias setup; every later command addresses the resource by its alias.
 
 ### Filtered pull with readable predicates
 
 ```bash
-mspbots-cli pull sla_queue --where "Update Date >= 2026-05-01" --where "Status = Open" --json
+mspbots-cli pull <alias> --where "Update Date >= 2026-05-01" --where "Status = Open" --json
 ```
 
 The CLI compiles readable operators into MSPbots' comma-encoded query DSL and URL-encodes spaced column names.
@@ -109,7 +221,7 @@ The CLI compiles readable operators into MSPbots' comma-encoded query DSL and UR
 ### Agent-shaped KPI read
 
 ```bash
-mspbots-cli pull sla_queue --agent --select row_count,rows
+mspbots-cli pull <alias> --agent --select row_count,rows
 ```
 
 Returns only the row count and rows fields in agent-envelope JSON  -  bounded context for LLM consumption.
@@ -117,7 +229,7 @@ Returns only the row count and rows fields in agent-envelope JSON  -  bounded co
 ### Full CSV export for finance
 
 ```bash
-mspbots-cli export sla_queue --format csv
+mspbots-cli export <alias> --format csv
 ```
 
 Walks every page via current/size automatically and streams one clean CSV.
@@ -125,7 +237,7 @@ Walks every page via current/size automatically and streams one clean CSV.
 ### Week-over-week KPI movement
 
 ```bash
-mspbots-cli trend sla_queue --column "Open Count"
+mspbots-cli trend <alias> --column "Open Count"
 ```
 
 Aggregates the column across stored snapshots; pair with a scheduled `snapshot` to keep the series growing.
@@ -153,19 +265,19 @@ Fetch data of widgets bound to your Public API key
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-mspbots-cli dataset 1534956341424005122
+mspbots-cli dataset <id>
 
 # JSON for scripting and agents
-mspbots-cli dataset 1534956341424005122 --json
+mspbots-cli dataset <id> --json
 
 # Filter to specific fields
-mspbots-cli dataset 1534956341424005122 --json --select id,name,status
+mspbots-cli dataset <id> --json --select id,name,status
 
 # Dry run  -  show the request without sending
-mspbots-cli dataset 1534956341424005122 --dry-run
+mspbots-cli dataset <id> --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-mspbots-cli dataset 1534956341424005122 --agent
+mspbots-cli dataset <id> --agent
 ```
 
 ## Agent Usage
@@ -177,7 +289,7 @@ This CLI is designed for AI agent consumption:
 - **Filterable** - `--select id,name` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
 - **Read-only by default** - this CLI does not create, update, delete, publish, send, or mutate remote resources
-- **Offline-friendly** - `snapshot` captures rows into local SQLite; `trend` and `diff` answer history questions offline
+- **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
 Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
@@ -204,7 +316,7 @@ Environment variables:
 
 ### agentcookie (optional)
 
-If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `mspbots-cli doctor` reports `agentcookie: detected` and `auth status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `mspbots-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**
@@ -212,7 +324,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Verify the environment variable is set: `echo $MSPBOTS_API_KEY`
 **Not found errors (exit code 3)**
 - Check the resource ID is correct
-- Run `mspbots-cli registry list` to see registered aliases, or `mspbots-cli describe <alias>` to inspect a resource
+- Run the `list` command to see available items
 
 ### API-specific
 - **HTTP 401 {"message":"Invalid API key in request"}**  -  Check MSPBOTS_API_KEY; keys are created at Settings → Public API in the MSPbots app, and the global Enable Public API toggle must be ON.

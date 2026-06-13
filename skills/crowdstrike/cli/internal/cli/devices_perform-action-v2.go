@@ -41,7 +41,7 @@ func newDevicesPerformActionV2Cmd(flags *rootFlags) *cobra.Command {
 			path := "/devices/entities/devices-actions/v2"
 			params := map[string]string{}
 			if flagActionName != "" {
-				params["action_name"] = fmt.Sprintf("%v", flagActionName)
+				params["action_name"] = formatCLIParamValue(flagActionName)
 			}
 			var body map[string]any
 			if stdinBody {

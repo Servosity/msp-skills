@@ -39,16 +39,10 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 		Example: "  action1-cli auth setup\n  action1-cli auth setup --launch",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			w := cmd.OutOrStdout()
-			fmt.Fprintln(w, "Create API credentials on the API Credentials page in the Action1 console.")
-			fmt.Fprintln(w, "Docs: https://www.action1.com/api-documentation/")
+			fmt.Fprintln(w, "See API docs: https://app.action1.com/support/")
 			fmt.Fprintln(w, "")
-			fmt.Fprintln(w, "Recommended — the CLI mints a bearer token automatically:")
-			fmt.Fprintln(w, "  export ACTION1_CLIENT_ID=\"<client-id>\"")
-			fmt.Fprintln(w, "  export ACTION1_CLIENT_SECRET=\"<client-secret>\"")
-			fmt.Fprintln(w, "  export ACTION1_REGION=\"us\"   # or eu, au")
-			fmt.Fprintln(w, "")
-			fmt.Fprintln(w, "Or supply a pre-minted token:")
-			fmt.Fprintln(w, "  export ACTION1_OAUTH2=\"<your-token>\"")
+			fmt.Fprintln(w, "Then set:")
+			fmt.Fprintln(w, "  export ACTION1_OAUTH2=\"your-token-here\"")
 			fmt.Fprintln(w, "  action1-cli auth set-token <token>")
 			if !launch {
 				return nil
@@ -98,7 +92,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 
 			w := cmd.OutOrStdout()
 			header := cfg.AuthHeader()
-			authed := header != "" || (cfg.ClientID != "" && cfg.ClientSecret != "")
+			authed := header != ""
 			// JSON envelope: {authenticated, verified, source, config}. When not
 			// authenticated, write the envelope first then return authErr
 			// so exit code carries the auth-failure signal.
@@ -120,11 +114,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			if !authed {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
-				fmt.Fprintln(w, "Recommended (auto-mints a token):")
-				fmt.Fprintln(w, "  export ACTION1_CLIENT_ID=\"<client-id>\"")
-				fmt.Fprintln(w, "  export ACTION1_CLIENT_SECRET=\"<client-secret>\"")
-				fmt.Fprintln(w, "")
-				fmt.Fprintln(w, "Or use a pre-minted token:")
+				fmt.Fprintln(w, "Set your token:")
 				fmt.Fprintln(w, "  export ACTION1_OAUTH2=\"your-token-here\"")
 				fmt.Fprintf(w, "  action1-cli auth set-token <token>\n")
 				return authErr(fmt.Errorf("no credentials configured"))

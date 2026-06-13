@@ -21,7 +21,7 @@ func newDeviceGetByOrgIdOrgLevelCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-by-org-id-org-level",
 		Aliases:     []string{"list"},
 		Short:       "This request returns information about all devices",
-		Example:     "  axcient-cli device list --agent --select id_,name,current_health_status.status",
+		Example:     "  axcient-cli device list --agent --select name,current_health_status.status",
 		Annotations: map[string]string{"pp:endpoint": "device.get-by-org-id-org-level", "pp:method": "GET", "pp:path": "/device", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()
@@ -31,9 +31,9 @@ func newDeviceGetByOrgIdOrgLevelCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/device"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "device", path, map[string]string{
-				"local_ps_id": fmt.Sprintf("%v", flagLocalPsId),
-				"limit":       fmt.Sprintf("%v", flagLimit),
-				"offset":      fmt.Sprintf("%v", flagOffset),
+				"local_ps_id": formatCLIParamValue(flagLocalPsId),
+				"limit":       formatCLIParamValue(flagLimit),
+				"offset":      formatCLIParamValue(flagOffset),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

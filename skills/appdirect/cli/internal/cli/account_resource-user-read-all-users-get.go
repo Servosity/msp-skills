@@ -65,18 +65,18 @@ func newAccountResourceUserReadAllUsersGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/account/v2/users"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "account", path, map[string]string{
-				"name":                       fmt.Sprintf("%v", flagName),
-				"email":                      fmt.Sprintf("%v", flagEmail),
-				"externalId":                 fmt.Sprintf("%v", flagExternalId),
-				"username":                   fmt.Sprintf("%v", flagUsername),
-				"companyMembershipRole":      fmt.Sprintf("%v", flagCompanyMembershipRole),
-				"custom.customAttributeName": fmt.Sprintf("%v", flagCustomCustomAttributeName),
-				"lastModified":               fmt.Sprintf("%v", flagLastModified),
-				"page":                       fmt.Sprintf("%v", flagPage),
-				"size":                       fmt.Sprintf("%v", flagSize),
-				"sortField":                  fmt.Sprintf("%v", flagSortField),
-				"sortOrder":                  fmt.Sprintf("%v", flagSortOrder),
-				"includeCustomAttributes":    fmt.Sprintf("%v", flagIncludeCustomAttributes),
+				"name":                       formatCLIParamValue(flagName),
+				"email":                      formatCLIParamValue(flagEmail),
+				"externalId":                 formatCLIParamValue(flagExternalId),
+				"username":                   formatCLIParamValue(flagUsername),
+				"companyMembershipRole":      formatCLIParamValue(flagCompanyMembershipRole),
+				"custom.customAttributeName": formatCLIParamValue(flagCustomCustomAttributeName),
+				"lastModified":               formatCLIParamValue(flagLastModified),
+				"page":                       formatCLIParamValue(flagPage),
+				"size":                       formatCLIParamValue(flagSize),
+				"sortField":                  formatCLIParamValue(flagSortField),
+				"sortOrder":                  formatCLIParamValue(flagSortOrder),
+				"includeCustomAttributes":    formatCLIParamValue(flagIncludeCustomAttributes),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

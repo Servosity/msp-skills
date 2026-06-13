@@ -17,8 +17,9 @@ func newRmmAssetsPutCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "put <integrationType>",
-		Short:       "Put",
+		Use:   "put <integrationType>",
+		Short: "Put",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli rmm assets put example-value",
 		Annotations: map[string]string{"pp:endpoint": "assets.put", "pp:method": "PUT", "pp:path": "/v2/rmm/{integrationType}/assets"},
 		RunE: func(cmd *cobra.Command, args []string) error {

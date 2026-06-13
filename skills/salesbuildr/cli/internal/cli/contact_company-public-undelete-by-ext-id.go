@@ -16,9 +16,10 @@ func newContactCompanyPublicUndeleteByExtIdCmd(flags *rootFlags) *cobra.Command 
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "company-public-undelete-by-ext-id <externalIdentifier>",
-		Aliases:     []string{"update"},
-		Short:       "Undelete by ext ID",
+		Use:     "company-public-undelete-by-ext-id <externalIdentifier>",
+		Aliases: []string{"update"},
+		Short:   "Undelete by ext ID",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  salesbuildr-cli contact company-public-undelete-by-ext-id example-value",
 		Annotations: map[string]string{"pp:endpoint": "contact.company-public-undelete-by-ext-id", "pp:method": "PUT", "pp:path": "/contact/ext/{externalIdentifier}/undelete"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -16,7 +16,7 @@ func newDocumentsDeleteCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete <id>",
 		Short:       "Delete a document by ID.",
-		Example:     "  pandadoc-cli documents delete 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents delete BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "documents.delete", "pp:method": "DELETE", "pp:path": "/documents/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

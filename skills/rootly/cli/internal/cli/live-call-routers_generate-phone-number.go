@@ -67,10 +67,10 @@ func newLiveCallRoutersGeneratePhoneNumberCmd(flags *rootFlags) *cobra.Command {
 			path := "/v1/live_call_routers/generate_phone_number"
 			params := map[string]string{}
 			if flagCountryCode != "" {
-				params["country_code"] = fmt.Sprintf("%v", flagCountryCode)
+				params["country_code"] = formatCLIParamValue(flagCountryCode)
 			}
 			if flagPhoneType != "" {
-				params["phone_type"] = fmt.Sprintf("%v", flagPhoneType)
+				params["phone_type"] = formatCLIParamValue(flagPhoneType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "live-call-routers", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

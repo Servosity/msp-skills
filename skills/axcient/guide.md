@@ -6,9 +6,117 @@ The only CLI and MCP surface for Axcient's x360Recover BCDR platform. It absorbs
 
 ## Install
 
-For the short install path (one-line installer, Claude Desktop `.mcpb`, and the per-agent
-wire-up) see [README.md](./README.md) and [mcp-install.md](./mcp-install.md). This file is
-the command reference.
+The recommended path installs both the `axcient-cli` binary and the `pp-axcient` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+
+```bash
+npx -y @mvanhorn/printing-press-library install axcient
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install axcient --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install axcient --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install axcient --agent claude-code
+npx -y @mvanhorn/printing-press-library install axcient --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/axcient/cmd/axcient-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/axcient-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install axcient --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-axcient --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-axcient --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install axcient --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/axcient-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `AXCIENT_API_KEY` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/axcient/cmd/axcient-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "axcient": {
+      "command": "axcient-mcp",
+      "env": {
+        "AXCIENT_API_KEY": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Authentication
 
@@ -191,7 +299,7 @@ axcient-cli appliance get
 axcient-cli appliance get --json
 
 # Filter to specific fields
-axcient-cli appliance get --json --select id_,alias,health_status
+axcient-cli appliance get --json --select id,name,status
 
 # Dry run  -  show the request without sending
 axcient-cli appliance get --dry-run
@@ -206,7 +314,7 @@ This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id_,name` returns only fields you need
+- **Filterable** - `--select id,name` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
 - **Explicit retries** - add `--idempotent` to create retries when a no-op success is acceptable
 - **Confirmable** - `--yes` for explicit confirmation of destructive actions
@@ -226,7 +334,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/axcient-cli/config.toml`
+Config file: `~/.config/x360recover-pp-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
@@ -250,9 +358,15 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 
 ### API-specific
 - **401 Unauthorized on every call**  -  Regenerate the API key in x360Portal Settings > API Keys and re-export AXCIENT_API_KEY; keys are organization-scoped and admin-issued.
-- **health/rpo/compliance return empty results**  -  Run 'axcient-cli sync' first  -  these fleet-view commands read the local store, not the live API.
+- **health/rpo/compliance return empty results**  -  Run 'axcient-cli sync' first  -  transcendence commands read the local store, not the live API.
 - **Want to try the CLI without an Axcient tenant**  -  Set AXCIENT_BASE_URL=https://ax-pub-recover.wiremockapi.cloud/x360recover with any non-empty AXCIENT_API_KEY to use Axcient's public mock server.
 - **Device output has no client attribution**  -  Use the synced store (sync then health/client-rollup)  -  the upstream device object omits client_id; the local store restores the relationship.
+
+## HTTP Transport
+
+This CLI uses Chrome-compatible HTTP transport for browser-facing endpoints. It does not require a resident browser process for normal API calls.
+
+---
 
 ## Sources & Inspiration
 

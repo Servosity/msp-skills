@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "pagerduty-cli",
-			Description: "Every PagerDuty incident, on-call and service operation from the terminal",
+			Description: "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions — MTTA/MTTR, on-call coverage gaps, responder load — that neither the API nor the web UI can.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

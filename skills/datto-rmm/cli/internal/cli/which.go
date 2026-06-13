@@ -36,6 +36,12 @@ var whichIndex = []whichEntry{
 	{Command: "fleet scorecard", Description: "Produces a one-shot per-site health card fusing device counts, alert volume, patch coverage, AV coverage, warranty exposure, and agent drift for QBRs.", Group: "Lifecycle and compliance", WhyItMatters: "Reach for this when you or a vCIO need an instant customer-health summary to open a QBR or flag an at-risk account."},
 	{Command: "fleet agent-drift", Description: "Shows which devices run out-of-date RMM agents across the fleet, ranked by how far behind the newest version they are.", Group: "Fleet hygiene that compounds", WhyItMatters: "Reach for this to find endpoints whose stale RMM agent may be missing monitors before troubleshooting visibility gaps."},
 	{Command: "fleet orphans", Description: "Cross-references long-stale, suspended, or deleted devices that still count against a site so you stop billing and monitoring phantom endpoints.", Group: "Lifecycle and compliance", WhyItMatters: "Reach for this when cleaning up a site's device roster or auditing billing accuracy against what is actually alive."},
+	{Command: "fleet resolve-storm", Description: "Bulk-resolves the open alerts on the noisiest devices and sites from the storm ranking, so Monday triage ends with a clean queue instead of a worklist.", Group: "Alert intelligence", WhyItMatters: "Reach for this when a monitor misfire flooded the queue and you need to act on the ranking, not just look at it; defaults to a plan-only preview, and nothing resolves without --confirm."},
+	{Command: "fleet job-results", Description: "Fetches every device's result for one quick job and rolls them into a single pass/fail table, so a 200-device push is verified in one command.", Group: "Receipts and data trust", WhyItMatters: "Reach for this after any quick-job push to answer which devices errored or printed nothing; fetches live per device, so it needs credentials and a synced cohort (--devices, --site, or --all)."},
+	{Command: "fleet snapshot", Description: "Freezes the current synced fleet state into a labeled, dated archive so any number you report can be reproduced later as a receipt.", Group: "Receipts and data trust", WhyItMatters: "Reach for this before a QBR or audit so a disputed number weeks later can be proven against the dated snapshot; run sync first so the receipt reflects fresh data."},
+	{Command: "fleet diff", Description: "Diffs two fleet snapshots (or a snapshot vs the live store) to show devices added or removed and warranty, patch, AV, and agent-version movement since the baseline.", Group: "Receipts and data trust", WhyItMatters: "Reach for this in QBR prep to lead with the delta story: what got better, what slipped, what arrived and left; both sides read the synced store, so sync before snapshotting."},
+	{Command: "fleet device-timeline", Description: "Stitches one device's alerts and activity-log entries (which surface job, audit, and user actions) into a single chronological timeline from the local store.", Group: "Alert intelligence", WhyItMatters: "Reach for this during triage when a device keeps misbehaving and you need its full recent history in one stream, not four console tabs."},
+	{Command: "fleet sync-gaps", Description: "Verifies every synced resource pulled all pages by comparing stored row counts against the API's reported totals, so you can trust fleet numbers before reporting them.", Group: "Receipts and data trust", WhyItMatters: "Reach for this after sync and before any fleet report; an incomplete devices table makes every downstream number quietly wrong."},
 }
 
 // whichMatch pairs an index entry with its ranking score for a query.
@@ -139,6 +145,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

@@ -46,12 +46,12 @@ func newMsspQueryRolesCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/mssp/queries/mssp-roles/v1"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "mssp", path, map[string]string{
-				"user_group_id": fmt.Sprintf("%v", flagUserGroupId),
-				"cid_group_id":  fmt.Sprintf("%v", flagCidGroupId),
-				"role_id":       fmt.Sprintf("%v", flagRoleId),
-				"sort":          fmt.Sprintf("%v", flagSort),
-				"offset":        fmt.Sprintf("%v", flagOffset),
-				"limit":         fmt.Sprintf("%v", flagLimit),
+				"user_group_id": formatCLIParamValue(flagUserGroupId),
+				"cid_group_id":  formatCLIParamValue(flagCidGroupId),
+				"role_id":       formatCLIParamValue(flagRoleId),
+				"sort":          formatCLIParamValue(flagSort),
+				"offset":        formatCLIParamValue(flagOffset),
+				"limit":         formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

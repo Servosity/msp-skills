@@ -11,25 +11,24 @@ func newNovelFleetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "fleet",
-		Short:       "Fleet-wide analytics over the locally synced store (stale, storms, gaps, warranty, scorecard, snapshots, diffs)",
-		Long:        "Fleet-wide analytics computed offline over the local SQLite store (run 'sync' first).\nThese answer cross-site questions no single Datto RMM API call can: stale devices,\nalert storms, software sprawl, warranty cliffs, patch/AV gaps, agent drift, orphans,\none-shot QBR site scorecards, bulk storm resolution, quick-job verification,\nlabeled snapshots with quarter-over-quarter diffs, per-device timelines, and\nsync-completeness audits.",
+		Short:       "fleet subcommands: agent-drift, av-gaps, device-timeline, diff, job-results, orphans, patch-gaps, resolve-storm, scorecard, snapshot, sprawl, stale, storms, sync-gaps, warranty",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 	cmd.AddCommand(newNovelFleetAgentDriftCmd(flags))
-	cmd.AddCommand(newNovelFleetResolveStormCmd(flags))
-	cmd.AddCommand(newNovelFleetJobResultsCmd(flags))
-	cmd.AddCommand(newNovelFleetSnapshotCmd(flags))
-	cmd.AddCommand(newNovelFleetDiffCmd(flags))
-	cmd.AddCommand(newNovelFleetDeviceTimelineCmd(flags))
-	cmd.AddCommand(newNovelFleetSyncGapsCmd(flags))
 	cmd.AddCommand(newNovelFleetAvGapsCmd(flags))
+	cmd.AddCommand(newNovelFleetDeviceTimelineCmd(flags))
+	cmd.AddCommand(newNovelFleetDiffCmd(flags))
+	cmd.AddCommand(newNovelFleetJobResultsCmd(flags))
 	cmd.AddCommand(newNovelFleetOrphansCmd(flags))
 	cmd.AddCommand(newNovelFleetPatchGapsCmd(flags))
+	cmd.AddCommand(newNovelFleetResolveStormCmd(flags))
 	cmd.AddCommand(newNovelFleetScorecardCmd(flags))
+	cmd.AddCommand(newNovelFleetSnapshotCmd(flags))
 	cmd.AddCommand(newNovelFleetSprawlCmd(flags))
 	cmd.AddCommand(newNovelFleetStaleCmd(flags))
 	cmd.AddCommand(newNovelFleetStormsCmd(flags))
+	cmd.AddCommand(newNovelFleetSyncGapsCmd(flags))
 	cmd.AddCommand(newNovelFleetWarrantyCmd(flags))
 	return cmd
 }

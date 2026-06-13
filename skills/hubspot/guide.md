@@ -2,13 +2,125 @@
 
 **Every Sales Hub feature, plus offline cross-object queries and retained property-change history.**
 
-A local SQLite data layer no other HubSpot tool has: HubSpot's own CLI (`hs`) only covers CMS, and its new Agent CLI is stateless live-API  -  neither gives you a stateful, offline sales/CRM mirror. This one mirrors your CRM into local SQLite so commands like `nurture-mine`, `stale deals`, `owner-load`, and `pipeline-health` answer cross-table questions instantly and offline. New in this reprint: `sync --with-history` persists per-property snapshots into a shared property-history table, and `meetings ever-had` / `meetings status-report` answer questions HubSpot's standard search API physically cannot  -  'every meeting that was EVER status X in month Y, even after it flipped.'
+A local SQLite data layer no other HubSpot tool has: HubSpot's own CLI (`hs`) only covers CMS  -  there has never been a sales/CRM CLI from HubSpot itself. This one mirrors your CRM into local SQLite so commands like `nurture-mine`, `stale deals`, `owner-load`, and `pipeline-health` answer cross-table questions instantly and offline. New in this reprint: `sync --with-history` persists per-property snapshots into a shared property-history table, and `meetings ever-had` / `meetings status-report` answer questions HubSpot's standard search API physically cannot  -  'every meeting that was EVER status X in month Y, even after it flipped.'
 
 Learn more at [HubSpot](https://developers.hubspot.com/docs/api).
 
 Created by [@DamienStevens](https://github.com/DamienStevens) (Damien Stevens).
 
-For the short install path see [README.md](./README.md). This file is the command reference.
+## Install
+
+The recommended path installs both the `hubspot-cli` binary and the `pp-hubspot` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+
+```bash
+npx -y @mvanhorn/printing-press-library install hubspot
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install hubspot --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install hubspot --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install hubspot --agent claude-code
+npx -y @mvanhorn/printing-press-library install hubspot --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/hubspot/cmd/hubspot-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/hubspot-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install hubspot --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-hubspot --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-hubspot --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install hubspot --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/hubspot-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `HUBSPOT_ACCESS_TOKEN` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/hubspot/cmd/hubspot-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "hubspot": {
+      "command": "hubspot-mcp",
+      "env": {
+        "HUBSPOT_ACCESS_TOKEN": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Authentication
 
@@ -60,8 +172,9 @@ These capabilities aren't available in any other tool for this API.
 
   _Use this for forecast-vs-reality checks before a pipeline review._
 
+  <!-- cli-claims:ignore -->
   ```bash
-  hubspot-cli pipeline-health "default" --idle-days 14 --json
+  hubspot-cli pipeline-health default --idle-days 14 --json
   ```
 - **`nurture queue`**  -  Ranked 'who to contact today' list scored by stale-days × deal amount × stage probability, with the rationale exposed as columns.
 
@@ -596,19 +709,19 @@ Manage objects search
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-hubspot-cli batch post-crm-v3-objects-object-type-archive-archive "mock-value"
+hubspot-cli batch post-crm-v3-objects-object-type-archive-archive <id>
 
 # JSON for scripting and agents
-hubspot-cli batch post-crm-v3-objects-object-type-archive-archive "mock-value" --json
+hubspot-cli batch post-crm-v3-objects-object-type-archive-archive <id> --json
 
 # Filter to specific fields
-hubspot-cli batch post-crm-v3-objects-object-type-archive-archive "mock-value" --json --select id,name,status
+hubspot-cli batch post-crm-v3-objects-object-type-archive-archive <id> --json --select id,name,status
 
 # Dry run  -  show the request without sending
-hubspot-cli batch post-crm-v3-objects-object-type-archive-archive "mock-value" --dry-run
+hubspot-cli batch post-crm-v3-objects-object-type-archive-archive <id> --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-hubspot-cli batch post-crm-v3-objects-object-type-archive-archive "mock-value" --agent
+hubspot-cli batch post-crm-v3-objects-object-type-archive-archive <id> --agent
 ```
 
 ## Agent Usage

@@ -43,7 +43,7 @@ func newAttachmentsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/attachments/temp/upload"
 			params := map[string]string{}
 			if flagEntityType != "" {
-				params["entityType"] = fmt.Sprintf("%v", flagEntityType)
+				params["entityType"] = formatCLIParamValue(flagEntityType)
 			}
 			fields := map[string]string{}
 			fileFields := map[string]string{}
@@ -55,10 +55,10 @@ func newAttachmentsPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			data, statusCode, err := c.PostMultipartWithParams(cmd.Context(), path, params, fields, fileFields)
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

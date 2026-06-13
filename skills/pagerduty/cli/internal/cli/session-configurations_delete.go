@@ -50,7 +50,7 @@ func newSessionConfigurationsDeleteCmd(flags *rootFlags) *cobra.Command {
 			path := "/session_configurations"
 			params := map[string]string{}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

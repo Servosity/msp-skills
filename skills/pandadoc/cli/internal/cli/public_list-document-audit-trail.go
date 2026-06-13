@@ -19,7 +19,7 @@ func newPublicListDocumentAuditTrailCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list-document-audit-trail <document_id>",
 		Short:       "Retrieves the full audit trail for a specified document.",
-		Example:     "  pandadoc-cli public list-document-audit-trail 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli public list-document-audit-trail BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "public.list-document-audit-trail", "pp:method": "GET", "pp:path": "/public/v2/documents/{document_id}/audit-trail", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -33,8 +33,8 @@ func newPublicListDocumentAuditTrailCmd(flags *rootFlags) *cobra.Command {
 			path := "/public/v2/documents/{document_id}/audit-trail"
 			path = replacePathParam(path, "document_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "public", path, map[string]string{
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"offset": fmt.Sprintf("%v", flagOffset),
+				"limit":  formatCLIParamValue(flagLimit),
+				"offset": formatCLIParamValue(flagOffset),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

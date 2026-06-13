@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "sentinelone-cli",
-			Description: "Every SentinelOne v2.",
+			Description: "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics — fleet health, threat triage, blast radius, drift — that no console view offers.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

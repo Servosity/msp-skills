@@ -30,8 +30,8 @@ func newSpmV2PostureCatalogRetrieveCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/spm-v2/posture-catalog"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "spm-v2", path, map[string]string{
-				"pageSize":   fmt.Sprintf("%v", flagPageSize),
-				"pageNumber": fmt.Sprintf("%v", flagPageNumber),
+				"pageSize":   formatCLIParamValue(flagPageSize),
+				"pageNumber": formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "pageNumber", "page", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

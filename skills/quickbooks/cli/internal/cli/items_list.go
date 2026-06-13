@@ -29,10 +29,10 @@ func newItemsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/query"
 			params := map[string]string{}
 			if flagQuery != "" {
-				params["query"] = fmt.Sprintf("%v", flagQuery)
+				params["query"] = formatCLIParamValue(flagQuery)
 			}
 			if flagMinorversion != 0 {
-				params["minorversion"] = fmt.Sprintf("%v", flagMinorversion)
+				params["minorversion"] = formatCLIParamValue(flagMinorversion)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "items", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

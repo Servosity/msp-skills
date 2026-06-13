@@ -18,8 +18,9 @@ func newCustomTagCreateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Creates a new Tag.",
+		Use:   "create",
+		Short: "Creates a new Tag.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  domotz-cli custom-tag create --color example-value",
 		Annotations: map[string]string{"pp:endpoint": "custom-tag.create", "pp:method": "POST", "pp:path": "/custom-tag"},
 		RunE: func(cmd *cobra.Command, args []string) error {

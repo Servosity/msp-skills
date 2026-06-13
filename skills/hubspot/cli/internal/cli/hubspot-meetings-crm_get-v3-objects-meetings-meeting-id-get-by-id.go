@@ -36,19 +36,19 @@ func newHubspotMeetingsCrmGetV3ObjectsMeetingsMeetingIdGetByIdCmd(flags *rootFla
 			path = replacePathParam(path, "meetingId", args[0])
 			params := map[string]string{}
 			if flagArchived != false {
-				params["archived"] = fmt.Sprintf("%v", flagArchived)
+				params["archived"] = formatCLIParamValue(flagArchived)
 			}
 			if flagAssociations != "" {
-				params["associations"] = fmt.Sprintf("%v", flagAssociations)
+				params["associations"] = formatCLIParamValue(flagAssociations)
 			}
 			if flagIdProperty != "" {
-				params["idProperty"] = fmt.Sprintf("%v", flagIdProperty)
+				params["idProperty"] = formatCLIParamValue(flagIdProperty)
 			}
 			if flagProperties != "" {
-				params["properties"] = fmt.Sprintf("%v", flagProperties)
+				params["properties"] = formatCLIParamValue(flagProperties)
 			}
 			if flagPropertiesWithHistory != "" {
-				params["propertiesWithHistory"] = fmt.Sprintf("%v", flagPropertiesWithHistory)
+				params["propertiesWithHistory"] = formatCLIParamValue(flagPropertiesWithHistory)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-meetings-crm", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

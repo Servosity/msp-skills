@@ -38,7 +38,7 @@ var whichIndex = []whichEntry{
 	{Command: "cold-clients", Description: "Rank clients by how long since they last signed anything — spot the accounts going quiet.", Group: "Relationship intelligence", WhyItMatters: "Reach for this when you need account-level recency (who went cold), not per-document status or per-recipient rates."},
 	{Command: "forecast", Description: "Bucket open quote dollars into healthy, aging, and stalled tiers by deal age.", Group: "Pipeline intelligence", WhyItMatters: "Reach for this when a flat open-value total isn't enough and you need dollars-at-risk by deal age."},
 	{Command: "followup", Description: "A ranked nudge worklist: stalled documents joined to recipient emails and days-since-sent, ready for outreach.", Group: "Relationship intelligence", WhyItMatters: "Reach for this when you need who-to-nudge with contact emails attached, not just a stalled-document list."},
-	{Command: "reminder-gaps", Description: "Find sent-but-incomplete documents that have no active reminder set.", Group: "Operational safety", WhyItMatters: "Reach for this to verify PandaDoc is auto-nudging signers before you nudge manually."},
+	{Command: "reminder-gaps", Description: "Find sent-but-incomplete documents that have no active auto-reminder set — queries the live API per document (needs PANDADOC_API_KEY).", Group: "Operational safety", WhyItMatters: "Reach for this to verify PandaDoc is auto-nudging signers before you nudge manually; unlike the other store-backed analytics it makes live API calls."},
 }
 
 // whichMatch pairs an index entry with its ranking score for a query.
@@ -142,6 +142,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

@@ -19,7 +19,7 @@ func newUsageSummariesUsageLinesFindCmd(flags *rootFlags) *cobra.Command {
 		Use:         "find <usageSummaryId>",
 		Aliases:     []string{"get"},
 		Short:       "Fetch a paginated list of usage lines. Default page is 0 and default size is 10. The maximum page size is 200",
-		Example:     "  pax8-cli usage-summaries usage-lines find 550e8400-e29b-41d4-a716-446655440000 --usage-date 2026-01-15",
+		Example:     "  pax8-cli usage-summaries usage-lines find f5e4cefe-09ff-46a0-b3b0-4f392cfae44c --usage-date 2020-01-01",
 		Annotations: map[string]string{"pp:endpoint": "usage-lines.find", "pp:method": "GET", "pp:path": "/usage-summaries/{usageSummaryId}/usage-lines", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
@@ -43,10 +43,10 @@ func newUsageSummariesUsageLinesFindCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "usageSummaryId", args[0])
 			params := map[string]string{}
 			if flagUsageDate != "" {
-				params["usageDate"] = fmt.Sprintf("%v", flagUsageDate)
+				params["usageDate"] = formatCLIParamValue(flagUsageDate)
 			}
 			if flagProductId != "" {
-				params["productId"] = fmt.Sprintf("%v", flagProductId)
+				params["productId"] = formatCLIParamValue(flagProductId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "usage-lines", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

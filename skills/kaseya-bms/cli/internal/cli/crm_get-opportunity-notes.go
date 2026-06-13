@@ -33,8 +33,8 @@ func newCrmGetOpportunityNotesCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/crm/opportunities/{id}/notes"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "crm", path, map[string]string{
-				"PageSize":   fmt.Sprintf("%v", flagPageSize),
-				"PageNumber": fmt.Sprintf("%v", flagPageNumber),
+				"PageSize":   formatCLIParamValue(flagPageSize),
+				"PageNumber": formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

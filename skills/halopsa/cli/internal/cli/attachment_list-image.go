@@ -29,10 +29,10 @@ func newAttachmentListImageCmd(flags *rootFlags) *cobra.Command {
 			path := "/Attachment/image"
 			params := map[string]string{}
 			if flagToken != "" {
-				params["token"] = fmt.Sprintf("%v", flagToken)
+				params["token"] = formatCLIParamValue(flagToken)
 			}
 			if flagNonce != "" {
-				params["nonce"] = fmt.Sprintf("%v", flagNonce)
+				params["nonce"] = formatCLIParamValue(flagNonce)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "attachment", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

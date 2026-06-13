@@ -42,7 +42,7 @@ func newFiltersGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/filters"
 			params := map[string]string{}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "filters", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

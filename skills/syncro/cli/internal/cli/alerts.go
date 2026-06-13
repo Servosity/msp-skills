@@ -11,7 +11,7 @@ func newNovelAlertsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "alerts",
-		Short:       "RMM alert analytics computed from the local store.",
+		Short:       "alerts subcommands: noise, orphans",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

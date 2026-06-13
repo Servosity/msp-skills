@@ -30,13 +30,13 @@ func newServiceRequestDetailsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/ServiceRequestDetails"
 			params := map[string]string{}
 			if flagExcludeUrls != false {
-				params["exclude_urls"] = fmt.Sprintf("%v", flagExcludeUrls)
+				params["exclude_urls"] = formatCLIParamValue(flagExcludeUrls)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagServiceId != "" {
-				params["service_id"] = fmt.Sprintf("%v", flagServiceId)
+				params["service_id"] = formatCLIParamValue(flagServiceId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "service-request-details", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

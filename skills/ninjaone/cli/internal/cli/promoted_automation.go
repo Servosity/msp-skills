@@ -29,7 +29,7 @@ func newAutomationPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/automation/scripts"
 			params := map[string]string{}
 			if flagLang != "" {
-				params["lang"] = fmt.Sprintf("%v", flagLang)
+				params["lang"] = formatCLIParamValue(flagLang)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "automation", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

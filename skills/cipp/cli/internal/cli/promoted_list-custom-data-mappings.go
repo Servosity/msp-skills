@@ -17,9 +17,10 @@ func newListCustomDataMappingsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-custom-data-mappings",
-		Short:       "List custom data mappings",
-		Long:        "List custom data mappings",
+		Use:   "list-custom-data-mappings",
+		Short: "List custom data mappings",
+		Long:  "List custom data mappings",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-custom-data-mappings --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-custom-data-mappings.list", "pp:method": "GET", "pp:path": "/ListCustomDataMappings", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,13 +42,13 @@ func newListCustomDataMappingsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListCustomDataMappings"
 			params := map[string]string{}
 			if flagDirectoryObject != "" {
-				params["directoryObject"] = fmt.Sprintf("%v", flagDirectoryObject)
+				params["directoryObject"] = formatCLIParamValue(flagDirectoryObject)
 			}
 			if flagSourceType != "" {
-				params["sourceType"] = fmt.Sprintf("%v", flagSourceType)
+				params["sourceType"] = formatCLIParamValue(flagSourceType)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-custom-data-mappings", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

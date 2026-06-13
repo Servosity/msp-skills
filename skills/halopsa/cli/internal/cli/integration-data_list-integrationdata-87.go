@@ -32,19 +32,19 @@ func newIntegrationDataListIntegrationdata87Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/Snow"
 			params := map[string]string{}
 			if flagAccountid != "" {
-				params["accountid"] = fmt.Sprintf("%v", flagAccountid)
+				params["accountid"] = formatCLIParamValue(flagAccountid)
 			}
 			if flagDataOnly != false {
-				params["dataOnly"] = fmt.Sprintf("%v", flagDataOnly)
+				params["dataOnly"] = formatCLIParamValue(flagDataOnly)
 			}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			if flagNextlink != "" {
-				params["nextlink"] = fmt.Sprintf("%v", flagNextlink)
+				params["nextlink"] = formatCLIParamValue(flagNextlink)
 			}
 			if flagPaginate != false {
-				params["paginate"] = fmt.Sprintf("%v", flagPaginate)
+				params["paginate"] = formatCLIParamValue(flagPaginate)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

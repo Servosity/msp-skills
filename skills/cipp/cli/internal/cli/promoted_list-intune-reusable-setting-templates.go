@@ -29,7 +29,7 @@ func newListIntuneReusableSettingTemplatesPromotedCmd(flags *rootFlags) *cobra.C
 			path := "/ListIntuneReusableSettingTemplates"
 			params := map[string]string{}
 			if flagID != "" {
-				params["ID"] = fmt.Sprintf("%v", flagID)
+				params["ID"] = formatCLIParamValue(flagID)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-intune-reusable-setting-templates", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

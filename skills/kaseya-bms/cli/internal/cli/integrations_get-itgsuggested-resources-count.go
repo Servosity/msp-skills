@@ -14,8 +14,9 @@ import (
 func newIntegrationsGetItgsuggestedResourcesCountCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "get-itgsuggested-resources-count <subjectId> <subjectType>",
-		Short:       "Get itgsuggested resources count",
+		Use:   "get-itgsuggested-resources-count <subjectId> <subjectType>",
+		Short: "Get itgsuggested resources count",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli integrations get-itgsuggested-resources-count 42 example-value",
 		Annotations: map[string]string{"pp:endpoint": "integrations.get-itgsuggested-resources-count", "pp:method": "GET", "pp:path": "/v2/integrations/itglue/{subjectId}/suggestedresources/{subjectType}/count", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

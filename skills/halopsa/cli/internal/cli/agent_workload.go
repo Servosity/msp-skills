@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"halopsa-pp-cli/internal/store"
 )
 
 // pp:data-source local
@@ -44,7 +43,7 @@ func newNovelAgentWorkloadCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("--since %q: %w", since, err)
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := halopsaOpenStoreSchemaAware(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'halopsa-cli sync' first.", err)
 			}
