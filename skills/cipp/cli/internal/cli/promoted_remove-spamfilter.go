@@ -17,9 +17,10 @@ func newRemoveSpamfilterPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyName2 string
 
 	cmd := &cobra.Command{
-		Use:         "remove-spamfilter",
-		Short:       "Remove spamfilter",
-		Long:        "Remove spamfilter",
+		Use:   "remove-spamfilter",
+		Short: "Remove spamfilter",
+		Long:  "Remove spamfilter",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli remove-spamfilter --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "remove-spamfilter.create", "pp:method": "POST", "pp:path": "/RemoveSpamfilter"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,10 +42,10 @@ func newRemoveSpamfilterPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/RemoveSpamfilter"
 			params := map[string]string{}
 			if flagName != "" {
-				params["name"] = fmt.Sprintf("%v", flagName)
+				params["name"] = formatCLIParamValue(flagName)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -56,10 +57,10 @@ func newRemoveSpamfilterPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

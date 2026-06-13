@@ -42,9 +42,10 @@ func newCreateSafeLinksPolicyTemplatePromotedCmd(flags *rootFlags) *cobra.Comman
 	var bodyTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "create-safe-links-policy-template",
-		Short:       "This function creates a new Safe Links policy template from scratch.",
-		Long:        "This function creates a new Safe Links policy template from scratch.",
+		Use:   "create-safe-links-policy-template",
+		Short: "This function creates a new Safe Links policy template from scratch.",
+		Long:  "This function creates a new Safe Links policy template from scratch.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli create-safe-links-policy-template --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "create-safe-links-policy-template.create", "pp:method": "POST", "pp:path": "/CreateSafeLinksPolicyTemplate"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -153,10 +154,10 @@ func newCreateSafeLinksPolicyTemplatePromotedCmd(flags *rootFlags) *cobra.Comman
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

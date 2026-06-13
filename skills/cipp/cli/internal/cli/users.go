@@ -11,7 +11,7 @@ func newNovelUsersCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "users",
-		Short:       "TODO: implement users",
+		Short:       "users subcommands: stale",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

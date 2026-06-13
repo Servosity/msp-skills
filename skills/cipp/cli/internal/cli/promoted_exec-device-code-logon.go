@@ -33,19 +33,19 @@ func newExecDeviceCodeLogonPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecDeviceCodeLogon"
 			params := map[string]string{}
 			if flagClientId != "" {
-				params["clientId"] = fmt.Sprintf("%v", flagClientId)
+				params["clientId"] = formatCLIParamValue(flagClientId)
 			}
 			if flagDeviceCode != "" {
-				params["deviceCode"] = fmt.Sprintf("%v", flagDeviceCode)
+				params["deviceCode"] = formatCLIParamValue(flagDeviceCode)
 			}
 			if flagOperation != "" {
-				params["operation"] = fmt.Sprintf("%v", flagOperation)
+				params["operation"] = formatCLIParamValue(flagOperation)
 			}
 			if flagScope != "" {
-				params["scope"] = fmt.Sprintf("%v", flagScope)
+				params["scope"] = formatCLIParamValue(flagScope)
 			}
 			if flagTenantId != "" {
-				params["tenantId"] = fmt.Sprintf("%v", flagTenantId)
+				params["tenantId"] = formatCLIParamValue(flagTenantId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-device-code-logon", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

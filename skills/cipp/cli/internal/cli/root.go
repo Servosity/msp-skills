@@ -18,17 +18,18 @@ import (
 )
 
 type rootFlags struct {
-	asJSON     bool
-	compact    bool
-	csv        bool
-	plain      bool
-	quiet      bool
-	dryRun     bool
-	noCache    bool
-	noInput    bool
-	idempotent bool
-	yes        bool
-	agent      bool
+	asJSON        bool
+	compact       bool
+	csv           bool
+	plain         bool
+	quiet         bool
+	dryRun        bool
+	noCache       bool
+	noInput       bool
+	idempotent    bool
+	ignoreMissing bool
+	yes           bool
+	agent         bool
 	// allowPartialFailure downgrades a detected response-body partial-failure
 	// (e.g. Google Ads `partialFailureError`) from a non-zero exit to a
 	// stderr warning. Default false so silent partial successes surface as
@@ -142,8 +143,8 @@ func isCobraUsageError(err error) bool {
 func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "cipp-cli",
-		Short: `Cipp CLI — First single-binary CLI for CIPP — offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.`,
-		Long: `Cipp CLI — First single-binary CLI for CIPP — offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.
+		Short: `Cipp CLI — First single-binary CLI for CIPP — offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIP…`,
+		Long: `Cipp CLI — First single-binary CLI for CIPP — offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIP…
 
 Highlights (not in the official API docs):
   • fanout   Run any read command across every client tenant at once, with throttle-aware backoff and resume after a halt.
@@ -172,6 +173,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.PersistentFlags().BoolVar(&flags.noCache, "no-cache", false, "Bypass response cache")
 	rootCmd.PersistentFlags().BoolVar(&flags.noInput, "no-input", false, "Disable all interactive prompts (for CI/agents)")
 	rootCmd.PersistentFlags().BoolVar(&flags.idempotent, "idempotent", false, "Treat already-existing create results as a successful no-op")
+	rootCmd.PersistentFlags().BoolVar(&flags.ignoreMissing, "ignore-missing", false, "Treat missing delete targets as a successful no-op")
 	rootCmd.PersistentFlags().StringVar(&flags.selectFields, "select", "", "Comma-separated fields to include in output (e.g. --select id,name,status)")
 	rootCmd.PersistentFlags().BoolVar(&flags.yes, "yes", false, "Skip confirmation prompts (for agents and scripts)")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "Disable colored output")

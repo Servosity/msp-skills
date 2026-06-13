@@ -60,9 +60,10 @@ func newEditUserPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUsername string
 
 	cmd := &cobra.Command{
-		Use:         "edit-user",
-		Short:       "Edit user",
-		Long:        "Edit user",
+		Use:   "edit-user",
+		Short: "Edit user",
+		Long:  "Edit user",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli edit-user --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "edit-user.update", "pp:method": "PATCH", "pp:path": "/EditUser"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -267,10 +268,10 @@ func newEditUserPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PatchWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

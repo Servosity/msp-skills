@@ -19,9 +19,10 @@ func newExecSendOrgMessagePromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagURL string
 
 	cmd := &cobra.Command{
-		Use:         "exec-send-org-message",
-		Short:       "Exec send org message",
-		Long:        "Exec send org message",
+		Use:   "exec-send-org-message",
+		Short: "Exec send org message",
+		Long:  "Exec send org message",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-send-org-message --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-send-org-message.list", "pp:method": "GET", "pp:path": "/ExecSendOrgMessage", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -43,19 +44,19 @@ func newExecSendOrgMessagePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecSendOrgMessage"
 			params := map[string]string{}
 			if flagFreq != "" {
-				params["freq"] = fmt.Sprintf("%v", flagFreq)
+				params["freq"] = formatCLIParamValue(flagFreq)
 			}
 			if flagID != "" {
-				params["ID"] = fmt.Sprintf("%v", flagID)
+				params["ID"] = formatCLIParamValue(flagID)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			if flagURL != "" {
-				params["URL"] = fmt.Sprintf("%v", flagURL)
+				params["URL"] = formatCLIParamValue(flagURL)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-send-org-message", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

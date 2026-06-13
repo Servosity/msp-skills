@@ -32,10 +32,10 @@ func newListTenantGroupsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListTenantGroups"
 			params := map[string]string{}
 			if flagGroupId != "" {
-				params["groupId"] = fmt.Sprintf("%v", flagGroupId)
+				params["groupId"] = formatCLIParamValue(flagGroupId)
 			}
 			if flagIncludeUsage != "" {
-				params["includeUsage"] = fmt.Sprintf("%v", flagIncludeUsage)
+				params["includeUsage"] = formatCLIParamValue(flagIncludeUsage)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -50,10 +50,10 @@ func newListTenantGroupsPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

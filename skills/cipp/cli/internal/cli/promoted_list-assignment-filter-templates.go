@@ -29,7 +29,7 @@ func newListAssignmentFilterTemplatesPromotedCmd(flags *rootFlags) *cobra.Comman
 			path := "/ListAssignmentFilterTemplates"
 			params := map[string]string{}
 			if flagID != "" {
-				params["ID"] = fmt.Sprintf("%v", flagID)
+				params["ID"] = formatCLIParamValue(flagID)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-assignment-filter-templates", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

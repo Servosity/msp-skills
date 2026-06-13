@@ -15,9 +15,10 @@ func newListJitadminPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-jitadmin",
-		Short:       "List Just-in-time admin users for a tenant or all tenants. #> [CmdletBinding()] param($Request, $TriggerMetadata)",
-		Long:        "List Just-in-time admin users for a tenant or all tenants. #> [CmdletBinding()] param($Request, $TriggerMetadata)",
+		Use:   "list-jitadmin",
+		Short: "List Just-in-time admin users for a tenant or all tenants. #> [CmdletBinding()] param($Request, $TriggerMetadata)",
+		Long:  "List Just-in-time admin users for a tenant or all tenants. #> [CmdletBinding()] param($Request, $TriggerMetadata)",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-jitadmin --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-jitadmin.list", "pp:method": "GET", "pp:path": "/ListJITAdmin", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,7 @@ func newListJitadminPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListJITAdmin"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-jitadmin", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

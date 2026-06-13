@@ -15,9 +15,10 @@ func newListConditionalAccessPoliciesPromotedCmd(flags *rootFlags) *cobra.Comman
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-conditional-access-policies",
-		Short:       "List conditional access policies",
-		Long:        "List conditional access policies",
+		Use:   "list-conditional-access-policies",
+		Short: "List conditional access policies",
+		Long:  "List conditional access policies",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-conditional-access-policies --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-conditional-access-policies.list", "pp:method": "GET", "pp:path": "/ListConditionalAccessPolicies", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,7 @@ func newListConditionalAccessPoliciesPromotedCmd(flags *rootFlags) *cobra.Comman
 			path := "/ListConditionalAccessPolicies"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-conditional-access-policies", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -16,9 +16,10 @@ func newListMailboxRulesPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagUseReportDB string
 
 	cmd := &cobra.Command{
-		Use:         "list-mailbox-rules",
-		Short:       "List mailbox rules",
-		Long:        "List mailbox rules",
+		Use:   "list-mailbox-rules",
+		Short: "List mailbox rules",
+		Long:  "List mailbox rules",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-mailbox-rules --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-mailbox-rules.list", "pp:method": "GET", "pp:path": "/ListMailboxRules", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,10 +41,10 @@ func newListMailboxRulesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListMailboxRules"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagUseReportDB != "" {
-				params["UseReportDB"] = fmt.Sprintf("%v", flagUseReportDB)
+				params["UseReportDB"] = formatCLIParamValue(flagUseReportDB)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-mailbox-rules", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

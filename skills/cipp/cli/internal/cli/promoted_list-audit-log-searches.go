@@ -18,9 +18,10 @@ func newListAuditLogSearchesPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagType string
 
 	cmd := &cobra.Command{
-		Use:         "list-audit-log-searches",
-		Short:       "List audit log searches",
-		Long:        "List audit log searches",
+		Use:   "list-audit-log-searches",
+		Short: "List audit log searches",
+		Long:  "List audit log searches",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-audit-log-searches --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-audit-log-searches.list", "pp:method": "GET", "pp:path": "/ListAuditLogSearches", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -42,16 +43,16 @@ func newListAuditLogSearchesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListAuditLogSearches"
 			params := map[string]string{}
 			if flagDays != "" {
-				params["Days"] = fmt.Sprintf("%v", flagDays)
+				params["Days"] = formatCLIParamValue(flagDays)
 			}
 			if flagSearchId != "" {
-				params["SearchId"] = fmt.Sprintf("%v", flagSearchId)
+				params["SearchId"] = formatCLIParamValue(flagSearchId)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagType != "" {
-				params["Type"] = fmt.Sprintf("%v", flagType)
+				params["Type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-audit-log-searches", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -29,7 +29,7 @@ func newExecMailTestPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecMailTest"
 			params := map[string]string{}
 			if flagAction != "" {
-				params["Action"] = fmt.Sprintf("%v", flagAction)
+				params["Action"] = formatCLIParamValue(flagAction)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-mail-test", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

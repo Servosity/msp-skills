@@ -17,9 +17,10 @@ func newListUserTrustedBlockedSendersPromotedCmd(flags *rootFlags) *cobra.Comman
 	var flagUserPrincipalName string
 
 	cmd := &cobra.Command{
-		Use:         "list-user-trusted-blocked-senders",
-		Short:       "List user trusted blocked senders",
-		Long:        "List user trusted blocked senders",
+		Use:   "list-user-trusted-blocked-senders",
+		Short: "List user trusted blocked senders",
+		Long:  "List user trusted blocked senders",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-user-trusted-blocked-senders --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-user-trusted-blocked-senders.list", "pp:method": "GET", "pp:path": "/ListUserTrustedBlockedSenders", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,13 +42,13 @@ func newListUserTrustedBlockedSendersPromotedCmd(flags *rootFlags) *cobra.Comman
 			path := "/ListUserTrustedBlockedSenders"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagUserID != "" {
-				params["UserID"] = fmt.Sprintf("%v", flagUserID)
+				params["UserID"] = formatCLIParamValue(flagUserID)
 			}
 			if flagUserPrincipalName != "" {
-				params["userPrincipalName"] = fmt.Sprintf("%v", flagUserPrincipalName)
+				params["userPrincipalName"] = formatCLIParamValue(flagUserPrincipalName)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-user-trusted-blocked-senders", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

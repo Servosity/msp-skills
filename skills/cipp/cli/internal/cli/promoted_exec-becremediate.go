@@ -17,9 +17,10 @@ func newExecBecremediatePromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUsername string
 
 	cmd := &cobra.Command{
-		Use:         "exec-becremediate",
-		Short:       "Exec becremediate",
-		Long:        "Exec becremediate",
+		Use:   "exec-becremediate",
+		Short: "Exec becremediate",
+		Long:  "Exec becremediate",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-becremediate --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-becremediate.create", "pp:method": "POST", "pp:path": "/ExecBECRemediate"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -56,10 +57,10 @@ func newExecBecremediatePromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

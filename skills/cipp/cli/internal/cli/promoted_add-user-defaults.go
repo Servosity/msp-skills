@@ -48,9 +48,10 @@ func newAddUserDefaultsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUsernameFormat string
 
 	cmd := &cobra.Command{
-		Use:         "add-user-defaults",
-		Short:       "Add user defaults",
-		Long:        "Add user defaults",
+		Use:   "add-user-defaults",
+		Short: "Add user defaults",
+		Long:  "Add user defaults",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli add-user-defaults --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "add-user-defaults.create", "pp:method": "POST", "pp:path": "/AddUserDefaults"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -207,10 +208,10 @@ func newAddUserDefaultsPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

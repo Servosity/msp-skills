@@ -22,9 +22,10 @@ func newExecGroupsHideFromGalPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "exec-groups-hide-from-gal",
-		Short:       "Exec groups hide from gal",
-		Long:        "Exec groups hide from gal",
+		Use:   "exec-groups-hide-from-gal",
+		Short: "Exec groups hide from gal",
+		Long:  "Exec groups hide from gal",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-groups-hide-from-gal --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-groups-hide-from-gal.create", "pp:method": "POST", "pp:path": "/ExecGroupsHideFromGAL"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -49,16 +50,16 @@ func newExecGroupsHideFromGalPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecGroupsHideFromGAL"
 			params := map[string]string{}
 			if flagGroupType != "" {
-				params["GroupType"] = fmt.Sprintf("%v", flagGroupType)
+				params["GroupType"] = formatCLIParamValue(flagGroupType)
 			}
 			if flagHideFromGAL != "" {
-				params["HideFromGAL"] = fmt.Sprintf("%v", flagHideFromGAL)
+				params["HideFromGAL"] = formatCLIParamValue(flagHideFromGAL)
 			}
 			if flagID != "" {
-				params["ID"] = fmt.Sprintf("%v", flagID)
+				params["ID"] = formatCLIParamValue(flagID)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -79,10 +80,10 @@ func newExecGroupsHideFromGalPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

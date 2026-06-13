@@ -17,9 +17,10 @@ func newListGroupSenderAuthenticationPromotedCmd(flags *rootFlags) *cobra.Comman
 	var flagType string
 
 	cmd := &cobra.Command{
-		Use:         "list-group-sender-authentication",
-		Short:       "List group sender authentication",
-		Long:        "List group sender authentication",
+		Use:   "list-group-sender-authentication",
+		Short: "List group sender authentication",
+		Long:  "List group sender authentication",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-group-sender-authentication --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-group-sender-authentication.list", "pp:method": "GET", "pp:path": "/ListGroupSenderAuthentication", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,13 +42,13 @@ func newListGroupSenderAuthenticationPromotedCmd(flags *rootFlags) *cobra.Comman
 			path := "/ListGroupSenderAuthentication"
 			params := map[string]string{}
 			if flagGroupid != "" {
-				params["groupid"] = fmt.Sprintf("%v", flagGroupid)
+				params["groupid"] = formatCLIParamValue(flagGroupid)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagType != "" {
-				params["Type"] = fmt.Sprintf("%v", flagType)
+				params["Type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-group-sender-authentication", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

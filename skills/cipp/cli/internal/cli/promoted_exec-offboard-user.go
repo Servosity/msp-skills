@@ -49,9 +49,10 @@ func newExecOffboardUserPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUser string
 
 	cmd := &cobra.Command{
-		Use:         "exec-offboard-user",
-		Short:       "Offboard a user with configurable options for mailbox conversion, access delegation, license removal, and more",
-		Long:        "Offboard a user with configurable options for mailbox conversion, access delegation, license removal, and more",
+		Use:   "exec-offboard-user",
+		Short: "Offboard a user with configurable options for mailbox conversion, access delegation, license removal, and more",
+		Long:  "Offboard a user with configurable options for mailbox conversion, access delegation, license removal, and more",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-offboard-user --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-offboard-user.create", "pp:method": "POST", "pp:path": "/ExecOffboardUser"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -211,10 +212,10 @@ func newExecOffboardUserPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

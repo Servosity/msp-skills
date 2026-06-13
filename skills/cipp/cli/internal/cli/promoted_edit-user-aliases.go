@@ -19,9 +19,10 @@ func newEditUserAliasesPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "edit-user-aliases",
-		Short:       "Edit user aliases",
-		Long:        "Edit user aliases",
+		Use:   "edit-user-aliases",
+		Short: "Edit user aliases",
+		Long:  "Edit user aliases",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli edit-user-aliases --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "edit-user-aliases.create", "pp:method": "POST", "pp:path": "/EditUserAliases"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -64,10 +65,10 @@ func newEditUserAliasesPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

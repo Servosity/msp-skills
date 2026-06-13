@@ -20,9 +20,10 @@ func newRemoveContactPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "remove-contact",
-		Short:       "Remove contact",
-		Long:        "Remove contact",
+		Use:   "remove-contact",
+		Short: "Remove contact",
+		Long:  "Remove contact",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli remove-contact --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "remove-contact.create", "pp:method": "POST", "pp:path": "/RemoveContact"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -47,13 +48,13 @@ func newRemoveContactPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/RemoveContact"
 			params := map[string]string{}
 			if flagGUID != "" {
-				params["GUID"] = fmt.Sprintf("%v", flagGUID)
+				params["GUID"] = formatCLIParamValue(flagGUID)
 			}
 			if flagMail != "" {
-				params["Mail"] = fmt.Sprintf("%v", flagMail)
+				params["Mail"] = formatCLIParamValue(flagMail)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -71,10 +72,10 @@ func newRemoveContactPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

@@ -18,9 +18,10 @@ func newListFunctionStatsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTime string
 
 	cmd := &cobra.Command{
-		Use:         "list-function-stats",
-		Short:       "List function stats",
-		Long:        "List function stats",
+		Use:   "list-function-stats",
+		Short: "List function stats",
+		Long:  "List function stats",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-function-stats --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-function-stats.list", "pp:method": "GET", "pp:path": "/ListFunctionStats", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -42,16 +43,16 @@ func newListFunctionStatsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListFunctionStats"
 			params := map[string]string{}
 			if flagFunctionType != "" {
-				params["FunctionType"] = fmt.Sprintf("%v", flagFunctionType)
+				params["FunctionType"] = formatCLIParamValue(flagFunctionType)
 			}
 			if flagInterval != "" {
-				params["Interval"] = fmt.Sprintf("%v", flagInterval)
+				params["Interval"] = formatCLIParamValue(flagInterval)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagTime != "" {
-				params["Time"] = fmt.Sprintf("%v", flagTime)
+				params["Time"] = formatCLIParamValue(flagTime)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-function-stats", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

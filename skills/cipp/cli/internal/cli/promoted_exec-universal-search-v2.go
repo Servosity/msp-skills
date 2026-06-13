@@ -31,9 +31,9 @@ func newExecUniversalSearchV2PromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/ExecUniversalSearchV2"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-universal-search-v2", path, map[string]string{
-				"limit":       fmt.Sprintf("%v", flagLimit),
-				"searchTerms": fmt.Sprintf("%v", flagSearchTerms),
-				"type":        fmt.Sprintf("%v", flagType),
+				"limit":       formatCLIParamValue(flagLimit),
+				"searchTerms": formatCLIParamValue(flagSearchTerms),
+				"type":        formatCLIParamValue(flagType),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

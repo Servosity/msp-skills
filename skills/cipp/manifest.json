@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "cipp-pp-mcp",
   "display_name": "CIPP",
-  "version": "0.1.0",
-  "description": "First single-binary CLI for CIPP  -  offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.",
+  "version": "0.1.1",
+  "description": "First single-binary CLI for CIPP \u2014 offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.",
   "author": {
     "name": "Servosity Inc."
   },
@@ -36,10 +36,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T02:43:42.339853Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T03:18:12.541831Z",
     "spec_checksum": "sha256:f8b6b7bc4c45ea2df98e8f229bb0fbc12056dc9f19c2b0c0404e2e8605bba349",
     "spec_format": "openapi3"
   }

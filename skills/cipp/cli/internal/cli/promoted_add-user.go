@@ -45,9 +45,10 @@ func newAddUserPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUsername string
 
 	cmd := &cobra.Command{
-		Use:         "add-user",
-		Short:       "Create a new user in a tenant, optionally scheduled",
-		Long:        "Create a new user in a tenant, optionally scheduled",
+		Use:   "add-user",
+		Short: "Create a new user in a tenant, optionally scheduled",
+		Long:  "Create a new user in a tenant, optionally scheduled",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli add-user --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "add-user.create", "pp:method": "POST", "pp:path": "/AddUser"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -195,10 +196,10 @@ func newAddUserPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

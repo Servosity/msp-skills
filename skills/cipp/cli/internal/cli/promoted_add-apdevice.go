@@ -17,9 +17,10 @@ func newAddApdevicePromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyAutopilotData string
 
 	cmd := &cobra.Command{
-		Use:         "add-apdevice",
-		Short:       "Adds Autopilot devices to a tenant via Partner Center API #> [CmdletBinding()] param($Request, $TriggerMetadata)",
-		Long:        "Adds Autopilot devices to a tenant via Partner Center API #> [CmdletBinding()] param($Request, $TriggerMetadata)",
+		Use:   "add-apdevice",
+		Short: "Adds Autopilot devices to a tenant via Partner Center API #> [CmdletBinding()] param($Request, $TriggerMetadata)",
+		Long:  "Adds Autopilot devices to a tenant via Partner Center API #> [CmdletBinding()] param($Request, $TriggerMetadata)",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli add-apdevice --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "add-apdevice.create", "pp:method": "POST", "pp:path": "/AddAPDevice"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -56,10 +57,10 @@ func newAddApdevicePromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

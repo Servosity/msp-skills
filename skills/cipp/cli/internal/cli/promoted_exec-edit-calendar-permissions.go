@@ -28,9 +28,10 @@ func newExecEditCalendarPermissionsPromotedCmd(flags *rootFlags) *cobra.Command 
 	var bodyUserid2 string
 
 	cmd := &cobra.Command{
-		Use:         "exec-edit-calendar-permissions",
-		Short:       "Exec edit calendar permissions",
-		Long:        "Exec edit calendar permissions",
+		Use:   "exec-edit-calendar-permissions",
+		Short: "Exec edit calendar permissions",
+		Long:  "Exec edit calendar permissions",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-edit-calendar-permissions --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-edit-calendar-permissions.create", "pp:method": "POST", "pp:path": "/ExecEditCalendarPermissions"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -55,25 +56,25 @@ func newExecEditCalendarPermissionsPromotedCmd(flags *rootFlags) *cobra.Command 
 			path := "/ExecEditCalendarPermissions"
 			params := map[string]string{}
 			if flagCanViewPrivateItems != "" {
-				params["CanViewPrivateItems"] = fmt.Sprintf("%v", flagCanViewPrivateItems)
+				params["CanViewPrivateItems"] = formatCLIParamValue(flagCanViewPrivateItems)
 			}
 			if flagFolderName != "" {
-				params["FolderName"] = fmt.Sprintf("%v", flagFolderName)
+				params["FolderName"] = formatCLIParamValue(flagFolderName)
 			}
 			if flagPermissions != "" {
-				params["Permissions"] = fmt.Sprintf("%v", flagPermissions)
+				params["Permissions"] = formatCLIParamValue(flagPermissions)
 			}
 			if flagRemoveAccess != "" {
-				params["RemoveAccess"] = fmt.Sprintf("%v", flagRemoveAccess)
+				params["RemoveAccess"] = formatCLIParamValue(flagRemoveAccess)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagUserid != "" {
-				params["userid"] = fmt.Sprintf("%v", flagUserid)
+				params["userid"] = formatCLIParamValue(flagUserid)
 			}
 			if flagUserToGetPermissions != "" {
-				params["UserToGetPermissions"] = fmt.Sprintf("%v", flagUserToGetPermissions)
+				params["UserToGetPermissions"] = formatCLIParamValue(flagUserToGetPermissions)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -103,10 +104,10 @@ func newExecEditCalendarPermissionsPromotedCmd(flags *rootFlags) *cobra.Command 
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

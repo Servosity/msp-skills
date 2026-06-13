@@ -16,9 +16,10 @@ func newListIntuneReusableSettingsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-intune-reusable-settings",
-		Short:       "List intune reusable settings",
-		Long:        "List intune reusable settings",
+		Use:   "list-intune-reusable-settings",
+		Short: "List intune reusable settings",
+		Long:  "List intune reusable settings",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-intune-reusable-settings --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-intune-reusable-settings.list", "pp:method": "GET", "pp:path": "/ListIntuneReusableSettings", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,10 +41,10 @@ func newListIntuneReusableSettingsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListIntuneReusableSettings"
 			params := map[string]string{}
 			if flagID != "" {
-				params["ID"] = fmt.Sprintf("%v", flagID)
+				params["ID"] = formatCLIParamValue(flagID)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-intune-reusable-settings", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

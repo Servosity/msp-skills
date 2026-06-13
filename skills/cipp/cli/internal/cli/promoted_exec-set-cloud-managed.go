@@ -19,9 +19,10 @@ func newExecSetCloudManagedPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyType string
 
 	cmd := &cobra.Command{
-		Use:         "exec-set-cloud-managed",
-		Short:       "Sets the cloud-managed status of a user, group, or contact. #> [CmdletBinding()] param($Request, $TriggerMetadata)",
-		Long:        "Sets the cloud-managed status of a user, group, or contact. #> [CmdletBinding()] param($Request, $TriggerMetadata)",
+		Use:   "exec-set-cloud-managed",
+		Short: "Sets the cloud-managed status of a user, group, or contact. #> [CmdletBinding()] param($Request, $TriggerMetadata)",
+		Long:  "Sets the cloud-managed status of a user, group, or contact. #> [CmdletBinding()] param($Request, $TriggerMetadata)",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-set-cloud-managed --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-set-cloud-managed.create", "pp:method": "POST", "pp:path": "/ExecSetCloudManaged"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -64,10 +65,10 @@ func newExecSetCloudManagedPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

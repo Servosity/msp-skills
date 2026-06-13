@@ -33,9 +33,10 @@ func newExecSetCalendarProcessingPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "exec-set-calendar-processing",
-		Short:       "Exec set calendar processing",
-		Long:        "Exec set calendar processing",
+		Use:   "exec-set-calendar-processing",
+		Short: "Exec set calendar processing",
+		Long:  "Exec set calendar processing",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-set-calendar-processing --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-set-calendar-processing.create", "pp:method": "POST", "pp:path": "/ExecSetCalendarProcessing"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -120,10 +121,10 @@ func newExecSetCalendarProcessingPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

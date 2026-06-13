@@ -29,7 +29,7 @@ func newExecAppApprovalPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecAppApproval"
 			params := map[string]string{}
 			if flagApplicationId != "" {
-				params["ApplicationId"] = fmt.Sprintf("%v", flagApplicationId)
+				params["ApplicationId"] = formatCLIParamValue(flagApplicationId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-app-approval", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -20,9 +20,10 @@ func newEditSafeAttachmentsFilterPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "edit-safe-attachments-filter",
-		Short:       "Edit safe attachments filter",
-		Long:        "Edit safe attachments filter",
+		Use:   "edit-safe-attachments-filter",
+		Short: "Edit safe attachments filter",
+		Long:  "Edit safe attachments filter",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli edit-safe-attachments-filter --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "edit-safe-attachments-filter.create", "pp:method": "POST", "pp:path": "/EditSafeAttachmentsFilter"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -47,13 +48,13 @@ func newEditSafeAttachmentsFilterPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/EditSafeAttachmentsFilter"
 			params := map[string]string{}
 			if flagRuleName != "" {
-				params["RuleName"] = fmt.Sprintf("%v", flagRuleName)
+				params["RuleName"] = formatCLIParamValue(flagRuleName)
 			}
 			if flagState != "" {
-				params["State"] = fmt.Sprintf("%v", flagState)
+				params["State"] = formatCLIParamValue(flagState)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -71,10 +72,10 @@ func newEditSafeAttachmentsFilterPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

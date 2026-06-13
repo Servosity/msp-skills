@@ -34,16 +34,16 @@ func newPublicWebhooksPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/PublicWebhooks"
 			params := map[string]string{}
 			if flagCIPPID != "" {
-				params["CIPPID"] = fmt.Sprintf("%v", flagCIPPID)
+				params["CIPPID"] = formatCLIParamValue(flagCIPPID)
 			}
 			if flagType != "" {
-				params["Type"] = fmt.Sprintf("%v", flagType)
+				params["Type"] = formatCLIParamValue(flagType)
 			}
 			if flagValidationCode != "" {
-				params["validationCode"] = fmt.Sprintf("%v", flagValidationCode)
+				params["validationCode"] = formatCLIParamValue(flagValidationCode)
 			}
 			if flagValidationToken != "" {
-				params["ValidationToken"] = fmt.Sprintf("%v", flagValidationToken)
+				params["ValidationToken"] = formatCLIParamValue(flagValidationToken)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -58,10 +58,10 @@ func newPublicWebhooksPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

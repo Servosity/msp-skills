@@ -22,9 +22,10 @@ func newExecSetOoOPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUserId string
 
 	cmd := &cobra.Command{
-		Use:         "exec-set-oo-o",
-		Short:       "Exec set oo o",
-		Long:        "Exec set oo o",
+		Use:   "exec-set-oo-o",
+		Short: "Exec set oo o",
+		Long:  "Exec set oo o",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-set-oo-o --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-set-oo-o.create", "pp:method": "POST", "pp:path": "/ExecSetOoO"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -76,10 +77,10 @@ func newExecSetOoOPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

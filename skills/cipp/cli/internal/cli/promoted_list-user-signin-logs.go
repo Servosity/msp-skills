@@ -17,9 +17,10 @@ func newListUserSigninLogsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagUserID string
 
 	cmd := &cobra.Command{
-		Use:         "list-user-signin-logs",
-		Short:       "List user signin logs",
-		Long:        "List user signin logs",
+		Use:   "list-user-signin-logs",
+		Short: "List user signin logs",
+		Long:  "List user signin logs",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-user-signin-logs --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-user-signin-logs.list", "pp:method": "GET", "pp:path": "/ListUserSigninLogs", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,13 +42,13 @@ func newListUserSigninLogsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListUserSigninLogs"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagTop != "" {
-				params["top"] = fmt.Sprintf("%v", flagTop)
+				params["top"] = formatCLIParamValue(flagTop)
 			}
 			if flagUserID != "" {
-				params["UserID"] = fmt.Sprintf("%v", flagUserID)
+				params["UserID"] = formatCLIParamValue(flagUserID)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-user-signin-logs", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

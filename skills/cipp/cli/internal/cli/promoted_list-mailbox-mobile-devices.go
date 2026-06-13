@@ -16,9 +16,10 @@ func newListMailboxMobileDevicesPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-mailbox-mobile-devices",
-		Short:       "List mailbox mobile devices",
-		Long:        "List mailbox mobile devices",
+		Use:   "list-mailbox-mobile-devices",
+		Short: "List mailbox mobile devices",
+		Long:  "List mailbox mobile devices",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-mailbox-mobile-devices --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-mailbox-mobile-devices.list", "pp:method": "GET", "pp:path": "/ListMailboxMobileDevices", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,10 +41,10 @@ func newListMailboxMobileDevicesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListMailboxMobileDevices"
 			params := map[string]string{}
 			if flagMailbox != "" {
-				params["Mailbox"] = fmt.Sprintf("%v", flagMailbox)
+				params["Mailbox"] = formatCLIParamValue(flagMailbox)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-mailbox-mobile-devices", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

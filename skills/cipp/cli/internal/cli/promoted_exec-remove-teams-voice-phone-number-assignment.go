@@ -18,9 +18,10 @@ func newExecRemoveTeamsVoicePhoneNumberAssignmentPromotedCmd(flags *rootFlags) *
 	var bodyTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "exec-remove-teams-voice-phone-number-assignment",
-		Short:       "Exec remove teams voice phone number assignment",
-		Long:        "Exec remove teams voice phone number assignment",
+		Use:   "exec-remove-teams-voice-phone-number-assignment",
+		Short: "Exec remove teams voice phone number assignment",
+		Long:  "Exec remove teams voice phone number assignment",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-remove-teams-voice-phone-number-assignment --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-remove-teams-voice-phone-number-assignment.create", "pp:method": "POST", "pp:path": "/ExecRemoveTeamsVoicePhoneNumberAssignment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -60,10 +61,10 @@ func newExecRemoveTeamsVoicePhoneNumberAssignmentPromotedCmd(flags *rootFlags) *
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

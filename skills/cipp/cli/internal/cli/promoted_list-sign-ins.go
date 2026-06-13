@@ -19,9 +19,10 @@ func newListSignInsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-sign-ins",
-		Short:       "List sign ins",
-		Long:        "List sign ins",
+		Use:   "list-sign-ins",
+		Short: "List sign ins",
+		Long:  "List sign ins",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-sign-ins --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-sign-ins.list", "pp:method": "GET", "pp:path": "/ListSignIns", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -43,19 +44,19 @@ func newListSignInsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListSignIns"
 			params := map[string]string{}
 			if flagDays != "" {
-				params["Days"] = fmt.Sprintf("%v", flagDays)
+				params["Days"] = formatCLIParamValue(flagDays)
 			}
 			if flagFailedLogonsOnly != "" {
-				params["failedLogonsOnly"] = fmt.Sprintf("%v", flagFailedLogonsOnly)
+				params["failedLogonsOnly"] = formatCLIParamValue(flagFailedLogonsOnly)
 			}
 			if flagFailureThreshold != "" {
-				params["FailureThreshold"] = fmt.Sprintf("%v", flagFailureThreshold)
+				params["FailureThreshold"] = formatCLIParamValue(flagFailureThreshold)
 			}
 			if flagFilter != "" {
-				params["Filter"] = fmt.Sprintf("%v", flagFilter)
+				params["Filter"] = formatCLIParamValue(flagFilter)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-sign-ins", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

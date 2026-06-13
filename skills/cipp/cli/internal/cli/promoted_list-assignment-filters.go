@@ -16,9 +16,10 @@ func newListAssignmentFiltersPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-assignment-filters",
-		Short:       "List assignment filters",
-		Long:        "List assignment filters",
+		Use:   "list-assignment-filters",
+		Short: "List assignment filters",
+		Long:  "List assignment filters",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-assignment-filters --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-assignment-filters.list", "pp:method": "GET", "pp:path": "/ListAssignmentFilters", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,10 +41,10 @@ func newListAssignmentFiltersPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListAssignmentFilters"
 			params := map[string]string{}
 			if flagFilterId != "" {
-				params["filterId"] = fmt.Sprintf("%v", flagFilterId)
+				params["filterId"] = formatCLIParamValue(flagFilterId)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-assignment-filters", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -15,9 +15,10 @@ func newListOauthAppsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-oauth-apps",
-		Short:       "List oauth apps",
-		Long:        "List oauth apps",
+		Use:   "list-oauth-apps",
+		Short: "List oauth apps",
+		Long:  "List oauth apps",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-oauth-apps --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-oauth-apps.list", "pp:method": "GET", "pp:path": "/ListOAuthApps", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,7 @@ func newListOauthAppsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListOAuthApps"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-oauth-apps", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

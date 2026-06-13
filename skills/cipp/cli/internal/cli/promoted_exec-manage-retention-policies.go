@@ -21,9 +21,10 @@ func newExecManageRetentionPoliciesPromotedCmd(flags *rootFlags) *cobra.Command 
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "exec-manage-retention-policies",
-		Short:       "Exec manage retention policies",
-		Long:        "Exec manage retention policies",
+		Use:   "exec-manage-retention-policies",
+		Short: "Exec manage retention policies",
+		Long:  "Exec manage retention policies",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-manage-retention-policies --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-manage-retention-policies.delete", "pp:method": "DELETE", "pp:path": "/ExecManageRetentionPolicies"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -48,10 +49,10 @@ func newExecManageRetentionPoliciesPromotedCmd(flags *rootFlags) *cobra.Command 
 			path := "/ExecManageRetentionPolicies"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagName != "" {
-				params["name"] = fmt.Sprintf("%v", flagName)
+				params["name"] = formatCLIParamValue(flagName)
 			}
 			body := map[string]any{}
 			if bodyCreatePolicies != "" {
@@ -68,10 +69,10 @@ func newExecManageRetentionPoliciesPromotedCmd(flags *rootFlags) *cobra.Command 
 			}
 			data, _, err := c.DeleteWithParamsAndBody(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope

@@ -29,7 +29,7 @@ func newExecUniversalSearchPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecUniversalSearch"
 			params := map[string]string{}
 			if flagName != "" {
-				params["name"] = fmt.Sprintf("%v", flagName)
+				params["name"] = formatCLIParamValue(flagName)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-universal-search", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -29,7 +29,7 @@ func newListBreachesAccountPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListBreachesAccount"
 			params := map[string]string{}
 			if flagAccount != "" {
-				params["account"] = fmt.Sprintf("%v", flagAccount)
+				params["account"] = formatCLIParamValue(flagAccount)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-breaches-account", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

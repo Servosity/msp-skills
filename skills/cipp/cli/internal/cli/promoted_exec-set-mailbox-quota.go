@@ -20,9 +20,10 @@ func newExecSetMailboxQuotaPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUser string
 
 	cmd := &cobra.Command{
-		Use:         "exec-set-mailbox-quota",
-		Short:       "Exec set mailbox quota",
-		Long:        "Exec set mailbox quota",
+		Use:   "exec-set-mailbox-quota",
+		Short: "Exec set mailbox quota",
+		Long:  "Exec set mailbox quota",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-set-mailbox-quota --tenantfilter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-set-mailbox-quota.create", "pp:method": "POST", "pp:path": "/ExecSetMailboxQuota"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -68,10 +69,10 @@ func newExecSetMailboxQuotaPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

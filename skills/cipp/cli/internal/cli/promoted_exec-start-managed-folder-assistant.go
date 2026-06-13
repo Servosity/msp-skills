@@ -19,9 +19,10 @@ func newExecStartManagedFolderAssistantPromotedCmd(flags *rootFlags) *cobra.Comm
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "exec-start-managed-folder-assistant",
-		Short:       "Exec start managed folder assistant",
-		Long:        "Exec start managed folder assistant",
+		Use:   "exec-start-managed-folder-assistant",
+		Short: "Exec start managed folder assistant",
+		Long:  "Exec start managed folder assistant",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-start-managed-folder-assistant --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-start-managed-folder-assistant.create", "pp:method": "POST", "pp:path": "/ExecStartManagedFolderAssistant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -46,10 +47,10 @@ func newExecStartManagedFolderAssistantPromotedCmd(flags *rootFlags) *cobra.Comm
 			path := "/ExecStartManagedFolderAssistant"
 			params := map[string]string{}
 			if flagId != "" {
-				params["Id"] = fmt.Sprintf("%v", flagId)
+				params["Id"] = formatCLIParamValue(flagId)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -67,10 +68,10 @@ func newExecStartManagedFolderAssistantPromotedCmd(flags *rootFlags) *cobra.Comm
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)
