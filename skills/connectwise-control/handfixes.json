@@ -1,0 +1,90 @@
+{
+  "slug": "connectwise-control",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint or onboard --resume must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and FAILS CI if a reprint dropped one. This connector was minted from a HAND-AUTHORED spec (no public OpenAPI); see project_connectwise_control_needs_creds_block.",
+  "handfixes": [
+    {
+      "id": "manifest-clean-mcp-binary-name",
+      "summary": "manifest.json name/entry_point/command use the clean `connectwise-control-mcp`, not the press `-pp-mcp`",
+      "why": "onboard re-copies the SOURCE manifest each --resume; the press source keeps `-pp-mcp`. The repo ships `connectwise-control-mcp`. See project_onboard_manifest_deleak_and_envvar.",
+      "status": "active",
+      "asserts": [
+        {"file": "manifest.json", "contains": "connectwise-control-mcp", "min_count": 2},
+        {"file": "manifest.json", "not_contains": "connectwise-control-pp-mcp"}
+      ]
+    },
+    {
+      "id": "manifest-real-description",
+      "summary": "manifest.json carries a real product description, not the verbose authored-spec info.description ('Unofficial OpenAPI 3 description ...')",
+      "why": "The hand-authored OpenAPI's info.description (a long unofficial/wire-format note) propagated to the README hero + plugin/marketplace/server.json. Authored a real one-liner in the SOURCE manifest. A fresh mint re-emits the spec description.",
+      "status": "active",
+      "asserts": [
+        {"file": "manifest.json", "contains": "Manage ConnectWise Control (ScreenConnect) remote support", "min_count": 1},
+        {"file": "manifest.json", "not_contains": "Unofficial OpenAPI 3 description"}
+      ]
+    },
+    {
+      "id": "manifest-server-basic-auth-base-url",
+      "summary": "Per-instance CONNECTWISE_CONTROL_BASE_URL is required in manifest + server.json; BASE_URL and USERNAME are non-secret, PASSWORD secret (HTTP Basic)",
+      "why": "ScreenConnect is appliance/instance-hosted - config.go reads CONNECTWISE_CONTROL_BASE_URL but the press manifest shipped only USERNAME+PASSWORD (the per-instance BASE_URL-omission pattern). Auth is HTTP Basic (USERNAME + PASSWORD); a URL and a username are not secrets, so server.json must mark BASE_URL + USERNAME isSecret:false. A fresh mint drops BASE_URL and marks all three secret. See project_veeam_onboard_traps.",
+      "status": "active",
+      "asserts": [
+        {"file": "manifest.json", "contains": "CONNECTWISE_CONTROL_BASE_URL", "min_count": 2},
+        {"file": "server.json", "contains": "CONNECTWISE_CONTROL_BASE_URL", "min_count": 1}
+      ]
+    },
+    {
+      "id": "governance-session-host-control-tier",
+      "summary": "Governance has a 'Session and host control' human-in-the-loop tier; gen_governance DROPPED sessions run-command (remote code execution on a guest)",
+      "why": "`sessions run-command` runs an arbitrary command on a customer's guest machine (RCE) - the single highest-risk command - and gen_governance left it out of the tier table entirely (the 'command'-named-write blind spot, same class as connectwise-automate's command-execute). Hand-added a Session-and-host-control tier covering run-command + add-event-to, an Access-grant tier (get-access-token), and Admin (save-user/delete-user). A full reprint re-runs the classifier and reverts. See project_connectwise_automate_onboard_traps + feedback_secret_read_commands_not_read_tier.",
+      "status": "active",
+      "asserts": [
+        {"file": "governance.md", "contains": "Session and host control", "min_count": 1},
+        {"file": "governance.md", "contains": "remote code execution", "min_count": 1},
+        {"file": "governance.md", "contains": "run-command", "min_count": 1}
+      ]
+    },
+    {
+      "id": "skill-auth-setup-http-basic",
+      "summary": "SKILL.md Auth Setup documents HTTP Basic with all three env vars (BASE_URL + USERNAME + PASSWORD), not the generic single-token `auth set-token` model",
+      "why": "The press generated a generic 'auth setup -> get a key -> set USERNAME=<your-key>' section that omitted PASSWORD + BASE_URL and implied a single token - a user following only it cannot authenticate (HTTP Basic needs username+password+host). Adversarial review caught it (P1). A re-vendor re-emits the generic single-token section.",
+      "status": "active",
+      "asserts": [
+        {"file": "SKILL.md", "contains": "CONNECTWISE_CONTROL_PASSWORD", "min_count": 1},
+        {"file": "SKILL.md", "not_contains": "export CONNECTWISE_CONTROL_USERNAME=\"<your-key>\""}
+      ]
+    },
+    {
+      "id": "page-json-stripped-binary-name",
+      "summary": "page.json command examples use the stripped `connectwise-control-cli`, never `connectwise-control-pp-cli`",
+      "why": "check_cli_claims is blind to the binary-name prefix, so a `-pp-cli` example would pass the gate but fail for users and ship into the published docs page + llms. See project_veeam_onboard_traps.",
+      "status": "active",
+      "asserts": [
+        {"file": "page.json", "contains": "connectwise-control-cli ", "min_count": 5},
+        {"file": "page.json", "not_contains": "connectwise-control-pp-cli"}
+      ]
+    },
+    {
+      "id": "skill-guide-deleak",
+      "summary": "SKILL.md + guide.md stay free of Printing Press / npx / go-install / openclaw-install-block leaks and the verbose .ashx spec-description intro",
+      "why": "onboard only de-leaks the SKILL.md description. The body H1/prereqs/MCP-install, the openclaw frontmatter `install:` block (printing-press-library go module), guide.md's install section, and the raw authored-spec info.description (with .ashx/christaylorcodes wire-format jargon) all survive a re-vendor. See project_onboard_skillmd_guide_deleak.",
+      "status": "active",
+      "asserts": [
+        {"file": "SKILL.md", "not_contains": "@mvanhorn/printing-press-library"},
+        {"file": "SKILL.md", "not_contains": "Services/<Service>.ashx"},
+        {"file": "guide.md", "not_contains": "npx -y @mvanhorn"}
+      ]
+    },
+    {
+      "id": "cli-no-create-alias-on-mutations",
+      "summary": "delete-user / add-event-to / get-info carry NO `create` Cobra alias; the press auto-aliases the alphabetically-first POST command in each resource group to `create`",
+      "why": "The press assigns `Aliases: []string{\"create\"}` to the first POST command per resource group. Here that lands on `security delete-user` (so `security create` would DELETE an instance user), `sessions add-event-to` (queues control events like Wake-on-LAN), and `audit get-info` - none of which create anything; the delete-user case is a catastrophic footgun. check_cli_claims is blind to Cobra aliases (project_onboard_cobra_alias_cli_claims_blindspot) so the gate passed; CodeRabbit flagged it on PR #99. A reprint re-adds the alias - remove it from all three command files. Systemic press bug; a retro should teach the press not to alias destructive/non-create POSTs to `create`.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/cli/security_delete-user.go", "not_contains": "[]string{\"create\"}"},
+        {"file": "cli/internal/cli/sessions_add-event-to.go", "not_contains": "[]string{\"create\"}"},
+        {"file": "cli/internal/cli/audit_get-info.go", "not_contains": "[]string{\"create\"}"}
+      ]
+    }
+  ]
+}
