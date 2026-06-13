@@ -1,5 +1,5 @@
 {
-  "count": 53,
+  "count": 54,
   "connectors": [
     {
       "slug": "abnormal",
@@ -312,6 +312,14 @@
       "category": "Billing",
       "verification": "live-verified",
       "url": "/skills/quickbooks/"
+    },
+    {
+      "slug": "rewst",
+      "display_name": "Rewst",
+      "tagline": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
+      "category": "Automation",
+      "verification": "awaiting",
+      "url": "/skills/rewst/"
     },
     {
       "slug": "rocketcyber",

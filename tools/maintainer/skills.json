@@ -924,6 +924,28 @@
         "evidence": "Servosity (an MSP) verified end-to-end against an Intuit QuickBooks Online tenant on 2026-06-12: OAuth token refresh, live reads, sync 227 records across 8 resources, ar-aging and balances populated; after the /query sync fix (handfix qbo-query-injection)."
       }
     },
+    "rewst": {
+      "system": "Rewst RPA/workflow automation for MSPs: orchestrations, triggers, organizations and integration packs over a GraphQL API",
+      "status": "beta",
+      "cli_binary": "rewst-cli",
+      "mcp_binary": "rewst-mcp",
+      "vendor": "Rewst",
+      "vendor_trademark_owner": "Rewst, Inc.",
+      "first_party": false,
+      "category": "Automation",
+      "display_name": "Rewst",
+      "cli_hash": "sha256:54c8803b7b521ae6b9883977e080f8e72a18961187cac30554139cc9be0274fd",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "rocketcyber": {
       "system": "RocketCyber managed SOC: incidents, agents, detection events, Defender and Microsoft 365 posture, and suppression rules",
       "status": "beta",

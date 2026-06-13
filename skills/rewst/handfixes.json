@@ -1,0 +1,79 @@
+{
+  "slug": "rewst",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint or onboard --resume must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and FAILS CI if a reprint dropped one.",
+  "handfixes": [
+    {
+      "id": "manifest-clean-mcp-binary-name",
+      "summary": "manifest.json name/entry_point/command use the clean `rewst-mcp`, not the press `-pp-mcp`",
+      "why": "onboard.py re-copies the SOURCE manifest.json on every --resume; the printing-press source keeps `-pp-mcp`. The repo ships `rewst-mcp`. See project_onboard_manifest_deleak_and_envvar.",
+      "status": "active",
+      "asserts": [
+        {"file": "manifest.json", "contains": "rewst-mcp", "min_count": 2},
+        {"file": "manifest.json", "not_contains": "rewst-pp-mcp"}
+      ]
+    },
+    {
+      "id": "manifest-real-description",
+      "summary": "manifest.json carries a real one-line description, not the press stub 'Generated from GraphQL schema'",
+      "why": "GraphQL-introspection mints emit a placeholder description that propagates to README hero + plugin/marketplace/server.json. Authored a real one-liner in the SOURCE manifest so the resume propagates it. A fresh reprint re-emits the stub.",
+      "status": "active",
+      "asserts": [
+        {"file": "manifest.json", "contains": "Operate and monitor Rewst", "min_count": 1},
+        {"file": "manifest.json", "not_contains": "Generated from GraphQL schema"}
+      ]
+    },
+    {
+      "id": "manifest-server-region-base-url",
+      "summary": "REWST_BASE_URL is an OPTIONAL region override env in manifest.json + server.json (non-secret, non-required; US default api.rewst.io)",
+      "why": "Rewst is regional (US/EU/AU); config.go reads REWST_BASE_URL with a working US default. The press manifest shipped only REWST_API_TOKEN. Added REWST_BASE_URL as optional/non-secret so EU/AU MSPs can configure it (server.json must keep isRequired:false + isSecret:false - it is a URL with a default, not a per-instance requirement like an appliance). A fresh reprint drops it.",
+      "status": "active",
+      "asserts": [
+        {"file": "manifest.json", "contains": "REWST_BASE_URL", "min_count": 2},
+        {"file": "server.json", "contains": "REWST_BASE_URL", "min_count": 1}
+      ]
+    },
+    {
+      "id": "governance-automation-execution-tiers",
+      "summary": "Governance gates the GraphQL mutation surface: an 'Automation and trigger changes' tier (workflows/triggers/packs/org-variables create-update arm automation on live tenants), a Credential tier (auth set-token), Admin, and Destructive",
+      "why": "gen_governance lumped all 80 mutations into 'Write (routine)' and put Credential '(none detected)' - it missed auth set-token and did not separate automation-execution writes. For an automation platform, creating/updating a trigger or workflow can CAUSE automation to run against a live customer tenant; that is human-in-the-loop, not routine. A full reprint re-runs the classifier and reverts. See project_action1_onboard_traps + feedback_secret_read_commands_not_read_tier.",
+      "status": "active",
+      "asserts": [
+        {"file": "governance.md", "contains": "Automation and trigger changes", "min_count": 1},
+        {"file": "governance.md", "contains": "arm or alter automation", "min_count": 1},
+        {"file": "governance.md", "contains": "auth set-token", "min_count": 1}
+      ]
+    },
+    {
+      "id": "page-json-stripped-binary-name",
+      "summary": "page.json command examples use the stripped `rewst-cli`, never the source `rewst-pp-cli`",
+      "why": "check_cli_claims is BLIND to the binary-name prefix, so a `rewst-pp-cli` example would pass the gate but fail for users (not on PATH) and ship into the published docs page + llms. See project_veeam_onboard_traps (the veeam P1).",
+      "status": "active",
+      "asserts": [
+        {"file": "page.json", "contains": "rewst-cli ", "min_count": 5},
+        {"file": "page.json", "not_contains": "rewst-pp-cli"}
+      ]
+    },
+    {
+      "id": "docs-api-not-raw-escape-hatch",
+      "summary": "Docs describe the full-coverage escape hatch as the real `api` command, never a nonexistent `raw`/`graphql`/`query` command",
+      "why": "The generated source prose called it 'a raw GraphQL escape hatch', implying a `raw` command that does not exist (`rewst-cli raw` errors). The real command is `api <interface>`. Adversarial review caught it (P2). A reprint re-emits the 'raw' phrasing.",
+      "status": "active",
+      "asserts": [
+        {"file": "README.md", "not_contains": "raw` GraphQL escape"},
+        {"file": "SKILL.md", "not_contains": "raw GraphQL escape hatch"}
+      ]
+    },
+    {
+      "id": "skill-guide-deleak",
+      "summary": "SKILL.md + guide.md stay free of Printing Press / npx-library / go-install / openclaw-install-block / agent-native leaks",
+      "why": "onboard only de-leaks the SKILL.md description. The body H1/prereqs/MCP-install, the openclaw frontmatter `install:` block (printing-press-library go module), guide.md's npx/go install section, and 'agent-native' vocabulary all survive a re-vendor. See project_onboard_skillmd_guide_deleak + feedback_msp_skills_vocabulary.",
+      "status": "active",
+      "asserts": [
+        {"file": "SKILL.md", "not_contains": "@mvanhorn/printing-press-library"},
+        {"file": "SKILL.md", "not_contains": "printing-press-library/library/developer-tools"},
+        {"file": "guide.md", "not_contains": "npx -y @mvanhorn"}
+      ]
+    }
+  ]
+}

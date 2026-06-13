@@ -1,0 +1,116 @@
+{
+  "outcome_intro": "Ask your AI \"is automation healthy for this client?\" or \"which workflows failed overnight?\" and get an answer across every tenant. Rewst's only surface is a GraphQL gateway with no first-party CLI. This skill turns every entity into a typed command and adds cross-org rollups - execution health, failure triage, ROI, dormant workflows, config drift, and pack coverage - the web app makes you assemble one client at a time.",
+  "instead_of_say": [
+    {
+      "instead": "Opening the Rewst web app per client to check whether last night's automations succeeded or failed",
+      "say": "Is automation healthy for this client right now?",
+      "cli": "rewst-cli health --org <orgId> --since 24h --agent"
+    },
+    {
+      "instead": "Hunting through execution history in the console to find which workflows broke overnight",
+      "say": "What workflows failed for this org in the last 12 hours?",
+      "cli": "rewst-cli failures --org <orgId> --since 12h --agent"
+    },
+    {
+      "instead": "Manually comparing two tenants' variables and installed packs when an automation works in one but not the other",
+      "say": "What does this org have that the other is missing?",
+      "cli": "rewst-cli drift --org <orgId> --against <otherOrgId> --agent"
+    }
+  ],
+  "pain_points": [
+    "Rewst is a GraphQL-only product with no CLI and no terminal access - every operational question means clicking through the web app, one client at a time.",
+    "Automation fails quietly. Finding which workflows broke for which tenant overnight means paging execution history org by org.",
+    "Proving automation ROI for a QBR, or finding automation that silently went dormant, means assembling numbers across tenants by hand."
+  ],
+  "outcomes": [
+    {
+      "question": "Is automation healthy for this client right now?",
+      "command": "rewst-cli health --org <orgId> --since 24h --agent"
+    },
+    {
+      "question": "Which workflows failed for this org overnight?",
+      "command": "rewst-cli failures --org <orgId> --since 12h --agent"
+    },
+    {
+      "question": "Which workflows have gone dormant (no runs in 30 days)?",
+      "command": "rewst-cli dormant --org <orgId> --days 30 --agent"
+    },
+    {
+      "question": "How much time did automation save this client?",
+      "command": "rewst-cli roi --org <orgId> --since 30d --agent"
+    },
+    {
+      "question": "What does one org have that another is missing (variables, packs)?",
+      "command": "rewst-cli drift --org <orgId> --against <otherOrgId> --agent"
+    },
+    {
+      "question": "Which managed sub-orgs are missing an integration pack?",
+      "command": "rewst-cli coverage --parent <orgId> --pack microsoft --agent"
+    }
+  ],
+  "different_vs_wrappers": "Most Rewst integrations just forward a GraphQL query and hand back raw nodes. This skill turns the whole schema into typed commands, syncs the syncable entities into a local SQLite mirror for offline search, and adds cross-org rollups - health, failures, ROI, drift, coverage - queried live across organizations, that Rewst's gateway has no single endpoint for. Your AI sees the answer, not a page of GraphQL JSON.",
+  "different_vs_vendor": "Rewst's web app is built to design and run automation one tenant at a time. This complements it by answering the cross-tenant operational questions - which clients are failing, where automation went dormant, which orgs drift - from the terminal or your agent, without replacing the workflow designer.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Rewst MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Rewst data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Is Rewst's API REST or GraphQL?",
+      "a": "GraphQL-only. This CLI maps the schema to typed commands and includes an api command that exposes every endpoint by interface name for full schema coverage, so you don't hand-write GraphQL for common operations. EU/AU regions set REWST_BASE_URL; the US default is api.rewst.io."
+    },
+    {
+      "q": "Can it build or run workflows?",
+      "a": "It reads and manages Rewst entities (workflows, triggers, variables, packs); it does not visually author workflow graphs - use the Rewst designer for that. Creating or updating triggers and workflows is gated human-in-the-loop, since those changes affect automation running on live customer tenants."
+    },
+    {
+      "q": "Does it work across all my client organizations?",
+      "a": "Yes. The rollups (health, failures, drift, coverage) are multi-org by design and take an --org or --parent id; coverage scans a parent org's managed sub-orgs."
+    }
+  ],
+  "governance_summary": "The skill is read-first: the six cross-org rollups (health, failures, dormant, roi, drift, coverage) plus get/list/search are read-only and safe to let an agent run. Creating or updating workflows, triggers, packs, and org-variables arms or alters automation that runs on live customer tenants - those are gated human-in-the-loop, as are organization/user admin and saving an API token. The Rewst API token's own permissions are the outer limit on anything the agent can do.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "health, failures, dormant, roi, drift, coverage, and every get / list / search command (plus local sync and analytics)",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (config)",
+      "examples": "create / update of non-automation entities such as crates, components, actions, action-options, and forms",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Automation and trigger changes",
+      "examples": "workflows create / update, triggers create / update, org-trigger-instances update, packs / pack-configs create / update, org-variables create / update (arm or alter automation on live tenants)",
+      "policy": "Human-in-the-loop, explicit confirmation"
+    },
+    {
+      "tier": "Destructive",
+      "examples": "delete-org-interpreter-responses, pack-delete-responses (real delete mutations)",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    },
+    {
+      "tier": "Admin and identity",
+      "examples": "organizations create / update, users create / update, user-invites create, org-support-accesses",
+      "policy": "Operator-only, not for agents"
+    },
+    {
+      "tier": "Credential",
+      "examples": "auth set-token (saves your API token to the local config)",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}
