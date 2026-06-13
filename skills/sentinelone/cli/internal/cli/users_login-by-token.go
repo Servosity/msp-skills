@@ -92,7 +92,7 @@ func newUsersLoginByTokenCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&flagRemovedSavedScope, "removed-saved-scope", "", "Removed saved scope")
-	cmd.Flags().StringVar(&flagToken, "token", "", "User token. Example: 'bfd9070c1afa88516d3cdfd722e62fe433e42bad6bb14da27088140ad785585f8582adaccd56fb69'.")
+	cmd.Flags().StringVar(&flagToken, "token", "", "User token. Example: '<your-user-token>'.")
 
 	return cmd
 }
