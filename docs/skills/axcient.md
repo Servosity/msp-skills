@@ -85,7 +85,7 @@ Full command reference at [github.com/servosity/msp-skills/blob/main/skills/axci
 
 ## What makes this one different
 
-Most Axcient integrations and MCP wrappers proxy each question into a live API call - fine for one device, but a fleet-wide question becomes a token-burning loop of per-entity calls (appliance, then device, then each device's jobs) because the API has no rollup endpoint and won't join client to device for you. This skill syncs appliances, devices, jobs, restore points, AutoVerify results, and usage into a local SQLite mirror, then answers health, client-rollup, rpo, compliance, and billing as one offline join - instant, and the AI sees the answer table, not pages of nested JSON.
+Most Axcient integrations and MCP wrappers proxy each question into a live API call - fine for one device, but a fleet-wide question becomes a token-burning loop of per-entity calls (appliance, then device, then each device's jobs) because the API has no rollup endpoint and won't join client to device for you. This skill syncs clients, devices, appliances, vaults, restore points, AutoVerify results, and usage into a local SQLite mirror, then answers health, client-rollup, rpo, compliance, and billing as one offline join - instant, and the AI sees the answer table, not pages of nested JSON.
 
 It complements the x360Portal rather than replacing it: the portal and the appliance/vault UI stay best for configuring protection and running actual restores, while this skill brings every client into one place for the cross-fleet questions - whose backups failed, who's breaching RPO, where billing and protection diverge - that the per-entity API and one-client-at-a-time portal can't answer in a single view.
 

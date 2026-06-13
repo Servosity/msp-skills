@@ -134,9 +134,9 @@ Resource scoping:
 			}
 
 			// Hand-wired: drop dependent-resource names from the flat enqueue so a
-			// user naming one (the connector's own help suggests
-			// `--resources clients,device,autoverify`) does not run it as a flat
-			// resource that fails. See flatSyncResources for the full rationale.
+			// user naming one explicitly (e.g. `--resources clients,device,autoverify`,
+			// which older docs and other tooling may still suggest) does not run it as
+			// a flat resource that fails. See flatSyncResources for the full rationale.
 			resources = flatSyncResources(resources)
 
 			// Reject --resource-param keys that don't match a known resource.
@@ -1328,8 +1328,8 @@ type dependentPathParamDef struct {
 // Hand-wired: dependent resources (autoverify/restore_point/client_device)
 // have no flat list endpoint — syncResourcePath returns "unknown sync
 // resource" for them — and are synced per-parent by syncDependentResources.
-// The connector's own help text suggests `--resources clients,device,
-// autoverify`, so without this filter a named dependent runs once correctly
+// A user may still name a dependent explicitly (e.g. `--resources clients,
+// device,autoverify`), so without this filter a named dependent runs once correctly
 // (dependent pass) and once failing (flat pass) — "two resources, one fails" —
 // and under --strict the spurious flat failure aborts the run. Dropping the
 // name here is safe: the dependent pass still runs it via parentFilter

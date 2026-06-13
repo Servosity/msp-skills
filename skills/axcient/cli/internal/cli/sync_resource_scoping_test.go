@@ -16,8 +16,9 @@ import (
 )
 
 func TestFlatSyncResources_DropsDependentNames(t *testing.T) {
-	// Mirrors the connector's own documented command (compliance.go /
-	// client_rollup.go): `--resources clients,device,autoverify`.
+	// A user may name a dependent explicitly (e.g. `--resources clients,device,
+	// autoverify`, which older docs/other tooling may suggest); the filter must
+	// drop it from the flat enqueue while the dependent pass still runs it.
 	got := flatSyncResources([]string{"clients", "device", "autoverify"})
 	want := []string{"clients", "device"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {

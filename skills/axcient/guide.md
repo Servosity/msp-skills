@@ -21,7 +21,7 @@ Authentication uses an organization-scoped API key sent as the X-Api-Key header.
 axcient-cli doctor --dry-run
 
 # Pull the fleet into the local store so joins and offline search work
-axcient-cli sync --resources clients,device,vault,appliance
+axcient-cli sync
 
 # The morning sweep: failed or stale backups across every client, grouped
 axcient-cli health --agent
@@ -90,7 +90,7 @@ These capabilities aren't available in any other tool for this API.
 ### Morning fleet sweep
 
 ```bash
-axcient-cli sync --resources clients,device && axcient-cli health --agent
+axcient-cli sync && axcient-cli health --agent
 ```
 
 Refresh the store then list every failed/stale device grouped by client - the daily NOC triage in two commands.
@@ -250,7 +250,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 
 ### API-specific
 - **401 Unauthorized on every call**  -  Regenerate the API key in x360Portal Settings > API Keys and re-export AXCIENT_API_KEY; keys are organization-scoped and admin-issued.
-- **health/rpo/compliance return empty results**  -  Run 'axcient-cli sync --resources clients,device' first  -  these fleet-view commands read the local store, not the live API.
+- **health/rpo/compliance return empty results**  -  Run 'axcient-cli sync' first  -  these fleet-view commands read the local store, not the live API.
 - **Want to try the CLI without an Axcient tenant**  -  Set AXCIENT_BASE_URL=https://ax-pub-recover.wiremockapi.cloud/x360recover with any non-empty AXCIENT_API_KEY to use Axcient's public mock server.
 - **Device output has no client attribution**  -  Use the synced store (sync then health/client-rollup)  -  the upstream device object omits client_id; the local store restores the relationship.
 

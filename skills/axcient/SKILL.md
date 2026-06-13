@@ -147,7 +147,7 @@ axcient-cli which "<capability in your own words>"
 ### Morning fleet sweep
 
 ```bash
-axcient-cli sync --resources clients,device && axcient-cli health --agent
+axcient-cli sync && axcient-cli health --agent
 ```
 
 Refresh the store then list every failed/stale device grouped by client - the daily NOC triage in two commands.

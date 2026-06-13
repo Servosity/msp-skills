@@ -64,7 +64,7 @@ vault — is older than --hours (stale).
 Do NOT use it for a single device's full job history; use the generated
 'client device job history' commands for one device instead.
 
-Run 'axcient-cli sync --resources clients,device' first.
+Run 'axcient-cli sync' first.
 `, "\n"),
 		Example: strings.Trim(`
   # Morning sweep: everything failing or stale in the last 24h, agent-shaped
@@ -160,7 +160,7 @@ Run 'axcient-cli sync --resources clients,device' first.
 				})
 			}
 			if len(devices) == 0 {
-				view.Note = "no devices in the local store; run 'axcient-cli sync --resources clients,device' first"
+				view.Note = "no devices in the local store; run 'axcient-cli sync' first"
 			}
 
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {

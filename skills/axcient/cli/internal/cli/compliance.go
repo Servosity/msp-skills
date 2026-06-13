@@ -54,7 +54,7 @@ report and --select narrows columns.
 Do NOT use it for raw AutoVerify run detail on one device; use the generated
 'device autoverify' instead.
 
-Run 'axcient-cli sync --resources clients,device,autoverify' first.
+Run 'axcient-cli sync' first.
 `, "\n"),
 		Example: strings.Trim(`
   # Spreadsheet-ready compliance evidence for one client's QBR
@@ -151,7 +151,7 @@ Run 'axcient-cli sync --resources clients,device,autoverify' first.
 					fmt.Fprintf(cmd.OutOrStdout(), "  %-4s %-24s %-30s rp_age=%.1fh autoverify=%s\n", verdict, r.ClientName, r.DeviceName, r.RPAgeHours, r.AutoverifyStatus)
 				}
 				if len(devices) == 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "no devices in the local store; run 'axcient-cli sync --resources clients,device,autoverify' first")
+					fmt.Fprintln(cmd.OutOrStdout(), "no devices in the local store; run 'axcient-cli sync' first")
 				}
 				return nil
 			}

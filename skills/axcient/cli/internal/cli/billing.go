@@ -43,7 +43,7 @@ rollup only exists in the local store.
 The output is a flat array of rows, so --csv produces the month-end invoice
 reconciliation sheet directly.
 
-Run 'axcient-cli sync --resources clients,device' first.
+Run 'axcient-cli sync' first.
 `, "\n"),
 		Example: strings.Trim(`
   # Month-end reconciliation sheet
@@ -125,7 +125,7 @@ Run 'axcient-cli sync --resources clients,device' first.
 						float64(r.CloudUsageBytes)/1e9, float64(r.LocalUsageBytes)/1e9, float64(r.VaultUsageBytes)/1e9)
 				}
 				if len(devices) == 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "no devices in the local store; run 'axcient-cli sync --resources clients,device' first")
+					fmt.Fprintln(cmd.OutOrStdout(), "no devices in the local store; run 'axcient-cli sync' first")
 				}
 				return nil
 			}

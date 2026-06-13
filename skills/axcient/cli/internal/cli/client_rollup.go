@@ -46,7 +46,7 @@ only; devices that have never been verified do not count against it. Use
 Do NOT use it for the device-level failure list; use 'health' for the
 per-device breakdown instead.
 
-Run 'axcient-cli sync --resources clients,device,autoverify' first.
+Run 'axcient-cli sync' first.
 `, "\n"),
 		Example: strings.Trim(`
   # The fleet dashboard, one row per client
@@ -138,7 +138,7 @@ Run 'axcient-cli sync --resources clients,device,autoverify' first.
 						badge, r.ClientName, r.DevicesTotal, r.Failing, r.RPOBreaches, r.AutoverifyFailing, float64(r.CloudUsageBytes)/1e9)
 				}
 				if len(devices) == 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "no devices in the local store; run 'axcient-cli sync --resources clients,device,autoverify' first")
+					fmt.Fprintln(cmd.OutOrStdout(), "no devices in the local store; run 'axcient-cli sync' first")
 				}
 				return nil
 			}

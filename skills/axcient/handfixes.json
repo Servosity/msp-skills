@@ -68,7 +68,7 @@
     {
       "id": "sync-skip-dependent-flat-names",
       "summary": "flat sync enqueue drops dependent-resource names (autoverify/restore_point/client_device) so `--resources ...,autoverify` does not fail as a flat resource",
-      "why": "Dependent resources have no flat list endpoint (syncResourcePath returns 'unknown sync resource'); they sync per-parent via syncDependentResources. The connector's own help text suggests `--resources clients,device,autoverify`, so without flatSyncResources a named dependent ran once correctly (dependent pass) and once failing (flat pass) - 'two resources, one fails' - and under --strict the spurious flat failure aborted the run. Systemic press behavior, not axcient-specific; a printing-press-retro tracks the upstream fix.",
+      "why": "Dependent resources have no flat list endpoint (syncResourcePath returns 'unknown sync resource'); they sync per-parent via syncDependentResources. A user may still name a dependent explicitly (e.g. `--resources clients,device,autoverify`, which older docs and other tooling may suggest), so without flatSyncResources a named dependent ran once correctly (dependent pass) and once failing (flat pass) - 'two resources, one fails' - and under --strict the spurious flat failure aborted the run. Systemic press behavior, not axcient-specific; a printing-press-retro tracks the upstream fix. (The canonical refresh command is now bare `axcient-cli sync`; see canonical-sync-refresh-hint.)",
       "status": "active",
       "spec_encode_followup": "Fix belongs in the press: the flat-sync enqueue should never include a name it also declares as a dependent/walker resource. Filed upstream as mvanhorn/cli-printing-press#2953; until a reprint absorbs it, flatSyncResources guards it here.",
       "asserts": [
@@ -83,6 +83,23 @@
       "spec_encode_followup": "Fix belongs in the press sync template (name failed resources in the exit-policy errors). Filed upstream as mvanhorn/cli-printing-press#2953; until a reprint absorbs it, describeFailedResources guards it here.",
       "asserts": [
         {"file": "cli/internal/cli/sync.go", "contains": "describeFailedResources", "min_count": 2}
+      ]
+    },
+    {
+      "id": "canonical-sync-refresh-hint",
+      "summary": "One canonical local-store refresh command everywhere: bare `axcient-cli sync` (no divergent per-command --resources scopes)",
+      "why": "Issue #86 flagged that the 'refresh the local mirror' step was documented with five different --resources scopes across the quick-start, the morning-sweep recipe, and the per-command help text (clients,device / clients,device,autoverify / clients,device,appliance / clients,device,vault,appliance / bare), so 'refresh the mirror' was ambiguous depending on which surface the reader followed. Bare `axcient-cli sync` pulls every top-level resource plus all dependents (parentFilter empty => syncDependentResources runs them all), so it is the complete, canonical refresh. The press generic hint already used bare `axcient-cli sync`; only the hand-authored novel commands and docs diverged. A reprint regenerating the novels (or re-authoring the docs) must not reintroduce a scoped --resources hint.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/cli/health.go", "contains": "Run 'axcient-cli sync' first.", "min_count": 1},
+        {"file": "cli/internal/cli/health.go", "not_contains": "sync --resources clients,device' first"},
+        {"file": "cli/internal/cli/billing.go", "not_contains": "sync --resources clients,device' first"},
+        {"file": "cli/internal/cli/rpo.go", "not_contains": "sync --resources clients,device' first"},
+        {"file": "cli/internal/cli/compliance.go", "not_contains": "sync --resources clients,device,autoverify' first"},
+        {"file": "cli/internal/cli/client_rollup.go", "not_contains": "sync --resources clients,device,autoverify' first"},
+        {"file": "cli/internal/cli/appliance_map.go", "not_contains": "sync --resources clients,device,appliance' first"},
+        {"file": "SKILL.md", "not_contains": "sync --resources clients,device &&"},
+        {"file": "guide.md", "not_contains": "sync --resources clients"}
       ]
     }
   ]
