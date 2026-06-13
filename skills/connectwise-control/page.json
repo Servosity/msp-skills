@@ -1,0 +1,115 @@
+{
+  "outcome_intro": "Drive ConnectWise Control (ScreenConnect) from the terminal or your AI agent instead of clicking the web console: list and search remote-support and access sessions, inspect a machine's session detail, run an approved command on a guest, rename and tag sessions, manage users, and read the audit log - scriptable, with an offline SQLite mirror so session lookups are fast and local.",
+  "instead_of_say": [
+    {
+      "instead": "Scrolling the ConnectWise Control web console to find which machines have an active session",
+      "say": "List the access sessions across the instance",
+      "cli": "connectwise-control-cli sessions list --session-type Access --agent"
+    },
+    {
+      "instead": "Clicking into the console's audit view to see what happened on a machine",
+      "say": "What's in the audit log for this session?",
+      "cli": "connectwise-control-cli audit query-log --session-name \"ACME-WS01\" --agent"
+    },
+    {
+      "instead": "Opening a session and typing the same command into the console command box on each machine",
+      "say": "Run this command on the guest (gated for my approval)",
+      "cli": "connectwise-control-cli sessions run-command --session-id <sessionId> --command \"...\" --agent"
+    }
+  ],
+  "pain_points": [
+    "ConnectWise Control is a web console built for a technician driving one remote session at a time - there's no scriptable, terminal-native way to list, search, or act on sessions in bulk.",
+    "Answering 'which machines have an open session?' or 'what happened on this endpoint?' means scrolling the console and clicking into sessions and the audit view by hand.",
+    "Running the same diagnostic or remediation command across several machines means opening each session and typing it into the console's command box."
+  ],
+  "outcomes": [
+    {
+      "question": "Which access sessions are in this group?",
+      "command": "connectwise-control-cli sessions list --session-type Access --group \"All Machines\" --agent"
+    },
+    {
+      "question": "Show the full detail (connections, events) for one session",
+      "command": "connectwise-control-cli sessions get-detail --session-id <sessionId> --agent"
+    },
+    {
+      "question": "What session groups exist on the instance?",
+      "command": "connectwise-control-cli session-groups --agent"
+    },
+    {
+      "question": "Run a command on a guest machine (approval-gated)",
+      "command": "connectwise-control-cli sessions run-command --session-id <sessionId> --command \"Get-Service\" --powershell --agent"
+    },
+    {
+      "question": "Who are the instance users and roles?",
+      "command": "connectwise-control-cli security get-configuration --agent"
+    },
+    {
+      "question": "What's in the audit log for a session or time window?",
+      "command": "connectwise-control-cli audit query-log --session-name \"ACME-WS01\" --agent"
+    },
+    {
+      "question": "Rename a session",
+      "command": "connectwise-control-cli sessions update-name --session-id <sessionId> --new-name \"ACME - Reception PC\" --agent"
+    }
+  ],
+  "different_vs_wrappers": "Most ConnectWise Control integrations script one .ashx call at a time or wrap the console's session list. This skill turns the whole instance surface - sessions, groups, users, and the audit log - into typed commands with JSON output and an offline SQLite mirror, so an AI agent can list, inspect, and act on sessions across your instance without clicking through the web console one machine at a time.",
+  "different_vs_vendor": "ConnectWise Control's web console is built for a technician driving one remote session interactively. This complements it by making the same instance scriptable and agent-friendly - bulk session queries, audit lookups, and approval-gated command execution - from the terminal, without replacing the live remote-control experience.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local ConnectWise Control MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my ConnectWise Control data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Is this ConnectWise Control, or ConnectWise Manage / Automate?",
+      "a": "ConnectWise Control - the remote support and access tool, formerly ScreenConnect. ConnectWise Manage (the PSA) and ConnectWise Automate (the RMM) are separate skills. This one talks to your Control instance's session, user, and audit surface."
+    },
+    {
+      "q": "How does it authenticate, and does it need the RESTful API Manager extension?",
+      "a": "HTTP Basic auth with a ConnectWise Control instance user (CONNECTWISE_CONTROL_USERNAME / CONNECTWISE_CONTROL_PASSWORD) against your instance base URL (CONNECTWISE_CONTROL_BASE_URL) - the same login you use for the web console. No extension is required; these are the built-in instance services the console itself uses."
+    },
+    {
+      "q": "Can it actually run commands on machines?",
+      "a": "Yes, via sessions run-command, but that is gated human-in-the-loop in governance.md - it runs a real command on a guest endpoint. Day-to-day use is read-first: listing, searching, and inspecting sessions."
+    }
+  ],
+  "governance_summary": "The skill is read-first: listing and inspecting sessions, session groups, instance users and roles, and the audit log are read-only and safe to let an agent run. Session and host control - running a command on a guest machine (sessions run-command) and queuing control events like wake (sessions add-event-to) - is gated human-in-the-loop, as are issuing a join access token, and creating, updating, or deleting instance users. The instance user's own ConnectWise Control permissions are the outer limit on anything the agent can do.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "sessions list / get-detail, session-groups, security get-configuration, audit get-info / query-log, and search",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (session metadata)",
+      "examples": "sessions update-name, sessions update-custom-property",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Session and host control",
+      "examples": "sessions run-command (runs a real command on a guest machine), sessions add-event-to (queues control events like wake)",
+      "policy": "Human-in-the-loop, explicit confirmation"
+    },
+    {
+      "tier": "Access grant",
+      "examples": "sessions get-access-token (issues a one-time token/URL that grants remote access to a session)",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Admin and identity",
+      "examples": "security save-user (create or update an instance user and roles), security delete-user",
+      "policy": "Operator-only, not for agents"
+    }
+  ]
+}

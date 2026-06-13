@@ -277,6 +277,28 @@
         "evidence": null
       }
     },
+    "connectwise-control": {
+      "system": "ConnectWise Control (ScreenConnect): remote support and access session management for MSPs",
+      "status": "beta",
+      "cli_binary": "connectwise-control-cli",
+      "mcp_binary": "connectwise-control-mcp",
+      "vendor": "ConnectWise",
+      "vendor_trademark_owner": "ConnectWise, LLC",
+      "first_party": false,
+      "category": "Remote Access",
+      "display_name": "ConnectWise Control",
+      "cli_hash": "sha256:6d4762c677c0c76488970f097913476bd842dc8bce404c5c0bd814d6e6c581ad",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "connectwise-manage": {
       "system": "ConnectWise PSA (Manage)",
       "status": "beta",
