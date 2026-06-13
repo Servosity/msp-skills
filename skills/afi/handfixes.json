@@ -1,0 +1,17 @@
+{
+  "slug": "afi",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint or onboard --resume must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and FAILS CI if a reprint dropped one.",
+  "handfixes": [
+    {
+      "id": "manifest-clean-mcp-binary-name",
+      "summary": "manifest.json name/entry_point/command use the clean `afi-mcp`, not the press `-pp-mcp`",
+      "why": "onboard re-copies the SOURCE manifest each --resume and the press source keeps `-pp-mcp`. The repo ships `afi-mcp`: the Makefile builds `bin/afi-mcp` and server.json's package identifier is `afi-mcp.mcpb`, so an `-pp-mcp` entry_point points at a binary that is never built (the MCP server fails to launch). No mechanical gate catches this (the build name and the manifest name are checked independently); the 4.24.0 re-vendor silently reverted the correct 0.1.0 value and CodeRabbit flagged it Critical on PR #100. See project_onboard_manifest_deleak_and_envvar.",
+      "status": "active",
+      "asserts": [
+        {"file": "manifest.json", "contains": "afi-mcp", "min_count": 2},
+        {"file": "manifest.json", "not_contains": "afi-pp-mcp"}
+      ]
+    }
+  ]
+}
