@@ -15,8 +15,9 @@ func newTenantsArchivesDeleteCmd(flags *rootFlags) *cobra.Command {
 	var flagReason string
 
 	cmd := &cobra.Command{
-		Use:         "delete <tenant_id> <id>",
-		Short:       "Schedules the archive for deletion. The default delay is 7 days, during which the deletion can be canceled.",
+		Use:   "delete <tenant_id> <id>",
+		Short: "Schedules the archive for deletion. The default delay is 7 days, during which the deletion can be canceled.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  afi-cli tenants archives delete 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --reason example-value",
 		Annotations: map[string]string{"pp:endpoint": "archives.delete", "pp:method": "DELETE", "pp:path": "/api/v1/tenants/{tenant_id}/archives/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -45,7 +46,7 @@ func newTenantsArchivesDeleteCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[1])
 			params := map[string]string{}
 			if flagReason != "" {
-				params["reason"] = fmt.Sprintf("%v", flagReason)
+				params["reason"] = formatCLIParamValue(flagReason)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

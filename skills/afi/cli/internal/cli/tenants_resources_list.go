@@ -33,8 +33,8 @@ func newTenantsResourcesListCmd(flags *rootFlags) *cobra.Command {
 			path := "/api/v1/tenants/{tenant_id}/resources"
 			path = replacePathParam(path, "tenant_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "resources", path, map[string]string{
-				"limit":      fmt.Sprintf("%v", flagLimit),
-				"page_token": fmt.Sprintf("%v", flagPageToken),
+				"limit":      formatCLIParamValue(flagLimit),
+				"page_token": formatCLIParamValue(flagPageToken),
 			}, nil, flagAll, "page_token", "page_token", "limit", "nextPageToken", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

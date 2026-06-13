@@ -35,16 +35,16 @@ func newOrgsCreateCmd(flags *rootFlags) *cobra.Command {
 			path := "/api/v1/orgs"
 			params := map[string]string{}
 			if flagParentOrgId != "" {
-				params["parent_org_id"] = fmt.Sprintf("%v", flagParentOrgId)
+				params["parent_org_id"] = formatCLIParamValue(flagParentOrgId)
 			}
 			if flagExternalId != "" {
-				params["external_id"] = fmt.Sprintf("%v", flagExternalId)
+				params["external_id"] = formatCLIParamValue(flagExternalId)
 			}
 			if flagName != "" {
-				params["name"] = fmt.Sprintf("%v", flagName)
+				params["name"] = formatCLIParamValue(flagName)
 			}
 			if flagAdminEmail != "" {
-				params["admin_email"] = fmt.Sprintf("%v", flagAdminEmail)
+				params["admin_email"] = formatCLIParamValue(flagAdminEmail)
 			}
 			var body map[string]any
 			if stdinBody {

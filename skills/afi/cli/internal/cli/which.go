@@ -27,6 +27,7 @@ type whichEntry struct {
 // `--help`; `which` exists to resolve a natural-language capability
 // query to one of the commands the skill says matter most.
 var whichIndex = []whichEntry{
+	{Command: "fleet-sync", Description: "Walk the whole Afi hierarchy — installations, orgs, tenants, then each tenant's resources, protections, policies, archives, quotas, and task stats — into local SQLite in one respectful pass.", Group: "Local state that compounds", WhyItMatters: "Run this first (and on a schedule): every fleet question afterward — coverage, staleness, licensing, scorecards — answers offline without tripping Afi's rate limits."},
 	{Command: "coverage-gaps", Description: "Find resources in a tenant that have no backup protection applied — the backup blind spots.", Group: "Local state that compounds", WhyItMatters: "Reach for this when asked whether every mailbox, site, or drive is actually being backed up — it answers fleet-coverage questions one API can't."},
 	{Command: "fleet-health", Description: "One table across all synced tenants: task success/failure counts, failed-task list, and quota breaches.", Group: "Local state that compounds", WhyItMatters: "Use this for the Monday-morning 'is the whole fleet green' sweep instead of walking tenants one portal tab at a time."},
 	{Command: "offboard", Description: "Safely back up a departing user's resource, verify the archive landed, then release the protection — refusing the irreversible step until the backup is confirmed.", Group: "Guarded workflows", WhyItMatters: "Use this when offboarding an employee so the final backup is verified before the M365/GWS seat is released — never lose a leaver's data."},
@@ -137,6 +138,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

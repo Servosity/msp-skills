@@ -45,10 +45,10 @@ func newTenantsTasksGetTenantStatsCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "tenant_id", args[0])
 			params := map[string]string{}
 			if flagStartTime != "" {
-				params["start_time"] = fmt.Sprintf("%v", flagStartTime)
+				params["start_time"] = formatCLIParamValue(flagStartTime)
 			}
 			if flagEndTime != "" {
-				params["end_time"] = fmt.Sprintf("%v", flagEndTime)
+				params["end_time"] = formatCLIParamValue(flagEndTime)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "tasks", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Afi MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "The first CLI for Afi SaaS backup - full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live."
+description: "The first CLI for Afi SaaS backup \u2014 full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live."
 permalink: /skills/afi/
 skill_name: "Afi MCP"
 image: /assets/social/afi/wide-1200x630.png
