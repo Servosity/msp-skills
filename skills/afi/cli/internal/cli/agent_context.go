@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "afi-cli",
-			Description: "The first CLI for Afi SaaS backup — full public-API coverage plus the fleet-wide coverage, staleness",
+			Description: "The first CLI for Afi SaaS backup — full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

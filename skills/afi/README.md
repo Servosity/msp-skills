@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/afi/">
-    <img src="../../docs/assets/video/afi/animated-og.gif" alt="Afi demo - animated preview" width="600">
+    <img src="../../docs/assets/social/afi/wide-1200x630.png" alt="Afi - MCP server and Claude Code Skill" width="600">
   </a>
 </p>
-<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/afi/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
+<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/afi/">Full skill page</a> - install, outcomes, safety model.</sub></p>
 <!-- media:end -->
 
 <!-- first-party-note:start -->

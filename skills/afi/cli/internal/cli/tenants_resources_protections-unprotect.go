@@ -46,7 +46,7 @@ func newTenantsResourcesProtectionsUnprotectCmd(flags *rootFlags) *cobra.Command
 			path = replacePathParam(path, "resource_id", args[1])
 			params := map[string]string{}
 			if flagPolicyId != "" {
-				params["policy_id"] = fmt.Sprintf("%v", flagPolicyId)
+				params["policy_id"] = formatCLIParamValue(flagPolicyId)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

@@ -34,10 +34,10 @@ func newOrgsLicensingGetSubscriptionHistoryCmd(flags *rootFlags) *cobra.Command 
 			path = replacePathParam(path, "org_id", args[0])
 			params := map[string]string{}
 			if flagStart != "" {
-				params["start"] = fmt.Sprintf("%v", flagStart)
+				params["start"] = formatCLIParamValue(flagStart)
 			}
 			if flagEnd != "" {
-				params["end"] = fmt.Sprintf("%v", flagEnd)
+				params["end"] = formatCLIParamValue(flagEnd)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "licensing", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -35,9 +35,9 @@ func newTenantsProtectionsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/api/v1/tenants/{tenant_id}/protections"
 			path = replacePathParam(path, "tenant_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "protections", path, map[string]string{
-				"resource_id": fmt.Sprintf("%v", flagResourceId),
-				"limit":       fmt.Sprintf("%v", flagLimit),
-				"page_token":  fmt.Sprintf("%v", flagPageToken),
+				"resource_id": formatCLIParamValue(flagResourceId),
+				"limit":       formatCLIParamValue(flagLimit),
+				"page_token":  formatCLIParamValue(flagPageToken),
 			}, nil, flagAll, "page_token", "page_token", "limit", "nextPageToken", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)
