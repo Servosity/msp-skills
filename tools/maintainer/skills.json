@@ -706,16 +706,16 @@
       "category": "Billing",
       "display_name": "QuickBooks Online",
       "tagline": "Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking.",
-      "cli_hash": "sha256:2dbc4bffec016aeda87ce7165ee9a16bbb044b944095daf2aaa5b9c9154ea4c8",
+      "cli_hash": "sha256:26b50efe52439a0d9e68f87e23a59bee3e855b159c25acf1a73edf954ad42747",
       "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:2dbc4bffec016aeda87ce7165ee9a16bbb044b944095daf2aaa5b9c9154ea4c8",
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:26b50efe52439a0d9e68f87e23a59bee3e855b159c25acf1a73edf954ad42747",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
+        "status": "live-verified",
+        "date": "2026-06-12",
+        "source": "self",
+        "evidence": "Servosity (an MSP) verified end-to-end against an Intuit QuickBooks Online tenant on 2026-06-12: OAuth token refresh, live reads, sync 227 records across 8 resources, ar-aging and balances populated; after the /query sync fix (handfix qbo-query-injection)."
       }
     },
     "rootly": {

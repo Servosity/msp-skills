@@ -732,7 +732,7 @@
       "skill_path": "skills/quickbooks",
       "cli_binary": "quickbooks-cli",
       "mcp_binary": "quickbooks-mcp",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license": "Apache-2.0",
       "vendor": "QuickBooks Online",
       "vendor_trademark_owner": "Intuit Inc.",
@@ -740,7 +740,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/install.sh)",
       "install_mcp_doc": "skills/quickbooks/mcp-install.md",
       "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "Billing",
       "tagline": "Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking."
     },

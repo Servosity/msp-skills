@@ -460,6 +460,25 @@ func syncResource(ctx context.Context, c interface {
 		// endpoint whose OpenAPI spec marks the filter optional).
 		userParams.applyTo(resource, params, false)
 
+		// QuickBooks Online serves every entity through /query, which requires a
+		// SQL-like `query` parameter. The generic sync path sends a bare /query
+		// that QBO answers with a 200 SystemFault (unextractable), so the upsert
+		// path reports "missing id for <resource>". Inject the per-entity query
+		// here. Recorded hand-fix `qbo-query-injection` in handfixes.json so a
+		// cli-printing-press reprint cannot silently clobber it. Caps at 1000
+		// rows/entity (no STARTPOSITION paging); the durable home is a press
+		// spec-hint, tracked as spec_encode_followup in the ledger.
+		if path == "/query" {
+			entity, ok := quickbooksEntity[resource]
+			if !ok {
+				return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("no QBO entity mapping for %q", resource), Duration: time.Since(started)}
+			}
+			params = map[string]string{
+				"query":        fmt.Sprintf("select * from %s maxresults 1000", entity),
+				"minorversion": "75",
+			}
+		}
+
 		data, err := c.Get(ctx, path, params)
 		if err != nil {
 			if w, ok := isSyncAccessWarning(err); ok {
@@ -1255,6 +1274,21 @@ func syncResourcePath(resource string) (string, error) {
 	return "", fmt.Errorf("unknown sync resource %q", resource)
 }
 
+// quickbooksEntity maps each sync resource to its QuickBooks Online entity name
+// for the /query endpoint (`select * from <Entity>`). Recorded hand-fix
+// `qbo-query-injection` in handfixes.json so a cli-printing-press reprint cannot
+// silently clobber it; the durable home is a press spec-hint (see the ledger).
+var quickbooksEntity = map[string]string{
+	"accounts":        "Account",
+	"bills":           "Bill",
+	"customers":       "Customer",
+	"invoices":        "Invoice",
+	"items":           "Item",
+	"journal-entries": "JournalEntry",
+	"payments":        "Payment",
+	"vendors":         "Vendor",
+}
+
 // resourceIDFieldOverrides projects per-resource IDField (set by the profiler
 // from x-resource-id or the response-schema fallback chain) into a runtime
 // lookup map. extractID consults this first so the templated path wins over
@@ -1283,7 +1317,7 @@ var pageItemKeys = []string{
 	"Data", "Results", "Items", "Records", "Nodes", "Entries", "Features",
 }
 
-var dataEnvelopeKeys = []string{"data", "Data", "result", "Result"}
+var dataEnvelopeKeys = []string{"data", "Data", "result", "Result", "QueryResponse"}
 
 var pageMetadataArrayKeys = map[string]bool{
 	"errors": true, "Errors": true,
