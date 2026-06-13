@@ -35,6 +35,11 @@ var whichIndex = []whichEntry{
 	{Command: "agents compliance", Description: "Show the distribution of agent versions across the estate and flag tenants behind the target version.", Group: "Fleet posture", WhyItMatters: "Use this after a release rollout to confirm every customer's agents updated, for security and support consistency."},
 	{Command: "tree", Description: "Render the Partner -> Customer -> Folder -> Unit hierarchy with per-node agent and user counts.", Group: "Fleet posture", WhyItMatters: "Reach for this to understand the shape of a partner's book of business at a glance."},
 	{Command: "alerts repeat", Description: "Rank resources and tenants by how many distinct days in a window had a failed or missed backup.", Group: "Cross-tenant rollups", WhyItMatters: "Use this to separate one-off backup blips from chronically-failing resources that need real remediation."},
+	{Command: "failures", Description: "Flat list of every failed or missed backup task across all tenants in a recent window, newest first.", Group: "Cross-tenant rollups", WhyItMatters: "Reach for this when the question is 'show me each backup that failed last night' as individual actionable rows, not rollup counts."},
+	{Command: "freshness", Description: "Time since the last successful backup per tenant, flagged against an SLA threshold — including tenants never backed up.", Group: "Cross-tenant rollups", WhyItMatters: "Reach for this when an agent needs SLA breach detection: which customers have gone too long without a good backup."},
+	{Command: "customer", Description: "One cross-resource snapshot of a single customer: tenant record, users, licenses, usage, agents, and 7-day backup outcomes joined.", Group: "Cross-tenant rollups", WhyItMatters: "Reach for this before a customer call: the full per-customer picture in one command instead of six console drill-downs."},
+	{Command: "tenants audit", Description: "Flag enabled customer tenants missing users, offering items, agents, or OAuth clients — onboarding drift in one table.", Group: "Fleet posture", WhyItMatters: "Reach for this after onboarding waves: catches half-provisioned tenants before they become missed-backup tickets."},
+	{Command: "tenants offering-items inventory", Description: "Estate-wide rollup of which offering items and editions are enabled, with per-SKU tenant counts.", Group: "Billing & licensing", WhyItMatters: "Reach for this for license trueups and edition migrations: which SKUs are deployed where, in one table."},
 }
 
 // whichMatch pairs an index entry with its ranking score for a query.
@@ -138,6 +143,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

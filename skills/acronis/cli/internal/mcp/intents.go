@@ -101,7 +101,7 @@ func recipeValueString(value any) string {
 	case string:
 		return strings.TrimSpace(v)
 	case float64:
-		return fmt.Sprintf("%v", v)
+		return formatMCPParamValue(v)
 	case bool:
 		if v {
 			return "true"

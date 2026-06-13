@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-12",
+  "generated_at": "2026-06-13",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -50,15 +50,15 @@
       "skill_path": "skills/acronis",
       "cli_binary": "acronis-cli",
       "mcp_binary": "acronis-mcp",
-      "version": "0.1.0",
-      "printing_press_version": "4.22.0",
+      "version": "0.1.1",
+      "printing_press_version": "4.24.0",
       "license": "Apache-2.0",
       "vendor": "Acronis",
       "vendor_trademark_owner": "Acronis International GmbH",
       "first_party": false,
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/acronis/install.sh)",
       "install_mcp_doc": "skills/acronis/mcp-install.md",
-      "description": "The first real CLI for the Acronis Cyber Protect Cloud platform - every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
+      "description": "The first real CLI for the Acronis Cyber Protect Cloud platform \u2014 every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
       "verification": "awaiting",
       "category": "Backup/DR",
       "tagline": "Spot failed backups, offline agents, and unbilled usage across every Acronis tenant by asking."

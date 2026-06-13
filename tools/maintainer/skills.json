@@ -36,10 +36,10 @@
       "category": "Backup/DR",
       "display_name": "Acronis Cyber Protect Cloud",
       "tagline": "Spot failed backups, offline agents, and unbilled usage across every Acronis tenant by asking.",
-      "cli_hash": "sha256:5aee353c2bab50f319fa4768e4461ea0bda3fdb6fa8eeda8b3fa921fb283bee6",
+      "cli_hash": "sha256:b80620cb328b8862f3ec2132c828c54aa61384e7a39d89b0d38e21c596ae7a52",
       "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:5aee353c2bab50f319fa4768e4461ea0bda3fdb6fa8eeda8b3fa921fb283bee6",
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:b80620cb328b8862f3ec2132c828c54aa61384e7a39d89b0d38e21c596ae7a52",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",

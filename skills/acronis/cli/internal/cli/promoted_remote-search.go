@@ -18,9 +18,10 @@ func newRemoteSearchPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "remote-search",
-		Short:       "Search for tenants and users by name, email, or login across the accessible hierarchy.",
-		Long:        "Search for tenants and users by name, email, or login across the accessible hierarchy.",
+		Use:   "remote-search",
+		Short: "Search for tenants and users by name, email, or login across the accessible hierarchy.",
+		Long:  "Search for tenants and users by name, email, or login across the accessible hierarchy.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  acronis-cli remote-search --query example-value",
 		Annotations: map[string]string{"pp:endpoint": "remote_search.remote_search", "pp:method": "GET", "pp:path": "/api/2/search", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,9 +42,9 @@ func newRemoteSearchPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/api/2/search"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "remote_search", path, map[string]string{
-				"query":     fmt.Sprintf("%v", flagQuery),
-				"tenant_id": fmt.Sprintf("%v", flagTenantId),
-				"limit":     fmt.Sprintf("%v", flagLimit),
+				"query":     formatCLIParamValue(flagQuery),
+				"tenant_id": formatCLIParamValue(flagTenantId),
+				"limit":     formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

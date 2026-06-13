@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Acronis Cyber Protect Cloud MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "The first real CLI for the Acronis Cyber Protect Cloud platform - every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns."
+description: "The first real CLI for the Acronis Cyber Protect Cloud platform \u2014 every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns."
 permalink: /skills/acronis/
 skill_name: "Acronis Cyber Protect Cloud MCP"
 image: /assets/social/acronis/wide-1200x630.png

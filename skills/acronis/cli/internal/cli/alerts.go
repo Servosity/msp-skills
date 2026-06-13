@@ -11,7 +11,7 @@ func newNovelAlertsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "alerts",
-		Short:       "Backup-alert analysis: rank recurring backup failures across tenants",
+		Short:       "alerts subcommands: repeat",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

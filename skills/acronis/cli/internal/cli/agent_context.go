@@ -105,7 +105,7 @@ reading source. Schema is versioned via schema_version.`,
 func buildAgentContext(rootCmd *cobra.Command) agentContext {
 	envVars := []agentContextAuthEnvVar{
 		{
-			Name:        "ACRONIS_CYBER_PROTECT_BEARER_AUTH",
+			Name:        "ACRONIS_BEARER_AUTH",
 			Kind:        "per_call",
 			Required:    true,
 			Sensitive:   true,
@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "acronis-cli",
-			Description: "The first real CLI for the Acronis Cyber Protect Cloud platform — every tenant, agent, and usage metric mirrored locally",
+			Description: "The first real CLI for the Acronis Cyber Protect Cloud platform — every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

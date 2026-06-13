@@ -11,7 +11,7 @@ func newNovelReconcileCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "reconcile",
-		Short:       "Reconcile billing: match usage against offering items per tenant",
+		Short:       "reconcile subcommands: usages",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

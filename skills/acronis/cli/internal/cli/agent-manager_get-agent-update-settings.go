@@ -29,7 +29,7 @@ func newAgentManagerGetAgentUpdateSettingsCmd(flags *rootFlags) *cobra.Command {
 			path := "/api/agent_manager/v2/agent_update_settings"
 			params := map[string]string{}
 			if flagTenantId != "" {
-				params["tenant_id"] = fmt.Sprintf("%v", flagTenantId)
+				params["tenant_id"] = formatCLIParamValue(flagTenantId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "agent-manager", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

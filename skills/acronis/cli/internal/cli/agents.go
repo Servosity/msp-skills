@@ -11,7 +11,7 @@ func newNovelAgentsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "agents",
-		Short:       "Backup-agent fleet: stale-agent sweeps and version compliance across tenants",
+		Short:       "agents subcommands: compliance, stale",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

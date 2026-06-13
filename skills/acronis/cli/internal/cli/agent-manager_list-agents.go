@@ -67,11 +67,11 @@ func newAgentManagerListAgentsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/api/agent_manager/v2/agents"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "agent-manager", path, map[string]string{
-				"tenant_id": fmt.Sprintf("%v", flagTenantId),
-				"os_family": fmt.Sprintf("%v", flagOsFamily),
-				"os_arch":   fmt.Sprintf("%v", flagOsArch),
-				"limit":     fmt.Sprintf("%v", flagLimit),
-				"order":     fmt.Sprintf("%v", flagOrder),
+				"tenant_id": formatCLIParamValue(flagTenantId),
+				"os_family": formatCLIParamValue(flagOsFamily),
+				"os_arch":   formatCLIParamValue(flagOsArch),
+				"limit":     formatCLIParamValue(flagLimit),
+				"order":     formatCLIParamValue(flagOrder),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -15,8 +15,9 @@ func newAgentManagerDeleteAgentsCmd(flags *rootFlags) *cobra.Command {
 	var flagIds string
 
 	cmd := &cobra.Command{
-		Use:         "delete-agents",
-		Short:       "Cancel registration and delete service accounts for multiple agents.",
+		Use:   "delete-agents",
+		Short: "Cancel registration and delete service accounts for multiple agents.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  acronis-cli agent-manager delete-agents --ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "agent-manager.delete-agents", "pp:method": "DELETE", "pp:path": "/api/agent_manager/v2/agents"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newAgentManagerDeleteAgentsCmd(flags *rootFlags) *cobra.Command {
 			path := "/api/agent_manager/v2/agents"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

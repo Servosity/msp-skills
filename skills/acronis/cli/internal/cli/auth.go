@@ -23,8 +23,8 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 	cmd.AddCommand(newAuthSetupCmd(flags))
 	cmd.AddCommand(newAuthStatusCmd(flags))
 	cmd.AddCommand(newAuthSetTokenCmd(flags))
-	cmd.AddCommand(newAuthLoginCmd(flags))
 	cmd.AddCommand(newAuthLogoutCmd(flags))
+	cmd.AddCommand(newAuthLoginCmd(flags))
 
 	return cmd
 }
@@ -43,7 +43,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "See API docs: https://developer.acronis.com")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export ACRONIS_CYBER_PROTECT_BEARER_AUTH=\"<your-token>\"")
+			fmt.Fprintln(w, "  export ACRONIS_BEARER_AUTH=\"your-token-here\"")
 			fmt.Fprintln(w, "  acronis-cli auth set-token <token>")
 			if !launch {
 				return nil
@@ -116,7 +116,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Set your token:")
-				fmt.Fprintln(w, "  export ACRONIS_CYBER_PROTECT_BEARER_AUTH=\"your-token-here\"")
+				fmt.Fprintln(w, "  export ACRONIS_BEARER_AUTH=\"your-token-here\"")
 				fmt.Fprintf(w, "  acronis-cli auth set-token <token>\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
@@ -183,8 +183,8 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 			// Identify which (if any) auth env var is still exported so the
 			// JSON envelope and the human prose can both surface it.
 			envStillSet := ""
-			if envStillSet == "" && os.Getenv("ACRONIS_CYBER_PROTECT_BEARER_AUTH") != "" {
-				envStillSet = "ACRONIS_CYBER_PROTECT_BEARER_AUTH"
+			if envStillSet == "" && os.Getenv("ACRONIS_BEARER_AUTH") != "" {
+				envStillSet = "ACRONIS_BEARER_AUTH"
 			}
 
 			// JSON envelope: {cleared: true, note?: "<env_var> env var is still set"}.

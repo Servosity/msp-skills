@@ -8,9 +8,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +24,15 @@ import (
 	"acronis-pp-cli/internal/store"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+)
+
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
 )
 
 // RegisterTools registers all API operations as MCP tools.
@@ -95,7 +106,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/api/agent_manager/v2/agents", true, false, nil, []mcpParamBinding{{PublicName: "tenant_id", WireName: "tenant_id", Location: "query"}, {PublicName: "os_family", WireName: "os_family", Location: "query"}, {PublicName: "os_arch", WireName: "os_arch", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "order", WireName: "order", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/api/agent_manager/v2/agents", true, false, nil, []mcpParamBinding{{PublicName: "tenant_id", WireName: "tenant_id", Location: "query"}, {PublicName: "os_family", WireName: "os_family", Location: "query"}, {PublicName: "os_arch", WireName: "os_arch", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "100"}, {PublicName: "order", WireName: "order", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("agent-manager_list-hardware-nodes",
@@ -189,7 +200,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/api/2/search", true, false, nil, []mcpParamBinding{{PublicName: "query", WireName: "query", Location: "query"}, {PublicName: "tenant_id", WireName: "tenant_id", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/api/2/search", true, false, nil, []mcpParamBinding{{PublicName: "query", WireName: "query", Location: "query"}, {PublicName: "tenant_id", WireName: "tenant_id", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "10"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("reports_create",
@@ -233,7 +244,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/api/task_manager/v2/activities", true, false, nil, []mcpParamBinding{{PublicName: "tenant_id", WireName: "tenant_id", Location: "query"}, {PublicName: "task_id", WireName: "task_id", Location: "query"}, {PublicName: "state", WireName: "state", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "after", WireName: "after", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/api/task_manager/v2/activities", true, false, nil, []mcpParamBinding{{PublicName: "tenant_id", WireName: "tenant_id", Location: "query"}, {PublicName: "task_id", WireName: "task_id", Location: "query"}, {PublicName: "state", WireName: "state", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "100"}, {PublicName: "after", WireName: "after", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("task-manager_list-tasks",
@@ -250,7 +261,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/api/task_manager/v2/tasks", true, false, nil, []mcpParamBinding{{PublicName: "tenant_id", WireName: "tenant_id", Location: "query"}, {PublicName: "state", WireName: "state", Location: "query"}, {PublicName: "result_code", WireName: "result_code", Location: "query"}, {PublicName: "policy_id", WireName: "policy_id", Location: "query"}, {PublicName: "resource_id", WireName: "resource_id", Location: "query"}, {PublicName: "order", WireName: "order", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "after", WireName: "after", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/api/task_manager/v2/tasks", true, false, nil, []mcpParamBinding{{PublicName: "tenant_id", WireName: "tenant_id", Location: "query"}, {PublicName: "state", WireName: "state", Location: "query"}, {PublicName: "result_code", WireName: "result_code", Location: "query"}, {PublicName: "policy_id", WireName: "policy_id", Location: "query"}, {PublicName: "resource_id", WireName: "resource_id", Location: "query"}, {PublicName: "order", WireName: "order", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "100"}, {PublicName: "after", WireName: "after", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("tenants_create",
@@ -363,7 +374,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/api/2/tenants/{tenant_id}/users", true, false, nil, []mcpParamBinding{{PublicName: "tenant_id", WireName: "tenant_id", Location: "path"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "after", WireName: "after", Location: "query"}}, []string{"tenant_id"}),
+		makeAPIHandler("GET", "/api/2/tenants/{tenant_id}/users", true, false, nil, []mcpParamBinding{{PublicName: "tenant_id", WireName: "tenant_id", Location: "path"}, {PublicName: "limit", WireName: "limit", Location: "query", Default: "100"}, {PublicName: "after", WireName: "after", Location: "query"}}, []string{"tenant_id"}),
 	)
 	// Intent tools — higher-level compositions declared in the spec or lifted from recipes.
 	RegisterIntents(s)
@@ -382,7 +393,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -412,8 +423,36 @@ type mcpParamBinding struct {
 	BodyPath           []string
 	Format             string
 	RequestContentType string
+	Default            string
 }
 
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
 func mcpFormFieldValue(v any) string {
 	if s, ok := v.(string); ok {
 		return s
@@ -486,13 +525,17 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			v, ok := args[binding.PublicName]
 			if !ok {
-				continue
+				if binding.Default != "" {
+					v = binding.Default
+				} else {
+					continue
+				}
 			}
 			switch binding.Location {
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				if len(binding.BodyPath) > 0 {
 					setNestedBodyArg(bodyArgs, binding.BodyPath, v)
@@ -503,7 +546,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 					formFields.Set(binding.WireName, mcpFormFieldValue(v))
 				}
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -513,7 +556,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -528,7 +571,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 					formFields.Set(k, mcpFormFieldValue(v))
 				}
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -608,19 +651,19 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key: export ACRONIS_CYBER_PROTECT_BEARER_AUTH=<your-key>" +
+					"\n      Set it with: acronis-cli auth set-token <token> or export ACRONIS_BEARER_AUTH=\"your-token-here\"" +
 					"\n      See API docs: https://developer.acronis.com" +
 					"\n      Run 'acronis-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your token." +
-					"\n      Set it with: export ACRONIS_CYBER_PROTECT_BEARER_AUTH=<your-key>" +
+					"\n      Set it with: acronis-cli auth set-token <token> or export ACRONIS_BEARER_AUTH=\"your-token-here\"" +
 					"\n      See API docs: https://developer.acronis.com" +
 					"\n      Run 'acronis-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: your credentials are valid but lack access to this resource." +
-					"\n      Set it with: export ACRONIS_CYBER_PROTECT_BEARER_AUTH=<your-key>" +
+					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
+					"\n      Set it with: acronis-cli auth set-token <token> or export ACRONIS_BEARER_AUTH=\"your-token-here\"" +
 					"\n      See API docs: https://developer.acronis.com" +
 					"\n      Run 'acronis-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
@@ -635,21 +678,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -658,8 +686,129 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
@@ -669,7 +818,7 @@ func newMCPClient() (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -718,22 +867,27 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -765,6 +919,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -832,7 +1077,7 @@ func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
 func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	ctx := map[string]any{
 		"api":         "acronis",
-		"description": "The first real CLI for the Acronis Cyber Protect Cloud platform — every tenant, agent, and usage metric mirrored locally",
+		"description": "The first real CLI for the Acronis Cyber Protect Cloud platform — every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
 		"archetype":   "project-management",
 		"tool_count":  30,
 		// tool_surface tells agents which surface a capability lives on.
@@ -841,7 +1086,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			"type": "bearer_token",
 			"env_vars": []map[string]any{
 				{
-					"name":        "ACRONIS_CYBER_PROTECT_BEARER_AUTH",
+					"name":        "ACRONIS_BEARER_AUTH",
 					"kind":        "per_call",
 					"required":    true,
 					"sensitive":   true,
@@ -906,14 +1151,19 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "Cross-tenant backup-health rollup", "command": "health", "description": "See backup success / failure / stale across your entire book of customer tenants in one table.", "rationale": "Joins synced tasks and activities grouped by tenant in the local store — no single Acronis API call returns", "via": "mcp-command-mirror"},
-			{"name": "Offline / stale-agent finder", "command": "agents stale", "description": "List backup agents that haven't checked in within a threshold, across every tenant, sorted by customer.", "rationale": "Filters the local agent snapshot by last-online timestamp across all tenants", "via": "mcp-command-mirror"},
+			{"name": "Cross-tenant backup-health rollup", "command": "health", "description": "See backup success / failure / stale across your entire book of customer tenants in one table.", "rationale": "Joins synced tasks and activities grouped by tenant in the local store — no single Acronis API call returns whole-estate backup health.", "via": "mcp-command-mirror"},
+			{"name": "Offline / stale-agent finder", "command": "agents stale", "description": "List backup agents that haven't checked in within a threshold, across every tenant, sorted by customer.", "rationale": "Filters the local agent snapshot by last-online timestamp across all tenants; the API only lists agents one tenant at a time with no staleness filter.", "via": "mcp-command-mirror"},
 			{"name": "Usage-to-billing reconciliation", "command": "reconcile usages", "description": "Flag usage with no matching offering item and offering items with zero usage, per tenant.", "rationale": "Joins synced usages against offering_items locally; the API exposes both tables but never reconciles them.", "via": "mcp-command-mirror"},
-			{"name": "Coverage gap finder", "command": "coverage", "description": "Surface tenants that pay for protection but have no online agent or no recent successful backup.", "rationale": "Local join of offering_items x agents x recent tasks", "via": "mcp-command-mirror"},
+			{"name": "Coverage gap finder", "command": "coverage", "description": "Surface tenants that pay for protection but have no online agent or no recent successful backup.", "rationale": "Local join of offering_items x agents x recent tasks; this paying-but-unprotected view spans three resources no single endpoint returns together.", "via": "mcp-command-mirror"},
 			{"name": "Usage drift across periods", "command": "usages drift", "description": "Compare per-tenant, per-metric usage between two stored snapshots to see what grew or shrank.", "rationale": "Requires historical usage snapshots in SQLite; the Acronis usages endpoint is point-in-time only.", "via": "mcp-command-mirror"},
-			{"name": "Agent-version compliance", "command": "agents compliance", "description": "Show the distribution of agent versions across the estate and flag tenants behind the target version.", "rationale": "Aggregates agent version across the local estate vs the target/modal version — a fleet-wide view the per-tenant API", "via": "mcp-command-mirror"},
+			{"name": "Agent-version compliance", "command": "agents compliance", "description": "Show the distribution of agent versions across the estate and flag tenants behind the target version.", "rationale": "Aggregates agent version across the local estate vs the target/modal version — a fleet-wide view the per-tenant API never assembles.", "via": "mcp-command-mirror"},
 			{"name": "Tenant-tree explorer", "command": "tree", "description": "Render the Partner -> Customer -> Folder -> Unit hierarchy with per-node agent and user counts.", "rationale": "Recursive query over local tenant parent pointers; the API returns a flat list with parent IDs, never the rendered tree.", "via": "mcp-command-mirror"},
 			{"name": "Backup-failure recurrence ranker", "command": "alerts repeat", "description": "Rank resources and tenants by how many distinct days in a window had a failed or missed backup.", "rationale": "Time-windowed aggregation of the historical task store; identifies repeat offenders no point-in-time alert can.", "via": "mcp-command-mirror"},
+			{"name": "Last-night failure board", "command": "failures", "description": "Flat list of every failed or missed backup task across all tenants in a recent window, newest first.", "rationale": "Scans the local synced task store across every tenant at once — the API only lists tasks per call with no estate-wide failure view.", "via": "mcp-command-mirror"},
+			{"name": "Backup freshness / SLA report", "command": "freshness", "description": "Time since the last successful backup per tenant, flagged against an SLA threshold — including tenants never backed up.", "rationale": "Computes max successful-task age per tenant from the local store; no Acronis endpoint reports time-since-last-success across tenants.", "via": "mcp-command-mirror"},
+			{"name": "Customer 360 card", "command": "customer", "description": "One cross-resource snapshot of a single customer: tenant record, users, licenses, usage, agents, and 7-day backup outcomes joined.", "rationale": "Joins tenants, users, offering_items, usages, clients, agents, and tasks on one tenant_id locally — no single API call returns this card.", "via": "mcp-command-mirror"},
+			{"name": "Standard-provisioning auditor", "command": "tenants audit", "description": "Flag enabled customer tenants missing users, offering items, agents, or OAuth clients — onboarding drift in one table.", "rationale": "Anti-joins tenants against users, offering_items, agent_manager, and clients locally; the API has no provisioning-shape check.", "via": "mcp-command-mirror"},
+			{"name": "Offering-item / edition inventory", "command": "tenants offering-items inventory", "description": "Estate-wide rollup of which offering items and editions are enabled, with per-SKU tenant counts.", "rationale": "Groups synced offering_items across all tenants; the API lists offering items strictly one tenant at a time.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
 			{"topic": "Cross-tenant backup-health rollup", "insight": "Joins synced tasks and activities grouped by tenant in the local store — no single Acronis API call returns whole-estate backup health."},
@@ -924,6 +1174,11 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			{"topic": "Agent-version compliance", "insight": "Aggregates agent version across the local estate vs the target/modal version — a fleet-wide view the per-tenant API never assembles."},
 			{"topic": "Tenant-tree explorer", "insight": "Recursive query over local tenant parent pointers; the API returns a flat list with parent IDs, never the rendered tree."},
 			{"topic": "Backup-failure recurrence ranker", "insight": "Time-windowed aggregation of the historical task store; identifies repeat offenders no point-in-time alert can."},
+			{"topic": "Last-night failure board", "insight": "Scans the local synced task store across every tenant at once — the API only lists tasks per call with no estate-wide failure view."},
+			{"topic": "Backup freshness / SLA report", "insight": "Computes max successful-task age per tenant from the local store; no Acronis endpoint reports time-since-last-success across tenants."},
+			{"topic": "Customer 360 card", "insight": "Joins tenants, users, offering_items, usages, clients, agents, and tasks on one tenant_id locally — no single API call returns this card."},
+			{"topic": "Standard-provisioning auditor", "insight": "Anti-joins tenants against users, offering_items, agent_manager, and clients locally; the API has no provisioning-shape check."},
+			{"topic": "Offering-item / edition inventory", "insight": "Groups synced offering_items across all tenants; the API lists offering items strictly one tenant at a time."},
 			{"topic": "Finding stale work", "insight": "Use the stale command or sql query to find items not updated recently. More reliable than scanning list results manually."},
 			{"topic": "Load analysis", "insight": "When analyzing team workload, filter by assignee and status. Raw counts without status filtering are misleading."},
 			{"topic": "Bulk operations", "insight": "For bulk status changes, prefer update endpoints over delete+create. Most PM APIs track history on updates."},
