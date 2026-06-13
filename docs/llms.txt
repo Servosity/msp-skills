@@ -120,7 +120,7 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/proofpoint/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proofpoint/install.sh)
 - QuickBooks Online (Billing) - Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking.
-  Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/quickbooks/
+  Badge: Live-verified. Page: https://msp-skills.compoundingteams.com/skills/quickbooks/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/install.sh)
 - RocketCyber (Security) - Triage your managed SOC, rank devices at risk, and audit suppression rules from the terminal - no console logins.
   Badge: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/rocketcyber/
