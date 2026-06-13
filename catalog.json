@@ -244,6 +244,25 @@
       "tagline": "Every client tenant's M365 posture, license waste, and stale accounts in one cross-tenant rollup."
     },
     {
+      "name": "connectwise-automate",
+      "system": "ConnectWise Automate (LabTech) RMM: device management, patching, scripting, monitors and alerts for MSPs",
+      "status": "beta",
+      "skill_path": "skills/connectwise-automate",
+      "cli_binary": "connectwise-automate-cli",
+      "mcp_binary": "connectwise-automate-mcp",
+      "version": "0.0.0",
+      "printing_press_version": "4.24.0",
+      "license": "Apache-2.0",
+      "vendor": "ConnectWise",
+      "vendor_trademark_owner": "ConnectWise, LLC",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-automate/install.sh)",
+      "install_mcp_doc": "skills/connectwise-automate/mcp-install.md",
+      "description": "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift.",
+      "verification": "awaiting",
+      "category": "RMM"
+    },
+    {
       "name": "connectwise-manage",
       "system": "ConnectWise PSA (Manage)",
       "status": "beta",

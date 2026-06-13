@@ -1,5 +1,5 @@
 {
-  "count": 51,
+  "count": 52,
   "connectors": [
     {
       "slug": "abnormal",
@@ -88,6 +88,14 @@
       "category": "Security",
       "verification": "awaiting",
       "url": "/skills/cipp/"
+    },
+    {
+      "slug": "connectwise-automate",
+      "display_name": "ConnectWise Automate",
+      "tagline": "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift.",
+      "category": "RMM",
+      "verification": "awaiting",
+      "url": "/skills/connectwise-automate/"
     },
     {
       "slug": "connectwise-manage",
