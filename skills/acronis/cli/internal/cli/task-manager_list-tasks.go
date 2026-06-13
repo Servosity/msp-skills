@@ -61,14 +61,14 @@ func newTaskManagerListTasksCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/api/task_manager/v2/tasks"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "task-manager", path, map[string]string{
-				"tenant_id":   fmt.Sprintf("%v", flagTenantId),
-				"state":       fmt.Sprintf("%v", flagState),
-				"result_code": fmt.Sprintf("%v", flagResultCode),
-				"policy_id":   fmt.Sprintf("%v", flagPolicyId),
-				"resource_id": fmt.Sprintf("%v", flagResourceId),
-				"order":       fmt.Sprintf("%v", flagOrder),
-				"limit":       fmt.Sprintf("%v", flagLimit),
-				"after":       fmt.Sprintf("%v", flagAfter),
+				"tenant_id":   formatCLIParamValue(flagTenantId),
+				"state":       formatCLIParamValue(flagState),
+				"result_code": formatCLIParamValue(flagResultCode),
+				"policy_id":   formatCLIParamValue(flagPolicyId),
+				"resource_id": formatCLIParamValue(flagResourceId),
+				"order":       formatCLIParamValue(flagOrder),
+				"limit":       formatCLIParamValue(flagLimit),
+				"after":       formatCLIParamValue(flagAfter),
 			}, nil, flagAll, "after", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

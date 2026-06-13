@@ -34,8 +34,8 @@ func newTenantsUsersListTenantCmd(flags *rootFlags) *cobra.Command {
 			path := "/api/2/tenants/{tenant_id}/users"
 			path = replacePathParam(path, "tenant_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "users", path, map[string]string{
-				"limit": fmt.Sprintf("%v", flagLimit),
-				"after": fmt.Sprintf("%v", flagAfter),
+				"limit": formatCLIParamValue(flagLimit),
+				"after": formatCLIParamValue(flagAfter),
 			}, nil, flagAll, "after", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

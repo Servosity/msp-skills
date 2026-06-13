@@ -86,7 +86,7 @@ To install:
 
 1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/acronis-current).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `ACRONIS_CYBER_PROTECT_BEARER_AUTH` when Claude Desktop prompts you.
+3. Fill in `ACRONIS_BEARER_AUTH` when Claude Desktop prompts you.
 
 Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
@@ -107,7 +107,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
       "command": "acronis-mcp",
       "env": {
         "ACRONIS_DATACENTER": "<datacenter>",
-        "ACRONIS_CYBER_PROTECT_BEARER_AUTH": "<your-key>"
+        "ACRONIS_BEARER_AUTH": "<your-key>"
       }
     }
   }
@@ -415,7 +415,7 @@ Environment variables:
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
 | `ACRONIS_DATACENTER` | endpoint | Yes |  |
-| `ACRONIS_CYBER_PROTECT_BEARER_AUTH` | per_call | Yes | Set to your API credential. |
+| `ACRONIS_BEARER_AUTH` | per_call | Yes | Set to your API credential. |
 
 ### agentcookie (optional)
 
@@ -424,7 +424,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 ## Troubleshooting
 **Authentication errors (exit code 4)**
 - Run `acronis-cli doctor` to check credentials
-- Verify the environment variable is set: `echo $ACRONIS_CYBER_PROTECT_BEARER_AUTH`
+- Verify the environment variable is set: `echo $ACRONIS_BEARER_AUTH`
 **Not found errors (exit code 3)**
 - Check the resource ID is correct
 - Run the `list` command to see available items

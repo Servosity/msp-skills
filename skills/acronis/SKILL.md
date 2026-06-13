@@ -1,6 +1,6 @@
 ---
 name: acronis
-description: "The first real CLI for the Acronis Cyber Protect Cloud platform  -  every tenant, agent, and usage metric mirrored locally Trigger phrases: `acronis backup health across tenants`, `find offline acronis agents`, `acronis usage and billing report`, `which acronis customers aren't protected`, `acronis agent version compliance`, `use acronis cyber protect`, `run acronis-cli`."
+description: "The first real CLI for the Acronis Cyber Protect Cloud platform  -  every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns. Trigger phrases: `acronis backup health across tenants`, `find offline acronis agents`, `acronis usage and billing report`, `which acronis customers aren't protected`, `acronis agent version compliance`, `use acronis cyber protect`, `run acronis-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Acronis"

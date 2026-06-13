@@ -173,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export ACRONIS_CYBER_PROTECT_BEARER_AUTH=<your-key>"
+					report["auth_hint"] = "Set it with: acronis-cli auth set-token <token> or export ACRONIS_BEARER_AUTH=\"your-token-here\""
 					report["auth_docs_url"] = "https://developer.acronis.com"
 				} else {
 					authConfigured = true
@@ -189,8 +189,8 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			authEnvOptionalNames := []string{}
 			// Validation rejects multi-OR-group specs upstream, so the single optional-satisfied state is sufficient at runtime.
 			authEnvOptionalSatisfied := false
-			if os.Getenv("ACRONIS_CYBER_PROTECT_BEARER_AUTH") != "" {
-				authEnvSet = append(authEnvSet, "ACRONIS_CYBER_PROTECT_BEARER_AUTH")
+			if os.Getenv("ACRONIS_BEARER_AUTH") != "" {
+				authEnvSet = append(authEnvSet, "ACRONIS_BEARER_AUTH")
 			} else if authConfigured {
 				authSource, _ := report["auth_source"].(string)
 				if authSource == "" {
@@ -198,7 +198,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				}
 				authEnvInfo = append(authEnvInfo, "credentials available from "+authSource)
 			} else {
-				authEnvRequiredMissing = append(authEnvRequiredMissing, "ACRONIS_CYBER_PROTECT_BEARER_AUTH")
+				authEnvRequiredMissing = append(authEnvRequiredMissing, "ACRONIS_BEARER_AUTH")
 			}
 			switch {
 			case len(authEnvRequiredMissing) > 0:

@@ -9,7 +9,11 @@ import (
 )
 
 func TestComputeCustomerCard(t *testing.T) {
-	now := time.Now()
+	// Use UTC so the inserted timestamps and the date-prefix assertion below
+	// agree with computeCustomerCard's UTC-normalized output. With local time,
+	// an evening run in a behind-UTC zone (e.g. EDT) shifts recent[:10] to the
+	// previous calendar day while the card reports the UTC day — a false fail.
+	now := time.Now().UTC()
 	recent := now.Add(-2 * time.Hour).Format(time.RFC3339)
 	old := now.Add(-30 * 24 * time.Hour).Format(time.RFC3339)
 

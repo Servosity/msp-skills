@@ -28,7 +28,7 @@ func newClientsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/api/2/clients"
 			params := map[string]string{}
 			if flagTenantId != "" {
-				params["tenant_id"] = fmt.Sprintf("%v", flagTenantId)
+				params["tenant_id"] = formatCLIParamValue(flagTenantId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "clients", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

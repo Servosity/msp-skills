@@ -12,7 +12,7 @@
       "name": "acronis",
       "source": "./skills/acronis",
       "description": "The first real CLI for the Acronis Cyber Protect Cloud platform \u2014 every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "backup-dr",
       "tags": [
         "acronis",

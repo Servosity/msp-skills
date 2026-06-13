@@ -30,13 +30,13 @@ func newTenantsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/api/2/tenants"
 			params := map[string]string{}
 			if flagParentId != "" {
-				params["parent_id"] = fmt.Sprintf("%v", flagParentId)
+				params["parent_id"] = formatCLIParamValue(flagParentId)
 			}
 			if flagUuids != "" {
-				params["uuids"] = fmt.Sprintf("%v", flagUuids)
+				params["uuids"] = formatCLIParamValue(flagUuids)
 			}
 			if flagSubtreeRootId != "" {
-				params["subtree_root_id"] = fmt.Sprintf("%v", flagSubtreeRootId)
+				params["subtree_root_id"] = formatCLIParamValue(flagSubtreeRootId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "tenants", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

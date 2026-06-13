@@ -41,7 +41,7 @@ func newTenantsDeleteCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "tenant_id", args[0])
 			params := map[string]string{}
 			if flagVersion != 0 {
-				params["version"] = fmt.Sprintf("%v", flagVersion)
+				params["version"] = formatCLIParamValue(flagVersion)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {
