@@ -12,6 +12,16 @@
         {"file": "manifest.json", "contains": "afi-mcp", "min_count": 2},
         {"file": "manifest.json", "not_contains": "afi-pp-mcp"}
       ]
+    },
+    {
+      "id": "workflow-archive-resource-list",
+      "summary": "channel_workflow.go `workflow archive` syncs the spec-derived `applications` resource, not an empty list",
+      "why": "The 4.24.0 reprint emitted `resources := []string{}` (empty) where afi 0.1.0 carried `[]string{\"applications\"}` and the sibling 4.24 connectors carry their own populated lists (acronis: clients/task-manager/..., connectwise-control: session_groups). An empty list makes `afi-cli workflow archive` a silent no-op (the registered command builds and runs but syncs nothing). No mechanical gate catches it; CodeRabbit flagged it Major on PR #100. A re-vendor re-emits the empty list. See project_afi_onboard_update_424_traps; the press's compound-workflow resource inference dropping afi's list is a printing-press retro candidate.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/cli/channel_workflow.go", "contains": "[]string{\"applications\"}", "min_count": 1},
+        {"file": "cli/internal/cli/channel_workflow.go", "not_contains": "resources := []string{}"}
+      ]
     }
   ]
 }
