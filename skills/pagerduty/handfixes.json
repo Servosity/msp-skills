@@ -1,0 +1,39 @@
+{
+  "slug": "pagerduty",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: project_pagerduty_onboard_traps.md (PR #48, 2026-06-06, press 4.22.0).",
+  "handfixes": [
+    {
+      "id": "guide-broken-vendored-links-repointed",
+      "summary": "guide.md (vendored from the PagerDuty README) had ~96 ../../api-reference and ~9 openapiv3 deep-links into a non-shipped tree; repointed to developer.pagerduty.com and stripped to code text",
+      "why": "PagerDuty's source README carried ~96 [API Concepts](../../api-reference/<hash>...) links into a tree msp-skills doesn't ship plus ~9 [/path](openapiv3.json/...) OpenAPI spec deep-links - check_md_links FAILs. Fixed: repoint api-concepts links to the real vendor docs (https://developer.pagerduty.com/api-reference/, verified 200; check_md_links SKIPS http(s) so a 404 would slip) and strip openapiv3 spec deep-links to backtick code text. A reprint re-vendors the broken relative/openapiv3 links.",
+      "status": "active",
+      "spec_encode_followup": "Fix belongs in the press README-vendoring step: rewrite or strip relative ../../ and openapiv3 deep-links that don't resolve in the shipped tree. Grep guide.md for `](../../` and `](openapiv3` after vendoring any new spec.",
+      "asserts": [
+        {"file": "guide.md", "contains": "developer.pagerduty.com/api-reference", "min_count": 1},
+        {"file": "guide.md", "not_contains": "](../../api-reference"},
+        {"file": "guide.md", "not_contains": "](openapiv3"}
+      ]
+    },
+    {
+      "id": "analytics-honest-framing",
+      "summary": "Analytics differentiator framed as offline / without the paid Analytics tier / no per-question call - NOT 'no API returns it' (which is false; the binary wraps the vendor Analytics API)",
+      "why": "Round-1 adversarial P1: README/SKILL/guide/page.json claimed MTTR-by-service / off-hours-pages were 'questions no single PagerDuty API call returns' - contradicted by the binary's own analytics commands that wrap the vendor Analytics API. The honest, defensible claim is 'offline / without the paid Analytics add-on / no live call per question'. A reprint of the authored marketing prose could reintroduce the false absolute claim.",
+      "status": "active",
+      "spec_encode_followup": "Not press-encodable - a prose/marketing review rule. The fresh-context adversarial reviewer (not the gates) is the only thing that catches it; refines feedback_outcome_prose_must_match_command_output_fields.",
+      "asserts": [
+        {"file": "README.md", "contains": "paid Analytics tier", "min_count": 1},
+        {"file": "page.json", "contains": "paid Analytics tier", "min_count": 1}
+      ]
+    },
+    {
+      "id": "manifest-recovered-from-prior-scaffold",
+      "summary": "Top-level manifest.json exists (press 4.22.0 emitted only tools-manifest.json; recovered from the prior scaffold commit so build-catalog stops failing)",
+      "why": "Press run 20260606-085517 emitted only tools-manifest.json, not the mcpb/DXT manifest.json onboard copies in step 3 - build-catalog.py failed 'missing manifest.json for skill'. Recovered from the prior partial-scaffold commit. A reprint from a press that still drops manifest.json reintroduces the missing-file failure; this ledger entry makes its absence a loud failure.",
+      "status": "active",
+      "asserts": [
+        {"file": "manifest.json", "contains": "PAGERDUTY_API_KEY", "min_count": 1}
+      ]
+    }
+  ]
+}

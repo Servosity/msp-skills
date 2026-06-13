@@ -1,0 +1,19 @@
+{
+  "slug": "liongard",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. These are governance-tier hand-corrections: onboard.py --resume preserves governance.md, but a FULL reprint re-runs gen_governance.py and would re-introduce the mis-tiering.",
+  "handfixes": [
+    {
+      "id": "governance-write-tier-union-agents-update-plus-verbless",
+      "summary": "Write tier unions the keyword-matched mutations (incl. `agents update`) WITH the verb-less writes (`import`) and inspection triggers (`launchpoints run`/`bulk-run`)",
+      "why": "gen_governance.py keyword-matches command paths and ignores pp:method. It correctly placed `agents update` (a real PUT) in Write but missed verb-less/action writes (`import` bulk upsert, the inspection triggers `launchpoints run`/`bulk-run`/`run-stale`, `agents flush job-queue`). When hand-adding the verb-less writes you must UNION (keep `agents update`), not replace - a prior draft dropped `agents update` so it fell into NO tier and an agent following SKILL.md routing would run a config write ungated (round-1 adversarial P1). A full reprint re-runs gen_governance and re-introduces both the drop risk and the missing verb-less writes. See project_governance_rewrite_union_not_replace, project_gen_governance_misses_verbless_writes.",
+      "status": "active",
+      "spec_encode_followup": "Make gen_governance method-aware off agent-context pp:method (fleet-wide). Until then this hand-correction recurs on every reprint.",
+      "asserts": [
+        {"file": "governance.md", "contains": "agents update", "min_count": 1},
+        {"file": "governance.md", "contains": "`import` (bulk create/upsert)", "min_count": 1},
+        {"file": "governance.md", "contains": "launchpoints run", "min_count": 1}
+      ]
+    }
+  ]
+}

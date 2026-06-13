@@ -95,6 +95,10 @@ def build_entry(skill_dir: Path) -> dict:
         "cli_binary": meta.get("cli_binary"),
         "mcp_binary": meta.get("mcp_binary"),
         "version": version,
+        # Which cli-printing-press version minted this skill (null for
+        # markdown-only skills and any binary skill onboarded before the
+        # press-provenance field was added to its manifest.json).
+        "printing_press_version": manifest.get("printing_press_version"),
         "license": manifest.get("license", "Apache-2.0"),
         "vendor": meta["vendor"],
         "vendor_trademark_owner": meta["vendor_trademark_owner"],

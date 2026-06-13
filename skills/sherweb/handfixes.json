@@ -1,0 +1,29 @@
+{
+  "slug": "sherweb",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one.",
+  "handfixes": [
+    {
+      "id": "apim-subscription-key-on-token-mint",
+      "summary": "Sherweb's APIM gateway requires Ocp-Apim-Subscription-Key on EVERY call including the OAuth token mint itself",
+      "why": "Sherweb fronts its API with Azure APIM; the gateway rejects the client-credentials token request itself without the subscription key header. The generator emits the mint WITHOUT the second apiKey scheme header, so live auth 401s. This inline hand-fix was LOST in a prior regen and re-caught only by fresh-context adversarial review. Hand-wired at the token-mint path (auth.go) and the per-request paths (client.go). Mock-mode shipcheck cannot catch this (it never authenticates).",
+      "status": "active",
+      "spec_encode_followup": "Spec `x-auth-env-vars: [SHERWEB_CLIENT_ID, SHERWEB_CLIENT_SECRET]` + the subscriptionKey apiKey scheme should drive the press to send the key on the mint; until absorbed, hand-wired here.",
+      "asserts": [
+        {"file": "cli/internal/cli/auth.go", "contains": "Ocp-Apim-Subscription-Key", "min_count": 1},
+        {"file": "cli/internal/client/client.go", "contains": "Ocp-Apim-Subscription-Key", "min_count": 1}
+      ]
+    },
+    {
+      "id": "insight-loaders-bypass-200-row-cap",
+      "summary": "loadResourceRows runs a raw uncapped SELECT instead of store.List (whose limit<=0 default caps at 200 rows) so fleet-wide joins are not silently truncated",
+      "why": "store.List(rt, 0) caps at 200 rows, NOT unlimited (the generated data_source.go comment '0 = no limit' is wrong; same unabsorbed press gap hit pax8). Insight loaders aggregate the whole fleet, so a 200-row truncation silently drops data and produces wrong margin/usage rollups. loadResourceRows deliberately bypasses store.List with a raw query ordered by updated_at.",
+      "status": "active",
+      "spec_encode_followup": "Fix store.List's limit<=0 semantics in the press (no cap means no cap); until then hand-authored loaders must use the raw query.",
+      "asserts": [
+        {"file": "cli/internal/cli/insights_store.go", "contains": "bypasses store.List", "min_count": 1},
+        {"file": "cli/internal/cli/insights_store.go", "contains": "func loadResourceRows(", "min_count": 1}
+      ]
+    }
+  ]
+}

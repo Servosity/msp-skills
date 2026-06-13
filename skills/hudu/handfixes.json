@@ -1,0 +1,39 @@
+{
+  "slug": "hudu",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: project_onboard_perinstance_baseurl_and_bareword_claims.md (PR #41, 2026-06-06).",
+  "handfixes": [
+    {
+      "id": "per-instance-base-url-completed",
+      "summary": "HUDU_BASE_URL (per-tenant API base) is in manifest.json user_config + mcp_config.env + mcp-install.md + README; the press shipped only the HUDU_API_KEY secret",
+      "why": "Hudu's API base is per-tenant (https://<sub>.huducloud.com/api/v1). The press derives auth_env_vars from the SECRET only (HUDU_API_KEY), treating the base URL as a verify-time override, so manifest user_config + mcp_config.env, mcp-install.md, and the README auth example all shipped with only the key while config.go's default base URL is a NON-FUNCTIONAL placeholder (your-domain.huducloud.com) - the .mcpb extension and every env example point at a dead domain and fail silently. verify_all stays green (no gate checks env-var COMPLETENESS vs config.go). Hand-added HUDU_BASE_URL to manifest + mcp-install + README (server.json stays credential-only to match the n-central precedent). A reprint drops the base URL again.",
+      "status": "active",
+      "spec_encode_followup": "Fix belongs in the press: per-instance connectors should carry every required non-secret config var (base_url/region/tenant) into manifest user_config + mcp env + docs, not just the secret. Sibling of project_onboard_manifest_deleak_and_envvar (NAME mismatch) - this is env-var OMISSION.",
+      "asserts": [
+        {"file": "manifest.json", "contains": "HUDU_BASE_URL", "min_count": 1},
+        {"file": "mcp-install.md", "contains": "HUDU_BASE_URL", "min_count": 1},
+        {"file": "README.md", "contains": "HUDU_BASE_URL", "min_count": 1}
+      ]
+    },
+    {
+      "id": "assets-list-by-company-positional-corrected",
+      "summary": "Docs reference `assets list-by-company <company_id>` with the real positional, not the press's bogus `--company-id` flag form",
+      "why": "check_cli_claims only validates full <binary> ... invocations, so it missed (a) a bare-command backtick ref `assets list-by-company --company-id <id>` (the real command takes a positional <company_id>; --company-id is 'unknown flag') and (b) a trailing positional after a zero-positional command (`api-info get`). Both were generator-emitted prose in the vendored SKILL.md + guide.md; only the fresh-context adversarial reviewer catches them. Corrected to the real positional form. A reprint re-emits the bogus flag form.",
+      "status": "active",
+      "spec_encode_followup": "Not fully press-encodable - the adversarial reviewer must check bare-command refs AND trailing positionals semantically, built from agent-context. Sibling of project_onboard_missing_required_positional_defect.",
+      "asserts": [
+        {"file": "guide.md", "contains": "list-by-company <company_id>", "min_count": 1},
+        {"file": "SKILL.md", "not_contains": "list-by-company --company-id"}
+      ]
+    },
+    {
+      "id": "trademark-no-double-period",
+      "summary": "Non-affiliation banner does not double-period a trademark owner ending in 'Inc.'",
+      "why": "A --trademark-owner ending in 'Inc.' + the template's trailing '.' produced 'Inc..' in the README non-affiliation banner. Stripped to a single period. A reprint with the same owner string reintroduces the double period.",
+      "status": "active",
+      "asserts": [
+        {"file": "README.md", "not_contains": "Inc.."}
+      ]
+    }
+  ]
+}

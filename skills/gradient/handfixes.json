@@ -1,0 +1,33 @@
+{
+  "slug": "gradient",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: project_onboard_missing_required_positional_defect.md (PR #75, 2026-06-07, Gradient MSP billing sync).",
+  "handfixes": [
+    {
+      "id": "required-positionals-in-doc-examples",
+      "summary": "Doc examples/Command-Reference rows keep their REQUIRED positional (billing <serviceId>, services get <serviceId>, mappings update <serviceId>, accounts update-one <accountId>); the press dropped them for some commands",
+      "why": "The press inconsistently annotates required positionals: in the SAME Command Reference it wrote `billing <serviceId>` for some commands but dropped the positional for siblings (accounts update-one, mappings update, services get) even though all require one (Usage: ... <foo> [flags]). check_cli_claims is blind (it parses the first bareword as the subcommand and ignores trailing positionals), so a non-runnable example sails through every mechanical gate - only iterated adversarial review caught it. A reprint reverts the examples to the no-positional form (e.g. `gradient-cli billing --account-id ...` which errors 'serviceId is required', exit 2).",
+      "status": "active",
+      "spec_encode_followup": "Fix belongs in the press doc generator: emit required positionals consistently in every Command-Reference row + runnable example. Tracked in project_onboard_missing_required_positional_defect.",
+      "asserts": [
+        {"file": "README.md", "contains": "gradient-cli billing <serviceId>", "min_count": 1},
+        {"file": "page.json", "contains": "gradient-cli billing <serviceId>", "min_count": 1},
+        {"file": "SKILL.md", "contains": "billing <serviceId>", "min_count": 1},
+        {"file": "SKILL.md", "contains": "services get <serviceId>", "min_count": 1},
+        {"file": "guide.md", "contains": "accounts update-one <accountId>", "min_count": 1}
+      ]
+    },
+    {
+      "id": "governance-verbless-writes-promoted",
+      "summary": "Governance Write tier hand-promoted to include the 5 verb-less writes (usage push, billing, alert send, alerting, import) the keyword classifier missed; 14 total",
+      "why": "gen_governance keyed on write-verb keywords, so the 5 verb-less / non-standard-verb POSTs (usage push, billing, alert send, alerting, import) fell to the Read tier. Hand-authored governance.md Write tier names all 14 mutations (union, not replace). A reprint regenerates governance.md from the blind classifier and silently demotes the 5 to Read.",
+      "status": "active",
+      "spec_encode_followup": "Real fix is a method-aware gen_governance (classify from pp:method). Tracked in project_gen_governance_misses_verbless_writes / project_governance_rewrite_union_not_replace.",
+      "asserts": [
+        {"file": "governance.md", "contains": "usage push", "min_count": 1},
+        {"file": "governance.md", "contains": "alert send", "min_count": 1},
+        {"file": "governance.md", "contains": "(14 total)", "min_count": 1}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "slug": "levelio",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: project_mcp_sync_envvar_and_promote_toolsmanifest.md (reprint 2026-06-06, press 4.22.0, Level RMM).",
+  "handfixes": [
+    {
+      "id": "canonical-auth-env-var-not-slug-derived",
+      "summary": "Auth env var stays the spec canonical LEVEL_API_TOKEN everywhere; mcp-sync/promote rewrite it to the slug-derived LEVELIO_API_TOKEN, breaking MCP auth",
+      "why": "Level's spec x-auth-env-vars is LEVEL_API_TOKEN (not LEVELIO_*). config.go reads LEVEL_API_TOKEN, but press 4.22.0 `mcp-sync` derives the var from the api_name slug and rewrites manifest.json (user_config + mcp_config.env), .printing-press.json, tools.go agent hints, and tools-manifest.json to LEVELIO_API_TOKEN while config.go keeps the canonical - a silent 401 for every .mcpb/MCP user. `lock promote` re-triggers it. A reprint/polish/promote plants the bug again. The fix keeps LEVEL_API_TOKEN aligned across config.go + manifest + server + tools.go.",
+      "status": "active",
+      "spec_encode_followup": "Fix belongs in the press: mcp-sync must honor x-auth-env-vars and never derive the auth var from the api_name slug. Filed as a retro (manuscripts/levelio/20260606-173908 findings).",
+      "asserts": [
+        {"file": "cli/internal/config/config.go", "contains": "LEVEL_API_TOKEN", "min_count": 1},
+        {"file": "cli/internal/config/config.go", "not_contains": "LEVELIO_API_TOKEN"},
+        {"file": "cli/internal/mcp/tools.go", "contains": "LEVEL_API_TOKEN", "min_count": 1},
+        {"file": "cli/internal/mcp/tools.go", "not_contains": "LEVELIO_API_TOKEN"},
+        {"file": "manifest.json", "contains": "LEVEL_API_TOKEN", "min_count": 1},
+        {"file": "manifest.json", "not_contains": "LEVELIO_API_TOKEN"},
+        {"file": "server.json", "contains": "LEVEL_API_TOKEN", "min_count": 1}
+      ]
+    }
+  ]
+}

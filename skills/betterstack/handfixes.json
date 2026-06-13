@@ -1,0 +1,42 @@
+{
+  "slug": "betterstack",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. status: active = connector-only, a reprint would clobber it; upstreamed = also fixed in the press, a reprint from a fixed press regenerates it, but the back-port must still be present today.",
+  "handfixes": [
+    {
+      "id": "update-uses-patch-not-put",
+      "summary": "Better Stack updates are PATCH; monitors/heartbeats update + MCP update path call PatchWithParams, not PutWithParams",
+      "why": "Better Stack's Update endpoints are HTTP PATCH (partial update); a PUT 405s. Prior prints hand-fixed PUT->PATCH post-generate. The durable home is the spec (`method: PATCH`, which 4.22 emits natively as PatchWithParams), but the back-port must be present in the generated client + update commands today or every update fails.",
+      "status": "upstreamed",
+      "spec_encode_followup": "Encode `method: PATCH` on the update operations in the press spec so PatchWithParams is emitted by construction (4.22+ supports this).",
+      "asserts": [
+        {"file": "cli/internal/client/client.go", "contains": "func (c *Client) PatchWithParams(", "min_count": 1},
+        {"file": "cli/internal/cli/monitors_update.go", "contains": "PatchWithParams", "min_count": 1},
+        {"file": "cli/internal/cli/heartbeats_update.go", "contains": "PatchWithParams", "min_count": 1}
+      ]
+    },
+    {
+      "id": "live-fanout-numeric-id-json-number",
+      "summary": "Live fan-out parsers decode IDs with json.Number + dec.UseNumber() so 7+ digit monitor IDs don't render in scientific notation",
+      "why": "Better Stack monitor/resource IDs are 7+ digits. An `any`->float64->%v decode renders them as 1.234e+06, silently breaking mirror joins (false 'monitor missing' + suppressed real drift). Only round-2 adversarial review caught it; the unit test masked it with a 5-digit ID. json.Number preserves the exact integer. Lives in the hand-authored statuspage-audit novel and the store decode path.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/cli/statuspage_audit.go", "contains": "ResourceID json.Number", "min_count": 1},
+        {"file": "cli/internal/cli/statuspage_audit.go", "contains": "dec.UseNumber()", "min_count": 1},
+        {"file": "cli/internal/store/store.go", "contains": "dec.UseNumber()", "min_count": 1}
+      ]
+    },
+    {
+      "id": "governance-incident-write-tier-corrections",
+      "summary": "gen_governance keyword classifier mis-tiered incident verbs; hand-corrected: acknowledge/resolve/import -> Write, triage/workflow-archive -> Read",
+      "why": "gen_governance.py keyword-matches command paths and ignores pp:method, so for this incident/monitoring connector it BOTH false-negatived real writes (`incidents acknowledge`, `incidents resolve`, verb-less `import`) into Read AND false-positived read-only `triage` (a local incident board view) and `workflow archive` (local-only sync) into Write. The tiers were hand-corrected against the real method surface (12 routine writes). A full reprint re-runs gen_governance and would re-introduce the mis-tiering. See project_betterstack_onboard_gotchas, project_gen_governance_misses_verbless_writes.",
+      "status": "active",
+      "spec_encode_followup": "Make gen_governance method-aware off agent-context pp:method (fleet-wide fix); until then this hand-correction recurs on every reprint.",
+      "asserts": [
+        {"file": "governance.md", "contains": "incidents acknowledge", "min_count": 1},
+        {"file": "governance.md", "contains": "incidents resolve", "min_count": 1},
+        {"file": "governance.md", "contains": "workflow archive", "min_count": 1}
+      ]
+    }
+  ]
+}

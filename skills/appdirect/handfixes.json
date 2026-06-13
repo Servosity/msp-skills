@@ -1,0 +1,49 @@
+{
+  "slug": "appdirect",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: project_appdirect_onboard_oauth_scope_default.md (PR #74, 2026-06-07).",
+  "handfixes": [
+    {
+      "id": "oauth-scope-optional-nonsecret",
+      "summary": "APPDIRECT_OAUTH_SCOPE is optional + non-secret (has a working default 'ROLE_PARTNER ROLE_PARTNER_READ'); the press marked it required + sensitive",
+      "why": "client.go/auth.go resolveClientCredentialsScope() returns the working default 'ROLE_PARTNER ROLE_PARTNER_READ' when APPDIRECT_OAUTH_SCOPE is empty and SENDS it (form.Set('scope', ...)), so the scope is not a credential and the user need not supply one. The press emitted required:true / sensitive:true in BOTH manifest.json user_config AND server.json environmentVariables. Fixed to optional + non-secret. This is the OPPOSITE of the halopsa bug (scope wired but never sent -> 401): here scope IS sent with a default. A reprint reverts both to required+secret.",
+      "status": "active",
+      "spec_encode_followup": "Spec hook: mark OAUTH_SCOPE optional + non-secret in x-auth-env-vars metadata so the press emits required:false / sensitive:false by construction. Always read the binary's scope-resolver before classifying OAUTH_SCOPE.",
+      "asserts": [
+        {"file": "manifest.json", "contains": "\"appdirect_oauth_scope\"", "min_count": 1},
+        {"file": "server.json", "contains": "APPDIRECT_OAUTH_SCOPE", "min_count": 1}
+      ]
+    },
+    {
+      "id": "mcp-binary-rename",
+      "summary": "MCP binary renamed appdirect-pp-mcp -> appdirect-mcp in manifest.json (name/entry_point); the press emits the -pp- name",
+      "why": "onboard re-vendors+patches manifest.json from source every run, so the -pp-mcp -> appdirect-mcp rename in name/entry_point must be re-applied after the final --resume. release.yml builds <slug>-mcp from skills.json and doesn't build a .mcpb, so manifest name/entry_point are effectively inert - but renamed anyway to honor the autotask #35 convention. A reprint/re-onboard reverts the name to appdirect-pp-mcp.",
+      "status": "active",
+      "asserts": [
+        {"file": "manifest.json", "contains": "appdirect-mcp", "min_count": 1},
+        {"file": "manifest.json", "not_contains": "appdirect-pp-mcp"}
+      ]
+    },
+    {
+      "id": "governance-method-aware-tiers",
+      "summary": "Governance reclassified method-aware: ~35 verb-less writes promoted out of Read, with explicit Credential (7) and Destructive (34) tiers (DELETE/expire = destructive; payment/password = credential)",
+      "why": "gen_governance missed ~35 verb-less writes (add/apply/change/clone/edit/execute/finalize/remove/request/notify/upload/invite/save/bill-usage/expire) plus appwise events/provisioning -> all fell to Read. Reclassified method-aware from agent-context pp:method (Read 168 / Write 118 / Credential 7 / Destructive 34): all DELETE + expire destructive; payment-method/instrument + password credential; POST-as-query (get-pricing-summary/preview-shopping-cart) stay Read. A reprint regenerates governance.md from the keyword classifier and silently demotes the writes.",
+      "status": "active",
+      "spec_encode_followup": "Real fix is a method-aware gen_governance (classify from pp:method, not the command-name verb). Tracked in project_gen_governance_misses_verbless_writes / project_governance_rewrite_union_not_replace.",
+      "asserts": [
+        {"file": "governance.md", "contains": "Destructive", "min_count": 1},
+        {"file": "governance.md", "contains": "Credential", "min_count": 1},
+        {"file": "governance.md", "contains": "expire", "min_count": 1}
+      ]
+    },
+    {
+      "id": "trademark-no-double-period",
+      "summary": "Vendor trademark owner stored without a trailing period ('AppDirect, Inc') so the non-affiliation banner doesn't double-period",
+      "why": "Owner 'AppDirect, Inc.' + the template's '.' produced 'Inc..'; the owner is stored without the trailing period (like knowbe4). A reprint with the period-terminated owner string reintroduces the double period.",
+      "status": "active",
+      "asserts": [
+        {"file": "README.md", "not_contains": "Inc.."}
+      ]
+    }
+  ]
+}
