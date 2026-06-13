@@ -4,7 +4,119 @@
 
 Autotask PSA CLI syncs your PSA into a local database and hides Autotask's non-standard query/paging mechanics behind clean list/search/get commands. Beyond CRUD, it ships service-desk intelligence  -  ticket-aging, workload, sla-breaches, triage  -  and money views like unbilled and contract-burn, all offline, scriptable, and agent-native.
 
-For the short install path see [README.md](./README.md). This file is the command reference.
+## Install
+
+The recommended path installs both the `autotask-cli` binary and the `pp-autotask` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+
+```bash
+npx -y @mvanhorn/printing-press-library install autotask
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install autotask --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install autotask --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install autotask --agent claude-code
+npx -y @mvanhorn/printing-press-library install autotask --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/project-management/autotask/cmd/autotask-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/autotask-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install autotask --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-autotask --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-autotask --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install autotask --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/autotask-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `AUTOTASK_API_INTEGRATION_CODE` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/project-management/autotask/cmd/autotask-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "autotask": {
+      "command": "autotask-mcp",
+      "env": {
+        "AUTOTASK_API_INTEGRATION_CODE": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Authentication
 
@@ -880,7 +992,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/autotask-cli/config.toml`
+Config file: `~/.config/autotask-psa-pp-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
@@ -888,7 +1000,7 @@ Environment variables:
 
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
-| `AUTOTASK_PSA_API_INTEGRATION_CODE` | per_call | Yes | Set to your API credential. |
+| `AUTOTASK_API_INTEGRATION_CODE` | per_call | Yes | Set to your API credential. |
 
 ### agentcookie (optional)
 
@@ -897,10 +1009,10 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 ## Troubleshooting
 **Authentication errors (exit code 4)**
 - Run `autotask-cli doctor` to check credentials
-- Verify the environment variable is set: `echo $AUTOTASK_PSA_API_INTEGRATION_CODE`
+- Verify the environment variable is set: `echo $AUTOTASK_API_INTEGRATION_CODE`
 **Not found errors (exit code 3)**
 - Check the resource ID is correct
-- Run the entity's `query` command (e.g. `autotask-cli companies query`) to see available items
+- Run the `list` command to see available items
 
 ### API-specific
 - **401 / unauthorized on every call**  -  Confirm all three of AUTOTASK_PSA_API_INTEGRATION_CODE, AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET are set  -  Autotask requires all three headers.

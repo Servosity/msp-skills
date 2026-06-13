@@ -1,6 +1,6 @@
 ---
 name: huntress
-description: "Use when the user asks to triage Huntress incidents across client organizations, find coverage gaps or dark agents, trace an indicator's blast radius across the fleet, reconcile invoiced seats against deployed agents, or pull a per-client QBR/shift-handoff rollup. Wraps the full Huntress API plus an offline SQLite mirror with cross-tenant analytics the per-org portal can't compose. Trigger phrases: `show me all critical huntress incidents`, `huntress coverage gaps across my orgs`, `huntress blast radius for this IP`, `reconcile huntress billing`, `huntress agent health report`, `Huntress + ChatGPT`, `Huntress + Claude`, `use huntress`, `run huntress-cli`."
+description: "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't. Trigger phrases: `show me all critical huntress incidents`, `huntress coverage gaps across my orgs`, `huntress blast radius for this IP`, `reconcile huntress billing`, `huntress agent health report`, `use huntress`, `run huntress`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Huntress"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - huntress-cli
+    install:
+      - kind: go
+        bins: [huntress-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/huntress/cmd/huntress-cli
 ---
 
-# Huntress Claude Code Skill
+# Huntress  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `huntress-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/huntress/install.sh)
+   npx -y @mvanhorn/printing-press-library install huntress --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/huntress/install.ps1 | iex
-   ```
-3. Verify: `huntress-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `huntress-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/huntress/cmd/huntress-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 huntress-cli absorbs the full Huntress API  -  organizations, agents, incident reports, remediations, signals, escalations, identities, external recon, reports, invoices, reseller subscriptions, and SIEM ES|QL  -  with agent-native output (--json, --select, typed exit codes). Then it transcends the read-mostly, per-org API: fleet-incidents gives one age-sorted queue across every client org, coverage-gaps rolls up posture exposure, blast-radius correlates an indicator across the whole fleet, and drift/mttr/handoff turn repeated syncs into history the live API throws away.
 
@@ -38,12 +44,13 @@ huntress-cli absorbs the full Huntress API  -  organizations, agents, incident r
 
 Reach for huntress-cli when an agent or analyst needs to act across an entire Huntress account from the terminal: triaging incidents across many client organizations, auditing agent coverage and posture, correlating an indicator fleet-wide during an incident, reconciling billing against deployed agents, or pulling QBR/shift-handoff rollups. It is the right tool whenever the question spans more than one org or needs history the live API doesn't keep.
 
-### When NOT to Use This CLI
+## Anti-triggers
 
-- **Single-record point-in-time lookups** (one org, one agent, one incident by id)  -  use the generated resource `get` commands, not the fleet rollups.
-- **Non-Huntress security tooling** (other EDR/RMM/SIEM vendors)  -  this CLI only speaks the Huntress API.
-- **Cross-account queries with standard credentials**  -  an API credential scopes one Huntress account; only reseller-scoped keys see multiple accounts (`reseller-rollup`).
-- **Real-time streaming or alerting**  -  the local store is sync-cadence fresh, not a live event feed; use Huntress webhooks for push alerts.
+Do not use this CLI for:
+- Single-record point-in-time lookups (one org, one agent, one incident by id)  -  use the generated resource get commands, not the fleet rollups
+- Non-Huntress security tooling questions (other EDR/RMM/SIEM vendors)  -  this CLI only speaks the Huntress API
+- Cross-Huntress-account queries with standard credentials  -  the API credential scopes one account; only reseller-scoped keys see multiple accounts
+- Real-time streaming/alerting  -  the local store is sync-cadence fresh, not a live event feed; use Huntress webhooks for push alerts
 
 ## Unique Capabilities
 
@@ -57,7 +64,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   huntress-cli fleet-incidents --severity critical --status sent --sort age --json
   ```
-- **`coverage-gaps`**  -  Flags orgs and agents with stale callbacks or unhealthy Defender/firewall  -  a fleet posture exposure report.
+- **`coverage-gaps`**  -  Flags orgs and agents with stale callbacks, unhealthy Defender/firewall, or outdated EDR versions  -  a fleet posture exposure report.
 
   _Use before a weekly posture review or onboarding audit to find protection gaps before an incident lands on an unmonitored host._
 
@@ -101,7 +108,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   huntress-cli triage-age --buckets 4,24,72 --json
   ```
-- **`org-scorecard`**  -  Per-client QBR scorecard: agent count, open and closed incidents, and MTTR  -  one client's security story.
+- **`org-scorecard`**  -  Per-client QBR scorecard: agent count, coverage percent, open and closed incidents, MTTR, and a posture grade  -  one client's security story.
 
   _Use to assemble a client quarterly-business-review summary in one command instead of stitching several endpoints._
 
@@ -117,7 +124,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Partner ops and billing
-- **`billing-reconcile`**  -  Compares total invoiced seat counts against actually deployed agent counts account-wide and surfaces the delta.
+- **`billing-reconcile`**  -  Compares invoiced and subscribed seat counts against actually deployed agent counts per org and surfaces the delta.
 
   _Run at monthly close to catch decommissioned-but-billed seats and under-billed new deployments._
 
@@ -126,7 +133,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 - **`reseller-rollup`**  -  Per-account roll-up for resellers: invoice total, subscribed seats, and deployed agent count side by side.
 
-  _Live-only: calls the API directly and requires reseller-scoped credentials (standard account keys get 401; no sync needed). Use at month close for multi-account resellers; for billing-vs-deployment drift inside a single account use billing-reconcile instead._
+  _Live-only: calls the API directly and requires reseller-scoped credentials (standard account keys get 401; no sync needed). Use at month close for multi-account resellers; for per-org drift inside one account use billing-reconcile instead._
 
   ```bash
   huntress-cli reseller-rollup --json
@@ -308,7 +315,7 @@ fleet-incidents joins org names and returns a wide row per incident; --agent wit
 huntress-cli billing-reconcile --json
 ```
 
-Total invoiced seats versus actually deployed agents account-wide, with the delta.
+Invoiced/subscribed seats versus actually deployed agents per org, with the delta.
 
 ## Auth Setup
 
@@ -406,13 +413,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `huntress-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add huntress-mcp -- huntress-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/huntress/cmd/huntress-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add huntress-mcp -- huntress-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

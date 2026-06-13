@@ -61,14 +61,14 @@ func newMaintenanceWindowsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/maintenance_windows"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "maintenance-windows", path, map[string]string{
-				"query":         fmt.Sprintf("%v", flagQuery),
-				"limit":         fmt.Sprintf("%v", flagLimit),
-				"offset":        fmt.Sprintf("%v", flagOffset),
-				"total":         fmt.Sprintf("%v", flagTotal),
-				"team_ids[]":    fmt.Sprintf("%v", flagTeamIds),
-				"service_ids[]": fmt.Sprintf("%v", flagServiceIds),
-				"include[]":     fmt.Sprintf("%v", flagInclude),
-				"filter":        fmt.Sprintf("%v", flagFilter),
+				"query":         formatCLIParamValue(flagQuery),
+				"limit":         formatCLIParamValue(flagLimit),
+				"offset":        formatCLIParamValue(flagOffset),
+				"total":         formatCLIParamValue(flagTotal),
+				"team_ids[]":    formatCLIParamValue(flagTeamIds),
+				"service_ids[]": formatCLIParamValue(flagServiceIds),
+				"include[]":     formatCLIParamValue(flagInclude),
+				"filter":        formatCLIParamValue(flagFilter),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

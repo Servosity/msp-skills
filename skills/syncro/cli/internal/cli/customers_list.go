@@ -37,16 +37,16 @@ func newCustomersListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/customers"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "customers", path, map[string]string{
-				"sort":             fmt.Sprintf("%v", flagSort),
-				"query":            fmt.Sprintf("%v", flagQuery),
-				"firstname":        fmt.Sprintf("%v", flagFirstname),
-				"lastname":         fmt.Sprintf("%v", flagLastname),
-				"business_name":    fmt.Sprintf("%v", flagBusinessName),
-				"id":               fmt.Sprintf("%v", flagId),
-				"not_id":           fmt.Sprintf("%v", flagNotId),
-				"email":            fmt.Sprintf("%v", flagEmail),
-				"include_disabled": fmt.Sprintf("%v", flagIncludeDisabled),
-				"page":             fmt.Sprintf("%v", flagPage),
+				"sort":             formatCLIParamValue(flagSort),
+				"query":            formatCLIParamValue(flagQuery),
+				"firstname":        formatCLIParamValue(flagFirstname),
+				"lastname":         formatCLIParamValue(flagLastname),
+				"business_name":    formatCLIParamValue(flagBusinessName),
+				"id":               formatCLIParamValue(flagId),
+				"not_id":           formatCLIParamValue(flagNotId),
+				"email":            formatCLIParamValue(flagEmail),
+				"include_disabled": formatCLIParamValue(flagIncludeDisabled),
+				"page":             formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

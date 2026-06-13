@@ -32,7 +32,7 @@ func newProductsDeleteImageDeleteCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagPhotoId != "" {
-				params["photo_id"] = fmt.Sprintf("%v", flagPhotoId)
+				params["photo_id"] = formatCLIParamValue(flagPhotoId)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

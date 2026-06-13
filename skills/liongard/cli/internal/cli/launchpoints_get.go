@@ -30,10 +30,10 @@ func newLaunchpointsGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/launchpoints"
 			params := map[string]string{}
 			if flagFields != "" {
-				params["fields[]"] = fmt.Sprintf("%v", flagFields)
+				params["fields[]"] = formatCLIParamValue(flagFields)
 			}
 			if flagConditions != "" {
-				params["conditions[]"] = fmt.Sprintf("%v", flagConditions)
+				params["conditions[]"] = formatCLIParamValue(flagConditions)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "launchpoints", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

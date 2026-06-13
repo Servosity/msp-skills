@@ -19,8 +19,9 @@ func newAgentDeviceSetCredentialsCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "set-credentials <agent_id> <device_id>",
-		Short:       "Sets the device credentials to perform extended discovery.",
+		Use:   "set-credentials <agent_id> <device_id>",
+		Short: "Sets the device credentials to perform extended discovery.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  domotz-cli agent device set-credentials 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --password example-value",
 		Annotations: map[string]string{"pp:endpoint": "device.set-credentials", "pp:method": "PUT", "pp:path": "/agent/{agent_id}/device/{device_id}/credentials"},
 		RunE: func(cmd *cobra.Command, args []string) error {

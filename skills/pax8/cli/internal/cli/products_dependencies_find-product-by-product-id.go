@@ -17,7 +17,7 @@ func newProductsDependenciesFindProductByProductIdCmd(flags *rootFlags) *cobra.C
 		Use:         "find-product-by-product-id <productId>",
 		Aliases:     []string{"get"},
 		Short:       "Returns associated dependencies for the specified ```productId```. A products dependencies are dynamic data.",
-		Example:     "  pax8-cli products dependencies find-product-by-product-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pax8-cli products dependencies find-product-by-product-id aaaee3f-262c-47a4-b0e6-f9ce8b54fcd7",
 		Annotations: map[string]string{"pp:endpoint": "dependencies.find-product-by-product-id", "pp:method": "GET", "pp:path": "/products/{productId}/dependencies", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

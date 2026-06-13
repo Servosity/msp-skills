@@ -25,7 +25,7 @@ func newDocumentsQuotesUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update <document_id> <quote_id>",
 		Short:       "This operation updates the details of a specific quote within a document by specifying the document ID and quote ID.",
-		Example:     "  pandadoc-cli documents quotes update 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents quotes update BhVzRcxH9Z2LgfPPGXFUBa 99aaa4f9-3250-4f5b-a953-6d7bfc5d8c9e",
 		Annotations: map[string]string{"pp:endpoint": "quotes.update", "pp:method": "PUT", "pp:path": "/documents/{document_id}/quotes/{quote_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

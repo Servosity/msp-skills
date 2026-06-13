@@ -100,8 +100,8 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export SENTINELONE_API_TOKEN=<your-key>"
-					report["auth_docs_url"] = "https://your-console.sentinelone.net/api-doc/"
+					report["auth_hint"] = "Set your API key with: export SENTINELONE_API_TOKEN=\"your-token-here\""
+					report["auth_docs_url"] = "https://twitter.com/frikkylikeme"
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"

@@ -4,7 +4,119 @@
 
 The official rootly-cli exposes a handful of resource groups; Rootly's API has ~98. This CLI types the entire surface, then adds what no Rootly tool has: a local SQLite mirror powering offline incident-similarity (related), solution-mining (fixed-last-time), MTTR/MTTA analytics (mttr), service scorecards (service-health), and cross-schedule coverage-gap detection (coverage-gaps)  -  the same agentic capabilities the AI-Labs MCP server reaches a remote service to compute, here for free in your terminal.
 
-For the short install path see [README.md](./README.md). This file is the command reference. For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
+## Install
+
+The recommended path installs both the `rootly-cli` binary and the `pp-rootly` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+
+```bash
+npx -y @mvanhorn/printing-press-library install rootly
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install rootly --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install rootly --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install rootly --agent claude-code
+npx -y @mvanhorn/printing-press-library install rootly --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/rootly/cmd/rootly-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/rootly-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install rootly --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-rootly --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-rootly --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install rootly --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/rootly-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `ROOTLY_API_KEY` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/rootly/cmd/rootly-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "rootly": {
+      "command": "rootly-mcp",
+      "env": {
+        "ROOTLY_API_KEY": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Authentication
 
@@ -54,7 +166,7 @@ These capabilities aren't available in any other tool for this API.
   _Pick this when an alert smells like a repeat  -  it answers 'what did we do last time' from history instead of guesswork._
 
   ```bash
-  rootly-cli fixed-last-time "checkout-api" --agent --limit 10
+  rootly-cli fixed-last-time <service-or-query> --agent --limit 10
   ```
 - **`postmortem-skeleton`**  -  Emit a paste-ready post-mortem markdown skeleton for an incident: timeline, action items, severity, duration, and affected services.
 
@@ -128,7 +240,7 @@ These capabilities aren't available in any other tool for this API.
   _Pull this before a deploy or during a portfolio review to judge a service's health at a glance._
 
   ```bash
-  rootly-cli service-health "checkout-api" --agent
+  rootly-cli service-health <service> --agent
   ```
 - **`sla-breach`**  -  List incidents that have breached or are about to breach their SLA target, sorted by time remaining, with a non-zero exit when any active breach exists.
 
@@ -144,7 +256,7 @@ These capabilities aren't available in any other tool for this API.
   _Wire into a deploy script so a risky push is blocked when the target service is mid-incident or has no on-call coverage._
 
   ```bash
-  rootly-cli deploy-guard "checkout-api" --within 7d
+  rootly-cli deploy-guard <service> --within 7d
   ```
 
 ### Config & signal hygiene
@@ -193,7 +305,7 @@ Report every unstaffed on-call window in the next two weeks across all schedules
 ### Gate a deploy on service health
 
 ```bash
-rootly-cli deploy-guard "checkout-api" --within 7d
+rootly-cli deploy-guard <service> --within 7d
 ```
 
 Exit non-zero when checkout-api has an open incident, no on-call, or recent flakiness  -  drop it into a deploy script.
@@ -1191,7 +1303,7 @@ This CLI is designed for AI agent consumption:
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `8` gate tripped (`deploy-guard` unsafe / `sla-breach` active breach), `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
 
 ## Health Check
 

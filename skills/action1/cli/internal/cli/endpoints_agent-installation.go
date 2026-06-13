@@ -44,7 +44,7 @@ func newEndpointsAgentInstallationCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/endpoints/agent-installation/{orgId}/{installType}"
 			path = replacePathParam(path, "orgId", args[0])
-			path = replacePathParam(path, "installType", fmt.Sprintf("%v", flagInstallType))
+			path = replacePathParam(path, "installType", formatCLIParamValue(flagInstallType))
 			params := map[string]string{}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "endpoints", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

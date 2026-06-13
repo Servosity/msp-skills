@@ -14,8 +14,9 @@ import (
 func newReportsDownloadCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "download <report_format> <report_id>",
-		Short:       "When the Management generates a report, it is uploaded to the Management Console.",
+		Use:   "download <report_format> <report_id>",
+		Short: "When the Management generates a report, it is uploaded to the Management Console.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli reports download example-value 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "reports.download", "pp:method": "GET", "pp:path": "/reports/{report_id}/{report_format}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

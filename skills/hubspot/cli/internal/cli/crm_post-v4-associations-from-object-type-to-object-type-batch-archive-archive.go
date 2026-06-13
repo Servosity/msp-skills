@@ -17,8 +17,9 @@ func newCrmPostV4AssociationsFromObjectTypeToObjectTypeBatchArchiveArchiveCmd(fl
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-v4-associations-from-object-type-to-object-type-batch-archive-archive <fromObjectType> <toObjectType>",
-		Short:       "Batch delete associations for objects",
+		Use:   "post-v4-associations-from-object-type-to-object-type-batch-archive-archive <fromObjectType> <toObjectType>",
+		Short: "Batch delete associations for objects",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli crm post-v4-associations-from-object-type-to-object-type-batch-archive-archive example-value example-value",
 		Annotations: map[string]string{"pp:endpoint": "crm.post-v4-associations-from-object-type-to-object-type-batch-archive-archive", "pp:method": "POST", "pp:path": "/crm/v4/associations/{fromObjectType}/{toObjectType}/batch/archive"},
 		RunE: func(cmd *cobra.Command, args []string) error {

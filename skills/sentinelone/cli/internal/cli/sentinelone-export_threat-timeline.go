@@ -36,19 +36,19 @@ func newSentineloneExportThreatTimelineCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "threat_id", args[0])
 			params := map[string]string{}
 			if flagSiteIds != "" {
-				params["siteIds"] = fmt.Sprintf("%v", flagSiteIds)
+				params["siteIds"] = formatCLIParamValue(flagSiteIds)
 			}
 			if flagActivityTypes != "" {
-				params["activityTypes"] = fmt.Sprintf("%v", flagActivityTypes)
+				params["activityTypes"] = formatCLIParamValue(flagActivityTypes)
 			}
 			if flagGroupIds != "" {
-				params["groupIds"] = fmt.Sprintf("%v", flagGroupIds)
+				params["groupIds"] = formatCLIParamValue(flagGroupIds)
 			}
 			if flagQuery != "" {
-				params["query"] = fmt.Sprintf("%v", flagQuery)
+				params["query"] = formatCLIParamValue(flagQuery)
 			}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "sentinelone-export", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

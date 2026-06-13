@@ -34,10 +34,10 @@ func newAdminAgentproceduresGetAgentProceduresCmd(flags *rootFlags) *cobra.Comma
 			path = replacePathParam(path, "integrationTypeId", args[0])
 			params := map[string]string{}
 			if flagFilterId != "" {
-				params["Filter.Id"] = fmt.Sprintf("%v", flagFilterId)
+				params["Filter.Id"] = formatCLIParamValue(flagFilterId)
 			}
 			if flagFilterName != "" {
-				params["Filter.Name"] = fmt.Sprintf("%v", flagFilterName)
+				params["Filter.Name"] = formatCLIParamValue(flagFilterName)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "agentprocedures", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

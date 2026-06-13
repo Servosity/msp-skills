@@ -184,6 +184,9 @@ func newFeedbackListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List recent feedback entries",
+		Annotations: map[string]string{
+			"mcp:read-only": "true",
+		},
 		Example: `  kaseya-bms-cli feedback list
   kaseya-bms-cli feedback list --limit 5
   kaseya-bms-cli feedback list --json`,

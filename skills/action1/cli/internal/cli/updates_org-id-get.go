@@ -109,18 +109,18 @@ func newUpdatesOrgIdGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/updates/{orgId}"
 			path = replacePathParam(path, "orgId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "updates", path, map[string]string{
-				"filter":               fmt.Sprintf("%v", flagFilter),
-				"sortby":               fmt.Sprintf("%v", flagSortby),
-				"from":                 fmt.Sprintf("%v", flagFrom),
-				"limit":                fmt.Sprintf("%v", flagLimit),
-				"approval_status":      fmt.Sprintf("%v", flagApprovalStatus),
-				"custom":               fmt.Sprintf("%v", flagCustom),
-				"builtin":              fmt.Sprintf("%v", flagBuiltin),
-				"security_severity":    fmt.Sprintf("%v", flagSecuritySeverity),
-				"fields":               fmt.Sprintf("%v", flagFields),
-				"only_latest":          fmt.Sprintf("%v", flagOnlyLatest),
-				"update_sla_start_day": fmt.Sprintf("%v", flagUpdateSlaStartDay),
-				"update_sla_end_day":   fmt.Sprintf("%v", flagUpdateSlaEndDay),
+				"filter":               formatCLIParamValue(flagFilter),
+				"sortby":               formatCLIParamValue(flagSortby),
+				"from":                 formatCLIParamValue(flagFrom),
+				"limit":                formatCLIParamValue(flagLimit),
+				"approval_status":      formatCLIParamValue(flagApprovalStatus),
+				"custom":               formatCLIParamValue(flagCustom),
+				"builtin":              formatCLIParamValue(flagBuiltin),
+				"security_severity":    formatCLIParamValue(flagSecuritySeverity),
+				"fields":               formatCLIParamValue(flagFields),
+				"only_latest":          formatCLIParamValue(flagOnlyLatest),
+				"update_sla_start_day": formatCLIParamValue(flagUpdateSlaStartDay),
+				"update_sla_end_day":   formatCLIParamValue(flagUpdateSlaEndDay),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

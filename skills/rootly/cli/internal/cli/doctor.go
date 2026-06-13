@@ -100,7 +100,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export ROOTLY_API_KEY=<your-key>"
+					report["auth_hint"] = "Set it with: rootly-cli auth set-token <token> or export ROOTLY_API_KEY=\"your-token-here\""
 					report["auth_key_url"] = "https://api.rootly.com/v1"
 				} else {
 					authConfigured = true

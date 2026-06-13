@@ -17,9 +17,10 @@ func newNotesCommentsAddNoteCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "add-note <id>",
-		Aliases:     []string{"create"},
-		Short:       "Adds a new comment to a note.",
+		Use:     "add-note <id>",
+		Aliases: []string{"create"},
+		Short:   "Adds a new comment to a note.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pipedrive-cli notes comments add-note 550e8400-e29b-41d4-a716-446655440000 --content example-value",
 		Annotations: map[string]string{"pp:endpoint": "comments.add-note", "pp:method": "POST", "pp:path": "/notes/{id}/comments"},
 		RunE: func(cmd *cobra.Command, args []string) error {

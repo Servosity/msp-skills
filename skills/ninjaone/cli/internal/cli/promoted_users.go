@@ -43,10 +43,10 @@ func newUsersPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/users"
 			params := map[string]string{}
 			if flagUserType != "" {
-				params["userType"] = fmt.Sprintf("%v", flagUserType)
+				params["userType"] = formatCLIParamValue(flagUserType)
 			}
 			if flagIncludeRoles != false {
-				params["includeRoles"] = fmt.Sprintf("%v", flagIncludeRoles)
+				params["includeRoles"] = formatCLIParamValue(flagIncludeRoles)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "users", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

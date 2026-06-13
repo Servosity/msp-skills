@@ -131,7 +131,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "kaseya-bms-cli",
-			Description: "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search",
+			Description: "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

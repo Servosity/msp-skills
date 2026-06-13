@@ -40,7 +40,7 @@ var whichIndex = []whichEntry{
 	{Command: "handoff", Description: "Shift-change report of what changed (new criticals, resolutions, escalations) since a timestamp, ready to paste into a handoff note.", Group: "Local history that compounds", WhyItMatters: "Use at shift change so the next analyst sees exactly what moved during the prior shift."},
 	{Command: "incident-detail", Description: "See one incident fully enriched — its remediations, the affected agent, and the org name — in a single lookup.", Group: "Cross-entity correlation", WhyItMatters: "Reach for this when triaging a specific incident: one call replaces the incident/remediation/agent/org fan-out."},
 	{Command: "fleet-summary", Description: "One-screen fleet top-line: total orgs, agents, open criticals, oldest unactioned critical, orgs below coverage threshold, stale agents.", Group: "Fleet rollups across every org", WhyItMatters: "Run this first each shift — it tells an agent which detail command (fleet-incidents, coverage-gaps, stale-agents) to reach for next."},
-	{Command: "reseller-rollup", Description: "Per-account roll-up for resellers: invoice total, subscribed seats, and deployed agent count side by side.", Group: "Partner ops and billing", WhyItMatters: "Use at month close for multi-account reseller credentials; for per-org drift inside one account use billing-reconcile instead."},
+	{Command: "reseller-rollup", Description: "Per-account roll-up for resellers: invoice total, subscribed seats, and deployed agent count side by side.", Group: "Partner ops and billing", WhyItMatters: "Live-only: calls the API directly and requires reseller-scoped credentials (standard account keys get 401; no sync needed). Use at month close for multi-account resellers; for per-org drift inside one account use billing-reconcile instead."},
 }
 
 // whichMatch pairs an index entry with its ranking score for a query.
@@ -144,6 +144,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

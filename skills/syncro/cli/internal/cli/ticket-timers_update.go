@@ -45,7 +45,7 @@ func newTicketTimersUpdateCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagBillable != "" {
-				params["billable"] = fmt.Sprintf("%v", flagBillable)
+				params["billable"] = formatCLIParamValue(flagBillable)
 			}
 			var body map[string]any
 			if stdinBody {

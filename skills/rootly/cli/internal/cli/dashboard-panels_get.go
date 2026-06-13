@@ -34,13 +34,13 @@ func newDashboardPanelsGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagRange != "" {
-				params["range"] = fmt.Sprintf("%v", flagRange)
+				params["range"] = formatCLIParamValue(flagRange)
 			}
 			if flagPeriod != "" {
-				params["period"] = fmt.Sprintf("%v", flagPeriod)
+				params["period"] = formatCLIParamValue(flagPeriod)
 			}
 			if flagTimeZone != "" {
-				params["time_zone"] = fmt.Sprintf("%v", flagTimeZone)
+				params["time_zone"] = formatCLIParamValue(flagTimeZone)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "dashboard-panels", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

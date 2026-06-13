@@ -16,9 +16,10 @@ func newOpportunityPublicLoseCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "public-lose <externalIdentifier>",
-		Aliases:     []string{"create"},
-		Short:       "Lose by ext ID",
+		Use:     "public-lose <externalIdentifier>",
+		Aliases: []string{"create"},
+		Short:   "Lose by ext ID",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  salesbuildr-cli opportunity public-lose example-value",
 		Annotations: map[string]string{"pp:endpoint": "opportunity.public-lose", "pp:method": "POST", "pp:path": "/opportunity/ext/{externalIdentifier}/lose"},
 		RunE: func(cmd *cobra.Command, args []string) error {

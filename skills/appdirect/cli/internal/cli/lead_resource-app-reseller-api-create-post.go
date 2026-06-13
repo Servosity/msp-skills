@@ -127,13 +127,13 @@ func newLeadResourceAppResellerApiCreatePostCmd(flags *rootFlags) *cobra.Command
 			path := "/lead/v2/leads"
 			params := map[string]string{}
 			if flagContext != "" {
-				params["context"] = fmt.Sprintf("%v", flagContext)
+				params["context"] = formatCLIParamValue(flagContext)
 			}
 			if flagCompanyId != "" {
-				params["companyId"] = fmt.Sprintf("%v", flagCompanyId)
+				params["companyId"] = formatCLIParamValue(flagCompanyId)
 			}
 			if flagUserId != "" {
-				params["userId"] = fmt.Sprintf("%v", flagUserId)
+				params["userId"] = formatCLIParamValue(flagUserId)
 			}
 			var body map[string]any
 			if stdinBody {

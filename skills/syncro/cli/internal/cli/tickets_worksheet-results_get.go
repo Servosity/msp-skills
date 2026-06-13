@@ -32,7 +32,7 @@ func newTicketsWorksheetResultsGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/tickets/{ticket_id}/worksheet_results"
 			path = replacePathParam(path, "ticket_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "worksheet-results", path, map[string]string{
-				"page": fmt.Sprintf("%v", flagPage),
+				"page": formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

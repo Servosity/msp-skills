@@ -67,15 +67,15 @@ func newIncidentsSubStatusesListIncidentCmd(flags *rootFlags) *cobra.Command {
 			path := "/v1/incidents/{incident_id}/sub_statuses"
 			path = replacePathParam(path, "incident_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "sub-statuses", path, map[string]string{
-				"include":                  fmt.Sprintf("%v", flagInclude),
-				"sort":                     fmt.Sprintf("%v", flagSort),
-				"page[number]":             fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":               fmt.Sprintf("%v", flagPageSize),
-				"filter[sub_status_id]":    fmt.Sprintf("%v", flagFilterSubStatusId),
-				"filter[assigned_at][gt]":  fmt.Sprintf("%v", flagFilterAssignedAtGt),
-				"filter[assigned_at][gte]": fmt.Sprintf("%v", flagFilterAssignedAtGte),
-				"filter[assigned_at][lt]":  fmt.Sprintf("%v", flagFilterAssignedAtLt),
-				"filter[assigned_at][lte]": fmt.Sprintf("%v", flagFilterAssignedAtLte),
+				"include":                  formatCLIParamValue(flagInclude),
+				"sort":                     formatCLIParamValue(flagSort),
+				"page[number]":             formatCLIParamValue(flagPageNumber),
+				"page[size]":               formatCLIParamValue(flagPageSize),
+				"filter[sub_status_id]":    formatCLIParamValue(flagFilterSubStatusId),
+				"filter[assigned_at][gt]":  formatCLIParamValue(flagFilterAssignedAtGt),
+				"filter[assigned_at][gte]": formatCLIParamValue(flagFilterAssignedAtGte),
+				"filter[assigned_at][lt]":  formatCLIParamValue(flagFilterAssignedAtLt),
+				"filter[assigned_at][lte]": formatCLIParamValue(flagFilterAssignedAtLte),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

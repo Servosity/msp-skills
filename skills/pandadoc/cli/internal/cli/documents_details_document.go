@@ -17,7 +17,7 @@ func newDocumentsDetailsDocumentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "document <id>",
 		Aliases:     []string{"get"},
 		Short:       "Return detailed data about a document. Use Document Status for getting just a basic info and status.",
-		Example:     "  pandadoc-cli documents details document 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents details document PeePkgJLFT2UittjVdEyYG",
 		Annotations: map[string]string{"pp:endpoint": "details.document", "pp:method": "GET", "pp:path": "/documents/{id}/details", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -28,7 +28,7 @@ func newLicensesSkusCmd(flags *rootFlags) *cobra.Command {
 			path := "/subscribedSkus"
 			params := map[string]string{}
 			if flagSelect != "" {
-				params["$select"] = fmt.Sprintf("%v", flagSelect)
+				params["$select"] = formatCLIParamValue(flagSelect)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "licenses", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

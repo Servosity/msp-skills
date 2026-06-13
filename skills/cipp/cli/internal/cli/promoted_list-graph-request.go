@@ -46,9 +46,10 @@ func newListGraphRequestPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyStandardsExcludeAllTenants bool
 
 	cmd := &cobra.Command{
-		Use:         "list-graph-request",
-		Short:       "List graph request",
-		Long:        "List graph request",
+		Use:   "list-graph-request",
+		Short: "List graph request",
+		Long:  "List graph request",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-graph-request --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-graph-request.list", "pp:method": "GET", "pp:path": "/ListGraphRequest", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -70,58 +71,58 @@ func newListGraphRequestPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListGraphRequest"
 			params := map[string]string{}
 			if flagAsApp != "" {
-				params["AsApp"] = fmt.Sprintf("%v", flagAsApp)
+				params["AsApp"] = formatCLIParamValue(flagAsApp)
 			}
 			if flagCountOnly != "" {
-				params["CountOnly"] = fmt.Sprintf("%v", flagCountOnly)
+				params["CountOnly"] = formatCLIParamValue(flagCountOnly)
 			}
 			if flagEndpoint != "" {
-				params["Endpoint"] = fmt.Sprintf("%v", flagEndpoint)
+				params["Endpoint"] = formatCLIParamValue(flagEndpoint)
 			}
 			if flagExpand != "" {
-				params["expand"] = fmt.Sprintf("%v", flagExpand)
+				params["expand"] = formatCLIParamValue(flagExpand)
 			}
 			if flagGraphFilter != "" {
-				params["graphFilter"] = fmt.Sprintf("%v", flagGraphFilter)
+				params["graphFilter"] = formatCLIParamValue(flagGraphFilter)
 			}
 			if flagIgnoreErrors != "" {
-				params["IgnoreErrors"] = fmt.Sprintf("%v", flagIgnoreErrors)
+				params["IgnoreErrors"] = formatCLIParamValue(flagIgnoreErrors)
 			}
 			if flagListProperties != "" {
-				params["ListProperties"] = fmt.Sprintf("%v", flagListProperties)
+				params["ListProperties"] = formatCLIParamValue(flagListProperties)
 			}
 			if flagManualPagination != "" {
-				params["manualPagination"] = fmt.Sprintf("%v", flagManualPagination)
+				params["manualPagination"] = formatCLIParamValue(flagManualPagination)
 			}
 			if flagNextLink != "" {
-				params["nextLink"] = fmt.Sprintf("%v", flagNextLink)
+				params["nextLink"] = formatCLIParamValue(flagNextLink)
 			}
 			if flagNoPagination != "" {
-				params["NoPagination"] = fmt.Sprintf("%v", flagNoPagination)
+				params["NoPagination"] = formatCLIParamValue(flagNoPagination)
 			}
 			if flagQueueId != "" {
-				params["QueueId"] = fmt.Sprintf("%v", flagQueueId)
+				params["QueueId"] = formatCLIParamValue(flagQueueId)
 			}
 			if flagQueueNameOverride != "" {
-				params["QueueNameOverride"] = fmt.Sprintf("%v", flagQueueNameOverride)
+				params["QueueNameOverride"] = formatCLIParamValue(flagQueueNameOverride)
 			}
 			if flagReverseTenantLookup != "" {
-				params["ReverseTenantLookup"] = fmt.Sprintf("%v", flagReverseTenantLookup)
+				params["ReverseTenantLookup"] = formatCLIParamValue(flagReverseTenantLookup)
 			}
 			if flagReverseTenantLookupProperty != "" {
-				params["ReverseTenantLookupProperty"] = fmt.Sprintf("%v", flagReverseTenantLookupProperty)
+				params["ReverseTenantLookupProperty"] = formatCLIParamValue(flagReverseTenantLookupProperty)
 			}
 			if flagSkipCache != "" {
-				params["SkipCache"] = fmt.Sprintf("%v", flagSkipCache)
+				params["SkipCache"] = formatCLIParamValue(flagSkipCache)
 			}
 			if flagSort != "" {
-				params["Sort"] = fmt.Sprintf("%v", flagSort)
+				params["Sort"] = formatCLIParamValue(flagSort)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagVersion != "" {
-				params["Version"] = fmt.Sprintf("%v", flagVersion)
+				params["Version"] = formatCLIParamValue(flagVersion)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-graph-request", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

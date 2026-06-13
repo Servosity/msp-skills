@@ -19,9 +19,10 @@ func newSpotlightCombinedQueryInstalledPatchesCmd(flags *rootFlags) *cobra.Comma
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "combined-query-installed-patches",
-		Aliases:     []string{"list"},
-		Short:       "Gets installed patches information for hosts.",
+		Use:     "combined-query-installed-patches",
+		Aliases: []string{"list"},
+		Short:   "Gets installed patches information for hosts.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  crowdstrike-cli spotlight combined-query-installed-patches --filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "spotlight.combined-query-installed-patches", "pp:method": "GET", "pp:path": "/spotlight/combined/installed-patches/v1", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,10 +42,10 @@ func newSpotlightCombinedQueryInstalledPatchesCmd(flags *rootFlags) *cobra.Comma
 
 			path := "/spotlight/combined/installed-patches/v1"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "spotlight", path, map[string]string{
-				"after":  fmt.Sprintf("%v", flagAfter),
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"sort":   fmt.Sprintf("%v", flagSort),
-				"filter": fmt.Sprintf("%v", flagFilter),
+				"after":  formatCLIParamValue(flagAfter),
+				"limit":  formatCLIParamValue(flagLimit),
+				"sort":   formatCLIParamValue(flagSort),
+				"filter": formatCLIParamValue(flagFilter),
 			}, nil, flagAll, "after", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

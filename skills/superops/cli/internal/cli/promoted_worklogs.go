@@ -29,7 +29,7 @@ func newWorklogsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/graphql"
 			params := map[string]string{}
 			if flagFirst != 0 {
-				params["first"] = fmt.Sprintf("%v", flagFirst)
+				params["first"] = formatCLIParamValue(flagFirst)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "worklogs", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

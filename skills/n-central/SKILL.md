@@ -1,6 +1,6 @@
 ---
 name: n-central
-description: "Use when the user asks to find a device in N-able N-central, run the morning NOC triage sweep, search across N-central servers, audit custom-property or maintenance-window coverage, check N-central API health or JWT expiry, pull device inventory, or export org-tree data. Wraps the N-central REST API plus an offline SQLite mirror with cross-tenant search. Trigger phrases: `where is this device in n-central`, `triage n-central issues`, `what's red in n-central`, `audit custom properties`, `search across n-central servers`, `check n-central jwt`, `N-central + ChatGPT`, `N-central + Claude`, `use n-central`, `run n-central-cli`."
+description: "Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, issue-triage rollups, and a JWT-expiry guardian no other N-central tool has."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "N-able N-central"
@@ -11,87 +11,34 @@ metadata:
     requires:
       bins:
         - n-central-cli
+    install:
+      - kind: go
+        bins: [n-central-cli]
+        module: github.com/mvanhorn/printing-press-library/library/developer-tools/n-central/cmd/n-central-cli
 ---
 
-# N-able N-central Claude Code Skill
+# N Central  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `n-central-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/n-central/install.sh)
+   npx -y @mvanhorn/printing-press-library install n-central --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/n-central/install.ps1 | iex
-   ```
-3. Verify: `n-central-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `n-central-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
 
-A single cross-platform binary for N-able N-central. It mirrors service orgs, customers, sites, devices, active issues, and custom properties into local SQLite so you can search and SQL across every tenant offline. It matches the 87-tool community MCP server's REST coverage and beats it with `fanout` cross-server search, `triage` issue rollups, `props audit` custom-property coverage, and a `guardian` that kills the silent JWT/password-expiry outage.
+```bash
+go install github.com/mvanhorn/printing-press-library/library/developer-tools/n-central/cmd/n-central-cli@latest
+```
 
-## When to Use This CLI
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-Use this CLI when you operate one or more N-able N-central servers and need to query, audit, or script across your whole device/customer estate from the terminal or an agent. It is the right choice for cross-tenant search, active-issue triage, custom-property coverage audits, maintenance-window gap checks, and pre-empting JWT/password-expiry outages  -  work that the web console and the per-call API make tedious or impossible.
-
-## Unique Capabilities
-
-These capabilities aren't available in any other tool for this API.
-
-### Cross-tenant intelligence
-
-- **`fanout`**  -  Search every configured N-central server at once  -  find a device, customer, or active issue across all your tenants without clicking through each console.
-
-  _Reach for this when an MSP runs more than one N-central server and needs one answer across all of them._
-
-  ```bash
-  n-central-cli fanout "backup failed" --agent
-  ```
-- **`triage`**  -  Group active monitoring issues by customer, device, or monitor type and rank by severity  -  the daily NOC sweep as one command.
-
-  _Reach for this to start a shift with one ranked view instead of per-customer Active Issues screens._
-
-  ```bash
-  n-central-cli triage --by customer --agent
-  ```
-- **`whereis`**  -  Given a device name fragment, return its full path  -  server, service org, customer, site  -  plus its current active-issue count.
-
-  _Reach for this when a ticket names a device but not which customer or server it lives on._
-
-  ```bash
-  n-central-cli whereis DC01 --agent
-  ```
-
-### Local state that compounds
-
-- **`props audit`**  -  Report which devices are missing a required custom-property value, as a coverage percentage grouped by customer.
-
-  _Reach for this when custom properties drive automation and you need coverage, not a manual CSV spot-check._
-
-  ```bash
-  n-central-cli props audit --required BackupTier --agent
-  ```
-- **`maint coverage`**  -  List devices and sites with no maintenance window before a reboot/patch wave, so nothing reboots in business hours.
-
-  _Reach for this before a patch wave to find the blind spots the per-device view can't show._
-
-  ```bash
-  n-central-cli maint coverage --before 2026-06-15 --agent
-  ```
-
-### Reachability mitigation
-
-- **`guardian`**  -  Validate the access token, warn when the API user's password (and thus the JWT) is about to expire, and detect N-central's HTTP-200-with-error-body failures.
-
-  _Reach for this in CI or a cron check so a silent JWT expiry never takes your integrations down at day 90._
-
-  ```bash
-  n-central-cli guardian --password-set 2026-03-01
-  ```
+N-able N-central RMM REST API  -  manage devices, customers, sites, org units, active issues, custom properties, scheduled tasks, and maintenance windows across an MSP's N-central instance.
 
 ## Command Reference
 
@@ -140,7 +87,7 @@ These capabilities aren't available in any other tool for this API.
 **server**  -  Server info and health.
 
 - `n-central-cli server health`  -  Return the start and current time of the server (lightweight reachability check).
-- `n-central-cli server get`  -  Return version information for the N-central API service and systems.
+- `n-central-cli server info`  -  Return version information for the N-central API service and systems.
 
 **service-orgs**  -  Service Organizations  -  the top level of the N-central org tree.
 
@@ -168,52 +115,15 @@ n-central-cli which "<capability in your own words>"
 
 `which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query.
 
-## Recipes
-
-
-### Morning NOC sweep across customers
-
-```bash
-n-central-cli triage --by customer --agent
-```
-
-One ranked, grouped view of every active issue instead of per-customer console screens.
-
-### Find a device anywhere
-
-```bash
-n-central-cli whereis DC01 --agent
-```
-
-Resolves a device fragment to server → SO → customer → site with its live issue count.
-
-### Audit a required custom property
-
-```bash
-n-central-cli props audit --required BackupTier --agent --select customerName,coveragePct
-```
-
-Per-customer coverage of a property that drives automation, narrowed to the two fields that matter.
-
-### Pre-patch maintenance-window check
-
-```bash
-n-central-cli maint coverage --before 2026-06-15 --agent
-```
-
-Lists devices/sites with no window before the reboot wave.
-
-### Guard against silent JWT expiry in CI
-
-```bash
-n-central-cli guardian --password-set 2026-03-01 --agent
-```
-
-Exits non-zero when the token is invalid or the password is near expiry  -  wire it into a cron/CI check.
-
 ## Auth Setup
 
-Authentication uses an N-central API-only user's JSON Web Token. Generate it in N-central (Administration → User Management → Users → API Access → Generate JSON Web Token; MFA must be OFF). Set NCENTRAL_JWT and your tenant base URL N_CENTRAL_BASE_URL (e.g. https://yourmsp.ncod.n-able.com/api). The CLI exchanges the long-lived JWT for a short-lived access token via POST /api/auth/authenticate and auto-refreshes it. Watch the API user's password expiry (default 90 days)  -  it silently invalidates the JWT; `guardian` warns you before it does.
+Run `n-central-cli auth setup` for the URL and steps to obtain a token (add `--launch` to open the URL). Then store it:
+
+```bash
+n-central-cli auth set-token YOUR_TOKEN_HERE
+```
+
+Or set `NCENTRAL_JWT` as an environment variable.
 
 Run `n-central-cli doctor` to verify setup.
 
@@ -225,7 +135,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  n-central-cli access-groups 550e8400-e29b-41d4-a716-446655440000 --agent --select id,name,status
+  n-central-cli access-groups <id> --agent --select id,name,status
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
@@ -277,7 +187,7 @@ A profile is a saved set of flag values, reused across invocations. Use it when 
 
 ```
 n-central-cli profile save briefing --json
-n-central-cli --profile briefing access-groups 550e8400-e29b-41d4-a716-446655440000
+n-central-cli --profile briefing access-groups <id>
 n-central-cli profile list --json
 n-central-cli profile show briefing
 n-central-cli profile delete briefing --yes
@@ -319,13 +229,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `n-central-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add n-central-mcp -- n-central-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/developer-tools/n-central/cmd/n-central-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add n-central-mcp -- n-central-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

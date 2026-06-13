@@ -34,12 +34,12 @@ func newActivitiesGetAllCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/activities"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "activities", path, map[string]string{
-				"user_id": fmt.Sprintf("%v", flagUserId),
-				"done":    fmt.Sprintf("%v", flagDone),
-				"type":    fmt.Sprintf("%v", flagType),
-				"start":   fmt.Sprintf("%v", flagStart),
-				"limit":   fmt.Sprintf("%v", flagLimit),
-				"sort":    fmt.Sprintf("%v", flagSort),
+				"user_id": formatCLIParamValue(flagUserId),
+				"done":    formatCLIParamValue(flagDone),
+				"type":    formatCLIParamValue(flagType),
+				"start":   formatCLIParamValue(flagStart),
+				"limit":   formatCLIParamValue(flagLimit),
+				"sort":    formatCLIParamValue(flagSort),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

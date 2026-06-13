@@ -16,9 +16,10 @@ func newFirewallControlAddTagsAddRuleTagsByCategoryCmd(flags *rootFlags) *cobra.
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "add-rule-tags-by-category <firewall_rule_category>",
-		Aliases:     []string{"create"},
-		Short:       "Create a Firewall Rule tag. Create tags to represent Firewall policies - a set of rules in a specific order.",
+		Use:     "add-rule-tags-by-category <firewall_rule_category>",
+		Aliases: []string{"create"},
+		Short:   "Create a Firewall Rule tag. Create tags to represent Firewall policies - a set of rules in a specific order.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli firewall-control add-tags add-rule-tags-by-category example-value",
 		Annotations: map[string]string{"pp:endpoint": "add-tags.add-rule-tags-by-category", "pp:method": "POST", "pp:path": "/firewall-control/{firewall_rule_category}/add-tags"},
 		RunE: func(cmd *cobra.Command, args []string) error {

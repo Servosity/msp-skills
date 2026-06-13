@@ -1,6 +1,6 @@
 ---
 name: xero
-description: "Every Xero Accounting read plus a local SQLite ledger  -  aging, reconciliation, and GL tie-out computed offline. Trigger phrases: `xero aging report`, `who owes us money in xero`, `reconcile xero payments`, `tie out the general ledger`, `what changed in xero since`, `use xero`, `run xero-cli`."
+description: "Every Xero Accounting read plus a local SQLite ledger  -  aging, reconciliation, and GL tie-out that no other Xero tool computes offline. Trigger phrases: `xero aging report`, `who owes us money in xero`, `reconcile xero payments`, `tie out the general ledger`, `what changed in xero since`, `use xero`, `run xero-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Xero"
@@ -11,39 +11,38 @@ metadata:
     requires:
       bins:
         - xero-cli
+    install:
+      - kind: go
+        bins: [xero-cli]
+        module: github.com/mvanhorn/printing-press-library/library/payments/xero/cmd/xero-cli
 ---
 
-# Xero Claude Code Skill
+# Xero  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `xero-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/xero/install.sh)
+   npx -y @mvanhorn/printing-press-library install xero --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/xero/install.ps1 | iex
-   ```
-3. Verify: `xero-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `xero-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/payments/xero/cmd/xero-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 A Go CLI for the Xero Accounting API across invoices, contacts, accounts, payments, bank transactions, items, and the immutable journals feed. It syncs the org into a queryable local store, then answers the questions the web UI, SDKs, and endpoint-mirroring MCP servers cannot in a single call: AR/AP aging (`aging`), payment and bank reconciliation gaps (`reconcile`, `bank-recon`), general-ledger-to-invoice tie-out (`tie-out`), and a running-balance ledger walk (`ledger`).
 
 ## When to Use This CLI
 
 Use this CLI when an agent or operator needs to read and analyze a Xero organisation's accounting state from the terminal: pulling invoices/contacts/accounts/payments/bank-transactions/items/journals, or answering portfolio questions like AR aging, payment reconciliation gaps, and general-ledger tie-out. It is the right tool when the question spans more than one entity or should run offline against a synced store rather than re-hitting the rate-limited API.
-
-## When NOT to Use This CLI
-
-- Financial-statement reports (P&L, balance sheet, trial balance, 1099)  -  the Reports API is out of scope; use Xero's web reports or the official SDKs.
-- Budgets, tracking categories, payroll, tax filing, attachments, credit notes, purchase orders, quotes, or expense claims  -  not in this connector's 7 synced families.
-- Creating or rotating OAuth apps/tokens  -  mint Custom Connections tokens in the Xero developer portal, then hand them to this CLI via env vars.
-- Multi-tenant portfolio rollups in one call  -  the store mirrors ONE tenant per `XERO_TENANT_ID`; loop per tenant instead.
 
 ## Unique Capabilities
 
@@ -167,7 +166,7 @@ These capabilities aren't available in any other tool for this API.
 
 - `xero-cli payments create`  -  Creates a single payment for invoice or credit notes
 - `xero-cli payments create-endpoint`  -  Creates multiple payments for invoices or credit notes
-- `xero-cli payments delete`  -  Deletes (voids) a specific payment for invoices and credit notes
+- `xero-cli payments delete`  -  Updates a specific payment for invoices and credit notes
 - `xero-cli payments get`  -  Retrieves payments for invoices and credit notes
 - `xero-cli payments get-paymentid`  -  Retrieves a specific payment for invoices and credit notes using a unique payment Id
 
@@ -320,13 +319,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `xero-mcp` alongside the CLI.
-
-1. Register with Claude Code:
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/payments/xero/cmd/xero-mcp@latest
+   ```
+2. Register with Claude Code:
    ```bash
    claude mcp add xero-mcp -- xero-mcp
    ```
-2. Verify: `claude mcp list`
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

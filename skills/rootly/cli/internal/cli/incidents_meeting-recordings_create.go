@@ -49,7 +49,7 @@ func newIncidentsMeetingRecordingsCreateCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "incident_id", args[0])
 			params := map[string]string{}
 			if flagPlatform != "" {
-				params["platform"] = fmt.Sprintf("%v", flagPlatform)
+				params["platform"] = formatCLIParamValue(flagPlatform)
 			}
 			var body map[string]any
 			if stdinBody {

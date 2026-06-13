@@ -19,7 +19,7 @@ func newClientVaultGetD2cAgentTokenByClientAndIdsCmd(flags *rootFlags) *cobra.Co
 		Use:         "get-d2c-agent-token-by-client-and-ids <client_id> <vault_id>",
 		Aliases:     []string{"create"},
 		Short:       "This request returns D2C Agent Token ID for specified vault belonging to the provided client.",
-		Example:     "  axcient-cli client vault get-d2c-agent-token-by-client-and-ids 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  axcient-cli client vault get-d2c-agent-token-by-client-and-ids 333 222",
 		Annotations: map[string]string{"pp:endpoint": "vault.get-d2c-agent-token-by-client-and-ids", "pp:method": "POST", "pp:path": "/client/{client_id}/vault/{vault_id}/d2c_agent"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

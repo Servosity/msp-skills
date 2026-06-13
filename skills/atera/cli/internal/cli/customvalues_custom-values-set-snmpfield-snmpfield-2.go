@@ -16,8 +16,9 @@ func newCustomvaluesCustomValuesSetSnmpfieldSnmpfield2Cmd(flags *rootFlags) *cob
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "custom-values-set-snmpfield-snmpfield-2 <snmpDeviceId> <fieldName> <value>",
-		Short:       "Set value of custom field for specified SNMP",
+		Use:   "custom-values-set-snmpfield-snmpfield-2 <snmpDeviceId> <fieldName> <value>",
+		Short: "Set value of custom field for specified SNMP",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  atera-cli customvalues custom-values-set-snmpfield-snmpfield-2 42 example-resource example-value",
 		Annotations: map[string]string{"pp:endpoint": "customvalues.custom-values-set-snmpfield-snmpfield-2", "pp:method": "PUT", "pp:path": "/customvalues/snmpfield/{snmpDeviceId}/{fieldName}/{value}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -30,10 +30,10 @@ func newTimeslotPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/Timeslot"
 			params := map[string]string{}
 			if flagAgentId != "" {
-				params["agent_id"] = fmt.Sprintf("%v", flagAgentId)
+				params["agent_id"] = formatCLIParamValue(flagAgentId)
 			}
 			if flagWorkdayId != "" {
-				params["workday_id"] = fmt.Sprintf("%v", flagWorkdayId)
+				params["workday_id"] = formatCLIParamValue(flagWorkdayId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "timeslot", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

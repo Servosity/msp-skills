@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "n-central-cli",
-			Description: "Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search",
+			Description: "Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, issue-triage rollups, and a JWT-expiry guardian no other N-central tool has.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

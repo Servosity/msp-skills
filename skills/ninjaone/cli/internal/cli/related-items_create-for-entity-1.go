@@ -48,7 +48,7 @@ func newRelatedItemsCreateForEntity1Cmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/related-items/entity/{entityType}/{entityId}/relations"
 			path = replacePathParam(path, "entityId", args[0])
-			path = replacePathParam(path, "entityType", fmt.Sprintf("%v", flagEntityType))
+			path = replacePathParam(path, "entityType", formatCLIParamValue(flagEntityType))
 			params := map[string]string{}
 			var body map[string]any
 			if stdinBody {

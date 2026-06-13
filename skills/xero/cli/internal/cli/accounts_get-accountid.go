@@ -16,7 +16,7 @@ func newAccountsGetAccountidCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-accountid <AccountID>",
 		Short:       "Retrieves a single chart of accounts by using a unique account Id",
-		Example:     "  xero-cli accounts get-accountid 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  xero-cli accounts get-accountid 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "accounts.get-accountid", "pp:method": "GET", "pp:path": "/Accounts/{AccountID}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

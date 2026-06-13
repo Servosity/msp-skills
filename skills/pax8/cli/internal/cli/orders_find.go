@@ -31,9 +31,9 @@ func newOrdersFindCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/orders"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "orders", path, map[string]string{
-				"page":      fmt.Sprintf("%v", flagPage),
-				"size":      fmt.Sprintf("%v", flagSize),
-				"companyId": fmt.Sprintf("%v", flagCompanyId),
+				"page":      formatCLIParamValue(flagPage),
+				"size":      formatCLIParamValue(flagSize),
+				"companyId": formatCLIParamValue(flagCompanyId),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -1,16 +1,126 @@
 # Abnormal Security CLI
 
-**The full Abnormal Security REST API in your terminal and your agents - with a local threat store, ranked SOC triage, blocking remediation, and one-shot client reporting.**
+**The full Abnormal Security REST API as an agent-ready CLI  -  with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.**
 
 Every threat, case, vendor, employee, and dashboard operation from Abnormal's official API, plus a synced SQLite store that powers a ranked `triage` queue, joined `employee-risk` and `vendor-risk` investigation views, blocking `remediate-watch` confirmation, and a consolidated `report-snapshot` for client reporting. The incumbent integrations live inside SOAR and SIEM platforms; this runs in your terminal and your agents.
 
 ## Install
 
-For the short install path see [README.md](./README.md). This file is the command reference.
+The recommended path installs both the `abnormal-cli` binary and the `pp-abnormal` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+
+```bash
+npx -y @mvanhorn/printing-press-library install abnormal
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install abnormal --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install abnormal --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install abnormal --agent claude-code
+npx -y @mvanhorn/printing-press-library install abnormal --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/abnormal/cmd/abnormal-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/abnormal-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install abnormal --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-abnormal --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-abnormal --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install abnormal --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/abnormal-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `ABNORMAL_API_TOKEN` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/abnormal/cmd/abnormal-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "abnormal": {
+      "command": "abnormal-mcp",
+      "env": {
+        "ABNORMAL_API_TOKEN": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Authentication
 
-Mint a REST API token in the Abnormal portal under Settings → Integrations → Abnormal REST API, then export it as `ABNORMAL_API_TOKEN`. Abnormal enforces IP allowlisting on the integration: add your egress IP in the same portal screen or every call returns 403. EU tenants must point the CLI at the EU host: `export ABNORMAL_BASE_URL=https://eu.api.abnormalplatform.com/v1`. You can also store the token with `abnormal-cli auth set-token <token>` and inspect it with `abnormal-cli auth status`.
+Mint a REST API token in the Abnormal portal under Settings → Integrations → Abnormal REST API, then export it as `ABNORMAL_API_TOKEN`. Abnormal enforces IP allowlisting on the integration: add your egress IP in the same portal screen or every call returns 403. EU tenants must point the CLI at the EU host: `export ABNORMAL_BASE_URL=https://eu.rest.abnormalsecurity.com/v1`. You can also store the token with `abnormal-cli auth set-token <token>` and inspect it with `abnormal-cli auth status`.
 
 ## Quick Start
 
@@ -197,7 +307,7 @@ Manage detection360
 - **`abnormal-cli detection360 reports-create`** - Use this to report a detection misclassification judgement by Abnormal Security.  We use this data to improve our models, and also give customers transparency into the frequency of misclassifications.
 - **`abnormal-cli detection360 reports-retrieve`** - Get a list of Detection 360 reports that you have submitted and view corresponding details for each case, including report summaries, statuses, message analyses, and more.
 
-### email-search
+### email_search
 
 Manage email search
 
@@ -405,7 +515,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/abnormal-cli/config.toml`
+Config file: `~/.config/abnormal-security-client-pp-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
@@ -414,11 +524,10 @@ Environment variables:
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
 | `ABNORMAL_API_TOKEN` | per_call | Yes | Set to your API credential. |
-| `ABNORMAL_BASE_URL` | per_call | No | Override the API base URL, e.g. https://eu.api.abnormalplatform.com/v1 for EU tenants. |
 
 ### agentcookie (optional)
 
-If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `abnormal-cli doctor` reports `agentcookie: detected` and `auth status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `abnormal-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**
@@ -431,7 +540,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 ### API-specific
 - **401 Unauthorized on every call**  -  Token is invalid or expired  -  re-mint it in the portal (Settings → Integrations → Abnormal REST API) and re-export ABNORMAL_API_TOKEN
 - **403 Forbidden with a valid token**  -  Your egress IP is not on the integration's IP allowlist  -  add it in the portal's Abnormal REST API integration settings
-- **Empty results or 4xx for an EU tenant**  -  EU customers must use the EU host  -  export ABNORMAL_BASE_URL=https://eu.api.abnormalplatform.com/v1
+- **Empty results or 4xx for an EU tenant**  -  EU customers must use the EU host  -  export ABNORMAL_BASE_URL=https://eu.rest.abnormalsecurity.com/v1
 - **429 Too Many Requests during sync**  -  Lower the sync window or page count, e.g. sync --resources threats --since 24h --max-pages 5, and retry after the rate-limit window
 
 ## Sources & Inspiration

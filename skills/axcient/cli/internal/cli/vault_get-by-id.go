@@ -16,7 +16,7 @@ func newVaultGetByIdCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-by-id <vault_id>",
 		Short:       "This request returns information about vault and assigned devices.",
-		Example:     "  axcient-cli vault get-by-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  axcient-cli vault get-by-id 222",
 		Annotations: map[string]string{"pp:endpoint": "vault.get-by-id", "pp:method": "GET", "pp:path": "/vault/{vault_id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

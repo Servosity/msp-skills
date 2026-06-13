@@ -76,7 +76,7 @@ func newCheckoutValidateShoppingCartCmd(flags *rootFlags) *cobra.Command {
 			path := "/v3/checkout/shoppingCarts/validation"
 			params := map[string]string{}
 			if flagLevel != "" {
-				params["level"] = fmt.Sprintf("%v", flagLevel)
+				params["level"] = formatCLIParamValue(flagLevel)
 			}
 			var body map[string]any
 			if stdinBody {

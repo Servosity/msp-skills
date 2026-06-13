@@ -33,8 +33,8 @@ func newOrgUnitsDevicesCmd(flags *rootFlags) *cobra.Command {
 			path := "/org-units/{orgUnitId}/devices"
 			path = replacePathParam(path, "orgUnitId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "org-units", path, map[string]string{
-				"pageNumber": fmt.Sprintf("%v", flagPageNumber),
-				"pageSize":   fmt.Sprintf("%v", flagPageSize),
+				"pageNumber": formatCLIParamValue(flagPageNumber),
+				"pageSize":   formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "pageNumber", "page", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

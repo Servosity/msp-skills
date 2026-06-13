@@ -33,10 +33,10 @@ func newSuppressionRuleCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "ruleId", args[0])
 			params := map[string]string{}
 			if flagAccountId != "" {
-				params["accountId"] = fmt.Sprintf("%v", flagAccountId)
+				params["accountId"] = formatCLIParamValue(flagAccountId)
 			}
 			if flagUserId != "" {
-				params["userId"] = fmt.Sprintf("%v", flagUserId)
+				params["userId"] = formatCLIParamValue(flagUserId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "suppression", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -52,7 +52,7 @@ func newHubspotDealsCrmPostV3Objects03BatchReadReadCmd(flags *rootFlags) *cobra.
 			path := "/crm/v3/objects/0-3/batch/read"
 			params := map[string]string{}
 			if flagArchived != false {
-				params["archived"] = fmt.Sprintf("%v", flagArchived)
+				params["archived"] = formatCLIParamValue(flagArchived)
 			}
 			var body map[string]any
 			if stdinBody {

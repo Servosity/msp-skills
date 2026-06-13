@@ -37,7 +37,7 @@ func newCompaniesCreateCompanyCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-company",
 		Aliases:     []string{"create"},
 		Short:       "Creates a new company.",
-		Example:     "  pax8-cli companies create-company --name example-resource",
+		Example:     "  pax8-cli companies create-company --name Pax8",
 		Annotations: map[string]string{"pp:endpoint": "companies.create-company", "pp:method": "POST", "pp:path": "/companies"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

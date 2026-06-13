@@ -38,17 +38,17 @@ func newCustomFormsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/custom_forms"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "custom-forms", path, map[string]string{
-				"page[number]":            fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":              fmt.Sprintf("%v", flagPageSize),
-				"filter[search]":          fmt.Sprintf("%v", flagFilterSearch),
-				"filter[name]":            fmt.Sprintf("%v", flagFilterName),
-				"filter[slug]":            fmt.Sprintf("%v", flagFilterSlug),
-				"filter[command]":         fmt.Sprintf("%v", flagFilterCommand),
-				"filter[created_at][gt]":  fmt.Sprintf("%v", flagFilterCreatedAtGt),
-				"filter[created_at][gte]": fmt.Sprintf("%v", flagFilterCreatedAtGte),
-				"filter[created_at][lt]":  fmt.Sprintf("%v", flagFilterCreatedAtLt),
-				"filter[created_at][lte]": fmt.Sprintf("%v", flagFilterCreatedAtLte),
-				"sort":                    fmt.Sprintf("%v", flagSort),
+				"page[number]":            formatCLIParamValue(flagPageNumber),
+				"page[size]":              formatCLIParamValue(flagPageSize),
+				"filter[search]":          formatCLIParamValue(flagFilterSearch),
+				"filter[name]":            formatCLIParamValue(flagFilterName),
+				"filter[slug]":            formatCLIParamValue(flagFilterSlug),
+				"filter[command]":         formatCLIParamValue(flagFilterCommand),
+				"filter[created_at][gt]":  formatCLIParamValue(flagFilterCreatedAtGt),
+				"filter[created_at][gte]": formatCLIParamValue(flagFilterCreatedAtGte),
+				"filter[created_at][lt]":  formatCLIParamValue(flagFilterCreatedAtLt),
+				"filter[created_at][lte]": formatCLIParamValue(flagFilterCreatedAtLte),
+				"sort":                    formatCLIParamValue(flagSort),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -26,9 +26,10 @@ func newListScheduledItemsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "list-scheduled-items",
-		Short:       "List scheduled items",
-		Long:        "List scheduled items",
+		Use:   "list-scheduled-items",
+		Short: "List scheduled items",
+		Long:  "List scheduled items",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-scheduled-items --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-scheduled-items.create", "pp:method": "POST", "pp:path": "/ListScheduledItems"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -53,22 +54,22 @@ func newListScheduledItemsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListScheduledItems"
 			params := map[string]string{}
 			if flagId != "" {
-				params["Id"] = fmt.Sprintf("%v", flagId)
+				params["Id"] = formatCLIParamValue(flagId)
 			}
 			if flagName != "" {
-				params["Name"] = fmt.Sprintf("%v", flagName)
+				params["Name"] = formatCLIParamValue(flagName)
 			}
 			if flagSearchTitle != "" {
-				params["SearchTitle"] = fmt.Sprintf("%v", flagSearchTitle)
+				params["SearchTitle"] = formatCLIParamValue(flagSearchTitle)
 			}
 			if flagShowHidden != "" {
-				params["ShowHidden"] = fmt.Sprintf("%v", flagShowHidden)
+				params["ShowHidden"] = formatCLIParamValue(flagShowHidden)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagType != "" {
-				params["Type"] = fmt.Sprintf("%v", flagType)
+				params["Type"] = formatCLIParamValue(flagType)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -95,10 +96,10 @@ func newListScheduledItemsPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

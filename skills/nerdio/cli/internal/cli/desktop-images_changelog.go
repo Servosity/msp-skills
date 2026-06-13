@@ -14,8 +14,9 @@ import (
 func newDesktopImagesChangelogCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "changelog <account_id> <subscription_id> <resource_group> <image_name>",
-		Short:       "Get desktop image change log",
+		Use:   "changelog <account_id> <subscription_id> <resource_group> <image_name>",
+		Short: "Get desktop image change log",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  nerdio-cli desktop-images changelog 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "desktop-images.changelog", "pp:method": "GET", "pp:path": "/rest-api/v1/accounts/{account_id}/desktop-image/{subscription_id}/{resource_group}/{image_name}/change-log", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

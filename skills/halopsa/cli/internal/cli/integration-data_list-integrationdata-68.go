@@ -30,13 +30,13 @@ func newIntegrationDataListIntegrationdata68Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/PagerDuty"
 			params := map[string]string{}
 			if flagApikeyoverride != "" {
-				params["apikeyoverride"] = fmt.Sprintf("%v", flagApikeyoverride)
+				params["apikeyoverride"] = formatCLIParamValue(flagApikeyoverride)
 			}
 			if flagDataOnly != false {
-				params["dataOnly"] = fmt.Sprintf("%v", flagDataOnly)
+				params["dataOnly"] = formatCLIParamValue(flagDataOnly)
 			}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

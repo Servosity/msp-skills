@@ -61,10 +61,10 @@ func newAccountResourceUserReadResellerUserGetCmd(flags *rootFlags) *cobra.Comma
 			path := "/account/v2/users/{userUuid}/rssrCompanyAssociations"
 			path = replacePathParam(path, "userUuid", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "account", path, map[string]string{
-				"page":      fmt.Sprintf("%v", flagPage),
-				"size":      fmt.Sprintf("%v", flagSize),
-				"sortField": fmt.Sprintf("%v", flagSortField),
-				"sortOrder": fmt.Sprintf("%v", flagSortOrder),
+				"page":      formatCLIParamValue(flagPage),
+				"size":      formatCLIParamValue(flagSize),
+				"sortField": formatCLIParamValue(flagSortField),
+				"sortOrder": formatCLIParamValue(flagSortOrder),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

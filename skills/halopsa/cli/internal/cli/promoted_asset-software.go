@@ -33,19 +33,19 @@ func newAssetSoftwarePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/AssetSoftware"
 			params := map[string]string{}
 			if flagDeviceId != "" {
-				params["device_id"] = fmt.Sprintf("%v", flagDeviceId)
+				params["device_id"] = formatCLIParamValue(flagDeviceId)
 			}
 			if flagLicenceId != "" {
-				params["licence_id"] = fmt.Sprintf("%v", flagLicenceId)
+				params["licence_id"] = formatCLIParamValue(flagLicenceId)
 			}
 			if flagThirdPartyField != "" {
-				params["third_party_field"] = fmt.Sprintf("%v", flagThirdPartyField)
+				params["third_party_field"] = formatCLIParamValue(flagThirdPartyField)
 			}
 			if flagThirdPartyId != "" {
-				params["third_party_id"] = fmt.Sprintf("%v", flagThirdPartyId)
+				params["third_party_id"] = formatCLIParamValue(flagThirdPartyId)
 			}
 			if flagUserId != "" {
-				params["user_id"] = fmt.Sprintf("%v", flagUserId)
+				params["user_id"] = formatCLIParamValue(flagUserId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "asset-software", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

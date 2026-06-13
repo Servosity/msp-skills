@@ -29,7 +29,7 @@ func newListExternalTenantInfoPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListExternalTenantInfo"
 			params := map[string]string{}
 			if flagTenant != "" {
-				params["tenant"] = fmt.Sprintf("%v", flagTenant)
+				params["tenant"] = formatCLIParamValue(flagTenant)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-external-tenant-info", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

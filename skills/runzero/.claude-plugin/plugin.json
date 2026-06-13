@@ -1,6 +1,6 @@
 {
   "name": "runzero",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice.",
   "author": {
     "name": "Servosity",

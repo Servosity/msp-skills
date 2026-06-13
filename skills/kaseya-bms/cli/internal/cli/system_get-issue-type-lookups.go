@@ -28,7 +28,7 @@ func newSystemGetIssueTypeLookupsCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/system/issuetypes/lookup"
 			params := map[string]string{}
 			if flagFilterName != "" {
-				params["Filter.Name"] = fmt.Sprintf("%v", flagFilterName)
+				params["Filter.Name"] = formatCLIParamValue(flagFilterName)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "system", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

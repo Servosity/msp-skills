@@ -18,9 +18,10 @@ func newRemoveTrustedBlockedSenderPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyValue string
 
 	cmd := &cobra.Command{
-		Use:         "remove-trusted-blocked-sender",
-		Short:       "Remove trusted blocked sender",
-		Long:        "Remove trusted blocked sender",
+		Use:   "remove-trusted-blocked-sender",
+		Short: "Remove trusted blocked sender",
+		Long:  "Remove trusted blocked sender",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli remove-trusted-blocked-sender --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "remove-trusted-blocked-sender.create", "pp:method": "POST", "pp:path": "/RemoveTrustedBlockedSender"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -60,10 +61,10 @@ func newRemoveTrustedBlockedSenderPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

@@ -220,12 +220,6 @@ func (c *Client) cacheKey(path string, params map[string]string) string {
 		if c.Config.Path != "" {
 			key += "|config_path=" + c.Config.Path
 		}
-		// ConnectWise: the tenant lives in the Basic username, not the URL, so
-		// partition the cache by company id to avoid cross-tenant bleed when
-		// two tenants share a region host.
-		if c.Config.CompanyID != "" {
-			key += "|company=" + c.Config.CompanyID
-		}
 	}
 	paramKeys := make([]string, 0, len(params))
 	for k := range params {
@@ -253,9 +247,9 @@ func (c *Client) readCache(path string, params map[string]string) (json.RawMessa
 }
 
 func (c *Client) writeCache(path string, params map[string]string, data json.RawMessage) {
-	os.MkdirAll(c.cacheDir, 0o755)
+	os.MkdirAll(c.cacheDir, 0o700)
 	cacheFile := filepath.Join(c.cacheDir, c.cacheKey(path, params)+".json")
-	os.WriteFile(cacheFile, []byte(data), 0o644)
+	os.WriteFile(cacheFile, []byte(data), 0o600)
 }
 
 // invalidateCache wholesale-removes the cache directory so the next read
@@ -650,23 +644,6 @@ func (c *Client) dryRun(method, targetURL, path string, params map[string]string
 	if authHeader != "" {
 		fmt.Fprintf(os.Stderr, "  %s: %s\n", "clientId", maskToken(authHeader))
 	}
-	// Show the composed ConnectWise headers (Authorization Basic, Accept
-	// version) so --dry-run is honest about what the live path sends. clientId
-	// is printed above; skip it here to avoid duplication. Secret values are
-	// masked via maskCredentialText.
-	if c.Config != nil && len(c.Config.Headers) > 0 {
-		hkeys := make([]string, 0, len(c.Config.Headers))
-		for k := range c.Config.Headers {
-			if strings.EqualFold(k, "clientId") {
-				continue
-			}
-			hkeys = append(hkeys, k)
-		}
-		sort.Strings(hkeys)
-		for _, k := range hkeys {
-			fmt.Fprintf(os.Stderr, "  %s: %s\n", k, c.maskCredentialText(c.Config.Headers[k]))
-		}
-	}
 	fmt.Fprintf(os.Stderr, "\n(dry run - no request sent)\n")
 	return json.RawMessage(`{"dry_run": true}`), 0, nil
 }
@@ -914,13 +891,6 @@ func (c *Client) maskCredentialText(text string, extraCredentials ...string) str
 		addCredential(c.Config.RefreshToken)
 		addCredential(c.Config.ClientSecret)
 		addCredential(c.Config.ClientID)
-		// ConnectWise composite Basic secrets + the computed Authorization
-		// header so the private/public keys never leak in dry-run/error text.
-		addCredential(c.Config.PrivateKey)
-		addCredential(c.Config.PublicKey)
-		if c.Config.Headers != nil {
-			addCredential(c.Config.Headers["Authorization"])
-		}
 	}
 	sort.SliceStable(masks, func(i, j int) bool {
 		return len(masks[i].needle) > len(masks[j].needle)

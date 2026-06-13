@@ -38,25 +38,25 @@ func newAssetTypeGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagBookingType != 0 {
-				params["booking_type"] = fmt.Sprintf("%v", flagBookingType)
+				params["booking_type"] = formatCLIParamValue(flagBookingType)
 			}
 			if flagClientId != "" {
-				params["client_id"] = fmt.Sprintf("%v", flagClientId)
+				params["client_id"] = formatCLIParamValue(flagClientId)
 			}
 			if flagEndDate != "" {
-				params["end_date"] = fmt.Sprintf("%v", flagEndDate)
+				params["end_date"] = formatCLIParamValue(flagEndDate)
 			}
 			if flagFieldsandlayoutonly != false {
-				params["fieldsandlayoutonly"] = fmt.Sprintf("%v", flagFieldsandlayoutonly)
+				params["fieldsandlayoutonly"] = formatCLIParamValue(flagFieldsandlayoutonly)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagSiteId != "" {
-				params["site_id"] = fmt.Sprintf("%v", flagSiteId)
+				params["site_id"] = formatCLIParamValue(flagSiteId)
 			}
 			if flagStartDate != "" {
-				params["start_date"] = fmt.Sprintf("%v", flagStartDate)
+				params["start_date"] = formatCLIParamValue(flagStartDate)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "asset-type", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

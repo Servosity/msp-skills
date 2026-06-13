@@ -32,19 +32,19 @@ func newIntegrationDataListIntegrationdata9Cmd(flags *rootFlags) *cobra.Command 
 			path := "/IntegrationData/Get/AzureSentinel"
 			params := map[string]string{}
 			if flagConnectionid != "" {
-				params["connectionid"] = fmt.Sprintf("%v", flagConnectionid)
+				params["connectionid"] = formatCLIParamValue(flagConnectionid)
 			}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			if flagResourcegroupname != "" {
-				params["resourcegroupname"] = fmt.Sprintf("%v", flagResourcegroupname)
+				params["resourcegroupname"] = formatCLIParamValue(flagResourcegroupname)
 			}
 			if flagSubscriptionid != "" {
-				params["subscriptionid"] = fmt.Sprintf("%v", flagSubscriptionid)
+				params["subscriptionid"] = formatCLIParamValue(flagSubscriptionid)
 			}
 			if flagWorkspacename != "" {
-				params["workspacename"] = fmt.Sprintf("%v", flagWorkspacename)
+				params["workspacename"] = formatCLIParamValue(flagWorkspacename)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -16,8 +16,9 @@ func newAssistedSalesReadPricingPlanCostsCmd(flags *rootFlags) *cobra.Command {
 	var flagCurrency string
 
 	cmd := &cobra.Command{
-		Use:         "read-pricing-plan-costs <opportunityId>",
-		Short:       "Read initial costs for a pricing plan of an opportunity item. 'Required: Accept-Language' header with Locale format.",
+		Use:   "read-pricing-plan-costs <opportunityId>",
+		Short: "Read initial costs for a pricing plan of an opportunity item. 'Required: Accept-Language' header with Locale format.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli assisted-sales read-pricing-plan-costs 550e8400-e29b-41d4-a716-446655440000 --pricing-plan-id 550e8400-e29b-41d4-a716-446655440000 --currency example-value",
 		Annotations: map[string]string{"pp:endpoint": "assisted-sales.read-pricing-plan-costs", "pp:method": "GET", "pp:path": "/assistedSales/v1/opportunities/{opportunityId}/pricingPlanCosts", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -45,10 +46,10 @@ func newAssistedSalesReadPricingPlanCostsCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "opportunityId", args[0])
 			params := map[string]string{}
 			if flagPricingPlanId != "" {
-				params["pricingPlanId"] = fmt.Sprintf("%v", flagPricingPlanId)
+				params["pricingPlanId"] = formatCLIParamValue(flagPricingPlanId)
 			}
 			if flagCurrency != "" {
-				params["currency"] = fmt.Sprintf("%v", flagCurrency)
+				params["currency"] = formatCLIParamValue(flagCurrency)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "assisted-sales", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

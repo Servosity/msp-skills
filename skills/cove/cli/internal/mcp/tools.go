@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,6 +22,15 @@ import (
 	"cove-pp-cli/internal/store"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+)
+
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
 )
 
 // RegisterTools registers all API operations as MCP tools.
@@ -113,11 +124,10 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("params-query-records-count", mcplib.Description("Page size")),
 			mcplib.WithString("params-query-order-by", mcplib.Description("Column code to order by, e.g. 'I1' (device name)")),
 			mcplib.WithString("params-query-columns", mcplib.Description("Column codes to return, e.g. ['I0','I1','I8','D9F00','F09']")),
-			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/jsonapi", true, false, nil, []mcpParamBinding{{PublicName: "jsonrpc", WireName: "jsonrpc", Location: "body"}, {PublicName: "method", WireName: "method", Location: "body"}, {PublicName: "id", WireName: "id", Location: "body"}, {PublicName: "visa", WireName: "visa", Location: "body"}, {PublicName: "params-query-partner-id", WireName: "PartnerId", Location: "body", BodyPath: []string{"params", "query", "PartnerId"}}, {PublicName: "params-query-filter", WireName: "Filter", Location: "body", BodyPath: []string{"params", "query", "Filter"}}, {PublicName: "params-query-selection-mode", WireName: "SelectionMode", Location: "body", BodyPath: []string{"params", "query", "SelectionMode"}}, {PublicName: "params-query-start-record-number", WireName: "StartRecordNumber", Location: "body", BodyPath: []string{"params", "query", "StartRecordNumber"}}, {PublicName: "params-query-records-count", WireName: "RecordsCount", Location: "body", BodyPath: []string{"params", "query", "RecordsCount"}}, {PublicName: "params-query-order-by", WireName: "OrderBy", Location: "body", BodyPath: []string{"params", "query", "OrderBy"}}, {PublicName: "params-query-columns", WireName: "Columns", Location: "body", BodyPath: []string{"params", "query", "Columns"}}}, []string{}),
+		makeAPIHandler("POST", "/jsonapi", false, false, nil, []mcpParamBinding{{PublicName: "jsonrpc", WireName: "jsonrpc", Location: "body"}, {PublicName: "method", WireName: "method", Location: "body"}, {PublicName: "id", WireName: "id", Location: "body"}, {PublicName: "visa", WireName: "visa", Location: "body"}, {PublicName: "params-query-partner-id", WireName: "PartnerId", Location: "body", BodyPath: []string{"params", "query", "PartnerId"}}, {PublicName: "params-query-filter", WireName: "Filter", Location: "body", BodyPath: []string{"params", "query", "Filter"}}, {PublicName: "params-query-selection-mode", WireName: "SelectionMode", Location: "body", BodyPath: []string{"params", "query", "SelectionMode"}}, {PublicName: "params-query-start-record-number", WireName: "StartRecordNumber", Location: "body", BodyPath: []string{"params", "query", "StartRecordNumber"}}, {PublicName: "params-query-records-count", WireName: "RecordsCount", Location: "body", BodyPath: []string{"params", "query", "RecordsCount"}}, {PublicName: "params-query-order-by", WireName: "OrderBy", Location: "body", BodyPath: []string{"params", "query", "OrderBy"}}, {PublicName: "params-query-columns", WireName: "Columns", Location: "body", BodyPath: []string{"params", "query", "Columns"}}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("labels_list",
@@ -197,11 +207,10 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("method", mcplib.Description("JSON-RPC method name (leave at default)")),
 			mcplib.WithNumber("id", mcplib.Description("JSON-RPC request id")),
 			mcplib.WithString("visa", mcplib.Description("Session token; pass --visa '$(cove-cli auth token)'")),
-			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/jsonapi", true, false, nil, []mcpParamBinding{{PublicName: "jsonrpc", WireName: "jsonrpc", Location: "body"}, {PublicName: "method", WireName: "method", Location: "body"}, {PublicName: "id", WireName: "id", Location: "body"}, {PublicName: "visa", WireName: "visa", Location: "body"}}, []string{}),
+		makeAPIHandler("POST", "/jsonapi", false, false, nil, []mcpParamBinding{{PublicName: "jsonrpc", WireName: "jsonrpc", Location: "body"}, {PublicName: "method", WireName: "method", Location: "body"}, {PublicName: "id", WireName: "id", Location: "body"}, {PublicName: "visa", WireName: "visa", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("storage_list",
@@ -224,11 +233,10 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("method", mcplib.Description("JSON-RPC method name (leave at default)")),
 			mcplib.WithNumber("id", mcplib.Description("JSON-RPC request id")),
 			mcplib.WithString("visa", mcplib.Description("Session token; pass --visa '$(cove-cli auth token)'")),
-			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/jsonapi", true, false, nil, []mcpParamBinding{{PublicName: "jsonrpc", WireName: "jsonrpc", Location: "body"}, {PublicName: "method", WireName: "method", Location: "body"}, {PublicName: "id", WireName: "id", Location: "body"}, {PublicName: "visa", WireName: "visa", Location: "body"}}, []string{}),
+		makeAPIHandler("POST", "/jsonapi", false, false, nil, []mcpParamBinding{{PublicName: "jsonrpc", WireName: "jsonrpc", Location: "body"}, {PublicName: "method", WireName: "method", Location: "body"}, {PublicName: "id", WireName: "id", Location: "body"}, {PublicName: "visa", WireName: "visa", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("storage_stats",
@@ -238,11 +246,10 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("id", mcplib.Description("JSON-RPC request id")),
 			mcplib.WithString("visa", mcplib.Description("Session token; pass --visa '$(cove-cli auth token)'")),
 			mcplib.WithNumber("params-partner-id", mcplib.Required(), mcplib.Description("Partner id")),
-			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/jsonapi", true, false, nil, []mcpParamBinding{{PublicName: "jsonrpc", WireName: "jsonrpc", Location: "body"}, {PublicName: "method", WireName: "method", Location: "body"}, {PublicName: "id", WireName: "id", Location: "body"}, {PublicName: "visa", WireName: "visa", Location: "body"}, {PublicName: "params-partner-id", WireName: "partnerId", Location: "body", BodyPath: []string{"params", "partnerId"}}}, []string{}),
+		makeAPIHandler("POST", "/jsonapi", false, false, nil, []mcpParamBinding{{PublicName: "jsonrpc", WireName: "jsonrpc", Location: "body"}, {PublicName: "method", WireName: "method", Location: "body"}, {PublicName: "id", WireName: "id", Location: "body"}, {PublicName: "visa", WireName: "visa", Location: "body"}, {PublicName: "params-partner-id", WireName: "partnerId", Location: "body", BodyPath: []string{"params", "partnerId"}}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("users_list",
@@ -258,11 +265,13 @@ func RegisterTools(s *server.MCPServer) {
 		),
 		makeAPIHandler("POST", "/jsonapi", true, false, nil, []mcpParamBinding{{PublicName: "jsonrpc", WireName: "jsonrpc", Location: "body"}, {PublicName: "method", WireName: "method", Location: "body"}, {PublicName: "id", WireName: "id", Location: "body"}, {PublicName: "visa", WireName: "visa", Location: "body"}, {PublicName: "params-partner-ids", WireName: "partnerIds", Location: "body", BodyPath: []string{"params", "partnerIds"}}}, []string{}),
 	)
+	// Intent tools — higher-level compositions declared in the spec or lifted from recipes.
+	RegisterIntents(s)
 	// SQL tool — ad-hoc analysis on synced data without API calls
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -292,6 +301,33 @@ type mcpParamBinding struct {
 	BodyPath   []string
 }
 
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
 func setNestedBodyArg(body map[string]any, path []string, value any) {
 	if len(path) == 0 {
 		return
@@ -356,7 +392,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				if len(binding.BodyPath) > 0 {
 					setNestedBodyArg(bodyArgs, binding.BodyPath, v)
@@ -364,7 +400,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 					bodyArgs[binding.WireName] = v
 				}
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -374,7 +410,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -386,7 +422,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "POST", "PUT", "PATCH":
 				bodyArgs[k] = v
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -459,21 +495,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -482,8 +503,129 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
@@ -493,7 +635,7 @@ func newMCPClient() (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -516,22 +658,27 @@ func dbPath() string {
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -563,6 +710,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -630,7 +868,7 @@ func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
 func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	ctx := map[string]any{
 		"api":         "cove",
-		"description": "Fleet-wide Cove Data Protection backup health, billing usage, and storage trends from your terminal",
+		"description": "The first CLI and MCP server for Cove Data Protection — fleet-wide backup health, billing usage, and storage trends from a terminal, with the local history the vendor console doesn't keep.",
 		"archetype":   "infrastructure",
 		"tool_count":  16,
 		// tool_surface tells agents which surface a capability lives on.
@@ -713,22 +951,22 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "Storage growth / drift", "command": "storage growth", "description": "See which devices and customers are growing their backup storage fastest, from timestamped local snapshots.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Fleet failure sweep", "command": "devices failures", "description": "Every device across all customers whose last backup session failed, aborted, errored", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Stale-device triage", "command": "devices stale", "description": "Devices with no successful backup in N days, ranked by staleness and grouped by customer.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Status drift / what-changed", "command": "devices changes", "description": "Devices whose backup status flipped between the two latest snapshots — regressions and recoveries without re-sweeping", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Fleet health rollup", "command": "fleet health", "description": "One-screen rollup: total devices, healthy, failed, stale, never-run — with a per-customer breakdown.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Billing usage report", "command": "billing usage", "description": "Per-device SKU, used storage", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "SKU change / billing delta", "command": "billing changes", "description": "Devices whose plan changed since last month — current SKU vs Cove's built-in previous-month SKU column.", "rationale": "", "via": "mcp-command-mirror"},
+			{"name": "Storage growth / drift", "command": "storage growth", "description": "See which devices and customers are growing their backup storage fastest, from timestamped local snapshots.", "rationale": "The Cove console keeps zero history — the trend line only exists because cove-cli snapshots used-storage (I14) into SQLite over time.", "via": "mcp-command-mirror"},
+			{"name": "Fleet failure sweep", "command": "devices failures", "description": "Every device across all customers whose last backup session failed, aborted, errored, or never started — decoded to status names.", "rationale": "The console scopes to one partner branch at a time and shows last-session status as an opaque integer; this is one cross-tree call with the F00 enum decoded.", "via": "mcp-command-mirror"},
+			{"name": "Stale-device triage", "command": "devices stale", "description": "Devices with no successful backup in N days, ranked by staleness and grouped by customer.", "rationale": "Computes age from the F09 last-successful-session timestamp across the whole partner tree — the console shows raw timestamps one branch at a time.", "via": "mcp-command-mirror"},
+			{"name": "Status drift / what-changed", "command": "devices changes", "description": "Devices whose backup status flipped between the two latest snapshots — regressions and recoveries without re-sweeping the fleet.", "rationale": "Snapshot-to-snapshot F00 diff in local SQLite; impossible from the stateless vendor console.", "via": "mcp-command-mirror"},
+			{"name": "Fleet health rollup", "command": "fleet health", "description": "One-screen rollup: total devices, healthy, failed, stale, never-run — with a per-customer breakdown.", "rationale": "Aggregates EnumerateAccountStatistics rows across every partner into the single-pane view the console structurally withholds.", "via": "mcp-command-mirror"},
+			{"name": "Billing usage report", "command": "billing usage", "description": "Per-device SKU, used storage, and M365 seat counts with column codes decoded — the month-end billing export in one command.", "rationale": "Fleet-wide preset over the I57/I14/D19F20 billing columns; replaces per-partner PowerShell report scripts.", "via": "mcp-command-mirror"},
+			{"name": "SKU change / billing delta", "command": "billing changes", "description": "Devices whose plan changed since last month — current SKU vs Cove's built-in previous-month SKU column.", "rationale": "Exploits the purpose-built I57-vs-I58 column pair; replaces the analyst's manual two-CSV diff every cycle.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
-			{"topic": "Storage growth / drift", "insight": ""},
-			{"topic": "Fleet failure sweep", "insight": ""},
-			{"topic": "Stale-device triage", "insight": ""},
-			{"topic": "Status drift / what-changed", "insight": ""},
-			{"topic": "Fleet health rollup", "insight": ""},
-			{"topic": "Billing usage report", "insight": ""},
-			{"topic": "SKU change / billing delta", "insight": ""},
+			{"topic": "Storage growth / drift", "insight": "The Cove console keeps zero history — the trend line only exists because cove-cli snapshots used-storage (I14) into SQLite over time."},
+			{"topic": "Fleet failure sweep", "insight": "The console scopes to one partner branch at a time and shows last-session status as an opaque integer; this is one cross-tree call with the F00 enum decoded."},
+			{"topic": "Stale-device triage", "insight": "Computes age from the F09 last-successful-session timestamp across the whole partner tree — the console shows raw timestamps one branch at a time."},
+			{"topic": "Status drift / what-changed", "insight": "Snapshot-to-snapshot F00 diff in local SQLite; impossible from the stateless vendor console."},
+			{"topic": "Fleet health rollup", "insight": "Aggregates EnumerateAccountStatistics rows across every partner into the single-pane view the console structurally withholds."},
+			{"topic": "Billing usage report", "insight": "Fleet-wide preset over the I57/I14/D19F20 billing columns; replaces per-partner PowerShell report scripts."},
+			{"topic": "SKU change / billing delta", "insight": "Exploits the purpose-built I57-vs-I58 column pair; replaces the analyst's manual two-CSV diff every cycle."},
 		},
 	}
 	return toolResultJSON(ctx)

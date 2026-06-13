@@ -30,8 +30,8 @@ func newAccountGetComponentsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/account/components"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "account", path, map[string]string{
-				"page": fmt.Sprintf("%v", flagPage),
-				"max":  fmt.Sprintf("%v", flagMax),
+				"page": formatCLIParamValue(flagPage),
+				"max":  formatCLIParamValue(flagMax),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

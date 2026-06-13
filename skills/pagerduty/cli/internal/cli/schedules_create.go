@@ -70,7 +70,7 @@ func newSchedulesCreateCmd(flags *rootFlags) *cobra.Command {
 			path := "/schedules"
 			params := map[string]string{}
 			if flagOverflow != false {
-				params["overflow"] = fmt.Sprintf("%v", flagOverflow)
+				params["overflow"] = formatCLIParamValue(flagOverflow)
 			}
 			var body map[string]any
 			if stdinBody {

@@ -48,7 +48,7 @@ func newTagSetForAssetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/tag/{assetType}/{assetId}"
 			path = replacePathParam(path, "assetId", args[0])
-			path = replacePathParam(path, "assetType", fmt.Sprintf("%v", flagAssetType))
+			path = replacePathParam(path, "assetType", formatCLIParamValue(flagAssetType))
 			params := map[string]string{}
 			var body map[string]any
 			if stdinBody {

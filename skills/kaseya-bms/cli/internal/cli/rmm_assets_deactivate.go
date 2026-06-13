@@ -17,9 +17,10 @@ func newRmmAssetsDeactivateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "deactivate <integrationType>",
-		Aliases:     []string{"update"},
-		Short:       "Deactivate",
+		Use:     "deactivate <integrationType>",
+		Aliases: []string{"update"},
+		Short:   "Deactivate",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli rmm assets deactivate example-value",
 		Annotations: map[string]string{"pp:endpoint": "assets.deactivate", "pp:method": "PUT", "pp:path": "/v2/rmm/{integrationType}/assets/deactivate"},
 		RunE: func(cmd *cobra.Command, args []string) error {

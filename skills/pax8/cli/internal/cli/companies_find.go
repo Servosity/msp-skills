@@ -65,17 +65,17 @@ func newCompaniesFindCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/companies"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "companies", path, map[string]string{
-				"page":                  fmt.Sprintf("%v", flagPage),
-				"size":                  fmt.Sprintf("%v", flagSize),
-				"sort":                  fmt.Sprintf("%v", flagSort),
-				"city":                  fmt.Sprintf("%v", flagCity),
-				"country":               fmt.Sprintf("%v", flagCountry),
-				"stateOrProvince":       fmt.Sprintf("%v", flagStateOrProvince),
-				"postalCode":            fmt.Sprintf("%v", flagPostalCode),
-				"selfServiceAllowed":    fmt.Sprintf("%v", flagSelfServiceAllowed),
-				"billOnBehalfOfEnabled": fmt.Sprintf("%v", flagBillOnBehalfOfEnabled),
-				"orderApprovalRequired": fmt.Sprintf("%v", flagOrderApprovalRequired),
-				"status":                fmt.Sprintf("%v", flagStatus),
+				"page":                  formatCLIParamValue(flagPage),
+				"size":                  formatCLIParamValue(flagSize),
+				"sort":                  formatCLIParamValue(flagSort),
+				"city":                  formatCLIParamValue(flagCity),
+				"country":               formatCLIParamValue(flagCountry),
+				"stateOrProvince":       formatCLIParamValue(flagStateOrProvince),
+				"postalCode":            formatCLIParamValue(flagPostalCode),
+				"selfServiceAllowed":    formatCLIParamValue(flagSelfServiceAllowed),
+				"billOnBehalfOfEnabled": formatCLIParamValue(flagBillOnBehalfOfEnabled),
+				"orderApprovalRequired": formatCLIParamValue(flagOrderApprovalRequired),
+				"status":                formatCLIParamValue(flagStatus),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

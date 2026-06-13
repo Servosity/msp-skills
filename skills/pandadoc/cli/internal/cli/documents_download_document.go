@@ -22,7 +22,7 @@ func newDocumentsDownloadDocumentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "document <id>",
 		Aliases:     []string{"get"},
 		Short:       "Download documents as a PDF.",
-		Example:     "  pandadoc-cli documents download document 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents download document BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "download.document", "pp:method": "GET", "pp:path": "/documents/{id}/download", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -41,19 +41,19 @@ func newDocumentsDownloadDocumentCmd(flags *rootFlags) *cobra.Command {
 			}
 			params := map[string]string{}
 			if flagWatermarkColor != "" {
-				params["watermark_color"] = fmt.Sprintf("%v", flagWatermarkColor)
+				params["watermark_color"] = formatCLIParamValue(flagWatermarkColor)
 			}
 			if flagWatermarkFontSize != 0 {
-				params["watermark_font_size"] = fmt.Sprintf("%v", flagWatermarkFontSize)
+				params["watermark_font_size"] = formatCLIParamValue(flagWatermarkFontSize)
 			}
 			if flagWatermarkOpacity != 0.0 {
-				params["watermark_opacity"] = fmt.Sprintf("%v", flagWatermarkOpacity)
+				params["watermark_opacity"] = formatCLIParamValue(flagWatermarkOpacity)
 			}
 			if flagWatermarkText != "" {
-				params["watermark_text"] = fmt.Sprintf("%v", flagWatermarkText)
+				params["watermark_text"] = formatCLIParamValue(flagWatermarkText)
 			}
 			if flagSeparateFiles != false {
-				params["separate_files"] = fmt.Sprintf("%v", flagSeparateFiles)
+				params["separate_files"] = formatCLIParamValue(flagSeparateFiles)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "download", false, path, params, headerOverrides, cmd.ErrOrStderr())
 			if err != nil {

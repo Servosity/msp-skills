@@ -6,10 +6,117 @@ QuickBooks tools are thin endpoint mirrors that need a live API call for every q
 
 ## Install
 
-For the short install path (one-line installer for the `quickbooks-cli` and
-`quickbooks-mcp` binaries) see [README.md](./README.md). For wiring the MCP server
-into Claude Desktop, ChatGPT, GitHub Copilot, Gemini, and other MCP clients, see
-[mcp-install.md](./mcp-install.md). This file is the command reference.
+The recommended path installs both the `quickbooks-cli` binary and the `pp-quickbooks` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+
+```bash
+npx -y @mvanhorn/printing-press-library install quickbooks
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install quickbooks --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install quickbooks --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install quickbooks --agent claude-code
+npx -y @mvanhorn/printing-press-library install quickbooks --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/other/quickbooks/cmd/quickbooks-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/quickbooks-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install quickbooks --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-quickbooks --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-quickbooks --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install quickbooks --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/quickbooks-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `QUICKBOOKS_ACCESS_TOKEN` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/other/quickbooks/cmd/quickbooks-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "quickbooks": {
+      "command": "quickbooks-mcp",
+      "env": {
+        "QUICKBOOKS_ACCESS_TOKEN": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Authentication
 
@@ -92,7 +199,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   quickbooks-cli vendors spend --since 2026-01-01 --agent
   ```
-- **`aging-delta`**  -  See what changed in receivables and payables since the previous aging-delta run  -  who slipped an aging bucket and whose balance grew.
+- **`aging-delta`**  -  See what changed in receivables and payables since the previous sync  -  who slipped an aging bucket and whose balance grew.
 
   _Reach for this when asked 'what changed in AR/AP since last week'  -  no live API call can answer it._
 
@@ -208,7 +315,7 @@ Accounts  -  the chart of accounts
 
 Bills  -  accounts-payable transactions
 
-- **`quickbooks-cli bills create`** - Create a bill. Requires VendorRef + Line  -  use --stdin for the full payload.
+- **`quickbooks-cli bills create`** - Create a bill. Requires VendorRef + Line  -  use --stdin / --body-json for the full payload.
 - **`quickbooks-cli bills delete`** - Delete a bill (hard delete; requires Id + SyncToken)
 - **`quickbooks-cli bills get`** - Get a single bill by Id
 - **`quickbooks-cli bills list`** - List/query bills
@@ -224,7 +331,7 @@ Change Data Capture  -  entities changed since a timestamp (powers incremental s
 
 Customers  -  the people and companies you invoice
 
-- **`quickbooks-cli customers create`** - Create a customer. Use --stdin for nested fields (email, addresses).
+- **`quickbooks-cli customers create`** - Create a customer. Use --stdin / --body-json for nested fields (email, addresses).
 - **`quickbooks-cli customers get`** - Get a single customer by Id
 - **`quickbooks-cli customers list`** - List/query customers (SQL-like SELECT against the QBO query endpoint)
 - **`quickbooks-cli customers update`** - Sparse-update a customer (requires Id + SyncToken). Use --stdin for full payloads.
@@ -233,7 +340,7 @@ Customers  -  the people and companies you invoice
 
 Invoices  -  accounts-receivable transactions
 
-- **`quickbooks-cli invoices create`** - Create an invoice. Requires Line items + CustomerRef  -  use --stdin for the full payload.
+- **`quickbooks-cli invoices create`** - Create an invoice. Requires Line items + CustomerRef  -  use --stdin / --body-json for the full payload.
 - **`quickbooks-cli invoices delete`** - Delete an invoice (hard delete; requires Id + SyncToken)
 - **`quickbooks-cli invoices get`** - Get a single invoice by Id
 - **`quickbooks-cli invoices list`** - List/query invoices
@@ -252,7 +359,7 @@ Items  -  products and services you sell or buy
 
 Journal entries  -  manual debits and credits
 
-- **`quickbooks-cli journal-entries create`** - Create a journal entry. Requires balanced Line debits/credits  -  use --stdin.
+- **`quickbooks-cli journal-entries create`** - Create a journal entry. Requires balanced Line debits/credits  -  use --stdin / --body-json.
 - **`quickbooks-cli journal-entries delete`** - Delete a journal entry (hard delete; requires Id + SyncToken)
 - **`quickbooks-cli journal-entries get`** - Get a single journal entry by Id
 - **`quickbooks-cli journal-entries list`** - List/query journal entries
@@ -262,7 +369,7 @@ Journal entries  -  manual debits and credits
 
 Payments  -  customer payments received against invoices
 
-- **`quickbooks-cli payments create`** - Record a payment. Requires CustomerRef + TotalAmt  -  use --stdin for the full payload.
+- **`quickbooks-cli payments create`** - Record a payment. Requires CustomerRef + TotalAmt  -  use --stdin / --body-json for the full payload.
 - **`quickbooks-cli payments delete`** - Delete a payment (hard delete; requires Id + SyncToken)
 - **`quickbooks-cli payments get`** - Get a single payment by Id
 - **`quickbooks-cli payments list`** - List/query payments
@@ -278,7 +385,7 @@ Raw QBO query passthrough  -  run any SQL-like SELECT against any entity
 
 Vendors  -  the people and companies you pay
 
-- **`quickbooks-cli vendors create`** - Create a vendor. Use --stdin for nested fields.
+- **`quickbooks-cli vendors create`** - Create a vendor. Use --stdin / --body-json for nested fields.
 - **`quickbooks-cli vendors get`** - Get a single vendor by Id
 - **`quickbooks-cli vendors list`** - List/query vendors
 - **`quickbooks-cli vendors update`** - Sparse-update a vendor (requires Id + SyncToken).
@@ -338,8 +445,6 @@ Environment variables:
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
 | `QUICKBOOKS_ACCESS_TOKEN` | per_call | Yes | Set to your API credential. |
-| `QUICKBOOKS_BASE_URL` | per_call | No | Full company base URL `https://quickbooks.api.intuit.com/v3/company/<realmId>` (use the `sandbox-quickbooks` host for sandbox); wins over `QUICKBOOKS_REALM_ID`. |
-| `QUICKBOOKS_REALM_ID` | per_call | No | Company (realm) id; with `QUICKBOOKS_ENVIRONMENT=production\|sandbox` composes the base URL so you don't build it by hand. |
 
 ### agentcookie (optional)
 

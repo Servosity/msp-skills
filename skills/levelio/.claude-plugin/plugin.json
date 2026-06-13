@@ -1,6 +1,6 @@
 {
   "name": "levelio",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command.",
   "author": {
     "name": "Servosity",

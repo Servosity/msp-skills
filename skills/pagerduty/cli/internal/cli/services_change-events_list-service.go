@@ -39,13 +39,13 @@ func newServicesChangeEventsListServiceCmd(flags *rootFlags) *cobra.Command {
 			path := "/services/{id}/change_events"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "change-events", path, map[string]string{
-				"since":             fmt.Sprintf("%v", flagSince),
-				"until":             fmt.Sprintf("%v", flagUntil),
-				"limit":             fmt.Sprintf("%v", flagLimit),
-				"offset":            fmt.Sprintf("%v", flagOffset),
-				"total":             fmt.Sprintf("%v", flagTotal),
-				"team_ids[]":        fmt.Sprintf("%v", flagTeamIds),
-				"integration_ids[]": fmt.Sprintf("%v", flagIntegrationIds),
+				"since":             formatCLIParamValue(flagSince),
+				"until":             formatCLIParamValue(flagUntil),
+				"limit":             formatCLIParamValue(flagLimit),
+				"offset":            formatCLIParamValue(flagOffset),
+				"total":             formatCLIParamValue(flagTotal),
+				"team_ids[]":        formatCLIParamValue(flagTeamIds),
+				"integration_ids[]": formatCLIParamValue(flagIntegrationIds),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

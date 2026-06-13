@@ -47,11 +47,11 @@ func newTagsGetByEntityTypeCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/tags/{id}/{entity_type}"
 			path = replacePathParam(path, "id", args[0])
-			path = replacePathParam(path, "entity_type", fmt.Sprintf("%v", flagEntityType))
+			path = replacePathParam(path, "entity_type", formatCLIParamValue(flagEntityType))
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "tags", path, map[string]string{
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"offset": fmt.Sprintf("%v", flagOffset),
-				"total":  fmt.Sprintf("%v", flagTotal),
+				"limit":  formatCLIParamValue(flagLimit),
+				"offset": formatCLIParamValue(flagOffset),
+				"total":  formatCLIParamValue(flagTotal),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

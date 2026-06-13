@@ -5,6 +5,8 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -28,11 +30,44 @@ func openFleetStore(ctx context.Context, dbPath string) (*store.Store, error) {
 	if dbPath == "" {
 		dbPath = defaultDBPath("skykick-cli")
 	}
-	db, err := store.OpenWithContext(ctx, dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("opening database: %w", err)
+	// Read-only when the fleet schema already exists (fleet-sync created it):
+	// read-only handles take no write lock, so reader commands don't collide
+	// with a concurrent fleet-sync (or each other) with SQLITE_BUSY. Reading is
+	// only ever gated on fleet_runs existing, so a read-only open never hits a
+	// "no such table". Otherwise fall back to a read-write open, with a short
+	// retry to ride out the first-run race while fleet-sync builds the schema.
+	var lastErr error
+	for attempt := 0; attempt < 8; attempt++ {
+		if st, ok := tryReadOnlyFleet(dbPath); ok {
+			return st, nil
+		}
+		db, err := store.OpenWithContext(ctx, dbPath)
+		if err == nil {
+			return db, nil
+		}
+		lastErr = err
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		time.Sleep(time.Duration(20*(attempt+1)) * time.Millisecond)
 	}
-	return db, nil
+	return nil, fmt.Errorf("opening database: %w", lastErr)
+}
+
+func tryReadOnlyFleet(path string) (*store.Store, bool) {
+	if _, err := os.Stat(path); err != nil {
+		return nil, false
+	}
+	st, err := store.OpenReadOnly(path)
+	if err != nil {
+		return nil, false
+	}
+	var one int
+	if err := st.DB().QueryRow(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='fleet_runs' LIMIT 1`).Scan(&one); err != nil {
+		_ = st.Close()
+		return nil, false
+	}
+	return st, true
 }
 
 // errNoFleetRuns is the friendly guidance returned when a fleet command runs

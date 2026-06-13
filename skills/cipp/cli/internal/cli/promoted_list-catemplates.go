@@ -30,10 +30,10 @@ func newListCatemplatesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListCAtemplates"
 			params := map[string]string{}
 			if flagGUID != "" {
-				params["GUID"] = fmt.Sprintf("%v", flagGUID)
+				params["GUID"] = formatCLIParamValue(flagGUID)
 			}
 			if flagID != "" {
-				params["ID"] = fmt.Sprintf("%v", flagID)
+				params["ID"] = formatCLIParamValue(flagID)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-catemplates", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

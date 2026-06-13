@@ -46,10 +46,10 @@ func newHubspotOwnersCrmGetV3OwnersOwnerIdGetByIdCmd(flags *rootFlags) *cobra.Co
 			path = replacePathParam(path, "ownerId", args[0])
 			params := map[string]string{}
 			if flagArchived != false {
-				params["archived"] = fmt.Sprintf("%v", flagArchived)
+				params["archived"] = formatCLIParamValue(flagArchived)
 			}
 			if flagIdProperty != "" {
-				params["idProperty"] = fmt.Sprintf("%v", flagIdProperty)
+				params["idProperty"] = formatCLIParamValue(flagIdProperty)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-owners-crm", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

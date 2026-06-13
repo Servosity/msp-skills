@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "CIPP MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "First single-binary CLI for CIPP  -  offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has."
+description: "First single-binary CLI for CIPP \u2014 offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has."
 permalink: /skills/cipp/
 skill_name: "CIPP MCP"
 image: /assets/social/cipp/wide-1200x630.png

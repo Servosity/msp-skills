@@ -19,7 +19,7 @@ func newClientDeviceGetByClientIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-by-client-id <client_id>",
 		Aliases:     []string{"get"},
 		Short:       "This request returns information about all devices for this service or client.",
-		Example:     "  axcient-cli client device get-by-client-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  axcient-cli client device get-by-client-id 333",
 		Annotations: map[string]string{"pp:endpoint": "device.get-by-client-id", "pp:method": "GET", "pp:path": "/client/{client_id}/device", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -34,10 +34,10 @@ func newClientDeviceGetByClientIdCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "client_id", args[0])
 			params := map[string]string{}
 			if flagServiceId != "" {
-				params["service_id"] = fmt.Sprintf("%v", flagServiceId)
+				params["service_id"] = formatCLIParamValue(flagServiceId)
 			}
 			if flagD2cOnly != false {
-				params["d2c_only"] = fmt.Sprintf("%v", flagD2cOnly)
+				params["d2c_only"] = formatCLIParamValue(flagD2cOnly)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "device", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

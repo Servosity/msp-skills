@@ -40,14 +40,14 @@ func newDeviceActivitiesGetDeviceCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/device/{id}/activities"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "activities", path, map[string]string{
-				"olderThan":    fmt.Sprintf("%v", flagOlderThan),
-				"newerThan":    fmt.Sprintf("%v", flagNewerThan),
-				"activityType": fmt.Sprintf("%v", flagActivityType),
-				"status":       fmt.Sprintf("%v", flagStatus),
-				"seriesUid":    fmt.Sprintf("%v", flagSeriesUid),
-				"pageSize":     fmt.Sprintf("%v", flagPageSize),
-				"lang":         fmt.Sprintf("%v", flagLang),
-				"tz":           fmt.Sprintf("%v", flagTz),
+				"olderThan":    formatCLIParamValue(flagOlderThan),
+				"newerThan":    formatCLIParamValue(flagNewerThan),
+				"activityType": formatCLIParamValue(flagActivityType),
+				"status":       formatCLIParamValue(flagStatus),
+				"seriesUid":    formatCLIParamValue(flagSeriesUid),
+				"pageSize":     formatCLIParamValue(flagPageSize),
+				"lang":         formatCLIParamValue(flagLang),
+				"tz":           formatCLIParamValue(flagTz),
 			}, nil, flagAll, "", "offset", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

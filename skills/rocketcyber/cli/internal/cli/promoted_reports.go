@@ -34,22 +34,22 @@ func newReportsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/reportApi"
 			params := map[string]string{}
 			if flagUserId != "" {
-				params["userId"] = fmt.Sprintf("%v", flagUserId)
+				params["userId"] = formatCLIParamValue(flagUserId)
 			}
 			if flagFileType != "" {
-				params["fileType"] = fmt.Sprintf("%v", flagFileType)
+				params["fileType"] = formatCLIParamValue(flagFileType)
 			}
 			if flagItemType != "" {
-				params["itemType"] = fmt.Sprintf("%v", flagItemType)
+				params["itemType"] = formatCLIParamValue(flagItemType)
 			}
 			if flagAccountId != "" {
-				params["accountId"] = fmt.Sprintf("%v", flagAccountId)
+				params["accountId"] = formatCLIParamValue(flagAccountId)
 			}
 			if flagAppId != "" {
-				params["appId"] = fmt.Sprintf("%v", flagAppId)
+				params["appId"] = formatCLIParamValue(flagAppId)
 			}
 			if flagDates != "" {
-				params["dates"] = fmt.Sprintf("%v", flagDates)
+				params["dates"] = formatCLIParamValue(flagDates)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "reports", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

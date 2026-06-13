@@ -28,7 +28,7 @@ func newPurchaseOrdersListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/purchase_orders"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "purchase-orders", path, map[string]string{
-				"page": fmt.Sprintf("%v", flagPage),
+				"page": formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

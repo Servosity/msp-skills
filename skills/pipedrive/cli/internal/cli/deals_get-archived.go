@@ -52,18 +52,18 @@ func newDealsGetArchivedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/deals/archived"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "deals", path, map[string]string{
-				"user_id":      fmt.Sprintf("%v", flagUserId),
-				"filter_id":    fmt.Sprintf("%v", flagFilterId),
-				"person_id":    fmt.Sprintf("%v", flagPersonId),
-				"org_id":       fmt.Sprintf("%v", flagOrgId),
-				"product_id":   fmt.Sprintf("%v", flagProductId),
-				"pipeline_id":  fmt.Sprintf("%v", flagPipelineId),
-				"stage_id":     fmt.Sprintf("%v", flagStageId),
-				"status":       fmt.Sprintf("%v", flagStatus),
-				"start":        fmt.Sprintf("%v", flagStart),
-				"limit":        fmt.Sprintf("%v", flagLimit),
-				"sort":         fmt.Sprintf("%v", flagSort),
-				"owned_by_you": fmt.Sprintf("%v", flagOwnedByYou),
+				"user_id":      formatCLIParamValue(flagUserId),
+				"filter_id":    formatCLIParamValue(flagFilterId),
+				"person_id":    formatCLIParamValue(flagPersonId),
+				"org_id":       formatCLIParamValue(flagOrgId),
+				"product_id":   formatCLIParamValue(flagProductId),
+				"pipeline_id":  formatCLIParamValue(flagPipelineId),
+				"stage_id":     formatCLIParamValue(flagStageId),
+				"status":       formatCLIParamValue(flagStatus),
+				"start":        formatCLIParamValue(flagStart),
+				"limit":        formatCLIParamValue(flagLimit),
+				"sort":         formatCLIParamValue(flagSort),
+				"owned_by_you": formatCLIParamValue(flagOwnedByYou),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

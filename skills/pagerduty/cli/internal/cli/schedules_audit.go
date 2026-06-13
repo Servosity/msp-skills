@@ -15,7 +15,6 @@ func newSchedulesAuditCmd(flags *rootFlags) *cobra.Command {
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 
-	cmd.AddCommand(newSchedulesAuditListSchedulesRecordsCmd(flags))
 	cmd.AddCommand(newSchedulesAuditListSchedulesRecordsV3Cmd(flags))
 	return cmd
 }

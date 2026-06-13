@@ -28,7 +28,7 @@ func newOutgoingemailListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Outgoingemail"
 			params := map[string]string{}
 			if flagErrorsonly != false {
-				params["errorsonly"] = fmt.Sprintf("%v", flagErrorsonly)
+				params["errorsonly"] = formatCLIParamValue(flagErrorsonly)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "outgoingemail", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

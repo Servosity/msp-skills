@@ -52,10 +52,10 @@ func newPoliciesCreatePolicyCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/policies"
 			params := map[string]string{}
 			if flagMode != "" {
-				params["mode"] = fmt.Sprintf("%v", flagMode)
+				params["mode"] = formatCLIParamValue(flagMode)
 			}
 			if flagTemplatePolicyId != "" {
-				params["templatePolicyId"] = fmt.Sprintf("%v", flagTemplatePolicyId)
+				params["templatePolicyId"] = formatCLIParamValue(flagTemplatePolicyId)
 			}
 			var body map[string]any
 			if stdinBody {

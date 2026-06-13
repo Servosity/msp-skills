@@ -40,7 +40,7 @@ func newUsersStatusUpdateNotificationRulesDeleteUserCmd(flags *rootFlags) *cobra
 
 			path := "/users/{id}/status_update_notification_rules/{status_update_notification_rule_id}"
 			path = replacePathParam(path, "id", args[0])
-			path = replacePathParam(path, "status_update_notification_rule_id", fmt.Sprintf("%v", flagStatusUpdateNotificationRuleId))
+			path = replacePathParam(path, "status_update_notification_rule_id", formatCLIParamValue(flagStatusUpdateNotificationRuleId))
 			params := map[string]string{}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

@@ -28,7 +28,7 @@ func newMetricsMetricsCmd(flags *rootFlags) *cobra.Command {
 			path := "/metrics"
 			params := map[string]string{}
 			if flagConditions != "" {
-				params["conditions[]"] = fmt.Sprintf("%v", flagConditions)
+				params["conditions[]"] = formatCLIParamValue(flagConditions)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "metrics", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

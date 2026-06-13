@@ -36,6 +36,7 @@ var whichIndex = []whichEntry{
 	{Command: "alerts noise", Description: "Rank customers by RMM alert volume over a time window.", Group: "Fleet visibility", WhyItMatters: "Use to find the noisy customer draining tech time before it burns out the team."},
 	{Command: "alerts orphans", Description: "Surface RMM alerts that never became a ticket within a window.", Group: "Fleet visibility", WhyItMatters: "Pick this to catch silent failures and pure noise that slipped past dispatch."},
 	{Command: "snapshot diff", Description: "Diff two retained local sync snapshots across all entities.", Group: "Triage that compounds", WhyItMatters: "Use to answer what changed across assets and tickets between two syncs."},
+	{Command: "customers profile", Description: "One-shot cross-entity customer snapshot: open tickets, assets, AR balance, contracts, and latest RMM alerts in a single card.", Group: "Owner analytics", WhyItMatters: "Reach for this when you need full customer context (health, money, risk) before drafting a reply, renewal, or escalation."},
 }
 
 // whichMatch pairs an index entry with its ranking score for a query.
@@ -139,6 +140,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

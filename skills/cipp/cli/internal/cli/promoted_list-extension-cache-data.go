@@ -18,9 +18,10 @@ func newListExtensionCacheDataPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "list-extension-cache-data",
-		Short:       "This function is used to list the extension cache data. .FUNCTIONALITY Entrypoint .ROLE CIPP.Core.",
-		Long:        "This function is used to list the extension cache data. .FUNCTIONALITY Entrypoint .ROLE CIPP.Core.",
+		Use:   "list-extension-cache-data",
+		Short: "This function is used to list the extension cache data. .FUNCTIONALITY Entrypoint .ROLE CIPP.Core.",
+		Long:  "This function is used to list the extension cache data. .FUNCTIONALITY Entrypoint .ROLE CIPP.Core.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-extension-cache-data --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-extension-cache-data.create", "pp:method": "POST", "pp:path": "/ListExtensionCacheData"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -45,10 +46,10 @@ func newListExtensionCacheDataPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListExtensionCacheData"
 			params := map[string]string{}
 			if flagDataTypes != "" {
-				params["dataTypes"] = fmt.Sprintf("%v", flagDataTypes)
+				params["dataTypes"] = formatCLIParamValue(flagDataTypes)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -63,10 +64,10 @@ func newListExtensionCacheDataPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

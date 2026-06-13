@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Xero MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "Every Xero Accounting read plus a local SQLite ledger  -  aging, reconciliation, and GL tie-out that no other Xero tool computes offline."
+description: "Every Xero Accounting read plus a local SQLite ledger \u2014 aging, reconciliation, and GL tie-out that no other Xero tool computes offline."
 permalink: /skills/xero/
 skill_name: "Xero MCP"
 image: /assets/social/xero/wide-1200x630.png

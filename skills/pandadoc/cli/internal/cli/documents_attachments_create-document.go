@@ -21,7 +21,7 @@ func newDocumentsAttachmentsCreateDocumentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-document <id>",
 		Aliases:     []string{"create"},
 		Short:       "Creates an attachment for a particular document",
-		Example:     "  pandadoc-cli documents attachments create-document 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents attachments create-document BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "attachments.create-document", "pp:method": "POST", "pp:path": "/documents/{id}/attachments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

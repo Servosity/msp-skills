@@ -30,13 +30,13 @@ func newMatchersListCmd(flags *rootFlags) *cobra.Command {
 			path := "/matchers"
 			params := map[string]string{}
 			if flagIntegrationId != "" {
-				params["integration_id"] = fmt.Sprintf("%v", flagIntegrationId)
+				params["integration_id"] = formatCLIParamValue(flagIntegrationId)
 			}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPageSize != 0 {
-				params["page_size"] = fmt.Sprintf("%v", flagPageSize)
+				params["page_size"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "matchers", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

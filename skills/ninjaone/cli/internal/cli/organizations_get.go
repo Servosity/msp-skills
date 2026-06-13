@@ -31,9 +31,9 @@ func newOrganizationsGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/organizations"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "organizations", path, map[string]string{
-				"pageSize": fmt.Sprintf("%v", flagPageSize),
-				"after":    fmt.Sprintf("%v", flagAfter),
-				"of":       fmt.Sprintf("%v", flagOf),
+				"pageSize": formatCLIParamValue(flagPageSize),
+				"after":    formatCLIParamValue(flagAfter),
+				"of":       formatCLIParamValue(flagOf),
 			}, nil, flagAll, "after", "cursor", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

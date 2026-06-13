@@ -49,15 +49,15 @@ func newLogEntriesListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/log_entries"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "log-entries", path, map[string]string{
-				"limit":       fmt.Sprintf("%v", flagLimit),
-				"offset":      fmt.Sprintf("%v", flagOffset),
-				"total":       fmt.Sprintf("%v", flagTotal),
-				"time_zone":   fmt.Sprintf("%v", flagTimeZone),
-				"since":       fmt.Sprintf("%v", flagSince),
-				"until":       fmt.Sprintf("%v", flagUntil),
-				"is_overview": fmt.Sprintf("%v", flagIsOverview),
-				"include[]":   fmt.Sprintf("%v", flagInclude),
-				"team_ids[]":  fmt.Sprintf("%v", flagTeamIds),
+				"limit":       formatCLIParamValue(flagLimit),
+				"offset":      formatCLIParamValue(flagOffset),
+				"total":       formatCLIParamValue(flagTotal),
+				"time_zone":   formatCLIParamValue(flagTimeZone),
+				"since":       formatCLIParamValue(flagSince),
+				"until":       formatCLIParamValue(flagUntil),
+				"is_overview": formatCLIParamValue(flagIsOverview),
+				"include[]":   formatCLIParamValue(flagInclude),
+				"team_ids[]":  formatCLIParamValue(flagTeamIds),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

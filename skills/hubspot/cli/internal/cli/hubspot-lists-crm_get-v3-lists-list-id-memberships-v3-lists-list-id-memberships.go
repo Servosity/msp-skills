@@ -34,9 +34,9 @@ func newHubspotListsCrmGetV3ListsListIdMembershipsV3ListsListIdMembershipsCmd(fl
 			path := "/crm/v3/lists/{listId}/memberships"
 			path = replacePathParam(path, "listId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-lists-crm", path, map[string]string{
-				"after":  fmt.Sprintf("%v", flagAfter),
-				"before": fmt.Sprintf("%v", flagBefore),
-				"limit":  fmt.Sprintf("%v", flagLimit),
+				"after":  formatCLIParamValue(flagAfter),
+				"before": formatCLIParamValue(flagBefore),
+				"limit":  formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "after", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +23,15 @@ import (
 	"datto-rmm-pp-cli/internal/store"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+)
+
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
 )
 
 // RegisterTools registers all API operations as MCP tools.
@@ -43,7 +54,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -73,6 +84,33 @@ type mcpParamBinding struct {
 	BodyPath   []string
 }
 
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
 func setNestedBodyArg(body map[string]any, path []string, value any) {
 	if len(path) == 0 {
 		return
@@ -137,7 +175,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				if len(binding.BodyPath) > 0 {
 					setNestedBodyArg(bodyArgs, binding.BodyPath, v)
@@ -145,7 +183,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 					bodyArgs[binding.WireName] = v
 				}
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -155,7 +193,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -167,7 +205,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "POST", "PUT", "PATCH":
 				bodyArgs[k] = v
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -223,19 +261,19 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key: export DATTO_RMM_API_KEY=<your-key>" +
+					"\n      Run 'datto-rmm-cli auth setup' for credential setup steps." +
 					"\n      Get a key at: https://rmm.datto.com/help/en/Content/2SETUP/APIv2.htm" +
 					"\n      Run 'datto-rmm-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your token." +
-					"\n      Set it with: export DATTO_RMM_API_KEY=<your-key>" +
+					"\n      Run 'datto-rmm-cli auth setup' for credential setup steps." +
 					"\n      Get a key at: https://rmm.datto.com/help/en/Content/2SETUP/APIv2.htm" +
 					"\n      Run 'datto-rmm-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: your credentials are valid but lack access to this resource." +
-					"\n      Set it with: export DATTO_RMM_API_KEY=<your-key>" +
+					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
+					"\n      Run 'datto-rmm-cli auth setup' for credential setup steps." +
 					"\n      Get a key at: https://rmm.datto.com/help/en/Content/2SETUP/APIv2.htm" +
 					"\n      Run 'datto-rmm-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
@@ -250,21 +288,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -273,8 +296,129 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
@@ -284,7 +428,7 @@ func newMCPClient() (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -333,22 +477,27 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -380,6 +529,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -551,15 +791,21 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "Fleet staleness sweep", "command": "fleet stale", "description": "Lists every device across all customer sites that hasn't checked in within a chosen window", "rationale": "Datto lists devices only per-site/account with no 'not seen in N days fleet-wide' query", "via": "mcp-command-mirror"},
-			{"name": "Alert storm ranking", "command": "fleet storms", "description": "Ranks the noisiest devices and sites by alert volume over a time window so the NOC can tune monitors instead of", "rationale": "Alerts are fetched open or resolved per device/site with no 'rank by count over N days' endpoint", "via": "mcp-command-mirror"},
-			{"name": "Patch-compliance gaps", "command": "fleet patch-gaps", "description": "Ranks every device by missing-patch count across all sites so you remediate the most-exposed endpoints first.", "rationale": "patchManagement install/missing counts are per-device with no fleet 'most-missing-patches' ranking", "via": "mcp-command-mirror"},
-			{"name": "AV/security posture gaps", "command": "fleet av-gaps", "description": "Finds every device fleet-wide where antivirus is missing, disabled, or not running", "rationale": "antivirus product and status is a per-device field with no 'AV disabled across the fleet' query", "via": "mcp-command-mirror"},
-			{"name": "Software inventory rollup", "command": "fleet sprawl", "description": "Rolls up audited software across the whole fleet to show how many installs of an app exist and the spread of versions", "rationale": "Software audit is strictly per-device", "via": "mcp-command-mirror"},
-			{"name": "Warranty cliff", "command": "fleet warranty", "description": "Surfaces every device whose hardware warranty expires within a window, sorted by date and site", "rationale": "warrantyDate is a per-device field with no 'expiring in N days fleet-wide' query", "via": "mcp-command-mirror"},
-			{"name": "QBR site scorecard", "command": "fleet scorecard", "description": "Produces a one-shot per-site health card fusing device counts, alert volume, patch coverage, AV coverage", "rationale": "A single card joining sites, devices, alerts", "via": "mcp-command-mirror"},
-			{"name": "Agent-version drift", "command": "fleet agent-drift", "description": "Shows which devices run out-of-date RMM agents across the fleet, ranked by how far behind the newest version they are.", "rationale": "cagVersion is per-device", "via": "mcp-command-mirror"},
-			{"name": "Ghost/orphan reconciliation", "command": "fleet orphans", "description": "Cross-references long-stale, suspended", "rationale": "Reconciling device state (suspended/deleted/stale plus no recent alerts)", "via": "mcp-command-mirror"},
+			{"name": "Fleet staleness sweep", "command": "fleet stale", "description": "Lists every device across all customer sites that hasn't checked in within a chosen window, so you catch dead agents before the customer does.", "rationale": "Datto lists devices only per-site/account with no 'not seen in N days fleet-wide' query, so the lastSeen filter spanning every site only exists against the local store.", "via": "mcp-command-mirror"},
+			{"name": "Alert storm ranking", "command": "fleet storms", "description": "Ranks the noisiest devices and sites by alert volume over a time window so the NOC can tune monitors instead of drowning in tickets.", "rationale": "Alerts are fetched open or resolved per device/site with no 'rank by count over N days' endpoint, so grouping by deviceUid only works once every alert is synced locally.", "via": "mcp-command-mirror"},
+			{"name": "Patch-compliance gaps", "command": "fleet patch-gaps", "description": "Ranks every device by missing-patch count across all sites so you remediate the most-exposed endpoints first.", "rationale": "patchManagement install/missing counts are per-device with no fleet 'most-missing-patches' ranking, so the aggregate and sort only exist against the synced store.", "via": "mcp-command-mirror"},
+			{"name": "AV/security posture gaps", "command": "fleet av-gaps", "description": "Finds every device fleet-wide where antivirus is missing, disabled, or not running, so security gaps surface before an incident does.", "rationale": "antivirus product and status is a per-device field with no 'AV disabled across the fleet' query, so the cross-site filter only works against the local store.", "via": "mcp-command-mirror"},
+			{"name": "Software inventory rollup", "command": "fleet sprawl", "description": "Rolls up audited software across the whole fleet to show how many installs of an app exist and the spread of versions, exposing license waste and unpatched copies.", "rationale": "Software audit is strictly per-device, so a fleet-wide inventory and version spread only exists by aggregating every synced device audit locally (sync --software).", "via": "mcp-command-mirror"},
+			{"name": "Warranty cliff", "command": "fleet warranty", "description": "Surfaces every device whose hardware warranty expires within a window, sorted by date and site, ready to drop into a QBR refresh plan.", "rationale": "warrantyDate is a per-device field with no 'expiring in N days fleet-wide' query, so the cross-site sort a vCIO needs only comes from the local store.", "via": "mcp-command-mirror"},
+			{"name": "QBR site scorecard", "command": "fleet scorecard", "description": "Produces a one-shot per-site health card fusing device counts, alert volume, patch coverage, AV coverage, warranty exposure, and agent drift for QBRs.", "rationale": "A single card joining sites, devices, alerts, and audits per customer is impossible from any single API call and only exists by aggregating the synced store offline.", "via": "mcp-command-mirror"},
+			{"name": "Agent-version drift", "command": "fleet agent-drift", "description": "Shows which devices run out-of-date RMM agents across the fleet, ranked by how far behind the newest version they are.", "rationale": "cagVersion is per-device, so finding lagging agents fleet-wide requires syncing every device and comparing versions offline against the highest-seen build.", "via": "mcp-command-mirror"},
+			{"name": "Ghost/orphan reconciliation", "command": "fleet orphans", "description": "Cross-references long-stale, suspended, or deleted devices that still count against a site so you stop billing and monitoring phantom endpoints.", "rationale": "Reconciling device state (suspended/deleted/stale plus no recent alerts) against per-site device counts is a multi-entity join no single Datto call performs.", "via": "mcp-command-mirror"},
+			{"name": "Alert-storm bulk resolve", "command": "fleet resolve-storm", "description": "Bulk-resolves the open alerts on the noisiest devices and sites from the storm ranking, so Monday triage ends with a clean queue instead of a worklist.", "rationale": "Datto can only resolve alerts one at a time by UID; selecting targets from a fleet-wide noise ranking requires the local alert store, then gated per-alert resolve calls.", "via": "mcp-command-mirror"},
+			{"name": "Quick-job result rollup", "command": "fleet job-results", "description": "Fetches every device's result for one quick job and rolls them into a single pass/fail table, so a 200-device push is verified in one command.", "rationale": "The API returns job results strictly per device; the fleet-wide pass/fail verdict only exists by fanning out those calls across a cohort drawn from the local device store.", "via": "mcp-command-mirror"},
+			{"name": "Fleet snapshot receipt", "command": "fleet snapshot", "description": "Freezes the current synced fleet state into a labeled, dated archive so any number you report can be reproduced later as a receipt.", "rationale": "Datto has no point-in-time API; the console only shows now. A reproducible QBR/audit baseline only exists by archiving the local store under a label.", "via": "mcp-command-mirror"},
+			{"name": "Fleet snapshot diff", "command": "fleet diff", "description": "Diffs two fleet snapshots (or a snapshot vs the live store) to show devices added or removed and warranty, patch, AV, and agent-version movement since the baseline.", "rationale": "Answering what changed since last quarter requires two stored fleet states; the API only ever returns the present.", "via": "mcp-command-mirror"},
+			{"name": "Device timeline", "command": "fleet device-timeline", "description": "Stitches one device's alerts and activity-log entries (which surface job, audit, and user actions) into a single chronological timeline from the local store.", "rationale": "Reconstructing what happened on this box spans the alert and activity-log resource families; the merged time-ordered view only exists as a local multi-table join.", "via": "mcp-command-mirror"},
+			{"name": "Sync completeness check", "command": "fleet sync-gaps", "description": "Verifies every synced resource pulled all pages by comparing stored row counts against the API's reported totals, so you can trust fleet numbers before reporting them.", "rationale": "Datto's paginated envelopes report a totalCount the store can be audited against; a short sync silently understates every fleet analytic unless checked locally.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
 			{"topic": "Fleet staleness sweep", "insight": "Datto lists devices only per-site/account with no 'not seen in N days fleet-wide' query, so the lastSeen filter spanning every site only exists against the local store."},
@@ -571,6 +817,12 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			{"topic": "QBR site scorecard", "insight": "A single card joining sites, devices, alerts, and audits per customer is impossible from any single API call and only exists by aggregating the synced store offline."},
 			{"topic": "Agent-version drift", "insight": "cagVersion is per-device, so finding lagging agents fleet-wide requires syncing every device and comparing versions offline against the highest-seen build."},
 			{"topic": "Ghost/orphan reconciliation", "insight": "Reconciling device state (suspended/deleted/stale plus no recent alerts) against per-site device counts is a multi-entity join no single Datto call performs."},
+			{"topic": "Alert-storm bulk resolve", "insight": "Datto can only resolve alerts one at a time by UID; selecting targets from a fleet-wide noise ranking requires the local alert store, then gated per-alert resolve calls."},
+			{"topic": "Quick-job result rollup", "insight": "The API returns job results strictly per device; the fleet-wide pass/fail verdict only exists by fanning out those calls across a cohort drawn from the local device store."},
+			{"topic": "Fleet snapshot receipt", "insight": "Datto has no point-in-time API; the console only shows now. A reproducible QBR/audit baseline only exists by archiving the local store under a label."},
+			{"topic": "Fleet snapshot diff", "insight": "Answering what changed since last quarter requires two stored fleet states; the API only ever returns the present."},
+			{"topic": "Device timeline", "insight": "Reconstructing what happened on this box spans the alert and activity-log resource families; the merged time-ordered view only exists as a local multi-table join."},
+			{"topic": "Sync completeness check", "insight": "Datto's paginated envelopes report a totalCount the store can be audited against; a short sync silently understates every fleet analytic unless checked locally."},
 			{"topic": "Contact lookup", "insight": "Use search for finding contacts by name/email. List endpoints return unsorted results and require pagination for large datasets."},
 			{"topic": "Activity tracking", "insight": "When checking deal activity, sync first and query locally. CRM APIs often throttle activity-log endpoints heavily."},
 		},

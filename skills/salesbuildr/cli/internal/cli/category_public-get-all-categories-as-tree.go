@@ -28,7 +28,7 @@ func newCategoryPublicGetAllCategoriesAsTreeCmd(flags *rootFlags) *cobra.Command
 			path := "/category/tree"
 			params := map[string]string{}
 			if flagIncludeEmpty != false {
-				params["includeEmpty"] = fmt.Sprintf("%v", flagIncludeEmpty)
+				params["includeEmpty"] = formatCLIParamValue(flagIncludeEmpty)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "category", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

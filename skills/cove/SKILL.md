@@ -1,6 +1,6 @@
 ---
 name: cove
-description: "Use when the user asks to check which Cove Data Protection backups failed or went stale across all their customers, see a fleet-wide backup health rollup, trend backup storage growth, pull month-end SKU and M365 seat billing, or enumerate partners, devices, users, and audit actions - backed by a local SQLite snapshot history so cross-customer and trend questions answer offline. Trigger phrases: `which cove backups failed last night`, `check cove backup status`, `stale cove devices`, `cove storage growth`, `cove billing usage report`, `use cove`, `run cove-cli`."
+description: "The first CLI and MCP server for Cove Data Protection  -  fleet-wide backup health, billing usage, and storage trends from a terminal, with the local history the vendor console doesn't keep. Trigger phrases: `which backups failed last night`, `check cove backup status`, `stale cove devices`, `cove storage growth`, `cove billing usage report`, `use cove`, `run cove-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Cove Data Protection"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - cove-cli
+    install:
+      - kind: go
+        bins: [cove-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/cove/cmd/cove-cli
 ---
 
-# Cove Data Protection Claude Code Skill
+# Cove Data Protection  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `cove-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cove/install.sh)
+   npx -y @mvanhorn/printing-press-library install cove --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cove/install.ps1 | iex
-   ```
-3. Verify: `cove-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `cove-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/cove/cmd/cove-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Cove's console scopes to one customer at a time and forgets yesterday. cove-cli speaks the whole JSON-RPC API: one command sweeps every partner for failed or stale backups with column codes decoded to human names, `snapshot` keeps timestamped SQLite history so `storage growth` and `devices changes` can answer trend questions nothing else can, and `call` reaches all 251 documented methods.
 
@@ -228,11 +234,11 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
-
+- **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success
 
 ### Response envelope
 
-Generated resource read commands (devices list/get/stats, partners, storage, users, audit, backup-jobs, products, columns, labels, locations, server) wrap output in a provenance envelope; the hand-built fleet/billing/auth/snapshot commands emit their own flat, documented JSON views instead:
+Commands that read from the local store or the API wrap output in a provenance envelope:
 
 ```json
 {
@@ -290,7 +296,6 @@ Explicit flags always win over profile values; profile values win over defaults.
 | 0 | Success |
 | 2 | Usage error (wrong arguments) |
 | 3 | Resource not found |
-| 4 | Authentication error  -  run `cove-cli auth login` |
 | 5 | API error (upstream issue) |
 | 7 | Rate limited (wait and retry) |
 | 10 | Config error |
@@ -305,13 +310,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `cove-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add cove-mcp -- cove-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/cove/cmd/cove-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add cove-mcp -- cove-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

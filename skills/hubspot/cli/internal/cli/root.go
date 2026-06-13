@@ -143,8 +143,8 @@ func isCobraUsageError(err error) bool {
 func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "hubspot-cli",
-		Short: `Hubspot CLI — Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-nat…`,
-		Long: `Hubspot CLI — Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-nat…
+		Short: `Hubspot CLI — Every Sales Hub feature, plus offline cross-object queries and retained property-change history.`,
+		Long: `Hubspot CLI — Every Sales Hub feature, plus offline cross-object queries and retained property-change history.
 
 Highlights (not in the official API docs):
   • stale   Find contacts or deals with no engagement in N days, scoped by owner or pipeline stage — instantly, offline.
@@ -197,10 +197,6 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.PersistentFlags().Float64Var(&flags.rateLimit, "rate-limit", 0, "Max requests per second (0 to disable)")
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		// Stash start time on the command context so PersistentPostRunE can
-		// compute duration for the local mutation audit log. Best-effort —
-		// any failure here is silently ignored downstream.
-		cmd.SetContext(withMutationStart(cmd.Context(), time.Now()))
 		if flags.deliverSpec != "" {
 			sink, err := ParseDeliverSink(flags.deliverSpec)
 			if err != nil {
@@ -253,14 +249,6 @@ See README.md or the bundled SKILL.md for recipes.`,
 		}
 		return nil
 	}
-	rootCmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
-		// Best-effort local mutation audit-log write. Never propagate errors;
-		// a failure to log must not flip a successful user command to non-zero.
-		// Cobra only runs PersistentPostRunE on success, so the log records
-		// successful mutations only (exit_code is always 0 by construction).
-		logMutationIfApplicable(cmd, args, 0)
-		return nil
-	}
 	rootCmd.AddCommand(newBatchCmd(flags))
 	rootCmd.AddCommand(newCrmCmd(flags))
 	rootCmd.AddCommand(newGroupsCmd(flags))
@@ -307,7 +295,6 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newNovelPipelineHealthCmd(flags))
 	rootCmd.AddCommand(newNovelSinceCmd(flags))
 	rootCmd.AddCommand(newNovelStaleCmd(flags))
-	rootCmd.AddCommand(newHistoryCmd(flags))
 	rootCmd.AddCommand(newAPICmd(flags))
 	rootCmd.AddCommand(newObjectsSearchPromotedCmd(flags))
 	rootCmd.AddCommand(newVersionCmd())

@@ -37,7 +37,7 @@ func newUsersValidateVerificationTokenCmd(flags *rootFlags) *cobra.Command {
 			path := "/users/onboarding/validate-token"
 			params := map[string]string{}
 			if flagToken != "" {
-				params["token"] = fmt.Sprintf("%v", flagToken)
+				params["token"] = formatCLIParamValue(flagToken)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "users", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

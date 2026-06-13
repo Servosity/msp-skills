@@ -14,8 +14,9 @@ import (
 func newInventoryDeleteFieldCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "delete-field <inventory_field>",
-		Short:       "Deletes the Inventory Field.",
+		Use:   "delete-field <inventory_field>",
+		Short: "Deletes the Inventory Field.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  domotz-cli inventory delete-field example-value",
 		Annotations: map[string]string{"pp:endpoint": "inventory.delete-field", "pp:method": "DELETE", "pp:path": "/inventory/{inventory_field}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

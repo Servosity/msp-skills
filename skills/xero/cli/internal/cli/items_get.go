@@ -31,13 +31,13 @@ func newItemsGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/Items"
 			params := map[string]string{}
 			if flagWhere != "" {
-				params["where"] = fmt.Sprintf("%v", flagWhere)
+				params["where"] = formatCLIParamValue(flagWhere)
 			}
 			if flagOrder != "" {
-				params["order"] = fmt.Sprintf("%v", flagOrder)
+				params["order"] = formatCLIParamValue(flagOrder)
 			}
 			if flagUnitdp != 0 {
-				params["unitdp"] = fmt.Sprintf("%v", flagUnitdp)
+				params["unitdp"] = formatCLIParamValue(flagUnitdp)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "items", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -16,9 +16,10 @@ func newFirewallControlMoveRulesByCategoryCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "by-category <firewall_rule_category>",
-		Aliases:     []string{"create"},
-		Short:       "Remove Firewall Rules, defined with the ID of the rules (run 'firewall-control')",
+		Use:     "by-category <firewall_rule_category>",
+		Aliases: []string{"create"},
+		Short:   "Remove Firewall Rules, defined with the ID of the rules (run 'firewall-control')",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli firewall-control move-rules by-category example-value",
 		Annotations: map[string]string{"pp:endpoint": "move-rules.by-category", "pp:method": "POST", "pp:path": "/firewall-control/{firewall_rule_category}/move-rules"},
 		RunE: func(cmd *cobra.Command, args []string) error {

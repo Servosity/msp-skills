@@ -57,91 +57,91 @@ func newDeviceControlExportRulesCmd(flags *rootFlags) *cobra.Command {
 			path := "/device-control/export"
 			params := map[string]string{}
 			if flagRuleName != "" {
-				params["ruleName"] = fmt.Sprintf("%v", flagRuleName)
+				params["ruleName"] = formatCLIParamValue(flagRuleName)
 			}
 			if flagDeviceClasses != "" {
-				params["deviceClasses"] = fmt.Sprintf("%v", flagDeviceClasses)
+				params["deviceClasses"] = formatCLIParamValue(flagDeviceClasses)
 			}
 			if flagCreatedAtLt != "" {
-				params["createdAt__lt"] = fmt.Sprintf("%v", flagCreatedAtLt)
+				params["createdAt__lt"] = formatCLIParamValue(flagCreatedAtLt)
 			}
 			if flagCreatedAtLte != "" {
-				params["createdAt__lte"] = fmt.Sprintf("%v", flagCreatedAtLte)
+				params["createdAt__lte"] = formatCLIParamValue(flagCreatedAtLte)
 			}
 			if flagGattServices != "" {
-				params["gattServices"] = fmt.Sprintf("%v", flagGattServices)
+				params["gattServices"] = formatCLIParamValue(flagGattServices)
 			}
 			if flagStatuses != "" {
-				params["statuses"] = fmt.Sprintf("%v", flagStatuses)
+				params["statuses"] = formatCLIParamValue(flagStatuses)
 			}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			if flagDeviceNames != "" {
-				params["deviceNames"] = fmt.Sprintf("%v", flagDeviceNames)
+				params["deviceNames"] = formatCLIParamValue(flagDeviceNames)
 			}
 			if flagAccessPermissions != "" {
-				params["accessPermissions"] = fmt.Sprintf("%v", flagAccessPermissions)
+				params["accessPermissions"] = formatCLIParamValue(flagAccessPermissions)
 			}
 			if flagVendorIds != "" {
-				params["vendorIds"] = fmt.Sprintf("%v", flagVendorIds)
+				params["vendorIds"] = formatCLIParamValue(flagVendorIds)
 			}
 			if flagManufacturerNames != "" {
-				params["manufacturerNames"] = fmt.Sprintf("%v", flagManufacturerNames)
+				params["manufacturerNames"] = formatCLIParamValue(flagManufacturerNames)
 			}
 			if flagBluetoothAddresses != "" {
-				params["bluetoothAddresses"] = fmt.Sprintf("%v", flagBluetoothAddresses)
+				params["bluetoothAddresses"] = formatCLIParamValue(flagBluetoothAddresses)
 			}
 			if flagInterfaces != "" {
-				params["interfaces"] = fmt.Sprintf("%v", flagInterfaces)
+				params["interfaces"] = formatCLIParamValue(flagInterfaces)
 			}
 			if flagUids != "" {
-				params["uids"] = fmt.Sprintf("%v", flagUids)
+				params["uids"] = formatCLIParamValue(flagUids)
 			}
 			if flagCreatedAtGte != "" {
-				params["createdAt__gte"] = fmt.Sprintf("%v", flagCreatedAtGte)
+				params["createdAt__gte"] = formatCLIParamValue(flagCreatedAtGte)
 			}
 			if flagMinorClasses != "" {
-				params["minorClasses"] = fmt.Sprintf("%v", flagMinorClasses)
+				params["minorClasses"] = formatCLIParamValue(flagMinorClasses)
 			}
 			if flagSiteIds != "" {
-				params["siteIds"] = fmt.Sprintf("%v", flagSiteIds)
+				params["siteIds"] = formatCLIParamValue(flagSiteIds)
 			}
 			if flagGroupIds != "" {
-				params["groupIds"] = fmt.Sprintf("%v", flagGroupIds)
+				params["groupIds"] = formatCLIParamValue(flagGroupIds)
 			}
 			if flagQuery != "" {
-				params["query"] = fmt.Sprintf("%v", flagQuery)
+				params["query"] = formatCLIParamValue(flagQuery)
 			}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			if flagCreatedAtBetween != "" {
-				params["createdAt__between"] = fmt.Sprintf("%v", flagCreatedAtBetween)
+				params["createdAt__between"] = formatCLIParamValue(flagCreatedAtBetween)
 			}
 			if flagTenant != "" {
-				params["tenant"] = fmt.Sprintf("%v", flagTenant)
+				params["tenant"] = formatCLIParamValue(flagTenant)
 			}
 			if flagActions != "" {
-				params["actions"] = fmt.Sprintf("%v", flagActions)
+				params["actions"] = formatCLIParamValue(flagActions)
 			}
 			if flagScopes != "" {
-				params["scopes"] = fmt.Sprintf("%v", flagScopes)
+				params["scopes"] = formatCLIParamValue(flagScopes)
 			}
 			if flagProductIds != "" {
-				params["productIds"] = fmt.Sprintf("%v", flagProductIds)
+				params["productIds"] = formatCLIParamValue(flagProductIds)
 			}
 			if flagDeviceInformationServiceInfoKeys != "" {
-				params["deviceInformationServiceInfoKeys"] = fmt.Sprintf("%v", flagDeviceInformationServiceInfoKeys)
+				params["deviceInformationServiceInfoKeys"] = formatCLIParamValue(flagDeviceInformationServiceInfoKeys)
 			}
 			if flagServiceClasses != "" {
-				params["serviceClasses"] = fmt.Sprintf("%v", flagServiceClasses)
+				params["serviceClasses"] = formatCLIParamValue(flagServiceClasses)
 			}
 			if flagCreatedAtGt != "" {
-				params["createdAt__gt"] = fmt.Sprintf("%v", flagCreatedAtGt)
+				params["createdAt__gt"] = formatCLIParamValue(flagCreatedAtGt)
 			}
 			if flagVersions != "" {
-				params["versions"] = fmt.Sprintf("%v", flagVersions)
+				params["versions"] = formatCLIParamValue(flagVersions)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "device-control", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

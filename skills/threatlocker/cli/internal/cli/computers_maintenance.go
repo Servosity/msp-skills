@@ -19,8 +19,9 @@ func newComputersMaintenanceCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "maintenance",
-		Short:       "Enable maintenance mode (disable protection) on computers for a window",
+		Use:   "maintenance",
+		Short: "Enable maintenance mode (disable protection) on computers for a window",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  threatlocker-cli computers maintenance --computer-ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "computers.maintenance", "pp:method": "POST", "pp:path": "/Computer/ComputerDisableProtection"},
 		RunE: func(cmd *cobra.Command, args []string) error {

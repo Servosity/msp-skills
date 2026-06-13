@@ -11,40 +11,47 @@ metadata:
     requires:
       bins:
         - datto-rmm-cli
+    install:
+      - kind: go
+        bins: [datto-rmm-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/datto-rmm/cmd/datto-rmm-cli
 ---
 
-# Datto RMM Claude Code Skill
+# Datto RMM  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `datto-rmm-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-rmm/install.sh)
+   npx -y @mvanhorn/printing-press-library install datto-rmm --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-rmm/install.ps1 | iex
-   ```
-3. Verify: `datto-rmm-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `datto-rmm-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
 
-datto-rmm-cli mirrors the full Datto RMM v2 API (sites, devices, alerts, jobs, audit, variables) and syncs your whole multi-site fleet into local SQLite. That unlocks questions no single API call can answer: stale devices, alert storms, software sprawl, warranty cliffs, patch and AV gaps, and one-shot QBR scorecards  -  all offline, agent-friendly, and composable with jq.
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/datto-rmm/cmd/datto-rmm-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+
+datto-rmm-cli mirrors the full Datto RMM v2 API (sites, devices, alerts, jobs, audit, variables) and syncs your whole multi-site fleet into local SQLite. That unlocks questions no single API call can answer: stale devices, alert storms, software sprawl, warranty cliffs, patch and AV gaps, and one-shot QBR scorecards  -  all offline, agent-native, and composable with jq.
 
 ## When to Use This CLI
 
 Use this CLI when an agent or MSP technician needs to answer fleet-wide questions about a Datto RMM account  -  which endpoints are stale, unprotected, behind on patches, or out of warranty  -  or to script bulk reads/writes (alerts, variables, quick jobs) that the web UI makes tedious. It is the right tool when the question spans more than one customer site, because the answer lives in the local store, not a single API call.
 
-## When NOT to Use This CLI
+## Anti-triggers
 
-- One-off interactive tasks better done in the Datto RMM web console (remote-control sessions, monitor policy editing, component authoring)  -  the API does not expose those surfaces.
-- Other RMM platforms (NinjaOne, N-central, ConnectWise Automate)  -  each has its own connector.
-- Datto BCDR/backup appliances  -  that is the `datto-bcdr` connector, a separate API.
-- Treating fleet analytics output as live truth without running `sync` first  -  the local store starts empty and reflects the last sync, not the current console.
-- Destructive bulk writes (`user resetApiKeys`, site moves, bulk resolve) without a plan-only review first; `fleet resolve-storm` refuses to act without `--confirm`.
+Do not use this CLI for:
+- Do not use this CLI for one-off interactive tasks better done in the Datto RMM web console (remote-control sessions, monitor policy editing, component authoring)  -  the API does not expose those surfaces.
+- Do not use it for other RMM platforms (NinjaOne, N-central, ConnectWise Automate)  -  each has its own connector.
+- Do not use it for Datto BCDR/backup appliances  -  that is the datto-bcdr connector, a separate API.
+- Do not use fleet analytics output as live truth without running sync first  -  the local store starts empty and reflects the last sync, not the current console.
+- Do not script destructive bulk writes (resetApiKeys, site moves, bulk resolve) without --dry-run/plan-only review first; fleet resolve-storm refuses to act without --confirm.
 
 ## Unique Capabilities
 
@@ -164,8 +171,6 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ## Command Reference
-
-> Write operations (alert resolve/mute/unmute, device quickjob/udf/warranty/site-move, site and account variables & settings, user resetApiKeys, fleet resolve-storm --confirm) are exposed as typed subcommands too  -  enumerate the full surface with `--help` on any group below.
 
 **account**  -  Manage account
 
@@ -288,7 +293,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  datto-rmm-cli alert <alertUid> --agent --select id,name,status
+  datto-rmm-cli alert <id> --agent --select id,name,status
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
@@ -340,7 +345,7 @@ A profile is a saved set of flag values, reused across invocations. Use it when 
 
 ```
 datto-rmm-cli profile save briefing --json
-datto-rmm-cli --profile briefing alert <alertUid>
+datto-rmm-cli --profile briefing alert <id>
 datto-rmm-cli profile list --json
 datto-rmm-cli profile show briefing
 datto-rmm-cli profile delete briefing --yes
@@ -370,13 +375,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `datto-rmm-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add datto-rmm-mcp -- datto-rmm-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/datto-rmm/cmd/datto-rmm-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add datto-rmm-mcp -- datto-rmm-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

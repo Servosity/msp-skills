@@ -15,9 +15,10 @@ func newExecBreachSearchPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "exec-breach-search",
-		Short:       "Exec breach search",
-		Long:        "Exec breach search",
+		Use:   "exec-breach-search",
+		Short: "Exec breach search",
+		Long:  "Exec breach search",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-breach-search --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-breach-search.create", "pp:method": "POST", "pp:path": "/ExecBreachSearch"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -48,10 +49,10 @@ func newExecBreachSearchPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

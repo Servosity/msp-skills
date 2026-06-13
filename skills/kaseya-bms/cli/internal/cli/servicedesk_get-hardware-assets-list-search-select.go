@@ -44,22 +44,22 @@ func newServicedeskGetHardwareAssetsListSearchSelectCmd(flags *rootFlags) *cobra
 
 			path := "/v2/servicedesk/hardwareasset/searchselect"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "servicedesk", path, map[string]string{
-				"Filter.CategoryIds":    fmt.Sprintf("%v", flagFilterCategoryIds),
-				"Filter.AssetName":      fmt.Sprintf("%v", flagFilterAssetName),
-				"Filter.MachineGroupId": fmt.Sprintf("%v", flagFilterMachineGroupId),
-				"Filter.LocationName":   fmt.Sprintf("%v", flagFilterLocationName),
-				"Filter.SerialNumber":   fmt.Sprintf("%v", flagFilterSerialNumber),
-				"Filter.Description":    fmt.Sprintf("%v", flagFilterDescription),
-				"Filter.IPAddress":      fmt.Sprintf("%v", flagFilterIPAddress),
-				"Filter.AccountId":      fmt.Sprintf("%v", flagFilterAccountId),
-				"Filter.ContactId":      fmt.Sprintf("%v", flagFilterContactId),
-				"Filter.ContactName":    fmt.Sprintf("%v", flagFilterContactName),
-				"Filter.ExcludedId":     fmt.Sprintf("%v", flagFilterExcludedId),
-				"Filter.IsActive":       fmt.Sprintf("%v", flagFilterIsActive),
-				"Sort":                  fmt.Sprintf("%v", flagSort),
-				"Exclude":               fmt.Sprintf("%v", flagExclude),
-				"PageSize":              fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":            fmt.Sprintf("%v", flagPageNumber),
+				"Filter.CategoryIds":    formatCLIParamValue(flagFilterCategoryIds),
+				"Filter.AssetName":      formatCLIParamValue(flagFilterAssetName),
+				"Filter.MachineGroupId": formatCLIParamValue(flagFilterMachineGroupId),
+				"Filter.LocationName":   formatCLIParamValue(flagFilterLocationName),
+				"Filter.SerialNumber":   formatCLIParamValue(flagFilterSerialNumber),
+				"Filter.Description":    formatCLIParamValue(flagFilterDescription),
+				"Filter.IPAddress":      formatCLIParamValue(flagFilterIPAddress),
+				"Filter.AccountId":      formatCLIParamValue(flagFilterAccountId),
+				"Filter.ContactId":      formatCLIParamValue(flagFilterContactId),
+				"Filter.ContactName":    formatCLIParamValue(flagFilterContactName),
+				"Filter.ExcludedId":     formatCLIParamValue(flagFilterExcludedId),
+				"Filter.IsActive":       formatCLIParamValue(flagFilterIsActive),
+				"Sort":                  formatCLIParamValue(flagSort),
+				"Exclude":               formatCLIParamValue(flagExclude),
+				"PageSize":              formatCLIParamValue(flagPageSize),
+				"PageNumber":            formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

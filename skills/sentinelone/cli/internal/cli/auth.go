@@ -39,15 +39,15 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 		Example: "  sentinelone-cli auth setup\n  sentinelone-cli auth setup --launch",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			w := cmd.OutOrStdout()
-			fmt.Fprintln(w, "See API docs: https://your-console.sentinelone.net/api-doc/")
+			fmt.Fprintln(w, "See API docs: https://twitter.com/frikkylikeme")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export SENTINELONE_API_TOKEN=\"<your-token>\"")
+			fmt.Fprintln(w, "  export SENTINELONE_API_TOKEN=\"your-token-here\"")
 			fmt.Fprintln(w, "  sentinelone-cli auth set-token <token>")
 			if !launch {
 				return nil
 			}
-			launchURL := "https://your-console.sentinelone.net/api-doc/"
+			launchURL := "https://twitter.com/frikkylikeme"
 			if cliutil.IsVerifyEnv() {
 				fmt.Fprintf(w, "would launch: %s\n", launchURL)
 				return nil

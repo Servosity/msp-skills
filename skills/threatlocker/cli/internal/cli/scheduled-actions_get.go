@@ -37,7 +37,7 @@ func newScheduledActionsGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/ScheduledAgentAction/GetForHydration"
 			params := map[string]string{}
 			if flagScheduledActionId != "" {
-				params["scheduledActionId"] = fmt.Sprintf("%v", flagScheduledActionId)
+				params["scheduledActionId"] = formatCLIParamValue(flagScheduledActionId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "scheduled-actions", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -317,6 +317,48 @@ func TestUpsertBatch_ExtractFailuresReturnedForPerItemMisses(t *testing.T) {
 	}
 }
 
+func TestSearchQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "ip", "value": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "cidr", "value": "172.16.192.0/18"}`),
+		json.RawMessage(`{"id": "host", "value": "host.example.com"}`),
+		json.RawMessage(`{"id": "email", "value": "user@example.com"}`),
+		json.RawMessage(`{"id": "mac", "value": "aa:bb:cc:dd:ee:ff"}`),
+		json.RawMessage(`{"id": "hyphen", "value": "some-name"}`),
+		json.RawMessage(`{"id": "multi", "value": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("search-regression", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"172.16.192.0/18",
+		"host.example.com",
+		"user@example.com",
+		"aa:bb:cc:dd:ee:ff",
+		"some-name",
+		"error timeout",
+	} {
+		results, err := s.Search(query, 10)
+		if err != nil {
+			t.Fatalf("Search(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("Search(%q) returned no results", query)
+		}
+	}
+}
+
 // TestUpsertBatch_PopulatesActivityLogsTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed activity_logs table. Regression for issue #268: before the fix, paginated
@@ -863,6 +905,40 @@ func TestUpsertBatch_PopulatesFoldersTable(t *testing.T) {
 	}
 }
 
+func TestSearchFoldersQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "name": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "name": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "name": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("folders", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchFolders(query, 10)
+		if err != nil {
+			t.Fatalf("SearchFolders(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchFolders(%q) returned no results", query)
+		}
+	}
+}
+
 // TestUpsertBatch_PopulatesGroupsTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed groups table. Regression for issue #268: before the fix, paginated
@@ -1031,6 +1107,40 @@ func TestUpsertBatch_PopulatesMagicDashTable(t *testing.T) {
 	}
 }
 
+func TestSearchMagicDashQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "title": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "title": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "title": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("magic-dash", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchMagicDash(query, 10)
+		if err != nil {
+			t.Fatalf("SearchMagicDash(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchMagicDash(%q) returned no results", query)
+		}
+	}
+}
+
 // TestUpsertBatch_PopulatesMatchersTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed matchers table. Regression for issue #268: before the fix, paginated
@@ -1157,6 +1267,40 @@ func TestUpsertBatch_PopulatesProcedureTasksTable(t *testing.T) {
 	}
 }
 
+func TestSearchProcedureTasksQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "name": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "name": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "name": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("procedure-tasks", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchProcedureTasks(query, 10)
+		if err != nil {
+			t.Fatalf("SearchProcedureTasks(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchProcedureTasks(%q) returned no results", query)
+		}
+	}
+}
+
 // TestUpsertBatch_PopulatesProceduresTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed procedures table. Regression for issue #268: before the fix, paginated
@@ -1196,6 +1340,40 @@ func TestUpsertBatch_PopulatesProceduresTable(t *testing.T) {
 	}
 	if typed != len(items) {
 		t.Fatalf("procedures count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
+	}
+}
+
+func TestSearchProceduresQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "name": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "name": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "name": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("procedures", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchProcedures(query, 10)
+		if err != nil {
+			t.Fatalf("SearchProcedures(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchProcedures(%q) returned no results", query)
+		}
 	}
 }
 

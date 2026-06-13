@@ -35,16 +35,16 @@ func newPurchaseOrderGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagExtrareceivablelines != false {
-				params["extrareceivablelines"] = fmt.Sprintf("%v", flagExtrareceivablelines)
+				params["extrareceivablelines"] = formatCLIParamValue(flagExtrareceivablelines)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagInvoiceablelines != false {
-				params["invoiceablelines"] = fmt.Sprintf("%v", flagInvoiceablelines)
+				params["invoiceablelines"] = formatCLIParamValue(flagInvoiceablelines)
 			}
 			if flagReceivablelines != false {
-				params["receivablelines"] = fmt.Sprintf("%v", flagReceivablelines)
+				params["receivablelines"] = formatCLIParamValue(flagReceivablelines)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "purchase-order", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

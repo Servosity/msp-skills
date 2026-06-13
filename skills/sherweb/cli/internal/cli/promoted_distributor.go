@@ -29,7 +29,7 @@ func newDistributorPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/distributor/v1/billing/payable-charges"
 			params := map[string]string{}
 			if flagDate != "" {
-				params["date"] = fmt.Sprintf("%v", flagDate)
+				params["date"] = formatCLIParamValue(flagDate)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "distributor", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

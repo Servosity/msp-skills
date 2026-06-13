@@ -30,9 +30,9 @@ func newQueriesGetDeviceUsageCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/queries/backup/usage"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "queries", path, map[string]string{
-				"cursor":                fmt.Sprintf("%v", flagCursor),
-				"pageSize":              fmt.Sprintf("%v", flagPageSize),
-				"includeDeletedDevices": fmt.Sprintf("%v", flagIncludeDeletedDevices),
+				"cursor":                formatCLIParamValue(flagCursor),
+				"pageSize":              formatCLIParamValue(flagPageSize),
+				"includeDeletedDevices": formatCLIParamValue(flagIncludeDeletedDevices),
 			}, nil, flagAll, "cursor", "cursor", "pageSize", "cursor", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

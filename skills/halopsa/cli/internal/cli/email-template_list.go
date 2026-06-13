@@ -33,22 +33,22 @@ func newEmailTemplateListCmd(flags *rootFlags) *cobra.Command {
 			path := "/EmailTemplate"
 			params := map[string]string{}
 			if flagAccessControlLevel != 0 {
-				params["access_control_level"] = fmt.Sprintf("%v", flagAccessControlLevel)
+				params["access_control_level"] = formatCLIParamValue(flagAccessControlLevel)
 			}
 			if flagIgnoreMg != false {
-				params["ignore_mg"] = fmt.Sprintf("%v", flagIgnoreMg)
+				params["ignore_mg"] = formatCLIParamValue(flagIgnoreMg)
 			}
 			if flagIsconfig != false {
-				params["isconfig"] = fmt.Sprintf("%v", flagIsconfig)
+				params["isconfig"] = formatCLIParamValue(flagIsconfig)
 			}
 			if flagMessagegroup != 0 {
-				params["messagegroup"] = fmt.Sprintf("%v", flagMessagegroup)
+				params["messagegroup"] = formatCLIParamValue(flagMessagegroup)
 			}
 			if flagReleaseOnly != false {
-				params["release_only"] = fmt.Sprintf("%v", flagReleaseOnly)
+				params["release_only"] = formatCLIParamValue(flagReleaseOnly)
 			}
 			if flagPortalcss != false {
-				params["portalcss"] = fmt.Sprintf("%v", flagPortalcss)
+				params["portalcss"] = formatCLIParamValue(flagPortalcss)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "email-template", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

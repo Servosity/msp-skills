@@ -32,10 +32,10 @@ func newAccountExportEventsJsonCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/account/events.json"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "account", path, map[string]string{
-				"search":    fmt.Sprintf("%v", flagSearch),
-				"fields":    fmt.Sprintf("%v", flagFields),
-				"page_size": fmt.Sprintf("%v", flagPageSize),
-				"start_key": fmt.Sprintf("%v", flagStartKey),
+				"search":    formatCLIParamValue(flagSearch),
+				"fields":    formatCLIParamValue(flagFields),
+				"page_size": formatCLIParamValue(flagPageSize),
+				"start_key": formatCLIParamValue(flagStartKey),
 			}, nil, flagAll, "", "offset", "page_size", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

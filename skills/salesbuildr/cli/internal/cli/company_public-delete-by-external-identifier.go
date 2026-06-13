@@ -14,8 +14,9 @@ import (
 func newCompanyPublicDeleteByExternalIdentifierCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "public-delete-by-external-identifier <externalIdentifier>",
-		Short:       "Delete by ext ID",
+		Use:   "public-delete-by-external-identifier <externalIdentifier>",
+		Short: "Delete by ext ID",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  salesbuildr-cli company public-delete-by-external-identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "company.public-delete-by-external-identifier", "pp:method": "DELETE", "pp:path": "/company/ext/{externalIdentifier}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

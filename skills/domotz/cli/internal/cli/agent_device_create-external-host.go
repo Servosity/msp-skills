@@ -18,8 +18,9 @@ func newAgentDeviceCreateExternalHostCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create-external-host <agent_id>",
-		Short:       "Creates an external host.",
+		Use:   "create-external-host <agent_id>",
+		Short: "Creates an external host.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  domotz-cli agent device create-external-host 550e8400-e29b-41d4-a716-446655440000 --host example-value",
 		Annotations: map[string]string{"pp:endpoint": "device.create-external-host", "pp:method": "POST", "pp:path": "/agent/{agent_id}/device/external-host"},
 		RunE: func(cmd *cobra.Command, args []string) error {

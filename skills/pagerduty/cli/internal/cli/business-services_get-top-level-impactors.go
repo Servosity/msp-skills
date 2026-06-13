@@ -28,7 +28,7 @@ func newBusinessServicesGetTopLevelImpactorsCmd(flags *rootFlags) *cobra.Command
 			path := "/business_services/impactors"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids[]"] = fmt.Sprintf("%v", flagIds)
+				params["ids[]"] = formatCLIParamValue(flagIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "business-services", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

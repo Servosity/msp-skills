@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"threatlocker-pp-cli/internal/store"
 )
 
 type deviceHealth struct {
@@ -59,7 +58,7 @@ Sync first: threatlocker-cli sync --resources computers,online_devices`,
 			if dbPath == "" {
 				dbPath = defaultDBPath("threatlocker-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := tlOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'threatlocker-cli sync --resources computers,online_devices' first.", err)
 			}

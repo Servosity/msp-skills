@@ -49,15 +49,15 @@ func newPublicSearchCatalogItemsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/public/v2/product-catalog/items/search"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "public", path, map[string]string{
-				"page":          fmt.Sprintf("%v", flagPage),
-				"per_page":      fmt.Sprintf("%v", flagPerPage),
-				"query":         fmt.Sprintf("%v", flagQuery),
-				"order_by":      fmt.Sprintf("%v", flagOrderBy),
-				"types":         fmt.Sprintf("%v", flagTypes),
-				"billing_types": fmt.Sprintf("%v", flagBillingTypes),
-				"exclude_uuids": fmt.Sprintf("%v", flagExcludeUuids),
-				"category_id":   fmt.Sprintf("%v", flagCategoryId),
-				"no_category":   fmt.Sprintf("%v", flagNoCategory),
+				"page":          formatCLIParamValue(flagPage),
+				"per_page":      formatCLIParamValue(flagPerPage),
+				"query":         formatCLIParamValue(flagQuery),
+				"order_by":      formatCLIParamValue(flagOrderBy),
+				"types":         formatCLIParamValue(flagTypes),
+				"billing_types": formatCLIParamValue(flagBillingTypes),
+				"exclude_uuids": formatCLIParamValue(flagExcludeUuids),
+				"category_id":   formatCLIParamValue(flagCategoryId),
+				"no_category":   formatCLIParamValue(flagNoCategory),
 			}, nil, flagAll, "page", "page", "per_page", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

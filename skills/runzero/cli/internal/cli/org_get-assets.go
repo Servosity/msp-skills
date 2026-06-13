@@ -30,13 +30,13 @@ func newOrgGetAssetsCmd(flags *rootFlags) *cobra.Command {
 			path := "/org/assets"
 			params := map[string]string{}
 			if flagOid != "" {
-				params["_oid"] = fmt.Sprintf("%v", flagOid)
+				params["_oid"] = formatCLIParamValue(flagOid)
 			}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			if flagFields != "" {
-				params["fields"] = fmt.Sprintf("%v", flagFields)
+				params["fields"] = formatCLIParamValue(flagFields)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "org", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

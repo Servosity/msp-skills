@@ -48,14 +48,14 @@ func newChannelResourceOtherReadEventsGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/channel/v1/events"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "channel", path, map[string]string{
-				"fromDate":   fmt.Sprintf("%v", flagFromDate),
-				"orderId":    fmt.Sprintf("%v", flagOrderId),
-				"page":       fmt.Sprintf("%v", flagPage),
-				"searchText": fmt.Sprintf("%v", flagSearchText),
-				"size":       fmt.Sprintf("%v", flagSize),
-				"sortOrder":  fmt.Sprintf("%v", flagSortOrder),
-				"toDate":     fmt.Sprintf("%v", flagToDate),
-				"type":       fmt.Sprintf("%v", flagType),
+				"fromDate":   formatCLIParamValue(flagFromDate),
+				"orderId":    formatCLIParamValue(flagOrderId),
+				"page":       formatCLIParamValue(flagPage),
+				"searchText": formatCLIParamValue(flagSearchText),
+				"size":       formatCLIParamValue(flagSize),
+				"sortOrder":  formatCLIParamValue(flagSortOrder),
+				"toDate":     formatCLIParamValue(flagToDate),
+				"type":       formatCLIParamValue(flagType),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

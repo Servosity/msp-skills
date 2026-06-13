@@ -37,22 +37,22 @@ func newSiteGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagClientOverride != 0 {
-				params["client_override"] = fmt.Sprintf("%v", flagClientOverride)
+				params["client_override"] = formatCLIParamValue(flagClientOverride)
 			}
 			if flagDomain != "" {
-				params["domain"] = fmt.Sprintf("%v", flagDomain)
+				params["domain"] = formatCLIParamValue(flagDomain)
 			}
 			if flagIncludeactivity != false {
-				params["includeactivity"] = fmt.Sprintf("%v", flagIncludeactivity)
+				params["includeactivity"] = formatCLIParamValue(flagIncludeactivity)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagIssetup != false {
-				params["issetup"] = fmt.Sprintf("%v", flagIssetup)
+				params["issetup"] = formatCLIParamValue(flagIssetup)
 			}
 			if flagTickettypeId != "" {
-				params["tickettype_id"] = fmt.Sprintf("%v", flagTickettypeId)
+				params["tickettype_id"] = formatCLIParamValue(flagTickettypeId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "site", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

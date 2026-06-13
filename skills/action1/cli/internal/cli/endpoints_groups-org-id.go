@@ -35,10 +35,10 @@ func newEndpointsGroupsOrgIdCmd(flags *rootFlags) *cobra.Command {
 			path := "/endpoints/groups/{orgId}"
 			path = replacePathParam(path, "orgId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "endpoints", path, map[string]string{
-				"filter": fmt.Sprintf("%v", flagFilter),
-				"sortby": fmt.Sprintf("%v", flagSortby),
-				"from":   fmt.Sprintf("%v", flagFrom),
-				"limit":  fmt.Sprintf("%v", flagLimit),
+				"filter": formatCLIParamValue(flagFilter),
+				"sortby": formatCLIParamValue(flagSortby),
+				"from":   formatCLIParamValue(flagFrom),
+				"limit":  formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

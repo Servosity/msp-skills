@@ -31,10 +31,10 @@ func newAgentListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/agent"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "agent", path, map[string]string{
-				"page_size":    fmt.Sprintf("%v", flagPageSize),
-				"page_number":  fmt.Sprintf("%v", flagPageNumber),
-				"display_name": fmt.Sprintf("%v", flagDisplayName),
-				"team_name":    fmt.Sprintf("%v", flagTeamName),
+				"page_size":    formatCLIParamValue(flagPageSize),
+				"page_number":  formatCLIParamValue(flagPageNumber),
+				"display_name": formatCLIParamValue(flagDisplayName),
+				"team_name":    formatCLIParamValue(flagTeamName),
 			}, nil, flagAll, "page_number", "page", "page_size", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

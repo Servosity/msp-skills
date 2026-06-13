@@ -17,7 +17,7 @@ func newAccountsPromotedCmd(flags *rootFlags) *cobra.Command {
 		Use:         "accounts",
 		Short:       "List all customer accounts",
 		Long:        "List all customer accounts",
-		Example:     "  nerdio-cli accounts",
+		Example:     "  nerdio-cli accounts --agent",
 		Annotations: map[string]string{"pp:endpoint": "accounts.list", "pp:method": "GET", "pp:path": "/rest-api/v1/accounts", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()

@@ -30,13 +30,13 @@ func newRackStorageItemsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/rack_storage_items"
 			params := map[string]string{}
 			if flagRackStorageId != "" {
-				params["rack_storage_id"] = fmt.Sprintf("%v", flagRackStorageId)
+				params["rack_storage_id"] = formatCLIParamValue(flagRackStorageId)
 			}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPageSize != 0 {
-				params["page_size"] = fmt.Sprintf("%v", flagPageSize)
+				params["page_size"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "rack-storage-items", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

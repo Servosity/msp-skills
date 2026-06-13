@@ -40,10 +40,10 @@ func newIntegrationsGetItgChecklistsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/integrations/itglue/checklists"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integrations", path, map[string]string{
-				"Name":       fmt.Sprintf("%v", flagName),
-				"accountId":  fmt.Sprintf("%v", flagAccountId),
-				"PageSize":   fmt.Sprintf("%v", flagPageSize),
-				"PageNumber": fmt.Sprintf("%v", flagPageNumber),
+				"Name":       formatCLIParamValue(flagName),
+				"accountId":  formatCLIParamValue(flagAccountId),
+				"PageSize":   formatCLIParamValue(flagPageSize),
+				"PageNumber": formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

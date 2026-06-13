@@ -37,22 +37,22 @@ func newItemGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagDbcCompanyId != "" {
-				params["dbc_company_id"] = fmt.Sprintf("%v", flagDbcCompanyId)
+				params["dbc_company_id"] = formatCLIParamValue(flagDbcCompanyId)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagKashflowtenantid != "" {
-				params["kashflowtenantid"] = fmt.Sprintf("%v", flagKashflowtenantid)
+				params["kashflowtenantid"] = formatCLIParamValue(flagKashflowtenantid)
 			}
 			if flagQbocompanyid != "" {
-				params["qbocompanyid"] = fmt.Sprintf("%v", flagQbocompanyid)
+				params["qbocompanyid"] = formatCLIParamValue(flagQbocompanyid)
 			}
 			if flagSagebusinesscloudtenantid != "" {
-				params["sagebusinesscloudtenantid"] = fmt.Sprintf("%v", flagSagebusinesscloudtenantid)
+				params["sagebusinesscloudtenantid"] = formatCLIParamValue(flagSagebusinesscloudtenantid)
 			}
 			if flagXerotenantid != "" {
-				params["xerotenantid"] = fmt.Sprintf("%v", flagXerotenantid)
+				params["xerotenantid"] = formatCLIParamValue(flagXerotenantid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "item", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

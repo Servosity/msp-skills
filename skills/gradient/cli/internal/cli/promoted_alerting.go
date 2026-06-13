@@ -24,7 +24,7 @@ func newAlertingPromotedCmd(flags *rootFlags) *cobra.Command {
 		Use:         "alerting <accountId>",
 		Short:       "Adds an alert to the alerting queue",
 		Long:        "Adds an alert to the alerting queue",
-		Example:     "  gradient-cli alerting 550e8400-e29b-41d4-a716-446655440000 --alert-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  gradient-cli alerting 550e8400-e29b-41d4-a716-446655440000 --alert-id 6282da96662fd1527a2c8803",
 		Annotations: map[string]string{"pp:endpoint": "alerting.dispatch", "pp:method": "POST", "pp:path": "/vendor-api/alerting/{accountId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with a required flag/body prints help
@@ -92,10 +92,10 @@ func newAlertingPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

@@ -34,8 +34,8 @@ func newProductsFollowersGetProductCmd(flags *rootFlags) *cobra.Command {
 			path := "/products/{id}/followers"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "followers", path, map[string]string{
-				"start": fmt.Sprintf("%v", flagStart),
-				"limit": fmt.Sprintf("%v", flagLimit),
+				"start": formatCLIParamValue(flagStart),
+				"limit": formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

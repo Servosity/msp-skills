@@ -32,10 +32,10 @@ func newOrgControllerDirectGetAgentsDevicesCmd(flags *rootFlags) *cobra.Command 
 
 			path := "/org/agents/devices"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "org", path, map[string]string{
-				"page":      fmt.Sprintf("%v", flagPage),
-				"page_size": fmt.Sprintf("%v", flagPageSize),
-				"limit":     fmt.Sprintf("%v", flagLimit),
-				"order_by":  fmt.Sprintf("%v", flagOrderBy),
+				"page":      formatCLIParamValue(flagPage),
+				"page_size": formatCLIParamValue(flagPageSize),
+				"limit":     formatCLIParamValue(flagLimit),
+				"order_by":  formatCLIParamValue(flagOrderBy),
 			}, nil, flagAll, "page", "page", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

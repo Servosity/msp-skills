@@ -34,13 +34,13 @@ func newLeadsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/leads"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "leads", path, map[string]string{
-				"statuses":    fmt.Sprintf("%v", flagStatuses),
-				"status_list": fmt.Sprintf("%v", flagStatusList),
-				"users":       fmt.Sprintf("%v", flagUsers),
-				"mailbox_ids": fmt.Sprintf("%v", flagMailboxIds),
-				"has_ticket":  fmt.Sprintf("%v", flagHasTicket),
-				"query":       fmt.Sprintf("%v", flagQuery),
-				"page":        fmt.Sprintf("%v", flagPage),
+				"statuses":    formatCLIParamValue(flagStatuses),
+				"status_list": formatCLIParamValue(flagStatusList),
+				"users":       formatCLIParamValue(flagUsers),
+				"mailbox_ids": formatCLIParamValue(flagMailboxIds),
+				"has_ticket":  formatCLIParamValue(flagHasTicket),
+				"query":       formatCLIParamValue(flagQuery),
+				"page":        formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

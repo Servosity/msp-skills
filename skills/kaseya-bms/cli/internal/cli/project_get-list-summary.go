@@ -36,14 +36,14 @@ func newProjectGetListSummaryCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/project/projects/summary"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "project", path, map[string]string{
-				"Filter.AccountId":     fmt.Sprintf("%v", flagFilterAccountId),
-				"Filter.StatusIds":     fmt.Sprintf("%v", flagFilterStatusIds),
-				"Filter.StartDateFrom": fmt.Sprintf("%v", flagFilterStartDateFrom),
-				"Filter.StartDateTo":   fmt.Sprintf("%v", flagFilterStartDateTo),
-				"Sort":                 fmt.Sprintf("%v", flagSort),
-				"Exclude":              fmt.Sprintf("%v", flagExclude),
-				"PageSize":             fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":           fmt.Sprintf("%v", flagPageNumber),
+				"Filter.AccountId":     formatCLIParamValue(flagFilterAccountId),
+				"Filter.StatusIds":     formatCLIParamValue(flagFilterStatusIds),
+				"Filter.StartDateFrom": formatCLIParamValue(flagFilterStartDateFrom),
+				"Filter.StartDateTo":   formatCLIParamValue(flagFilterStartDateTo),
+				"Sort":                 formatCLIParamValue(flagSort),
+				"Exclude":              formatCLIParamValue(flagExclude),
+				"PageSize":             formatCLIParamValue(flagPageSize),
+				"PageNumber":           formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

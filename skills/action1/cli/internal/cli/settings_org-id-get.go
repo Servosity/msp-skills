@@ -46,11 +46,11 @@ func newSettingsOrgIdGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/settings/all"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "settings", path, map[string]string{
-				"filter":   fmt.Sprintf("%v", flagFilter),
-				"sortby":   fmt.Sprintf("%v", flagSortby),
-				"from":     fmt.Sprintf("%v", flagFrom),
-				"limit":    fmt.Sprintf("%v", flagLimit),
-				"category": fmt.Sprintf("%v", flagCategory),
+				"filter":   formatCLIParamValue(flagFilter),
+				"sortby":   formatCLIParamValue(flagSortby),
+				"from":     formatCLIParamValue(flagFrom),
+				"limit":    formatCLIParamValue(flagLimit),
+				"category": formatCLIParamValue(flagCategory),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

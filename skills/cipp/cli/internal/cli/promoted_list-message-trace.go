@@ -28,9 +28,10 @@ func newListMessageTracePromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTraceDetail string
 
 	cmd := &cobra.Command{
-		Use:         "list-message-trace",
-		Short:       "List message trace",
-		Long:        "List message trace",
+		Use:   "list-message-trace",
+		Short: "List message trace",
+		Long:  "List message trace",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-message-trace --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-message-trace.create", "pp:method": "POST", "pp:path": "/ListMessageTrace"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -97,10 +98,10 @@ func newListMessageTracePromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

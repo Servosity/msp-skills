@@ -17,7 +17,7 @@ func newMembersDetailsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "details <id>",
 		Aliases:     []string{"get"},
 		Short:       "A method to retrieve a member's details by ID. **User** - is an account with a license in the Organization.",
-		Example:     "  pandadoc-cli members details 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli members details radQBiBkU7MBk59NSgaGf5",
 		Annotations: map[string]string{"pp:endpoint": "members.details", "pp:method": "GET", "pp:path": "/members/{id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

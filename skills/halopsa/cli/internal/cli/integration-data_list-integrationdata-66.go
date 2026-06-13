@@ -30,13 +30,13 @@ func newIntegrationDataListIntegrationdata66Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/Okta"
 			params := map[string]string{}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			if flagOverrideMappingId != "" {
-				params["override_mapping_id"] = fmt.Sprintf("%v", flagOverrideMappingId)
+				params["override_mapping_id"] = formatCLIParamValue(flagOverrideMappingId)
 			}
 			if flagValidate != false {
-				params["validate"] = fmt.Sprintf("%v", flagValidate)
+				params["validate"] = formatCLIParamValue(flagValidate)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

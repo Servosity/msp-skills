@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 
-	"datto-bcdr-pp-cli/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -46,7 +45,7 @@ func newNovelStorageRunwayCmd(flags *rootFlags) *cobra.Command {
 			if dbPath == "" {
 				dbPath = defaultDBPath("datto-bcdr-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := nvOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening database: %w", err)
 			}

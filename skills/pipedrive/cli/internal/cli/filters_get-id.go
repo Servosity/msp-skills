@@ -32,7 +32,7 @@ func newFiltersGetIdCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagIncludeFieldCode != false {
-				params["include_field_code"] = fmt.Sprintf("%v", flagIncludeFieldCode)
+				params["include_field_code"] = formatCLIParamValue(flagIncludeFieldCode)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "filters", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

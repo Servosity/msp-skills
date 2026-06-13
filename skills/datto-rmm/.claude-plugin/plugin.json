@@ -1,6 +1,6 @@
 {
   "name": "datto-rmm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
   "author": {
     "name": "Servosity",

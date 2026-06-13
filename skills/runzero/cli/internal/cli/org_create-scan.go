@@ -52,7 +52,7 @@ func newOrgCreateScanCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-scan <site_id>",
 		Short:       "Create a scan task for a given site",
-		Example:     "  runzero-cli org create-scan 550e8400-e29b-41d4-a716-446655440000 --targets example-value",
+		Example:     "  runzero-cli org create-scan 550e8400-e29b-41d4-a716-446655440000 --targets defaults",
 		Annotations: map[string]string{"pp:endpoint": "org.create-scan", "pp:method": "PUT", "pp:path": "/org/sites/{site_id}/scan"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
@@ -78,7 +78,7 @@ func newOrgCreateScanCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "site_id", args[0])
 			params := map[string]string{}
 			if flagOid != "" {
-				params["_oid"] = fmt.Sprintf("%v", flagOid)
+				params["_oid"] = formatCLIParamValue(flagOid)
 			}
 			var body map[string]any
 			if stdinBody {

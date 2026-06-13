@@ -31,16 +31,16 @@ func newVersionInfoListVersioninfo2Cmd(flags *rootFlags) *cobra.Command {
 			path := "/VersionInfo/SearchVersionInfo"
 			params := map[string]string{}
 			if flagCount != 0 {
-				params["count"] = fmt.Sprintf("%v", flagCount)
+				params["count"] = formatCLIParamValue(flagCount)
 			}
 			if flagDontshownotes != false {
-				params["dontshownotes"] = fmt.Sprintf("%v", flagDontshownotes)
+				params["dontshownotes"] = formatCLIParamValue(flagDontshownotes)
 			}
 			if flagProductId != "" {
-				params["product_id"] = fmt.Sprintf("%v", flagProductId)
+				params["product_id"] = formatCLIParamValue(flagProductId)
 			}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "version-info", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -131,7 +131,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "atera-cli",
-			Description: "Every Atera RMM + PSA endpoint, plus a local SQLite mirror that answers fleet-health, SLA",
+			Description: "Every Atera RMM + PSA endpoint, plus a local SQLite mirror that answers fleet-health, SLA, and book-of-business questions no single API call can.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

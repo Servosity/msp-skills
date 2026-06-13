@@ -173,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export DATTO_BCDR_PUBLIC_KEY=<your-key>"
+					report["auth_hint"] = "Set Basic credentials with: export DATTO_BCDR_PUBLIC_KEY=\"your-token-here\" DATTO_BCDR_SECRET_KEY=\"your-token-here\""
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"

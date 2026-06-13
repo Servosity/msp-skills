@@ -19,8 +19,9 @@ func newProductsUploadAndLinkImageCmd(flags *rootFlags) *cobra.Command {
 	var bodyUploadType string
 
 	cmd := &cobra.Command{
-		Use:         "upload-and-link-image",
-		Short:       "Uploads an image file and links it to a specific product resource.",
+		Use:   "upload-and-link-image",
+		Short: "Uploads an image file and links it to a specific product resource.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli products upload-and-link-image --file example-value",
 		Annotations: map[string]string{"pp:endpoint": "products.upload-and-link-image", "pp:method": "POST", "pp:path": "/products/v1/resources/image/uploadAndLink"},
 		RunE: func(cmd *cobra.Command, args []string) error {

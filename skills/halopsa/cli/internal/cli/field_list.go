@@ -29,10 +29,10 @@ func newFieldListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Field"
 			params := map[string]string{}
 			if flagKind != "" {
-				params["kind"] = fmt.Sprintf("%v", flagKind)
+				params["kind"] = formatCLIParamValue(flagKind)
 			}
 			if flagTypeId != "" {
-				params["type_id"] = fmt.Sprintf("%v", flagTypeId)
+				params["type_id"] = formatCLIParamValue(flagTypeId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "field", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

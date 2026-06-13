@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "knowbe4-mcp",
   "display_name": "KnowBe4",
-  "version": "0.1.0",
-  "description": "Every KnowBe4 KMSAT reporting feature plus a local SQLite store that answers the cross-client questions the console can't \u2014 repeat-clicker hunts and training-coverage anti-joins.",
+  "version": "0.1.1",
+  "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer.",
   "author": {
     "name": "Servosity Inc."
   },
@@ -43,10 +43,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T22:46:37.313048Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:06:30.709989Z",
     "spec_checksum": "sha256:9b9005bbd5063501ec82550ce31a8cd74b696fdab8a2c5f31dd9c09f48414dbd",
     "spec_format": "internal"
   }

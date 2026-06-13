@@ -31,8 +31,9 @@ func newLaunchpointsLaunchpointCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "launchpoint",
-		Short:       "Create a launchpoint.",
+		Use:   "launchpoint",
+		Short: "Create a launchpoint.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  liongard-cli launchpoints launchpoint --active-end example-value",
 		Annotations: map[string]string{"pp:endpoint": "launchpoints.launchpoint", "pp:method": "POST", "pp:path": "/launchpoints"},
 		RunE: func(cmd *cobra.Command, args []string) error {

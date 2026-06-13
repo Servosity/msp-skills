@@ -14,9 +14,10 @@ import (
 func newRmmAssetsGetJobStatusCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "get-job-status <integrationType> <jobId>",
-		Aliases:     []string{"get"},
-		Short:       "Get job status",
+		Use:     "get-job-status <integrationType> <jobId>",
+		Aliases: []string{"get"},
+		Short:   "Get job status",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli rmm assets get-job-status example-value 42",
 		Annotations: map[string]string{"pp:endpoint": "assets.get-job-status", "pp:method": "GET", "pp:path": "/v2/rmm/{integrationType}/assets/status/{jobId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

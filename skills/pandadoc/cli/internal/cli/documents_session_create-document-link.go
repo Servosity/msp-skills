@@ -21,7 +21,7 @@ func newDocumentsSessionCreateDocumentLinkCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-document-link <id>",
 		Aliases:     []string{"create"},
 		Short:       "Creates a document session for a recipient to view and sign a document.",
-		Example:     "  pandadoc-cli documents session create-document-link 550e8400-e29b-41d4-a716-446655440000 --recipient Test User",
+		Example:     "  pandadoc-cli documents session create-document-link ZPeAfcpzr9aiVs5vqUf6jg --recipient Test User",
 		Annotations: map[string]string{"pp:endpoint": "session.create-document-link", "pp:method": "POST", "pp:path": "/documents/{id}/session"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

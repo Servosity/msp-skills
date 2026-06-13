@@ -20,9 +20,10 @@ func newEditTransportRulePromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "edit-transport-rule",
-		Short:       "Edit transport rule",
-		Long:        "Edit transport rule",
+		Use:   "edit-transport-rule",
+		Short: "Edit transport rule",
+		Long:  "Edit transport rule",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli edit-transport-rule --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "edit-transport-rule.create", "pp:method": "POST", "pp:path": "/EditTransportRule"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -47,13 +48,13 @@ func newEditTransportRulePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/EditTransportRule"
 			params := map[string]string{}
 			if flagGuid != "" {
-				params["guid"] = fmt.Sprintf("%v", flagGuid)
+				params["guid"] = formatCLIParamValue(flagGuid)
 			}
 			if flagState != "" {
-				params["state"] = fmt.Sprintf("%v", flagState)
+				params["state"] = formatCLIParamValue(flagState)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -71,10 +72,10 @@ func newEditTransportRulePromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

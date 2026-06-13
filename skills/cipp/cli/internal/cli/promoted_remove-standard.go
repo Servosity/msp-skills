@@ -29,7 +29,7 @@ func newRemoveStandardPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/RemoveStandard"
 			params := map[string]string{}
 			if flagID != "" {
-				params["ID"] = fmt.Sprintf("%v", flagID)
+				params["ID"] = formatCLIParamValue(flagID)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "remove-standard", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

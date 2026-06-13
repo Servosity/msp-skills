@@ -17,9 +17,10 @@ func newEventOrchestrationsUnroutedUpdateOrchPathCmd(flags *rootFlags) *cobra.Co
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update-orch-path <id>",
-		Aliases:     []string{"update"},
-		Short:       "Update a Global Event Orchestration's Rules for Unrouted events.",
+		Use:     "update-orch-path <id>",
+		Aliases: []string{"update"},
+		Short:   "Update a Global Event Orchestration's Rules for Unrouted events.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pagerduty-cli event-orchestrations unrouted update-orch-path 550e8400-e29b-41d4-a716-446655440000 --orchestration-path example-value",
 		Annotations: map[string]string{"pp:endpoint": "unrouted.update-orch-path", "pp:method": "PUT", "pp:path": "/event_orchestrations/{id}/unrouted"},
 		RunE: func(cmd *cobra.Command, args []string) error {

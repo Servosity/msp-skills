@@ -31,10 +31,10 @@ func newDeviceListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/bcdr/device"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "device", path, map[string]string{
-				"_page":                    fmt.Sprintf("%v", flagPage),
-				"_perPage":                 fmt.Sprintf("%v", flagPerPage),
-				"showHiddenDevices":        fmt.Sprintf("%v", flagShowHiddenDevices),
-				"showChildResellerDevices": fmt.Sprintf("%v", flagShowChildResellerDevices),
+				"_page":                    formatCLIParamValue(flagPage),
+				"_perPage":                 formatCLIParamValue(flagPerPage),
+				"showHiddenDevices":        formatCLIParamValue(flagShowHiddenDevices),
+				"showChildResellerDevices": formatCLIParamValue(flagShowChildResellerDevices),
 			}, nil, flagAll, "", "offset", "", "", "pagination.totalPages", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

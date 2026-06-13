@@ -14,9 +14,10 @@ import (
 func newHashesReputationHashCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "hash <hash>",
-		Aliases:     []string{"get"},
-		Short:       "Get the reputation of a hash, given the required SHA1.",
+		Use:     "hash <hash>",
+		Aliases: []string{"get"},
+		Short:   "Get the reputation of a hash, given the required SHA1.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli hashes reputation hash example-value",
 		Annotations: map[string]string{"pp:endpoint": "reputation.hash", "pp:method": "GET", "pp:path": "/hashes/{hash}/reputation", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

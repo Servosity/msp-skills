@@ -18,9 +18,10 @@ func newAppMarketUpdateTransferPlatformConfigurationCmd(flags *rootFlags) *cobra
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update-transfer-platform-configuration <transferPlatformConfigurationId>",
-		Aliases:     []string{"update"},
-		Short:       "Updates the specified transfer platform configuration",
+		Use:     "update-transfer-platform-configuration <transferPlatformConfigurationId>",
+		Aliases: []string{"update"},
+		Short:   "Updates the specified transfer platform configuration",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli app-market update-transfer-platform-configuration 550e8400-e29b-41d4-a716-446655440000 --platform-type example-value",
 		Annotations: map[string]string{"pp:endpoint": "app-market.update-transfer-platform-configuration", "pp:method": "PUT", "pp:path": "/api/appMarket/v2/transferPlatformConfigurations/{transferPlatformConfigurationId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

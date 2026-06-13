@@ -180,8 +180,9 @@ Resource scoping:
 				return usageErr(err)
 			}
 
-			// --full: clear all sync cursors before starting
-			if full {
+			// --full: clear all sync cursors before starting.
+			// Skip under --dry-run: a preview must not mutate sync-state (issue #2935).
+			if full && !c.DryRun {
 				for _, resource := range resources {
 					_ = db.SaveSyncState(resource, "", 0)
 				}
@@ -202,11 +203,14 @@ Resource scoping:
 					maxPages = 1
 					// Clear the cursor so we start from the head each time;
 					// the goal of --latest-only is "refresh the top" not
-					// "resume from wherever I left off".
-					for _, resource := range resources {
-						existing, _, _, _ := db.GetSyncState(resource)
-						if existing != "" {
-							_ = db.SaveSyncState(resource, "", 0)
+					// "resume from wherever I left off". Skip under --dry-run:
+					// a preview must not mutate sync-state (issue #2935).
+					if !c.DryRun {
+						for _, resource := range resources {
+							existing, _, _, _ := db.GetSyncState(resource)
+							if existing != "" {
+								_ = db.SaveSyncState(resource, "", 0)
+							}
 						}
 					}
 				} else if humanFriendly {
@@ -448,6 +452,12 @@ func syncResource(ctx context.Context, c interface {
 
 	// Resume cursor from sync_state (unless --full cleared it)
 	existingCursor, lastSynced, _, _ := db.GetSyncState(resource)
+	if !full {
+		if storedCount, err := db.Count(resource); err == nil && storedCount == 0 {
+			existingCursor = ""
+			lastSynced = time.Time{}
+		}
+	}
 
 	// Determine the since param value:
 	// 1. Explicit --since flag takes priority
@@ -470,11 +480,12 @@ func syncResource(ctx context.Context, c interface {
 		}
 		effectiveSince = ""
 	}
+	if effectiveSince != "" {
+		effectiveSince = formatSyncSinceValue(effectiveSince, syncResourceSinceParamFormat(resource))
+	}
 
 	cursor := existingCursor
 	pageSize := determinePaginationDefaults()
-	fieldSelectorKey, fieldSelectorValue := syncResourceFieldSelector(resource)
-
 	var progressCount int64
 	pagesFetched := 0
 	lastNextCursor := ""
@@ -506,10 +517,6 @@ func syncResource(ctx context.Context, c interface {
 		if effectiveSince != "" {
 			params[sinceParam] = effectiveSince
 		}
-		if fieldSelectorKey != "" && fieldSelectorValue != "" {
-			params[fieldSelectorKey] = fieldSelectorValue
-		}
-
 		// Apply user-supplied --param / --resource-param overrides last so they
 		// win over spec-derived defaults (e.g. forcing mine=true on a list
 		// endpoint whose OpenAPI spec marks the filter optional).
@@ -552,13 +559,27 @@ func syncResource(ctx context.Context, c interface {
 		// 1 even though more pages exist (the original symptom in #1296).
 		// Guard on cursorType, not cursorParam name, so all canonical
 		// spellings (page / page_number / pageNumber / page[number]) work.
-		if pageSize.cursorType == "page" && nextCursor == "" && len(items) >= pageSize.limit {
+		if pageSize.cursorType == "page" && nextCursor == "" && len(items) >= pageSize.limit && pageAllowsPageIntFallback(data) {
 			currentPage, _ := strconv.Atoi(cursor)
 			if currentPage < 1 {
 				currentPage = 1
 			}
 			nextCursor = strconv.Itoa(currentPage + 1)
 			hasMore = true
+		}
+		if pageSize.cursorType == "offset" && nextCursor == "" && len(items) >= pageSize.limit && pageAllowsPageIntFallback(data) {
+			currentOffset, _ := strconv.Atoi(cursor)
+			nextCursor = strconv.Itoa(currentOffset + pageSize.limit)
+			hasMore = true
+		}
+
+		if len(items) == 0 && len(data) > 0 && !isJSONResponse(data) {
+			if humanFriendly {
+				fmt.Fprintf(os.Stderr, "\nwarning: %s returned a 200 response with a non-JSON body; no rows were stored.\n", resource)
+			} else {
+				fmt.Fprintf(syncEvents, `{"event":"sync_anomaly","resource":"%s","reason":"non_json_200_body"}`+"\n", resource)
+			}
+			break
 		}
 
 		if len(items) == 0 {
@@ -625,6 +646,9 @@ func syncResource(ctx context.Context, c interface {
 
 		totalCount += stored
 		atomic.AddInt64(&progressCount, int64(stored))
+		if resourceSupportsPagination(resource) && nextCursor == "" && pageSize.cursorParam != "offset" && len(items) >= pageSize.limit && pageMayHaveMore(data) {
+			emitSyncMissingPaginationCursorWarning(syncEvents, humanFriendly, resource, "")
+		}
 
 		// Progress reporting (include rate limit info when active)
 		currentRate := c.RateLimit()
@@ -656,7 +680,7 @@ func syncResource(ctx context.Context, c interface {
 				capExitCursor = nextCursor
 			}
 			if truncatedByCap && capExitCursor == "" {
-				if pageSize.cursorParam == "offset" {
+				if pageSize.cursorType == "offset" {
 					currentOffset, _ := strconv.Atoi(cursor)
 					capExitCursor = strconv.Itoa(currentOffset + pageSize.limit)
 				} else {
@@ -700,7 +724,7 @@ func syncResource(ctx context.Context, c interface {
 			break
 		}
 		if nextCursor == "" {
-			if pageSize.cursorParam == "offset" {
+			if pageSize.cursorType == "offset" {
 				// Cursor-based APIs return the next cursor in the envelope.
 				// Offset-based APIs carry their pagination position client-side.
 				currentOffset, _ := strconv.Atoi(cursor)
@@ -826,6 +850,8 @@ func resourceSupportsPagination(resource string) bool {
 		return true
 	case "integration-data-get-go-to-assist":
 		return true
+	case "integration-data-get-google-workplace":
+		return true
 	case "integration-data-get-ingram-micro":
 		return true
 	case "integration-data-get-jira-service-management":
@@ -940,36 +966,41 @@ func resourceSupportsPagination(resource string) bool {
 // validation-error 400s on APIs that reject unknown query keys.
 func syncResourceSinceParam(resource string) string {
 	switch resource {
+	case "agent-check-in":
+		return "start_date"
+	case "appointment":
+		return "start_date"
+	case "holiday":
+		return "start_date"
+	case "invoice":
+		return "start_date"
+	case "recurring-invoice":
+		return "start_date"
+	case "timesheet-event":
+		return "start_date"
 	}
 	return ""
 }
 
-func syncResourceFieldSelector(resource string) (string, string) {
+func syncResourceSinceParamFormat(resource string) string {
 	switch resource {
-	case "actions":
-		return "includefacebookfields", "actions.id,actionsdetails.id,page_no,page_size,record_count,ticket_id"
-	case "asset":
-		return "includeassetfields", "assets.id,columns.id,columns_id,columns_tilehtml,page_no,page_size,record_count,xtypeunamecancreatenew.id"
-	case "clients":
-		return "callplan", "clients.id,columns.id,columns_id,columns_tilehtml,page_no,page_size,record_count"
-	case "field-info":
-		return "includedatefields", "id,guid,access_control.id,access_control_level,actions_field_name,add_row_per_value,addunknown,allow_pool_override,calcfield,calculatevariablesinvalue,calculation,calendar_searchable,characterlimit,characterlimittype,client_restrictions.id,copytochild,copytochildonupdate,copytograndchildonupdate,copytoparent,copytoparentnewticket,copytoparentonupdate,copytorelated,custom,customextratableid,database_lookup_auto,database_lookup_id,database_lookup_input,database_lookup_name,database_lookup_triggers.id,defaultdate,defaultdays,defaultvalue,defaultvalue_lookup,defaultvalue_table.id,deleteafterclosure,deleteafterclosuredays,details_column_group,display_property,entity,entity_restriction,excludefromallfields,extratype,faults_field_name,first_value_default,group_visibility_conditions.id,groupname,hide_from_filters,hint,hint_type,hyperlink,importalias,inherit_ac_from_tickettype,inputtype,integration_method_id,integration_method_name,integration_method_value,integration_method_value_name,intent,is_horizontal,isencrypted,isinafaqlist,label,labellong,load_type,lookup,lookup_method,mandatory,max_selection,name,new_field_data_storage_method,new_storage_method,new_values,only_validate_on_creation,onlyshowforagents,ordervalueby,ordervaluesalphanumerically,org_restrictions.id,partslookupusedin,populatevariablesinpdfandemail,read_restrictions.id,readonly,regex,restrictread,restrictupdate,rounding,searchable,selection_field_id,selection_field_name,seq,sequence,showhintondetails,showinpool,showintable,showoncrmnote,showondetailsscreen,simplify_rich,sql_certificate_id,sql_certificate_name,sql_connection_type,sql_database,sql_new_password,sql_server,sql_user,sqllookup,store_in_fielddata,stored_in_table,summary,tab_columns,tab_guid,tab_id,tab_name,tab_sequence,table_data_entry_type,table_guid,table_height,table_id,table_info.id,table_name,table_values.id,third_party_name,type,update_restrictions.id,usage,usage_guid,use_non_integer_identifier,user_searchable,validation_data.id,value_property,values.id,variable_format_1,variable_format_2,variable_name,visibility,visibility_conditions.id,where_sql"
-	case "invoice":
-		return "invoicedateend", "columns.id,columns_id,columns_tilehtml,invoices.id,page_no,page_size,record_count,stripe_customer_id,stripe_payment_method_id,stripe_payment_method_name"
-	case "opportunities":
-		return "alerttype", "agents.id,collapse_by_default,columns.id,columns_calendar_event_title,columns_cardhtml,columns_dashboard_id,columns_id,columns_tilehtml,completion_perc,include_children,page_no,page_size,priorities.id,record_count,statuses.id,tickets.id,zapier_ticket.id"
-	case "projects":
-		return "alerttype", "agents.id,collapse_by_default,columns.id,columns_calendar_event_title,columns_cardhtml,columns_dashboard_id,columns_id,columns_tilehtml,completion_perc,include_children,page_no,page_size,priorities.id,record_count,statuses.id,tickets.id,zapier_ticket.id"
-	case "recurring-invoice":
-		return "invoicedateend", "columns.id,columns_id,columns_tilehtml,invoices.id,page_no,page_size,record_count,stripe_customer_id,stripe_payment_method_id,stripe_payment_method_name"
-	case "site":
-		return "idonly", "columns.id,columns_id,columns_tilehtml,page_no,page_size,record_count,sites.id"
-	case "tickets":
-		return "alerttype", "agents.id,collapse_by_default,columns.id,columns_calendar_event_title,columns_cardhtml,columns_dashboard_id,columns_id,columns_tilehtml,completion_perc,include_children,page_no,page_size,priorities.id,record_count,statuses.id,tickets.id,zapier_ticket.id"
-	case "users":
-		return "idonly", "columns.id,columns_id,columns_tilehtml,page_no,page_size,record_count,users.id"
 	}
-	return "", ""
+	return ""
+}
+
+func formatSyncSinceValue(value string, paramFormat string) string {
+	if strings.EqualFold(paramFormat, "date") {
+		if ts, err := time.Parse(time.RFC3339, value); err == nil {
+			return ts.Format("2006-01-02")
+		}
+		if ts, err := time.Parse(time.RFC3339Nano, value); err == nil {
+			return ts.Format("2006-01-02")
+		}
+		if _, err := time.Parse("2006-01-02", value); err == nil {
+			return value
+		}
+	}
+	return value
 }
 
 // extractPageItems attempts to extract an array of items and pagination cursor from a response.
@@ -1179,7 +1210,56 @@ func isEmptyPageEnvelope(envelope map[string]json.RawMessage) bool {
 			}
 		}
 	}
+	if hasExactlyOneNullArrayWithZeroCount(envelope) {
+		return true
+	}
 	return hasExactlyOneEmptyArray(envelope)
+}
+
+func hasExactlyOneNullArrayWithZeroCount(envelope map[string]json.RawMessage) bool {
+	nullArrayCount := 0
+	hasZeroCount := false
+	for key, raw := range envelope {
+		if isZeroCountField(key, raw) {
+			hasZeroCount = true
+			continue
+		}
+		if isJSONNull(raw) && isNullPageItemCandidateKey(key) {
+			nullArrayCount++
+			continue
+		}
+		if pageEnvelopeMetadataKeys[key] {
+			continue
+		}
+		return false
+	}
+	return nullArrayCount == 1 && hasZeroCount
+}
+
+func isZeroCountField(key string, raw json.RawMessage) bool {
+	switch key {
+	case "total", "Total", "count", "Count", "total_count", "totalCount", "TotalCount":
+	default:
+		return false
+	}
+	// A JSON null count is not a numeric zero-count signal: json.Unmarshal of
+	// "null" into a float64 is a no-op (leaves n at 0, returns nil), so without
+	// this guard a null count would falsely qualify as zero — masking a
+	// possibly-malformed {"items":null,"total":null} as an empty page.
+	if isJSONNull(raw) {
+		return false
+	}
+	var n float64
+	return json.Unmarshal(raw, &n) == nil && n == 0
+}
+
+func isNullPageItemCandidateKey(key string) bool {
+	for _, itemKey := range pageItemKeys {
+		if key == itemKey {
+			return true
+		}
+	}
+	return !pageEnvelopeMetadataKeys[key]
 }
 
 func hasExactlyOneEmptyArray(envelope map[string]json.RawMessage) bool {
@@ -1206,6 +1286,11 @@ func isJSONNull(raw json.RawMessage) bool {
 	return strings.TrimSpace(string(raw)) == "null"
 }
 
+func isJSONResponse(data json.RawMessage) bool {
+	var probe any
+	return json.Unmarshal(data, &probe) == nil
+}
+
 // extractPaginationFromEnvelope extracts cursor and has_more from a response envelope.
 func extractPaginationFromEnvelope(envelope map[string]json.RawMessage, cursorParam string) (string, bool) {
 	var hasMore bool
@@ -1214,8 +1299,8 @@ func extractPaginationFromEnvelope(envelope map[string]json.RawMessage, cursorPa
 
 	// Try common cursor field names
 	cursorKeys := []string{
-		"next_cursor", "nextCursor", "cursor", "next_page_token",
-		"nextPageToken", "page_token", "after", "end_cursor", "endCursor",
+		"next_cursor", "nextCursor", "next_token", "nextToken", "cursor",
+		"next_page_token", "nextPageToken", "page_token", "after", "end_cursor", "endCursor",
 	}
 	if nextCursor == "" {
 		nextCursor = findCursorInMap(envelope, cursorKeys)
@@ -1223,12 +1308,13 @@ func extractPaginationFromEnvelope(envelope map[string]json.RawMessage, cursorPa
 
 	// If no top-level cursor was found, look one level deeper into well-known
 	// pagination wrapper objects. Slack returns {"messages":[...],
-	// "response_metadata":{"next_cursor":"..."}}; MongoDB Atlas uses
-	// "pagination"; many APIs use "meta" or "paging". Purely additive — only
+	// "response_metadata":{"next_cursor":"..."}}; Pipedrive uses
+	// "additional_data"; MongoDB Atlas uses "pagination"; many APIs use
+	// "meta" or "paging". Purely additive — only
 	// runs when the top-level scan returned empty — and uses the same
 	// cursorKeys set so wrapper contents go through the same name match.
 	if nextCursor == "" {
-		paginationWrapperKeys := []string{"response_metadata", "pagination", "meta", "paging"}
+		paginationWrapperKeys := []string{"response_metadata", "additional_data", "pagination", "meta", "paging"}
 		for _, wrapperKey := range paginationWrapperKeys {
 			rawWrapper, ok := envelope[wrapperKey]
 			if !ok {
@@ -1243,6 +1329,10 @@ func extractPaginationFromEnvelope(envelope map[string]json.RawMessage, cursorPa
 				break
 			}
 		}
+	}
+
+	if nextCursor == "" {
+		nextCursor = nextCursorFromTopLevelURL(envelope, cursorParam)
 	}
 
 	// Try common has_more field names
@@ -1261,6 +1351,52 @@ func extractPaginationFromEnvelope(envelope map[string]json.RawMessage, cursorPa
 	}
 
 	return nextCursor, hasMore
+}
+
+func pageAllowsPageIntFallback(data json.RawMessage) bool {
+	return pageMayHaveMore(data)
+}
+
+func pageMayHaveMore(data json.RawMessage) bool {
+	hasMore, parsed := pageExplicitHasMore(data)
+	return !parsed || hasMore
+}
+
+func pageExplicitHasMore(data json.RawMessage) (bool, bool) {
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(data, &envelope); err != nil {
+		return false, false
+	}
+	if hasMore, parsed := envelopeExplicitHasMore(envelope); parsed {
+		return hasMore, true
+	}
+	for _, key := range dataEnvelopeKeys {
+		raw, ok := envelope[key]
+		if !ok {
+			continue
+		}
+		var inner map[string]json.RawMessage
+		if json.Unmarshal(raw, &inner) == nil {
+			if hasMore, parsed := envelopeExplicitHasMore(inner); parsed {
+				return hasMore, true
+			}
+		}
+	}
+	return false, false
+}
+
+func envelopeExplicitHasMore(envelope map[string]json.RawMessage) (bool, bool) {
+	for _, key := range []string{"has_more", "hasMore", "has_next", "hasNext", "next_page"} {
+		raw, ok := envelope[key]
+		if !ok {
+			continue
+		}
+		var hasMore bool
+		if json.Unmarshal(raw, &hasMore) == nil {
+			return hasMore, true
+		}
+	}
+	return false, false
 }
 
 // nextCursorFromLinks extracts JSON:API-style pagination cursors from
@@ -1283,6 +1419,39 @@ func nextCursorFromLinks(envelope map[string]json.RawMessage, cursorParam string
 		return ""
 	}
 
+	return cursorFromNextURL(nextURL, cursorParam)
+}
+
+// nextCursorFromTopLevelURL extracts a cursor from top-level absolute or relative next URLs.
+func nextCursorFromTopLevelURL(envelope map[string]json.RawMessage, cursorParam string) string {
+	for _, key := range []string{"next", "next_url"} {
+		rawNext, ok := envelope[key]
+		if !ok {
+			continue
+		}
+		var nextURL string
+		if json.Unmarshal(rawNext, &nextURL) != nil || nextURL == "" {
+			continue
+		}
+		if isFollowableNextURL(nextURL) {
+			return cursorFromNextURL(nextURL, cursorParam)
+		}
+	}
+	return ""
+}
+
+// isFollowableNextURL reports whether a top-level "next" string is a URL we can
+// pull a cursor query param from: an absolute http(s) URL, a root-relative path,
+// or any value carrying a query string. Bare opaque cursor tokens (no query)
+// are rejected so they aren't mis-parsed.
+func isFollowableNextURL(nextURL string) bool {
+	lower := strings.ToLower(nextURL)
+	return strings.HasPrefix(lower, "http") ||
+		strings.HasPrefix(nextURL, "/") ||
+		strings.Contains(nextURL, "?")
+}
+
+func cursorFromNextURL(nextURL string, cursorParam string) string {
 	cursorKeys := []string{cursorParam}
 	if cursorParam != "page[cursor]" {
 		cursorKeys = append(cursorKeys, "page[cursor]")
@@ -1326,6 +1495,22 @@ func findCursorInMap(m map[string]json.RawMessage, cursorKeys []string) string {
 		}
 	}
 	return ""
+}
+
+func emitSyncMissingPaginationCursorWarning(syncEvents io.Writer, humanFriendly bool, resource, parent string) {
+	if humanFriendly {
+		if parent != "" {
+			fmt.Fprintf(os.Stderr, "\nwarning: %s returned a full page for parent %s without a next cursor; data may be truncated.\n", resource, parent)
+			return
+		}
+		fmt.Fprintf(os.Stderr, "\nwarning: %s returned a full page without a next cursor; data may be truncated.\n", resource)
+		return
+	}
+	if parent != "" {
+		fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","parent":"%s","reason":"pagination_cursor_missing","message":"API returned a full page without a usable next cursor; data may be truncated."}`+"\n", resource, parent)
+		return
+	}
+	fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"pagination_cursor_missing","message":"API returned a full page without a usable next cursor; data may be truncated."}`+"\n", resource)
 }
 
 type discriminatorDispatch struct {
@@ -3121,6 +3306,7 @@ var pageEnvelopeMetadataKeys = map[string]bool{
 	"Data": true, "Results": true, "Items": true,
 	// pagination cursors / tokens
 	"next_cursor": true, "nextCursor": true, "NextCursor": true,
+	"next_token": true, "nextToken": true, "NextToken": true,
 	"next_page_token": true, "nextPageToken": true, "NextPageToken": true,
 	"page_token": true, "pageToken": true, "PageToken": true,
 	"end_cursor": true, "endCursor": true, "EndCursor": true,
@@ -3182,5 +3368,101 @@ func extractID(resource string, obj map[string]any) string {
 			}
 		}
 	}
+	if s := suffixIDFieldFallback(resource, obj); s != "" {
+		return s
+	}
 	return ""
+}
+
+// suffixIDFieldFallback resolves an id-less resource that keys on its own
+// "<name>_code" / "<name>_id" / "<name>_key" / "<name>_slug" field (e.g. the
+// "currencies" resource keying on "currency_code" — see #2327). It is scoped to
+// the resource's OWN name so a foreign key like account_id/parent_id is never
+// promoted to the primary key, and it uses direct map lookups in a fixed suffix
+// order so the chosen id is deterministic.
+func suffixIDFieldFallback(resourceType string, obj map[string]any) string {
+	for _, base := range resourceIDBaseNames(resourceType) {
+		for _, suffix := range []string{"_id", "_code", "_key", "_slug"} {
+			if v, ok := obj[base+suffix]; ok {
+				if s := scalarIDString(v); s != "" && s != "<nil>" {
+					return s
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// resourceIDBaseNames returns lowercase candidate singular/plural stems of a
+// resource name to build "<base>_id"-style key probes from (e.g. "currencies"
+// -> ["currencies","currency"]). OpenAPI-/path-derived names can carry a
+// leading verb token ("get-currencies"), so the same probes are also attempted
+// on the de-verbed stem. Minimal English depluralization; the raw name is
+// always included so already-singular names work too.
+func resourceIDBaseNames(resourceType string) []string {
+	r := strings.ToLower(strings.TrimSpace(resourceType))
+	if r == "" {
+		return nil
+	}
+	stems := []string{r}
+	if d := stripLeadingResourceVerb(r); d != "" && d != r {
+		stems = append(stems, d)
+	}
+	var bases []string
+	seen := map[string]bool{}
+	add := func(s string) {
+		if s != "" && !seen[s] {
+			seen[s] = true
+			bases = append(bases, s)
+		}
+	}
+	for _, stem := range stems {
+		add(stem)
+		add(depluralizeResourceStem(stem))
+	}
+	return bases
+}
+
+func stripLeadingResourceVerb(r string) string {
+	for _, verb := range []string{"get", "list", "fetch", "find", "retrieve", "read", "show", "all"} {
+		for _, sep := range []string{"-", "_"} {
+			prefix := verb + sep
+			if strings.HasPrefix(r, prefix) && len(r) > len(prefix) {
+				return r[len(prefix):]
+			}
+		}
+	}
+	return ""
+}
+
+func depluralizeResourceStem(r string) string {
+	switch {
+	case strings.HasSuffix(r, "ies") && len(r) > 3:
+		return strings.TrimSuffix(r, "ies") + "y" // currencies -> currency
+	// Plurals formed by adding "es" to a base ending in s/x/z/ch/sh. The
+	// double-s "sses" guard (not bare "ses") keeps soft-e plurals — where the
+	// singular already ends in a silent "e" (cases, databases, licenses,
+	// purchases) — out of this branch; they fall through to the "-s" case below
+	// (cases -> case, not cas). Trade-off: a genuine "-es" plural of an s-ending
+	// singular (buses, statuses) depluralizes imperfectly, but those are rare as
+	// resource names and this stem only feeds best-effort id-field probing.
+	case strings.HasSuffix(r, "sses") || strings.HasSuffix(r, "xes") ||
+		strings.HasSuffix(r, "zes") || strings.HasSuffix(r, "ches") ||
+		strings.HasSuffix(r, "shes"):
+		return strings.TrimSuffix(r, "es") // classes -> class, boxes -> box, dishes -> dish
+	case strings.HasSuffix(r, "s") && !strings.HasSuffix(r, "ss") && len(r) > 1:
+		return strings.TrimSuffix(r, "s") // languages -> language, cases -> case
+	}
+	return r
+}
+
+func scalarIDString(value any) string {
+	switch value.(type) {
+	case string, bool, int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64, json.Number, []byte:
+		return store.ResourceIDString(value)
+	default:
+		return ""
+	}
 }

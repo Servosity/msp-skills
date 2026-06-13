@@ -25,12 +25,14 @@ type Config struct {
 	ClientSecret  string            `toml:"client_secret"`
 	// TokenURL overrides the spec-baked OAuth2 token endpoint. Same fallback
 	// pattern as AuthorizationURL.
-	TokenURL      string `toml:"token_url,omitempty"`
-	Path          string `toml:"-"`
-	HalopsaTenant string `toml:"tenant"`
-	HalopsaDomain string `toml:"domain"`
-	HalopsaScope  string `toml:"scope"`
-	HalopsaToken  string `toml:"token"`
+	TokenURL      string          `toml:"token_url,omitempty"`
+	Path          string          `toml:"-"`
+	envOverrides  map[string]bool `toml:"-"`
+	fileConfig    *Config         `toml:"-"`
+	HalopsaTenant string          `toml:"tenant"`
+	HalopsaDomain string          `toml:"domain"`
+	HalopsaScope  string          `toml:"scope"`
+	HalopsaToken  string          `toml:"token"`
 	// TemplateVars holds the runtime values for {placeholder} markers in
 	// BaseURL and the request path (e.g. Shopify's {shop}/{version}). Populated
 	// at Load() time from env vars; consumed by the client's buildURL helper.
@@ -62,29 +64,37 @@ func Load(configPath string) (*Config, error) {
 		}
 	}
 
+	cfg.snapshotFileConfig()
+
 	// Env var overrides
 	if v := os.Getenv("HALOPSA_CLIENT_ID"); v != "" {
 		cfg.ClientID = v
+		cfg.markEnvOverride("ClientID")
 		cfg.AuthSource = "env:HALOPSA_CLIENT_ID"
 	}
 	if v := os.Getenv("HALOPSA_CLIENT_SECRET"); v != "" {
 		cfg.ClientSecret = v
+		cfg.markEnvOverride("ClientSecret")
 		cfg.AuthSource = "env:HALOPSA_CLIENT_SECRET"
 	}
 	if v := os.Getenv("HALOPSA_TENANT"); v != "" {
 		cfg.HalopsaTenant = v
+		cfg.markEnvOverride("HalopsaTenant")
 		cfg.AuthSource = "env:HALOPSA_TENANT"
 	}
 	if v := os.Getenv("HALOPSA_DOMAIN"); v != "" {
 		cfg.HalopsaDomain = v
+		cfg.markEnvOverride("HalopsaDomain")
 		cfg.AuthSource = "env:HALOPSA_DOMAIN"
 	}
 	if v := os.Getenv("HALOPSA_SCOPE"); v != "" {
 		cfg.HalopsaScope = v
+		cfg.markEnvOverride("HalopsaScope")
 		cfg.AuthSource = "env:HALOPSA_SCOPE"
 	}
 	if v := os.Getenv("HALOPSA_TOKEN"); v != "" {
 		cfg.HalopsaToken = v
+		cfg.markEnvOverride("HalopsaToken")
 		cfg.AuthSource = "env:HALOPSA_TOKEN"
 	}
 
@@ -219,6 +229,16 @@ func (c *Config) SaveTokens(clientID, clientSecret, accessToken, refreshToken st
 	c.AccessToken = accessToken
 	c.RefreshToken = refreshToken
 	c.TokenExpiry = expiry
+	delete(c.envOverrides, "ClientID")
+	delete(c.envOverrides, "ClientSecret")
+	delete(c.envOverrides, "AccessToken")
+	delete(c.envOverrides, "RefreshToken")
+	delete(c.envOverrides, "TokenExpiry")
+	c.updateFileConfigField("ClientID")
+	c.updateFileConfigField("ClientSecret")
+	c.updateFileConfigField("AccessToken")
+	c.updateFileConfigField("RefreshToken")
+	c.updateFileConfigField("TokenExpiry")
 	return c.save()
 }
 
@@ -235,11 +255,115 @@ func (c *Config) ClearTokens() error {
 	c.TokenExpiry = time.Time{}
 	c.ClientID = ""
 	c.ClientSecret = ""
+	delete(c.envOverrides, "AuthHeaderVal")
+	delete(c.envOverrides, "AccessToken")
+	delete(c.envOverrides, "RefreshToken")
+	delete(c.envOverrides, "TokenExpiry")
+	delete(c.envOverrides, "ClientID")
+	delete(c.envOverrides, "ClientSecret")
+	c.updateFileConfigField("AuthHeaderVal")
+	c.updateFileConfigField("AccessToken")
+	c.updateFileConfigField("RefreshToken")
+	c.updateFileConfigField("TokenExpiry")
+	c.updateFileConfigField("ClientID")
+	c.updateFileConfigField("ClientSecret")
 	c.HalopsaTenant = ""
+	delete(c.envOverrides, "HalopsaTenant")
 	c.HalopsaDomain = ""
+	delete(c.envOverrides, "HalopsaDomain")
 	c.HalopsaScope = ""
+	delete(c.envOverrides, "HalopsaScope")
 	c.HalopsaToken = ""
+	delete(c.envOverrides, "HalopsaToken")
 	return c.save()
+}
+
+func (c *Config) markEnvOverride(field string) {
+	if c.envOverrides == nil {
+		c.envOverrides = map[string]bool{}
+	}
+	c.envOverrides[field] = true
+}
+
+// cloneStringMap returns an independent copy of m (nil stays nil). The fileConfig
+// snapshot must not share reference-type map fields (such as Headers) with the
+// live config, or a later mutation to one would silently track in the other.
+func cloneStringMap(m map[string]string) map[string]string {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]string, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
+func (c *Config) snapshotFileConfig() {
+	snapshot := *c
+	snapshot.envOverrides = nil
+	snapshot.fileConfig = nil
+	// *c is a shallow copy: map fields are reference types, so the snapshot would
+	// share them with c and silently track later mutations, defeating the
+	// isolation this snapshot exists to provide. Clone them.
+	snapshot.Headers = cloneStringMap(c.Headers)
+	snapshot.TemplateVars = cloneStringMap(c.TemplateVars)
+	c.fileConfig = &snapshot
+}
+
+func (c *Config) configForSave() Config {
+	out := *c
+	if c.fileConfig != nil {
+		if c.envOverrides["ClientID"] {
+			out.ClientID = c.fileConfig.ClientID
+		}
+		if c.envOverrides["ClientSecret"] {
+			out.ClientSecret = c.fileConfig.ClientSecret
+		}
+		if c.envOverrides["HalopsaTenant"] {
+			out.HalopsaTenant = c.fileConfig.HalopsaTenant
+		}
+		if c.envOverrides["HalopsaDomain"] {
+			out.HalopsaDomain = c.fileConfig.HalopsaDomain
+		}
+		if c.envOverrides["HalopsaScope"] {
+			out.HalopsaScope = c.fileConfig.HalopsaScope
+		}
+		if c.envOverrides["HalopsaToken"] {
+			out.HalopsaToken = c.fileConfig.HalopsaToken
+		}
+	}
+	out.envOverrides = nil
+	out.fileConfig = nil
+	return out
+}
+
+func (c *Config) updateFileConfigField(field string) {
+	if c.fileConfig == nil || c.envOverrides[field] {
+		return
+	}
+	switch field {
+	case "AuthHeaderVal":
+		c.fileConfig.AuthHeaderVal = c.AuthHeaderVal
+	case "AccessToken":
+		c.fileConfig.AccessToken = c.AccessToken
+	case "RefreshToken":
+		c.fileConfig.RefreshToken = c.RefreshToken
+	case "TokenExpiry":
+		c.fileConfig.TokenExpiry = c.TokenExpiry
+	case "ClientID":
+		c.fileConfig.ClientID = c.ClientID
+	case "ClientSecret":
+		c.fileConfig.ClientSecret = c.ClientSecret
+	case "HalopsaTenant":
+		c.fileConfig.HalopsaTenant = c.HalopsaTenant
+	case "HalopsaDomain":
+		c.fileConfig.HalopsaDomain = c.HalopsaDomain
+	case "HalopsaScope":
+		c.fileConfig.HalopsaScope = c.HalopsaScope
+	case "HalopsaToken":
+		c.fileConfig.HalopsaToken = c.HalopsaToken
+	}
 }
 
 func (c *Config) save() error {
@@ -247,11 +371,23 @@ func (c *Config) save() error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("creating config dir: %w", err)
 	}
-	data, err := toml.Marshal(c)
+	persisted := c.configForSave()
+	data, err := toml.Marshal(persisted)
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
-	return os.WriteFile(c.Path, data, 0o600)
+	if err := os.WriteFile(c.Path, data, 0o600); err != nil {
+		return err
+	}
+	c.fileConfig = &persisted
+	c.fileConfig.envOverrides = nil
+	c.fileConfig.fileConfig = nil
+	// persisted shares its map fields with c (configForSave shallow-copies *c),
+	// so isolate the stored fileConfig the same way snapshotFileConfig does;
+	// otherwise later mutations to c's maps leak into the on-disk snapshot.
+	c.fileConfig.Headers = cloneStringMap(c.fileConfig.Headers)
+	c.fileConfig.TemplateVars = cloneStringMap(c.fileConfig.TemplateVars)
+	return nil
 }
 
 // Ensure strings import is used

@@ -17,9 +17,10 @@ func newInventoryCreateFieldCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create-field <inventory_field>",
-		Aliases:     []string{"create"},
-		Short:       "Creates a new Inventory Field - the user will be able to set key-values pairs on every device.",
+		Use:     "create-field <inventory_field>",
+		Aliases: []string{"create"},
+		Short:   "Creates a new Inventory Field - the user will be able to set key-values pairs on every device.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  domotz-cli inventory create-field example-value --label example-value",
 		Annotations: map[string]string{"pp:endpoint": "inventory.create-field", "pp:method": "POST", "pp:path": "/inventory/{inventory_field}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -28,7 +28,7 @@ func newRoguesGetSettingsCmd(flags *rootFlags) *cobra.Command {
 			path := "/rogues/settings"
 			params := map[string]string{}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "rogues", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

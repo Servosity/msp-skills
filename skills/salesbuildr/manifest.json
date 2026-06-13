@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "salesbuildr-mcp",
   "display_name": "Salesbuildr",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics.",
   "author": {
     "name": "Servosity Inc."
@@ -43,10 +43,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-07T02:09:22.96872Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:14:54.021651Z",
     "spec_checksum": "sha256:0cc8aff4b0b9bb96605d1d52c3aa555373d2757aa5a39a90fc6b7f5f741496c5",
     "spec_format": "openapi3"
   }

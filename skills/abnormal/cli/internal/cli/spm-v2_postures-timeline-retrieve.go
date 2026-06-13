@@ -33,8 +33,8 @@ func newSpmV2PosturesTimelineRetrieveCmd(flags *rootFlags) *cobra.Command {
 			path := "/spm-v2/postures/{posture_id}/timeline"
 			path = replacePathParam(path, "posture_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "spm-v2", path, map[string]string{
-				"pageSize":   fmt.Sprintf("%v", flagPageSize),
-				"pageNumber": fmt.Sprintf("%v", flagPageNumber),
+				"pageSize":   formatCLIParamValue(flagPageSize),
+				"pageNumber": formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "pageNumber", "page", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

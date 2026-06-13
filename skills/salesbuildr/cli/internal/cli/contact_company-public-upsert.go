@@ -26,8 +26,9 @@ func newContactCompanyPublicUpsertCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "company-public-upsert <externalIdentifier>",
-		Short:       "Upsert by ext ID",
+		Use:   "company-public-upsert <externalIdentifier>",
+		Short: "Upsert by ext ID",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  salesbuildr-cli contact company-public-upsert example-value --company-ext-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "contact.company-public-upsert", "pp:method": "PUT", "pp:path": "/contact/ext/{externalIdentifier}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

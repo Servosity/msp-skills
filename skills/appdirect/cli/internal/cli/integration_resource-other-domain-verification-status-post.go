@@ -17,8 +17,9 @@ func newIntegrationResourceOtherDomainVerificationStatusPostCmd(flags *rootFlags
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "resource-other-domain-verification-status-post <customerIdentifier> <domain>",
-		Short:       "Status verification",
+		Use:   "resource-other-domain-verification-status-post <customerIdentifier> <domain>",
+		Short: "Status verification",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli integration resource-other-domain-verification-status-post example-value example-value",
 		Annotations: map[string]string{"pp:endpoint": "integration.resource-other-domain-verification-status-post", "pp:method": "POST", "pp:path": "/integration/v1/customers/{customerIdentifier}/domains/{domain}/verificationStatus"},
 		RunE: func(cmd *cobra.Command, args []string) error {

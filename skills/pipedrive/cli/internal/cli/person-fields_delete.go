@@ -15,8 +15,9 @@ func newPersonFieldsDeleteCmd(flags *rootFlags) *cobra.Command {
 	var flagIds string
 
 	cmd := &cobra.Command{
-		Use:         "delete",
-		Short:       "Delete multiple person fields in bulk",
+		Use:   "delete",
+		Short: "Delete multiple person fields in bulk",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pipedrive-cli person-fields delete --ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "person-fields.delete", "pp:method": "DELETE", "pp:path": "/personFields"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newPersonFieldsDeleteCmd(flags *rootFlags) *cobra.Command {
 			path := "/personFields"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

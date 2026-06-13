@@ -33,22 +33,22 @@ func newIntegrationDataListIntegrationdata73Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/QuickBooksOnline"
 			params := map[string]string{}
 			if flagAccountClassification != "" {
-				params["account_classification"] = fmt.Sprintf("%v", flagAccountClassification)
+				params["account_classification"] = formatCLIParamValue(flagAccountClassification)
 			}
 			if flagAccountSubtype != "" {
-				params["account_subtype"] = fmt.Sprintf("%v", flagAccountSubtype)
+				params["account_subtype"] = formatCLIParamValue(flagAccountSubtype)
 			}
 			if flagAccountType != "" {
-				params["account_type"] = fmt.Sprintf("%v", flagAccountType)
+				params["account_type"] = formatCLIParamValue(flagAccountType)
 			}
 			if flagCompanyid != "" {
-				params["companyid"] = fmt.Sprintf("%v", flagCompanyid)
+				params["companyid"] = formatCLIParamValue(flagCompanyid)
 			}
 			if flagConnectionid != "" {
-				params["connectionid"] = fmt.Sprintf("%v", flagConnectionid)
+				params["connectionid"] = formatCLIParamValue(flagConnectionid)
 			}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

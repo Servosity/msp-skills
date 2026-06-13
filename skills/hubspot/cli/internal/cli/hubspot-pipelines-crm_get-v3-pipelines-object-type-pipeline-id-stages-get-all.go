@@ -14,8 +14,9 @@ import (
 func newHubspotPipelinesCrmGetV3PipelinesObjectTypePipelineIdStagesGetAllCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "get-v3-pipelines-object-type-pipeline-id-stages-get-all <objectType> <pipelineId>",
-		Short:       "Return all the stages associated with the pipeline identified by `{pipelineId}`.",
+		Use:   "get-v3-pipelines-object-type-pipeline-id-stages-get-all <objectType> <pipelineId>",
+		Short: "Return all the stages associated with the pipeline identified by `{pipelineId}`.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-pipelines-crm get-v3-pipelines-object-type-pipeline-id-stages-get-all example-value 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-pipelines-crm.get-v3-pipelines-object-type-pipeline-id-stages-get-all", "pp:method": "GET", "pp:path": "/crm/v3/pipelines/{objectType}/{pipelineId}/stages", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

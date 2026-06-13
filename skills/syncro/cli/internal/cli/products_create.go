@@ -42,8 +42,9 @@ func newProductsCreateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Required permission: Products - Create",
+		Use:   "create",
+		Short: "Required permission: Products - Create",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  syncro-cli products create --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "products.create", "pp:method": "POST", "pp:path": "/products"},
 		RunE: func(cmd *cobra.Command, args []string) error {

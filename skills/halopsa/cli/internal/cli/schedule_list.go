@@ -30,13 +30,13 @@ func newScheduleListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Schedule"
 			params := map[string]string{}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagPrimaryid != "" {
-				params["primaryid"] = fmt.Sprintf("%v", flagPrimaryid)
+				params["primaryid"] = formatCLIParamValue(flagPrimaryid)
 			}
 			if flagType != 0 {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "schedule", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

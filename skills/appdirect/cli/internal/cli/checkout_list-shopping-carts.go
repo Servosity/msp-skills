@@ -52,37 +52,37 @@ func newCheckoutListShoppingCartsCmd(flags *rootFlags) *cobra.Command {
 			path := "/v3/checkout/shoppingCarts"
 			params := map[string]string{}
 			if flagBuyerUserId != "" {
-				params["buyerUserId"] = fmt.Sprintf("%v", flagBuyerUserId)
+				params["buyerUserId"] = formatCLIParamValue(flagBuyerUserId)
 			}
 			if flagBuyerCompanyId != "" {
-				params["buyerCompanyId"] = fmt.Sprintf("%v", flagBuyerCompanyId)
+				params["buyerCompanyId"] = formatCLIParamValue(flagBuyerCompanyId)
 			}
 			if flagOwnerUserId != "" {
-				params["ownerUserId"] = fmt.Sprintf("%v", flagOwnerUserId)
+				params["ownerUserId"] = formatCLIParamValue(flagOwnerUserId)
 			}
 			if flagOwnerCompanyId != "" {
-				params["ownerCompanyId"] = fmt.Sprintf("%v", flagOwnerCompanyId)
+				params["ownerCompanyId"] = formatCLIParamValue(flagOwnerCompanyId)
 			}
 			if flagProductId != "" {
-				params["productId"] = fmt.Sprintf("%v", flagProductId)
+				params["productId"] = formatCLIParamValue(flagProductId)
 			}
 			if flagStatus != "" {
-				params["status"] = fmt.Sprintf("%v", flagStatus)
+				params["status"] = formatCLIParamValue(flagStatus)
 			}
 			if flagPartner != "" {
-				params["partner"] = fmt.Sprintf("%v", flagPartner)
+				params["partner"] = formatCLIParamValue(flagPartner)
 			}
 			if flagNumber != 0 {
-				params["number"] = fmt.Sprintf("%v", flagNumber)
+				params["number"] = formatCLIParamValue(flagNumber)
 			}
 			if flagSize != 0 {
-				params["size"] = fmt.Sprintf("%v", flagSize)
+				params["size"] = formatCLIParamValue(flagSize)
 			}
 			if flagSortField != "" {
-				params["sortField"] = fmt.Sprintf("%v", flagSortField)
+				params["sortField"] = formatCLIParamValue(flagSortField)
 			}
 			if flagSortOrder != "" {
-				params["sortOrder"] = fmt.Sprintf("%v", flagSortOrder)
+				params["sortOrder"] = formatCLIParamValue(flagSortOrder)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "checkout", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -39,9 +39,9 @@ func newPolicyFoldersListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/policy_folders"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "policy-folders", path, map[string]string{
-				"customer_id": fmt.Sprintf("%v", flagCustomerId),
-				"page":        fmt.Sprintf("%v", flagPage),
-				"per_page":    fmt.Sprintf("%v", flagPerPage),
+				"customer_id": formatCLIParamValue(flagCustomerId),
+				"page":        formatCLIParamValue(flagPage),
+				"per_page":    formatCLIParamValue(flagPerPage),
 			}, nil, flagAll, "page", "page", "per_page", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

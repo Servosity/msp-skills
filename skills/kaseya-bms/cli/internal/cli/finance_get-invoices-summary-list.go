@@ -39,18 +39,18 @@ func newFinanceGetInvoicesSummaryListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/finance/invoices/summary"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "finance", path, map[string]string{
-				"Filter.Id":                 fmt.Sprintf("%v", flagFilterId),
-				"Filter.InvoiceNumber":      fmt.Sprintf("%v", flagFilterInvoiceNumber),
-				"Filter.AccountId":          fmt.Sprintf("%v", flagFilterAccountId),
-				"Filter.AccountName":        fmt.Sprintf("%v", flagFilterAccountName),
-				"Filter.StatusId":           fmt.Sprintf("%v", flagFilterStatusId),
-				"Filter.CreatedFrom":        fmt.Sprintf("%v", flagFilterCreatedFrom),
-				"Filter.CreatedTo":          fmt.Sprintf("%v", flagFilterCreatedTo),
-				"Filter.PostedToAccounting": fmt.Sprintf("%v", flagFilterPostedToAccounting),
-				"Sort":                      fmt.Sprintf("%v", flagSort),
-				"Exclude":                   fmt.Sprintf("%v", flagExclude),
-				"PageSize":                  fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":                fmt.Sprintf("%v", flagPageNumber),
+				"Filter.Id":                 formatCLIParamValue(flagFilterId),
+				"Filter.InvoiceNumber":      formatCLIParamValue(flagFilterInvoiceNumber),
+				"Filter.AccountId":          formatCLIParamValue(flagFilterAccountId),
+				"Filter.AccountName":        formatCLIParamValue(flagFilterAccountName),
+				"Filter.StatusId":           formatCLIParamValue(flagFilterStatusId),
+				"Filter.CreatedFrom":        formatCLIParamValue(flagFilterCreatedFrom),
+				"Filter.CreatedTo":          formatCLIParamValue(flagFilterCreatedTo),
+				"Filter.PostedToAccounting": formatCLIParamValue(flagFilterPostedToAccounting),
+				"Sort":                      formatCLIParamValue(flagSort),
+				"Exclude":                   formatCLIParamValue(flagExclude),
+				"PageSize":                  formatCLIParamValue(flagPageSize),
+				"PageNumber":                formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

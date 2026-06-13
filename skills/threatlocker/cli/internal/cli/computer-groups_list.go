@@ -31,16 +31,16 @@ func newComputerGroupsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/ComputerGroup/ComputerGroupGetGroupAndComputer"
 			params := map[string]string{}
 			if flagOsType != 0 {
-				params["osType"] = fmt.Sprintf("%v", flagOsType)
+				params["osType"] = formatCLIParamValue(flagOsType)
 			}
 			if flagIncludeGlobal != false {
-				params["includeGlobal"] = fmt.Sprintf("%v", flagIncludeGlobal)
+				params["includeGlobal"] = formatCLIParamValue(flagIncludeGlobal)
 			}
 			if flagIncludeAllComputers != false {
-				params["includeAllComputers"] = fmt.Sprintf("%v", flagIncludeAllComputers)
+				params["includeAllComputers"] = formatCLIParamValue(flagIncludeAllComputers)
 			}
 			if flagIncludeOrganizations != false {
-				params["includeOrganizations"] = fmt.Sprintf("%v", flagIncludeOrganizations)
+				params["includeOrganizations"] = formatCLIParamValue(flagIncludeOrganizations)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "computer-groups", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

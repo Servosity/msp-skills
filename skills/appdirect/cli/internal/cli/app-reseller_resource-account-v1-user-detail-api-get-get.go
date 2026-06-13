@@ -58,10 +58,10 @@ func newAppResellerResourceAccountV1UserDetailApiGetGetCmd(flags *rootFlags) *co
 			path = replacePathParam(path, "userId", args[0])
 			params := map[string]string{}
 			if flagContext != "" {
-				params["context"] = fmt.Sprintf("%v", flagContext)
+				params["context"] = formatCLIParamValue(flagContext)
 			}
 			if flagCompanyId != "" {
-				params["companyId"] = fmt.Sprintf("%v", flagCompanyId)
+				params["companyId"] = formatCLIParamValue(flagCompanyId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "app-reseller", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

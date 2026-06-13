@@ -20,7 +20,7 @@ func newDocumentsFieldsUpdateDocumentAssignmentCmd(flags *rootFlags) *cobra.Comm
 		Use:         "update-document-assignment <id>",
 		Aliases:     []string{"update"},
 		Short:       "Assign, reassign, or unassign document fields to recipients.",
-		Example:     "  pandadoc-cli documents fields update-document-assignment 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents fields update-document-assignment BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "fields.update-document-assignment", "pp:method": "PATCH", "pp:path": "/documents/{id}/fields"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

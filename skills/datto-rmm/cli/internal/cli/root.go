@@ -5,7 +5,6 @@ package cli
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -14,7 +13,6 @@ import (
 	"time"
 
 	"datto-rmm-pp-cli/internal/client"
-	"datto-rmm-pp-cli/internal/cliutil"
 	"datto-rmm-pp-cli/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -291,20 +289,6 @@ func (f *rootFlags) newClient() (*client.Client, error) {
 	cfg, err := config.Load(f.configPath)
 	if err != nil {
 		return nil, configErr(err)
-	}
-	// Resolve the regional API host from DATTO_RMM_PLATFORM / DATTO_RMM_API_URL
-	// before any request is built.
-	if err := config.ResolveDattoBaseURL(cfg); err != nil {
-		return nil, configErr(err)
-	}
-	// Datto RMM composed OAuth2: auto-mint a bearer token from the API key +
-	// secret key when no usable token is cached. No-op under --dry-run, the
-	// verifier, or when credentials are absent (the API then returns 401 with
-	// a clear message rather than failing here).
-	if !f.dryRun && !cliutil.IsVerifyEnv() {
-		if err := config.EnsureDattoToken(context.Background(), cfg); err != nil {
-			return nil, configErr(err)
-		}
 	}
 	c := client.New(cfg, f.timeout, f.rateLimit)
 	c.DryRun = f.dryRun

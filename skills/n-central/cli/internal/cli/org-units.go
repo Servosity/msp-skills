@@ -11,6 +11,7 @@ func newOrgUnitsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "org-units",
 		Short:       "Organization units — the unified tree of service orgs, customers, and sites.",
+		Hidden:      true,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

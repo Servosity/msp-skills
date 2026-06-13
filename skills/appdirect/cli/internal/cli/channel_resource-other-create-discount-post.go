@@ -46,8 +46,9 @@ func newChannelResourceOtherCreateDiscountPostCmd(flags *rootFlags) *cobra.Comma
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "resource-other-create-discount-post",
-		Short:       "Creates a discount with the provided data.",
+		Use:   "resource-other-create-discount-post",
+		Short: "Creates a discount with the provided data.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli channel resource-other-create-discount-post --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "channel.resource-other-create-discount-post", "pp:method": "POST", "pp:path": "/channel/v1/discounts"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -17,7 +17,7 @@ func newInvoicesHistoryGetInvoiceCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-invoice <InvoiceID>",
 		Aliases:     []string{"get"},
 		Short:       "Retrieves history records for a specific invoice",
-		Example:     "  xero-cli invoices history get-invoice 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  xero-cli invoices history get-invoice 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "history.get-invoice", "pp:method": "GET", "pp:path": "/Invoices/{InvoiceID}/History", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

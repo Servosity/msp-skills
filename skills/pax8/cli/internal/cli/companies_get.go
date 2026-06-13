@@ -16,7 +16,7 @@ func newCompaniesGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <companyId>",
 		Short:       "Returns a single company record matching the ```companyId``` you specify",
-		Example:     "  pax8-cli companies get 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pax8-cli companies get f7fc273a-8d86-45c9-a26f-ffd42416adda",
 		Annotations: map[string]string{"pp:endpoint": "companies.get", "pp:method": "GET", "pp:path": "/companies/{companyId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

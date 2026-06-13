@@ -17,7 +17,7 @@ func newProductsProvisionDetailsFindByProductIdCmd(flags *rootFlags) *cobra.Comm
 		Use:         "find-by-product-id <productId>",
 		Aliases:     []string{"get"},
 		Short:       "Returns provisioning details for the specified productId. Provisioning details for a product are dynamic data.",
-		Example:     "  pax8-cli products provision-details find-by-product-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pax8-cli products provision-details find-by-product-id aaaee3f-262c-47a4-b0e6-f9ce8b54fcd7",
 		Annotations: map[string]string{"pp:endpoint": "provision-details.find-by-product-id", "pp:method": "GET", "pp:path": "/products/{productId}/provision-details", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

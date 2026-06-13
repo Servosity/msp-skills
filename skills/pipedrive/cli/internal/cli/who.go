@@ -14,8 +14,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
-	"pipedrive-pp-cli/internal/store"
 )
 
 type whoPerson struct {
@@ -102,7 +100,7 @@ Do NOT use this command for a fuzzy text search across many records to find an e
 				return usageErr(fmt.Errorf("--notes must be >= 0"))
 			}
 
-			db, err := store.OpenWithContext(cmd.Context(), novelDBPath(dbPath))
+			db, err := pdOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local store: %w", err)
 			}

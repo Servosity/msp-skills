@@ -31,9 +31,10 @@ func newNotesAddCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "add",
-		Aliases:     []string{"create"},
-		Short:       "Adds a new note.",
+		Use:     "add",
+		Aliases: []string{"create"},
+		Short:   "Adds a new note.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pipedrive-cli notes add --content example-value",
 		Annotations: map[string]string{"pp:endpoint": "notes.add", "pp:method": "POST", "pp:path": "/notes"},
 		RunE: func(cmd *cobra.Command, args []string) error {

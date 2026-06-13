@@ -55,7 +55,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			resources := []string{"hubspot-calls-crm", "hubspot-companies-crm", "hubspot-contacts-crm", "hubspot-deals-crm", "hubspot-emails-crm", "hubspot-imports-crm", "hubspot-leads-crm", "hubspot-line-items-crm", "hubspot-lists-crm", "hubspot-lists-crm-folders", "hubspot-lists-crm-idmapping", "hubspot-meetings-crm", "hubspot-notes-crm", "hubspot-owners-crm", "hubspot-products-crm", "hubspot-quotes-crm", "hubspot-tasks-crm", "hubspot-tickets-crm"}
+			resources := []string{"hubspot-calls-crm", "hubspot-companies-crm", "hubspot-contacts-crm", "hubspot-deals-crm", "hubspot-emails-crm", "hubspot-imports-crm", "hubspot-leads-crm", "hubspot-line-items-crm", "hubspot-lists-crm", "hubspot-lists-crm-idmapping", "hubspot-meetings-crm", "hubspot-notes-crm", "hubspot-owners-crm", "hubspot-products-crm", "hubspot-quotes-crm", "hubspot-tasks-crm", "hubspot-tickets-crm"}
 			totalSynced := 0
 			syncEventWriter := cmd.OutOrStdout()
 			if flags.asJSON {

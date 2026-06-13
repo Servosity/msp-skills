@@ -46,7 +46,7 @@ func newHubspotNotesCrmPatchV3ObjectsNotesNoteIdUpdateCmd(flags *rootFlags) *cob
 			path = replacePathParam(path, "noteId", args[0])
 			params := map[string]string{}
 			if flagIdProperty != "" {
-				params["idProperty"] = fmt.Sprintf("%v", flagIdProperty)
+				params["idProperty"] = formatCLIParamValue(flagIdProperty)
 			}
 			var body map[string]any
 			if stdinBody {

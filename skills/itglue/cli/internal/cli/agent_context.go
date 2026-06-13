@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "itglue-cli",
-			Description: "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search",
+			Description: "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search, and documentation-hygiene analytics no other IT Glue tool offers.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

@@ -11,7 +11,7 @@ func newNovelSubsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "subs",
-		Short:       "Cross-company subscription radar over locally synced billing data",
+		Short:       "subs subcommands: changed",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

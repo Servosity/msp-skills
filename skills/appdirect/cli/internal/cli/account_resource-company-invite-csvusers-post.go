@@ -33,7 +33,7 @@ func newAccountResourceCompanyInviteCsvusersPostCmd(flags *rootFlags) *cobra.Com
 			path = replacePathParam(path, "companyUuid", args[0])
 			params := map[string]string{}
 			if flagInviterUuid != "" {
-				params["inviterUuid"] = fmt.Sprintf("%v", flagInviterUuid)
+				params["inviterUuid"] = formatCLIParamValue(flagInviterUuid)
 			}
 			fields := map[string]string{}
 			fileFields := map[string]string{}

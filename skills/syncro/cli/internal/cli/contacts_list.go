@@ -29,8 +29,8 @@ func newContactsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/contacts"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "contacts", path, map[string]string{
-				"customer_id": fmt.Sprintf("%v", flagCustomerId),
-				"page":        fmt.Sprintf("%v", flagPage),
+				"customer_id": formatCLIParamValue(flagCustomerId),
+				"page":        formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

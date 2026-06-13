@@ -32,10 +32,10 @@ func newRunzeroExportSubnetUtilizationStatsCsvCmd(flags *rootFlags) *cobra.Comma
 			}
 			params := map[string]string{}
 			if flagOid != "" {
-				params["_oid"] = fmt.Sprintf("%v", flagOid)
+				params["_oid"] = formatCLIParamValue(flagOid)
 			}
 			if flagMask != "" {
-				params["mask"] = fmt.Sprintf("%v", flagMask)
+				params["mask"] = formatCLIParamValue(flagMask)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "runzero-export", false, path, params, headerOverrides, cmd.ErrOrStderr())
 			if err != nil {

@@ -29,7 +29,7 @@ func newGetCippAlertsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/GetCippAlerts"
 			params := map[string]string{}
 			if flagLocalversion != "" {
-				params["localversion"] = fmt.Sprintf("%v", flagLocalversion)
+				params["localversion"] = formatCLIParamValue(flagLocalversion)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "get-cipp-alerts", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

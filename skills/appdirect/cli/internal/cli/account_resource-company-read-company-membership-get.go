@@ -37,10 +37,10 @@ func newAccountResourceCompanyReadCompanyMembershipGetCmd(flags *rootFlags) *cob
 			path = replacePathParam(path, "userUuid", args[1])
 			params := map[string]string{}
 			if flagIncludeCompanies != false {
-				params["includeCompanies"] = fmt.Sprintf("%v", flagIncludeCompanies)
+				params["includeCompanies"] = formatCLIParamValue(flagIncludeCompanies)
 			}
 			if flagIncludeUserCustomAttributes != false {
-				params["includeUserCustomAttributes"] = fmt.Sprintf("%v", flagIncludeUserCustomAttributes)
+				params["includeUserCustomAttributes"] = formatCLIParamValue(flagIncludeUserCustomAttributes)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "account", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

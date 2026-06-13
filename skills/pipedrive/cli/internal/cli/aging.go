@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"pipedrive-pp-cli/internal/pipeintel"
-	"pipedrive-pp-cli/internal/store"
 )
 
 type agingStage struct {
@@ -66,7 +65,7 @@ func newNovelAgingCmd(flags *rootFlags) *cobra.Command {
 			if err := validateDataSourceStrategy(flags, "local"); err != nil {
 				return err
 			}
-			db, err := store.OpenWithContext(cmd.Context(), novelDBPath(dbPath))
+			db, err := pdOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local store: %w", err)
 			}

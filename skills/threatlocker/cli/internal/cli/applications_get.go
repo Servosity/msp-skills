@@ -37,7 +37,7 @@ func newApplicationsGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/Application/ApplicationGetById"
 			params := map[string]string{}
 			if flagApplicationId != "" {
-				params["applicationId"] = fmt.Sprintf("%v", flagApplicationId)
+				params["applicationId"] = formatCLIParamValue(flagApplicationId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "applications", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

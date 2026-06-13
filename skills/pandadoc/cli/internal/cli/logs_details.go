@@ -17,7 +17,7 @@ func newLogsDetailsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "details <id>",
 		Aliases:     []string{"get"},
 		Short:       "Returns details of the specific API log event.",
-		Example:     "  pandadoc-cli logs details 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli logs details AZC86i5PYKMjQjMMMw9e",
 		Annotations: map[string]string{"pp:endpoint": "logs.details", "pp:method": "GET", "pp:path": "/logs/{id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

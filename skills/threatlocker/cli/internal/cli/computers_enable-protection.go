@@ -17,8 +17,9 @@ func newComputersEnableProtectionCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "enable-protection",
-		Short:       "Enable Secured Mode (re-enable protection) on computers",
+		Use:   "enable-protection",
+		Short: "Enable Secured Mode (re-enable protection) on computers",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  threatlocker-cli computers enable-protection --computer-ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "computers.enable-protection", "pp:method": "POST", "pp:path": "/Computer/ComputerEnableProtection"},
 		RunE: func(cmd *cobra.Command, args []string) error {

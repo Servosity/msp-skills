@@ -29,7 +29,7 @@ func newGetVersionPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/GetVersion"
 			params := map[string]string{}
 			if flagLocalVersion != "" {
-				params["LocalVersion"] = fmt.Sprintf("%v", flagLocalVersion)
+				params["LocalVersion"] = formatCLIParamValue(flagLocalVersion)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "get-version", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

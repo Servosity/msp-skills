@@ -28,7 +28,7 @@ func newRangerGetSettingsCmd(flags *rootFlags) *cobra.Command {
 			path := "/ranger/settings"
 			params := map[string]string{}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "ranger", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

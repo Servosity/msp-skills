@@ -29,10 +29,10 @@ func newRunzeroExportSnowServiceGraphAssetsJsonCmd(flags *rootFlags) *cobra.Comm
 			path := "/export/org/assets.servicegraph.json"
 			params := map[string]string{}
 			if flagOid != "" {
-				params["_oid"] = fmt.Sprintf("%v", flagOid)
+				params["_oid"] = formatCLIParamValue(flagOid)
 			}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "runzero-export", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

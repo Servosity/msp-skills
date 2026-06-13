@@ -36,11 +36,11 @@ func newServicedeskGetTicketServiceCallsToDosCmd(flags *rootFlags) *cobra.Comman
 			path := "/v2/servicedesk/tickets/{ticketId}/servicecallstodos"
 			path = replacePathParam(path, "ticketId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "servicedesk", path, map[string]string{
-				"Filter.ItemTypeIds": fmt.Sprintf("%v", flagFilterItemTypeIds),
-				"Sort":               fmt.Sprintf("%v", flagSort),
-				"Exclude":            fmt.Sprintf("%v", flagExclude),
-				"PageSize":           fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":         fmt.Sprintf("%v", flagPageNumber),
+				"Filter.ItemTypeIds": formatCLIParamValue(flagFilterItemTypeIds),
+				"Sort":               formatCLIParamValue(flagSort),
+				"Exclude":            formatCLIParamValue(flagExclude),
+				"PageSize":           formatCLIParamValue(flagPageSize),
+				"PageNumber":         formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

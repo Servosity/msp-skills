@@ -2325,7 +2325,7 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	path := ep.Path
 	for _, p := range ep.Positional {
 		if v, ok := params[p]; ok {
-			path = strings.ReplaceAll(path, "{"+p+"}", fmt.Sprintf("%v", v))
+			path = strings.ReplaceAll(path, "{"+p+"}", formatMCPParamValue(v))
 			delete(params, p)
 		}
 	}
@@ -2336,7 +2336,7 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	query := map[string]string{}
 	if ep.Method == "GET" || ep.Method == "DELETE" {
 		for k, v := range params {
-			query[codeOrchWireQueryName(ep.QueryParams, k)] = fmt.Sprintf("%v", v)
+			query[codeOrchWireQueryName(ep.QueryParams, k)] = formatMCPParamValue(v)
 		}
 	} else {
 		// Route spec-declared in:query params to the query string for write
@@ -2448,7 +2448,7 @@ func codeOrchSplitQuery(queryParams []codeOrchParamBinding, params map[string]an
 				continue
 			}
 			if v, ok := params[key]; ok {
-				uv.Set(q.WireName, fmt.Sprintf("%v", v))
+				uv.Set(q.WireName, formatMCPParamValue(v))
 				delete(params, key)
 				break
 			}

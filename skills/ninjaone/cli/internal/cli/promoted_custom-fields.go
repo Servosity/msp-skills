@@ -54,7 +54,7 @@ func newCustomFieldsPromotedCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("entityId is required\nUsage: %s <%s>", cmd.CommandPath(), "entityId"))
 			}
 			path = replacePathParam(path, "entityId", args[0])
-			path = replacePathParam(path, "entityType", fmt.Sprintf("%v", flagEntityType))
+			path = replacePathParam(path, "entityType", formatCLIParamValue(flagEntityType))
 			params := map[string]string{}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "custom-fields", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

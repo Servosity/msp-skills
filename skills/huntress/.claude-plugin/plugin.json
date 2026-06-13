@@ -1,7 +1,7 @@
 {
   "name": "huntress",
-  "version": "0.1.0",
-  "description": "Every Huntress endpoint, plus a local SQLite mirror that delivers fleet-wide incident, coverage, and billing rollups the API and official MCP can't.",
+  "version": "0.1.1",
+  "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
   "author": {
     "name": "Servosity",
     "url": "https://www.servosity.com"

@@ -11,7 +11,7 @@ func newNovelStatusCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "status",
-		Short:       "Integration readiness checks",
+		Short:       "status subcommands: ready",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

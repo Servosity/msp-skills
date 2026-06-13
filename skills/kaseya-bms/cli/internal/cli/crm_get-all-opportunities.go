@@ -40,19 +40,19 @@ func newCrmGetAllOpportunitiesCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/crm/opportunities"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "crm", path, map[string]string{
-				"Filter.StatusId":                  fmt.Sprintf("%v", flagFilterStatusId),
-				"Filter.AccountId":                 fmt.Sprintf("%v", flagFilterAccountId),
-				"Filter.TypeId":                    fmt.Sprintf("%v", flagFilterTypeId),
-				"Filter.SalesRepresentativeUserId": fmt.Sprintf("%v", flagFilterSalesRepresentativeUserId),
-				"Filter.InPipeline":                fmt.Sprintf("%v", flagFilterInPipeline),
-				"Filter.CreatedOnFrom":             fmt.Sprintf("%v", flagFilterCreatedOnFrom),
-				"Filter.CreatedOnTo":               fmt.Sprintf("%v", flagFilterCreatedOnTo),
-				"Filter.ModifiedOnFrom":            fmt.Sprintf("%v", flagFilterModifiedOnFrom),
-				"Filter.ModifiedOnTo":              fmt.Sprintf("%v", flagFilterModifiedOnTo),
-				"Sort":                             fmt.Sprintf("%v", flagSort),
-				"Exclude":                          fmt.Sprintf("%v", flagExclude),
-				"PageSize":                         fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":                       fmt.Sprintf("%v", flagPageNumber),
+				"Filter.StatusId":                  formatCLIParamValue(flagFilterStatusId),
+				"Filter.AccountId":                 formatCLIParamValue(flagFilterAccountId),
+				"Filter.TypeId":                    formatCLIParamValue(flagFilterTypeId),
+				"Filter.SalesRepresentativeUserId": formatCLIParamValue(flagFilterSalesRepresentativeUserId),
+				"Filter.InPipeline":                formatCLIParamValue(flagFilterInPipeline),
+				"Filter.CreatedOnFrom":             formatCLIParamValue(flagFilterCreatedOnFrom),
+				"Filter.CreatedOnTo":               formatCLIParamValue(flagFilterCreatedOnTo),
+				"Filter.ModifiedOnFrom":            formatCLIParamValue(flagFilterModifiedOnFrom),
+				"Filter.ModifiedOnTo":              formatCLIParamValue(flagFilterModifiedOnTo),
+				"Sort":                             formatCLIParamValue(flagSort),
+				"Exclude":                          formatCLIParamValue(flagExclude),
+				"PageSize":                         formatCLIParamValue(flagPageSize),
+				"PageNumber":                       formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

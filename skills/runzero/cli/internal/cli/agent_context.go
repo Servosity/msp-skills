@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "runzero-cli",
-			Description: "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time",
+			Description: "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

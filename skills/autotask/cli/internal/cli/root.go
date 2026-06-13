@@ -305,15 +305,15 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newWorkflowCmd(flags))
 	// NOTE: the generator emits both a generic data-layer `newStaleCmd`
 	// (pm_stale.go, Use:"stale", flags --days/--team) and the novel
-	// `newNovelStaleCmd` (Use:"stale", flags --days/--entity). Both registered,
-	// the first-added wins and the second is a dead duplicate (the
-	// pp-novel-stub-vs-handbuilt-collision trap). The absorb manifest's
-	// transcendence spec is `stale [--days N] [--entity tickets|projects]`, so
-	// the novel implementation is the one we keep; the generic pm_stale
-	// registration is dropped to avoid the dup-cobra collision.
+	// `newNovelStaleCmd` (Use:"stale", flags --days/--entity). Both would
+	// register with the same Use; the first-added wins and the second is a
+	// dead duplicate (the pp-novel-stub-vs-handbuilt-collision trap). The
+	// absorb manifest's transcendence spec is `stale [--days N] [--entity
+	// tickets|projects]`, so the novel implementation is the one we keep;
+	// the generic pm_stale registration is dropped (and pm_stale.go removed)
+	// to avoid the dup-cobra collision.
 	rootCmd.AddCommand(newOrphansCmd(flags))
 	rootCmd.AddCommand(newLoadCmd(flags))
-	rootCmd.AddCommand(newZoneCmd(flags))
 	rootCmd.AddCommand(newNovelAccountBriefCmd(flags))
 	rootCmd.AddCommand(newNovelCompany360Cmd(flags))
 	rootCmd.AddCommand(newNovelContractBurnCmd(flags))
@@ -331,6 +331,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newNovelWorkloadCmd(flags))
 	rootCmd.AddCommand(newAPICmd(flags))
 	rootCmd.AddCommand(newAutotaskPsaVersionPromotedCmd(flags))
+	rootCmd.AddCommand(newZoneCmd(flags))
 	rootCmd.AddCommand(newVersionCmd())
 
 	return rootCmd

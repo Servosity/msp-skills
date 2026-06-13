@@ -1,12 +1,122 @@
 # Huntress CLI
 
-**Every Huntress endpoint, plus an offline SQLite mirror and cross-tenant analytics - fleet incident queue, coverage gaps, blast radius, billing reconciliation - that no single portal view composes.**
+**Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.**
 
-huntress-cli absorbs the full Huntress API - accounts, organizations, agents, incident reports, remediations, signals, escalations, identities, external recon, reports, invoices, reseller subscriptions, and SIEM ES|QL - with agent-native output (`--json`, `--select`, typed exit codes). Then it transcends the read-mostly, per-org API: `fleet-incidents` gives one age-sorted queue across every client org, `coverage-gaps` rolls up posture exposure, `blast-radius` correlates an indicator across the whole fleet, and `drift`/`mttr`/`handoff` turn repeated syncs into history the live API throws away. Ships an MCP server so an AI agent can drive all of it.
+huntress-cli absorbs the full Huntress API  -  organizations, agents, incident reports, remediations, signals, escalations, identities, external recon, reports, invoices, reseller subscriptions, and SIEM ES|QL  -  with agent-native output (--json, --select, typed exit codes). Then it transcends the read-mostly, per-org API: fleet-incidents gives one age-sorted queue across every client org, coverage-gaps rolls up posture exposure, blast-radius correlates an indicator across the whole fleet, and drift/mttr/handoff turn repeated syncs into history the live API throws away.
 
-Learn more at [Huntress](https://www.huntress.com).
+## Install
 
-For the short install path see [README.md](./README.md). For per-agent wire-up (Claude Desktop, ChatGPT, GitHub Copilot, Gemini, Hermes, OpenClaw) see [mcp-install.md](./mcp-install.md). This file is the command reference.
+The recommended path installs both the `huntress-cli` binary and the `pp-huntress` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+
+```bash
+npx -y @mvanhorn/printing-press-library install huntress
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install huntress --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install huntress --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install huntress --agent claude-code
+npx -y @mvanhorn/printing-press-library install huntress --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/huntress/cmd/huntress-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/huntress-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install huntress --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-huntress --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-huntress --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install huntress --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/huntress-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `HUNTRESS_API_KEY` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/huntress/cmd/huntress-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "huntress": {
+      "command": "huntress-mcp",
+      "env": {
+        "HUNTRESS_API_KEY": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Authentication
 
@@ -41,7 +151,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   huntress-cli fleet-incidents --severity critical --status sent --sort age --json
   ```
-- **`coverage-gaps`**  -  Flags orgs and agents with stale callbacks or unhealthy Defender/firewall  -  a fleet posture exposure report.
+- **`coverage-gaps`**  -  Flags orgs and agents with stale callbacks, unhealthy Defender/firewall, or outdated EDR versions  -  a fleet posture exposure report.
 
   _Use before a weekly posture review or onboarding audit to find protection gaps before an incident lands on an unmonitored host._
 
@@ -85,7 +195,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   huntress-cli triage-age --buckets 4,24,72 --json
   ```
-- **`org-scorecard`**  -  Per-client QBR scorecard: agent count, open and closed incidents, and MTTR  -  one client's security story.
+- **`org-scorecard`**  -  Per-client QBR scorecard: agent count, coverage percent, open and closed incidents, MTTR, and a posture grade  -  one client's security story.
 
   _Use to assemble a client quarterly-business-review summary in one command instead of stitching several endpoints._
 
@@ -101,7 +211,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Partner ops and billing
-- **`billing-reconcile`**  -  Compares total invoiced seat counts against actually deployed agent counts account-wide and surfaces the delta.
+- **`billing-reconcile`**  -  Compares invoiced and subscribed seat counts against actually deployed agent counts per org and surfaces the delta.
 
   _Run at monthly close to catch decommissioned-but-billed seats and under-billed new deployments._
 
@@ -110,7 +220,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 - **`reseller-rollup`**  -  Per-account roll-up for resellers: invoice total, subscribed seats, and deployed agent count side by side.
 
-  _Live-only: calls the API directly and requires reseller-scoped credentials (standard account keys get 401; no sync needed). Use at month close for multi-account resellers; for billing-vs-deployment drift inside a single account use billing-reconcile instead._
+  _Live-only: calls the API directly and requires reseller-scoped credentials (standard account keys get 401; no sync needed). Use at month close for multi-account resellers; for per-org drift inside one account use billing-reconcile instead._
 
   ```bash
   huntress-cli reseller-rollup --json
@@ -180,7 +290,7 @@ fleet-incidents joins org names and returns a wide row per incident; --agent wit
 huntress-cli billing-reconcile --json
 ```
 
-Total invoiced seats versus actually deployed agents account-wide, with the delta.
+Invoiced/subscribed seats versus actually deployed agents per org, with the delta.
 
 ## Usage
 
@@ -517,7 +627,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/huntress-cli/config.toml`
+Config file: `~/.config/huntress-reference-pp-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

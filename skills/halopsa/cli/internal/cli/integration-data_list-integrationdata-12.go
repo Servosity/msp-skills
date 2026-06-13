@@ -33,22 +33,22 @@ func newIntegrationDataListIntegrationdata12Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/CloudMarketplace"
 			params := map[string]string{}
 			if flagAccountId != "" {
-				params["account_id"] = fmt.Sprintf("%v", flagAccountId)
+				params["account_id"] = formatCLIParamValue(flagAccountId)
 			}
 			if flagIncludeThisId != "" {
-				params["include_this_id"] = fmt.Sprintf("%v", flagIncludeThisId)
+				params["include_this_id"] = formatCLIParamValue(flagIncludeThisId)
 			}
 			if flagModuleId != "" {
-				params["module_id"] = fmt.Sprintf("%v", flagModuleId)
+				params["module_id"] = formatCLIParamValue(flagModuleId)
 			}
 			if flagRemoveExisting != false {
-				params["remove_existing"] = fmt.Sprintf("%v", flagRemoveExisting)
+				params["remove_existing"] = formatCLIParamValue(flagRemoveExisting)
 			}
 			if flagResetToken != false {
-				params["reset_token"] = fmt.Sprintf("%v", flagResetToken)
+				params["reset_token"] = formatCLIParamValue(flagResetToken)
 			}
 			if flagResource != "" {
-				params["resource"] = fmt.Sprintf("%v", flagResource)
+				params["resource"] = formatCLIParamValue(flagResource)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

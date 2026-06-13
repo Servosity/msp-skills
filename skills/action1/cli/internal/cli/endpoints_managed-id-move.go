@@ -19,7 +19,7 @@ func newEndpointsManagedIdMoveCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "managed-id-move <orgId> <endpointId>",
 		Short:       "**Requires permission: `manage_endpoints`** Moves the endpoint to another organization.",
-		Example:     "  action1-cli endpoints managed-id-move 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --target-organization-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  action1-cli endpoints managed-id-move 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --target-organization-id 9844e782-2506-7488-f599-a5693ce52109",
 		Annotations: map[string]string{"pp:endpoint": "endpoints.managed-id-move", "pp:method": "POST", "pp:path": "/endpoints/managed/{orgId}/{endpointId}/move"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

@@ -14,9 +14,10 @@ import (
 func newTicketsRelationsTicketDeleteTicketCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "ticket-delete-ticket <ticketId> <relationType>",
-		Aliases:     []string{"delete"},
-		Short:       "Ticket delete ticket",
+		Use:     "ticket-delete-ticket <ticketId> <relationType>",
+		Aliases: []string{"delete"},
+		Short:   "Ticket delete ticket",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  atera-cli tickets relations ticket-delete-ticket 42 example-value",
 		Annotations: map[string]string{"pp:endpoint": "relations.ticket-delete-ticket", "pp:method": "DELETE", "pp:path": "/tickets/{ticketId}/relations/{relationType}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

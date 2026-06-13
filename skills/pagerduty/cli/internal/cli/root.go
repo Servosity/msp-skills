@@ -294,15 +294,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newNovelOncallCmd(flags))
 	rootCmd.AddCommand(newNovelPulseCmd(flags))
 	rootCmd.AddCommand(newAPICmd(flags))
-	// The novel "audit coverage" / "audit schedule-gaps" commands share their
-	// parent name with the promoted /audit/records resource. Attach them as
-	// subcommands of the real audit command rather than registering a second
-	// top-level "audit" (which collided). This preserves the natural
-	// `audit coverage` and `audit schedule-gaps` paths.
-	auditCmd := newAuditPromotedCmd(flags)
-	auditCmd.AddCommand(newNovelAuditCoverageCmd(flags))
-	auditCmd.AddCommand(newNovelAuditScheduleGapsCmd(flags))
-	rootCmd.AddCommand(auditCmd)
+	rootCmd.AddCommand(newAuditPromotedCmd(flags))
 	rootCmd.AddCommand(newLicenseAllocationsPromotedCmd(flags))
 	rootCmd.AddCommand(newLicensesPromotedCmd(flags))
 	rootCmd.AddCommand(newNotificationsPromotedCmd(flags))

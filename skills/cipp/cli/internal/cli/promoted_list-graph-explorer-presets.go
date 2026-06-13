@@ -29,7 +29,7 @@ func newListGraphExplorerPresetsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListGraphExplorerPresets"
 			params := map[string]string{}
 			if flagEndpoint != "" {
-				params["Endpoint"] = fmt.Sprintf("%v", flagEndpoint)
+				params["Endpoint"] = formatCLIParamValue(flagEndpoint)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-graph-explorer-presets", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

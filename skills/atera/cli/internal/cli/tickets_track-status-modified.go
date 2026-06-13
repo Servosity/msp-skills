@@ -31,10 +31,10 @@ func newTicketsTrackStatusModifiedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/tickets/statusmodified"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "tickets", path, map[string]string{
-				"page":             fmt.Sprintf("%v", flagPage),
-				"itemsInPage":      fmt.Sprintf("%v", flagItemsInPage),
-				"includeComments":  fmt.Sprintf("%v", flagIncludeComments),
-				"includeRelations": fmt.Sprintf("%v", flagIncludeRelations),
+				"page":             formatCLIParamValue(flagPage),
+				"itemsInPage":      formatCLIParamValue(flagItemsInPage),
+				"includeComments":  formatCLIParamValue(flagIncludeComments),
+				"includeRelations": formatCLIParamValue(flagIncludeRelations),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

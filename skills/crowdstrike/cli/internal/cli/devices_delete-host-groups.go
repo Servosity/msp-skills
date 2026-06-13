@@ -15,9 +15,10 @@ func newDevicesDeleteHostGroupsCmd(flags *rootFlags) *cobra.Command {
 	var flagIds string
 
 	cmd := &cobra.Command{
-		Use:         "delete-host-groups",
-		Aliases:     []string{"delete"},
-		Short:       "Delete a set of Host Groups by specifying their IDs",
+		Use:     "delete-host-groups",
+		Aliases: []string{"delete"},
+		Short:   "Delete a set of Host Groups by specifying their IDs",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  crowdstrike-cli devices delete-host-groups --ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "devices.delete-host-groups", "pp:method": "DELETE", "pp:path": "/devices/entities/host-groups/v1"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -38,7 +39,7 @@ func newDevicesDeleteHostGroupsCmd(flags *rootFlags) *cobra.Command {
 			path := "/devices/entities/host-groups/v1"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

@@ -18,8 +18,9 @@ func newOrgClearBulkAssetOwnersCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "clear-bulk-asset-owners",
-		Short:       "Clear all owners across multiple assets based on a search query",
+		Use:   "clear-bulk-asset-owners",
+		Short: "Clear all owners across multiple assets based on a search query",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  runzero-cli org clear-bulk-asset-owners --search example-value",
 		Annotations: map[string]string{"pp:endpoint": "org.clear-bulk-asset-owners", "pp:method": "POST", "pp:path": "/org/assets/bulk/clearOwners"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -42,7 +43,7 @@ func newOrgClearBulkAssetOwnersCmd(flags *rootFlags) *cobra.Command {
 			path := "/org/assets/bulk/clearOwners"
 			params := map[string]string{}
 			if flagOid != "" {
-				params["_oid"] = fmt.Sprintf("%v", flagOid)
+				params["_oid"] = formatCLIParamValue(flagOid)
 			}
 			var body map[string]any
 			if stdinBody {

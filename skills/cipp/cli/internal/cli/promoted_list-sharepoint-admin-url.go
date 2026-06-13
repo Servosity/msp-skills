@@ -16,9 +16,10 @@ func newListSharepointAdminUrlPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-sharepoint-admin-url",
-		Short:       "List sharepoint admin url",
-		Long:        "List sharepoint admin url",
+		Use:   "list-sharepoint-admin-url",
+		Short: "List sharepoint admin url",
+		Long:  "List sharepoint admin url",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-sharepoint-admin-url --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-sharepoint-admin-url.list", "pp:method": "GET", "pp:path": "/ListSharepointAdminUrl", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,10 +41,10 @@ func newListSharepointAdminUrlPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListSharepointAdminUrl"
 			params := map[string]string{}
 			if flagReturnUrl != "" {
-				params["ReturnUrl"] = fmt.Sprintf("%v", flagReturnUrl)
+				params["ReturnUrl"] = formatCLIParamValue(flagReturnUrl)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-sharepoint-admin-url", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -34,13 +34,13 @@ func newHrGetEmployeesListSearchSelectCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/hr/employees/searchselect"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "hr", path, map[string]string{
-				"Filter.Ids":         fmt.Sprintf("%v", flagFilterIds),
-				"Filter.Filter_Text": fmt.Sprintf("%v", flagFilterFilterText),
-				"Filter.IsActive":    fmt.Sprintf("%v", flagFilterIsActive),
-				"Sort":               fmt.Sprintf("%v", flagSort),
-				"Exclude":            fmt.Sprintf("%v", flagExclude),
-				"PageSize":           fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":         fmt.Sprintf("%v", flagPageNumber),
+				"Filter.Ids":         formatCLIParamValue(flagFilterIds),
+				"Filter.Filter_Text": formatCLIParamValue(flagFilterFilterText),
+				"Filter.IsActive":    formatCLIParamValue(flagFilterIsActive),
+				"Sort":               formatCLIParamValue(flagSort),
+				"Exclude":            formatCLIParamValue(flagExclude),
+				"PageSize":           formatCLIParamValue(flagPageSize),
+				"PageNumber":         formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

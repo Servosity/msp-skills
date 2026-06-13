@@ -40,14 +40,14 @@ func newBackupGetJobsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/backup/jobs"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "backup", path, map[string]string{
-				"df":       fmt.Sprintf("%v", flagDf),
-				"ddf":      fmt.Sprintf("%v", flagDdf),
-				"sf":       fmt.Sprintf("%v", flagSf),
-				"ptf":      fmt.Sprintf("%v", flagPtf),
-				"stf":      fmt.Sprintf("%v", flagStf),
-				"include":  fmt.Sprintf("%v", flagInclude),
-				"cursor":   fmt.Sprintf("%v", flagCursor),
-				"pageSize": fmt.Sprintf("%v", flagPageSize),
+				"df":       formatCLIParamValue(flagDf),
+				"ddf":      formatCLIParamValue(flagDdf),
+				"sf":       formatCLIParamValue(flagSf),
+				"ptf":      formatCLIParamValue(flagPtf),
+				"stf":      formatCLIParamValue(flagStf),
+				"include":  formatCLIParamValue(flagInclude),
+				"cursor":   formatCLIParamValue(flagCursor),
+				"pageSize": formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "cursor", "cursor", "pageSize", "cursor", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -36,10 +36,10 @@ func newSchedulesScheduleRotationsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/v1/schedules/{schedule_id}/schedule_rotations"
 			path = replacePathParam(path, "schedule_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "schedule-rotations", path, map[string]string{
-				"include":      fmt.Sprintf("%v", flagInclude),
-				"page[number]": fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":   fmt.Sprintf("%v", flagPageSize),
-				"sort":         fmt.Sprintf("%v", flagSort),
+				"include":      formatCLIParamValue(flagInclude),
+				"page[number]": formatCLIParamValue(flagPageNumber),
+				"page[size]":   formatCLIParamValue(flagPageSize),
+				"sort":         formatCLIParamValue(flagSort),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

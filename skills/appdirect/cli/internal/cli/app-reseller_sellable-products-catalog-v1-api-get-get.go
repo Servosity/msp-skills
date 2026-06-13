@@ -31,10 +31,10 @@ func newAppResellerSellableProductsCatalogV1ApiGetGetCmd(flags *rootFlags) *cobr
 
 			path := "/appReseller/v1/catalog/sellableProducts"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "app-reseller", path, map[string]string{
-				"page":         fmt.Sprintf("%v", flagPage),
-				"size":         fmt.Sprintf("%v", flagSize),
-				"searchText":   fmt.Sprintf("%v", flagSearchText),
-				"targetUserId": fmt.Sprintf("%v", flagTargetUserId),
+				"page":         formatCLIParamValue(flagPage),
+				"size":         formatCLIParamValue(flagSize),
+				"searchText":   formatCLIParamValue(flagSearchText),
+				"targetUserId": formatCLIParamValue(flagTargetUserId),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

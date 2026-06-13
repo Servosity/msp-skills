@@ -36,28 +36,28 @@ func newActivityLogsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/activity_logs"
 			params := map[string]string{}
 			if flagUserId != "" {
-				params["user_id"] = fmt.Sprintf("%v", flagUserId)
+				params["user_id"] = formatCLIParamValue(flagUserId)
 			}
 			if flagUserEmail != "" {
-				params["user_email"] = fmt.Sprintf("%v", flagUserEmail)
+				params["user_email"] = formatCLIParamValue(flagUserEmail)
 			}
 			if flagResourceType != "" {
-				params["resource_type"] = fmt.Sprintf("%v", flagResourceType)
+				params["resource_type"] = formatCLIParamValue(flagResourceType)
 			}
 			if flagResourceId != "" {
-				params["resource_id"] = fmt.Sprintf("%v", flagResourceId)
+				params["resource_id"] = formatCLIParamValue(flagResourceId)
 			}
 			if flagActionMessage != "" {
-				params["action_message"] = fmt.Sprintf("%v", flagActionMessage)
+				params["action_message"] = formatCLIParamValue(flagActionMessage)
 			}
 			if flagStartDate != "" {
-				params["start_date"] = fmt.Sprintf("%v", flagStartDate)
+				params["start_date"] = formatCLIParamValue(flagStartDate)
 			}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPageSize != 0 {
-				params["page_size"] = fmt.Sprintf("%v", flagPageSize)
+				params["page_size"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "activity-logs", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

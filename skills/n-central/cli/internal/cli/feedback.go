@@ -81,7 +81,7 @@ func postFeedback(url string, entry FeedbackEntry) error {
 		return fmt.Errorf("building feedback request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "n-central-pp-cli/feedback")
+	req.Header.Set("User-Agent", "n-central-cli/feedback")
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -100,7 +100,7 @@ func newFeedbackCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "feedback [text]",
 		Short: "Record feedback about this CLI (local by default; upstream opt-in)",
-		Long: `Feedback is captured locally first at ~/.local/share/n-central-pp-cli/feedback.jsonl.
+		Long: `Feedback is captured locally first at ~/.local/share/n-central-cli/feedback.jsonl.
 When ` + "`N_CENTRAL_FEEDBACK_ENDPOINT`" + ` is set and either --send is
 passed or ` + "`N_CENTRAL_FEEDBACK_AUTO_SEND=true`" + `, the entry is
 POSTed as JSON after the local write.
@@ -184,6 +184,9 @@ func newFeedbackListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List recent feedback entries",
+		Annotations: map[string]string{
+			"mcp:read-only": "true",
+		},
 		Example: `  n-central-cli feedback list
   n-central-cli feedback list --limit 5
   n-central-cli feedback list --json`,

@@ -17,7 +17,7 @@ func newTemplatesStatusCmd(flags *rootFlags) *cobra.Command {
 		Use:         "status <id>",
 		Aliases:     []string{"get"},
 		Short:       "The following is a complete list of all possible template statuses returned:",
-		Example:     "  pandadoc-cli templates status 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli templates status vibuun3DXG8QDDLfXm27Ne",
 		Annotations: map[string]string{"pp:endpoint": "templates.status", "pp:method": "GET", "pp:path": "/templates/{id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

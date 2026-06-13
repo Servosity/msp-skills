@@ -17,7 +17,7 @@ func newPublicDeleteCatalogItemCmd(flags *rootFlags) *cobra.Command {
 		Use:         "delete-catalog-item <item_uuid>",
 		Aliases:     []string{"delete"},
 		Short:       "Delete catalog item.",
-		Example:     "  pandadoc-cli public delete-catalog-item 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli public delete-catalog-item 2e39c7e0-acb0-4ff2-b4cd-ea3141f95db8",
 		Annotations: map[string]string{"pp:endpoint": "public.delete-catalog-item", "pp:method": "DELETE", "pp:path": "/public/v2/product-catalog/items/{item_uuid}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

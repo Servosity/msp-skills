@@ -20,8 +20,9 @@ func newCannedResponsesCreateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Required permission: Ticket Canned Responses - Manage",
+		Use:   "create",
+		Short: "Required permission: Ticket Canned Responses - Manage",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  syncro-cli canned-responses create --body example-value",
 		Annotations: map[string]string{"pp:endpoint": "canned-responses.create", "pp:method": "POST", "pp:path": "/canned_responses"},
 		RunE: func(cmd *cobra.Command, args []string) error {

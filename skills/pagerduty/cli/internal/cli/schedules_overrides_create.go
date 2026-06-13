@@ -19,7 +19,7 @@ func newSchedulesOverridesCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <id>",
 		Short:       "<!",
-		Example:     "  pagerduty-cli schedules overrides create 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pagerduty-cli schedules overrides create PSJUKNI",
 		Annotations: map[string]string{"pp:endpoint": "overrides.create", "pp:method": "POST", "pp:path": "/v3/schedules/{id}/overrides"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

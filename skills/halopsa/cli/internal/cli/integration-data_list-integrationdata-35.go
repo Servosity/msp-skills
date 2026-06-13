@@ -33,12 +33,12 @@ func newIntegrationDataListIntegrationdata35Cmd(flags *rootFlags) *cobra.Command
 
 			path := "/IntegrationData/Get/GoToAssist"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", path, map[string]string{
-				"customeremail": fmt.Sprintf("%v", flagCustomeremail),
-				"customername":  fmt.Sprintf("%v", flagCustomername),
-				"datatype":      fmt.Sprintf("%v", flagDatatype),
-				"limit":         fmt.Sprintf("%v", flagLimit),
-				"offset":        fmt.Sprintf("%v", flagOffset),
-				"ticketid":      fmt.Sprintf("%v", flagTicketid),
+				"customeremail": formatCLIParamValue(flagCustomeremail),
+				"customername":  formatCLIParamValue(flagCustomername),
+				"datatype":      formatCLIParamValue(flagDatatype),
+				"limit":         formatCLIParamValue(flagLimit),
+				"offset":        formatCLIParamValue(flagOffset),
+				"ticketid":      formatCLIParamValue(flagTicketid),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

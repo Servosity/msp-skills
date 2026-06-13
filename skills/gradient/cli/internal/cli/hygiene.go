@@ -11,7 +11,7 @@ func newNovelHygieneCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "hygiene",
-		Short:       "Mapping-hygiene rollups for accounts and SKUs",
+		Short:       "hygiene subcommands: unmapped",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

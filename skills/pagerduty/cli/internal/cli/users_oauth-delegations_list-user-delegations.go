@@ -61,10 +61,10 @@ func newUsersOauthDelegationsListUserDelegationsCmd(flags *rootFlags) *cobra.Com
 			path := "/users/{id}/oauth_delegations"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "oauth-delegations", path, map[string]string{
-				"delegation_type": fmt.Sprintf("%v", flagDelegationType),
-				"status":          fmt.Sprintf("%v", flagStatus),
-				"limit":           fmt.Sprintf("%v", flagLimit),
-				"cursor":          fmt.Sprintf("%v", flagCursor),
+				"delegation_type": formatCLIParamValue(flagDelegationType),
+				"status":          formatCLIParamValue(flagStatus),
+				"limit":           formatCLIParamValue(flagLimit),
+				"cursor":          formatCLIParamValue(flagCursor),
 			}, nil, flagAll, "cursor", "cursor", "limit", "next_cursor", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

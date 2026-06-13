@@ -11,8 +11,7 @@ func newNovelOncallCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "oncall",
-		Short:       "On-call intelligence over the local store: who is on now/next, and on-call hours per user",
-		Long:        "On-call intelligence computed from the synced on-call entries. Subcommands: who (who is on call now and next, with handoff time, scoped to a service/team/escalation-policy) and hours (on-call hours per user over a window). Run `sync` first.",
+		Short:       "oncall subcommands: hours, who",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

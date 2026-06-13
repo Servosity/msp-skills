@@ -19,7 +19,7 @@ func newTicketsListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List tickets",
-		Example:     "  superops-cli tickets list",
+		Example:     "  superops-cli tickets list --first 20 --agent",
 		Annotations: map[string]string{"pp:endpoint": "tickets.list", "pp:method": "GET", "pp:path": "/graphql", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()

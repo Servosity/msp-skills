@@ -67,15 +67,15 @@ func newRetrospectiveProcessesGroupsListRetrospectiveProcessCmd(flags *rootFlags
 			path := "/v1/retrospective_processes/{retrospective_process_id}/groups"
 			path = replacePathParam(path, "retrospective_process_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "groups", path, map[string]string{
-				"include":                 fmt.Sprintf("%v", flagInclude),
-				"sort":                    fmt.Sprintf("%v", flagSort),
-				"page[number]":            fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":              fmt.Sprintf("%v", flagPageSize),
-				"filter[sub_status_id]":   fmt.Sprintf("%v", flagFilterSubStatusId),
-				"filter[created_at][gt]":  fmt.Sprintf("%v", flagFilterCreatedAtGt),
-				"filter[created_at][gte]": fmt.Sprintf("%v", flagFilterCreatedAtGte),
-				"filter[created_at][lt]":  fmt.Sprintf("%v", flagFilterCreatedAtLt),
-				"filter[created_at][lte]": fmt.Sprintf("%v", flagFilterCreatedAtLte),
+				"include":                 formatCLIParamValue(flagInclude),
+				"sort":                    formatCLIParamValue(flagSort),
+				"page[number]":            formatCLIParamValue(flagPageNumber),
+				"page[size]":              formatCLIParamValue(flagPageSize),
+				"filter[sub_status_id]":   formatCLIParamValue(flagFilterSubStatusId),
+				"filter[created_at][gt]":  formatCLIParamValue(flagFilterCreatedAtGt),
+				"filter[created_at][gte]": formatCLIParamValue(flagFilterCreatedAtGte),
+				"filter[created_at][lt]":  formatCLIParamValue(flagFilterCreatedAtLt),
+				"filter[created_at][lte]": formatCLIParamValue(flagFilterCreatedAtLte),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

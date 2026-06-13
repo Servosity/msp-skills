@@ -42,9 +42,8 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			w := cmd.OutOrStdout()
 			fmt.Fprintln(w, "Get a key at: https://rmm.datto.com/help/en/Content/2SETUP/APIv2.htm")
 			fmt.Fprintln(w, "")
-			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export DATTO_RMM_TOKEN=\"<your-token>\"")
-			fmt.Fprintln(w, "  datto-rmm-cli auth set-token <token>")
+			fmt.Fprintln(w, "Optional request credentials:")
+			fmt.Fprintln(w, "  export DATTO_RMM_TOKEN=\"your-token-here\"")
 			if !launch {
 				return nil
 			}
@@ -116,8 +115,9 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Set your token:")
+				fmt.Fprintln(w, "")
+				fmt.Fprintln(w, "Optional request credentials:")
 				fmt.Fprintln(w, "  export DATTO_RMM_TOKEN=\"your-token-here\" # Optional pre-minted OAuth bearer token (skips the auto-mint).")
-				fmt.Fprintf(w, "  datto-rmm-cli auth set-token <token>\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
 

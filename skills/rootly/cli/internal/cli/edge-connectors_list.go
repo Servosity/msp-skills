@@ -31,10 +31,10 @@ func newEdgeConnectorsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/edge_connectors"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "edge-connectors", path, map[string]string{
-				"page":     fmt.Sprintf("%v", flagPage),
-				"per_page": fmt.Sprintf("%v", flagPerPage),
-				"status":   fmt.Sprintf("%v", flagStatus),
-				"name":     fmt.Sprintf("%v", flagName),
+				"page":     formatCLIParamValue(flagPage),
+				"per_page": formatCLIParamValue(flagPerPage),
+				"status":   formatCLIParamValue(flagStatus),
+				"name":     formatCLIParamValue(flagName),
 			}, nil, flagAll, "page", "page", "per_page", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

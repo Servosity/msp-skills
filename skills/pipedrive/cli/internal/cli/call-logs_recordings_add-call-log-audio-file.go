@@ -15,10 +15,11 @@ func newCallLogsRecordingsAddCallLogAudioFileCmd(flags *rootFlags) *cobra.Comman
 	var bodyFile string
 
 	cmd := &cobra.Command{
-		Use:         "add-call-log-audio-file <id>",
-		Aliases:     []string{"create"},
-		Short:       "Adds an audio recording to the call log. That audio can be played by those who have access to the call log object.",
-		Example:     "  pipedrive-cli call-logs recordings add-call-log-audio-file 550e8400-e29b-41d4-a716-446655440000 --file example-value",
+		Use:     "add-call-log-audio-file <id>",
+		Aliases: []string{"create"},
+		Short:   "Adds an audio recording to the call log. That audio can be played by those who have access to the call log object.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
+		Example:     "  pipedrive-cli call-logs recordings add-call-log-audio-file 3cde3b05035cae14dcfc172bd8000d08 --file example-value",
 		Annotations: map[string]string{"pp:endpoint": "recordings.add-call-log-audio-file", "pp:method": "POST", "pp:path": "/callLogs/{id}/recordings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

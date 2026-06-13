@@ -98,14 +98,14 @@ func newReconciliationPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v3/reconciliation/ledgerLines"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "reconciliation", path, map[string]string{
-				"context":            fmt.Sprintf("%v", flagContext),
-				"page":               fmt.Sprintf("%v", flagPage),
-				"size":               fmt.Sprintf("%v", flagSize),
-				"sortOrder":          fmt.Sprintf("%v", flagSortOrder),
-				"fromDate":           fmt.Sprintf("%v", flagFromDate),
-				"toDate":             fmt.Sprintf("%v", flagToDate),
-				"reconciliationType": fmt.Sprintf("%v", flagReconciliationType),
-				"operationType":      fmt.Sprintf("%v", flagOperationType),
+				"context":            formatCLIParamValue(flagContext),
+				"page":               formatCLIParamValue(flagPage),
+				"size":               formatCLIParamValue(flagSize),
+				"sortOrder":          formatCLIParamValue(flagSortOrder),
+				"fromDate":           formatCLIParamValue(flagFromDate),
+				"toDate":             formatCLIParamValue(flagToDate),
+				"reconciliationType": formatCLIParamValue(flagReconciliationType),
+				"operationType":      formatCLIParamValue(flagOperationType),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

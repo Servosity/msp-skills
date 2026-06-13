@@ -18,9 +18,10 @@ func newListmailboxPermissionsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagUserId string
 
 	cmd := &cobra.Command{
-		Use:         "listmailbox-permissions",
-		Short:       "Listmailbox permissions",
-		Long:        "Listmailbox permissions",
+		Use:   "listmailbox-permissions",
+		Short: "Listmailbox permissions",
+		Long:  "Listmailbox permissions",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli listmailbox-permissions --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "listmailbox-permissions.list", "pp:method": "GET", "pp:path": "/ListmailboxPermissions", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -42,16 +43,16 @@ func newListmailboxPermissionsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListmailboxPermissions"
 			params := map[string]string{}
 			if flagByUser != "" {
-				params["ByUser"] = fmt.Sprintf("%v", flagByUser)
+				params["ByUser"] = formatCLIParamValue(flagByUser)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagUseReportDB != "" {
-				params["UseReportDB"] = fmt.Sprintf("%v", flagUseReportDB)
+				params["UseReportDB"] = formatCLIParamValue(flagUseReportDB)
 			}
 			if flagUserId != "" {
-				params["userId"] = fmt.Sprintf("%v", flagUserId)
+				params["userId"] = formatCLIParamValue(flagUserId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "listmailbox-permissions", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

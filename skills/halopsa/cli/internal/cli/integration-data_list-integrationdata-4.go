@@ -30,13 +30,13 @@ func newIntegrationDataListIntegrationdata4Cmd(flags *rootFlags) *cobra.Command 
 			path := "/IntegrationData/Get/Automate"
 			params := map[string]string{}
 			if flagDataType != "" {
-				params["dataType"] = fmt.Sprintf("%v", flagDataType)
+				params["dataType"] = formatCLIParamValue(flagDataType)
 			}
 			if flagExtraFilter != "" {
-				params["extraFilter"] = fmt.Sprintf("%v", flagExtraFilter)
+				params["extraFilter"] = formatCLIParamValue(flagExtraFilter)
 			}
 			if flagKeyPair != false {
-				params["keyPair"] = fmt.Sprintf("%v", flagKeyPair)
+				params["keyPair"] = formatCLIParamValue(flagKeyPair)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

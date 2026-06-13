@@ -44,19 +44,19 @@ func newAppResellerResourceV1PaymentMethodsApiGetCmd(flags *rootFlags) *cobra.Co
 			path := "/appReseller/v1/paymentMethods"
 			params := map[string]string{}
 			if flagOwnerId != "" {
-				params["ownerId"] = fmt.Sprintf("%v", flagOwnerId)
+				params["ownerId"] = formatCLIParamValue(flagOwnerId)
 			}
 			if flagCompanyId != "" {
-				params["companyId"] = fmt.Sprintf("%v", flagCompanyId)
+				params["companyId"] = formatCLIParamValue(flagCompanyId)
 			}
 			if flagNumber != 0 {
-				params["number"] = fmt.Sprintf("%v", flagNumber)
+				params["number"] = formatCLIParamValue(flagNumber)
 			}
 			if flagSize != 0 {
-				params["size"] = fmt.Sprintf("%v", flagSize)
+				params["size"] = formatCLIParamValue(flagSize)
 			}
 			if flagPaymentMethodType != "" {
-				params["paymentMethodType"] = fmt.Sprintf("%v", flagPaymentMethodType)
+				params["paymentMethodType"] = formatCLIParamValue(flagPaymentMethodType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "app-reseller", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

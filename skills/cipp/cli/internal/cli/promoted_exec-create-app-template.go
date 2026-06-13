@@ -19,9 +19,10 @@ func newExecCreateAppTemplatePromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyType string
 
 	cmd := &cobra.Command{
-		Use:         "exec-create-app-template",
-		Short:       "Exec create app template",
-		Long:        "Exec create app template",
+		Use:   "exec-create-app-template",
+		Short: "Exec create app template",
+		Long:  "Exec create app template",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-create-app-template --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-create-app-template.create", "pp:method": "POST", "pp:path": "/ExecCreateAppTemplate"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -64,10 +65,10 @@ func newExecCreateAppTemplatePromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

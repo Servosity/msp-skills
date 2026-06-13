@@ -100,7 +100,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export KNOWBE4_API_KEY=<your-key>"
+					report["auth_hint"] = "Set it with: knowbe4-cli auth set-token <token> or export KNOWBE4_API_KEY=\"your-token-here\""
 					report["auth_key_url"] = "https://developer.knowbe4.com/"
 					report["auth_instructions"] = "KSAT console → Account Settings → API → enable Reporting API and copy the key. Then export KNOWBE4_API_KEY=<key>. Set KNOWBE4_REGION if your tenant is not on the US server (eu, ca, uk, de)."
 				} else {

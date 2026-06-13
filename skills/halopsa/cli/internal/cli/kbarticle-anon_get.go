@@ -14,8 +14,9 @@ import (
 func newKbarticleAnonGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "get <slug>",
-		Short:       "Get",
+		Use:   "get <slug>",
+		Short: "Get",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  halopsa-cli kbarticle-anon get example-value",
 		Annotations: map[string]string{"pp:endpoint": "kbarticle-anon.get", "pp:method": "GET", "pp:path": "/KBArticleAnon/{slug}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

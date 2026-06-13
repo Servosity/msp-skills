@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/microsoft-graph-mcp",
   "title": "Microsoft Graph MCP",
   "description": "The maintained single-binary successor to the retiring mgc  -  every MSP-relevant Microsoft Graph",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/microsoft-graph/microsoft-graph-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/microsoft-graph-v0.1.0/microsoft-graph-mcp.mcpb",
-      "version": "0.1.0",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/microsoft-graph-v0.1.1/microsoft-graph-mcp.mcpb",
+      "version": "0.1.1",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

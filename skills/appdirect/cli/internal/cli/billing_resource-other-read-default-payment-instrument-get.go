@@ -30,10 +30,10 @@ func newBillingResourceOtherReadDefaultPaymentInstrumentGetCmd(flags *rootFlags)
 			path := "/billing/v1/paymentInstruments/default"
 			params := map[string]string{}
 			if flagCompanyUuid != "" {
-				params["companyUuid"] = fmt.Sprintf("%v", flagCompanyUuid)
+				params["companyUuid"] = formatCLIParamValue(flagCompanyUuid)
 			}
 			if flagUserUuid != "" {
-				params["userUuid"] = fmt.Sprintf("%v", flagUserUuid)
+				params["userUuid"] = formatCLIParamValue(flagUserUuid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "billing", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

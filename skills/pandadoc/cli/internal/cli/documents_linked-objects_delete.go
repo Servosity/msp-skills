@@ -16,7 +16,7 @@ func newDocumentsLinkedObjectsDeleteCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete <id> <linked_object_id>",
 		Short:       "Delete a linked object associated with a document.",
-		Example:     "  pandadoc-cli documents linked-objects delete 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents linked-objects delete ZPeAfcpzr9aiVs5vqUf6jg deb0d530-d759-4189-a422-8d2265e01b2e",
 		Annotations: map[string]string{"pp:endpoint": "linked-objects.delete", "pp:method": "DELETE", "pp:path": "/documents/{id}/linked-objects/{linked_object_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

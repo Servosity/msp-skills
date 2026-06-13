@@ -39,10 +39,10 @@ func newAccountsIncidentReportsGetV1AccountsAccountIdIdRemediationsCmd(flags *ro
 			}
 			path = replacePathParam(path, "incident_report_id", args[1])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "incident-reports", path, map[string]string{
-				"limit":      fmt.Sprintf("%v", flagLimit),
-				"page_token": fmt.Sprintf("%v", flagPageToken),
-				"types[]":    fmt.Sprintf("%v", flagTypes),
-				"statuses[]": fmt.Sprintf("%v", flagStatuses),
+				"limit":      formatCLIParamValue(flagLimit),
+				"page_token": formatCLIParamValue(flagPageToken),
+				"types[]":    formatCLIParamValue(flagTypes),
+				"statuses[]": formatCLIParamValue(flagStatuses),
 			}, nil, flagAll, "page_token", "page_token", "limit", "nextPageToken", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

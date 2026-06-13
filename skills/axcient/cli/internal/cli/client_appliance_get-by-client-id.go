@@ -18,7 +18,7 @@ func newClientApplianceGetByClientIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-by-client-id <client_id>",
 		Aliases:     []string{"get"},
 		Short:       "This request returns list of appliances belonging to the provided client.",
-		Example:     "  axcient-cli client appliance get-by-client-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  axcient-cli client appliance get-by-client-id 333",
 		Annotations: map[string]string{"pp:endpoint": "appliance.get-by-client-id", "pp:method": "GET", "pp:path": "/client/{client_id}/appliance", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -33,7 +33,7 @@ func newClientApplianceGetByClientIdCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "client_id", args[0])
 			params := map[string]string{}
 			if flagIncludeDevices != false {
-				params["include_devices"] = fmt.Sprintf("%v", flagIncludeDevices)
+				params["include_devices"] = formatCLIParamValue(flagIncludeDevices)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "appliance", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

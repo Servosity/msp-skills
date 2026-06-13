@@ -16,7 +16,7 @@ func newCallLogsGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <id>",
 		Short:       "Returns details of a specific call log.",
-		Example:     "  pipedrive-cli call-logs get 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pipedrive-cli call-logs get 3cde3b05035cae14dcfc172bd8000d08",
 		Annotations: map[string]string{"pp:endpoint": "call-logs.get", "pp:method": "GET", "pp:path": "/callLogs/{id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -28,7 +28,7 @@ func newEventsSummaryCmd(flags *rootFlags) *cobra.Command {
 			path := "/events/summary"
 			params := map[string]string{}
 			if flagAccountId != "" {
-				params["accountId"] = fmt.Sprintf("%v", flagAccountId)
+				params["accountId"] = formatCLIParamValue(flagAccountId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "events", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

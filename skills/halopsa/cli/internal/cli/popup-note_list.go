@@ -31,16 +31,16 @@ func newPopupNoteListCmd(flags *rootFlags) *cobra.Command {
 			path := "/PopupNote"
 			params := map[string]string{}
 			if flagClientId != "" {
-				params["client_id"] = fmt.Sprintf("%v", flagClientId)
+				params["client_id"] = formatCLIParamValue(flagClientId)
 			}
 			if flagShowall != false {
-				params["showall"] = fmt.Sprintf("%v", flagShowall)
+				params["showall"] = formatCLIParamValue(flagShowall)
 			}
 			if flagSiteId != "" {
-				params["site_id"] = fmt.Sprintf("%v", flagSiteId)
+				params["site_id"] = formatCLIParamValue(flagSiteId)
 			}
 			if flagUserId != "" {
-				params["user_id"] = fmt.Sprintf("%v", flagUserId)
+				params["user_id"] = formatCLIParamValue(flagUserId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "popup-note", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

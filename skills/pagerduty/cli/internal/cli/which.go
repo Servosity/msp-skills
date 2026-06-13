@@ -29,12 +29,15 @@ type whichEntry struct {
 var whichIndex = []whichEntry{
 	{Command: "pulse", Description: "One offline call shows what's hot right now: open incidents bucketed by service, urgency and status with how long each has gone unacknowledged, sorted by SLA risk.", Group: "Local-store analytics that compounds", WhyItMatters: "Reach for this instead of N web-UI tabs when an agent or NOC analyst needs the current incident picture across every service in one shot."},
 	{Command: "oncall who", Description: "Resolves who is on call right now for a service or team, who is on next, and the exact handoff timestamp.", Group: "On-call intelligence", WhyItMatters: "Use at 2am to know exactly who to escalate to and when the current responder hands off, without clicking through the UI."},
-	{Command: "oncall hours", Description: "On-call hours per user over a time window, derived from synced schedule layers and overrides.", Group: "On-call intelligence", WhyItMatters: "Reach for this for monthly on-call fairness or MSP billing reviews without the paid analytics product."},
 	{Command: "audit coverage", Description: "Flags services whose escalation chain is broken: empty tiers, single point of failure, expired or empty schedules, or no escalation policy at all.", Group: "Local-store analytics that compounds", WhyItMatters: "Run before an on-call rotation to catch services that would page nobody when they break."},
 	{Command: "insights mttr", Description: "Mean time to acknowledge and resolve, computed from synced log-entry timestamps and grouped by service, team or priority.", Group: "Local-store analytics that compounds", WhyItMatters: "Use for post-incident reviews to get MTTA/MTTR by service this month without scripting the analytics API."},
+	{Command: "oncall hours", Description: "On-call hours per user over a time window, derived from synced schedule layers and overrides.", Group: "On-call intelligence", WhyItMatters: "Reach for this for monthly on-call fairness or MSP billing reviews without the paid analytics product."},
 	{Command: "insights responders", Description: "Per-responder page, ack and resolve counts plus the share of pages that landed off-hours (nights and weekends).", Group: "Local-store analytics that compounds", WhyItMatters: "Reach for this for on-call fairness and burnout reviews to see who is carrying the off-hours load."},
 	{Command: "insights noisy", Description: "Ranks services by incident volume, auto-resolve rate and re-trigger/flapping rate over a window.", Group: "Local-store analytics that compounds", WhyItMatters: "Use to find which services to tune first when alert fatigue is high."},
 	{Command: "incidents timeline", Description: "Reconstructs one incident's full chronology — trigger, every ack, note, reassignment, escalation and resolve — with elapsed deltas between events.", Group: "On-call intelligence", WhyItMatters: "Use during or after an incident to get a clean, ordered story of what happened and how long each step took."},
+	{Command: "incidents changes", Description: "For an incident, see the change events that shipped on the same service in the window right before it triggered, ranked by proximity.", Group: "Local-store analytics that compounds", WhyItMatters: "Reach for this first in root-cause triage: it answers 'what shipped right before this broke' without opening the web UI."},
+	{Command: "audit schedule-gaps", Description: "Find future time windows where a schedule has nobody on call, before an incident finds the hole for you.", Group: "Local-store analytics that compounds", WhyItMatters: "Run before each rotation change to catch uncovered windows; neither the API nor the web UI has an equivalent report."},
+	{Command: "insights stale", Description: "Open incidents with no log activity past a threshold, grouped by responder and service — the ones quietly rotting.", Group: "Local-store analytics that compounds", WhyItMatters: "Use during shift handoffs to sweep forgotten incidents that pulse's SLA-risk ranking may not surface."},
 }
 
 // whichMatch pairs an index entry with its ranking score for a query.
@@ -138,6 +141,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

@@ -19,7 +19,7 @@ func newEndpointsManagedIdRemoteSessionsSessionIdPatchCmd(flags *rootFlags) *cob
 	cmd := &cobra.Command{
 		Use:         "managed-id-remote-sessions-session-id-patch <orgId> <endpointId> <sessionId>",
 		Short:       "**Requires permission: `remote_connect`** Changes the 'current_monitor' parameter for a specific remote session.",
-		Example:     "  action1-cli endpoints managed-id-remote-sessions-session-id-patch 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --current-monitor example-value",
+		Example:     "  action1-cli endpoints managed-id-remote-sessions-session-id-patch 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --current-monitor 2",
 		Annotations: map[string]string{"pp:endpoint": "endpoints.managed-id-remote-sessions-session-id-patch", "pp:method": "PATCH", "pp:path": "/endpoints/managed/{orgId}/{endpointId}/remote-sessions/{sessionId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

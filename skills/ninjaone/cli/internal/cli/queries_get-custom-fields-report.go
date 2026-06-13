@@ -33,12 +33,12 @@ func newQueriesGetCustomFieldsReportCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/queries/custom-fields"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "queries", path, map[string]string{
-				"df":               fmt.Sprintf("%v", flagDf),
-				"cursor":           fmt.Sprintf("%v", flagCursor),
-				"pageSize":         fmt.Sprintf("%v", flagPageSize),
-				"updatedAfter":     fmt.Sprintf("%v", flagUpdatedAfter),
-				"fields":           fmt.Sprintf("%v", flagFields),
-				"showSecureValues": fmt.Sprintf("%v", flagShowSecureValues),
+				"df":               formatCLIParamValue(flagDf),
+				"cursor":           formatCLIParamValue(flagCursor),
+				"pageSize":         formatCLIParamValue(flagPageSize),
+				"updatedAfter":     formatCLIParamValue(flagUpdatedAfter),
+				"fields":           formatCLIParamValue(flagFields),
+				"showSecureValues": formatCLIParamValue(flagShowSecureValues),
 			}, nil, flagAll, "cursor", "cursor", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -17,7 +17,7 @@ func newProjectsGetPhasesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-phases",
 		Short:       "Returns all active project phases under a specific board.",
-		Example:     "  pipedrive-cli projects get-phases --board-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pipedrive-cli projects get-phases --board-id 1",
 		Annotations: map[string]string{"pp:endpoint": "projects.get-phases", "pp:method": "GET", "pp:path": "/projects/phases", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
@@ -37,7 +37,7 @@ func newProjectsGetPhasesCmd(flags *rootFlags) *cobra.Command {
 			path := "/projects/phases"
 			params := map[string]string{}
 			if flagBoardId != "" {
-				params["board_id"] = fmt.Sprintf("%v", flagBoardId)
+				params["board_id"] = formatCLIParamValue(flagBoardId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "projects", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

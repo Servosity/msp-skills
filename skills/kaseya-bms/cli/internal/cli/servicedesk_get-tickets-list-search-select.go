@@ -42,21 +42,21 @@ func newServicedeskGetTicketsListSearchSelectCmd(flags *rootFlags) *cobra.Comman
 
 			path := "/v2/servicedesk/tickets/searchselect"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "servicedesk", path, map[string]string{
-				"Filter.Title":               fmt.Sprintf("%v", flagFilterTitle),
-				"Filter.TicketNumber":        fmt.Sprintf("%v", flagFilterTicketNumber),
-				"Filter.OpenDateFrom":        fmt.Sprintf("%v", flagFilterOpenDateFrom),
-				"Filter.OpenDateTo":          fmt.Sprintf("%v", flagFilterOpenDateTo),
-				"Filter.AssigneeName":        fmt.Sprintf("%v", flagFilterAssigneeName),
-				"Filter.QueueName":           fmt.Sprintf("%v", flagFilterQueueName),
-				"Filter.StatusName":          fmt.Sprintf("%v", flagFilterStatusName),
-				"Filter.AccountId":           fmt.Sprintf("%v", flagFilterAccountId),
-				"Filter.ExcludedId":          fmt.Sprintf("%v", flagFilterExcludedId),
-				"Filter.ExcludeCompleted":    fmt.Sprintf("%v", flagFilterExcludeCompleted),
-				"Filter.SupportsQueueAccess": fmt.Sprintf("%v", flagFilterSupportsQueueAccess),
-				"Sort":                       fmt.Sprintf("%v", flagSort),
-				"Exclude":                    fmt.Sprintf("%v", flagExclude),
-				"PageSize":                   fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":                 fmt.Sprintf("%v", flagPageNumber),
+				"Filter.Title":               formatCLIParamValue(flagFilterTitle),
+				"Filter.TicketNumber":        formatCLIParamValue(flagFilterTicketNumber),
+				"Filter.OpenDateFrom":        formatCLIParamValue(flagFilterOpenDateFrom),
+				"Filter.OpenDateTo":          formatCLIParamValue(flagFilterOpenDateTo),
+				"Filter.AssigneeName":        formatCLIParamValue(flagFilterAssigneeName),
+				"Filter.QueueName":           formatCLIParamValue(flagFilterQueueName),
+				"Filter.StatusName":          formatCLIParamValue(flagFilterStatusName),
+				"Filter.AccountId":           formatCLIParamValue(flagFilterAccountId),
+				"Filter.ExcludedId":          formatCLIParamValue(flagFilterExcludedId),
+				"Filter.ExcludeCompleted":    formatCLIParamValue(flagFilterExcludeCompleted),
+				"Filter.SupportsQueueAccess": formatCLIParamValue(flagFilterSupportsQueueAccess),
+				"Sort":                       formatCLIParamValue(flagSort),
+				"Exclude":                    formatCLIParamValue(flagExclude),
+				"PageSize":                   formatCLIParamValue(flagPageSize),
+				"PageNumber":                 formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

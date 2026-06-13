@@ -23,9 +23,10 @@ func newOrgCreateSampleCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create-sample <site_id>",
-		Aliases:     []string{"update"},
-		Short:       "Create a traffic sampling task for a given site",
+		Use:     "create-sample <site_id>",
+		Aliases: []string{"update"},
+		Short:   "Create a traffic sampling task for a given site",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  runzero-cli org create-sample 550e8400-e29b-41d4-a716-446655440000 --interfaces example-value",
 		Annotations: map[string]string{"pp:endpoint": "org.create-sample", "pp:method": "PUT", "pp:path": "/org/sites/{site_id}/sample"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -52,7 +53,7 @@ func newOrgCreateSampleCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "site_id", args[0])
 			params := map[string]string{}
 			if flagOid != "" {
-				params["_oid"] = fmt.Sprintf("%v", flagOid)
+				params["_oid"] = formatCLIParamValue(flagOid)
 			}
 			var body map[string]any
 			if stdinBody {

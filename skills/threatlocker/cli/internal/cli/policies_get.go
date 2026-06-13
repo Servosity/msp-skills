@@ -37,7 +37,7 @@ func newPoliciesGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/Policy/PolicyGetById"
 			params := map[string]string{}
 			if flagPolicyId != "" {
-				params["policyId"] = fmt.Sprintf("%v", flagPolicyId)
+				params["policyId"] = formatCLIParamValue(flagPolicyId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "policies", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

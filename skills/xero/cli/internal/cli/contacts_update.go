@@ -24,7 +24,7 @@ func newContactsUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update <ContactID>",
 		Short:       "Updates a specific contact in a Xero organisation",
-		Example:     "  xero-cli contacts update 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  xero-cli contacts update 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "contacts.update", "pp:method": "POST", "pp:path": "/Contacts/{ContactID}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

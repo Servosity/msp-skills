@@ -47,12 +47,12 @@ func newReportsGetV1Cmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/reports"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "reports", path, map[string]string{
-				"limit":           fmt.Sprintf("%v", flagLimit),
-				"page_token":      fmt.Sprintf("%v", flagPageToken),
-				"period_min":      fmt.Sprintf("%v", flagPeriodMin),
-				"period_max":      fmt.Sprintf("%v", flagPeriodMax),
-				"organization_id": fmt.Sprintf("%v", flagOrganizationId),
-				"type":            fmt.Sprintf("%v", flagType),
+				"limit":           formatCLIParamValue(flagLimit),
+				"page_token":      formatCLIParamValue(flagPageToken),
+				"period_min":      formatCLIParamValue(flagPeriodMin),
+				"period_max":      formatCLIParamValue(flagPeriodMax),
+				"organization_id": formatCLIParamValue(flagOrganizationId),
+				"type":            formatCLIParamValue(flagType),
 			}, nil, flagAll, "page_token", "page_token", "limit", "nextPageToken", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

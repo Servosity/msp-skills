@@ -17,8 +17,9 @@ func newEnterpriseRevokeClosureCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "revoke-closure",
-		Short:       "**Requires permission",
+		Use:   "revoke-closure",
+		Short: "**Requires permission",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  action1-cli enterprise revoke-closure --reason example-value",
 		Annotations: map[string]string{"pp:endpoint": "enterprise.revoke-closure", "pp:method": "POST", "pp:path": "/enterprise/revoke-closure"},
 		RunE: func(cmd *cobra.Command, args []string) error {

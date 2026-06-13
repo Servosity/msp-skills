@@ -30,9 +30,10 @@ func newClientportalPostClientPortalTicketCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-client-portal-ticket",
-		Aliases:     []string{"create"},
-		Short:       "Post client portal ticket",
+		Use:     "post-client-portal-ticket",
+		Aliases: []string{"create"},
+		Short:   "Post client portal ticket",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli clientportal post-client-portal-ticket --details example-value",
 		Annotations: map[string]string{"pp:endpoint": "clientportal.post-client-portal-ticket", "pp:method": "POST", "pp:path": "/v2/clientportal/tickets"},
 		RunE: func(cmd *cobra.Command, args []string) error {

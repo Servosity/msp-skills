@@ -16,9 +16,10 @@ func newFirewallControlReorderRulesByCategoryCmd(flags *rootFlags) *cobra.Comman
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "rules-by-category <firewall_rule_category>",
-		Aliases:     []string{"update"},
-		Short:       "Change the order of rules for a scope specified by ID (run 'accounts', 'sites', or 'groups').",
+		Use:     "rules-by-category <firewall_rule_category>",
+		Aliases: []string{"update"},
+		Short:   "Change the order of rules for a scope specified by ID (run 'accounts', 'sites', or 'groups').",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli firewall-control reorder rules-by-category example-value",
 		Annotations: map[string]string{"pp:endpoint": "reorder.rules-by-category", "pp:method": "PUT", "pp:path": "/firewall-control/{firewall_rule_category}/reorder"},
 		RunE: func(cmd *cobra.Command, args []string) error {

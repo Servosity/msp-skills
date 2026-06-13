@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "pagerduty-mcp",
   "display_name": "PagerDuty",
-  "version": "0.1.0",
-  "description": "The first real CLI for PagerDuty incident response and on-call management - incidents, services, schedules, escalation policies, and analytics mirrored locally, with live triage, on-call resolution, coverage audits, and MTTA/MTTR reporting no single API call returns.",
+  "version": "0.1.1",
+  "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions \u2014 MTTA/MTTR, on-call coverage gaps, responder load \u2014 that neither the API nor the web UI can.",
   "author": {
     "name": "Servosity Inc."
   },
@@ -23,7 +23,7 @@
     "pagerduty_api_key": {
       "type": "string",
       "title": "PAGERDUTY_API_KEY",
-      "description": "Sets PAGERDUTY_API_KEY for the PagerDuty MCP server. A PagerDuty REST API key (the CLI adds the required \"Token token=\" prefix).",
+      "description": "Sets PAGERDUTY_API_KEY for the PagerDuty MCP server.",
       "sensitive": true,
       "required": true
     }
@@ -36,11 +36,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T14:55:17.423884Z",
-    "spec_checksum": null,
-    "spec_format": null
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:25:50.923538Z",
+    "spec_checksum": "sha256:81e1fec1de631f462f771cc1ba58fc4a74a701d5cbb0dd555847f728ac499126",
+    "spec_format": "openapi3"
   }
 }

@@ -45,11 +45,11 @@ func newDevicesCombinedHiddenByFilterCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/devices/combined/devices-hidden/v1"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "devices", path, map[string]string{
-				"offset": fmt.Sprintf("%v", flagOffset),
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"sort":   fmt.Sprintf("%v", flagSort),
-				"filter": fmt.Sprintf("%v", flagFilter),
-				"fields": fmt.Sprintf("%v", flagFields),
+				"offset": formatCLIParamValue(flagOffset),
+				"limit":  formatCLIParamValue(flagLimit),
+				"sort":   formatCLIParamValue(flagSort),
+				"filter": formatCLIParamValue(flagFilter),
+				"fields": formatCLIParamValue(flagFields),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

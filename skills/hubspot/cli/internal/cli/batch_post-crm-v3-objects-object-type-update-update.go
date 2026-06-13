@@ -17,8 +17,9 @@ func newBatchPostCrmV3ObjectsObjectTypeUpdateUpdateCmd(flags *rootFlags) *cobra.
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-crm-v3-objects-object-type-update-update <objectType>",
-		Short:       "Update a batch of objects by internal ID, or unique property values",
+		Use:   "post-crm-v3-objects-object-type-update-update <objectType>",
+		Short: "Update a batch of objects by internal ID, or unique property values",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli batch post-crm-v3-objects-object-type-update-update example-value",
 		Annotations: map[string]string{"pp:endpoint": "batch.post-crm-v3-objects-object-type-update-update", "pp:method": "POST", "pp:path": "/crm/v3/objects/{objectType}/batch/update"},
 		RunE: func(cmd *cobra.Command, args []string) error {

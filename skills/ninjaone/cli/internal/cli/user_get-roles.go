@@ -41,7 +41,7 @@ func newUserGetRolesCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/user/roles"
 			params := map[string]string{}
 			if flagRoleType != "" {
-				params["roleType"] = fmt.Sprintf("%v", flagRoleType)
+				params["roleType"] = formatCLIParamValue(flagRoleType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "user", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

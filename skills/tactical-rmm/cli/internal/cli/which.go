@@ -37,11 +37,11 @@ var whichIndex = []whichEntry{
 	{Command: "since", Description: "What changed across the fleet since a window: new alerts, newly-offline agents.", Group: "Cross-entity fleet intelligence", WhyItMatters: "Start a shift seeing only what moved."},
 	{Command: "software find", Description: "Which agents have a given software package installed across the fleet.", Group: "Patch & inventory", WhyItMatters: "Answer who is exposed during a CVE scramble."},
 	{Command: "coverage", Description: "Agents missing checks (unmonitored endpoints).", Group: "Monitoring quality", WhyItMatters: "Find unmonitored endpoints before they fail silently."},
-	{Command: "maintenance set", Description: "Put a filtered cohort of agents into maintenance mode in one command, with an auto-expiry window.", Group: "Remote execution", WhyItMatters: "Reach for this when silencing monitoring for a planned window across many agents at once."},
-	{Command: "actions pending", Description: "Queued agent actions across the fleet grouped by agent and age, so stuck dispatches surface.", Group: "Remote execution", WhyItMatters: "Run after a bulk dispatch to see which agents haven't returned results."},
+	{Command: "maintenance set", Description: "Put a filtered cohort of agents into maintenance mode in one command, with a reminder window (re-run with --clear to end it; Tactical RMM has no server-side expiry).", Group: "Remote execution", WhyItMatters: "Reach for this when silencing monitoring for a planned window across many agents at once; previews by default, mutates only with --execute and a live TRMM_API_KEY."},
+	{Command: "actions pending", Description: "Queued agent actions across the fleet grouped by agent and age, so stuck dispatches surface. Live fan-out: requires TRMM_API_KEY (agent list comes from the local store).", Group: "Remote execution", WhyItMatters: "Run after a bulk dispatch to see which agents haven't returned results."},
 	{Command: "checks worst", Description: "Failing checks ranked by blast radius - how many agents are red on each check.", Group: "Monitoring quality", WhyItMatters: "Use this to find the single failure hurting the most endpoints before triaging agent-by-agent."},
 	{Command: "clients scorecard", Description: "One posture row per client: agent count, online share, failing checks, pending patches, open alerts.", Group: "Cross-entity fleet intelligence", WhyItMatters: "Use for per-customer health rollups and QBR prep instead of clicking through every client."},
-	{Command: "services down", Description: "Agents where a named Windows service is stopped, across the whole fleet.", Group: "Patch & inventory", WhyItMatters: "Use during incidents to find every endpoint with a critical service stopped."},
+	{Command: "services down", Description: "Agents where a named Windows service is stopped, across the whole fleet. Live fan-out: requires TRMM_API_KEY (agent list comes from the local store).", Group: "Patch & inventory", WhyItMatters: "Use during incidents to find every endpoint with a critical service stopped."},
 }
 
 // whichMatch pairs an index entry with its ranking score for a query.
@@ -145,6 +145,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

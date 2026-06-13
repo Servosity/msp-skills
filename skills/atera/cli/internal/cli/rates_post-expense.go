@@ -20,9 +20,10 @@ func newRatesPostExpenseCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-expense",
-		Aliases:     []string{"create"},
-		Short:       "Creates a new expense. Requires an expense description.",
+		Use:     "post-expense",
+		Aliases: []string{"create"},
+		Short:   "Creates a new expense. Requires an expense description.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  atera-cli rates post-expense --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "rates.post-expense", "pp:method": "POST", "pp:path": "/rates/expenses"},
 		RunE: func(cmd *cobra.Command, args []string) error {

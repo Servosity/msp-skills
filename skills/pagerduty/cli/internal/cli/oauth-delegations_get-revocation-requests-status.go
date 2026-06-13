@@ -29,7 +29,7 @@ func newOauthDelegationsGetRevocationRequestsStatusCmd(flags *rootFlags) *cobra.
 			path := "/oauth_delegations/revocation_requests/status"
 			params := map[string]string{}
 			if flagRequestedAtEnd != "" {
-				params["requested_at_end"] = fmt.Sprintf("%v", flagRequestedAtEnd)
+				params["requested_at_end"] = formatCLIParamValue(flagRequestedAtEnd)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "oauth-delegations", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

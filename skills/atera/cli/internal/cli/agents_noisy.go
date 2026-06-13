@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
-	"atera-pp-cli/internal/store"
 )
 
 type noisyDevice struct {
@@ -53,11 +51,13 @@ func newNovelAgentsNoisyCmd(flags *rootFlags) *cobra.Command {
 			if dbPath == "" {
 				dbPath = defaultDBPath("atera-cli")
 			}
-			s, err := store.OpenWithContext(cmd.Context(), dbPath)
+			s, nvOK, err := nvOpenRead(dbPath)
 			if err != nil {
 				return fmt.Errorf("opening store: %w", err)
 			}
-			defer s.Close()
+			if nvOK {
+				defer s.Close()
+			}
 
 			if !hintIfUnsynced(cmd, s, "alerts") {
 				hintIfStale(cmd, s, "alerts", flags.maxAge)

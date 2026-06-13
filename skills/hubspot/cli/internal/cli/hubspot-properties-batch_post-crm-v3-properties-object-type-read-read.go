@@ -21,8 +21,9 @@ func newHubspotPropertiesBatchPostCrmV3PropertiesObjectTypeReadReadCmd(flags *ro
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-crm-v3-properties-object-type-read-read <objectType>",
-		Short:       "Read a provided list of properties.",
+		Use:   "post-crm-v3-properties-object-type-read-read <objectType>",
+		Short: "Read a provided list of properties.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-properties-batch post-crm-v3-properties-object-type-read-read example-value --data-sensitivity highly_sensitive",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-properties-batch.post-crm-v3-properties-object-type-read-read", "pp:method": "POST", "pp:path": "/crm/v3/properties/{objectType}/batch/read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -55,7 +56,7 @@ func newHubspotPropertiesBatchPostCrmV3PropertiesObjectTypeReadReadCmd(flags *ro
 			path = replacePathParam(path, "objectType", args[0])
 			params := map[string]string{}
 			if flagLocale != "" {
-				params["locale"] = fmt.Sprintf("%v", flagLocale)
+				params["locale"] = formatCLIParamValue(flagLocale)
 			}
 			var body map[string]any
 			if stdinBody {

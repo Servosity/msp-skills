@@ -17,8 +17,9 @@ func newAutomationActionsUpdateRunnerCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update-runner <id>",
-		Short:       "Update an Automation Action runner",
+		Use:   "update-runner <id>",
+		Short: "Update an Automation Action runner",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pagerduty-cli automation-actions update-runner 550e8400-e29b-41d4-a716-446655440000 --runner example-value",
 		Annotations: map[string]string{"pp:endpoint": "automation-actions.update-runner", "pp:method": "PUT", "pp:path": "/automation_actions/runners/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

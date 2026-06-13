@@ -14,9 +14,10 @@ import (
 func newHashesClassificationHashCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "hash <hash>",
-		Aliases:     []string{"get"},
-		Short:       "[DEPRECATED] Returns hash classification.",
+		Use:     "hash <hash>",
+		Aliases: []string{"get"},
+		Short:   "[DEPRECATED] Returns hash classification.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli hashes classification hash example-value",
 		Annotations: map[string]string{"pp:endpoint": "classification.hash", "pp:method": "GET", "pp:path": "/hashes/{hash}/classification", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -17,8 +17,9 @@ func newCrmPostV4AssociationsFromObjectTypeToObjectTypeBatchLabelsArchiveArchive
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-v4-associations-from-object-type-to-object-type-batch-labels-archive-archive-labels <fromObjectType> <toObjectType>",
-		Short:       "Batch delete specific association labels for objects.",
+		Use:   "post-v4-associations-from-object-type-to-object-type-batch-labels-archive-archive-labels <fromObjectType> <toObjectType>",
+		Short: "Batch delete specific association labels for objects.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli crm post-v4-associations-from-object-type-to-object-type-batch-labels-archive-archive-labels example-value example-value",
 		Annotations: map[string]string{"pp:endpoint": "crm.post-v4-associations-from-object-type-to-object-type-batch-labels-archive-archive-labels", "pp:method": "POST", "pp:path": "/crm/v4/associations/{fromObjectType}/{toObjectType}/batch/labels/archive"},
 		RunE: func(cmd *cobra.Command, args []string) error {

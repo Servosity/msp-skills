@@ -23,9 +23,10 @@ func newNotificationResourceDefaultTemplateApiCreateOrUpdateDefaultCommonEmailTe
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "resource-default-template-api-create-or-update-default-common-email-template-post",
-		Aliases:     []string{"create"},
-		Short:       "Create or update a default common email template element.",
+		Use:     "resource-default-template-api-create-or-update-default-common-email-template-post",
+		Aliases: []string{"create"},
+		Short:   "Create or update a default common email template element.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli notification resource-default-template-api-create-or-update-default-common-email-template-post --content example-value",
 		Annotations: map[string]string{"pp:endpoint": "notification.resource-default-template-api-create-or-update-default-common-email-template-post", "pp:method": "POST", "pp:path": "/notification/v1/templates/default/common/email"},
 		RunE: func(cmd *cobra.Command, args []string) error {

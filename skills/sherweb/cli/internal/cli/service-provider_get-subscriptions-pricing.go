@@ -37,7 +37,7 @@ func newServiceProviderGetSubscriptionsPricingCmd(flags *rootFlags) *cobra.Comma
 			path := "/service-provider/v1/billing/subscriptions/pricing-information"
 			params := map[string]string{}
 			if flagCustomerId != "" {
-				params["customerId"] = fmt.Sprintf("%v", flagCustomerId)
+				params["customerId"] = formatCLIParamValue(flagCustomerId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "service-provider", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

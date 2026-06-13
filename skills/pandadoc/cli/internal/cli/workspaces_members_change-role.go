@@ -20,7 +20,7 @@ func newWorkspacesMembersChangeRoleCmd(flags *rootFlags) *cobra.Command {
 		Use:         "change-role <workspace_id> <member_id>",
 		Aliases:     []string{"update"},
 		Short:       "Change the role of an existing workspace member.",
-		Example:     "  pandadoc-cli workspaces members change-role 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --role Admin",
+		Example:     "  pandadoc-cli workspaces members change-role BhVzRcxH9Z2LgfPPGXFUBa nPh2PDhFdDqAES9k64h9qX --role Member",
 		Annotations: map[string]string{"pp:endpoint": "members.change-role", "pp:method": "PATCH", "pp:path": "/workspaces/{workspace_id}/members/{member_id}/role"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

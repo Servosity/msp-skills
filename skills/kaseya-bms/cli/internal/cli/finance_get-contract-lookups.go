@@ -32,16 +32,16 @@ func newFinanceGetContractLookupsCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/finance/contracts/lookup"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["Ids"] = fmt.Sprintf("%v", flagIds)
+				params["Ids"] = formatCLIParamValue(flagIds)
 			}
 			if flagAccountId != "" {
-				params["AccountId"] = fmt.Sprintf("%v", flagAccountId)
+				params["AccountId"] = formatCLIParamValue(flagAccountId)
 			}
 			if flagName != "" {
-				params["Name"] = fmt.Sprintf("%v", flagName)
+				params["Name"] = formatCLIParamValue(flagName)
 			}
 			if flagExcludeExpiredContracts != false {
-				params["ExcludeExpiredContracts"] = fmt.Sprintf("%v", flagExcludeExpiredContracts)
+				params["ExcludeExpiredContracts"] = formatCLIParamValue(flagExcludeExpiredContracts)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "finance", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"threatlocker-pp-cli/internal/store"
 )
 
 // retentionRow reports a tenant's audit-archive coverage versus ThreatLocker's
@@ -49,7 +48,7 @@ Status: cliff-risk (last sync >= 24d), stale (>= 7d), ok, or no-data.`,
 			if dbPath == "" {
 				dbPath = defaultDBPath("threatlocker-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := tlOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'threatlocker-cli sync --resources audit' first.", err)
 			}

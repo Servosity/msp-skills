@@ -25,8 +25,9 @@ func newLaunchpointsUpdateBulkCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update-bulk",
-		Short:       "Update many launchpoints to run on the same schedule.",
+		Use:   "update-bulk",
+		Short: "Update many launchpoints to run on the same schedule.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  liongard-cli launchpoints update-bulk --active-end example-value",
 		Annotations: map[string]string{"pp:endpoint": "launchpoints.update-bulk", "pp:method": "PUT", "pp:path": "/launchpoints"},
 		RunE: func(cmd *cobra.Command, args []string) error {

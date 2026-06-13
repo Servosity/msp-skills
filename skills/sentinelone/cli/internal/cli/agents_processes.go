@@ -15,8 +15,9 @@ func newAgentsProcessesCmd(flags *rootFlags) *cobra.Command {
 	var flagIds string
 
 	cmd := &cobra.Command{
-		Use:         "processes",
-		Short:       "[OBSOLETE] Returns empty array. To get processes of an Agent, see Applications.",
+		Use:   "processes",
+		Short: "[OBSOLETE] Returns empty array. To get processes of an Agent, see Applications.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli agents processes --ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "agents.processes", "pp:method": "GET", "pp:path": "/agents/processes", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newAgentsProcessesCmd(flags *rootFlags) *cobra.Command {
 			path := "/agents/processes"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "agents", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -33,7 +33,7 @@ func newPublicUpdateCatalogItemCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update-catalog-item <item_uuid>",
 		Short:       "Update catalog item.",
-		Example:     "  pandadoc-cli public update-catalog-item 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli public update-catalog-item 2e39c7e0-acb0-4ff2-b4cd-ea3141f95db8",
 		Annotations: map[string]string{"pp:endpoint": "public.update-catalog-item", "pp:method": "PATCH", "pp:path": "/public/v2/product-catalog/items/{item_uuid}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

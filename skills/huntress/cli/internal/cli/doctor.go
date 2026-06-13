@@ -100,7 +100,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export HUNTRESS_API_KEY=<your-key>"
+					report["auth_hint"] = "Set Basic credentials with: export HUNTRESS_API_KEY=\"your-token-here\" HUNTRESS_API_SECRET=\"your-token-here\""
 					report["auth_key_url"] = "https://www.huntress.com/terms-of-service"
 				} else {
 					authConfigured = true

@@ -24,7 +24,7 @@ func newWebhookSubscriptionsUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update <id>",
 		Short:       "This operation updates the details of a webhook subscription.",
-		Example:     "  pandadoc-cli webhook-subscriptions update 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli webhook-subscriptions update d173751d-0057-4d5c-ab75-49a670a4ca68",
 		Annotations: map[string]string{"pp:endpoint": "webhook-subscriptions.update", "pp:method": "PATCH", "pp:path": "/webhook-subscriptions/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

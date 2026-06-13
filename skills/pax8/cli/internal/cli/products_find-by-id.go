@@ -17,7 +17,7 @@ func newProductsFindByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "find-by-id <productId>",
 		Aliases:     []string{"get"},
 		Short:       "Returns only the product record for the productId you specify",
-		Example:     "  pax8-cli products find-by-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pax8-cli products find-by-id aaaee3f-262c-47a4-b0e6-f9ce8b54fcd7",
 		Annotations: map[string]string{"pp:endpoint": "products.find-by-id", "pp:method": "GET", "pp:path": "/products/{productId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

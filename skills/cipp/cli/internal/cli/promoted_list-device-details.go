@@ -18,9 +18,10 @@ func newListDeviceDetailsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-device-details",
-		Short:       "List device details",
-		Long:        "List device details",
+		Use:   "list-device-details",
+		Short: "List device details",
+		Long:  "List device details",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-device-details --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-device-details.list", "pp:method": "GET", "pp:path": "/ListDeviceDetails", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -42,16 +43,16 @@ func newListDeviceDetailsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListDeviceDetails"
 			params := map[string]string{}
 			if flagDeviceID != "" {
-				params["DeviceID"] = fmt.Sprintf("%v", flagDeviceID)
+				params["DeviceID"] = formatCLIParamValue(flagDeviceID)
 			}
 			if flagDeviceName != "" {
-				params["DeviceName"] = fmt.Sprintf("%v", flagDeviceName)
+				params["DeviceName"] = formatCLIParamValue(flagDeviceName)
 			}
 			if flagDeviceSerial != "" {
-				params["DeviceSerial"] = fmt.Sprintf("%v", flagDeviceSerial)
+				params["DeviceSerial"] = formatCLIParamValue(flagDeviceSerial)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-device-details", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

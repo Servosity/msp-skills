@@ -1,6 +1,6 @@
 ---
 name: quickbooks
-description: "Use when the user asks who owes us money or to run AR/AP aging in QuickBooks, build a collections list of overdue invoices, check cash position or DSO, forecast cash by week, run a month-end reconcile / close-hygiene sweep, dedupe customers or vendors, or sync QuickBooks Online to query the books offline. Wraps the QuickBooks Online Accounting API plus an offline SQLite mirror with cross-entity search. Trigger phrases: `who owes us money`, `ar aging`, `what do we owe`, `overdue invoices in quickbooks`, `sync quickbooks`, `quickbooks cash position`, `quickbooks dso`, `reconcile quickbooks`, `QuickBooks + ChatGPT`, `QuickBooks + Claude`, `use quickbooks`, `run quickbooks-cli`."
+description: "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships. Trigger phrases: `who owes us money`, `ar aging`, `what do we owe`, `overdue invoices in quickbooks`, `sync quickbooks`, `quickbooks cash position`, `use quickbooks`, `run quickbooks`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "QuickBooks Online"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - quickbooks-cli
+    install:
+      - kind: go
+        bins: [quickbooks-cli]
+        module: github.com/mvanhorn/printing-press-library/library/other/quickbooks/cmd/quickbooks-cli
 ---
 
-# QuickBooks Online Claude Code Skill
+# QuickBooks Online  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `quickbooks-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/install.sh)
+   npx -y @mvanhorn/printing-press-library install quickbooks --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/install.ps1 | iex
-   ```
-3. Verify: `quickbooks-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `quickbooks-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/other/quickbooks/cmd/quickbooks-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 QuickBooks tools are thin endpoint mirrors that need a live API call for every question and can't answer cross-entity questions at all. This CLI syncs your books to local SQLite once, then answers who's overdue (ar-aging), what you owe (ap-aging), where the cash is (balances), and what's duplicated (dupes) instantly, offline, with agent-native --json/--select output.
 
@@ -92,7 +98,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   quickbooks-cli vendors spend --since 2026-01-01 --agent
   ```
-- **`aging-delta`**  -  See what changed in receivables and payables since the previous aging-delta run  -  who slipped an aging bucket and whose balance grew.
+- **`aging-delta`**  -  See what changed in receivables and payables since the previous sync  -  who slipped an aging bucket and whose balance grew.
 
   _Reach for this when asked 'what changed in AR/AP since last week'  -  no live API call can answer it._
 
@@ -157,7 +163,7 @@ These capabilities aren't available in any other tool for this API.
 
 **bills**  -  Bills  -  accounts-payable transactions
 
-- `quickbooks-cli bills create`  -  Create a bill. Requires VendorRef + Line  -  use --stdin for the full payload.
+- `quickbooks-cli bills create`  -  Create a bill. Requires VendorRef + Line  -  use --stdin / --body-json for the full payload.
 - `quickbooks-cli bills delete`  -  Delete a bill (hard delete; requires Id + SyncToken)
 - `quickbooks-cli bills get`  -  Get a single bill by Id
 - `quickbooks-cli bills list`  -  List/query bills
@@ -169,14 +175,14 @@ These capabilities aren't available in any other tool for this API.
 
 **customers**  -  Customers  -  the people and companies you invoice
 
-- `quickbooks-cli customers create`  -  Create a customer. Use --stdin for nested fields (email, addresses).
+- `quickbooks-cli customers create`  -  Create a customer. Use --stdin / --body-json for nested fields (email, addresses).
 - `quickbooks-cli customers get`  -  Get a single customer by Id
 - `quickbooks-cli customers list`  -  List/query customers (SQL-like SELECT against the QBO query endpoint)
 - `quickbooks-cli customers update`  -  Sparse-update a customer (requires Id + SyncToken). Use --stdin for full payloads.
 
 **invoices**  -  Invoices  -  accounts-receivable transactions
 
-- `quickbooks-cli invoices create`  -  Create an invoice. Requires Line items + CustomerRef  -  use --stdin for the full payload.
+- `quickbooks-cli invoices create`  -  Create an invoice. Requires Line items + CustomerRef  -  use --stdin / --body-json for the full payload.
 - `quickbooks-cli invoices delete`  -  Delete an invoice (hard delete; requires Id + SyncToken)
 - `quickbooks-cli invoices get`  -  Get a single invoice by Id
 - `quickbooks-cli invoices list`  -  List/query invoices
@@ -191,7 +197,7 @@ These capabilities aren't available in any other tool for this API.
 
 **journal-entries**  -  Journal entries  -  manual debits and credits
 
-- `quickbooks-cli journal-entries create`  -  Create a journal entry. Requires balanced Line debits/credits  -  use --stdin.
+- `quickbooks-cli journal-entries create`  -  Create a journal entry. Requires balanced Line debits/credits  -  use --stdin / --body-json.
 - `quickbooks-cli journal-entries delete`  -  Delete a journal entry (hard delete; requires Id + SyncToken)
 - `quickbooks-cli journal-entries get`  -  Get a single journal entry by Id
 - `quickbooks-cli journal-entries list`  -  List/query journal entries
@@ -199,7 +205,7 @@ These capabilities aren't available in any other tool for this API.
 
 **payments**  -  Payments  -  customer payments received against invoices
 
-- `quickbooks-cli payments create`  -  Record a payment. Requires CustomerRef + TotalAmt  -  use --stdin for the full payload.
+- `quickbooks-cli payments create`  -  Record a payment. Requires CustomerRef + TotalAmt  -  use --stdin / --body-json for the full payload.
 - `quickbooks-cli payments delete`  -  Delete a payment (hard delete; requires Id + SyncToken)
 - `quickbooks-cli payments get`  -  Get a single payment by Id
 - `quickbooks-cli payments list`  -  List/query payments
@@ -211,7 +217,7 @@ These capabilities aren't available in any other tool for this API.
 
 **vendors**  -  Vendors  -  the people and companies you pay
 
-- `quickbooks-cli vendors create`  -  Create a vendor. Use --stdin for nested fields.
+- `quickbooks-cli vendors create`  -  Create a vendor. Use --stdin / --body-json for nested fields.
 - `quickbooks-cli vendors get`  -  Get a single vendor by Id
 - `quickbooks-cli vendors list`  -  List/query vendors
 - `quickbooks-cli vendors update`  -  Sparse-update a vendor (requires Id + SyncToken).
@@ -365,13 +371,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `quickbooks-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add quickbooks-mcp -- quickbooks-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/other/quickbooks/cmd/quickbooks-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add quickbooks-mcp -- quickbooks-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

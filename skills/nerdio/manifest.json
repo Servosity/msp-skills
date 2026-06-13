@@ -1,8 +1,8 @@
 {
   "manifest_version": "0.3",
-  "name": "nerdio-pp-mcp",
+  "name": "nerdio-mcp",
   "display_name": "Nerdio Manager",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has.",
   "author": {
     "name": "Servosity Inc."
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/nerdio-pp-mcp",
+    "entry_point": "bin/nerdio-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/nerdio-pp-mcp",
+      "command": "${__dirname}/bin/nerdio-mcp",
       "args": [],
       "env": {
         "NERDIO_BASE_URL": "${user_config.nerdio_base_url}",
@@ -68,10 +68,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-07T03:06:36.233963Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:21:02.952278Z",
     "spec_checksum": "sha256:4cc804d056133567010f489ae65b63e558039be622177591e5bc9ca2316facc8",
     "spec_format": "internal"
   }

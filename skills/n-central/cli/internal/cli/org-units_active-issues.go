@@ -40,10 +40,10 @@ func newOrgUnitsActiveIssuesCmd(flags *rootFlags) *cobra.Command {
 			path := "/org-units/{orgUnitId}/active-issues"
 			path = replacePathParam(path, "orgUnitId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "org-units", path, map[string]string{
-				"pageNumber": fmt.Sprintf("%v", flagPageNumber),
-				"pageSize":   fmt.Sprintf("%v", flagPageSize),
-				"sortBy":     fmt.Sprintf("%v", flagSortBy),
-				"sortOrder":  fmt.Sprintf("%v", flagSortOrder),
+				"pageNumber": formatCLIParamValue(flagPageNumber),
+				"pageSize":   formatCLIParamValue(flagPageSize),
+				"sortBy":     formatCLIParamValue(flagSortBy),
+				"sortOrder":  formatCLIParamValue(flagSortOrder),
 			}, nil, flagAll, "pageNumber", "page", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

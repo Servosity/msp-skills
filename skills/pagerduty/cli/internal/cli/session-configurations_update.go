@@ -62,7 +62,7 @@ func newSessionConfigurationsUpdateCmd(flags *rootFlags) *cobra.Command {
 			path := "/session_configurations"
 			params := map[string]string{}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			var body map[string]any
 			if stdinBody {

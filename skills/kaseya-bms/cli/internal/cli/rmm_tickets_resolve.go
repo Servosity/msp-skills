@@ -17,8 +17,9 @@ func newRmmTicketsResolveCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "resolve <integrationType>",
-		Short:       "Resolve",
+		Use:   "resolve <integrationType>",
+		Short: "Resolve",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli rmm tickets resolve example-value",
 		Annotations: map[string]string{"pp:endpoint": "tickets.resolve", "pp:method": "POST", "pp:path": "/v2/rmm/{integrationType}/tickets/resolve"},
 		RunE: func(cmd *cobra.Command, args []string) error {

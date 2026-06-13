@@ -25,7 +25,7 @@ func newBankTransactionsUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update <BankTransactionID>",
 		Short:       "Updates a single spent or received money transaction",
-		Example:     "  xero-cli bank-transactions update 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  xero-cli bank-transactions update 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "bank-transactions.update", "pp:method": "POST", "pp:path": "/BankTransactions/{BankTransactionID}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -42,7 +42,7 @@ func newBankTransactionsUpdateCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "BankTransactionID", args[0])
 			params := map[string]string{}
 			if flagUnitdp != 0 {
-				params["unitdp"] = fmt.Sprintf("%v", flagUnitdp)
+				params["unitdp"] = formatCLIParamValue(flagUnitdp)
 			}
 			var body map[string]any
 			if stdinBody {

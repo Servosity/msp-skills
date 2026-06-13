@@ -40,40 +40,40 @@ func newListLogsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListLogs"
 			params := map[string]string{}
 			if flagAPI != "" {
-				params["API"] = fmt.Sprintf("%v", flagAPI)
+				params["API"] = formatCLIParamValue(flagAPI)
 			}
 			if flagDateFilter != "" {
-				params["DateFilter"] = fmt.Sprintf("%v", flagDateFilter)
+				params["DateFilter"] = formatCLIParamValue(flagDateFilter)
 			}
 			if flagEndDate != "" {
-				params["EndDate"] = fmt.Sprintf("%v", flagEndDate)
+				params["EndDate"] = formatCLIParamValue(flagEndDate)
 			}
 			if flagFilter != "" {
-				params["Filter"] = fmt.Sprintf("%v", flagFilter)
+				params["Filter"] = formatCLIParamValue(flagFilter)
 			}
 			if flagListLogs != "" {
-				params["ListLogs"] = fmt.Sprintf("%v", flagListLogs)
+				params["ListLogs"] = formatCLIParamValue(flagListLogs)
 			}
 			if flagLogentryid != "" {
-				params["logentryid"] = fmt.Sprintf("%v", flagLogentryid)
+				params["logentryid"] = formatCLIParamValue(flagLogentryid)
 			}
 			if flagScheduledTaskId != "" {
-				params["ScheduledTaskId"] = fmt.Sprintf("%v", flagScheduledTaskId)
+				params["ScheduledTaskId"] = formatCLIParamValue(flagScheduledTaskId)
 			}
 			if flagSeverity != "" {
-				params["Severity"] = fmt.Sprintf("%v", flagSeverity)
+				params["Severity"] = formatCLIParamValue(flagSeverity)
 			}
 			if flagStandardTemplateId != "" {
-				params["StandardTemplateId"] = fmt.Sprintf("%v", flagStandardTemplateId)
+				params["StandardTemplateId"] = formatCLIParamValue(flagStandardTemplateId)
 			}
 			if flagStartDate != "" {
-				params["StartDate"] = fmt.Sprintf("%v", flagStartDate)
+				params["StartDate"] = formatCLIParamValue(flagStartDate)
 			}
 			if flagTenant != "" {
-				params["Tenant"] = fmt.Sprintf("%v", flagTenant)
+				params["Tenant"] = formatCLIParamValue(flagTenant)
 			}
 			if flagUser != "" {
-				params["User"] = fmt.Sprintf("%v", flagUser)
+				params["User"] = formatCLIParamValue(flagUser)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-logs", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

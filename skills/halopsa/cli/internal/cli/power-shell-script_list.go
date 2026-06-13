@@ -29,10 +29,10 @@ func newPowerShellScriptListCmd(flags *rootFlags) *cobra.Command {
 			path := "/PowerShellScript"
 			params := map[string]string{}
 			if flagClientidoverride != "" {
-				params["clientidoverride"] = fmt.Sprintf("%v", flagClientidoverride)
+				params["clientidoverride"] = formatCLIParamValue(flagClientidoverride)
 			}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "power-shell-script", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -44,18 +44,18 @@ func newThreatsTimelineGetThreatCmd(flags *rootFlags) *cobra.Command {
 			path := "/threats/{threat_id}/timeline"
 			path = replacePathParam(path, "threat_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "timeline", path, map[string]string{
-				"siteIds":       fmt.Sprintf("%v", flagSiteIds),
-				"sortBy":        fmt.Sprintf("%v", flagSortBy),
-				"activityTypes": fmt.Sprintf("%v", flagActivityTypes),
-				"groupIds":      fmt.Sprintf("%v", flagGroupIds),
-				"limit":         fmt.Sprintf("%v", flagLimit),
-				"skipCount":     fmt.Sprintf("%v", flagSkipCount),
-				"skip":          fmt.Sprintf("%v", flagSkip),
-				"sortOrder":     fmt.Sprintf("%v", flagSortOrder),
-				"query":         fmt.Sprintf("%v", flagQuery),
-				"accountIds":    fmt.Sprintf("%v", flagAccountIds),
-				"countOnly":     fmt.Sprintf("%v", flagCountOnly),
-				"cursor":        fmt.Sprintf("%v", flagCursor),
+				"siteIds":       formatCLIParamValue(flagSiteIds),
+				"sortBy":        formatCLIParamValue(flagSortBy),
+				"activityTypes": formatCLIParamValue(flagActivityTypes),
+				"groupIds":      formatCLIParamValue(flagGroupIds),
+				"limit":         formatCLIParamValue(flagLimit),
+				"skipCount":     formatCLIParamValue(flagSkipCount),
+				"skip":          formatCLIParamValue(flagSkip),
+				"sortOrder":     formatCLIParamValue(flagSortOrder),
+				"query":         formatCLIParamValue(flagQuery),
+				"accountIds":    formatCLIParamValue(flagAccountIds),
+				"countOnly":     formatCLIParamValue(flagCountOnly),
+				"cursor":        formatCLIParamValue(flagCursor),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

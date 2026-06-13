@@ -28,7 +28,7 @@ func newAppMarketGetTransferMethodsCmd(flags *rootFlags) *cobra.Command {
 			path := "/api/appMarket/v2/transferMethods"
 			params := map[string]string{}
 			if flagIncludeBalance != false {
-				params["includeBalance"] = fmt.Sprintf("%v", flagIncludeBalance)
+				params["includeBalance"] = formatCLIParamValue(flagIncludeBalance)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "app-market", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

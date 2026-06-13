@@ -32,7 +32,7 @@ func newAppResellerSellableProductEditionsCatalogV1ApiGetGetCmd(flags *rootFlags
 			path = replacePathParam(path, "productId", args[0])
 			params := map[string]string{}
 			if flagTargetUserId != "" {
-				params["targetUserId"] = fmt.Sprintf("%v", flagTargetUserId)
+				params["targetUserId"] = formatCLIParamValue(flagTargetUserId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "app-reseller", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -49,11 +49,11 @@ func newInstalledSoftwareDataAppsOrgIdGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/installed-software/{orgId}/data"
 			path = replacePathParam(path, "orgId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "data", path, map[string]string{
-				"from":      fmt.Sprintf("%v", flagFrom),
-				"limit":     fmt.Sprintf("%v", flagLimit),
-				"sortby":    fmt.Sprintf("%v", flagSortby),
-				"filter":    fmt.Sprintf("%v", flagFilter),
-				"live_only": fmt.Sprintf("%v", flagLiveOnly),
+				"from":      formatCLIParamValue(flagFrom),
+				"limit":     formatCLIParamValue(flagLimit),
+				"sortby":    formatCLIParamValue(flagSortby),
+				"filter":    formatCLIParamValue(flagFilter),
+				"live_only": formatCLIParamValue(flagLiveOnly),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

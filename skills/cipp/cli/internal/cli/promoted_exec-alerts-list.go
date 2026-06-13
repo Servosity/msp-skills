@@ -15,9 +15,10 @@ func newExecAlertsListPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "exec-alerts-list",
-		Short:       "Exec alerts list",
-		Long:        "Exec alerts list",
+		Use:   "exec-alerts-list",
+		Short: "Exec alerts list",
+		Long:  "Exec alerts list",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-alerts-list --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-alerts-list.list", "pp:method": "GET", "pp:path": "/ExecAlertsList", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,7 @@ func newExecAlertsListPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecAlertsList"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-alerts-list", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

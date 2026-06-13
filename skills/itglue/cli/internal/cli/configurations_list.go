@@ -36,15 +36,15 @@ func newConfigurationsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/configurations"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "configurations", path, map[string]string{
-				"filter[id]":              fmt.Sprintf("%v", flagFilterId),
-				"filter[name]":            fmt.Sprintf("%v", flagFilterName),
-				"filter[organization_id]": fmt.Sprintf("%v", flagFilterOrganizationId),
-				"filter[serial_number]":   fmt.Sprintf("%v", flagFilterSerialNumber),
-				"filter[asset_tag]":       fmt.Sprintf("%v", flagFilterAssetTag),
-				"filter[hostname]":        fmt.Sprintf("%v", flagFilterHostname),
-				"page[number]":            fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":              fmt.Sprintf("%v", flagPageSize),
-				"sort":                    fmt.Sprintf("%v", flagSort),
+				"filter[id]":              formatCLIParamValue(flagFilterId),
+				"filter[name]":            formatCLIParamValue(flagFilterName),
+				"filter[organization_id]": formatCLIParamValue(flagFilterOrganizationId),
+				"filter[serial_number]":   formatCLIParamValue(flagFilterSerialNumber),
+				"filter[asset_tag]":       formatCLIParamValue(flagFilterAssetTag),
+				"filter[hostname]":        formatCLIParamValue(flagFilterHostname),
+				"page[number]":            formatCLIParamValue(flagPageNumber),
+				"page[size]":              formatCLIParamValue(flagPageSize),
+				"sort":                    formatCLIParamValue(flagSort),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

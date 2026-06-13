@@ -20,8 +20,9 @@ func newAgentDeviceConnectToCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "connect-to <agent_id> <device_id>",
-		Short:       "Establishes a direct secure connection to the `device`.",
+		Use:   "connect-to <agent_id> <device_id>",
+		Short: "Establishes a direct secure connection to the `device`.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  domotz-cli agent device connect-to 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --allowed-ip example-value",
 		Annotations: map[string]string{"pp:endpoint": "device.connect-to", "pp:method": "POST", "pp:path": "/agent/{agent_id}/device/{device_id}/connection"},
 		RunE: func(cmd *cobra.Command, args []string) error {

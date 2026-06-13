@@ -79,157 +79,157 @@ func newRangerExportDataCmd(flags *rootFlags) *cobra.Command {
 			path := "/ranger/report/csv"
 			params := map[string]string{}
 			if flagFirstSeenGte != "" {
-				params["firstSeen__gte"] = fmt.Sprintf("%v", flagFirstSeenGte)
+				params["firstSeen__gte"] = formatCLIParamValue(flagFirstSeenGte)
 			}
 			if flagLastSeenGte != "" {
-				params["lastSeen__gte"] = fmt.Sprintf("%v", flagLastSeenGte)
+				params["lastSeen__gte"] = formatCLIParamValue(flagLastSeenGte)
 			}
 			if flagNetworkNameContains != "" {
-				params["networkName__contains"] = fmt.Sprintf("%v", flagNetworkNameContains)
+				params["networkName__contains"] = formatCLIParamValue(flagNetworkNameContains)
 			}
 			if flagDeviceTypes != "" {
-				params["deviceTypes"] = fmt.Sprintf("%v", flagDeviceTypes)
+				params["deviceTypes"] = formatCLIParamValue(flagDeviceTypes)
 			}
 			if flagLocalIp != "" {
-				params["localIp"] = fmt.Sprintf("%v", flagLocalIp)
+				params["localIp"] = formatCLIParamValue(flagLocalIp)
 			}
 			if flagLastSeenLt != "" {
-				params["lastSeen__lt"] = fmt.Sprintf("%v", flagLastSeenLt)
+				params["lastSeen__lt"] = formatCLIParamValue(flagLastSeenLt)
 			}
 			if flagDeviceFunctionContains != "" {
-				params["deviceFunction__contains"] = fmt.Sprintf("%v", flagDeviceFunctionContains)
+				params["deviceFunction__contains"] = formatCLIParamValue(flagDeviceFunctionContains)
 			}
 			if flagManagedState != "" {
-				params["managedState"] = fmt.Sprintf("%v", flagManagedState)
+				params["managedState"] = formatCLIParamValue(flagManagedState)
 			}
 			if flagDiscoveryMethods != "" {
-				params["discoveryMethods"] = fmt.Sprintf("%v", flagDiscoveryMethods)
+				params["discoveryMethods"] = formatCLIParamValue(flagDiscoveryMethods)
 			}
 			if flagKnownFingerprintingData != "" {
-				params["knownFingerprintingData"] = fmt.Sprintf("%v", flagKnownFingerprintingData)
+				params["knownFingerprintingData"] = formatCLIParamValue(flagKnownFingerprintingData)
 			}
 			if flagUdpPortsContains != "" {
-				params["udpPorts__contains"] = fmt.Sprintf("%v", flagUdpPortsContains)
+				params["udpPorts__contains"] = formatCLIParamValue(flagUdpPortsContains)
 			}
 			if flagMacAddressContains != "" {
-				params["macAddress__contains"] = fmt.Sprintf("%v", flagMacAddressContains)
+				params["macAddress__contains"] = formatCLIParamValue(flagMacAddressContains)
 			}
 			if flagAgentIds != "" {
-				params["agentIds"] = fmt.Sprintf("%v", flagAgentIds)
+				params["agentIds"] = formatCLIParamValue(flagAgentIds)
 			}
 			if flagDeviceReviews != "" {
-				params["deviceReviews"] = fmt.Sprintf("%v", flagDeviceReviews)
+				params["deviceReviews"] = formatCLIParamValue(flagDeviceReviews)
 			}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			if flagHostnamesContains != "" {
-				params["hostnames__contains"] = fmt.Sprintf("%v", flagHostnamesContains)
+				params["hostnames__contains"] = formatCLIParamValue(flagHostnamesContains)
 			}
 			if flagDeviceType != "" {
-				params["deviceType"] = fmt.Sprintf("%v", flagDeviceType)
+				params["deviceType"] = formatCLIParamValue(flagDeviceType)
 			}
 			if flagManagedStates != "" {
-				params["managedStates"] = fmt.Sprintf("%v", flagManagedStates)
+				params["managedStates"] = formatCLIParamValue(flagManagedStates)
 			}
 			if flagLastSeenGt != "" {
-				params["lastSeen__gt"] = fmt.Sprintf("%v", flagLastSeenGt)
+				params["lastSeen__gt"] = formatCLIParamValue(flagLastSeenGt)
 			}
 			if flagOsType != "" {
-				params["osType"] = fmt.Sprintf("%v", flagOsType)
+				params["osType"] = formatCLIParamValue(flagOsType)
 			}
 			if flagOsTypes != "" {
-				params["osTypes"] = fmt.Sprintf("%v", flagOsTypes)
+				params["osTypes"] = formatCLIParamValue(flagOsTypes)
 			}
 			if flagSubnetAddressContains != "" {
-				params["subnetAddress__contains"] = fmt.Sprintf("%v", flagSubnetAddressContains)
+				params["subnetAddress__contains"] = formatCLIParamValue(flagSubnetAddressContains)
 			}
 			if flagManufacturer != "" {
-				params["manufacturer"] = fmt.Sprintf("%v", flagManufacturer)
+				params["manufacturer"] = formatCLIParamValue(flagManufacturer)
 			}
 			if flagOsName != "" {
-				params["osName"] = fmt.Sprintf("%v", flagOsName)
+				params["osName"] = formatCLIParamValue(flagOsName)
 			}
 			if flagSiteIds != "" {
-				params["siteIds"] = fmt.Sprintf("%v", flagSiteIds)
+				params["siteIds"] = formatCLIParamValue(flagSiteIds)
 			}
 			if flagGroupIds != "" {
-				params["groupIds"] = fmt.Sprintf("%v", flagGroupIds)
+				params["groupIds"] = formatCLIParamValue(flagGroupIds)
 			}
 			if flagFirstSeenLt != "" {
-				params["firstSeen__lt"] = fmt.Sprintf("%v", flagFirstSeenLt)
+				params["firstSeen__lt"] = formatCLIParamValue(flagFirstSeenLt)
 			}
 			if flagMacAddress != "" {
-				params["macAddress"] = fmt.Sprintf("%v", flagMacAddress)
+				params["macAddress"] = formatCLIParamValue(flagMacAddress)
 			}
 			if flagHostnames != "" {
-				params["hostnames"] = fmt.Sprintf("%v", flagHostnames)
+				params["hostnames"] = formatCLIParamValue(flagHostnames)
 			}
 			if flagTcpPortsContains != "" {
-				params["tcpPorts__contains"] = fmt.Sprintf("%v", flagTcpPortsContains)
+				params["tcpPorts__contains"] = formatCLIParamValue(flagTcpPortsContains)
 			}
 			if flagQuery != "" {
-				params["query"] = fmt.Sprintf("%v", flagQuery)
+				params["query"] = formatCLIParamValue(flagQuery)
 			}
 			if flagLastSeenBetween != "" {
-				params["lastSeen__between"] = fmt.Sprintf("%v", flagLastSeenBetween)
+				params["lastSeen__between"] = formatCLIParamValue(flagLastSeenBetween)
 			}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			if flagDomains != "" {
-				params["domains"] = fmt.Sprintf("%v", flagDomains)
+				params["domains"] = formatCLIParamValue(flagDomains)
 			}
 			if flagPeriod != "" {
-				params["period"] = fmt.Sprintf("%v", flagPeriod)
+				params["period"] = formatCLIParamValue(flagPeriod)
 			}
 			if flagGatewayMacAddress != "" {
-				params["gatewayMacAddress"] = fmt.Sprintf("%v", flagGatewayMacAddress)
+				params["gatewayMacAddress"] = formatCLIParamValue(flagGatewayMacAddress)
 			}
 			if flagExternalIpContains != "" {
-				params["externalIp__contains"] = fmt.Sprintf("%v", flagExternalIpContains)
+				params["externalIp__contains"] = formatCLIParamValue(flagExternalIpContains)
 			}
 			if flagOsVersion != "" {
-				params["osVersion"] = fmt.Sprintf("%v", flagOsVersion)
+				params["osVersion"] = formatCLIParamValue(flagOsVersion)
 			}
 			if flagExternalIp != "" {
-				params["externalIp"] = fmt.Sprintf("%v", flagExternalIp)
+				params["externalIp"] = formatCLIParamValue(flagExternalIp)
 			}
 			if flagLastSeenLte != "" {
-				params["lastSeen__lte"] = fmt.Sprintf("%v", flagLastSeenLte)
+				params["lastSeen__lte"] = formatCLIParamValue(flagLastSeenLte)
 			}
 			if flagTenant != "" {
-				params["tenant"] = fmt.Sprintf("%v", flagTenant)
+				params["tenant"] = formatCLIParamValue(flagTenant)
 			}
 			if flagLocalIpContains != "" {
-				params["localIp__contains"] = fmt.Sprintf("%v", flagLocalIpContains)
+				params["localIp__contains"] = formatCLIParamValue(flagLocalIpContains)
 			}
 			if flagOsVersionContains != "" {
-				params["osVersion__contains"] = fmt.Sprintf("%v", flagOsVersionContains)
+				params["osVersion__contains"] = formatCLIParamValue(flagOsVersionContains)
 			}
 			if flagManufacturerContains != "" {
-				params["manufacturer__contains"] = fmt.Sprintf("%v", flagManufacturerContains)
+				params["manufacturer__contains"] = formatCLIParamValue(flagManufacturerContains)
 			}
 			if flagGatewayMacAddressContains != "" {
-				params["gatewayMacAddress__contains"] = fmt.Sprintf("%v", flagGatewayMacAddressContains)
+				params["gatewayMacAddress__contains"] = formatCLIParamValue(flagGatewayMacAddressContains)
 			}
 			if flagTagNameContains != "" {
-				params["tagName__contains"] = fmt.Sprintf("%v", flagTagNameContains)
+				params["tagName__contains"] = formatCLIParamValue(flagTagNameContains)
 			}
 			if flagSiteNames != "" {
-				params["siteNames"] = fmt.Sprintf("%v", flagSiteNames)
+				params["siteNames"] = formatCLIParamValue(flagSiteNames)
 			}
 			if flagFirstSeenLte != "" {
-				params["firstSeen__lte"] = fmt.Sprintf("%v", flagFirstSeenLte)
+				params["firstSeen__lte"] = formatCLIParamValue(flagFirstSeenLte)
 			}
 			if flagFirstSeenBetween != "" {
-				params["firstSeen__between"] = fmt.Sprintf("%v", flagFirstSeenBetween)
+				params["firstSeen__between"] = formatCLIParamValue(flagFirstSeenBetween)
 			}
 			if flagFirstSeenGt != "" {
-				params["firstSeen__gt"] = fmt.Sprintf("%v", flagFirstSeenGt)
+				params["firstSeen__gt"] = formatCLIParamValue(flagFirstSeenGt)
 			}
 			if flagNetworkName != "" {
-				params["networkName"] = fmt.Sprintf("%v", flagNetworkName)
+				params["networkName"] = formatCLIParamValue(flagNetworkName)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "ranger", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

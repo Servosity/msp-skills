@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "hudu-cli",
-			Description: "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits",
+			Description: "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

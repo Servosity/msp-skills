@@ -43,7 +43,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "  Create a private app, grant CRM scopes, and copy the access token.")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export HUBSPOT_ACCESS_TOKEN=\"<your-token>\"")
+			fmt.Fprintln(w, "  export HUBSPOT_ACCESS_TOKEN=\"your-token-here\"")
 			fmt.Fprintln(w, "  hubspot-cli auth set-token <token>")
 			if !launch {
 				return nil

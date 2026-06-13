@@ -16,7 +16,7 @@ func newJournalsGetJournalidCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-journalid <JournalID>",
 		Short:       "Retrieves a specific journal using a unique journal Id.",
-		Example:     "  xero-cli journals get-journalid 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  xero-cli journals get-journalid 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "journals.get-journalid", "pp:method": "GET", "pp:path": "/Journals/{JournalID}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

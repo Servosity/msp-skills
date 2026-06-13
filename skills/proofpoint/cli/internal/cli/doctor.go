@@ -173,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export PROOFPOINT_SERVICE_PRINCIPAL=<your-key>"
+					report["auth_hint"] = "Set Basic credentials with: export PROOFPOINT_SERVICE_PRINCIPAL=\"your-token-here\" PROOFPOINT_API_SECRET=\"your-token-here\""
 					report["auth_docs_url"] = "https://help.proofpoint.com/Threat_Insight_Dashboard/API_Documentation"
 				} else {
 					authConfigured = true

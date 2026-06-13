@@ -34,13 +34,13 @@ func newTopLevelGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagIncludeAgents != false {
-				params["include_agents"] = fmt.Sprintf("%v", flagIncludeAgents)
+				params["include_agents"] = formatCLIParamValue(flagIncludeAgents)
 			}
 			if flagIncludeTeams != false {
-				params["include_teams"] = fmt.Sprintf("%v", flagIncludeTeams)
+				params["include_teams"] = formatCLIParamValue(flagIncludeTeams)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "top-level", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

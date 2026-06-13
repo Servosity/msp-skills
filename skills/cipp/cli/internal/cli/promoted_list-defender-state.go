@@ -16,9 +16,10 @@ func newListDefenderStatePromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-defender-state",
-		Short:       "List defender state",
-		Long:        "List defender state",
+		Use:   "list-defender-state",
+		Short: "List defender state",
+		Long:  "List defender state",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-defender-state --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-defender-state.list", "pp:method": "GET", "pp:path": "/ListDefenderState", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,10 +41,10 @@ func newListDefenderStatePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListDefenderState"
 			params := map[string]string{}
 			if flagDeviceID != "" {
-				params["DeviceID"] = fmt.Sprintf("%v", flagDeviceID)
+				params["DeviceID"] = formatCLIParamValue(flagDeviceID)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-defender-state", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

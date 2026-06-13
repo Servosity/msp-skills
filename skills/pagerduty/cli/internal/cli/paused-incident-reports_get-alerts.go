@@ -45,16 +45,16 @@ func newPausedIncidentReportsGetAlertsCmd(flags *rootFlags) *cobra.Command {
 			path := "/paused_incident_reports/alerts"
 			params := map[string]string{}
 			if flagSince != "" {
-				params["since"] = fmt.Sprintf("%v", flagSince)
+				params["since"] = formatCLIParamValue(flagSince)
 			}
 			if flagUntil != "" {
-				params["until"] = fmt.Sprintf("%v", flagUntil)
+				params["until"] = formatCLIParamValue(flagUntil)
 			}
 			if flagServiceId != "" {
-				params["service_id"] = fmt.Sprintf("%v", flagServiceId)
+				params["service_id"] = formatCLIParamValue(flagServiceId)
 			}
 			if flagSuspendedBy != "" {
-				params["suspended_by"] = fmt.Sprintf("%v", flagSuspendedBy)
+				params["suspended_by"] = formatCLIParamValue(flagSuspendedBy)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "paused-incident-reports", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

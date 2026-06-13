@@ -73,22 +73,22 @@ func newSiemListAllEventsCmd(flags *rootFlags) *cobra.Command {
 			path := "/siem/all"
 			params := map[string]string{}
 			if flagSinceSeconds != 0 {
-				params["sinceSeconds"] = fmt.Sprintf("%v", flagSinceSeconds)
+				params["sinceSeconds"] = formatCLIParamValue(flagSinceSeconds)
 			}
 			if flagInterval != "" {
-				params["interval"] = fmt.Sprintf("%v", flagInterval)
+				params["interval"] = formatCLIParamValue(flagInterval)
 			}
 			if flagSinceTime != "" {
-				params["sinceTime"] = fmt.Sprintf("%v", flagSinceTime)
+				params["sinceTime"] = formatCLIParamValue(flagSinceTime)
 			}
 			if flagFormat != "" {
-				params["format"] = fmt.Sprintf("%v", flagFormat)
+				params["format"] = formatCLIParamValue(flagFormat)
 			}
 			if flagThreatType != "" {
-				params["threatType"] = fmt.Sprintf("%v", flagThreatType)
+				params["threatType"] = formatCLIParamValue(flagThreatType)
 			}
 			if flagThreatStatus != "" {
-				params["threatStatus"] = fmt.Sprintf("%v", flagThreatStatus)
+				params["threatStatus"] = formatCLIParamValue(flagThreatStatus)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "siem", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -32,16 +32,16 @@ func newLineItemsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/line_items"
 			params := map[string]string{}
 			if flagInvoiceId != "" {
-				params["invoice_id"] = fmt.Sprintf("%v", flagInvoiceId)
+				params["invoice_id"] = formatCLIParamValue(flagInvoiceId)
 			}
 			if flagEstimateId != "" {
-				params["estimate_id"] = fmt.Sprintf("%v", flagEstimateId)
+				params["estimate_id"] = formatCLIParamValue(flagEstimateId)
 			}
 			if flagInvoiceIdNotNull != false {
-				params["invoice_id_not_null"] = fmt.Sprintf("%v", flagInvoiceIdNotNull)
+				params["invoice_id_not_null"] = formatCLIParamValue(flagInvoiceIdNotNull)
 			}
 			if flagEstimateIdNotNull != false {
-				params["estimate_id_not_null"] = fmt.Sprintf("%v", flagEstimateIdNotNull)
+				params["estimate_id_not_null"] = formatCLIParamValue(flagEstimateIdNotNull)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "line-items", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

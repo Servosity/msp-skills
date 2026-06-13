@@ -30,8 +30,8 @@ func newJournalsGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/Journals"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "journals", path, map[string]string{
-				"offset":       fmt.Sprintf("%v", flagOffset),
-				"paymentsOnly": fmt.Sprintf("%v", flagPaymentsOnly),
+				"offset":       formatCLIParamValue(flagOffset),
+				"paymentsOnly": formatCLIParamValue(flagPaymentsOnly),
 			}, nil, flagAll, "offset", "offset", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

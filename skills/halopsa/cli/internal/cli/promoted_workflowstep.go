@@ -29,7 +29,7 @@ func newWorkflowstepPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/workflowstep"
 			params := map[string]string{}
 			if flagIncludecriteriainfo != false {
-				params["includecriteriainfo"] = fmt.Sprintf("%v", flagIncludecriteriainfo)
+				params["includecriteriainfo"] = formatCLIParamValue(flagIncludecriteriainfo)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "workflowstep", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

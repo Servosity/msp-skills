@@ -25,8 +25,9 @@ func newAppdirectSyncResourceUserUnassignUserPostCmd(flags *rootFlags) *cobra.Co
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "resource-user-unassign-user-post",
-		Short:       "This call unassigns a user. Maximum of global requests of 20 per 2 seconds.",
+		Use:   "resource-user-unassign-user-post",
+		Short: "This call unassigns a user. Maximum of global requests of 20 per 2 seconds.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli appdirect-sync resource-user-unassign-user-post --account-identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "appdirect-sync.resource-user-unassign-user-post", "pp:method": "POST", "pp:path": "/sync/v1/tasks#unassign"},
 		RunE: func(cmd *cobra.Command, args []string) error {

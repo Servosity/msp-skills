@@ -30,9 +30,9 @@ func newAccountGetSitesCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/account/sites"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "account", path, map[string]string{
-				"page":     fmt.Sprintf("%v", flagPage),
-				"max":      fmt.Sprintf("%v", flagMax),
-				"siteName": fmt.Sprintf("%v", flagSiteName),
+				"page":     formatCLIParamValue(flagPage),
+				"max":      formatCLIParamValue(flagMax),
+				"siteName": formatCLIParamValue(flagSiteName),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

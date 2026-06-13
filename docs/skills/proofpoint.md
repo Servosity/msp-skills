@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Proofpoint TAP MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "Every Proofpoint TAP Threat Insight endpoint plus a local threat store that answers cross-endpoint questions - who is both attacked and clicking, what touched a given user - without re-spending the limited daily API quota."
+description: "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions \u2014 who is both attacked and clicking, what touched this user \u2014 inside Proofpoint's punishing daily quotas."
 permalink: /skills/proofpoint/
 skill_name: "Proofpoint TAP MCP"
 image: /assets/social/proofpoint/wide-1200x630.png

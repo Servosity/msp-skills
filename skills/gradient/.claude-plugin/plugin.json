@@ -1,7 +1,7 @@
 {
   "name": "gradient",
-  "version": "0.1.0",
-  "description": "The Gradient MSP Synthesize vendor API from your terminal: bulk usage pushes with a single billing rebuild, a local push-drift ledger, and alert-to-ticket tracing the portal and SDK don't offer.",
+  "version": "0.1.1",
+  "description": "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has.",
   "author": {
     "name": "Servosity",
     "url": "https://www.servosity.com"

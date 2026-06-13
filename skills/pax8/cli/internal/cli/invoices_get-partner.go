@@ -17,7 +17,7 @@ func newInvoicesGetPartnerCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-partner <invoiceId>",
 		Aliases:     []string{"get"},
 		Short:       "Fetch a paginated list of invoices. Default page is 0 and default size is 10. The maximum page size is 200",
-		Example:     "  pax8-cli invoices get-partner 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pax8-cli invoices get-partner 57328a3c-6e95-493c-ad2f-e33b896378c7",
 		Annotations: map[string]string{"pp:endpoint": "invoices.get-partner", "pp:method": "GET", "pp:path": "/invoices/{invoiceId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

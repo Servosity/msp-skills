@@ -38,10 +38,9 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			w := cmd.OutOrStdout()
 			fmt.Fprintln(w, "No setup URL is configured for this CLI; check the API's docs.")
 			fmt.Fprintln(w, "")
-			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export ATERA_API_KEY=\"<your-token>\"")
-			fmt.Fprintln(w, "  export ATERA_ACCOUNT_API=\"<your-token>\"")
-			fmt.Fprintln(w, "  atera-cli auth set-token <token>")
+			fmt.Fprintln(w, "Set one of:")
+			fmt.Fprintln(w, "  export ATERA_API_KEY=\"your-token-here\"")
+			fmt.Fprintln(w, "  export ATERA_ACCOUNT_API=\"your-token-here\"")
 			if !launch {
 				return nil
 			}
@@ -88,10 +87,11 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			if !authed {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
-				fmt.Fprintln(w, "Set your token:")
+				fmt.Fprintln(w, "Set one of:")
+				fmt.Fprintln(w, "")
+				fmt.Fprintln(w, "Optional request credentials:")
 				fmt.Fprintln(w, "  export ATERA_API_KEY=\"your-token-here\"")
 				fmt.Fprintln(w, "  export ATERA_ACCOUNT_API=\"your-token-here\"")
-				fmt.Fprintf(w, "  atera-cli auth set-token <token>\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
 

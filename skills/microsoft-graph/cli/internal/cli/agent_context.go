@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "microsoft-graph-cli",
-			Description: "The maintained single-binary successor to the retiring mgc — every MSP-relevant Microsoft Graph surface",
+			Description: "The maintained single-binary successor to the retiring mgc — every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

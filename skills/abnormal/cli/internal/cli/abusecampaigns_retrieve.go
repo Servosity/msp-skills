@@ -63,15 +63,15 @@ func newAbusecampaignsRetrieveCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/abusecampaigns"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "abusecampaigns", path, map[string]string{
-				"filter":     fmt.Sprintf("%v", flagFilter),
-				"sender":     fmt.Sprintf("%v", flagSender),
-				"recipient":  fmt.Sprintf("%v", flagRecipient),
-				"subject":    fmt.Sprintf("%v", flagSubject),
-				"reporter":   fmt.Sprintf("%v", flagReporter),
-				"attackType": fmt.Sprintf("%v", flagAttackType),
-				"threatType": fmt.Sprintf("%v", flagThreatType),
-				"pageSize":   fmt.Sprintf("%v", flagPageSize),
-				"pageNumber": fmt.Sprintf("%v", flagPageNumber),
+				"filter":     formatCLIParamValue(flagFilter),
+				"sender":     formatCLIParamValue(flagSender),
+				"recipient":  formatCLIParamValue(flagRecipient),
+				"subject":    formatCLIParamValue(flagSubject),
+				"reporter":   formatCLIParamValue(flagReporter),
+				"attackType": formatCLIParamValue(flagAttackType),
+				"threatType": formatCLIParamValue(flagThreatType),
+				"pageSize":   formatCLIParamValue(flagPageSize),
+				"pageNumber": formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "pageNumber", "page", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

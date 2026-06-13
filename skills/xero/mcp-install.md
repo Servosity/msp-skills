@@ -38,8 +38,7 @@ Add (or merge with your existing `mcpServers` block):
       "command": "xero-mcp",
       "env": {
         "XERO_ACCESS_TOKEN": "<your-xero_access_token>",
-        "XERO_ACCOUNTING_OAUTH2": "<your-xero_accounting_oauth2>",
-        "XERO_TENANT_ID": "<your-xero_tenant_id>"
+        "XERO_OAUTH2": "<your-xero_oauth2>"
       }
     }
   }
@@ -65,8 +64,7 @@ Configuration**) and add:
       "command": "xero-mcp",
       "env": {
         "XERO_ACCESS_TOKEN": "<your-xero_access_token>",
-        "XERO_ACCOUNTING_OAUTH2": "<your-xero_accounting_oauth2>",
-        "XERO_TENANT_ID": "<your-xero_tenant_id>"
+        "XERO_OAUTH2": "<your-xero_oauth2>"
       }
     }
   }
@@ -88,8 +86,7 @@ Claude Desktop:
       "command": "xero-mcp",
       "env": {
         "XERO_ACCESS_TOKEN": "<your-xero_access_token>",
-        "XERO_ACCOUNTING_OAUTH2": "<your-xero_accounting_oauth2>",
-        "XERO_TENANT_ID": "<your-xero_tenant_id>"
+        "XERO_OAUTH2": "<your-xero_oauth2>"
       }
     }
   }
@@ -107,7 +104,7 @@ All remote agents need `xero-mcp` reachable as a public **HTTPS** endpoint. Run 
 in HTTP mode with your credentials in the environment:
 
 ```bash
-XERO_ACCESS_TOKEN=<value> XERO_ACCOUNTING_OAUTH2=<value> XERO_TENANT_ID=<value> xero-mcp --transport http --addr :7777
+XERO_ACCESS_TOKEN=<value> XERO_OAUTH2=<value> xero-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

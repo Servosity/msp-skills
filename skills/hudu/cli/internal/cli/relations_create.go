@@ -22,8 +22,9 @@ func newRelationsCreateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a relation between two entities",
+		Use:   "create",
+		Short: "Create a relation between two entities",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hudu-cli relations create --from-type example-value",
 		Annotations: map[string]string{"pp:endpoint": "relations.create", "pp:method": "POST", "pp:path": "/relations"},
 		RunE: func(cmd *cobra.Command, args []string) error {

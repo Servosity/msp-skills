@@ -20,9 +20,10 @@ func newExecEnableArchivePromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUsername2 string
 
 	cmd := &cobra.Command{
-		Use:         "exec-enable-archive",
-		Short:       "Exec enable archive",
-		Long:        "Exec enable archive",
+		Use:   "exec-enable-archive",
+		Short: "Exec enable archive",
+		Long:  "Exec enable archive",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-enable-archive --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-enable-archive.create", "pp:method": "POST", "pp:path": "/ExecEnableArchive"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -47,13 +48,13 @@ func newExecEnableArchivePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecEnableArchive"
 			params := map[string]string{}
 			if flagId != "" {
-				params["id"] = fmt.Sprintf("%v", flagId)
+				params["id"] = formatCLIParamValue(flagId)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagUsername != "" {
-				params["username"] = fmt.Sprintf("%v", flagUsername)
+				params["username"] = formatCLIParamValue(flagUsername)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -71,10 +72,10 @@ func newExecEnableArchivePromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

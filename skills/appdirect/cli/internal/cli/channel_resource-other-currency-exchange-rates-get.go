@@ -85,12 +85,12 @@ func newChannelResourceOtherCurrencyExchangeRatesGetCmd(flags *rootFlags) *cobra
 
 			path := "/channel/v1/exchangeRates"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "channel", path, map[string]string{
-				"baseCurrency":    fmt.Sprintf("%v", flagBaseCurrency),
-				"counterCurrency": fmt.Sprintf("%v", flagCounterCurrency),
-				"page":            fmt.Sprintf("%v", flagPage),
-				"size":            fmt.Sprintf("%v", flagSize),
-				"sortField":       fmt.Sprintf("%v", flagSortField),
-				"sortOrder":       fmt.Sprintf("%v", flagSortOrder),
+				"baseCurrency":    formatCLIParamValue(flagBaseCurrency),
+				"counterCurrency": formatCLIParamValue(flagCounterCurrency),
+				"page":            formatCLIParamValue(flagPage),
+				"size":            formatCLIParamValue(flagSize),
+				"sortField":       formatCLIParamValue(flagSortField),
+				"sortOrder":       formatCLIParamValue(flagSortOrder),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

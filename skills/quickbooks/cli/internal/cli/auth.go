@@ -19,9 +19,9 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 
 	cmd.AddCommand(newAuthSetupCmd(flags))
 	cmd.AddCommand(newAuthStatusCmd(flags))
-	cmd.AddCommand(newAuthRefreshCmd(flags))
 	cmd.AddCommand(newAuthSetTokenCmd(flags))
 	cmd.AddCommand(newAuthLogoutCmd(flags))
+	cmd.AddCommand(newAuthRefreshCmd(flags))
 
 	return cmd
 }
@@ -40,7 +40,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "No setup URL is configured for this CLI; check the API's docs.")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export QUICKBOOKS_ACCESS_TOKEN=\"<your-token>\"")
+			fmt.Fprintln(w, "  export QUICKBOOKS_ACCESS_TOKEN=\"your-token-here\"")
 			fmt.Fprintln(w, "  quickbooks-cli auth set-token <token>")
 			if !launch {
 				return nil

@@ -22,9 +22,10 @@ func newAddSiteBulkPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "add-site-bulk",
-		Short:       "Add site bulk",
-		Long:        "Add site bulk",
+		Use:   "add-site-bulk",
+		Short: "Add site bulk",
+		Long:  "Add site bulk",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli add-site-bulk --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "add-site-bulk.create", "pp:method": "POST", "pp:path": "/AddSiteBulk"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -76,10 +77,10 @@ func newAddSiteBulkPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

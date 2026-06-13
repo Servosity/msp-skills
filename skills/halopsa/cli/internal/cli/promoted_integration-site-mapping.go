@@ -31,13 +31,13 @@ func newIntegrationSiteMappingPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/IntegrationSiteMapping"
 			params := map[string]string{}
 			if flagGetActiveOnly != false {
-				params["get_active_only"] = fmt.Sprintf("%v", flagGetActiveOnly)
+				params["get_active_only"] = formatCLIParamValue(flagGetActiveOnly)
 			}
 			if flagMsid != "" {
-				params["msid"] = fmt.Sprintf("%v", flagMsid)
+				params["msid"] = formatCLIParamValue(flagMsid)
 			}
 			if flagThirdPartyClientId != "" {
-				params["third_party_client_id"] = fmt.Sprintf("%v", flagThirdPartyClientId)
+				params["third_party_client_id"] = formatCLIParamValue(flagThirdPartyClientId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-site-mapping", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

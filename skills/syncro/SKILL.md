@@ -1,6 +1,6 @@
 ---
 name: syncro
-description: "Use when the user asks to list or triage Syncro tickets, find logged-but-unbilled time, check AR aging, see which assets are missing patches, rank RMM alert noise, pull a cross-entity customer profile, or run any Syncro PSA or RMM workflow. Wraps the Syncro API plus an offline SQLite mirror with cross-customer search and billing-leakage analytics. Trigger phrases: `list syncro tickets`, `show uninvoiced time in syncro`, `syncro ar aging`, `which syncro assets are missing patches`, `triage stale syncro tickets`, `Syncro + ChatGPT`, `Syncro + Claude`, `use syncro`, `run syncro-cli`."
+description: "Every Syncro PSA and RMM workflow in your terminal, plus a local database, offline search, and cross-entity reports no other Syncro tool has. Trigger phrases: `list syncro tickets`, `show uninvoiced time in syncro`, `syncro ar aging`, `which syncro assets are missing patches`, `triage stale syncro tickets`, `use syncro`, `run syncro`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Syncro"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - syncro-cli
+    install:
+      - kind: go
+        bins: [syncro-cli]
+        module: github.com/mvanhorn/printing-press-library/library/project-management/syncro/cmd/syncro-cli
 ---
 
-# Syncro Claude Code Skill
+# Syncro  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `syncro-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/syncro/install.sh)
+   npx -y @mvanhorn/printing-press-library install syncro --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/syncro/install.ps1 | iex
-   ```
-3. Verify: `syncro-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `syncro-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/project-management/syncro/cmd/syncro-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 syncro-cli mirrors your Syncro tenant into a local SQLite store so tickets, customers, assets, invoices, and RMM alerts become joinable, searchable, and fast. On top of full API coverage it adds reports Syncro never rendered: uninvoiced time, invoice drift, AR aging, customer profitability, SLA aging triage, and fleet-wide patch gaps. Built for agents with --json, --select, --dry-run, typed exit codes, and adaptive backoff for Syncro's 180-requests-per-minute limit. The cross-entity reports read the local store, so run `sync` first; some (uninvoiced, drift, margin, patch-gaps, aging) also need sub-resources like timer entries, patches, and comments to be synced.
 
@@ -497,13 +503,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `syncro-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add syncro-mcp -- syncro-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/project-management/syncro/cmd/syncro-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add syncro-mcp -- syncro-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

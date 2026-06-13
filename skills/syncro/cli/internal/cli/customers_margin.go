@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"syncro-pp-cli/internal/store"
 )
 
 // pp:data-source local
@@ -43,7 +42,7 @@ labor hours come from timer entries joined to tickets. Sorted by revenue.`,
 				}
 				windowDur = d
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := syncroOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w", err)
 			}

@@ -15,8 +15,9 @@ func newMsspDeleteCidgroupsCmd(flags *rootFlags) *cobra.Command {
 	var flagCidGroupIds string
 
 	cmd := &cobra.Command{
-		Use:         "delete-cidgroups",
-		Short:       "Delete CID groups by ID.",
+		Use:   "delete-cidgroups",
+		Short: "Delete CID groups by ID.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  crowdstrike-cli mssp delete-cidgroups --cid-group-ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "mssp.delete-cidgroups", "pp:method": "DELETE", "pp:path": "/mssp/entities/cid-groups/v1"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newMsspDeleteCidgroupsCmd(flags *rootFlags) *cobra.Command {
 			path := "/mssp/entities/cid-groups/v1"
 			params := map[string]string{}
 			if flagCidGroupIds != "" {
-				params["cid_group_ids"] = fmt.Sprintf("%v", flagCidGroupIds)
+				params["cid_group_ids"] = formatCLIParamValue(flagCidGroupIds)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

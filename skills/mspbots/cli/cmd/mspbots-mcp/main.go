@@ -23,10 +23,13 @@ const (
 	defaultHTTPAddr = ":7777"
 )
 
+// version is the printed MCP server's version, overridable at build time via ldflags.
+var version = "0.0.0-dev"
+
 func main() {
 	s := server.NewMCPServer(
 		"Mspbots",
-		"0.1.0",
+		version,
 		server.WithToolCapabilities(false),
 	)
 
@@ -44,7 +47,7 @@ func main() {
 		}
 	case "http":
 		httpSrv := server.NewStreamableHTTPServer(s)
-		fmt.Fprintf(os.Stderr, "mspbots-pp-mcp serving MCP over streamable HTTP at %s\n", *addr)
+		fmt.Fprintf(os.Stderr, "mspbots-mcp serving MCP over streamable HTTP at %s\n", *addr)
 		if err := httpSrv.Start(*addr); err != nil {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
 			os.Exit(1)

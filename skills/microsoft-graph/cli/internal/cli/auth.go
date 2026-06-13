@@ -40,7 +40,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "No setup URL is configured for this CLI; check the API's docs.")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export MICROSOFT_GRAPH_TOKEN=\"<your-token>\"")
+			fmt.Fprintln(w, "  export MICROSOFT_GRAPH_TOKEN=\"your-token-here\"")
 			fmt.Fprintln(w, "  microsoft-graph-cli auth set-token <token>")
 			if !launch {
 				return nil

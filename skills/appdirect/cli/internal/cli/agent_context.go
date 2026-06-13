@@ -130,7 +130,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "appdirect-cli",
-			Description: "Every documented AppDirect marketplace operation in one binary - plus offline sync and the billing-reconciliation joins",
+			Description: "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

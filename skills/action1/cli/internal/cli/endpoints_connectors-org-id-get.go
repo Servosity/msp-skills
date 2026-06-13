@@ -51,13 +51,13 @@ func newEndpointsConnectorsOrgIdGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/endpoints/deployers/{orgId}"
 			path = replacePathParam(path, "orgId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "endpoints", path, map[string]string{
-				"status":          fmt.Sprintf("%v", flagStatus),
-				"filter":          fmt.Sprintf("%v", flagFilter),
-				"sortby":          fmt.Sprintf("%v", flagSortby),
-				"from":            fmt.Sprintf("%v", flagFrom),
-				"limit":           fmt.Sprintf("%v", flagLimit),
-				"os":              fmt.Sprintf("%v", flagOs),
-				"installed_since": fmt.Sprintf("%v", flagInstalledSince),
+				"status":          formatCLIParamValue(flagStatus),
+				"filter":          formatCLIParamValue(flagFilter),
+				"sortby":          formatCLIParamValue(flagSortby),
+				"from":            formatCLIParamValue(flagFrom),
+				"limit":           formatCLIParamValue(flagLimit),
+				"os":              formatCLIParamValue(flagOs),
+				"installed_since": formatCLIParamValue(flagInstalledSince),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

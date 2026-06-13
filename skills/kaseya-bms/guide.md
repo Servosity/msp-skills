@@ -1,14 +1,122 @@
 # Kaseya BMS CLI
 
-**The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-time analytics the web grid can't compute.**
+**The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute.**
 
 Kaseya BMS has a 433-operation official API and zero CLI ecosystem. This binary covers the whole surface - tickets, CRM, contracts, finance, projects - and mirrors core entities into local SQLite so dispatch questions like 'queue-health', 'stale-tickets', and 'contract-burn' answer instantly without burning the 1500/hour/endpoint rate limit.
 
-Learn more at [Kaseya BMS](https://www.kaseya.com/products/bms/).
+## Install
 
-Created by [Servosity](https://www.servosity.com).
+The recommended path installs both the `kaseya-bms-cli` binary and the `pp-kaseya-bms` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
-For the short install path (one-line installer, Claude Desktop `.mcpb`, the Claude Code plugin, and per-agent wire-up) see [README.md](./README.md) and [mcp-install.md](./mcp-install.md). This file is the command reference.
+```bash
+npx -y @mvanhorn/printing-press-library install kaseya-bms
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install kaseya-bms --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install kaseya-bms --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install kaseya-bms --agent claude-code
+npx -y @mvanhorn/printing-press-library install kaseya-bms --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/project-management/kaseya-bms/cmd/kaseya-bms-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/kaseya-bms-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install kaseya-bms --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-kaseya-bms --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-kaseya-bms --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install kaseya-bms --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/kaseya-bms-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `KASEYA_BMS_TOKEN` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/project-management/kaseya-bms/cmd/kaseya-bms-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "kaseya-bms": {
+      "command": "kaseya-bms-mcp",
+      "env": {
+        "KASEYA_BMS_TOKEN": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Authentication
 
@@ -64,7 +172,7 @@ These capabilities aren't available in any other tool for this API.
 ### Money on the table
 - **`contract-burn`**  -  Per-contract burn picture: hours consumed, open tickets, and how much of the contract period has elapsed - at-risk agreements surface first.
 
-  _Use this when reviewing contract health before a renewal - it surfaces hours consumed and percent of each contract period elapsed, fleet-wide, in one call; the BMS API does not expose allotted block hours, so this flags burn, not a remaining balance._
+  _Use this before authorizing work on an account - it answers whether the contract still has hours left, fleet-wide, in one call._
 
   ```bash
   kaseya-bms-cli contract-burn --agent --select items.account,items.contract,items.hours_consumed
@@ -117,7 +225,7 @@ Fleet-wide consumed hours and period-elapsed per contract, with --select trimmin
 kaseya-bms-cli unbilled --agent
 ```
 
-Approved, billable, uninvoiced time grouped by account, in hours - the month-end Excel ritual as one command (multiply by your rate cards for dollars).
+Approved, billable, unbilled hours grouped by account - the month-end Excel ritual as one command.
 
 ### Monday pipeline prep
 
@@ -646,19 +754,19 @@ Manage timelogs
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-kaseya-bms-cli project get <projectId>
+kaseya-bms-cli project get <id>
 
 # JSON for scripting and agents
-kaseya-bms-cli project get <projectId> --json
+kaseya-bms-cli project get <id> --json
 
 # Filter to specific fields
-kaseya-bms-cli project get <projectId> --json --select id,name,status
+kaseya-bms-cli project get <id> --json --select id,name,status
 
 # Dry run  -  show the request without sending
-kaseya-bms-cli project get <projectId> --dry-run
+kaseya-bms-cli project get <id> --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-kaseya-bms-cli project get <projectId> --agent
+kaseya-bms-cli project get <id> --agent
 ```
 
 ## Agent Usage
@@ -687,7 +795,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/kaseya-bms-cli/config.toml`
+Config file: `~/.config/bms-pp-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
@@ -723,3 +831,5 @@ This CLI was built by studying these projects and resources:
 
 - [**huntresslabs/kaseya-ruby**](https://github.com/huntresslabs/kaseya-ruby)  -  Ruby
 - [**Twoshoe/kaseya**](https://github.com/Twoshoe/kaseya)  -  Python
+
+Generated by [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press)

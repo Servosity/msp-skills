@@ -21,7 +21,7 @@ func newOrgUpdateBulkAssetCriticalityCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update-bulk-asset-criticality",
 		Short:       "Update criticality across multiple assets based on a search query",
-		Example:     "  runzero-cli org update-bulk-asset-criticality --criticality example-value",
+		Example:     "  runzero-cli org update-bulk-asset-criticality --criticality high",
 		Annotations: map[string]string{"pp:endpoint": "org.update-bulk-asset-criticality", "pp:method": "PATCH", "pp:path": "/org/assets/bulk/criticality"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
@@ -46,7 +46,7 @@ func newOrgUpdateBulkAssetCriticalityCmd(flags *rootFlags) *cobra.Command {
 			path := "/org/assets/bulk/criticality"
 			params := map[string]string{}
 			if flagOid != "" {
-				params["_oid"] = fmt.Sprintf("%v", flagOid)
+				params["_oid"] = formatCLIParamValue(flagOid)
 			}
 			var body map[string]any
 			if stdinBody {

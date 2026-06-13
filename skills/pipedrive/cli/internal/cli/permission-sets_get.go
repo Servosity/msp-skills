@@ -42,7 +42,7 @@ func newPermissionSetsGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/permissionSets"
 			params := map[string]string{}
 			if flagApp != "" {
-				params["app"] = fmt.Sprintf("%v", flagApp)
+				params["app"] = formatCLIParamValue(flagApp)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "permission-sets", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

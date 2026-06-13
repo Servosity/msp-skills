@@ -15,9 +15,10 @@ func newListDomainAnalyserPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-domain-analyser",
-		Short:       "List domain analyser",
-		Long:        "List domain analyser",
+		Use:   "list-domain-analyser",
+		Short: "List domain analyser",
+		Long:  "List domain analyser",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-domain-analyser --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-domain-analyser.list", "pp:method": "GET", "pp:path": "/ListDomainAnalyser", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,7 @@ func newListDomainAnalyserPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListDomainAnalyser"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-domain-analyser", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

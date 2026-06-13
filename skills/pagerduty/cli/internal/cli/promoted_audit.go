@@ -90,16 +90,16 @@ func newAuditPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/audit/records"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "audit", path, map[string]string{
-				"limit":                  fmt.Sprintf("%v", flagLimit),
-				"cursor":                 fmt.Sprintf("%v", flagCursor),
-				"since":                  fmt.Sprintf("%v", flagSince),
-				"until":                  fmt.Sprintf("%v", flagUntil),
-				"root_resource_types[]":  fmt.Sprintf("%v", flagRootResourceTypes),
-				"actor_type":             fmt.Sprintf("%v", flagActorType),
-				"actor_id":               fmt.Sprintf("%v", flagActorId),
-				"method_type":            fmt.Sprintf("%v", flagMethodType),
-				"method_truncated_token": fmt.Sprintf("%v", flagMethodTruncatedToken),
-				"actions[]":              fmt.Sprintf("%v", flagActions),
+				"limit":                  formatCLIParamValue(flagLimit),
+				"cursor":                 formatCLIParamValue(flagCursor),
+				"since":                  formatCLIParamValue(flagSince),
+				"until":                  formatCLIParamValue(flagUntil),
+				"root_resource_types[]":  formatCLIParamValue(flagRootResourceTypes),
+				"actor_type":             formatCLIParamValue(flagActorType),
+				"actor_id":               formatCLIParamValue(flagActorId),
+				"method_type":            formatCLIParamValue(flagMethodType),
+				"method_truncated_token": formatCLIParamValue(flagMethodTruncatedToken),
+				"actions[]":              formatCLIParamValue(flagActions),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)
@@ -163,6 +163,8 @@ func newAuditPromotedCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
 
 	// Wire sibling endpoints and sub-resources as subcommands
+	cmd.AddCommand(newNovelAuditCoverageCmd(flags))
+	cmd.AddCommand(newNovelAuditScheduleGapsCmd(flags))
 
 	return cmd
 }

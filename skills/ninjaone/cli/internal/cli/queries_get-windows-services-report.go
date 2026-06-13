@@ -45,11 +45,11 @@ func newQueriesGetWindowsServicesReportCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/queries/windows-services"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "queries", path, map[string]string{
-				"df":       fmt.Sprintf("%v", flagDf),
-				"name":     fmt.Sprintf("%v", flagName),
-				"state":    fmt.Sprintf("%v", flagState),
-				"cursor":   fmt.Sprintf("%v", flagCursor),
-				"pageSize": fmt.Sprintf("%v", flagPageSize),
+				"df":       formatCLIParamValue(flagDf),
+				"name":     formatCLIParamValue(flagName),
+				"state":    formatCLIParamValue(flagState),
+				"cursor":   formatCLIParamValue(flagCursor),
+				"pageSize": formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "cursor", "cursor", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

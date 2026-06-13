@@ -38,7 +38,7 @@ func newContactsUpdateOrCreateCmd(flags *rootFlags) *cobra.Command {
 			path := "/Contacts"
 			params := map[string]string{}
 			if flagSummarizeErrors != false {
-				params["summarizeErrors"] = fmt.Sprintf("%v", flagSummarizeErrors)
+				params["summarizeErrors"] = formatCLIParamValue(flagSummarizeErrors)
 			}
 			var body map[string]any
 			if stdinBody {

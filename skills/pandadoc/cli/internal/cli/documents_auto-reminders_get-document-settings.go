@@ -17,7 +17,7 @@ func newDocumentsAutoRemindersGetDocumentSettingsCmd(flags *rootFlags) *cobra.Co
 		Use:         "get-document-settings <document_id>",
 		Aliases:     []string{"get"},
 		Short:       "Retrieves the current auto reminder configuration for a specified document.",
-		Example:     "  pandadoc-cli documents auto-reminders get-document-settings 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents auto-reminders get-document-settings BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "auto-reminders.get-document-settings", "pp:method": "GET", "pp:path": "/documents/{document_id}/auto-reminders", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

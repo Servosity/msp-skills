@@ -31,13 +31,13 @@ func newListIntuneTemplatesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListIntuneTemplates"
 			params := map[string]string{}
 			if flagId != "" {
-				params["id"] = fmt.Sprintf("%v", flagId)
+				params["id"] = formatCLIParamValue(flagId)
 			}
 			if flagMode != "" {
-				params["mode"] = fmt.Sprintf("%v", flagMode)
+				params["mode"] = formatCLIParamValue(flagMode)
 			}
 			if flagView != "" {
-				params["View"] = fmt.Sprintf("%v", flagView)
+				params["View"] = formatCLIParamValue(flagView)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-intune-templates", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

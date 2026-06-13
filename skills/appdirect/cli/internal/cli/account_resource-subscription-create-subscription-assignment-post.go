@@ -43,7 +43,7 @@ func newAccountResourceSubscriptionCreateSubscriptionAssignmentPostCmd(flags *ro
 			path = replacePathParam(path, "userUuid", args[1])
 			params := map[string]string{}
 			if flagCreatorUuid != "" {
-				params["creatorUuid"] = fmt.Sprintf("%v", flagCreatorUuid)
+				params["creatorUuid"] = formatCLIParamValue(flagCreatorUuid)
 			}
 			var body map[string]any
 			if stdinBody {

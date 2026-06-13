@@ -14,8 +14,9 @@ import (
 func newHostPoolsSessionsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "sessions <account_id> <subscription_id> <resource_group> <pool_name>",
-		Short:       "List active user sessions on a host pool",
+		Use:   "sessions <account_id> <subscription_id> <resource_group> <pool_name>",
+		Short: "List active user sessions on a host pool",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  nerdio-cli host-pools sessions 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "host-pools.sessions", "pp:method": "GET", "pp:path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/sessions", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

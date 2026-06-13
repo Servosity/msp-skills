@@ -20,9 +20,10 @@ func newListGroupsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-groups",
-		Short:       "List groups",
-		Long:        "List groups",
+		Use:   "list-groups",
+		Short: "List groups",
+		Long:  "List groups",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-groups --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-groups.list", "pp:method": "GET", "pp:path": "/ListGroups", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -44,22 +45,22 @@ func newListGroupsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListGroups"
 			params := map[string]string{}
 			if flagExpandMembers != "" {
-				params["expandMembers"] = fmt.Sprintf("%v", flagExpandMembers)
+				params["expandMembers"] = formatCLIParamValue(flagExpandMembers)
 			}
 			if flagGroupID != "" {
-				params["groupID"] = fmt.Sprintf("%v", flagGroupID)
+				params["groupID"] = formatCLIParamValue(flagGroupID)
 			}
 			if flagGroupType != "" {
-				params["groupType"] = fmt.Sprintf("%v", flagGroupType)
+				params["groupType"] = formatCLIParamValue(flagGroupType)
 			}
 			if flagMembers != "" {
-				params["members"] = fmt.Sprintf("%v", flagMembers)
+				params["members"] = formatCLIParamValue(flagMembers)
 			}
 			if flagOwners != "" {
-				params["owners"] = fmt.Sprintf("%v", flagOwners)
+				params["owners"] = formatCLIParamValue(flagOwners)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-groups", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

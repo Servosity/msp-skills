@@ -21,7 +21,7 @@ func newOrganizationsCreationParametersCmd(flags *rootFlags) *cobra.Command {
 		Use:         "creation-parameters",
 		Aliases:     []string{"create"},
 		Short:       "Create an Organization",
-		Example:     "  huntress-cli organizations creation-parameters --key your-token-here",
+		Example:     "  huntress-cli organizations creation-parameters --key amazing",
 		Annotations: map[string]string{"pp:endpoint": "organizations.creation-parameters", "pp:method": "POST", "pp:path": "/v1/organizations"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

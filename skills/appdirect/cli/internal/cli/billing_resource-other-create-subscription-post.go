@@ -178,7 +178,7 @@ func newBillingResourceOtherCreateSubscriptionPostCmd(flags *rootFlags) *cobra.C
 			path = replacePathParam(path, "userId", args[1])
 			params := map[string]string{}
 			if flagSendNotification != false {
-				params["sendNotification"] = fmt.Sprintf("%v", flagSendNotification)
+				params["sendNotification"] = formatCLIParamValue(flagSendNotification)
 			}
 			var body map[string]any
 			if stdinBody {

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "domotz-mcp",
   "display_name": "Domotz",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
   "author": {
     "name": "Servosity Inc."
@@ -16,7 +16,6 @@
       "args": [],
       "env": {
         "DOMOTZ_API_KEY": "${user_config.domotz_api_key}",
-        "DOMOTZ_PUBLIC_API_KEY": "${user_config.domotz_public_api_key}",
         "DOMOTZ_REGION": "${user_config.domotz_region}"
       }
     }
@@ -25,14 +24,9 @@
     "domotz_api_key": {
       "type": "string",
       "title": "DOMOTZ_API_KEY",
-      "description": "Optional. Sets DOMOTZ_API_KEY for the Domotz MCP server. Get a credential from https://portal.domotz.com/portal/settings/services?selected_menu=api_keys.",
-      "sensitive": true
-    },
-    "domotz_public_api_key": {
-      "type": "string",
-      "title": "DOMOTZ_PUBLIC_API_KEY",
-      "description": "Optional. Sets DOMOTZ_PUBLIC_API_KEY for the Domotz MCP server. Get a credential from https://portal.domotz.com/portal/settings/services?selected_menu=api_keys.",
-      "sensitive": true
+      "description": "Sets DOMOTZ_API_KEY for the Domotz MCP server. Get a credential from https://portal.domotz.com/portal/settings/services?selected_menu=api_keys.",
+      "sensitive": true,
+      "required": true
     },
     "domotz_region": {
       "type": "string",
@@ -49,10 +43,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T21:48:37.423032Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T03:33:16.026282Z",
     "spec_checksum": "sha256:6bbcaba22fb2626ba9617c70ad2b2ec53fc4a5294b5fde76761086617b35eec8",
     "spec_format": "openapi3"
   }

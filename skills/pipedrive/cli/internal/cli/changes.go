@@ -14,7 +14,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"pipedrive-pp-cli/internal/pipeintel"
-	"pipedrive-pp-cli/internal/store"
 )
 
 type changedItem struct {
@@ -87,7 +86,7 @@ func newNovelChangesCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 
-			db, err := store.OpenWithContext(cmd.Context(), novelDBPath(dbPath))
+			db, err := pdOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local store: %w", err)
 			}

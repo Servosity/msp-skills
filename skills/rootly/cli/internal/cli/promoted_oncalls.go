@@ -52,37 +52,37 @@ func newOncallsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/v1/oncalls"
 			params := map[string]string{}
 			if flagInclude != "" {
-				params["include"] = fmt.Sprintf("%v", flagInclude)
+				params["include"] = formatCLIParamValue(flagInclude)
 			}
 			if flagSince != "" {
-				params["since"] = fmt.Sprintf("%v", flagSince)
+				params["since"] = formatCLIParamValue(flagSince)
 			}
 			if flagUntil != "" {
-				params["until"] = fmt.Sprintf("%v", flagUntil)
+				params["until"] = formatCLIParamValue(flagUntil)
 			}
 			if flagEarliest != false {
-				params["earliest"] = fmt.Sprintf("%v", flagEarliest)
+				params["earliest"] = formatCLIParamValue(flagEarliest)
 			}
 			if flagTimeZone != "" {
-				params["time_zone"] = fmt.Sprintf("%v", flagTimeZone)
+				params["time_zone"] = formatCLIParamValue(flagTimeZone)
 			}
 			if flagFilterEscalationPolicyIds != "" {
-				params["filter[escalation_policy_ids]"] = fmt.Sprintf("%v", flagFilterEscalationPolicyIds)
+				params["filter[escalation_policy_ids]"] = formatCLIParamValue(flagFilterEscalationPolicyIds)
 			}
 			if flagFilterScheduleIds != "" {
-				params["filter[schedule_ids]"] = fmt.Sprintf("%v", flagFilterScheduleIds)
+				params["filter[schedule_ids]"] = formatCLIParamValue(flagFilterScheduleIds)
 			}
 			if flagFilterUserIds != "" {
-				params["filter[user_ids]"] = fmt.Sprintf("%v", flagFilterUserIds)
+				params["filter[user_ids]"] = formatCLIParamValue(flagFilterUserIds)
 			}
 			if flagFilterServiceIds != "" {
-				params["filter[service_ids]"] = fmt.Sprintf("%v", flagFilterServiceIds)
+				params["filter[service_ids]"] = formatCLIParamValue(flagFilterServiceIds)
 			}
 			if flagFilterGroupIds != "" {
-				params["filter[group_ids]"] = fmt.Sprintf("%v", flagFilterGroupIds)
+				params["filter[group_ids]"] = formatCLIParamValue(flagFilterGroupIds)
 			}
 			if flagFilterNotificationTypes != "" {
-				params["filter[notification_types]"] = fmt.Sprintf("%v", flagFilterNotificationTypes)
+				params["filter[notification_types]"] = formatCLIParamValue(flagFilterNotificationTypes)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "oncalls", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

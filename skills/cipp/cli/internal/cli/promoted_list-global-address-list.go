@@ -15,9 +15,10 @@ func newListGlobalAddressListPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-global-address-list",
-		Short:       "List global address list",
-		Long:        "List global address list",
+		Use:   "list-global-address-list",
+		Short: "List global address list",
+		Long:  "List global address list",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-global-address-list --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-global-address-list.list", "pp:method": "GET", "pp:path": "/ListGlobalAddressList", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,7 @@ func newListGlobalAddressListPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListGlobalAddressList"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-global-address-list", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

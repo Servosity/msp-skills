@@ -29,10 +29,10 @@ func newFlagTypesListCmd(flags *rootFlags) *cobra.Command {
 			path := "/flag_types"
 			params := map[string]string{}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPageSize != 0 {
-				params["page_size"] = fmt.Sprintf("%v", flagPageSize)
+				params["page_size"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "flag-types", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -37,31 +37,31 @@ func newFirewallsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/firewalls"
 			params := map[string]string{}
 			if flagAccountId != "" {
-				params["accountId"] = fmt.Sprintf("%v", flagAccountId)
+				params["accountId"] = formatCLIParamValue(flagAccountId)
 			}
 			if flagDeviceId != "" {
-				params["deviceId"] = fmt.Sprintf("%v", flagDeviceId)
+				params["deviceId"] = formatCLIParamValue(flagDeviceId)
 			}
 			if flagIpAddress != "" {
-				params["ipAddress"] = fmt.Sprintf("%v", flagIpAddress)
+				params["ipAddress"] = formatCLIParamValue(flagIpAddress)
 			}
 			if flagMacAddress != "" {
-				params["macAddress"] = fmt.Sprintf("%v", flagMacAddress)
+				params["macAddress"] = formatCLIParamValue(flagMacAddress)
 			}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			if flagCounters != false {
-				params["counters"] = fmt.Sprintf("%v", flagCounters)
+				params["counters"] = formatCLIParamValue(flagCounters)
 			}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPageSize != 0 {
-				params["pageSize"] = fmt.Sprintf("%v", flagPageSize)
+				params["pageSize"] = formatCLIParamValue(flagPageSize)
 			}
 			if flagSort != "" {
-				params["sort"] = fmt.Sprintf("%v", flagSort)
+				params["sort"] = formatCLIParamValue(flagSort)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "firewalls", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

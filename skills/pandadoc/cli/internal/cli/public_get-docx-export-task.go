@@ -16,7 +16,7 @@ func newPublicGetDocxExportTaskCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-docx-export-task <document_id> <task_id>",
 		Short:       "> 📘 This endpoint returns the current state of a DOCX export task for a document.",
-		Example:     "  pandadoc-cli public get-docx-export-task 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli public get-docx-export-task BhVzRcxH9Z2LgfPPGXFUBa nPh2PDhFdDqAES9k64h9qX",
 		Annotations: map[string]string{"pp:endpoint": "public.get-docx-export-task", "pp:method": "GET", "pp:path": "/public/beta/documents/{document_id}/docx-export-tasks/{task_id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

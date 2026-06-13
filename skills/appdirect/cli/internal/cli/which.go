@@ -28,11 +28,11 @@ type whichEntry struct {
 // query to one of the commands the skill says matter most.
 var whichIndex = []whichEntry{
 	{Command: "reconcile", Description: "Flag active subscriptions with no matching invoice, orphan invoices, and failed or unpaid payments across every company before month-close.", Group: "Local joins that close the books", WhyItMatters: "Reach for this when asked whether billing matches reality across the marketplace — it answers in one call what otherwise takes hundreds of per-company console lookups."},
-	{Command: "payments unpaid", Description: "List failed, declined, or overdue payments across all companies, sorted by amount and age.", Group: "Local joins that close the books", WhyItMatters: "Use this for the weekly failed-payment chase instead of paging through company billing screens."},
+	{Command: "payments unpaid", Description: "List failed or unavailable-gateway payments across all companies, sorted by amount and age.", Group: "Local joins that close the books", WhyItMatters: "Use this for the weekly failed-payment chase instead of paging through company billing screens."},
 	{Command: "company show", Description: "One customer's full picture - users, subscriptions, invoices, and open opportunities - in a single view.", Group: "Local joins that close the books", WhyItMatters: "Pick this for onboarding or support questions about a specific customer instead of four separate API calls."},
-	{Command: "subs changed", Description: "See subscriptions created, cancelled, or suspended across all companies in a time window.", Group: "Change radar", WhyItMatters: "Use this for churn checks and weekly change review across the whole marketplace."},
-	{Command: "pipeline", Description: "Roll up the assisted-sales pipeline by stage with opportunity counts and quote values.", Group: "Pipeline as data", WhyItMatters: "Use this when asked for pipeline status or value by stage instead of opening each opportunity."},
-	{Command: "pipeline stale", Description: "Find opportunities and leads with no activity in N days, grouped by stage.", Group: "Pipeline as data", WhyItMatters: "Use this to surface stalled deals before they die quietly."},
+	{Command: "subs changed", Description: "See subscriptions created, ended, or in an inactive status (suspended/cancelled/failed) across all companies in a time window.", Group: "Change radar", WhyItMatters: "Use this for churn checks and weekly change review across the whole marketplace."},
+	{Command: "pipeline", Description: "Roll up the assisted-sales pipeline by status or owner with opportunity counts and ages.", Group: "Pipeline as data", WhyItMatters: "Use this when asked for a pipeline rollup by status or owner instead of opening each opportunity."},
+	{Command: "pipeline stale", Description: "Find open opportunities created more than N days ago, oldest first.", Group: "Pipeline as data", WhyItMatters: "Use this to surface stalled deals before they die quietly."},
 }
 
 // whichMatch pairs an index entry with its ranking score for a query.
@@ -136,6 +136,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

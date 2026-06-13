@@ -34,8 +34,9 @@ func newPoliciesConditionCreateWindowsEventPolicyCmd(flags *rootFlags) *cobra.Co
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create-windows-event-policy <policy_id>",
-		Short:       "Creates windows event condition for specified policy",
+		Use:   "create-windows-event-policy <policy_id>",
+		Short: "Creates windows event condition for specified policy",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  ninjaone-cli policies condition create-windows-event-policy 550e8400-e29b-41d4-a716-446655440000 --source example-value",
 		Annotations: map[string]string{"pp:endpoint": "condition.create-windows-event-policy", "pp:method": "POST", "pp:path": "/v2/policies/{policy_id}/condition/windows-event"},
 		RunE: func(cmd *cobra.Command, args []string) error {

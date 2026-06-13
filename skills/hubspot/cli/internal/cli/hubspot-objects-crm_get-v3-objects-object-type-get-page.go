@@ -21,8 +21,9 @@ func newHubspotObjectsCrmGetV3ObjectsObjectTypeGetPageCmd(flags *rootFlags) *cob
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "get-v3-objects-object-type-get-page <objectType>",
-		Short:       "Read a page of objects. Control what is returned via the `properties` query param.",
+		Use:   "get-v3-objects-object-type-get-page <objectType>",
+		Short: "Read a page of objects. Control what is returned via the `properties` query param.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-objects-crm get-v3-objects-object-type-get-page example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-objects-crm.get-v3-objects-object-type-get-page", "pp:method": "GET", "pp:path": "/crm/v3/objects/{objectType}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,12 +38,12 @@ func newHubspotObjectsCrmGetV3ObjectsObjectTypeGetPageCmd(flags *rootFlags) *cob
 			path := "/crm/v3/objects/{objectType}"
 			path = replacePathParam(path, "objectType", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-objects-crm", path, map[string]string{
-				"after":                 fmt.Sprintf("%v", flagAfter),
-				"archived":              fmt.Sprintf("%v", flagArchived),
-				"associations":          fmt.Sprintf("%v", flagAssociations),
-				"limit":                 fmt.Sprintf("%v", flagLimit),
-				"properties":            fmt.Sprintf("%v", flagProperties),
-				"propertiesWithHistory": fmt.Sprintf("%v", flagPropertiesWithHistory),
+				"after":                 formatCLIParamValue(flagAfter),
+				"archived":              formatCLIParamValue(flagArchived),
+				"associations":          formatCLIParamValue(flagAssociations),
+				"limit":                 formatCLIParamValue(flagLimit),
+				"properties":            formatCLIParamValue(flagProperties),
+				"propertiesWithHistory": formatCLIParamValue(flagPropertiesWithHistory),
 			}, nil, flagAll, "after", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

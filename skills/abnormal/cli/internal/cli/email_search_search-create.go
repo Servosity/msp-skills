@@ -69,10 +69,10 @@ func newEmailSearchSearchCreateCmd(flags *rootFlags) *cobra.Command {
 			path := "/search"
 			params := map[string]string{}
 			if flagPageNumber != 0 {
-				params["pageNumber"] = fmt.Sprintf("%v", flagPageNumber)
+				params["pageNumber"] = formatCLIParamValue(flagPageNumber)
 			}
 			if flagPageSize != 0 {
-				params["pageSize"] = fmt.Sprintf("%v", flagPageSize)
+				params["pageSize"] = formatCLIParamValue(flagPageSize)
 			}
 			var body map[string]any
 			if stdinBody {

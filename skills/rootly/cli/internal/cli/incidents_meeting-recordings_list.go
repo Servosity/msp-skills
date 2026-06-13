@@ -34,8 +34,8 @@ func newIncidentsMeetingRecordingsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/v1/incidents/{incident_id}/meeting_recordings"
 			path = replacePathParam(path, "incident_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "meeting-recordings", path, map[string]string{
-				"page[number]": fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":   fmt.Sprintf("%v", flagPageSize),
+				"page[number]": formatCLIParamValue(flagPageNumber),
+				"page[size]":   formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

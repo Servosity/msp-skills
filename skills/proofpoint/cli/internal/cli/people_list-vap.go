@@ -30,9 +30,9 @@ func newPeopleListVapCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/people/vap"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "people", path, map[string]string{
-				"window": fmt.Sprintf("%v", flagWindow),
-				"size":   fmt.Sprintf("%v", flagSize),
-				"page":   fmt.Sprintf("%v", flagPage),
+				"window": formatCLIParamValue(flagWindow),
+				"size":   formatCLIParamValue(flagSize),
+				"page":   formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

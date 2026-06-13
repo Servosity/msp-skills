@@ -20,9 +20,10 @@ func newAddRoomListPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUsername string
 
 	cmd := &cobra.Command{
-		Use:         "add-room-list",
-		Short:       "Add room list",
-		Long:        "Add room list",
+		Use:   "add-room-list",
+		Short: "Add room list",
+		Long:  "Add room list",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli add-room-list --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "add-room-list.create", "pp:method": "POST", "pp:path": "/AddRoomList"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -74,10 +75,10 @@ func newAddRoomListPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

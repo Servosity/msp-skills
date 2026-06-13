@@ -32,7 +32,7 @@ func newAccountResourceCompanyReadDomainsGetCmd(flags *rootFlags) *cobra.Command
 			path = replacePathParam(path, "companyUuid", args[0])
 			params := map[string]string{}
 			if flagSearchText != "" {
-				params["searchText"] = fmt.Sprintf("%v", flagSearchText)
+				params["searchText"] = formatCLIParamValue(flagSearchText)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "account", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

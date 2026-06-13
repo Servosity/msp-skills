@@ -23,7 +23,7 @@ func newSchedulesCustomShiftsListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list <id>",
 		Short:       "<!",
-		Example:     "  pagerduty-cli schedules custom-shifts list 550e8400-e29b-41d4-a716-446655440000 --since 2026-01-15T09:00:00Z --until 2026-01-15T09:00:00Z",
+		Example:     "  pagerduty-cli schedules custom-shifts list PSJUKNI --since 2026-06-01T00:00:00Z --until 2026-06-28T23:59:59Z",
 		Annotations: map[string]string{"pp:endpoint": "custom-shifts.list", "pp:method": "GET", "pp:path": "/v3/schedules/{id}/custom_shifts", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
@@ -49,12 +49,12 @@ func newSchedulesCustomShiftsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/v3/schedules/{id}/custom_shifts"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "custom-shifts", path, map[string]string{
-				"since":     fmt.Sprintf("%v", flagSince),
-				"until":     fmt.Sprintf("%v", flagUntil),
-				"time_zone": fmt.Sprintf("%v", flagTimeZone),
-				"overflow":  fmt.Sprintf("%v", flagOverflow),
-				"limit":     fmt.Sprintf("%v", flagLimit),
-				"offset":    fmt.Sprintf("%v", flagOffset),
+				"since":     formatCLIParamValue(flagSince),
+				"until":     formatCLIParamValue(flagUntil),
+				"time_zone": formatCLIParamValue(flagTimeZone),
+				"overflow":  formatCLIParamValue(flagOverflow),
+				"limit":     formatCLIParamValue(flagLimit),
+				"offset":    formatCLIParamValue(flagOffset),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

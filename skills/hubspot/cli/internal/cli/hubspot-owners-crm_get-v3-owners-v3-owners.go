@@ -31,10 +31,10 @@ func newHubspotOwnersCrmGetV3OwnersV3OwnersCmd(flags *rootFlags) *cobra.Command 
 
 			path := "/crm/v3/owners"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-owners-crm", path, map[string]string{
-				"after":    fmt.Sprintf("%v", flagAfter),
-				"archived": fmt.Sprintf("%v", flagArchived),
-				"email":    fmt.Sprintf("%v", flagEmail),
-				"limit":    fmt.Sprintf("%v", flagLimit),
+				"after":    formatCLIParamValue(flagAfter),
+				"archived": formatCLIParamValue(flagArchived),
+				"email":    formatCLIParamValue(flagEmail),
+				"limit":    formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "after", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

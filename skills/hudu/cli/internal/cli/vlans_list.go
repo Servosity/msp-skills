@@ -31,16 +31,16 @@ func newVlansListCmd(flags *rootFlags) *cobra.Command {
 			path := "/vlans"
 			params := map[string]string{}
 			if flagCompanyId != "" {
-				params["company_id"] = fmt.Sprintf("%v", flagCompanyId)
+				params["company_id"] = formatCLIParamValue(flagCompanyId)
 			}
 			if flagVlanZoneId != "" {
-				params["vlan_zone_id"] = fmt.Sprintf("%v", flagVlanZoneId)
+				params["vlan_zone_id"] = formatCLIParamValue(flagVlanZoneId)
 			}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPageSize != 0 {
-				params["page_size"] = fmt.Sprintf("%v", flagPageSize)
+				params["page_size"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "vlans", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

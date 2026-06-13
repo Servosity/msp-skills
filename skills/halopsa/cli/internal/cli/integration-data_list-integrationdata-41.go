@@ -33,22 +33,22 @@ func newIntegrationDataListIntegrationdata41Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/HubSpot"
 			params := map[string]string{}
 			if flagKeypair != false {
-				params["keypair"] = fmt.Sprintf("%v", flagKeypair)
+				params["keypair"] = formatCLIParamValue(flagKeypair)
 			}
 			if flagNextlink != "" {
-				params["nextlink"] = fmt.Sprintf("%v", flagNextlink)
+				params["nextlink"] = formatCLIParamValue(flagNextlink)
 			}
 			if flagObjecttype != "" {
-				params["objecttype"] = fmt.Sprintf("%v", flagObjecttype)
+				params["objecttype"] = formatCLIParamValue(flagObjecttype)
 			}
 			if flagPaginate != false {
-				params["paginate"] = fmt.Sprintf("%v", flagPaginate)
+				params["paginate"] = formatCLIParamValue(flagPaginate)
 			}
 			if flagResource != "" {
-				params["resource"] = fmt.Sprintf("%v", flagResource)
+				params["resource"] = formatCLIParamValue(flagResource)
 			}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

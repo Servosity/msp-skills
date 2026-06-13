@@ -16,8 +16,9 @@ func newCustomvaluesCustomValuesSetHttpfieldHttpfield2Cmd(flags *rootFlags) *cob
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "custom-values-set-httpfield-httpfield-2 <httpDeviceId> <fieldName> <value>",
-		Short:       "Set value of custom field for specified HTTP",
+		Use:   "custom-values-set-httpfield-httpfield-2 <httpDeviceId> <fieldName> <value>",
+		Short: "Set value of custom field for specified HTTP",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  atera-cli customvalues custom-values-set-httpfield-httpfield-2 42 example-resource example-value",
 		Annotations: map[string]string{"pp:endpoint": "customvalues.custom-values-set-httpfield-httpfield-2", "pp:method": "PUT", "pp:path": "/customvalues/httpfield/{httpDeviceId}/{fieldName}/{value}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

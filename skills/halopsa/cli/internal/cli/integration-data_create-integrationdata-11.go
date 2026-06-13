@@ -33,10 +33,10 @@ func newIntegrationDataCreateIntegrationdata11Cmd(flags *rootFlags) *cobra.Comma
 			path := "/IntegrationData/Import/Intacct"
 			params := map[string]string{}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			if flagLocid != "" {
-				params["locid"] = fmt.Sprintf("%v", flagLocid)
+				params["locid"] = formatCLIParamValue(flagLocid)
 			}
 			var body map[string]any
 			if stdinBody {

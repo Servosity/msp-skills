@@ -20,7 +20,7 @@ func newAgentsGetCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get",
 		Aliases:     []string{"list"},
 		Short:       "Returns a list of agents.",
-		Example:     "  atera-cli agents list --agent --select AgentName,OS,LastSeen,HardwareDisks.Size",
+		Example:     "  atera-cli agents get --agent --select AgentName,OS,LastSeen,HardwareDisks.Size",
 		Annotations: map[string]string{"pp:endpoint": "agents.get", "pp:method": "GET", "pp:path": "/agents", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()
@@ -30,8 +30,8 @@ func newAgentsGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/agents"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "agents", path, map[string]string{
-				"page":        fmt.Sprintf("%v", flagPage),
-				"itemsInPage": fmt.Sprintf("%v", flagItemsInPage),
+				"page":        formatCLIParamValue(flagPage),
+				"itemsInPage": formatCLIParamValue(flagItemsInPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

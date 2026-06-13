@@ -23,9 +23,10 @@ func newAddIntuneReusableSettingPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "add-intune-reusable-setting",
-		Short:       "Add intune reusable setting",
-		Long:        "Add intune reusable setting",
+		Use:   "add-intune-reusable-setting",
+		Short: "Add intune reusable setting",
+		Long:  "Add intune reusable setting",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli add-intune-reusable-setting --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "add-intune-reusable-setting.create", "pp:method": "POST", "pp:path": "/AddIntuneReusableSetting"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -50,10 +51,10 @@ func newAddIntuneReusableSettingPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/AddIntuneReusableSetting"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagTemplateId != "" {
-				params["TemplateId"] = fmt.Sprintf("%v", flagTemplateId)
+				params["TemplateId"] = formatCLIParamValue(flagTemplateId)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -83,10 +84,10 @@ func newAddIntuneReusableSettingPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

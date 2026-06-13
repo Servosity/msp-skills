@@ -20,9 +20,10 @@ func newExecEmailForwardPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUserID string
 
 	cmd := &cobra.Command{
-		Use:         "exec-email-forward",
-		Short:       "Exec email forward",
-		Long:        "Exec email forward",
+		Use:   "exec-email-forward",
+		Short: "Exec email forward",
+		Long:  "Exec email forward",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-email-forward --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-email-forward.create", "pp:method": "POST", "pp:path": "/ExecEmailForward"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -68,10 +69,10 @@ func newExecEmailForwardPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

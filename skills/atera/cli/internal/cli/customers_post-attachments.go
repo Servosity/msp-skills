@@ -19,8 +19,9 @@ func newCustomersPostAttachmentsCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-attachments",
-		Short:       "Requires the customer ID and attachment name, including the file extension.",
+		Use:   "post-attachments",
+		Short: "Requires the customer ID and attachment name, including the file extension.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  atera-cli customers post-attachments --content-based64 example-value",
 		Annotations: map[string]string{"pp:endpoint": "customers.post-attachments", "pp:method": "POST", "pp:path": "/customers/attachments"},
 		RunE: func(cmd *cobra.Command, args []string) error {

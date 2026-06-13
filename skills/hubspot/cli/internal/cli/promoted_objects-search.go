@@ -21,9 +21,10 @@ func newObjectsSearchPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodySorts string
 
 	cmd := &cobra.Command{
-		Use:         "objects-search <objectType>",
-		Short:       "Post crm v3 objects object type search do search",
-		Long:        "Post crm v3 objects object type search do search",
+		Use:   "objects-search <objectType>",
+		Short: "Post crm v3 objects object type search do search",
+		Long:  "Post crm v3 objects object type search do search",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli objects-search example-value --after example-value",
 		Annotations: map[string]string{"pp:endpoint": "objects_search.post-crm-v3-objects-object-type-search-do-search", "pp:method": "POST", "pp:path": "/crm/v3/objects/{objectType}/search"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -99,10 +100,10 @@ func newObjectsSearchPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

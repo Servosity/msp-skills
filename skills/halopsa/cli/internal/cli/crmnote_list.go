@@ -31,16 +31,16 @@ func newCrmnoteListCmd(flags *rootFlags) *cobra.Command {
 			path := "/CRMNote"
 			params := map[string]string{}
 			if flagClientId != "" {
-				params["client_id"] = fmt.Sprintf("%v", flagClientId)
+				params["client_id"] = formatCLIParamValue(flagClientId)
 			}
 			if flagCount != 0 {
-				params["count"] = fmt.Sprintf("%v", flagCount)
+				params["count"] = formatCLIParamValue(flagCount)
 			}
 			if flagSupplierId != "" {
-				params["supplier_id"] = fmt.Sprintf("%v", flagSupplierId)
+				params["supplier_id"] = formatCLIParamValue(flagSupplierId)
 			}
 			if flagToplevelId != "" {
-				params["toplevel_id"] = fmt.Sprintf("%v", flagToplevelId)
+				params["toplevel_id"] = formatCLIParamValue(flagToplevelId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "crmnote", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

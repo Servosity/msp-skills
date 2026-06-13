@@ -9,20 +9,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newRulesCmd is a novel parent ("rules dump"). The generated CRUD lives
+// newNovelRulesCmd is a novel parent ("rules dump"). The generated CRUD lives
 // under "ticket-rules" / "workflow".
 // pp:data-source live
-func newRulesCmd(flags *rootFlags) *cobra.Command {
+func newNovelRulesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rules",
 		Short: "Ticket-rule and workflow audit views (live API reads, formatted)",
 		Long:  "Halo's UI has no export for ticket rules or workflows. 'rules dump' prints them as readable flat text for quarterly audits.",
 	}
-	cmd.AddCommand(newRulesDumpCmd(flags))
+	cmd.AddCommand(newNovelRulesDumpCmd(flags))
 	return cmd
 }
 
-func newRulesDumpCmd(flags *rootFlags) *cobra.Command {
+func newNovelRulesDumpCmd(flags *rootFlags) *cobra.Command {
 	var (
 		workflow string
 		limit    int

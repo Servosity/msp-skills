@@ -33,10 +33,10 @@ func newExecGdapaccessAssignmentPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecGDAPAccessAssignment"
 			params := map[string]string{}
 			if flagAction != "" {
-				params["Action"] = fmt.Sprintf("%v", flagAction)
+				params["Action"] = formatCLIParamValue(flagAction)
 			}
 			if flagId != "" {
-				params["Id"] = fmt.Sprintf("%v", flagId)
+				params["Id"] = formatCLIParamValue(flagId)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -54,10 +54,10 @@ func newExecGdapaccessAssignmentPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PatchWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

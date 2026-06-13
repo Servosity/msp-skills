@@ -29,7 +29,7 @@ func newSoftwareLicenceRolePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/SoftwareLicenceRole"
 			params := map[string]string{}
 			if flagSoftwarelicenceId != "" {
-				params["softwarelicence_id"] = fmt.Sprintf("%v", flagSoftwarelicenceId)
+				params["softwarelicence_id"] = formatCLIParamValue(flagSoftwarelicenceId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "software-licence-role", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

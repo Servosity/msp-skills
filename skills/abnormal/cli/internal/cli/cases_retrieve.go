@@ -31,9 +31,9 @@ func newCasesRetrieveCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/cases"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "cases", path, map[string]string{
-				"filter":     fmt.Sprintf("%v", flagFilter),
-				"pageSize":   fmt.Sprintf("%v", flagPageSize),
-				"pageNumber": fmt.Sprintf("%v", flagPageNumber),
+				"filter":     formatCLIParamValue(flagFilter),
+				"pageSize":   formatCLIParamValue(flagPageSize),
+				"pageNumber": formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "pageNumber", "page", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

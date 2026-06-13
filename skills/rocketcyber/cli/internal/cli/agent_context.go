@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "rocketcyber-cli",
-			Description: "The first CLI and MCP server for RocketCyber Managed SOC",
+			Description: "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

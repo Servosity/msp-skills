@@ -260,6 +260,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newTailCmd(flags))
 	rootCmd.AddCommand(newAnalyticsCmd(flags))
 	rootCmd.AddCommand(newWorkflowCmd(flags))
+	rootCmd.AddCommand(newStaleCmd(flags))
 	rootCmd.AddCommand(newOrphansCmd(flags))
 	rootCmd.AddCommand(newLoadCmd(flags))
 	rootCmd.AddCommand(newNovelAccountCmd(flags))

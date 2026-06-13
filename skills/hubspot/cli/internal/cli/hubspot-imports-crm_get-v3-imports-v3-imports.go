@@ -29,8 +29,8 @@ func newHubspotImportsCrmGetV3ImportsV3ImportsCmd(flags *rootFlags) *cobra.Comma
 
 			path := "/crm/v3/imports"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-imports-crm", path, map[string]string{
-				"after": fmt.Sprintf("%v", flagAfter),
-				"limit": fmt.Sprintf("%v", flagLimit),
+				"after": formatCLIParamValue(flagAfter),
+				"limit": formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "after", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

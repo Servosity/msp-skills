@@ -21,8 +21,9 @@ func newRmmMappingsGetCmd(flags *rootFlags) *cobra.Command {
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "get <integrationType> <entityType>",
-		Short:       "Get",
+		Use:   "get <integrationType> <entityType>",
+		Short: "Get",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli rmm mappings get example-value example-value",
 		Annotations: map[string]string{"pp:endpoint": "mappings.get", "pp:method": "GET", "pp:path": "/v2/rmm/{integrationType}/mappings/{entityType}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,12 +42,12 @@ func newRmmMappingsGetCmd(flags *rootFlags) *cobra.Command {
 			}
 			path = replacePathParam(path, "entityType", args[1])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "mappings", path, map[string]string{
-				"Filter.ExternalIds": fmt.Sprintf("%v", flagFilterExternalIds),
-				"Filter.PsaIds":      fmt.Sprintf("%v", flagFilterPsaIds),
-				"Sort":               fmt.Sprintf("%v", flagSort),
-				"Exclude":            fmt.Sprintf("%v", flagExclude),
-				"PageSize":           fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":         fmt.Sprintf("%v", flagPageNumber),
+				"Filter.ExternalIds": formatCLIParamValue(flagFilterExternalIds),
+				"Filter.PsaIds":      formatCLIParamValue(flagFilterPsaIds),
+				"Sort":               formatCLIParamValue(flagSort),
+				"Exclude":            formatCLIParamValue(flagExclude),
+				"PageSize":           formatCLIParamValue(flagPageSize),
+				"PageNumber":         formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

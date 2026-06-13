@@ -17,9 +17,10 @@ func newExecCippdbcachePromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTypes string
 
 	cmd := &cobra.Command{
-		Use:         "exec-cippdbcache",
-		Short:       "Exec cippdbcache",
-		Long:        "Exec cippdbcache",
+		Use:   "exec-cippdbcache",
+		Short: "Exec cippdbcache",
+		Long:  "Exec cippdbcache",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-cippdbcache --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-cippdbcache.list", "pp:method": "GET", "pp:path": "/ExecCIPPDBCache", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,13 +42,13 @@ func newExecCippdbcachePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecCIPPDBCache"
 			params := map[string]string{}
 			if flagName != "" {
-				params["Name"] = fmt.Sprintf("%v", flagName)
+				params["Name"] = formatCLIParamValue(flagName)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagTypes != "" {
-				params["Types"] = fmt.Sprintf("%v", flagTypes)
+				params["Types"] = formatCLIParamValue(flagTypes)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-cippdbcache", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

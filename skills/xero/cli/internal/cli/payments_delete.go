@@ -17,9 +17,10 @@ func newPaymentsDeleteCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "delete <PaymentID>",
-		Short:       "Updates a specific payment for invoices and credit notes",
-		Example:     "  xero-cli payments delete 550e8400-e29b-41d4-a716-446655440000 --status example-value",
+		Use:   "delete <PaymentID>",
+		Short: "Updates a specific payment for invoices and credit notes",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
+		Example:     "  xero-cli payments delete 00000000-0000-0000-0000-000000000000 --status example-value",
 		Annotations: map[string]string{"pp:endpoint": "payments.delete", "pp:method": "POST", "pp:path": "/Payments/{PaymentID}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -17,7 +17,7 @@ func newDocumentsLinkedObjectsListCmd(flags *rootFlags) *cobra.Command {
 		Use:         "list <id>",
 		Aliases:     []string{"get"},
 		Short:       "Get a list of linked objects for the document.",
-		Example:     "  pandadoc-cli documents linked-objects list 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents linked-objects list ZPeAfcpzr9aiVs5vqUf6jg",
 		Annotations: map[string]string{"pp:endpoint": "linked-objects.list", "pp:method": "GET", "pp:path": "/documents/{id}/linked-objects", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

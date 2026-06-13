@@ -38,8 +38,9 @@ func newProductPublicUpsertByExternalIdentifierCmd(flags *rootFlags) *cobra.Comm
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "public-upsert-by-external-identifier <externalIdentifier>",
-		Short:       "Upsert product by external identifier",
+		Use:   "public-upsert-by-external-identifier <externalIdentifier>",
+		Short: "Upsert product by external identifier",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  salesbuildr-cli product public-upsert-by-external-identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "product.public-upsert-by-external-identifier", "pp:method": "PUT", "pp:path": "/product/ext/{externalIdentifier}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

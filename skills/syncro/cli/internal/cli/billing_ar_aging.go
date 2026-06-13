@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"syncro-pp-cli/internal/store"
 )
 
 // pp:data-source local
@@ -34,7 +33,7 @@ date, then created_at). Sums the outstanding total per bucket.`,
 			if dbPath == "" {
 				dbPath = defaultDBPath("syncro-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := syncroOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w", err)
 			}

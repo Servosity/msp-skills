@@ -16,8 +16,9 @@ func newCustomvaluesCustomValuesSetGenericFieldGenericfield2Cmd(flags *rootFlags
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "custom-values-set-generic-field-genericfield-2 <genericDeviceId> <fieldName> <value>",
-		Short:       "Set value of custom field for specified Generic",
+		Use:   "custom-values-set-generic-field-genericfield-2 <genericDeviceId> <fieldName> <value>",
+		Short: "Set value of custom field for specified Generic",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  atera-cli customvalues custom-values-set-generic-field-genericfield-2 42 example-resource example-value",
 		Annotations: map[string]string{"pp:endpoint": "customvalues.custom-values-set-generic-field-genericfield-2", "pp:method": "PUT", "pp:path": "/customvalues/genericfield/{genericDeviceId}/{fieldName}/{value}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

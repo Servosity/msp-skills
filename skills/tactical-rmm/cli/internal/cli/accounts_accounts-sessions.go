@@ -14,8 +14,9 @@ import (
 func newAccountsAccountsSessionsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "accounts-sessions <pk>",
-		Short:       "DELETE /accounts/sessions/{pk}/",
+		Use:   "accounts-sessions <pk>",
+		Short: "DELETE /accounts/sessions/{pk}/",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  tactical-rmm-cli accounts accounts-sessions example-value",
 		Annotations: map[string]string{"pp:endpoint": "accounts.accounts-sessions", "pp:method": "DELETE", "pp:path": "/accounts/sessions/{pk}/"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -15,8 +15,9 @@ func newIntegrationsGetItgsuggestedResourcesCmd(flags *rootFlags) *cobra.Command
 	var flagResourceType int
 
 	cmd := &cobra.Command{
-		Use:         "get-itgsuggested-resources <subjectId> <subjectType>",
-		Short:       "Get itgsuggested resources",
+		Use:   "get-itgsuggested-resources <subjectId> <subjectType>",
+		Short: "Get itgsuggested resources",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli integrations get-itgsuggested-resources 42 example-value",
 		Annotations: map[string]string{"pp:endpoint": "integrations.get-itgsuggested-resources", "pp:method": "GET", "pp:path": "/v2/integrations/itglue/{subjectId}/suggestedresources/{subjectType}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -36,7 +37,7 @@ func newIntegrationsGetItgsuggestedResourcesCmd(flags *rootFlags) *cobra.Command
 			path = replacePathParam(path, "subjectType", args[1])
 			params := map[string]string{}
 			if flagResourceType != 0 {
-				params["resourceType"] = fmt.Sprintf("%v", flagResourceType)
+				params["resourceType"] = formatCLIParamValue(flagResourceType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integrations", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

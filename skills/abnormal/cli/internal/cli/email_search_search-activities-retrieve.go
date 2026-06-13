@@ -32,10 +32,10 @@ func newEmailSearchSearchActivitiesRetrieveCmd(flags *rootFlags) *cobra.Command 
 
 			path := "/search/activities"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "email_search", path, map[string]string{
-				"tenant_ids": fmt.Sprintf("%v", flagTenantIds),
-				"pageNumber": fmt.Sprintf("%v", flagPageNumber),
-				"pageSize":   fmt.Sprintf("%v", flagPageSize),
-				"action":     fmt.Sprintf("%v", flagAction),
+				"tenant_ids": formatCLIParamValue(flagTenantIds),
+				"pageNumber": formatCLIParamValue(flagPageNumber),
+				"pageSize":   formatCLIParamValue(flagPageSize),
+				"action":     formatCLIParamValue(flagAction),
 			}, nil, flagAll, "pageNumber", "page", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

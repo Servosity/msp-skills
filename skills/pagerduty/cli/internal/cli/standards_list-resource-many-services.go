@@ -16,8 +16,9 @@ func newStandardsListResourceManyServicesCmd(flags *rootFlags) *cobra.Command {
 	var flagResourceType string
 
 	cmd := &cobra.Command{
-		Use:         "list-resource-many-services",
-		Short:       "List standards applied to a set of resources Scoped OAuth requires: `standards.read`",
+		Use:   "list-resource-many-services",
+		Short: "List standards applied to a set of resources Scoped OAuth requires: `standards.read`",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pagerduty-cli standards list-resource-many-services --ids example-value --resource-type technical_services",
 		Annotations: map[string]string{"pp:endpoint": "standards.list-resource-many-services", "pp:method": "GET", "pp:path": "/standards/scores/{resource_type}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -49,10 +50,10 @@ func newStandardsListResourceManyServicesCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			path := "/standards/scores/{resource_type}"
-			path = replacePathParam(path, "resource_type", fmt.Sprintf("%v", flagResourceType))
+			path = replacePathParam(path, "resource_type", formatCLIParamValue(flagResourceType))
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "standards", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

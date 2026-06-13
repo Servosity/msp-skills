@@ -28,7 +28,7 @@ func newTimelogsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/timelogs"
 			params := map[string]string{}
 			if flagUserId != "" {
-				params["user_id"] = fmt.Sprintf("%v", flagUserId)
+				params["user_id"] = formatCLIParamValue(flagUserId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "timelogs", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -43,7 +43,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "  KSAT console → Account Settings → API → enable Reporting API and copy the key. Then export KNOWBE4_API_KEY=<key>. Set KNOWBE4_REGION if your tenant is not on the US server (eu, ca, uk, de).")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export KNOWBE4_API_KEY=\"<your-token>\"")
+			fmt.Fprintln(w, "  export KNOWBE4_API_KEY=\"your-token-here\"")
 			fmt.Fprintln(w, "  knowbe4-cli auth set-token <token>")
 			if !launch {
 				return nil

@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "abnormal-mcp",
   "display_name": "Abnormal Security",
-  "version": "0.1.0",
-  "description": "The full Abnormal Security REST API in your terminal and your agents - with a local threat store, ranked SOC triage, blocking remediation, and one-shot client reporting.",
+  "version": "0.1.1",
+  "description": "The full Abnormal Security REST API as an agent-ready CLI \u2014 with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.",
   "author": {
     "name": "Servosity Inc."
   },
@@ -36,10 +36,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-07T03:03:08.62528Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:19:16.614879Z",
     "spec_checksum": "sha256:cdf7a7059a8bda8ebfabfa740f0fc279ed9bcf5e8aec2f9498cf07e974f4405b",
     "spec_format": "openapi3"
   }

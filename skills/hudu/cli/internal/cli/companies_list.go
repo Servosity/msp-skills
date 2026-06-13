@@ -38,37 +38,37 @@ func newCompaniesListCmd(flags *rootFlags) *cobra.Command {
 			path := "/companies"
 			params := map[string]string{}
 			if flagName != "" {
-				params["name"] = fmt.Sprintf("%v", flagName)
+				params["name"] = formatCLIParamValue(flagName)
 			}
 			if flagPhoneNumber != "" {
-				params["phone_number"] = fmt.Sprintf("%v", flagPhoneNumber)
+				params["phone_number"] = formatCLIParamValue(flagPhoneNumber)
 			}
 			if flagWebsite != "" {
-				params["website"] = fmt.Sprintf("%v", flagWebsite)
+				params["website"] = formatCLIParamValue(flagWebsite)
 			}
 			if flagCity != "" {
-				params["city"] = fmt.Sprintf("%v", flagCity)
+				params["city"] = formatCLIParamValue(flagCity)
 			}
 			if flagState != "" {
-				params["state"] = fmt.Sprintf("%v", flagState)
+				params["state"] = formatCLIParamValue(flagState)
 			}
 			if flagIdInIntegration != "" {
-				params["id_in_integration"] = fmt.Sprintf("%v", flagIdInIntegration)
+				params["id_in_integration"] = formatCLIParamValue(flagIdInIntegration)
 			}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			if flagSlug != "" {
-				params["slug"] = fmt.Sprintf("%v", flagSlug)
+				params["slug"] = formatCLIParamValue(flagSlug)
 			}
 			if flagUpdatedAt != "" {
-				params["updated_at"] = fmt.Sprintf("%v", flagUpdatedAt)
+				params["updated_at"] = formatCLIParamValue(flagUpdatedAt)
 			}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPageSize != 0 {
-				params["page_size"] = fmt.Sprintf("%v", flagPageSize)
+				params["page_size"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "companies", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

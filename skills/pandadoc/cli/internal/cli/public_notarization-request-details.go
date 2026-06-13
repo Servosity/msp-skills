@@ -16,7 +16,7 @@ func newPublicNotarizationRequestDetailsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "notarization-request-details <session_request_id>",
 		Short:       "Get details about a notarization request by its `id`.",
-		Example:     "  pandadoc-cli public notarization-request-details 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli public notarization-request-details 0b2256a2-5803-4ae9-b1b8-595f48e37173",
 		Annotations: map[string]string{"pp:endpoint": "public.notarization-request-details", "pp:method": "GET", "pp:path": "/public/v2/notary/notarization-requests/{session_request_id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

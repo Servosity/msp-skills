@@ -15,9 +15,10 @@ func newPolicyDeletePreventionPoliciesCmd(flags *rootFlags) *cobra.Command {
 	var flagIds string
 
 	cmd := &cobra.Command{
-		Use:         "delete-prevention-policies",
-		Aliases:     []string{"delete"},
-		Short:       "Delete a set of Prevention Policies by specifying their IDs",
+		Use:     "delete-prevention-policies",
+		Aliases: []string{"delete"},
+		Short:   "Delete a set of Prevention Policies by specifying their IDs",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  crowdstrike-cli policy delete-prevention-policies --ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "policy.delete-prevention-policies", "pp:method": "DELETE", "pp:path": "/policy/entities/prevention/v1"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -38,7 +39,7 @@ func newPolicyDeletePreventionPoliciesCmd(flags *rootFlags) *cobra.Command {
 			path := "/policy/entities/prevention/v1"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

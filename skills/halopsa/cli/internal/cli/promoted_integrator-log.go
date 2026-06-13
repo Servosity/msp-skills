@@ -32,10 +32,10 @@ func newIntegratorLogPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/IntegratorLog"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integrator-log", path, map[string]string{
-				"module_id": fmt.Sprintf("%v", flagModuleId),
-				"page_no":   fmt.Sprintf("%v", flagPageNo),
-				"page_size": fmt.Sprintf("%v", flagPageSize),
-				"pageinate": fmt.Sprintf("%v", flagPageinate),
+				"module_id": formatCLIParamValue(flagModuleId),
+				"page_no":   formatCLIParamValue(flagPageNo),
+				"page_size": formatCLIParamValue(flagPageSize),
+				"pageinate": formatCLIParamValue(flagPageinate),
 			}, nil, flagAll, "", "offset", "page_size", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

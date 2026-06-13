@@ -46,7 +46,7 @@ func newHubspotLeadsCrmPatchV3ObjectsLeadsLeadsIdUpdateCmd(flags *rootFlags) *co
 			path = replacePathParam(path, "leadsId", args[0])
 			params := map[string]string{}
 			if flagIdProperty != "" {
-				params["idProperty"] = fmt.Sprintf("%v", flagIdProperty)
+				params["idProperty"] = formatCLIParamValue(flagIdProperty)
 			}
 			var body map[string]any
 			if stdinBody {

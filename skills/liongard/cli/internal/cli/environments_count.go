@@ -17,7 +17,7 @@ func newEnvironmentsCountCmd(flags *rootFlags) *cobra.Command {
 		Use:         "count",
 		Aliases:     []string{"list"},
 		Short:       "Returns a count of all environments in your Service Provider.",
-		Example:     "  liongard-cli environments list --json",
+		Example:     "  liongard-cli environments count",
 		Annotations: map[string]string{"pp:endpoint": "environments.count", "pp:method": "GET", "pp:path": "/environments/count", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()

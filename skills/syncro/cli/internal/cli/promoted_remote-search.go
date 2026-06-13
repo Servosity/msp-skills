@@ -29,7 +29,7 @@ func newRemoteSearchPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/search"
 			params := map[string]string{}
 			if flagQuery != 0 {
-				params["query"] = fmt.Sprintf("%v", flagQuery)
+				params["query"] = formatCLIParamValue(flagQuery)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "remote_search", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

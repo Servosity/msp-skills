@@ -33,12 +33,12 @@ func newHubspotContactsCrmGetV3ObjectsContactsCmd(flags *rootFlags) *cobra.Comma
 
 			path := "/crm/v3/objects/contacts"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-contacts-crm", path, map[string]string{
-				"limit":                 fmt.Sprintf("%v", flagLimit),
-				"after":                 fmt.Sprintf("%v", flagAfter),
-				"properties":            fmt.Sprintf("%v", flagProperties),
-				"propertiesWithHistory": fmt.Sprintf("%v", flagPropertiesWithHistory),
-				"associations":          fmt.Sprintf("%v", flagAssociations),
-				"archived":              fmt.Sprintf("%v", flagArchived),
+				"limit":                 formatCLIParamValue(flagLimit),
+				"after":                 formatCLIParamValue(flagAfter),
+				"properties":            formatCLIParamValue(flagProperties),
+				"propertiesWithHistory": formatCLIParamValue(flagPropertiesWithHistory),
+				"associations":          formatCLIParamValue(flagAssociations),
+				"archived":              formatCLIParamValue(flagArchived),
 			}, nil, flagAll, "after", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

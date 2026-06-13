@@ -43,16 +43,16 @@ func newInvoicesListCmd(flags *rootFlags) *cobra.Command {
 			path := "/rest-api/v1/invoices"
 			params := map[string]string{}
 			if flagPeriodStart != "" {
-				params["periodStart"] = fmt.Sprintf("%v", flagPeriodStart)
+				params["periodStart"] = formatCLIParamValue(flagPeriodStart)
 			}
 			if flagPeriodEnd != "" {
-				params["periodEnd"] = fmt.Sprintf("%v", flagPeriodEnd)
+				params["periodEnd"] = formatCLIParamValue(flagPeriodEnd)
 			}
 			if flagHidePaid != false {
-				params["hidePaid"] = fmt.Sprintf("%v", flagHidePaid)
+				params["hidePaid"] = formatCLIParamValue(flagHidePaid)
 			}
 			if flagHideUnpaid != false {
-				params["hideUnpaid"] = fmt.Sprintf("%v", flagHideUnpaid)
+				params["hideUnpaid"] = formatCLIParamValue(flagHideUnpaid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "invoices", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

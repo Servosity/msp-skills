@@ -1,6 +1,6 @@
 ---
 name: crowdstrike
-description: "Use when the user asks to triage CrowdStrike Falcon alerts, find stale Falcon sensors, rank Spotlight vulnerabilities, check prevention-policy drift, or run MSSP Flight Control posture queries across every child CID. Wraps the Falcon API plus an offline SQLite mirror that answers fleet-wide questions across all your tenants at once. Trigger phrases: `check crowdstrike alerts across all tenants`, `show stale falcon sensors`, `critical vulnerabilities across my crowdstrike fleet`, `crowdstrike tenant scorecard`, `list falcon child CIDs`, `use crowdstrike-cli`, `run crowdstrike-cli`."
+description: "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once  -  something no other Falcon tool (including the official MCP server) does. Trigger phrases: `check crowdstrike alerts across all tenants`, `show stale falcon sensors`, `critical vulnerabilities across my crowdstrike fleet`, `crowdstrike tenant scorecard`, `list falcon child CIDs`, `use crowdstrike-cli`, `run crowdstrike-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "CrowdStrike"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - crowdstrike-cli
+    install:
+      - kind: go
+        bins: [crowdstrike-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/crowdstrike/cmd/crowdstrike-cli
 ---
 
-# CrowdStrike Falcon Claude Code Skill
+# CrowdStrike Falcon  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `crowdstrike-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/crowdstrike/install.sh)
+   npx -y @mvanhorn/printing-press-library install crowdstrike --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/crowdstrike/install.ps1 | iex
-   ```
-3. Verify: `crowdstrike-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `crowdstrike-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/crowdstrike/cmd/crowdstrike-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Match the official Falcon CLIs feature-for-feature on alerts, devices, incidents, Spotlight vulnerabilities, prevention policies, and MSSP Flight Control  -  then go beyond them. fleet sync pulls every child tenant into one local SQLite store keyed by CID, so fleet scorecard, fleet vulns, fleet stale, and fleet policy-drift answer cross-tenant questions instantly and offline, with agent-native JSON on every command.
 
@@ -38,14 +44,14 @@ Match the official Falcon CLIs feature-for-feature on alerts, devices, incidents
 
 Reach for this CLI when an agent or operator needs to inspect or act on a CrowdStrike Falcon estate  -  especially an MSP/MSSP estate spanning many child CIDs. It is the right tool for cross-tenant posture questions (vulnerabilities, stale sensors, policy drift, alert triage) that would otherwise require dozens of live, paginated API calls, and for any scripted alert/device/incident/policy action with agent-native JSON output.
 
+## Anti-triggers
 
-## When NOT to Use This CLI
-
-- **Real-Time Response (RTR) shell sessions**  -  interactive host shells, file get/put, and script execution are not implemented; use Falcon-Toolkit or the Falcon console.
-- **Sensor install/uninstall or update rollouts**  -  this CLI manages policies and inventory, not sensor deployment; use your RMM or the Falcon console.
-- **Streaming detections into a SIEM**  -  there is no event-stream forwarder; use CrowdStrike's SIEM connector / Falcon Data Replicator.
-- **Legacy `/detects/*` API workflows**  -  the decommissioned Detects API is not exposed; the modern Alerts API commands replace it.
-- **Cross-tenant `fleet *` rollups without a parent-CID Flight Control API client**  -  they degrade to single-CID coverage; provision an MSSP parent client first.
+Do not use this CLI for:
+- Real-Time Response (RTR) shell sessions, file get/put, or script execution - not implemented; use Falcon-Toolkit or the Falcon console
+- Sensor install/uninstall or update rollouts - use your RMM or the Falcon console
+- Streaming detections into a SIEM - use the CrowdStrike SIEM connector / Falcon Data Replicator
+- Legacy /detects/* Detects API workflows - decommissioned upstream; the Alerts API commands replace it
+- Cross-tenant fleet rollups without a parent-CID Flight Control API client - they degrade to single-CID coverage
 
 ## Unique Capabilities
 
@@ -122,7 +128,7 @@ These capabilities aren't available in any other tool for this API.
   _Use for instant lookups without burning live API quota or waiting on pagination._
 
   ```bash
-  crowdstrike-cli fleet search "ransomware" --json --select cid,kind,name
+  crowdstrike-cli fleet search <term> --json --select cid,kind,name
   ```
 
 ## Command Reference
@@ -367,13 +373,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `crowdstrike-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add crowdstrike-mcp -- crowdstrike-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/crowdstrike/cmd/crowdstrike-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add crowdstrike-mcp -- crowdstrike-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

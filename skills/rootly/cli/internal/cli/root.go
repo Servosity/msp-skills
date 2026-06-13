@@ -144,7 +144,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "rootly-cli",
 		Short: `Rootly CLI — Every Rootly incident, alert, and on-call object as a typed command, with a local SQLite mirror for offline analytics.`,
-		Long: `Rootly CLI — Every Rootly incident, alert, and on-call object as a typed command — plus a local SQLite mirror that answers related-i…
+		Long: `Rootly CLI — Every Rootly incident, alert, and on-call object as a typed command, with a local SQLite mirror for offline analytics.
 
 Highlights (not in the official API docs):
   • related   Find the past incidents most similar to a given one, ranked, so you can see how this class of problem played out before.

@@ -34,7 +34,7 @@ func newCompaniesUpdateCompanyCmd(flags *rootFlags) *cobra.Command {
 		Use:         "update-company <companyId>",
 		Aliases:     []string{"update"},
 		Short:       "Updates an existing Company. ATTENTION - at least one parameter has to be modified.",
-		Example:     "  pax8-cli companies update-company 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pax8-cli companies update-company f7fc273a-8d86-45c9-a26f-ffd42416adda",
 		Annotations: map[string]string{"pp:endpoint": "companies.update-company", "pp:method": "PATCH", "pp:path": "/companies/{companyId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

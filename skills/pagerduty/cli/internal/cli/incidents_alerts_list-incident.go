@@ -77,13 +77,13 @@ func newIncidentsAlertsListIncidentCmd(flags *rootFlags) *cobra.Command {
 			path := "/incidents/{id}/alerts"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "alerts", path, map[string]string{
-				"limit":      fmt.Sprintf("%v", flagLimit),
-				"offset":     fmt.Sprintf("%v", flagOffset),
-				"total":      fmt.Sprintf("%v", flagTotal),
-				"alert_key":  fmt.Sprintf("%v", flagAlertKey),
-				"statuses[]": fmt.Sprintf("%v", flagStatuses),
-				"sort_by":    fmt.Sprintf("%v", flagSortBy),
-				"include[]":  fmt.Sprintf("%v", flagInclude),
+				"limit":      formatCLIParamValue(flagLimit),
+				"offset":     formatCLIParamValue(flagOffset),
+				"total":      formatCLIParamValue(flagTotal),
+				"alert_key":  formatCLIParamValue(flagAlertKey),
+				"statuses[]": formatCLIParamValue(flagStatuses),
+				"sort_by":    formatCLIParamValue(flagSortBy),
+				"include[]":  formatCLIParamValue(flagInclude),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

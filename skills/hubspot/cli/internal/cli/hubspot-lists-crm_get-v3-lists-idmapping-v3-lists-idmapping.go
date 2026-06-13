@@ -28,7 +28,7 @@ func newHubspotListsCrmGetV3ListsIdmappingV3ListsIdmappingCmd(flags *rootFlags) 
 			path := "/crm/v3/lists/idmapping"
 			params := map[string]string{}
 			if flagLegacyListId != "" {
-				params["legacyListId"] = fmt.Sprintf("%v", flagLegacyListId)
+				params["legacyListId"] = formatCLIParamValue(flagLegacyListId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-lists-crm", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

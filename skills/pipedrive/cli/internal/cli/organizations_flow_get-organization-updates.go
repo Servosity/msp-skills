@@ -36,10 +36,10 @@ func newOrganizationsFlowGetOrganizationUpdatesCmd(flags *rootFlags) *cobra.Comm
 			path := "/organizations/{id}/flow"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "flow", path, map[string]string{
-				"start":       fmt.Sprintf("%v", flagStart),
-				"limit":       fmt.Sprintf("%v", flagLimit),
-				"all_changes": fmt.Sprintf("%v", flagAllChanges),
-				"items":       fmt.Sprintf("%v", flagItems),
+				"start":       formatCLIParamValue(flagStart),
+				"limit":       formatCLIParamValue(flagLimit),
+				"all_changes": formatCLIParamValue(flagAllChanges),
+				"items":       formatCLIParamValue(flagItems),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -22,9 +22,10 @@ func newDvGetEventsByTypeCmd(flags *rootFlags) *cobra.Command {
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "get-events-by-type <event_type>",
-		Aliases:     []string{"get"},
-		Short:       "Get Deep Visibility results from the query that matches the given event type.",
+		Use:     "get-events-by-type <event_type>",
+		Aliases: []string{"get"},
+		Short:   "Get Deep Visibility results from the query that matches the given event type.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli dv get-events-by-type example-value --query-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "dv.get-events-by-type", "pp:method": "GET", "pp:path": "/dv/events/{event_type}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -48,13 +49,13 @@ func newDvGetEventsByTypeCmd(flags *rootFlags) *cobra.Command {
 			path := "/dv/events/{event_type}"
 			path = replacePathParam(path, "event_type", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "dv", path, map[string]string{
-				"sortBy":    fmt.Sprintf("%v", flagSortBy),
-				"limit":     fmt.Sprintf("%v", flagLimit),
-				"skip":      fmt.Sprintf("%v", flagSkip),
-				"sortOrder": fmt.Sprintf("%v", flagSortOrder),
-				"subQuery":  fmt.Sprintf("%v", flagSubQuery),
-				"cursor":    fmt.Sprintf("%v", flagCursor),
-				"queryId":   fmt.Sprintf("%v", flagQueryId),
+				"sortBy":    formatCLIParamValue(flagSortBy),
+				"limit":     formatCLIParamValue(flagLimit),
+				"skip":      formatCLIParamValue(flagSkip),
+				"sortOrder": formatCLIParamValue(flagSortOrder),
+				"subQuery":  formatCLIParamValue(flagSubQuery),
+				"cursor":    formatCLIParamValue(flagCursor),
+				"queryId":   formatCLIParamValue(flagQueryId),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -31,13 +31,13 @@ func newTicketTypeFieldPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/TicketTypeField"
 			params := map[string]string{}
 			if flagBuildcache != false {
-				params["buildcache"] = fmt.Sprintf("%v", flagBuildcache)
+				params["buildcache"] = formatCLIParamValue(flagBuildcache)
 			}
 			if flagDebug != false {
-				params["debug"] = fmt.Sprintf("%v", flagDebug)
+				params["debug"] = formatCLIParamValue(flagDebug)
 			}
 			if flagIsrtconfig != false {
-				params["isrtconfig"] = fmt.Sprintf("%v", flagIsrtconfig)
+				params["isrtconfig"] = formatCLIParamValue(flagIsrtconfig)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "ticket-type-field", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

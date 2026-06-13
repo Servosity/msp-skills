@@ -20,7 +20,7 @@ func newGroupsCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Creates a new group.",
-		Example:     "  levelio-cli groups create --name example-resource",
+		Example:     "  levelio-cli groups create --name Servers",
 		Annotations: map[string]string{"pp:endpoint": "groups.create", "pp:method": "POST", "pp:path": "/v2/groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

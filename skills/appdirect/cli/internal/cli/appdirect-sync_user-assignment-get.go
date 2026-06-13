@@ -17,9 +17,10 @@ func newAppdirectSyncUserAssignmentGetCmd(flags *rootFlags) *cobra.Command {
 	var flagUserIdentifier string
 
 	cmd := &cobra.Command{
-		Use:         "user-assignment-get",
-		Aliases:     []string{"list"},
-		Short:       "This call retrieves a user assignment. Maximum of global requests of 20 per 2 seconds.",
+		Use:     "user-assignment-get",
+		Aliases: []string{"list"},
+		Short:   "This call retrieves a user assignment. Maximum of global requests of 20 per 2 seconds.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli appdirect-sync user-assignment-get --developer-identifier example-value --account-identifier example-value --user-identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "appdirect-sync.user-assignment-get", "pp:method": "GET", "pp:path": "/sync/v1/assignments", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -46,13 +47,13 @@ func newAppdirectSyncUserAssignmentGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/sync/v1/assignments"
 			params := map[string]string{}
 			if flagDeveloperIdentifier != "" {
-				params["developerIdentifier"] = fmt.Sprintf("%v", flagDeveloperIdentifier)
+				params["developerIdentifier"] = formatCLIParamValue(flagDeveloperIdentifier)
 			}
 			if flagAccountIdentifier != "" {
-				params["accountIdentifier"] = fmt.Sprintf("%v", flagAccountIdentifier)
+				params["accountIdentifier"] = formatCLIParamValue(flagAccountIdentifier)
 			}
 			if flagUserIdentifier != "" {
-				params["userIdentifier"] = fmt.Sprintf("%v", flagUserIdentifier)
+				params["userIdentifier"] = formatCLIParamValue(flagUserIdentifier)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "appdirect-sync", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

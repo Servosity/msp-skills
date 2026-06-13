@@ -35,13 +35,13 @@ func newDeviceOsPatchesGetDevicePendingFailedRejectedCmd(flags *rootFlags) *cobr
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagStatus != "" {
-				params["status"] = fmt.Sprintf("%v", flagStatus)
+				params["status"] = formatCLIParamValue(flagStatus)
 			}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			if flagSeverity != "" {
-				params["severity"] = fmt.Sprintf("%v", flagSeverity)
+				params["severity"] = formatCLIParamValue(flagSeverity)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "os-patches", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

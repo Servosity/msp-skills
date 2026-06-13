@@ -32,19 +32,19 @@ func newTimesheetEventListCmd(flags *rootFlags) *cobra.Command {
 			path := "/TimesheetEvent"
 			params := map[string]string{}
 			if flagAgentId != "" {
-				params["agent_id"] = fmt.Sprintf("%v", flagAgentId)
+				params["agent_id"] = formatCLIParamValue(flagAgentId)
 			}
 			if flagAgents != "" {
-				params["agents"] = fmt.Sprintf("%v", flagAgents)
+				params["agents"] = formatCLIParamValue(flagAgents)
 			}
 			if flagEndDate != "" {
-				params["end_date"] = fmt.Sprintf("%v", flagEndDate)
+				params["end_date"] = formatCLIParamValue(flagEndDate)
 			}
 			if flagStartDate != "" {
-				params["start_date"] = fmt.Sprintf("%v", flagStartDate)
+				params["start_date"] = formatCLIParamValue(flagStartDate)
 			}
 			if flagUtcoffset != 0.0 {
-				params["utcoffset"] = fmt.Sprintf("%v", flagUtcoffset)
+				params["utcoffset"] = formatCLIParamValue(flagUtcoffset)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "timesheet-event", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

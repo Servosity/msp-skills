@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "mspbots-cli",
-			Description: "The first MSPbots tool anywhere — readable filters, alias-named resources, full exports",
+			Description: "The first MSPbots tool anywhere — readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

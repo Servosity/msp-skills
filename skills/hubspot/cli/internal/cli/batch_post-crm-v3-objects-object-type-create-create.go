@@ -17,8 +17,9 @@ func newBatchPostCrmV3ObjectsObjectTypeCreateCreateCmd(flags *rootFlags) *cobra.
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-crm-v3-objects-object-type-create-create <objectType>",
-		Short:       "Create a batch of objects",
+		Use:   "post-crm-v3-objects-object-type-create-create <objectType>",
+		Short: "Create a batch of objects",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli batch post-crm-v3-objects-object-type-create-create example-value",
 		Annotations: map[string]string{"pp:endpoint": "batch.post-crm-v3-objects-object-type-create-create", "pp:method": "POST", "pp:path": "/crm/v3/objects/{objectType}/batch/create"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -21,8 +21,9 @@ func newHubspotPipelinesCrmPatchV3PipelinesObjectTypePipelineIdUpdateCmd(flags *
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "patch-v3-pipelines-object-type-pipeline-id-update <objectType> <pipelineId>",
-		Short:       "Perform a partial update of the pipeline identified by `{pipelineId}`.",
+		Use:   "patch-v3-pipelines-object-type-pipeline-id-update <objectType> <pipelineId>",
+		Short: "Perform a partial update of the pipeline identified by `{pipelineId}`.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-pipelines-crm patch-v3-pipelines-object-type-pipeline-id-update example-value 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-pipelines-crm.patch-v3-pipelines-object-type-pipeline-id-update", "pp:method": "PATCH", "pp:path": "/crm/v3/pipelines/{objectType}/{pipelineId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -44,10 +45,10 @@ func newHubspotPipelinesCrmPatchV3PipelinesObjectTypePipelineIdUpdateCmd(flags *
 			path = replacePathParam(path, "pipelineId", args[1])
 			params := map[string]string{}
 			if flagValidateDealStageUsagesBeforeDelete != false {
-				params["validateDealStageUsagesBeforeDelete"] = fmt.Sprintf("%v", flagValidateDealStageUsagesBeforeDelete)
+				params["validateDealStageUsagesBeforeDelete"] = formatCLIParamValue(flagValidateDealStageUsagesBeforeDelete)
 			}
 			if flagValidateReferencesBeforeDelete != false {
-				params["validateReferencesBeforeDelete"] = fmt.Sprintf("%v", flagValidateReferencesBeforeDelete)
+				params["validateReferencesBeforeDelete"] = formatCLIParamValue(flagValidateReferencesBeforeDelete)
 			}
 			var body map[string]any
 			if stdinBody {

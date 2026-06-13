@@ -143,8 +143,8 @@ func isCobraUsageError(err error) bool {
 func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "appdirect-cli",
-		Short: `AppDirect CLI — Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.`,
-		Long: `AppDirect CLI — Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.
+		Short: `Appdirect CLI — Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.`,
+		Long: `Appdirect CLI — Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.
 
 Highlights (not in the official API docs):
   • reconcile   Flag active subscriptions with no matching invoice, orphan invoices, and failed or unpaid payments across every company before month-close.

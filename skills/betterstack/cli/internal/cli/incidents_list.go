@@ -35,28 +35,28 @@ func newIncidentsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/incidents"
 			params := map[string]string{}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPerPage != 0 {
-				params["per_page"] = fmt.Sprintf("%v", flagPerPage)
+				params["per_page"] = formatCLIParamValue(flagPerPage)
 			}
 			if flagFrom != "" {
-				params["from"] = fmt.Sprintf("%v", flagFrom)
+				params["from"] = formatCLIParamValue(flagFrom)
 			}
 			if flagTo != "" {
-				params["to"] = fmt.Sprintf("%v", flagTo)
+				params["to"] = formatCLIParamValue(flagTo)
 			}
 			if flagMonitorId != "" {
-				params["monitor_id"] = fmt.Sprintf("%v", flagMonitorId)
+				params["monitor_id"] = formatCLIParamValue(flagMonitorId)
 			}
 			if flagHeartbeatId != "" {
-				params["heartbeat_id"] = fmt.Sprintf("%v", flagHeartbeatId)
+				params["heartbeat_id"] = formatCLIParamValue(flagHeartbeatId)
 			}
 			if flagResolved != false {
-				params["resolved"] = fmt.Sprintf("%v", flagResolved)
+				params["resolved"] = formatCLIParamValue(flagResolved)
 			}
 			if flagAcknowledged != false {
-				params["acknowledged"] = fmt.Sprintf("%v", flagAcknowledged)
+				params["acknowledged"] = formatCLIParamValue(flagAcknowledged)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "incidents", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

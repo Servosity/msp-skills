@@ -18,7 +18,7 @@ func newSchedulesRotationsGetEventCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-event <id> <rotation_id> <event_id>",
 		Short:       "<!",
-		Example:     "  pagerduty-cli schedules rotations get-event 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pagerduty-cli schedules rotations get-event PSJUKNI AGO462IDT5ZMNFBVSROUDT6B4M AGO462IDT55XVGN74FDAQUUNHY",
 		Annotations: map[string]string{"pp:endpoint": "rotations.get-event", "pp:method": "GET", "pp:path": "/v3/schedules/{id}/rotations/{rotation_id}/events/{event_id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -41,10 +41,10 @@ func newSchedulesRotationsGetEventCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "event_id", args[2])
 			params := map[string]string{}
 			if flagSince != "" {
-				params["since"] = fmt.Sprintf("%v", flagSince)
+				params["since"] = formatCLIParamValue(flagSince)
 			}
 			if flagUntil != "" {
-				params["until"] = fmt.Sprintf("%v", flagUntil)
+				params["until"] = formatCLIParamValue(flagUntil)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "rotations", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

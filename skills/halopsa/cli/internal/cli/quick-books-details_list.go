@@ -29,10 +29,10 @@ func newQuickBooksDetailsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/QuickBooksDetails"
 			params := map[string]string{}
 			if flagCompanyid != "" {
-				params["companyid"] = fmt.Sprintf("%v", flagCompanyid)
+				params["companyid"] = formatCLIParamValue(flagCompanyid)
 			}
 			if flagConnectedonly != false {
-				params["connectedonly"] = fmt.Sprintf("%v", flagConnectedonly)
+				params["connectedonly"] = formatCLIParamValue(flagConnectedonly)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "quick-books-details", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

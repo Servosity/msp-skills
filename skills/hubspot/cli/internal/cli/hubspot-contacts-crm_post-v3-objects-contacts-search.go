@@ -23,8 +23,9 @@ func newHubspotContactsCrmPostV3ObjectsContactsSearchCmd(flags *rootFlags) *cobr
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-v3-objects-contacts-search",
-		Short:       "Post v3 objects contacts search",
+		Use:   "post-v3-objects-contacts-search",
+		Short: "Post v3 objects contacts search",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-contacts-crm post-v3-objects-contacts-search --after example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-contacts-crm.post-v3-objects-contacts-search", "pp:method": "POST", "pp:path": "/crm/v3/objects/contacts/search"},
 		RunE: func(cmd *cobra.Command, args []string) error {

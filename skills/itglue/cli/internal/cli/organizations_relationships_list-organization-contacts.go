@@ -34,9 +34,9 @@ func newOrganizationsRelationshipsListOrganizationContactsCmd(flags *rootFlags) 
 			path := "/organizations/{organization_id}/relationships/contacts"
 			path = replacePathParam(path, "organization_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "relationships", path, map[string]string{
-				"filter[email]": fmt.Sprintf("%v", flagFilterEmail),
-				"page[number]":  fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":    fmt.Sprintf("%v", flagPageSize),
+				"filter[email]": formatCLIParamValue(flagFilterEmail),
+				"page[number]":  formatCLIParamValue(flagPageNumber),
+				"page[size]":    formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

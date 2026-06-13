@@ -38,9 +38,10 @@ func newEditGroupPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyVisibility string
 
 	cmd := &cobra.Command{
-		Use:         "edit-group",
-		Short:       "Edit group",
-		Long:        "Edit group",
+		Use:   "edit-group",
+		Short: "Edit group",
+		Long:  "Edit group",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli edit-group --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "edit-group.update", "pp:method": "PATCH", "pp:path": "/EditGroup"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -143,10 +144,10 @@ func newEditGroupPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PatchWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

@@ -32,11 +32,11 @@ func newPolicyQueryCombinedPreventionMembersCmd(flags *rootFlags) *cobra.Command
 
 			path := "/policy/combined/prevention-members/v1"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "policy", path, map[string]string{
-				"id":     fmt.Sprintf("%v", flagId),
-				"filter": fmt.Sprintf("%v", flagFilter),
-				"offset": fmt.Sprintf("%v", flagOffset),
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"sort":   fmt.Sprintf("%v", flagSort),
+				"id":     formatCLIParamValue(flagId),
+				"filter": formatCLIParamValue(flagFilter),
+				"offset": formatCLIParamValue(flagOffset),
+				"limit":  formatCLIParamValue(flagLimit),
+				"sort":   formatCLIParamValue(flagSort),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

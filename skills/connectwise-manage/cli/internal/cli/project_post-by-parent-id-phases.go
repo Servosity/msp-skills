@@ -113,8 +113,9 @@ func newProjectPostByParentIdPhasesCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-by-parent-id-phases <parentId>",
-		Short:       "Post ProjectPhase",
+		Use:   "post-by-parent-id-phases <parentId>",
+		Short: "Post ProjectPhase",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  connectwise-manage-cli project post-by-parent-id-phases 42 --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "project.post-by-parent-id-phases", "pp:method": "POST", "pp:path": "/project/projects/{parentId}/phases"},
 		RunE: func(cmd *cobra.Command, args []string) error {

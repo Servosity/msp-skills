@@ -100,7 +100,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export ATERA_API_KEY=<your-key>"
+					report["auth_hint"] = "Set one of: export ATERA_API_KEY=\"your-token-here\" or export ATERA_ACCOUNT_API=\"your-token-here\""
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"

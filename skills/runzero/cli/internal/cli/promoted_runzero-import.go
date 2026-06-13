@@ -18,9 +18,10 @@ func newRunzeroImportPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodySiteId string
 
 	cmd := &cobra.Command{
-		Use:         "runzero-import <orgID>",
-		Short:       "Assets can be discovered, imported, and merged by runZero scan tasks, first-party integrations",
-		Long:        "Assets can be discovered, imported, and merged by runZero scan tasks, first-party integrations",
+		Use:   "runzero-import <orgID>",
+		Short: "Assets can be discovered, imported, and merged by runZero scan tasks, first-party integrations",
+		Long:  "Assets can be discovered, imported, and merged by runZero scan tasks, first-party integrations",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  runzero-cli runzero-import 550e8400-e29b-41d4-a716-446655440000 --asset-data example-value",
 		Annotations: map[string]string{"pp:endpoint": "runzero-import.custom-integration-assets", "pp:method": "POST", "pp:path": "/import/org/{orgID}/assets"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -86,10 +87,10 @@ func newRunzeroImportPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			data, statusCode, err := c.PostMultipartWithParams(cmd.Context(), path, params, fields, fileFields)
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

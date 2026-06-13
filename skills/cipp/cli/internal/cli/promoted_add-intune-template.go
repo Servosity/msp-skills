@@ -28,9 +28,10 @@ func newAddIntuneTemplatePromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "add-intune-template",
-		Short:       "Add intune template",
-		Long:        "Add intune template",
+		Use:   "add-intune-template",
+		Short: "Add intune template",
+		Long:  "Add intune template",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli add-intune-template --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "add-intune-template.create", "pp:method": "POST", "pp:path": "/AddIntuneTemplate"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -55,16 +56,16 @@ func newAddIntuneTemplatePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/AddIntuneTemplate"
 			params := map[string]string{}
 			if flagID != "" {
-				params["ID"] = fmt.Sprintf("%v", flagID)
+				params["ID"] = formatCLIParamValue(flagID)
 			}
 			if flagODataType != "" {
-				params["ODataType"] = fmt.Sprintf("%v", flagODataType)
+				params["ODataType"] = formatCLIParamValue(flagODataType)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagURLName != "" {
-				params["URLName"] = fmt.Sprintf("%v", flagURLName)
+				params["URLName"] = formatCLIParamValue(flagURLName)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -109,10 +110,10 @@ func newAddIntuneTemplatePromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

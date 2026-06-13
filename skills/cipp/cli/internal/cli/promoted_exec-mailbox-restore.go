@@ -39,9 +39,10 @@ func newExecMailboxRestorePromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter2 string
 
 	cmd := &cobra.Command{
-		Use:         "exec-mailbox-restore",
-		Short:       "Exec mailbox restore",
-		Long:        "Exec mailbox restore",
+		Use:   "exec-mailbox-restore",
+		Short: "Exec mailbox restore",
+		Long:  "Exec mailbox restore",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-mailbox-restore --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-mailbox-restore.create", "pp:method": "POST", "pp:path": "/ExecMailboxRestore"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -66,13 +67,13 @@ func newExecMailboxRestorePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecMailboxRestore"
 			params := map[string]string{}
 			if flagAction != "" {
-				params["Action"] = fmt.Sprintf("%v", flagAction)
+				params["Action"] = formatCLIParamValue(flagAction)
 			}
 			if flagIdentity != "" {
-				params["Identity"] = fmt.Sprintf("%v", flagIdentity)
+				params["Identity"] = formatCLIParamValue(flagIdentity)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -144,10 +145,10 @@ func newExecMailboxRestorePromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

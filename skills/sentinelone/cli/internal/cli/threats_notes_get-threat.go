@@ -41,15 +41,15 @@ func newThreatsNotesGetThreatCmd(flags *rootFlags) *cobra.Command {
 			path := "/threats/{threat_id}/notes"
 			path = replacePathParam(path, "threat_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "notes", path, map[string]string{
-				"sortBy":        fmt.Sprintf("%v", flagSortBy),
-				"limit":         fmt.Sprintf("%v", flagLimit),
-				"skipCount":     fmt.Sprintf("%v", flagSkipCount),
-				"skip":          fmt.Sprintf("%v", flagSkip),
-				"sortOrder":     fmt.Sprintf("%v", flagSortOrder),
-				"creator__like": fmt.Sprintf("%v", flagCreatorLike),
-				"countOnly":     fmt.Sprintf("%v", flagCountOnly),
-				"cursor":        fmt.Sprintf("%v", flagCursor),
-				"creatorId":     fmt.Sprintf("%v", flagCreatorId),
+				"sortBy":        formatCLIParamValue(flagSortBy),
+				"limit":         formatCLIParamValue(flagLimit),
+				"skipCount":     formatCLIParamValue(flagSkipCount),
+				"skip":          formatCLIParamValue(flagSkip),
+				"sortOrder":     formatCLIParamValue(flagSortOrder),
+				"creator__like": formatCLIParamValue(flagCreatorLike),
+				"countOnly":     formatCLIParamValue(flagCountOnly),
+				"cursor":        formatCLIParamValue(flagCursor),
+				"creatorId":     formatCLIParamValue(flagCreatorId),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

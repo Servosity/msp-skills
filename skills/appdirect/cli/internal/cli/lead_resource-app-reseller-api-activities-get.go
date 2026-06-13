@@ -77,13 +77,13 @@ func newLeadResourceAppResellerApiActivitiesGetCmd(flags *rootFlags) *cobra.Comm
 			path := "/lead/v2/leads/{leadId}/activities"
 			path = replacePathParam(path, "leadId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "lead", path, map[string]string{
-				"context":           fmt.Sprintf("%v", flagContext),
-				"companyId":         fmt.Sprintf("%v", flagCompanyId),
-				"fromDate":          fmt.Sprintf("%v", flagFromDate),
-				"toDate":            fmt.Sprintf("%v", flagToDate),
-				"creationDateOrder": fmt.Sprintf("%v", flagCreationDateOrder),
-				"page":              fmt.Sprintf("%v", flagPage),
-				"size":              fmt.Sprintf("%v", flagSize),
+				"context":           formatCLIParamValue(flagContext),
+				"companyId":         formatCLIParamValue(flagCompanyId),
+				"fromDate":          formatCLIParamValue(flagFromDate),
+				"toDate":            formatCLIParamValue(flagToDate),
+				"creationDateOrder": formatCLIParamValue(flagCreationDateOrder),
+				"page":              formatCLIParamValue(flagPage),
+				"size":              formatCLIParamValue(flagSize),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

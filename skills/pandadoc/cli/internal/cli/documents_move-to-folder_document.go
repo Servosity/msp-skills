@@ -19,7 +19,7 @@ func newDocumentsMoveToFolderDocumentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "document <id> <folder_id>",
 		Aliases:     []string{"create"},
 		Short:       "This operation allows you to move a document to a folder by specifying the document ID and folder ID.",
-		Example:     "  pandadoc-cli documents move-to-folder document 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents move-to-folder document ZPeAfcpzr9aiVs5vqUf6jg ZPeAfcpzr9aiVs5vqUf6jg",
 		Annotations: map[string]string{"pp:endpoint": "move-to-folder.document", "pp:method": "POST", "pp:path": "/documents/{id}/move-to-folder/{folder_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -2413,16 +2413,6 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		keywords:       codeOrchKeywords("schedules", "update-v3", "<!", "/v3/schedules/{id}"),
 	},
 	{
-		ID:             "schedules.audit.list-schedules-records",
-		Method:         "GET",
-		Path:           "/schedules/{id}/audit/records",
-		Summary:        "The returned records are sorted by the `execution_time` from newest to oldest.",
-		Positional:     []string{"id"},
-		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "cursor", WireName: "cursor"}, {PublicName: "since", WireName: "since"}, {PublicName: "until", WireName: "until"}},
-		keywords:       codeOrchKeywords("schedules", "list-schedules-records", "The returned records are sorted by the `execution_time` from newest to oldest.", "/schedules/{id}/audit/records"),
-	},
-	{
 		ID:             "schedules.audit.list-schedules-records-v3",
 		Method:         "GET",
 		Path:           "/v3/schedules/{id}/audit/records",
@@ -4385,7 +4375,7 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	path := ep.Path
 	for _, p := range ep.Positional {
 		if v, ok := params[p]; ok {
-			path = strings.ReplaceAll(path, "{"+p+"}", fmt.Sprintf("%v", v))
+			path = strings.ReplaceAll(path, "{"+p+"}", formatMCPParamValue(v))
 			delete(params, p)
 		}
 	}
@@ -4396,7 +4386,7 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	query := map[string]string{}
 	if ep.Method == "GET" || ep.Method == "DELETE" {
 		for k, v := range params {
-			query[codeOrchWireQueryName(ep.QueryParams, k)] = fmt.Sprintf("%v", v)
+			query[codeOrchWireQueryName(ep.QueryParams, k)] = formatMCPParamValue(v)
 		}
 	} else {
 		// Route spec-declared in:query params to the query string for write
@@ -4508,7 +4498,7 @@ func codeOrchSplitQuery(queryParams []codeOrchParamBinding, params map[string]an
 				continue
 			}
 			if v, ok := params[key]; ok {
-				uv.Set(q.WireName, fmt.Sprintf("%v", v))
+				uv.Set(q.WireName, formatMCPParamValue(v))
 				delete(params, key)
 				break
 			}

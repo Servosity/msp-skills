@@ -32,19 +32,19 @@ func newIntegrationDataListIntegrationdata2Cmd(flags *rootFlags) *cobra.Command 
 			path := "/IntegrationData/Get/ArrowSphere"
 			params := map[string]string{}
 			if flagIncludeThisId != "" {
-				params["include_this_id"] = fmt.Sprintf("%v", flagIncludeThisId)
+				params["include_this_id"] = formatCLIParamValue(flagIncludeThisId)
 			}
 			if flagNextUrl != "" {
-				params["next_url"] = fmt.Sprintf("%v", flagNextUrl)
+				params["next_url"] = formatCLIParamValue(flagNextUrl)
 			}
 			if flagPaginate != false {
-				params["paginate"] = fmt.Sprintf("%v", flagPaginate)
+				params["paginate"] = formatCLIParamValue(flagPaginate)
 			}
 			if flagRemoveExisting != false {
-				params["remove_existing"] = fmt.Sprintf("%v", flagRemoveExisting)
+				params["remove_existing"] = formatCLIParamValue(flagRemoveExisting)
 			}
 			if flagResource != "" {
-				params["resource"] = fmt.Sprintf("%v", flagResource)
+				params["resource"] = formatCLIParamValue(flagResource)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

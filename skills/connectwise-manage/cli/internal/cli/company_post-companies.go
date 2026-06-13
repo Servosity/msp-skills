@@ -145,9 +145,10 @@ func newCompanyPostCompaniesCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-companies",
-		Aliases:     []string{"create"},
-		Short:       "Post ConnectWise.Apis.v3_0.v2015_3.Company.Company.Company",
+		Use:     "post-companies",
+		Aliases: []string{"create"},
+		Short:   "Post ConnectWise.Apis.v3_0.v2015_3.Company.Company.Company",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  connectwise-manage-cli company post-companies --identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "company.post-companies", "pp:method": "POST", "pp:path": "/company/companies"},
 		RunE: func(cmd *cobra.Command, args []string) error {

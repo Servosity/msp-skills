@@ -15,9 +15,10 @@ func newListSafeAttachmentsFiltersPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-safe-attachments-filters",
-		Short:       "List safe attachments filters",
-		Long:        "List safe attachments filters",
+		Use:   "list-safe-attachments-filters",
+		Short: "List safe attachments filters",
+		Long:  "List safe attachments filters",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-safe-attachments-filters --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-safe-attachments-filters.list", "pp:method": "GET", "pp:path": "/ListSafeAttachmentsFilters", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,7 @@ func newListSafeAttachmentsFiltersPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListSafeAttachmentsFilters"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-safe-attachments-filters", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

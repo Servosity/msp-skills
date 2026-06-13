@@ -131,7 +131,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "ninjaone-cli",
-			Description: "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance",
+			Description: "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

@@ -27,7 +27,7 @@
       "name": "autotask",
       "source": "./skills/autotask",
       "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "psa",
       "tags": [
         "autotask",
@@ -41,8 +41,8 @@
     {
       "name": "cipp",
       "source": "./skills/cipp",
-      "description": "First single-binary CLI for CIPP  -  offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.",
-      "version": "0.1.0",
+      "description": "First single-binary CLI for CIPP \u2014 offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "cipp",
@@ -57,7 +57,7 @@
       "name": "connectwise-manage",
       "source": "./skills/connectwise-manage",
       "description": "Every ConnectWise PSA workflow from the terminal \u2014 with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "psa",
       "tags": [
         "connectwise-manage",
@@ -73,7 +73,7 @@
       "name": "crowdstrike",
       "source": "./skills/crowdstrike",
       "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once \u2014 something no other Falcon tool (including the official MCP server) does.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "crowdstrike",
@@ -88,7 +88,7 @@
       "name": "datto-rmm",
       "source": "./skills/datto-rmm",
       "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "rmm",
       "tags": [
         "datto-rmm",
@@ -104,7 +104,7 @@
       "name": "halopsa",
       "source": "./skills/halopsa",
       "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "category": "psa",
       "tags": [
         "halopsa",
@@ -119,7 +119,7 @@
       "name": "hubspot",
       "source": "./skills/hubspot",
       "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "crm",
       "tags": [
         "hubspot",
@@ -134,7 +134,7 @@
       "name": "microsoft-graph",
       "source": "./skills/microsoft-graph",
       "description": "The maintained single-binary successor to the retiring mgc \u2014 every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "microsoft-graph",
@@ -168,7 +168,7 @@
       "name": "mspbots",
       "source": "./skills/mspbots",
       "description": "The first MSPbots tool anywhere \u2014 readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "analytics",
       "tags": [
         "mspbots",
@@ -183,7 +183,7 @@
       "name": "n-central",
       "source": "./skills/n-central",
       "description": "Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, issue-triage rollups, and a JWT-expiry guardian no other N-central tool has.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "rmm",
       "tags": [
         "n-central",
@@ -199,7 +199,7 @@
       "name": "ninjaone",
       "source": "./skills/ninjaone",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "rmm",
       "tags": [
         "ninjaone",
@@ -214,7 +214,7 @@
       "name": "pax8",
       "source": "./skills/pax8",
       "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "billing",
       "tags": [
         "pax8",
@@ -229,7 +229,7 @@
       "name": "sentinelone",
       "source": "./skills/sentinelone",
       "description": "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics \u2014 fleet health, threat triage, blast radius, drift \u2014 that no console view offers.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "sentinelone",
@@ -259,7 +259,7 @@
       "name": "superops",
       "source": "./skills/superops",
       "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "psa",
       "tags": [
         "superops",
@@ -274,7 +274,7 @@
       "name": "syncro",
       "source": "./skills/syncro",
       "description": "Every Syncro PSA and RMM workflow in your terminal, plus a local database, offline search, and cross-entity reports no other Syncro tool has.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "psa",
       "tags": [
         "syncro",
@@ -289,7 +289,7 @@
       "name": "threatlocker",
       "source": "./skills/threatlocker",
       "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "threatlocker",
@@ -304,7 +304,7 @@
       "name": "hudu",
       "source": "./skills/hudu",
       "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "documentation",
       "tags": [
         "hudu",
@@ -319,7 +319,7 @@
       "name": "itglue",
       "source": "./skills/itglue",
       "description": "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search, and documentation-hygiene analytics no other IT Glue tool offers.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "documentation",
       "tags": [
         "itglue",
@@ -334,8 +334,8 @@
     {
       "name": "huntress",
       "source": "./skills/huntress",
-      "description": "Every Huntress endpoint, plus a local SQLite mirror that delivers fleet-wide incident, coverage, and billing rollups the API and official MCP can't.",
-      "version": "0.1.0",
+      "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "huntress",
@@ -350,7 +350,7 @@
       "name": "datto-bcdr",
       "source": "./skills/datto-bcdr",
       "description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "backup-dr",
       "tags": [
         "datto-bcdr",
@@ -366,7 +366,7 @@
       "name": "atera",
       "source": "./skills/atera",
       "description": "Every Atera RMM + PSA endpoint, plus a local SQLite mirror that answers fleet-health, SLA, and book-of-business questions no single API call can.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "rmm",
       "tags": [
         "atera",
@@ -381,7 +381,7 @@
       "name": "quickbooks",
       "source": "./skills/quickbooks",
       "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "billing",
       "tags": [
         "quickbooks",
@@ -396,8 +396,8 @@
     {
       "name": "pagerduty",
       "source": "./skills/pagerduty",
-      "description": "The first real CLI for PagerDuty incident response and on-call management - incidents, services, schedules, escalation policies, and analytics mirrored locally, with live triage, on-call resolution, coverage audits, and MTTA/MTTR reporting no single API call returns.",
-      "version": "0.1.0",
+      "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions \u2014 MTTA/MTTR, on-call coverage gaps, responder load \u2014 that neither the API nor the web UI can.",
+      "version": "0.1.1",
       "category": "incident-response",
       "tags": [
         "pagerduty",
@@ -411,8 +411,8 @@
     {
       "name": "xero",
       "source": "./skills/xero",
-      "description": "Every Xero Accounting read plus a local SQLite ledger  -  aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
-      "version": "0.1.0",
+      "description": "Every Xero Accounting read plus a local SQLite ledger \u2014 aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
+      "version": "0.1.1",
       "category": "billing",
       "tags": [
         "xero",
@@ -426,8 +426,8 @@
     {
       "name": "blumira",
       "source": "./skills/blumira",
-      "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account  -  in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
-      "version": "0.1.0",
+      "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account - in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "blumira",
@@ -442,7 +442,7 @@
       "name": "sherweb",
       "source": "./skills/sherweb",
       "description": "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "billing",
       "tags": [
         "sherweb",
@@ -456,8 +456,8 @@
     {
       "name": "pandadoc",
       "source": "./skills/pandadoc",
-      "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has  -  stalled deals, aging, recipient engagement, and open quote value from a local store.",
-      "version": "0.1.0",
+      "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has \u2014 stalled deals, aging, recipient engagement, and open quote value from a local store.",
+      "version": "0.1.1",
       "category": "documentation",
       "tags": [
         "pandadoc",
@@ -472,7 +472,7 @@
       "name": "domotz",
       "source": "./skills/domotz",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "network-monitoring",
       "tags": [
         "domotz",
@@ -486,8 +486,8 @@
     {
       "name": "rootly",
       "source": "./skills/rootly",
-      "description": "Every Rootly incident, alert, and on-call object as a typed command \u2014 plus a local SQLite mirror that answers related-incident, MTTR, coverage-gap, and on-call questions offline and instantly.",
-      "version": "0.1.0",
+      "description": "Every Rootly incident, alert, and on-call object as a typed command, with a local SQLite mirror for offline analytics.",
+      "version": "0.1.1",
       "category": "incident-response",
       "tags": [
         "rootly",
@@ -502,7 +502,7 @@
       "name": "tactical-rmm",
       "source": "./skills/tactical-rmm",
       "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "rmm",
       "tags": [
         "tactical-rmm",
@@ -518,7 +518,7 @@
       "name": "runzero",
       "source": "./skills/runzero",
       "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "runzero",
@@ -533,7 +533,7 @@
       "name": "liongard",
       "source": "./skills/liongard",
       "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "documentation",
       "tags": [
         "liongard",
@@ -548,7 +548,7 @@
       "name": "action1",
       "source": "./skills/action1",
       "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "rmm",
       "tags": [
         "action1",
@@ -563,7 +563,7 @@
       "name": "levelio",
       "source": "./skills/levelio",
       "description": "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "rmm",
       "tags": [
         "levelio",
@@ -578,8 +578,8 @@
     {
       "name": "knowbe4",
       "source": "./skills/knowbe4",
-      "description": "Every KnowBe4 KMSAT reporting feature plus a local SQLite store that answers the cross-client questions the console can't \u2014 repeat-clicker hunts and training-coverage anti-joins.",
-      "version": "0.1.0",
+      "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer.",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "knowbe4",
@@ -594,7 +594,7 @@
       "name": "pipedrive",
       "source": "./skills/pipedrive",
       "description": "Full Pipedrive CRUD plus a local SQLite pipeline copy: stale deals, forecasts, aging, dupes, rep leaderboards.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "crm",
       "tags": [
         "pipedrive",
@@ -609,7 +609,7 @@
       "name": "salesbuildr",
       "source": "./skills/salesbuildr",
       "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "crm",
       "tags": [
         "salesbuildr",
@@ -624,7 +624,7 @@
       "name": "nerdio",
       "source": "./skills/nerdio",
       "description": "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "rmm",
       "tags": [
         "nerdio",
@@ -640,7 +640,7 @@
       "name": "betterstack",
       "source": "./skills/betterstack",
       "description": "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics \u2014 what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift \u2014 that the API alone can't answer.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "monitoring",
       "tags": [
         "betterstack",
@@ -655,8 +655,8 @@
     {
       "name": "rocketcyber",
       "source": "./skills/rocketcyber",
-      "description": "The first CLI and MCP server for RocketCyber Managed SOC: triage, incident MTTR, device risk ranking, and posture analytics the console doesn't compute.",
-      "version": "0.1.0",
+      "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "rocketcyber",
@@ -670,8 +670,8 @@
     {
       "name": "proofpoint",
       "source": "./skills/proofpoint",
-      "description": "Every Proofpoint TAP Threat Insight endpoint plus a local threat store that answers cross-endpoint questions - who is both attacked and clicking, what touched a given user - without re-spending the limited daily API quota.",
-      "version": "0.1.0",
+      "description": "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions \u2014 who is both attacked and clicking, what touched this user \u2014 inside Proofpoint's punishing daily quotas.",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "proofpoint",
@@ -685,8 +685,8 @@
     {
       "name": "abnormal",
       "source": "./skills/abnormal",
-      "description": "The full Abnormal Security REST API in your terminal and your agents - with a local threat store, ranked SOC triage, blocking remediation, and one-shot client reporting.",
-      "version": "0.1.0",
+      "description": "The full Abnormal Security REST API as an agent-native CLI \u2014 with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "abnormal",
@@ -702,7 +702,7 @@
       "name": "skykick",
       "source": "./skills/skykick",
       "description": "Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots, and coverage gaps no portal or wrapper can show.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "backup-dr",
       "tags": [
         "skykick",
@@ -716,8 +716,8 @@
     {
       "name": "axcient",
       "source": "./skills/axcient",
-      "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give  -  offline, joined, and agent-ready.",
-      "version": "0.2.2",
+      "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give \u2014 offline, joined, and agent-ready.",
+      "version": "0.2.3",
       "category": "backup-dr",
       "tags": [
         "axcient",
@@ -746,8 +746,8 @@
     {
       "name": "cove",
       "source": "./skills/cove",
-      "description": "The first CLI and MCP server for Cove Data Protection: fleet-wide backup health, billing usage, and storage trends from your terminal, with the local history the vendor console doesn't keep.",
-      "version": "0.1.0",
+      "description": "The first CLI and MCP server for Cove Data Protection \u2014 fleet-wide backup health, billing usage, and storage trends from a terminal, with the local history the vendor console doesn't keep.",
+      "version": "0.1.1",
       "category": "backup-dr",
       "tags": [
         "cove",
@@ -762,8 +762,8 @@
     {
       "name": "kaseya-bms",
       "source": "./skills/kaseya-bms",
-      "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-time analytics the web grid can't compute.",
-      "version": "0.1.0",
+      "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute.",
+      "version": "0.1.1",
       "category": "psa",
       "tags": [
         "kaseya-bms",
@@ -779,7 +779,7 @@
       "name": "appdirect",
       "source": "./skills/appdirect",
       "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "billing",
       "tags": [
         "appdirect",
@@ -793,8 +793,8 @@
     {
       "name": "gradient",
       "source": "./skills/gradient",
-      "description": "The Gradient MSP Synthesize vendor API from your terminal: bulk usage pushes with a single billing rebuild, a local push-drift ledger, and alert-to-ticket tracing the portal and SDK don't offer.",
-      "version": "0.1.0",
+      "description": "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has.",
+      "version": "0.1.1",
       "category": "billing",
       "tags": [
         "gradient",

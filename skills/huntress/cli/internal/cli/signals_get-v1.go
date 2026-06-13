@@ -50,15 +50,15 @@ func newSignalsGetV1Cmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/signals"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "signals", path, map[string]string{
-				"limit":               fmt.Sprintf("%v", flagLimit),
-				"page_token":          fmt.Sprintf("%v", flagPageToken),
-				"investigated_at_min": fmt.Sprintf("%v", flagInvestigatedAtMin),
-				"investigated_at_max": fmt.Sprintf("%v", flagInvestigatedAtMax),
-				"entity_type":         fmt.Sprintf("%v", flagEntityType),
-				"entity_id":           fmt.Sprintf("%v", flagEntityId),
-				"organization_id":     fmt.Sprintf("%v", flagOrganizationId),
-				"types":               fmt.Sprintf("%v", flagTypes),
-				"statuses":            fmt.Sprintf("%v", flagStatuses),
+				"limit":               formatCLIParamValue(flagLimit),
+				"page_token":          formatCLIParamValue(flagPageToken),
+				"investigated_at_min": formatCLIParamValue(flagInvestigatedAtMin),
+				"investigated_at_max": formatCLIParamValue(flagInvestigatedAtMax),
+				"entity_type":         formatCLIParamValue(flagEntityType),
+				"entity_id":           formatCLIParamValue(flagEntityId),
+				"organization_id":     formatCLIParamValue(flagOrganizationId),
+				"types":               formatCLIParamValue(flagTypes),
+				"statuses":            formatCLIParamValue(flagStatuses),
 			}, nil, flagAll, "page_token", "page_token", "limit", "nextPageToken", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

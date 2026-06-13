@@ -13,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"atera-pp-cli/internal/cliutil"
-	"atera-pp-cli/internal/store"
 )
 
 // patchAgentStatus is one device's missing-patch rollup.
@@ -141,11 +140,13 @@ func newNovelAgentsPatchStatusCmd(flags *rootFlags) *cobra.Command {
 			if dbPath == "" {
 				dbPath = defaultDBPath("atera-cli")
 			}
-			s, err := store.OpenWithContext(cmd.Context(), dbPath)
+			s, nvOK, err := nvOpenRead(dbPath)
 			if err != nil {
 				return fmt.Errorf("opening store: %w", err)
 			}
-			defer s.Close()
+			if nvOK {
+				defer s.Close()
+			}
 
 			if !hintIfUnsynced(cmd, s, "agents") {
 				hintIfStale(cmd, s, "agents", flags.maxAge)

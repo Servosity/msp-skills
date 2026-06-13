@@ -28,7 +28,7 @@ func newOrgRemoveKeyCmd(flags *rootFlags) *cobra.Command {
 			path := "/org/key"
 			params := map[string]string{}
 			if flagOid != "" {
-				params["_oid"] = fmt.Sprintf("%v", flagOid)
+				params["_oid"] = formatCLIParamValue(flagOid)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

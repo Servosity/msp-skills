@@ -29,10 +29,10 @@ func newCrmGetActivitiesDueCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/crm/dashboard/activitiesdue"
 			params := map[string]string{}
 			if flagStartDate != "" {
-				params["StartDate"] = fmt.Sprintf("%v", flagStartDate)
+				params["StartDate"] = formatCLIParamValue(flagStartDate)
 			}
 			if flagEndDate != "" {
-				params["EndDate"] = fmt.Sprintf("%v", flagEndDate)
+				params["EndDate"] = formatCLIParamValue(flagEndDate)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "crm", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

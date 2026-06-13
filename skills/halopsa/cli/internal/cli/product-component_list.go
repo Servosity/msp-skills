@@ -28,7 +28,7 @@ func newProductComponentListCmd(flags *rootFlags) *cobra.Command {
 			path := "/ProductComponent"
 			params := map[string]string{}
 			if flagProductId != "" {
-				params["product_id"] = fmt.Sprintf("%v", flagProductId)
+				params["product_id"] = formatCLIParamValue(flagProductId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "product-component", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -23,8 +23,9 @@ func newHubspotQuotesCrmPostV3ObjectsQuotesSearchDoSearchCmd(flags *rootFlags) *
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-v3-objects-quotes-search-do-search",
-		Short:       "Execute a search for quotes based on the criteria defined in the request body, such as filters, properties",
+		Use:   "post-v3-objects-quotes-search-do-search",
+		Short: "Execute a search for quotes based on the criteria defined in the request body, such as filters, properties",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-quotes-crm post-v3-objects-quotes-search-do-search --after example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-quotes-crm.post-v3-objects-quotes-search-do-search", "pp:method": "POST", "pp:path": "/crm/v3/objects/quotes/search"},
 		RunE: func(cmd *cobra.Command, args []string) error {

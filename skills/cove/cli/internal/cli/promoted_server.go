@@ -22,7 +22,7 @@ func newServerPromotedCmd(flags *rootFlags) *cobra.Command {
 		Short:       "Get management server info (JSON-RPC GetServerInfo)",
 		Long:        "Get management server info (JSON-RPC GetServerInfo)",
 		Example:     "  cove-cli server",
-		Annotations: map[string]string{"pp:endpoint": "server.info", "pp:method": "POST", "pp:path": "/jsonapi", "mcp:read-only": "true"},
+		Annotations: map[string]string{"pp:endpoint": "server.info", "pp:method": "POST", "pp:path": "/jsonapi"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()
 			if err != nil {
@@ -48,11 +48,18 @@ func newServerPromotedCmd(flags *rootFlags) *cobra.Command {
 			if bodyVisa != "" {
 				body["visa"] = bodyVisa
 			}
-			data, _, err := c.PostQueryWithParams(cmd.Context(), path, params, body)
+			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
+			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
+			var partialFailure *partialFailureReport
+			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
+				partialFailure = detectPartialFailure(data)
+			}
+			if !flags.dryRun && statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure) {
+				writeMutationResponseToStore(cmd.Context(), "server", data, "")
 			}
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,

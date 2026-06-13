@@ -1,6 +1,6 @@
 ---
 name: hubspot
-description: "Use when the user says `find meetings ever scheduled`, `monthly meeting outcome report`, `hubspot stale leads`, `hubspot pipeline health`, `who do I call today hubspot`, `engagements timeline for this contact`, `use hubspot-cli`, or `run hubspot`. Manages HubSpot Sales Hub - contacts, companies, deals, tickets, engagements, pipelines, owners - plus offline cross-object queries, property-change-history reporting, and an agent-native data layer the live API can't compose in one call."
+description: "Every Sales Hub feature, plus offline cross-object queries and retained property-change history. Trigger phrases: `find meetings ever scheduled`, `monthly meeting outcome report`, `hubspot stale leads`, `who do I call today hubspot`, `engagements timeline for this contact`, `use hubspot-cli`, `run hubspot`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "HubSpot"
@@ -11,28 +11,34 @@ metadata:
     requires:
       bins:
         - hubspot-cli
+    install:
+      - kind: go
+        bins: [hubspot-cli]
+        module: github.com/mvanhorn/printing-press-library/library/sales-and-crm/hubspot/cmd/hubspot-cli
 ---
 
-# HubSpot Claude Code Skill
+# HubSpot  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `hubspot-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)
+   npx -y @mvanhorn/printing-press-library install hubspot --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.ps1 | iex
-   ```
-3. Verify: `hubspot-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `hubspot-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
 
-A local SQLite data layer no other HubSpot tool has: HubSpot's own CLI (`hs`) only covers CMS, and its new Agent CLI is stateless live-API  -  neither gives you a stateful, offline sales/CRM mirror. This one mirrors your CRM into local SQLite so commands like `nurture-mine`, `stale deals`, `owner-load`, and `pipeline-health` answer cross-table questions instantly and offline. New in this reprint: `sync --with-history` persists per-property snapshots into a shared property-history table, and `meetings ever-had` / `meetings status-report` answer questions HubSpot's standard search API physically cannot  -  'every meeting that was EVER status X in month Y, even after it flipped.'
+```bash
+go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/hubspot/cmd/hubspot-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+
+A local SQLite data layer no other HubSpot tool has: HubSpot's own CLI (`hs`) only covers CMS  -  there has never been a sales/CRM CLI from HubSpot itself. This one mirrors your CRM into local SQLite so commands like `nurture-mine`, `stale deals`, `owner-load`, and `pipeline-health` answer cross-table questions instantly and offline. New in this reprint: `sync --with-history` persists per-property snapshots into a shared property-history table, and `meetings ever-had` / `meetings status-report` answer questions HubSpot's standard search API physically cannot  -  'every meeting that was EVER status X in month Y, even after it flipped.'
 
 ## When to Use This CLI
 
@@ -61,8 +67,9 @@ These capabilities aren't available in any other tool for this API.
 
   _Use this for forecast-vs-reality checks before a pipeline review._
 
+  <!-- cli-claims:ignore -->
   ```bash
-  hubspot-cli pipeline-health "default" --idle-days 14 --json
+  hubspot-cli pipeline-health default --idle-days 14 --json
   ```
 - **`nurture queue`**  -  Ranked 'who to contact today' list scored by stale-days × deal amount × stage probability, with the rationale exposed as columns.
 
@@ -110,7 +117,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 - **`deals velocity`**  -  Per-deal days-in-current-stage and per-stage median/p90 dwell time, computed from dealstage change history  -  find where deals rot.
 
-  _Use this when the user asks where deals stall or how long deals sit per stage  -  requires a prior sync --resources hubspot-deals-crm --with-history dealstage._
+  _Use this when the user asks where deals stall or how long deals sit per stage  -  requires a prior sync deals --with-history dealstage._
 
   ```bash
   hubspot-cli deals velocity --pipeline default --json
@@ -564,7 +571,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  hubspot-cli batch post-crm-v3-objects-object-type-archive-archive "mock-value" --agent --select id,name,status
+  hubspot-cli batch post-crm-v3-objects-object-type-archive-archive <id> --agent --select id,name,status
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
@@ -616,7 +623,7 @@ A profile is a saved set of flag values, reused across invocations. Use it when 
 
 ```
 hubspot-cli profile save briefing --json
-hubspot-cli --profile briefing batch post-crm-v3-objects-object-type-archive-archive mock-value
+hubspot-cli --profile briefing batch post-crm-v3-objects-object-type-archive-archive <id>
 hubspot-cli profile list --json
 hubspot-cli profile show briefing
 hubspot-cli profile delete briefing --yes
@@ -646,13 +653,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `hubspot-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add hubspot-mcp -- hubspot-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/hubspot/cmd/hubspot-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add hubspot-mcp -- hubspot-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

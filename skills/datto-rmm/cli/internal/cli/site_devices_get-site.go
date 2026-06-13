@@ -35,9 +35,9 @@ func newSiteDevicesGetSiteCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/site/{siteUid}/devices"
 			path = replacePathParam(path, "siteUid", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "devices", path, map[string]string{
-				"page":     fmt.Sprintf("%v", flagPage),
-				"max":      fmt.Sprintf("%v", flagMax),
-				"filterId": fmt.Sprintf("%v", flagFilterId),
+				"page":     formatCLIParamValue(flagPage),
+				"max":      formatCLIParamValue(flagMax),
+				"filterId": formatCLIParamValue(flagFilterId),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

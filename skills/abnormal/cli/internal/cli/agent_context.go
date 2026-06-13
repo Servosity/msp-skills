@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "abnormal-cli",
-			Description: "The full Abnormal Security REST API as an agent-native CLI — with a local threat store, ranked SOC triage",
+			Description: "The full Abnormal Security REST API as an agent-ready CLI — with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

@@ -36,28 +36,28 @@ func newRoadmapPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/Roadmap"
 			params := map[string]string{}
 			if flagHalocrm != false {
-				params["halocrm"] = fmt.Sprintf("%v", flagHalocrm)
+				params["halocrm"] = formatCLIParamValue(flagHalocrm)
 			}
 			if flagHaloitsm != false {
-				params["haloitsm"] = fmt.Sprintf("%v", flagHaloitsm)
+				params["haloitsm"] = formatCLIParamValue(flagHaloitsm)
 			}
 			if flagHalopsa != false {
-				params["halopsa"] = fmt.Sprintf("%v", flagHalopsa)
+				params["halopsa"] = formatCLIParamValue(flagHalopsa)
 			}
 			if flagHaloservicedesk != false {
-				params["haloservicedesk"] = fmt.Sprintf("%v", flagHaloservicedesk)
+				params["haloservicedesk"] = formatCLIParamValue(flagHaloservicedesk)
 			}
 			if flagOrder != "" {
-				params["order"] = fmt.Sprintf("%v", flagOrder)
+				params["order"] = formatCLIParamValue(flagOrder)
 			}
 			if flagOrderdesc != false {
-				params["orderdesc"] = fmt.Sprintf("%v", flagOrderdesc)
+				params["orderdesc"] = formatCLIParamValue(flagOrderdesc)
 			}
 			if flagProductId != "" {
-				params["product_id"] = fmt.Sprintf("%v", flagProductId)
+				params["product_id"] = formatCLIParamValue(flagProductId)
 			}
 			if flagRoadmapcolumnview != false {
-				params["roadmapcolumnview"] = fmt.Sprintf("%v", flagRoadmapcolumnview)
+				params["roadmapcolumnview"] = formatCLIParamValue(flagRoadmapcolumnview)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "roadmap", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

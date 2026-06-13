@@ -32,11 +32,11 @@ func newAlertGroupingSettingsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/alert_grouping_settings"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "alert-grouping-settings", path, map[string]string{
-				"after":         fmt.Sprintf("%v", flagAfter),
-				"before":        fmt.Sprintf("%v", flagBefore),
-				"total":         fmt.Sprintf("%v", flagTotal),
-				"limit":         fmt.Sprintf("%v", flagLimit),
-				"service_ids[]": fmt.Sprintf("%v", flagServiceIds),
+				"after":         formatCLIParamValue(flagAfter),
+				"before":        formatCLIParamValue(flagBefore),
+				"total":         formatCLIParamValue(flagTotal),
+				"limit":         formatCLIParamValue(flagLimit),
+				"service_ids[]": formatCLIParamValue(flagServiceIds),
 			}, nil, flagAll, "after", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

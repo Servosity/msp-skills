@@ -31,13 +31,13 @@ func newListFunctionParametersPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListFunctionParameters"
 			params := map[string]string{}
 			if flagCompliance != "" {
-				params["Compliance"] = fmt.Sprintf("%v", flagCompliance)
+				params["Compliance"] = formatCLIParamValue(flagCompliance)
 			}
 			if flagFunction != "" {
-				params["Function"] = fmt.Sprintf("%v", flagFunction)
+				params["Function"] = formatCLIParamValue(flagFunction)
 			}
 			if flagModule != "" {
-				params["Module"] = fmt.Sprintf("%v", flagModule)
+				params["Module"] = formatCLIParamValue(flagModule)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-function-parameters", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

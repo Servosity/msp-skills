@@ -1,6 +1,6 @@
 ---
 name: runzero
-description: "Use when the user asks to inventory their runZero attack surface, triage which assets are most exposed, see what changed since the last sync, trace which assets a CVE affects, find stale or end-of-life assets, map exposed services across a subnet, or launch and watch a scan. Syncs the whole surface into a local SQLite copy so cross-entity questions (assets x services x vulnerabilities) answer offline at zero API quota. Trigger phrases: `list runzero assets`, `triage my runzero exposure`, `what changed on my attack surface`, `which assets are affected by this CVE`, `find stale assets in runzero`, `runZero + ChatGPT`, `runZero + Claude`, `use runzero`, `run runzero-cli`."
+description: "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice. Trigger phrases: `list runzero assets`, `triage my runzero exposure`, `what changed on my attack surface`, `which assets are affected by this CVE`, `find stale assets in runzero`, `use runzero`, `run runzero-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "runZero"
@@ -11,25 +11,30 @@ metadata:
     requires:
       bins:
         - runzero-cli
+    install:
+      - kind: go
+        bins: [runzero-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/runzero/cmd/runzero-cli
 ---
 
-# runZero Claude Code Skill
+# runZero  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `runzero-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/runzero/install.sh)
+   npx -y @mvanhorn/printing-press-library install runzero --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/runzero/install.ps1 | iex
-   ```
-3. Verify: `runzero-cli --version`
+2. Verify: `runzero-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-The installer drops `runzero-cli` and `runzero-mcp` into your user bin path. Ensure that directory is on `$PATH` for the agent/runtime that will invoke this skill.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/runzero/cmd/runzero-cli@latest
+```
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
@@ -93,7 +98,7 @@ These capabilities aren't available in any other tool for this API.
   _Use this to find how many distinct versions of a package are deployed and which assets run the laggards._
 
   ```bash
-  runzero-cli software rollup "openssl" --agent
+  runzero-cli software rollup <name> --agent   # e.g. <name> = openssl
   ```
 - **`stale`**  -  Bucket assets by last-seen age, end-of-life OS, and missing tag/owner  -  emitting IDs ready to pipe into the bulk commands.
 
@@ -361,10 +366,10 @@ Find assets not seen in 45 days (plus EOL-OS and untagged/unowned) locally; feed
 ### Software version rollup across the fleet
 
 ```bash
-runzero-cli software rollup "openssl" --agent
+runzero-cli software rollup <name> --agent   # e.g. <name> = openssl
 ```
 
-Group every installed OpenSSL build by version with the count of assets running each, so you can target the outdated ones.
+Group every installed build of a product (here, OpenSSL) by version with the count of assets running each, so you can target the outdated ones. Omit `<name>` to roll up the entire software inventory.
 
 ## Auth Setup
 
@@ -462,13 +467,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer (see Prerequisites) already drops `runzero-mcp` into your user bin path. Register it with Claude Code:
-
-```bash
-claude mcp add runzero-mcp -- runzero-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/runzero/cmd/runzero-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add runzero-mcp -- runzero-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

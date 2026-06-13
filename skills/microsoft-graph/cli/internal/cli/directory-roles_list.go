@@ -28,7 +28,7 @@ func newDirectoryRolesListCmd(flags *rootFlags) *cobra.Command {
 			path := "/directoryRoles"
 			params := map[string]string{}
 			if flagSelect != "" {
-				params["$select"] = fmt.Sprintf("%v", flagSelect)
+				params["$select"] = formatCLIParamValue(flagSelect)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "directory-roles", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

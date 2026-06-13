@@ -30,9 +30,9 @@ func newIntegrationDataListIntegrationdata32Cmd(flags *rootFlags) *cobra.Command
 
 			path := "/IntegrationData/Get/Freshdesk"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", path, map[string]string{
-				"datatype":  fmt.Sprintf("%v", flagDatatype),
-				"page":      fmt.Sprintf("%v", flagPage),
-				"parent_id": fmt.Sprintf("%v", flagParentId),
+				"datatype":  formatCLIParamValue(flagDatatype),
+				"page":      formatCLIParamValue(flagPage),
+				"parent_id": formatCLIParamValue(flagParentId),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

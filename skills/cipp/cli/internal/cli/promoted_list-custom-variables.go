@@ -17,9 +17,10 @@ func newListCustomVariablesPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-custom-variables",
-		Short:       "List custom variables",
-		Long:        "List custom variables",
+		Use:   "list-custom-variables",
+		Short: "List custom variables",
+		Long:  "List custom variables",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-custom-variables --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-custom-variables.list", "pp:method": "GET", "pp:path": "/ListCustomVariables", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,13 +42,13 @@ func newListCustomVariablesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListCustomVariables"
 			params := map[string]string{}
 			if flagExcludeGlobalReserved != "" {
-				params["excludeGlobalReserved"] = fmt.Sprintf("%v", flagExcludeGlobalReserved)
+				params["excludeGlobalReserved"] = formatCLIParamValue(flagExcludeGlobalReserved)
 			}
 			if flagIncludeSystem != "" {
-				params["includeSystem"] = fmt.Sprintf("%v", flagIncludeSystem)
+				params["includeSystem"] = formatCLIParamValue(flagIncludeSystem)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-custom-variables", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -33,10 +33,10 @@ func newHubspotListsCrmGetV3ListsListIdSizeAndEditsHistoryBetweenV3ListsListIdSi
 			path = replacePathParam(path, "listId", args[0])
 			params := map[string]string{}
 			if flagEndDate != "" {
-				params["endDate"] = fmt.Sprintf("%v", flagEndDate)
+				params["endDate"] = formatCLIParamValue(flagEndDate)
 			}
 			if flagStartDate != "" {
-				params["startDate"] = fmt.Sprintf("%v", flagStartDate)
+				params["startDate"] = formatCLIParamValue(flagStartDate)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-lists-crm", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

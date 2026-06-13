@@ -33,22 +33,22 @@ func newIntegrationDataListIntegrationdata49Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/Jira"
 			params := map[string]string{}
 			if flagDataOnly != false {
-				params["dataOnly"] = fmt.Sprintf("%v", flagDataOnly)
+				params["dataOnly"] = formatCLIParamValue(flagDataOnly)
 			}
 			if flagDataType != "" {
-				params["dataType"] = fmt.Sprintf("%v", flagDataType)
+				params["dataType"] = formatCLIParamValue(flagDataType)
 			}
 			if flagHaloProduct != 0 {
-				params["haloProduct"] = fmt.Sprintf("%v", flagHaloProduct)
+				params["haloProduct"] = formatCLIParamValue(flagHaloProduct)
 			}
 			if flagIssueTypes != "" {
-				params["issueTypes"] = fmt.Sprintf("%v", flagIssueTypes)
+				params["issueTypes"] = formatCLIParamValue(flagIssueTypes)
 			}
 			if flagProductId != "" {
-				params["productId"] = fmt.Sprintf("%v", flagProductId)
+				params["productId"] = formatCLIParamValue(flagProductId)
 			}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

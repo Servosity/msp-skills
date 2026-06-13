@@ -42,16 +42,16 @@ func newApplicationFilesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ApplicationFile/ApplicationFileGetByApplicationId"
 			params := map[string]string{}
 			if flagApplicationId != "" {
-				params["applicationId"] = fmt.Sprintf("%v", flagApplicationId)
+				params["applicationId"] = formatCLIParamValue(flagApplicationId)
 			}
 			if flagSearchText != "" {
-				params["searchText"] = fmt.Sprintf("%v", flagSearchText)
+				params["searchText"] = formatCLIParamValue(flagSearchText)
 			}
 			if flagPageNumber != 0 {
-				params["pageNumber"] = fmt.Sprintf("%v", flagPageNumber)
+				params["pageNumber"] = formatCLIParamValue(flagPageNumber)
 			}
 			if flagPageSize != 0 {
-				params["pageSize"] = fmt.Sprintf("%v", flagPageSize)
+				params["pageSize"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "application-files", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"threatlocker-pp-cli/internal/store"
 )
 
 // triageRow is one pending-approval cluster: the same file (by hash) across one
@@ -51,7 +50,7 @@ Sync first: threatlocker-cli sync --resources approvals`,
 			if dbPath == "" {
 				dbPath = defaultDBPath("threatlocker-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := tlOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'threatlocker-cli sync --resources approvals' first.", err)
 			}

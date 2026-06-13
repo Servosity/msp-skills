@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"superops-pp-cli/internal/cliutil"
 )
 
 // GraphQLRequest is a standard GraphQL POST body.
@@ -63,24 +65,30 @@ const graphqlEndpointPath = "/msp"
 // Query executes a GraphQL query via POST against graphqlEndpointPath and
 // returns the raw data payload.
 func (c *Client) Query(ctx context.Context, query string, variables map[string]any) (json.RawMessage, error) {
+	// Short-circuit before the network call in dry-run — and under
+	// PRINTING_PRESS_VERIFY without LIVE_HTTP, where the spec-derived mock
+	// cannot serve GraphQL POST queries (it answers /msp with HTTP 400).
+	// Return an empty object so sync callers treat the resource as a no-op
+	// success instead of a 400/decode failure. (Hand-carried from the prior
+	// print: the 4.24.0 GraphQL generator stopped emitting this guard and now
+	// marks GraphQL reads readOnlyIntent, so the mutating-verb verify
+	// short-circuit no longer covers them.)
+	if c.DryRun || (cliutil.IsVerifyEnv() && !cliutil.IsVerifyLiveHTTPEnv()) {
+		return json.RawMessage("{}"), nil
+	}
 	req := GraphQLRequest{Query: query, Variables: variables}
 	raw, _, err := c.PostQueryWithParams(ctx, graphqlEndpointPath, nil, req)
 	if err != nil {
 		return nil, err
-	}
-	// In dry-run the request was printed but nothing was sent, so there is no
-	// GraphQL data envelope to decode. Return an empty object so callers
-	// (list commands, sync, PaginatedQuery) parse cleanly and treat it as a
-	// no-result preview rather than a parse error.
-	if c.DryRun {
-		return json.RawMessage("{}"), nil
 	}
 	data, derr := decodeGraphQLData(raw)
 	if derr != nil {
 		return nil, derr
 	}
 	// Coalesce an absent/null data payload (no errors) to an empty object so
-	// callers that json.Unmarshal the result never trip on nil input.
+	// callers that json.Unmarshal the result never trip on nil input — the
+	// spec-derived verify mock answers GraphQL POSTs with a 200/null body.
+	// (Hand-carried from the prior print; the 4.24.0 generator dropped it.)
 	if len(data) == 0 || string(data) == "null" {
 		return json.RawMessage("{}"), nil
 	}
@@ -95,17 +103,7 @@ func (c *Client) Mutate(ctx context.Context, query string, variables map[string]
 	if err != nil {
 		return nil, err
 	}
-	if c.DryRun {
-		return json.RawMessage("{}"), nil
-	}
-	data, derr := decodeGraphQLData(raw)
-	if derr != nil {
-		return nil, derr
-	}
-	if len(data) == 0 || string(data) == "null" {
-		return json.RawMessage("{}"), nil
-	}
-	return data, nil
+	return decodeGraphQLData(raw)
 }
 
 func decodeGraphQLData(raw json.RawMessage) (json.RawMessage, error) {
@@ -150,15 +148,9 @@ func (c *Client) PaginatedQuery(ctx context.Context, query string, variables map
 	}
 	variables["first"] = pageSize
 
-	// SuperOps uses 1-indexed page/pageSize pagination (ListInfoInput), not
-	// Relay cursors. Each list query aliases its entity array to `nodes:` and
-	// returns `listInfo { hasMore }`, so we increment `page` until hasMore is
-	// false. A missing listInfo (single-page result) terminates the loop.
-	page := 1
-	const maxPages = 1000 // safety bound against a server that never sets hasMore=false
 	var all []json.RawMessage
-	for {
-		variables["page"] = page
+	hasNext := true
+	for hasNext {
 		data, err := c.Query(ctx, query, variables)
 		if err != nil {
 			return all, err
@@ -176,19 +168,20 @@ func (c *Client) PaginatedQuery(ctx context.Context, query string, variables map
 
 		var conn struct {
 			Nodes    []json.RawMessage `json:"nodes"`
-			ListInfo struct {
-				HasMore bool `json:"hasMore"`
-			} `json:"listInfo"`
+			PageInfo struct {
+				HasNextPage bool   `json:"hasNextPage"`
+				EndCursor   string `json:"endCursor"`
+			} `json:"pageInfo"`
 		}
 		if err := json.Unmarshal(connRaw, &conn); err != nil {
 			return all, fmt.Errorf("parsing connection %q: %w", fieldPath, err)
 		}
 
 		all = append(all, conn.Nodes...)
-		if !conn.ListInfo.HasMore || len(conn.Nodes) == 0 || page >= maxPages {
-			break
+		hasNext = conn.PageInfo.HasNextPage
+		if hasNext {
+			variables["after"] = conn.PageInfo.EndCursor
 		}
-		page++
 	}
 	return all, nil
 }

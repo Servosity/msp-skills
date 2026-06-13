@@ -28,7 +28,7 @@ func newDattoCommerceDetailsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/DattoCommerceDetails"
 			params := map[string]string{}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "datto-commerce-details", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

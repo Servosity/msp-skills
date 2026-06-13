@@ -43,13 +43,13 @@ func newAppwiseDisconnectingCmd(flags *rootFlags) *cobra.Command {
 			path := "/appwise/v2/accounts"
 			params := map[string]string{}
 			if flagAppId != "" {
-				params["appId"] = fmt.Sprintf("%v", flagAppId)
+				params["appId"] = formatCLIParamValue(flagAppId)
 			}
 			if flagAccountName != "" {
-				params["accountName"] = fmt.Sprintf("%v", flagAccountName)
+				params["accountName"] = formatCLIParamValue(flagAccountName)
 			}
 			if flagCallbackUrl != "" {
-				params["callbackUrl"] = fmt.Sprintf("%v", flagCallbackUrl)
+				params["callbackUrl"] = formatCLIParamValue(flagCallbackUrl)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

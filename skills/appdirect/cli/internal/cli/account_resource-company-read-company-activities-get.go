@@ -47,9 +47,9 @@ func newAccountResourceCompanyReadCompanyActivitiesGetCmd(flags *rootFlags) *cob
 			path := "/account/v2/companies/{companyUuid}/activities"
 			path = replacePathParam(path, "companyUuid", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "account", path, map[string]string{
-				"displayType": fmt.Sprintf("%v", flagDisplayType),
-				"page":        fmt.Sprintf("%v", flagPage),
-				"size":        fmt.Sprintf("%v", flagSize),
+				"displayType": formatCLIParamValue(flagDisplayType),
+				"page":        formatCLIParamValue(flagPage),
+				"size":        formatCLIParamValue(flagSize),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

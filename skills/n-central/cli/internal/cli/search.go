@@ -157,8 +157,8 @@ In local mode: searches locally synced data only.`,
 					}
 				}
 			default:
-				// Unrecognized type — fall back to generic search
-				results, err = db.Search(query, limit)
+				// Unrecognized type -- filter generic resources by type.
+				results, err = db.Search(query, limit, resourceType)
 			}
 			if err != nil {
 				return fmt.Errorf("search failed: %w", err)
@@ -176,7 +176,7 @@ In local mode: searches locally synced data only.`,
 
 	cmd.Flags().StringVar(&resourceType, "type", "", "Filter by resource type")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum results to return")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/n-central-pp-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/n-central-cli/data.db)")
 
 	return cmd
 }

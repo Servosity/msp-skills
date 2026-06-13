@@ -16,9 +16,10 @@ func newListInactiveAccountsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-inactive-accounts",
-		Short:       "List inactive accounts",
-		Long:        "List inactive accounts",
+		Use:   "list-inactive-accounts",
+		Short: "List inactive accounts",
+		Long:  "List inactive accounts",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-inactive-accounts --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-inactive-accounts.list", "pp:method": "GET", "pp:path": "/ListInactiveAccounts", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,10 +41,10 @@ func newListInactiveAccountsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListInactiveAccounts"
 			params := map[string]string{}
 			if flagInactiveDays != "" {
-				params["InactiveDays"] = fmt.Sprintf("%v", flagInactiveDays)
+				params["InactiveDays"] = formatCLIParamValue(flagInactiveDays)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-inactive-accounts", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

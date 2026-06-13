@@ -17,7 +17,7 @@ func newPaymentsHistoryGetPaymentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-payment <PaymentID>",
 		Aliases:     []string{"get"},
 		Short:       "Retrieves history records of a specific payment",
-		Example:     "  xero-cli payments history get-payment 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  xero-cli payments history get-payment 00000000-0000-0000-0000-000000000000",
 		Annotations: map[string]string{"pp:endpoint": "history.get-payment", "pp:method": "GET", "pp:path": "/Payments/{PaymentID}/History", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

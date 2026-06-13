@@ -63,15 +63,15 @@ func newIdentitiesGetV1Cmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/identities"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "identities", path, map[string]string{
-				"limit":           fmt.Sprintf("%v", flagLimit),
-				"page_token":      fmt.Sprintf("%v", flagPageToken),
-				"organization_id": fmt.Sprintf("%v", flagOrganizationId),
-				"tenant_type":     fmt.Sprintf("%v", flagTenantType),
-				"billable":        fmt.Sprintf("%v", flagBillable),
-				"enabled":         fmt.Sprintf("%v", flagEnabled),
-				"external":        fmt.Sprintf("%v", flagExternal),
-				"risk_level":      fmt.Sprintf("%v", flagRiskLevel),
-				"mfa_enabled":     fmt.Sprintf("%v", flagMfaEnabled),
+				"limit":           formatCLIParamValue(flagLimit),
+				"page_token":      formatCLIParamValue(flagPageToken),
+				"organization_id": formatCLIParamValue(flagOrganizationId),
+				"tenant_type":     formatCLIParamValue(flagTenantType),
+				"billable":        formatCLIParamValue(flagBillable),
+				"enabled":         formatCLIParamValue(flagEnabled),
+				"external":        formatCLIParamValue(flagExternal),
+				"risk_level":      formatCLIParamValue(flagRiskLevel),
+				"mfa_enabled":     formatCLIParamValue(flagMfaEnabled),
 			}, nil, flagAll, "page_token", "page_token", "limit", "nextPageToken", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -34,13 +34,13 @@ func newQueriesGetPendingFailedRejectedOspatchesCmd(flags *rootFlags) *cobra.Com
 
 			path := "/v2/queries/os-patches"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "queries", path, map[string]string{
-				"df":       fmt.Sprintf("%v", flagDf),
-				"ts":       fmt.Sprintf("%v", flagTs),
-				"status":   fmt.Sprintf("%v", flagStatus),
-				"type":     fmt.Sprintf("%v", flagType),
-				"severity": fmt.Sprintf("%v", flagSeverity),
-				"cursor":   fmt.Sprintf("%v", flagCursor),
-				"pageSize": fmt.Sprintf("%v", flagPageSize),
+				"df":       formatCLIParamValue(flagDf),
+				"ts":       formatCLIParamValue(flagTs),
+				"status":   formatCLIParamValue(flagStatus),
+				"type":     formatCLIParamValue(flagType),
+				"severity": formatCLIParamValue(flagSeverity),
+				"cursor":   formatCLIParamValue(flagCursor),
+				"pageSize": formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "cursor", "cursor", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -112,7 +112,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 			Description: "Set to your API credential.",
 		},
 		{
-			Name:        "XERO_ACCOUNTING_OAUTH2",
+			Name:        "XERO_OAUTH2",
 			Kind:        "per_call",
 			Required:    false,
 			Sensitive:   true,
@@ -131,7 +131,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "xero-cli",
-			Description: "Every Xero Accounting read plus a local SQLite ledger — aging, reconciliation",
+			Description: "Every Xero Accounting read plus a local SQLite ledger — aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

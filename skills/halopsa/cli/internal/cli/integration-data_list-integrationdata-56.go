@@ -29,8 +29,8 @@ func newIntegrationDataListIntegrationdata56Cmd(flags *rootFlags) *cobra.Command
 
 			path := "/IntegrationData/Get/LogicMonitor"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", path, map[string]string{
-				"datatype": fmt.Sprintf("%v", flagDatatype),
-				"offset":   fmt.Sprintf("%v", flagOffset),
+				"datatype": formatCLIParamValue(flagDatatype),
+				"offset":   formatCLIParamValue(flagOffset),
 			}, nil, flagAll, "offset", "offset", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

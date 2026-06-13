@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"threatlocker-pp-cli/internal/store"
 )
 
 // driftEvent is one security-relevant change, normalized across the ActionLog
@@ -57,7 +56,7 @@ Sync first: threatlocker-cli sync --resources audit,system-audit`,
 			if !ok {
 				return fmt.Errorf("invalid --since %q: use a window like 7d/12h or a date like 2026-05-01", flagSince)
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := tlOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'threatlocker-cli sync --resources audit,system-audit' first.", err)
 			}

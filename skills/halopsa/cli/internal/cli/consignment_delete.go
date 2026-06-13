@@ -32,7 +32,7 @@ func newConsignmentDeleteCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagDeleteOrder != false {
-				params["deleteOrder"] = fmt.Sprintf("%v", flagDeleteOrder)
+				params["deleteOrder"] = formatCLIParamValue(flagDeleteOrder)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

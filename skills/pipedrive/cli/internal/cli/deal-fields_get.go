@@ -30,8 +30,8 @@ func newDealFieldsGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/dealFields"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "deal-fields", path, map[string]string{
-				"start": fmt.Sprintf("%v", flagStart),
-				"limit": fmt.Sprintf("%v", flagLimit),
+				"start": formatCLIParamValue(flagStart),
+				"limit": formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

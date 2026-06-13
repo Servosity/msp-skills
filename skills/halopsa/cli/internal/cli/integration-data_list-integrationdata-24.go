@@ -30,13 +30,13 @@ func newIntegrationDataListIntegrationdata24Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/Domotz"
 			params := map[string]string{}
 			if flagEndpoint != "" {
-				params["endpoint"] = fmt.Sprintf("%v", flagEndpoint)
+				params["endpoint"] = formatCLIParamValue(flagEndpoint)
 			}
 			if flagReturntype != "" {
-				params["returntype"] = fmt.Sprintf("%v", flagReturntype)
+				params["returntype"] = formatCLIParamValue(flagReturntype)
 			}
 			if flagValidate != false {
-				params["validate"] = fmt.Sprintf("%v", flagValidate)
+				params["validate"] = formatCLIParamValue(flagValidate)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -44,9 +44,9 @@ func newMailboxGetMailThreadsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/mailbox/mailThreads"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "mailbox", path, map[string]string{
-				"folder": fmt.Sprintf("%v", flagFolder),
-				"start":  fmt.Sprintf("%v", flagStart),
-				"limit":  fmt.Sprintf("%v", flagLimit),
+				"folder": formatCLIParamValue(flagFolder),
+				"start":  formatCLIParamValue(flagStart),
+				"limit":  formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

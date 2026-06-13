@@ -53,7 +53,7 @@ func newReportdataDataReportdataOrgIdReportIdReportRowIdExportGetCmd(flags *root
 			path = replacePathParam(path, "reportRowId", args[2])
 			params := map[string]string{}
 			if flagFormat != "" {
-				params["format"] = fmt.Sprintf("%v", flagFormat)
+				params["format"] = formatCLIParamValue(flagFormat)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

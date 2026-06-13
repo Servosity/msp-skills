@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +23,15 @@ import (
 	"knowbe4-pp-cli/internal/config"
 	"knowbe4-pp-cli/internal/mcp/cobratree"
 	"knowbe4-pp-cli/internal/store"
+)
+
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
 )
 
 // RegisterTools registers all API operations as MCP tools.
@@ -64,7 +75,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/groups", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "per-page", WireName: "per_page", Location: "query"}, {PublicName: "status", WireName: "status", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/groups", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "per-page", WireName: "per_page", Location: "query", Default: "100"}, {PublicName: "status", WireName: "status", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("groups_members",
@@ -76,7 +87,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/groups/{group_id}/members", true, false, nil, []mcpParamBinding{{PublicName: "id", WireName: "group_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "per-page", WireName: "per_page", Location: "query"}}, []string{"group_id"}),
+		makeAPIHandler("GET", "/groups/{group_id}/members", true, false, nil, []mcpParamBinding{{PublicName: "id", WireName: "group_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "per-page", WireName: "per_page", Location: "query", Default: "100"}}, []string{"group_id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("groups_risk-score-history",
@@ -108,7 +119,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/phishing/campaigns", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "per-page", WireName: "per_page", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/phishing/campaigns", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "per-page", WireName: "per_page", Location: "query", Default: "100"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("phishing-campaigns_security-tests",
@@ -139,7 +150,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/phishing/security_tests", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "per-page", WireName: "per_page", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/phishing/security_tests", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "per-page", WireName: "per_page", Location: "query", Default: "100"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("phishing-tests_recipient",
@@ -162,7 +173,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/phishing/security_tests/{pst_id}/recipients", true, false, nil, []mcpParamBinding{{PublicName: "id", WireName: "pst_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "per-page", WireName: "per_page", Location: "query"}}, []string{"pst_id"}),
+		makeAPIHandler("GET", "/phishing/security_tests/{pst_id}/recipients", true, false, nil, []mcpParamBinding{{PublicName: "id", WireName: "pst_id", Location: "path"}, {PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "per-page", WireName: "per_page", Location: "query", Default: "100"}}, []string{"pst_id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("policies_get",
@@ -183,7 +194,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/policies", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "per-page", WireName: "per_page", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/policies", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "per-page", WireName: "per_page", Location: "query", Default: "100"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("store-purchases_get",
@@ -204,7 +215,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/training/store_purchases", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "per-page", WireName: "per_page", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/training/store_purchases", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "per-page", WireName: "per_page", Location: "query", Default: "100"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("training-campaigns_get",
@@ -225,7 +236,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/training/campaigns", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "per-page", WireName: "per_page", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/training/campaigns", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "per-page", WireName: "per_page", Location: "query", Default: "100"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("training-enrollments_get",
@@ -248,7 +259,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/training/enrollments", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "per-page", WireName: "per_page", Location: "query"}, {PublicName: "campaign-id", WireName: "campaign_id", Location: "query"}, {PublicName: "store-purchase-id", WireName: "store_purchase_id", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/training/enrollments", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "per-page", WireName: "per_page", Location: "query", Default: "100"}, {PublicName: "campaign-id", WireName: "campaign_id", Location: "query"}, {PublicName: "store-purchase-id", WireName: "store_purchase_id", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("users_get",
@@ -271,7 +282,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/users", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "per-page", WireName: "per_page", Location: "query"}, {PublicName: "status", WireName: "status", Location: "query"}, {PublicName: "group-id", WireName: "group_id", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/users", true, false, nil, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query", Default: "1"}, {PublicName: "per-page", WireName: "per_page", Location: "query", Default: "100"}, {PublicName: "status", WireName: "status", Location: "query"}, {PublicName: "group-id", WireName: "group_id", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("users_risk-score-history",
@@ -299,7 +310,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -326,6 +337,35 @@ type mcpParamBinding struct {
 	PublicName string
 	WireName   string
 	Location   string
+	Default    string
+}
+
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // makeAPIHandler creates a generic MCP tool handler for an API endpoint.
@@ -366,17 +406,21 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			knownArgs[binding.PublicName] = true
 			v, ok := args[binding.PublicName]
 			if !ok {
-				continue
+				if binding.Default != "" {
+					v = binding.Default
+				} else {
+					continue
+				}
 			}
 			switch binding.Location {
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				bodyArgs[binding.WireName] = v
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -386,7 +430,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -398,7 +442,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "POST", "PUT", "PATCH":
 				bodyArgs[k] = v
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -454,21 +498,21 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key: export KNOWBE4_API_KEY=<your-key>" +
+					"\n      Set it with: knowbe4-cli auth set-token <token> or export KNOWBE4_API_KEY=\"your-token-here\"" +
 					"\n      Get a key at: https://developer.knowbe4.com/" +
 					"\n      KSAT console → Account Settings → API → enable Reporting API and copy the key. Then export KNOWBE4_API_KEY=<key>. Set KNOWBE4_REGION if your tenant is not on the US server (eu, ca, uk, de)." +
 					"\n      Run 'knowbe4-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your token." +
-					"\n      Set it with: export KNOWBE4_API_KEY=<your-key>" +
+					"\n      Set it with: knowbe4-cli auth set-token <token> or export KNOWBE4_API_KEY=\"your-token-here\"" +
 					"\n      Get a key at: https://developer.knowbe4.com/" +
 					"\n      KSAT console → Account Settings → API → enable Reporting API and copy the key. Then export KNOWBE4_API_KEY=<key>. Set KNOWBE4_REGION if your tenant is not on the US server (eu, ca, uk, de)." +
 					"\n      Run 'knowbe4-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: your credentials are valid but lack access to this resource." +
-					"\n      Set it with: export KNOWBE4_API_KEY=<your-key>" +
+					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
+					"\n      Set it with: knowbe4-cli auth set-token <token> or export KNOWBE4_API_KEY=\"your-token-here\"" +
 					"\n      Get a key at: https://developer.knowbe4.com/" +
 					"\n      KSAT console → Account Settings → API → enable Reporting API and copy the key. Then export KNOWBE4_API_KEY=<key>. Set KNOWBE4_REGION if your tenant is not on the US server (eu, ca, uk, de)." +
 					"\n      Run 'knowbe4-cli doctor' to check auth status."), nil
@@ -484,21 +528,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -507,8 +536,129 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
@@ -518,7 +668,7 @@ func newMCPClient() (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -567,22 +717,27 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -614,6 +769,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -681,7 +927,7 @@ func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
 func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	ctx := map[string]any{
 		"api":         "knowbe4",
-		"description": "Every KnowBe4 KMSAT reporting feature",
+		"description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer.",
 		"archetype":   "crm",
 		"tool_count":  24,
 		// tool_surface tells agents which surface a capability lives on.
@@ -769,16 +1015,16 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "Repeat clickers across PSTs", "command": "repeat-clickers", "description": "Surface users who clicked the bait in two or more distinct phishing security tests within a window — your", "rationale": "Aggregates clicked_at across many synced PST-recipient sets and counts distinct pst_id per user.", "via": "mcp-command-mirror"},
-			{"name": "Risk drift over time", "command": "risk-drift", "description": "Rank users and groups by how much their risk score worsened (or improved) between a prior snapshot and now.", "rationale": "Diffs current_risk_score against locally-captured risk snapshots and the risk_score_history series.", "via": "mcp-command-mirror"},
-			{"name": "Untrained clickers", "command": "untrained-clickers", "description": "Anti-join: users who clicked a phish but have no Passed training enrollment to show for it.", "rationale": "Joins PST recipients (clicked_at IS NOT NULL)", "via": "mcp-command-mirror"},
-			{"name": "Coverage gaps", "command": "coverage-gaps", "description": "Find active users enrolled in zero phishing campaigns or zero training campaigns — the people your program silently", "rationale": "LEFT JOINs users against phishing/training campaign group-membership and keeps the anti-join.", "via": "mcp-command-mirror"},
-			{"name": "Phish-prone trend", "command": "phish-prone-trend", "description": "Plot a group's phish-prone percentage across sequential phishing tests to show whether training is actually working.", "rationale": "Orders phish_prone_percentage from multiple synced PSTs by started_at for a given group.", "via": "mcp-command-mirror"},
-			{"name": "Risk leaderboard", "command": "risk-leaderboard", "description": "Highest-risk users ranked, each enriched with click history, report rate, and overdue-training context.", "rationale": "Joins users (current_risk_score) with PST recipients (clicks/reports) and training-enrollments (Past Due / Not Started).", "via": "mcp-command-mirror"},
-			{"name": "Group risk contribution", "command": "group-risk-contribution", "description": "Attribute account-level risk movement to the specific groups (departments) driving it up or down.", "rationale": "Diffs each group's risk_score_history over the window, weights by member_count, and compares against the account series.", "via": "mcp-command-mirror"},
-			{"name": "Client QBR pack", "command": "qbr", "description": "One command that assembles the full quarterly review: risk trend, phish-prone trend, training completion", "rationale": "Composes the local risk-drift, phish-prone-trend, training-completion", "via": "mcp-command-mirror"},
-			{"name": "Report-vs-click leaderboard", "command": "report-rate", "description": "Rank users and groups by how often they report simulated phish versus falling for them - surfacing who never uses the", "rationale": "Requires ratioing reported vs clicked recipient rows across every synced PST in the local store", "via": "mcp-command-mirror"},
-			{"name": "Sync freshness / input-readiness", "command": "freshness", "description": "See per-table sync freshness and whether the cross-entity commands have the data they need - before trusting a clicker", "rationale": "Reads per-table sync watermarks and row counts from local SQLite", "via": "mcp-command-mirror"},
+			{"name": "Repeat clickers across PSTs", "command": "repeat-clickers", "description": "Surface users who clicked the bait in two or more distinct phishing security tests within a window — your hardest-to-train humans.", "rationale": "Aggregates clicked_at across many synced PST-recipient sets and counts distinct pst_id per user. No single KnowBe4 API call spans multiple PSTs, so a repeat offender is invisible until you pivot CSVs by hand.", "via": "mcp-command-mirror"},
+			{"name": "Risk drift over time", "command": "risk-drift", "description": "Rank users and groups by how much their risk score worsened (or improved) between a prior snapshot and now.", "rationale": "Diffs current_risk_score against locally-captured risk snapshots and the risk_score_history series. The API returns a raw series per entity, never a ranked delta across all entities.", "via": "mcp-command-mirror"},
+			{"name": "Untrained clickers", "command": "untrained-clickers", "description": "Anti-join: users who clicked a phish but have no Passed training enrollment to show for it.", "rationale": "Joins PST recipients (clicked_at IS NOT NULL) against training-enrollments and keeps only users with no status='Passed' row. Phishing results and training records are separate endpoints the console never correlates.", "via": "mcp-command-mirror"},
+			{"name": "Coverage gaps", "command": "coverage-gaps", "description": "Find active users enrolled in zero phishing campaigns or zero training campaigns — the people your program silently misses.", "rationale": "LEFT JOINs users against phishing/training campaign group-membership and keeps the anti-join. Campaigns are addressed by group; the console has no 'who is covered by nothing' view.", "via": "mcp-command-mirror"},
+			{"name": "Phish-prone trend", "command": "phish-prone-trend", "description": "Plot a group's phish-prone percentage across sequential phishing tests to show whether training is actually working.", "rationale": "Orders phish_prone_percentage from multiple synced PSTs by started_at for a given group. A single PST is one data point; the improving/regressing arc only exists once many PSTs are stored and ordered together.", "via": "mcp-command-mirror"},
+			{"name": "Risk leaderboard", "command": "risk-leaderboard", "description": "Highest-risk users ranked, each enriched with click history, report rate, and overdue-training context.", "rationale": "Joins users (current_risk_score) with PST recipients (clicks/reports) and training-enrollments (Past Due / Not Started). The API exposes the risk score alone; the why-behind-the-score requires fusing three tables.", "via": "mcp-command-mirror"},
+			{"name": "Group risk contribution", "command": "group-risk-contribution", "description": "Attribute account-level risk movement to the specific groups (departments) driving it up or down.", "rationale": "Diffs each group's risk_score_history over the window, weights by member_count, and compares against the account series. The attribution of which group moved the account number is a cross-series local computation.", "via": "mcp-command-mirror"},
+			{"name": "Client QBR pack", "command": "qbr", "description": "One command that assembles the full quarterly review: risk trend, phish-prone trend, training completion, and the top-risk humans.", "rationale": "Composes the local risk-drift, phish-prone-trend, training-completion, and risk-leaderboard computations into a single artifact. No KnowBe4 endpoint emits a combined QBR report.", "via": "mcp-command-mirror"},
+			{"name": "Report-vs-click leaderboard", "command": "report-rate", "description": "Rank users and groups by how often they report simulated phish versus falling for them - surfacing who never uses the Phish Alert Button.", "rationale": "Requires ratioing reported vs clicked recipient rows across every synced PST in the local store; no endpoint returns report behavior across tests.", "via": "mcp-command-mirror"},
+			{"name": "Sync freshness / input-readiness", "command": "freshness", "description": "See per-table sync freshness and whether the cross-entity commands have the data they need - before trusting a clicker hunt.", "rationale": "Reads per-table sync watermarks and row counts from local SQLite, including the hand-built pst_recipients fan-out that powers the headline joins.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
 			{"topic": "Repeat clickers across PSTs", "insight": "Aggregates clicked_at across many synced PST-recipient sets and counts distinct pst_id per user. No single KnowBe4 API call spans multiple PSTs, so a repeat offender is invisible until you pivot CSVs by hand."},

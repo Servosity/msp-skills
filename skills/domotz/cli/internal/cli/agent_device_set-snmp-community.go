@@ -18,8 +18,9 @@ func newAgentDeviceSetSnmpCommunityCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "set-snmp-community <agent_id> <device_id>",
-		Short:       "Saves a snmp community (read, optionally write) on device. _Deprecated_, please use setSNMPAuthentication .",
+		Use:   "set-snmp-community <agent_id> <device_id>",
+		Short: "Saves a snmp community (read, optionally write) on device. _Deprecated_, please use setSNMPAuthentication .",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  domotz-cli agent device set-snmp-community 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --read example-value",
 		Annotations: map[string]string{"pp:endpoint": "device.set-snmp-community", "pp:method": "PUT", "pp:path": "/agent/{agent_id}/device/{device_id}/snmp-community"},
 		RunE: func(cmd *cobra.Command, args []string) error {

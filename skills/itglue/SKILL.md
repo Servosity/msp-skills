@@ -1,6 +1,6 @@
 ---
 name: itglue
-description: "Use when the user asks to find a device, contact, or serial number across every IT Glue client, rank clients by documentation completeness, audit stale passwords for SOC2 / cyber-insurance, find duplicate contacts or orphaned records, see what changed across the fleet, pull a one-shot client brief, or run any cross-client question against IT Glue / MyGlue. Wraps the full IT Glue REST API plus an offline SQLite mirror; reads never delete. Trigger phrases: `find this device across all my IT Glue clients`, `which IT Glue organizations are under-documented`, `audit stale passwords in IT Glue`, `sync IT Glue to a local database`, `what changed in IT Glue since last week`, `IT Glue + ChatGPT`, `IT Glue + Claude`, `use itglue`, `run itglue-cli`."
+description: "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search, and documentation-hygiene analytics no other IT Glue tool offers. Trigger phrases: `find this device across all my IT Glue clients`, `which IT Glue organizations are under-documented`, `audit stale passwords in IT Glue`, `sync IT Glue to a local database`, `what changed in IT Glue since last week`, `use itglue`, `run itglue`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "IT Glue"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - itglue-cli
+    install:
+      - kind: go
+        bins: [itglue-cli]
+        module: github.com/mvanhorn/printing-press-library/library/productivity/itglue/cmd/itglue-cli
 ---
 
-# IT Glue Claude Code Skill
+# IT Glue  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `itglue-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/install.sh)
+   npx -y @mvanhorn/printing-press-library install itglue --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/install.ps1 | iex
-   ```
-3. Verify: `itglue-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `itglue-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/productivity/itglue/cmd/itglue-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 IT Glue's API is a thin per-call JSON:API surface guarded by a 3000-requests/5-minute rate ceiling, and every existing tool just wraps one endpoint at a time. This CLI mirrors your organizations, contacts, passwords, configurations, and documents into a local SQLite store, then answers the questions the live API can't: `search` finds anything across every client at once, `coverage` ranks clients by documentation completeness, and `passwords stale` audits credential rotation fleet-wide without burning your rate budget.
 
@@ -281,13 +287,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-Install the MCP binary (the `install.sh` / `install.ps1` above drop both `itglue-cli` and `itglue-mcp` into your user bin path), then register it:
-
-```bash
-claude mcp add itglue-mcp -- itglue-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/productivity/itglue/cmd/itglue-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add itglue-mcp -- itglue-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

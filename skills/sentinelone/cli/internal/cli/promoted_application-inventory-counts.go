@@ -36,14 +36,14 @@ func newApplicationInventoryCountsPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/application-inventory-counts"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "application-inventory-counts", path, map[string]string{
-				"siteIds":        fmt.Sprintf("%v", flagSiteIds),
-				"groupIds":       fmt.Sprintf("%v", flagGroupIds),
-				"createdAt__lt":  fmt.Sprintf("%v", flagCreatedAtLt),
-				"limit":          fmt.Sprintf("%v", flagLimit),
-				"createdAt__gte": fmt.Sprintf("%v", flagCreatedAtGte),
-				"accountIds":     fmt.Sprintf("%v", flagAccountIds),
-				"osTypes":        fmt.Sprintf("%v", flagOsTypes),
-				"createdAt__gt":  fmt.Sprintf("%v", flagCreatedAtGt),
+				"siteIds":        formatCLIParamValue(flagSiteIds),
+				"groupIds":       formatCLIParamValue(flagGroupIds),
+				"createdAt__lt":  formatCLIParamValue(flagCreatedAtLt),
+				"limit":          formatCLIParamValue(flagLimit),
+				"createdAt__gte": formatCLIParamValue(flagCreatedAtGte),
+				"accountIds":     formatCLIParamValue(flagAccountIds),
+				"osTypes":        formatCLIParamValue(flagOsTypes),
+				"createdAt__gt":  formatCLIParamValue(flagCreatedAtGt),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

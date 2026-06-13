@@ -25,8 +25,9 @@ func newSystemGetMembersByIdImageCmd(flags *rootFlags) *cobra.Command {
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "get-members-by-id-image <id>",
-		Short:       "Get",
+		Use:   "get-members-by-id-image <id>",
+		Short: "Get",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  connectwise-manage-cli system get-members-by-id-image 550e8400-e29b-41d4-a716-446655440000 --use-default-flag true --lastmodified example-value",
 		Annotations: map[string]string{"pp:endpoint": "system.get-members-by-id-image", "pp:method": "GET", "pp:path": "/system/members/{id}/image", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -53,16 +54,16 @@ func newSystemGetMembersByIdImageCmd(flags *rootFlags) *cobra.Command {
 			path := "/system/members/{id}/image"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "system", path, map[string]string{
-				"conditions":            fmt.Sprintf("%v", flagConditions),
-				"childConditions":       fmt.Sprintf("%v", flagChildConditions),
-				"customFieldConditions": fmt.Sprintf("%v", flagCustomFieldConditions),
-				"orderBy":               fmt.Sprintf("%v", flagOrderBy),
-				"fields":                fmt.Sprintf("%v", flagFields),
-				"page":                  fmt.Sprintf("%v", flagPage),
-				"pageSize":              fmt.Sprintf("%v", flagPageSize),
-				"pageId":                fmt.Sprintf("%v", flagPageId),
-				"useDefaultFlag":        fmt.Sprintf("%v", flagUseDefaultFlag),
-				"lastmodified":          fmt.Sprintf("%v", flagLastmodified),
+				"conditions":            formatCLIParamValue(flagConditions),
+				"childConditions":       formatCLIParamValue(flagChildConditions),
+				"customFieldConditions": formatCLIParamValue(flagCustomFieldConditions),
+				"orderBy":               formatCLIParamValue(flagOrderBy),
+				"fields":                formatCLIParamValue(flagFields),
+				"page":                  formatCLIParamValue(flagPage),
+				"pageSize":              formatCLIParamValue(flagPageSize),
+				"pageId":                formatCLIParamValue(flagPageId),
+				"useDefaultFlag":        formatCLIParamValue(flagUseDefaultFlag),
+				"lastmodified":          formatCLIParamValue(flagLastmodified),
 			}, nil, flagAll, "page", "page", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

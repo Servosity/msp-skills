@@ -30,10 +30,10 @@ func newHaloSearchPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/Search"
 			params := map[string]string{}
 			if flagCountPerEntity != 0 {
-				params["count_per_entity"] = fmt.Sprintf("%v", flagCountPerEntity)
+				params["count_per_entity"] = formatCLIParamValue(flagCountPerEntity)
 			}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "halo_search", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -19,9 +19,10 @@ func newSentineloneExportEventsCmd(flags *rootFlags) *cobra.Command {
 	var flagEventTypes string
 
 	cmd := &cobra.Command{
-		Use:         "events <threat_id>",
-		Aliases:     []string{"get"},
-		Short:       "Export threat events in CSV or JSON format.",
+		Use:     "events <threat_id>",
+		Aliases: []string{"get"},
+		Short:   "Export threat events in CSV or JSON format.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli sentinelone-export events 550e8400-e29b-41d4-a716-446655440000 --format example-value",
 		Annotations: map[string]string{"pp:endpoint": "sentinelone-export.events", "pp:method": "GET", "pp:path": "/export/threats/{threat_id}/explore/events", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -46,19 +47,19 @@ func newSentineloneExportEventsCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "threat_id", args[0])
 			params := map[string]string{}
 			if flagEventId != "" {
-				params["eventId"] = fmt.Sprintf("%v", flagEventId)
+				params["eventId"] = formatCLIParamValue(flagEventId)
 			}
 			if flagEventSubTypes != "" {
-				params["eventSubTypes"] = fmt.Sprintf("%v", flagEventSubTypes)
+				params["eventSubTypes"] = formatCLIParamValue(flagEventSubTypes)
 			}
 			if flagFormat != "" {
-				params["format"] = fmt.Sprintf("%v", flagFormat)
+				params["format"] = formatCLIParamValue(flagFormat)
 			}
 			if flagProcessNameLike != "" {
-				params["processName__like"] = fmt.Sprintf("%v", flagProcessNameLike)
+				params["processName__like"] = formatCLIParamValue(flagProcessNameLike)
 			}
 			if flagEventTypes != "" {
-				params["eventTypes"] = fmt.Sprintf("%v", flagEventTypes)
+				params["eventTypes"] = formatCLIParamValue(flagEventTypes)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "sentinelone-export", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

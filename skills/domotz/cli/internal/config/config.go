@@ -14,18 +14,19 @@ import (
 )
 
 type Config struct {
-	BaseURL            string            `toml:"base_url"`
-	AuthHeaderVal      string            `toml:"auth_header"`
-	Headers            map[string]string `toml:"headers,omitempty"`
-	AuthSource         string            `toml:"-"`
-	AccessToken        string            `toml:"access_token"`
-	RefreshToken       string            `toml:"refresh_token"`
-	TokenExpiry        time.Time         `toml:"token_expiry"`
-	ClientID           string            `toml:"client_id"`
-	ClientSecret       string            `toml:"client_secret"`
-	Path               string            `toml:"-"`
-	DomotzApiKey       string            `toml:"api_key"`
-	DomotzPublicApiKey string            `toml:"public_api_key"`
+	BaseURL       string            `toml:"base_url"`
+	AuthHeaderVal string            `toml:"auth_header"`
+	Headers       map[string]string `toml:"headers,omitempty"`
+	AuthSource    string            `toml:"-"`
+	AccessToken   string            `toml:"access_token"`
+	RefreshToken  string            `toml:"refresh_token"`
+	TokenExpiry   time.Time         `toml:"token_expiry"`
+	ClientID      string            `toml:"client_id"`
+	ClientSecret  string            `toml:"client_secret"`
+	Path          string            `toml:"-"`
+	envOverrides  map[string]bool   `toml:"-"`
+	fileConfig    *Config           `toml:"-"`
+	DomotzApiKey  string            `toml:"api_key"`
 	// TemplateVars holds the runtime values for {placeholder} markers in
 	// BaseURL and the request path (e.g. Shopify's {shop}/{version}). Populated
 	// at Load() time from env vars; consumed by the client's buildURL helper.
@@ -57,14 +58,13 @@ func Load(configPath string) (*Config, error) {
 		}
 	}
 
+	cfg.snapshotFileConfig()
+
 	// Env var overrides
 	if v := os.Getenv("DOMOTZ_API_KEY"); v != "" {
 		cfg.DomotzApiKey = v
+		cfg.markEnvOverride("DomotzApiKey")
 		cfg.AuthSource = "env:DOMOTZ_API_KEY"
-	}
-	if v := os.Getenv("DOMOTZ_PUBLIC_API_KEY"); v != "" {
-		cfg.DomotzPublicApiKey = v
-		cfg.AuthSource = "env:DOMOTZ_PUBLIC_API_KEY"
 	}
 
 	// Label config-file-derived credentials so doctor can distinguish
@@ -79,9 +79,6 @@ func Load(configPath string) (*Config, error) {
 		cfg.AuthSource = "config"
 	}
 	if cfg.AuthSource == "" && cfg.DomotzApiKey != "" {
-		cfg.AuthSource = "config"
-	}
-	if cfg.AuthSource == "" && cfg.DomotzPublicApiKey != "" {
 		cfg.AuthSource = "config"
 	}
 
@@ -151,13 +148,14 @@ func (c *Config) AuthHeader() string {
 	if c.AuthHeaderVal != "" {
 		return c.AuthHeaderVal
 	}
-	if c.DomotzApiKey != "" {
-		return c.DomotzApiKey
+	token := c.DomotzApiKey
+	if token == "" {
+		return ""
 	}
-	if c.DomotzPublicApiKey != "" {
-		return c.DomotzPublicApiKey
+	if c.DomotzApiKey == "" {
+		return ""
 	}
-	return ""
+	return token
 }
 
 func applyAuthFormat(format string, replacements map[string]string) string {
@@ -179,6 +177,16 @@ func (c *Config) SaveTokens(clientID, clientSecret, accessToken, refreshToken st
 	c.AccessToken = accessToken
 	c.RefreshToken = refreshToken
 	c.TokenExpiry = expiry
+	delete(c.envOverrides, "ClientID")
+	delete(c.envOverrides, "ClientSecret")
+	delete(c.envOverrides, "AccessToken")
+	delete(c.envOverrides, "RefreshToken")
+	delete(c.envOverrides, "TokenExpiry")
+	c.updateFileConfigField("ClientID")
+	c.updateFileConfigField("ClientSecret")
+	c.updateFileConfigField("AccessToken")
+	c.updateFileConfigField("RefreshToken")
+	c.updateFileConfigField("TokenExpiry")
 	return c.save()
 }
 
@@ -193,7 +201,17 @@ func (c *Config) SaveTokens(clientID, clientSecret, accessToken, refreshToken st
 func (c *Config) SaveCredential(token string) error {
 	c.AuthHeaderVal = ""
 	c.AccessToken = ""
+	// Pair each builtin-field zeroing with an envOverrides delete, like
+	// ClearTokens/SaveBearerToken: if an env var's placeholder collides with the
+	// AuthHeaderVal/AccessToken builtin tag, the override would otherwise survive
+	// and configForSave would restore the stale on-disk value instead of "".
+	delete(c.envOverrides, "AuthHeaderVal")
+	delete(c.envOverrides, "AccessToken")
+	c.updateFileConfigField("AuthHeaderVal")
+	c.updateFileConfigField("AccessToken")
 	c.DomotzApiKey = token
+	delete(c.envOverrides, "DomotzApiKey")
+	c.updateFileConfigField("DomotzApiKey")
 	return c.save()
 }
 
@@ -210,9 +228,88 @@ func (c *Config) ClearTokens() error {
 	c.TokenExpiry = time.Time{}
 	c.ClientID = ""
 	c.ClientSecret = ""
+	delete(c.envOverrides, "AuthHeaderVal")
+	delete(c.envOverrides, "AccessToken")
+	delete(c.envOverrides, "RefreshToken")
+	delete(c.envOverrides, "TokenExpiry")
+	delete(c.envOverrides, "ClientID")
+	delete(c.envOverrides, "ClientSecret")
+	c.updateFileConfigField("AuthHeaderVal")
+	c.updateFileConfigField("AccessToken")
+	c.updateFileConfigField("RefreshToken")
+	c.updateFileConfigField("TokenExpiry")
+	c.updateFileConfigField("ClientID")
+	c.updateFileConfigField("ClientSecret")
 	c.DomotzApiKey = ""
-	c.DomotzPublicApiKey = ""
+	delete(c.envOverrides, "DomotzApiKey")
 	return c.save()
+}
+
+func (c *Config) markEnvOverride(field string) {
+	if c.envOverrides == nil {
+		c.envOverrides = map[string]bool{}
+	}
+	c.envOverrides[field] = true
+}
+
+// cloneStringMap returns an independent copy of m (nil stays nil). The fileConfig
+// snapshot must not share reference-type map fields (such as Headers) with the
+// live config, or a later mutation to one would silently track in the other.
+func cloneStringMap(m map[string]string) map[string]string {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]string, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
+func (c *Config) snapshotFileConfig() {
+	snapshot := *c
+	snapshot.envOverrides = nil
+	snapshot.fileConfig = nil
+	// *c is a shallow copy: map fields are reference types, so the snapshot would
+	// share them with c and silently track later mutations, defeating the
+	// isolation this snapshot exists to provide. Clone them.
+	snapshot.Headers = cloneStringMap(c.Headers)
+	snapshot.TemplateVars = cloneStringMap(c.TemplateVars)
+	c.fileConfig = &snapshot
+}
+
+func (c *Config) configForSave() Config {
+	out := *c
+	if c.fileConfig != nil {
+		if c.envOverrides["DomotzApiKey"] {
+			out.DomotzApiKey = c.fileConfig.DomotzApiKey
+		}
+	}
+	out.envOverrides = nil
+	out.fileConfig = nil
+	return out
+}
+
+func (c *Config) updateFileConfigField(field string) {
+	if c.fileConfig == nil || c.envOverrides[field] {
+		return
+	}
+	switch field {
+	case "AuthHeaderVal":
+		c.fileConfig.AuthHeaderVal = c.AuthHeaderVal
+	case "AccessToken":
+		c.fileConfig.AccessToken = c.AccessToken
+	case "RefreshToken":
+		c.fileConfig.RefreshToken = c.RefreshToken
+	case "TokenExpiry":
+		c.fileConfig.TokenExpiry = c.TokenExpiry
+	case "ClientID":
+		c.fileConfig.ClientID = c.ClientID
+	case "ClientSecret":
+		c.fileConfig.ClientSecret = c.ClientSecret
+	case "DomotzApiKey":
+		c.fileConfig.DomotzApiKey = c.DomotzApiKey
+	}
 }
 
 func (c *Config) save() error {
@@ -220,11 +317,23 @@ func (c *Config) save() error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("creating config dir: %w", err)
 	}
-	data, err := toml.Marshal(c)
+	persisted := c.configForSave()
+	data, err := toml.Marshal(persisted)
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
-	return os.WriteFile(c.Path, data, 0o600)
+	if err := os.WriteFile(c.Path, data, 0o600); err != nil {
+		return err
+	}
+	c.fileConfig = &persisted
+	c.fileConfig.envOverrides = nil
+	c.fileConfig.fileConfig = nil
+	// persisted shares its map fields with c (configForSave shallow-copies *c),
+	// so isolate the stored fileConfig the same way snapshotFileConfig does;
+	// otherwise later mutations to c's maps leak into the on-disk snapshot.
+	c.fileConfig.Headers = cloneStringMap(c.fileConfig.Headers)
+	c.fileConfig.TemplateVars = cloneStringMap(c.fileConfig.TemplateVars)
+	return nil
 }
 
 // Ensure strings import is used

@@ -42,8 +42,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "Get a key at: https://portal.domotz.com/portal/settings/services?selected_menu=api_keys")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export DOMOTZ_API_KEY=\"<your-token>\"")
-			fmt.Fprintln(w, "  export DOMOTZ_PUBLIC_API_KEY=\"<your-token>\"")
+			fmt.Fprintln(w, "  export DOMOTZ_API_KEY=\"your-token-here\"")
 			fmt.Fprintln(w, "  domotz-cli auth set-token <token>")
 			if !launch {
 				return nil
@@ -117,7 +116,6 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Set your token:")
 				fmt.Fprintln(w, "  export DOMOTZ_API_KEY=\"your-token-here\"")
-				fmt.Fprintln(w, "  export DOMOTZ_PUBLIC_API_KEY=\"your-token-here\"")
 				fmt.Fprintf(w, "  domotz-cli auth set-token <token>\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
@@ -190,9 +188,6 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 			envStillSet := ""
 			if envStillSet == "" && os.Getenv("DOMOTZ_API_KEY") != "" {
 				envStillSet = "DOMOTZ_API_KEY"
-			}
-			if envStillSet == "" && os.Getenv("DOMOTZ_PUBLIC_API_KEY") != "" {
-				envStillSet = "DOMOTZ_PUBLIC_API_KEY"
 			}
 
 			// JSON envelope: {cleared: true, note?: "<env_var> env var is still set"}.

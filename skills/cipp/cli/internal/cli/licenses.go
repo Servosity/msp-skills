@@ -11,7 +11,7 @@ func newNovelLicensesCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "licenses",
-		Short:       "TODO: implement licenses",
+		Short:       "licenses subcommands: waste",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

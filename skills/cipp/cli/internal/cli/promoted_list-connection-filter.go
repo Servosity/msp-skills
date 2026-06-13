@@ -15,9 +15,10 @@ func newListConnectionFilterPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-connection-filter",
-		Short:       "List connection filter",
-		Long:        "List connection filter",
+		Use:   "list-connection-filter",
+		Short: "List connection filter",
+		Long:  "List connection filter",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-connection-filter --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-connection-filter.list", "pp:method": "GET", "pp:path": "/ListConnectionFilter", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,7 @@ func newListConnectionFilterPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListConnectionFilter"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-connection-filter", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

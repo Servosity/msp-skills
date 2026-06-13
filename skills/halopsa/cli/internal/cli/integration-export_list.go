@@ -29,10 +29,10 @@ func newIntegrationExportListCmd(flags *rootFlags) *cobra.Command {
 			path := "/IntegrationExport"
 			params := map[string]string{}
 			if flagModuleId != "" {
-				params["moduleId"] = fmt.Sprintf("%v", flagModuleId)
+				params["moduleId"] = formatCLIParamValue(flagModuleId)
 			}
 			if flagReadyForImport != false {
-				params["readyForImport"] = fmt.Sprintf("%v", flagReadyForImport)
+				params["readyForImport"] = formatCLIParamValue(flagReadyForImport)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-export", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

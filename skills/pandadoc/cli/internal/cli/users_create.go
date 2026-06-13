@@ -51,10 +51,10 @@ func newUsersCreateCmd(flags *rootFlags) *cobra.Command {
 			path := "/users"
 			params := map[string]string{}
 			if flagNotifyUser != false {
-				params["notify_user"] = fmt.Sprintf("%v", flagNotifyUser)
+				params["notify_user"] = formatCLIParamValue(flagNotifyUser)
 			}
 			if flagNotifyWsAdmins != false {
-				params["notify_ws_admins"] = fmt.Sprintf("%v", flagNotifyWsAdmins)
+				params["notify_ws_admins"] = formatCLIParamValue(flagNotifyWsAdmins)
 			}
 			var body map[string]any
 			if stdinBody {

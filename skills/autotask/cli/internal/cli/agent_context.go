@@ -105,7 +105,7 @@ reading source. Schema is versioned via schema_version.`,
 func buildAgentContext(rootCmd *cobra.Command) agentContext {
 	envVars := []agentContextAuthEnvVar{
 		{
-			Name:        "AUTOTASK_PSA_API_INTEGRATION_CODE",
+			Name:        "AUTOTASK_API_INTEGRATION_CODE",
 			Kind:        "per_call",
 			Required:    true,
 			Sensitive:   true,
@@ -138,7 +138,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "autotask-cli",
-			Description: "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time",
+			Description: "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

@@ -199,8 +199,9 @@ func newServicePutTicketsByIdCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "put-tickets-by-id <id>",
-		Short:       "Put Ticket",
+		Use:   "put-tickets-by-id <id>",
+		Short: "Put Ticket",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  connectwise-manage-cli service put-tickets-by-id 550e8400-e29b-41d4-a716-446655440000 --summary example-value",
 		Annotations: map[string]string{"pp:endpoint": "service.put-tickets-by-id", "pp:method": "PUT", "pp:path": "/service/tickets/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

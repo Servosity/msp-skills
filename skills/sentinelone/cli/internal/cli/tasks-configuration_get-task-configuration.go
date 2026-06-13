@@ -27,8 +27,9 @@ func newTasksConfigurationGetTaskConfigurationCmd(flags *rootFlags) *cobra.Comma
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "get-task-configuration",
-		Short:       "Get the task configuration of a scope.",
+		Use:   "get-task-configuration",
+		Short: "Get the task configuration of a scope.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli tasks-configuration get-task-configuration --task-type example-value",
 		Annotations: map[string]string{"pp:endpoint": "tasks-configuration.get-task-configuration", "pp:method": "GET", "pp:path": "/tasks-configuration", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -48,18 +49,18 @@ func newTasksConfigurationGetTaskConfigurationCmd(flags *rootFlags) *cobra.Comma
 
 			path := "/tasks-configuration"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "tasks-configuration", path, map[string]string{
-				"siteIds":    fmt.Sprintf("%v", flagSiteIds),
-				"sortBy":     fmt.Sprintf("%v", flagSortBy),
-				"groupIds":   fmt.Sprintf("%v", flagGroupIds),
-				"tenant":     fmt.Sprintf("%v", flagTenant),
-				"limit":      fmt.Sprintf("%v", flagLimit),
-				"skipCount":  fmt.Sprintf("%v", flagSkipCount),
-				"skip":       fmt.Sprintf("%v", flagSkip),
-				"sortOrder":  fmt.Sprintf("%v", flagSortOrder),
-				"accountIds": fmt.Sprintf("%v", flagAccountIds),
-				"countOnly":  fmt.Sprintf("%v", flagCountOnly),
-				"cursor":     fmt.Sprintf("%v", flagCursor),
-				"taskType":   fmt.Sprintf("%v", flagTaskType),
+				"siteIds":    formatCLIParamValue(flagSiteIds),
+				"sortBy":     formatCLIParamValue(flagSortBy),
+				"groupIds":   formatCLIParamValue(flagGroupIds),
+				"tenant":     formatCLIParamValue(flagTenant),
+				"limit":      formatCLIParamValue(flagLimit),
+				"skipCount":  formatCLIParamValue(flagSkipCount),
+				"skip":       formatCLIParamValue(flagSkip),
+				"sortOrder":  formatCLIParamValue(flagSortOrder),
+				"accountIds": formatCLIParamValue(flagAccountIds),
+				"countOnly":  formatCLIParamValue(flagCountOnly),
+				"cursor":     formatCLIParamValue(flagCursor),
+				"taskType":   formatCLIParamValue(flagTaskType),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

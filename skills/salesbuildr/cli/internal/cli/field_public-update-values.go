@@ -17,9 +17,10 @@ func newFieldPublicUpdateValuesCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "public-update-values <field>",
-		Aliases:     []string{"update"},
-		Short:       "Replace existing field values with new list",
+		Use:     "public-update-values <field>",
+		Aliases: []string{"update"},
+		Short:   "Replace existing field values with new list",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  salesbuildr-cli field public-update-values example-value",
 		Annotations: map[string]string{"pp:endpoint": "field.public-update-values", "pp:method": "PUT", "pp:path": "/field/{field}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -22,9 +22,10 @@ func newIncidentReportsRemediationsBulkRejectionParametersCmd(flags *rootFlags) 
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "bulk-rejection-parameters <incident_report_id>",
-		Aliases:     []string{"create"},
-		Short:       "Reject all unapproved remediations for an Incident Report.",
+		Use:     "bulk-rejection-parameters <incident_report_id>",
+		Aliases: []string{"create"},
+		Short:   "Reject all unapproved remediations for an Incident Report.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  huntress-cli incident-reports remediations bulk-rejection-parameters 550e8400-e29b-41d4-a716-446655440000 --comment example-value",
 		Annotations: map[string]string{"pp:endpoint": "remediations.bulk-rejection-parameters", "pp:method": "POST", "pp:path": "/v1/incident_reports/{incident_report_id}/remediations/bulk_rejection"},
 		RunE: func(cmd *cobra.Command, args []string) error {

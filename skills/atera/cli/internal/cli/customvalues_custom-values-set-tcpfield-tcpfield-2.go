@@ -16,8 +16,9 @@ func newCustomvaluesCustomValuesSetTcpfieldTcpfield2Cmd(flags *rootFlags) *cobra
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "custom-values-set-tcpfield-tcpfield-2 <tcpDeviceId> <fieldName> <value>",
-		Short:       "Set value of custom field for specified TCP",
+		Use:   "custom-values-set-tcpfield-tcpfield-2 <tcpDeviceId> <fieldName> <value>",
+		Short: "Set value of custom field for specified TCP",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  atera-cli customvalues custom-values-set-tcpfield-tcpfield-2 42 example-resource example-value",
 		Annotations: map[string]string{"pp:endpoint": "customvalues.custom-values-set-tcpfield-tcpfield-2", "pp:method": "PUT", "pp:path": "/customvalues/tcpfield/{tcpDeviceId}/{fieldName}/{value}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

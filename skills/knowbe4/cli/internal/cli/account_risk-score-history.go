@@ -28,7 +28,7 @@ func newAccountRiskScoreHistoryCmd(flags *rootFlags) *cobra.Command {
 			path := "/account/risk_score_history"
 			params := map[string]string{}
 			if flagFull != "" {
-				params["full"] = fmt.Sprintf("%v", flagFull)
+				params["full"] = formatCLIParamValue(flagFull)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "account", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

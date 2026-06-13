@@ -33,12 +33,12 @@ func newIntegrationDataListIntegrationdata50Cmd(flags *rootFlags) *cobra.Command
 
 			path := "/IntegrationData/Get/JiraServiceManagement"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", path, map[string]string{
-				"alternate_sys_id": fmt.Sprintf("%v", flagAlternateSysId),
-				"customer_id":      fmt.Sprintf("%v", flagCustomerId),
-				"datatype":         fmt.Sprintf("%v", flagDatatype),
-				"offset":           fmt.Sprintf("%v", flagOffset),
-				"search":           fmt.Sprintf("%v", flagSearch),
-				"supplier_id":      fmt.Sprintf("%v", flagSupplierId),
+				"alternate_sys_id": formatCLIParamValue(flagAlternateSysId),
+				"customer_id":      formatCLIParamValue(flagCustomerId),
+				"datatype":         formatCLIParamValue(flagDatatype),
+				"offset":           formatCLIParamValue(flagOffset),
+				"search":           formatCLIParamValue(flagSearch),
+				"supplier_id":      formatCLIParamValue(flagSupplierId),
 			}, nil, flagAll, "offset", "offset", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

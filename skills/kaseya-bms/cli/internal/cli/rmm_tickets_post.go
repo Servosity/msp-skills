@@ -17,8 +17,9 @@ func newRmmTicketsPostCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post <integrationType>",
-		Short:       "Post",
+		Use:   "post <integrationType>",
+		Short: "Post",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli rmm tickets post example-value",
 		Annotations: map[string]string{"pp:endpoint": "tickets.post", "pp:method": "POST", "pp:path": "/v2/rmm/{integrationType}/tickets"},
 		RunE: func(cmd *cobra.Command, args []string) error {

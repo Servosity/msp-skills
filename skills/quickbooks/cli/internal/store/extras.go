@@ -17,15 +17,7 @@ import (
 // every store open can safely re-run them.
 func (s *Store) migrateExtras(ctx context.Context, conn *sql.Conn) error {
 	migrations := []string{
-		// aging_snapshots persists one AR+AP aging picture per `aging-delta`
-		// run so the next run can diff against it (bucket slips, balance
-		// growth). payload is the JSON-encoded analytics.AgingSnapshot.
-		`CREATE TABLE IF NOT EXISTS aging_snapshots (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			taken_at TEXT NOT NULL,
-			payload TEXT NOT NULL
-		)`,
-		`CREATE INDEX IF NOT EXISTS idx_aging_snapshots_taken_at ON aging_snapshots(taken_at)`,
+		// Add CREATE TABLE IF NOT EXISTS statements here.
 	}
 	for _, m := range migrations {
 		if _, err := conn.ExecContext(ctx, m); err != nil {

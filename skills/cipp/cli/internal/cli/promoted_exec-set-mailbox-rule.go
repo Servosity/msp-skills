@@ -20,9 +20,10 @@ func newExecSetMailboxRulePromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUserPrincipalName string
 
 	cmd := &cobra.Command{
-		Use:         "exec-set-mailbox-rule",
-		Short:       "Exec set mailbox rule",
-		Long:        "Exec set mailbox rule",
+		Use:   "exec-set-mailbox-rule",
+		Short: "Exec set mailbox rule",
+		Long:  "Exec set mailbox rule",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-set-mailbox-rule --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-set-mailbox-rule.create", "pp:method": "POST", "pp:path": "/ExecSetMailboxRule"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -68,10 +69,10 @@ func newExecSetMailboxRulePromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

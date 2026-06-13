@@ -11,6 +11,7 @@ func newDevicesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "devices",
 		Short:       "Devices monitored by N-central (workstations, servers, network devices, probes).",
+		Hidden:      true,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

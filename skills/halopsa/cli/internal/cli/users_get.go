@@ -46,49 +46,49 @@ func newUsersGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagClientId != "" {
-				params["client_id"] = fmt.Sprintf("%v", flagClientId)
+				params["client_id"] = formatCLIParamValue(flagClientId)
 			}
 			if flagClientOverride != 0 {
-				params["client_override"] = fmt.Sprintf("%v", flagClientOverride)
+				params["client_override"] = formatCLIParamValue(flagClientOverride)
 			}
 			if flagDomain != "" {
-				params["domain"] = fmt.Sprintf("%v", flagDomain)
+				params["domain"] = formatCLIParamValue(flagDomain)
 			}
 			if flagIncludeactivity != false {
-				params["includeactivity"] = fmt.Sprintf("%v", flagIncludeactivity)
+				params["includeactivity"] = formatCLIParamValue(flagIncludeactivity)
 			}
 			if flagIncludebillinginfo != false {
-				params["includebillinginfo"] = fmt.Sprintf("%v", flagIncludebillinginfo)
+				params["includebillinginfo"] = formatCLIParamValue(flagIncludebillinginfo)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagIncludepopups != false {
-				params["includepopups"] = fmt.Sprintf("%v", flagIncludepopups)
+				params["includepopups"] = formatCLIParamValue(flagIncludepopups)
 			}
 			if flagIncludeusersassets != false {
-				params["includeusersassets"] = fmt.Sprintf("%v", flagIncludeusersassets)
+				params["includeusersassets"] = formatCLIParamValue(flagIncludeusersassets)
 			}
 			if flagIssetup != false {
-				params["issetup"] = fmt.Sprintf("%v", flagIssetup)
+				params["issetup"] = formatCLIParamValue(flagIssetup)
 			}
 			if flagOppId != "" {
-				params["opp_id"] = fmt.Sprintf("%v", flagOppId)
+				params["opp_id"] = formatCLIParamValue(flagOppId)
 			}
 			if flagSiteId != "" {
-				params["site_id"] = fmt.Sprintf("%v", flagSiteId)
+				params["site_id"] = formatCLIParamValue(flagSiteId)
 			}
 			if flagSiteOverride != 0 {
-				params["site_override"] = fmt.Sprintf("%v", flagSiteOverride)
+				params["site_override"] = formatCLIParamValue(flagSiteOverride)
 			}
 			if flagSupplierId != "" {
-				params["supplier_id"] = fmt.Sprintf("%v", flagSupplierId)
+				params["supplier_id"] = formatCLIParamValue(flagSupplierId)
 			}
 			if flagTickettypeId != "" {
-				params["tickettype_id"] = fmt.Sprintf("%v", flagTickettypeId)
+				params["tickettype_id"] = formatCLIParamValue(flagTickettypeId)
 			}
 			if flagUsername != "" {
-				params["username"] = fmt.Sprintf("%v", flagUsername)
+				params["username"] = formatCLIParamValue(flagUsername)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "users", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

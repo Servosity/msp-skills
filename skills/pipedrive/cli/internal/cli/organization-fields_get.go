@@ -30,8 +30,8 @@ func newOrganizationFieldsGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/organizationFields"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "organization-fields", path, map[string]string{
-				"start": fmt.Sprintf("%v", flagStart),
-				"limit": fmt.Sprintf("%v", flagLimit),
+				"start": formatCLIParamValue(flagStart),
+				"limit": formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

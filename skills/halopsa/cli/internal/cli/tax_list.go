@@ -31,16 +31,16 @@ func newTaxListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Tax"
 			params := map[string]string{}
 			if flagKashflowtenantid != "" {
-				params["kashflowtenantid"] = fmt.Sprintf("%v", flagKashflowtenantid)
+				params["kashflowtenantid"] = formatCLIParamValue(flagKashflowtenantid)
 			}
 			if flagQbocompanyid != "" {
-				params["qbocompanyid"] = fmt.Sprintf("%v", flagQbocompanyid)
+				params["qbocompanyid"] = formatCLIParamValue(flagQbocompanyid)
 			}
 			if flagRelatedTo != 0 {
-				params["related_to"] = fmt.Sprintf("%v", flagRelatedTo)
+				params["related_to"] = formatCLIParamValue(flagRelatedTo)
 			}
 			if flagXerotenantid != "" {
-				params["xerotenantid"] = fmt.Sprintf("%v", flagXerotenantid)
+				params["xerotenantid"] = formatCLIParamValue(flagXerotenantid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "tax", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

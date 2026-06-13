@@ -17,8 +17,9 @@ func newBatchPostCrmV3ObjectsObjectTypeArchiveArchiveCmd(flags *rootFlags) *cobr
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-crm-v3-objects-object-type-archive-archive <objectType>",
-		Short:       "Archive a batch of objects by ID",
+		Use:   "post-crm-v3-objects-object-type-archive-archive <objectType>",
+		Short: "Archive a batch of objects by ID",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli batch post-crm-v3-objects-object-type-archive-archive example-value",
 		Annotations: map[string]string{"pp:endpoint": "batch.post-crm-v3-objects-object-type-archive-archive", "pp:method": "POST", "pp:path": "/crm/v3/objects/{objectType}/batch/archive"},
 		RunE: func(cmd *cobra.Command, args []string) error {

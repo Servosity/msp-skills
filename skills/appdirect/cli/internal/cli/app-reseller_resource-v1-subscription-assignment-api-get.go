@@ -43,25 +43,25 @@ func newAppResellerResourceV1SubscriptionAssignmentApiGetCmd(flags *rootFlags) *
 			path := "/appReseller/v1/subscriptionAssignments"
 			params := map[string]string{}
 			if flagNumber != 0 {
-				params["number"] = fmt.Sprintf("%v", flagNumber)
+				params["number"] = formatCLIParamValue(flagNumber)
 			}
 			if flagSize != 0 {
-				params["size"] = fmt.Sprintf("%v", flagSize)
+				params["size"] = formatCLIParamValue(flagSize)
 			}
 			if flagSort != "" {
-				params["sort"] = fmt.Sprintf("%v", flagSort)
+				params["sort"] = formatCLIParamValue(flagSort)
 			}
 			if flagCreatedOn != "" {
-				params["createdOn"] = fmt.Sprintf("%v", flagCreatedOn)
+				params["createdOn"] = formatCLIParamValue(flagCreatedOn)
 			}
 			if flagStatus != "" {
-				params["status"] = fmt.Sprintf("%v", flagStatus)
+				params["status"] = formatCLIParamValue(flagStatus)
 			}
 			if flagSubscriptionId != "" {
-				params["subscriptionId"] = fmt.Sprintf("%v", flagSubscriptionId)
+				params["subscriptionId"] = formatCLIParamValue(flagSubscriptionId)
 			}
 			if flagUserId != "" {
-				params["userId"] = fmt.Sprintf("%v", flagUserId)
+				params["userId"] = formatCLIParamValue(flagUserId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "app-reseller", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

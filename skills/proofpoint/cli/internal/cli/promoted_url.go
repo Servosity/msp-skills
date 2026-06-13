@@ -19,7 +19,7 @@ func newUrlPromotedCmd(flags *rootFlags) *cobra.Command {
 		Use:         "url",
 		Short:       "Decode TAP-rewritten (urldefense) URLs to their original targets",
 		Long:        "Decode TAP-rewritten (urldefense) URLs to their original targets",
-		Example:     "  proofpoint-cli url",
+		Example:     "  proofpoint-cli url --urls \"https://urldefense.com/v3/__https://example.com__;!!abc\" --agent --select urls.decodedUrl,urls.success",
 		Annotations: map[string]string{"pp:endpoint": "url.decode", "pp:method": "POST", "pp:path": "/url/decode"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with a required flag/body prints help
@@ -49,10 +49,10 @@ func newUrlPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

@@ -31,13 +31,13 @@ func newServiceRestrictionPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ServiceRestriction"
 			params := map[string]string{}
 			if flagClientId != "" {
-				params["client_id"] = fmt.Sprintf("%v", flagClientId)
+				params["client_id"] = formatCLIParamValue(flagClientId)
 			}
 			if flagServiceCategoryId != "" {
-				params["service_category_id"] = fmt.Sprintf("%v", flagServiceCategoryId)
+				params["service_category_id"] = formatCLIParamValue(flagServiceCategoryId)
 			}
 			if flagServiceId != "" {
-				params["service_id"] = fmt.Sprintf("%v", flagServiceId)
+				params["service_id"] = formatCLIParamValue(flagServiceId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "service-restriction", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

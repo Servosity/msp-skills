@@ -17,7 +17,7 @@ func newUserGetSingleForOrgCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-single-for-org <user_id>",
 		Aliases:     []string{"get"},
 		Short:       "Returns information about user related to organization.",
-		Example:     "  axcient-cli user get-single-for-org 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  axcient-cli user get-single-for-org 123",
 		Annotations: map[string]string{"pp:endpoint": "user.get-single-for-org", "pp:method": "GET", "pp:path": "/user/{user_id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

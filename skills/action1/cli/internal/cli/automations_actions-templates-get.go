@@ -29,7 +29,7 @@ func newAutomationsActionsTemplatesGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/automations/action-templates"
 			params := map[string]string{}
 			if flagApplicableTo != "" {
-				params["applicable_to"] = fmt.Sprintf("%v", flagApplicableTo)
+				params["applicable_to"] = formatCLIParamValue(flagApplicableTo)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "automations", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

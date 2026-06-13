@@ -173,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export HUBSPOT_ACCESS_TOKEN=<your-key>"
+					report["auth_hint"] = "Set it with: hubspot-cli auth set-token <token> or export HUBSPOT_ACCESS_TOKEN=\"your-token-here\""
 					report["auth_key_url"] = "https://app.hubspot.com/private-apps"
 					report["auth_instructions"] = "Create a private app, grant CRM scopes, and copy the access token."
 				} else {

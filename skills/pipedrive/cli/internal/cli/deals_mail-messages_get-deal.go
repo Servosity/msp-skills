@@ -34,8 +34,8 @@ func newDealsMailMessagesGetDealCmd(flags *rootFlags) *cobra.Command {
 			path := "/deals/{id}/mailMessages"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "mail-messages", path, map[string]string{
-				"start": fmt.Sprintf("%v", flagStart),
-				"limit": fmt.Sprintf("%v", flagLimit),
+				"start": formatCLIParamValue(flagStart),
+				"limit": formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

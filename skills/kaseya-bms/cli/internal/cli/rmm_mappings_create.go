@@ -17,8 +17,9 @@ func newRmmMappingsCreateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create <integrationType> <entityType>",
-		Short:       "Create",
+		Use:   "create <integrationType> <entityType>",
+		Short: "Create",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli rmm mappings create example-value example-value",
 		Annotations: map[string]string{"pp:endpoint": "mappings.create", "pp:method": "POST", "pp:path": "/v2/rmm/{integrationType}/mappings/{entityType}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

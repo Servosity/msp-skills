@@ -28,7 +28,7 @@ func newIntegrationDataListIntegrationdata67Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/PRTG"
 			params := map[string]string{}
 			if flagTestOnly != false {
-				params["testOnly"] = fmt.Sprintf("%v", flagTestOnly)
+				params["testOnly"] = formatCLIParamValue(flagTestOnly)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -18,9 +18,10 @@ func newExecListBackupPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagType string
 
 	cmd := &cobra.Command{
-		Use:         "exec-list-backup",
-		Short:       "Exec list backup",
-		Long:        "Exec list backup",
+		Use:   "exec-list-backup",
+		Short: "Exec list backup",
+		Long:  "Exec list backup",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-list-backup --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-list-backup.list", "pp:method": "GET", "pp:path": "/ExecListBackup", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -42,16 +43,16 @@ func newExecListBackupPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecListBackup"
 			params := map[string]string{}
 			if flagBackupName != "" {
-				params["BackupName"] = fmt.Sprintf("%v", flagBackupName)
+				params["BackupName"] = formatCLIParamValue(flagBackupName)
 			}
 			if flagNameOnly != "" {
-				params["NameOnly"] = fmt.Sprintf("%v", flagNameOnly)
+				params["NameOnly"] = formatCLIParamValue(flagNameOnly)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagType != "" {
-				params["Type"] = fmt.Sprintf("%v", flagType)
+				params["Type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-list-backup", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -20,7 +20,7 @@ func newSchedulesOverridesListScheduleCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list-schedule <id>",
 		Short:       "List overrides for a given time range. A Schedule determines the time periods that users are On-Call.",
-		Example:     "  pagerduty-cli schedules overrides list-schedule 550e8400-e29b-41d4-a716-446655440000 --since 2026-01-15T09:00:00Z --until 2026-01-15T09:00:00Z",
+		Example:     "  pagerduty-cli schedules overrides list-schedule P2LJD7G --since 2026-04-01T00:00:00Z --until 2026-05-30T00:00:00Z",
 		Annotations: map[string]string{"pp:endpoint": "overrides.list-schedule", "pp:method": "GET", "pp:path": "/schedules/{id}/overrides", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
@@ -47,16 +47,16 @@ func newSchedulesOverridesListScheduleCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagSince != "" {
-				params["since"] = fmt.Sprintf("%v", flagSince)
+				params["since"] = formatCLIParamValue(flagSince)
 			}
 			if flagUntil != "" {
-				params["until"] = fmt.Sprintf("%v", flagUntil)
+				params["until"] = formatCLIParamValue(flagUntil)
 			}
 			if flagEditable != false {
-				params["editable"] = fmt.Sprintf("%v", flagEditable)
+				params["editable"] = formatCLIParamValue(flagEditable)
 			}
 			if flagOverflow != false {
-				params["overflow"] = fmt.Sprintf("%v", flagOverflow)
+				params["overflow"] = formatCLIParamValue(flagOverflow)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "overrides", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

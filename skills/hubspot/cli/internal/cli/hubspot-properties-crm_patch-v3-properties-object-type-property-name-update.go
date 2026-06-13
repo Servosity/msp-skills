@@ -29,8 +29,9 @@ func newHubspotPropertiesCrmPatchV3PropertiesObjectTypePropertyNameUpdateCmd(fla
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "patch-v3-properties-object-type-property-name-update <objectType> <propertyName>",
-		Short:       "Perform a partial update of a property identified by { propertyName }. Provided fields will be overwritten.",
+		Use:   "patch-v3-properties-object-type-property-name-update <objectType> <propertyName>",
+		Short: "Perform a partial update of a property identified by { propertyName }. Provided fields will be overwritten.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-properties-crm patch-v3-properties-object-type-property-name-update example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-properties-crm.patch-v3-properties-object-type-property-name-update", "pp:method": "PATCH", "pp:path": "/crm/v3/properties/{objectType}/{propertyName}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

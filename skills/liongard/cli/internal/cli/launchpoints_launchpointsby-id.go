@@ -32,7 +32,7 @@ func newLaunchpointsLaunchpointsbyIdCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "LaunchpointID", args[0])
 			params := map[string]string{}
 			if flagFields != "" {
-				params["fields[]"] = fmt.Sprintf("%v", flagFields)
+				params["fields[]"] = formatCLIParamValue(flagFields)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "launchpoints", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

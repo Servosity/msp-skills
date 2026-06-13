@@ -20,7 +20,7 @@ func newDocumentsOwnershipTransferDocumentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "transfer-document <id>",
 		Aliases:     []string{"update"},
 		Short:       "This operation allows transferring the ownership of a document to another user by specifying the document ID and",
-		Example:     "  pandadoc-cli documents ownership transfer-document 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents ownership transfer-document BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "ownership.transfer-document", "pp:method": "PATCH", "pp:path": "/documents/{id}/ownership"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

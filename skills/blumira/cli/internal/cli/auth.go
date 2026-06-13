@@ -39,9 +39,8 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			w := cmd.OutOrStdout()
 			fmt.Fprintln(w, "No setup URL is configured for this CLI; check the API's docs.")
 			fmt.Fprintln(w, "")
-			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export BLUMIRA_API_TOKEN=\"<your-token>\"")
-			fmt.Fprintln(w, "  blumira-cli auth set-token <token>")
+			fmt.Fprintln(w, "Optional request credentials:")
+			fmt.Fprintln(w, "  export BLUMIRA_API_TOKEN=\"your-token-here\"")
 			if !launch {
 				return nil
 			}
@@ -89,8 +88,9 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Set your token:")
+				fmt.Fprintln(w, "")
+				fmt.Fprintln(w, "Optional request credentials:")
 				fmt.Fprintln(w, "  export BLUMIRA_API_TOKEN=\"your-token-here\" # Blumira JWT bearer token. Minted+cached by `auth login`, or set directly. Set this OR BLUMIRA_CLIENT_ID + BLUMIRA_CLIENT_SECRET.")
-				fmt.Fprintf(w, "  blumira-cli auth set-token <token>\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
 

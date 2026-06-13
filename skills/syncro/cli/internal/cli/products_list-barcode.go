@@ -28,7 +28,7 @@ func newProductsListBarcodeCmd(flags *rootFlags) *cobra.Command {
 			path := "/products/barcode"
 			params := map[string]string{}
 			if flagBarcode != "" {
-				params["barcode"] = fmt.Sprintf("%v", flagBarcode)
+				params["barcode"] = formatCLIParamValue(flagBarcode)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "products", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

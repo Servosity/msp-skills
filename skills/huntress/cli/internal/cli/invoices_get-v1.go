@@ -44,9 +44,9 @@ func newInvoicesGetV1Cmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/invoices"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "invoices", path, map[string]string{
-				"limit":      fmt.Sprintf("%v", flagLimit),
-				"page_token": fmt.Sprintf("%v", flagPageToken),
-				"status":     fmt.Sprintf("%v", flagStatus),
+				"limit":      formatCLIParamValue(flagLimit),
+				"page_token": formatCLIParamValue(flagPageToken),
+				"status":     formatCLIParamValue(flagStatus),
 			}, nil, flagAll, "page_token", "page_token", "limit", "nextPageToken", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

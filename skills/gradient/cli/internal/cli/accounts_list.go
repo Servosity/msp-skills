@@ -29,10 +29,10 @@ func newAccountsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/vendor-api/organization/accounts"
 			params := map[string]string{}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			if flagReturnUnmapped != "" {
-				params["returnUnmapped"] = fmt.Sprintf("%v", flagReturnUnmapped)
+				params["returnUnmapped"] = formatCLIParamValue(flagReturnUnmapped)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "accounts", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

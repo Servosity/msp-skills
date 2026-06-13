@@ -28,7 +28,7 @@ func newWikiPagesListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/wiki_pages"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "wiki-pages", path, map[string]string{
-				"page": fmt.Sprintf("%v", flagPage),
+				"page": formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

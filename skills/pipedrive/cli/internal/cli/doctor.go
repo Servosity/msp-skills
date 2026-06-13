@@ -100,7 +100,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export PIPEDRIVE_API_KEY=<your-key>"
+					report["auth_hint"] = "Set your API key with: export PIPEDRIVE_API_KEY=\"your-token-here\""
 					report["auth_key_url"] = "https://app.pipedrive.com/settings/personal/api"
 					report["auth_instructions"] = "Copy your personal API token from Personal preferences -> API."
 				} else {

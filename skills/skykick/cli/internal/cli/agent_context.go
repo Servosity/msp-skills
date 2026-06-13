@@ -131,7 +131,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "skykick-cli",
-			Description: "Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots",
+			Description: "Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots, and coverage gaps no portal or wrapper can show.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

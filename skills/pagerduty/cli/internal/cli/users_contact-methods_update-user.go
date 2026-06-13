@@ -17,9 +17,10 @@ func newUsersContactMethodsUpdateUserCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update-user <id> <contact_method_id>",
-		Aliases:     []string{"update"},
-		Short:       "Update a User's contact method.",
+		Use:     "update-user <id> <contact_method_id>",
+		Aliases: []string{"update"},
+		Short:   "Update a User's contact method.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pagerduty-cli users contact-methods update-user 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --contact-method example-value",
 		Annotations: map[string]string{"pp:endpoint": "contact-methods.update-user", "pp:method": "PUT", "pp:path": "/users/{id}/contact_methods/{contact_method_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

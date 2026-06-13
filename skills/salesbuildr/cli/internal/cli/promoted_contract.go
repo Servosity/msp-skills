@@ -29,7 +29,7 @@ func newContractPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/contract/items"
 			params := map[string]string{}
 			if flagQuery != "" {
-				params["query"] = fmt.Sprintf("%v", flagQuery)
+				params["query"] = formatCLIParamValue(flagQuery)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "contract", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

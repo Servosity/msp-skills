@@ -18,9 +18,10 @@ func newAppwiseUsersIndexSearchCmd(flags *rootFlags) *cobra.Command {
 	var flagSort string
 
 	cmd := &cobra.Command{
-		Use:         "users-index-search",
-		Aliases:     []string{"list"},
-		Short:       "Search a unified index of content derived from a user's connected accounts. Requires a user-based token.",
+		Use:     "users-index-search",
+		Aliases: []string{"list"},
+		Short:   "Search a unified index of content derived from a user's connected accounts. Requires a user-based token.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli appwise users-index-search --q example-value",
 		Annotations: map[string]string{"pp:endpoint": "appwise.users-index-search", "pp:method": "GET", "pp:path": "/appwise/v2/search", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,16 +42,16 @@ func newAppwiseUsersIndexSearchCmd(flags *rootFlags) *cobra.Command {
 			path := "/appwise/v2/search"
 			params := map[string]string{}
 			if flagQ != "" {
-				params["q"] = fmt.Sprintf("%v", flagQ)
+				params["q"] = formatCLIParamValue(flagQ)
 			}
 			if flagNumber != 0.0 {
-				params["number"] = fmt.Sprintf("%v", flagNumber)
+				params["number"] = formatCLIParamValue(flagNumber)
 			}
 			if flagSize != 0.0 {
-				params["size"] = fmt.Sprintf("%v", flagSize)
+				params["size"] = formatCLIParamValue(flagSize)
 			}
 			if flagSort != "" {
-				params["sort"] = fmt.Sprintf("%v", flagSort)
+				params["sort"] = formatCLIParamValue(flagSort)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "appwise", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

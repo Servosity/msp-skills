@@ -30,7 +30,7 @@ func newSchedulesRotationsCreateEventCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-event <id> <rotation_id>",
 		Short:       "<!",
-		Example:     "  pagerduty-cli schedules rotations create-event 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pagerduty-cli schedules rotations create-event PSJUKNI AGO462IDT5ZMNFBVSROUDT6B4M",
 		Annotations: map[string]string{"pp:endpoint": "rotations.create-event", "pp:method": "POST", "pp:path": "/v3/schedules/{id}/rotations/{rotation_id}/events"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

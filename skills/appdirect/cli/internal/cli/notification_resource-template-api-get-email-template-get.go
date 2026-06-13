@@ -15,8 +15,9 @@ func newNotificationResourceTemplateApiGetEmailTemplateGetCmd(flags *rootFlags) 
 	var flagDirectSales bool
 
 	cmd := &cobra.Command{
-		Use:         "resource-template-api-get-email-template-get <type>",
-		Short:       "This call returns all details from a specific email template type.",
+		Use:   "resource-template-api-get-email-template-get <type>",
+		Short: "This call returns all details from a specific email template type.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli notification resource-template-api-get-email-template-get example-value",
 		Annotations: map[string]string{"pp:endpoint": "notification.resource-template-api-get-email-template-get", "pp:method": "GET", "pp:path": "/notification/v1/templates/email/{type}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -32,7 +33,7 @@ func newNotificationResourceTemplateApiGetEmailTemplateGetCmd(flags *rootFlags) 
 			path = replacePathParam(path, "type", args[0])
 			params := map[string]string{}
 			if flagDirectSales != false {
-				params["directSales"] = fmt.Sprintf("%v", flagDirectSales)
+				params["directSales"] = formatCLIParamValue(flagDirectSales)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "notification", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

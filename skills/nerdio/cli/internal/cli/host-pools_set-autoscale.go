@@ -20,8 +20,9 @@ func newHostPoolsSetAutoscaleCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "set-autoscale <account_id> <subscription_id> <resource_group> <pool_name>",
-		Short:       "Update host pool autoscale configuration (pass full config JSON via --stdin)",
+		Use:   "set-autoscale <account_id> <subscription_id> <resource_group> <pool_name>",
+		Short: "Update host pool autoscale configuration (pass full config JSON via --stdin)",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  nerdio-cli host-pools set-autoscale 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "host-pools.set-autoscale", "pp:method": "PUT", "pp:path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/autoscale-configuration"},
 		RunE: func(cmd *cobra.Command, args []string) error {

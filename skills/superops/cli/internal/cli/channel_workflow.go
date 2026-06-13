@@ -55,7 +55,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			resources := []string{"alerts", "assets", "clients", "contracts", "invoices", "it-docs", "kb", "service-items", "sites", "tasks", "technicians", "tickets", "users", "worklogs"}
+			resources := []string{"alerts", "assets", "contracts", "invoices", "sites", "tasks", "tickets", "users"}
 			totalSynced := 0
 
 			// --full clears the cursor here because syncResource reads
@@ -68,7 +68,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 
 			for _, resource := range resources {
-				res := syncResource(cmd.Context(), c, s, resource, "", full, 100)
+				res := syncResource(cmd.Context(), c, s, resource, "", full, 100, false)
 				if res.Err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "  %s: error: %v\n", resource, res.Err)
 					continue

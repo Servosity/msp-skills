@@ -31,13 +31,13 @@ func newExecExtensionMappingPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecExtensionMapping"
 			params := map[string]string{}
 			if flagAddMapping != "" {
-				params["AddMapping"] = fmt.Sprintf("%v", flagAddMapping)
+				params["AddMapping"] = formatCLIParamValue(flagAddMapping)
 			}
 			if flagAutoMapping != "" {
-				params["AutoMapping"] = fmt.Sprintf("%v", flagAutoMapping)
+				params["AutoMapping"] = formatCLIParamValue(flagAutoMapping)
 			}
 			if flagList != "" {
-				params["List"] = fmt.Sprintf("%v", flagList)
+				params["List"] = formatCLIParamValue(flagList)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "exec-extension-mapping", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

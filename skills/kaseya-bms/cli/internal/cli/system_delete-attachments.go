@@ -28,7 +28,7 @@ func newSystemDeleteAttachmentsCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/system/attachments"
 			params := map[string]string{}
 			if flagAttachmentIds != "" {
-				params["attachmentIds"] = fmt.Sprintf("%v", flagAttachmentIds)
+				params["attachmentIds"] = formatCLIParamValue(flagAttachmentIds)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

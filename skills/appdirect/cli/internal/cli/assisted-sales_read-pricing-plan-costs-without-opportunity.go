@@ -18,8 +18,9 @@ func newAssistedSalesReadPricingPlanCostsWithoutOpportunityCmd(flags *rootFlags)
 	var flagCurrency string
 
 	cmd := &cobra.Command{
-		Use:         "read-pricing-plan-costs-without-opportunity",
-		Short:       "Read initial costs for a pricing plan of an opportunity item without specifying an opportunity.",
+		Use:   "read-pricing-plan-costs-without-opportunity",
+		Short: "Read initial costs for a pricing plan of an opportunity item without specifying an opportunity.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli assisted-sales read-pricing-plan-costs-without-opportunity --pricing-plan-id 550e8400-e29b-41d4-a716-446655440000 --owner-id 550e8400-e29b-41d4-a716-446655440000 --owner-company-id 550e8400-e29b-41d4-a716-446655440000 --currency example-value",
 		Annotations: map[string]string{"pp:endpoint": "assisted-sales.read-pricing-plan-costs-without-opportunity", "pp:method": "GET", "pp:path": "/assistedSales/v1/opportunities/pricingPlanCosts", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -49,16 +50,16 @@ func newAssistedSalesReadPricingPlanCostsWithoutOpportunityCmd(flags *rootFlags)
 			path := "/assistedSales/v1/opportunities/pricingPlanCosts"
 			params := map[string]string{}
 			if flagPricingPlanId != "" {
-				params["pricingPlanId"] = fmt.Sprintf("%v", flagPricingPlanId)
+				params["pricingPlanId"] = formatCLIParamValue(flagPricingPlanId)
 			}
 			if flagOwnerId != "" {
-				params["ownerId"] = fmt.Sprintf("%v", flagOwnerId)
+				params["ownerId"] = formatCLIParamValue(flagOwnerId)
 			}
 			if flagOwnerCompanyId != "" {
-				params["ownerCompanyId"] = fmt.Sprintf("%v", flagOwnerCompanyId)
+				params["ownerCompanyId"] = formatCLIParamValue(flagOwnerCompanyId)
 			}
 			if flagCurrency != "" {
-				params["currency"] = fmt.Sprintf("%v", flagCurrency)
+				params["currency"] = formatCLIParamValue(flagCurrency)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "assisted-sales", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

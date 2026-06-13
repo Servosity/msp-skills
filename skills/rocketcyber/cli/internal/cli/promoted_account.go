@@ -19,7 +19,7 @@ func newAccountPromotedCmd(flags *rootFlags) *cobra.Command {
 		Use:         "account",
 		Short:       "Get account information, including child customer accounts",
 		Long:        "Get account information, including child customer accounts",
-		Example:     "  rocketcyber-cli account",
+		Example:     "  rocketcyber-cli account --json",
 		Annotations: map[string]string{"pp:endpoint": "account.get", "pp:method": "GET", "pp:path": "/account", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()
@@ -30,10 +30,10 @@ func newAccountPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/account"
 			params := map[string]string{}
 			if flagAccountId != "" {
-				params["accountId"] = fmt.Sprintf("%v", flagAccountId)
+				params["accountId"] = formatCLIParamValue(flagAccountId)
 			}
 			if flagDetails != false {
-				params["details"] = fmt.Sprintf("%v", flagDetails)
+				params["details"] = formatCLIParamValue(flagDetails)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "account", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

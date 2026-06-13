@@ -14,9 +14,10 @@ import (
 func newVmRestorePromotedCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "vm-restore <serialNumber>",
-		Short:       "List VM restore sessions on a device",
-		Long:        "List VM restore sessions on a device",
+		Use:   "vm-restore <serialNumber>",
+		Short: "List VM restore sessions on a device",
+		Long:  "List VM restore sessions on a device",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  datto-bcdr-cli vm-restore example-value",
 		Annotations: map[string]string{"pp:endpoint": "vm-restore.list", "pp:method": "GET", "pp:path": "/bcdr/device/{serialNumber}/vm-restores", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

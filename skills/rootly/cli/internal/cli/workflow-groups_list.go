@@ -36,15 +36,15 @@ func newWorkflowGroupsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/workflow_groups"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "workflow-groups", path, map[string]string{
-				"include":          fmt.Sprintf("%v", flagInclude),
-				"page[number]":     fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":       fmt.Sprintf("%v", flagPageSize),
-				"filter[search]":   fmt.Sprintf("%v", flagFilterSearch),
-				"filter[name]":     fmt.Sprintf("%v", flagFilterName),
-				"filter[slug]":     fmt.Sprintf("%v", flagFilterSlug),
-				"filter[kind]":     fmt.Sprintf("%v", flagFilterKind),
-				"filter[expanded]": fmt.Sprintf("%v", flagFilterExpanded),
-				"filter[position]": fmt.Sprintf("%v", flagFilterPosition),
+				"include":          formatCLIParamValue(flagInclude),
+				"page[number]":     formatCLIParamValue(flagPageNumber),
+				"page[size]":       formatCLIParamValue(flagPageSize),
+				"filter[search]":   formatCLIParamValue(flagFilterSearch),
+				"filter[name]":     formatCLIParamValue(flagFilterName),
+				"filter[slug]":     formatCLIParamValue(flagFilterSlug),
+				"filter[kind]":     formatCLIParamValue(flagFilterKind),
+				"filter[expanded]": formatCLIParamValue(flagFilterExpanded),
+				"filter[position]": formatCLIParamValue(flagFilterPosition),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

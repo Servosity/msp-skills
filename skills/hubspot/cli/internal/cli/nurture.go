@@ -11,7 +11,7 @@ func newNovelNurtureCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "nurture",
-		Short:       "Daily 'who to contact' queues computed from synced data",
+		Short:       "nurture subcommands: queue",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

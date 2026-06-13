@@ -36,19 +36,19 @@ func newAssetsListByCompanyCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "company_id", args[0])
 			params := map[string]string{}
 			if flagAssetLayoutId != "" {
-				params["asset_layout_id"] = fmt.Sprintf("%v", flagAssetLayoutId)
+				params["asset_layout_id"] = formatCLIParamValue(flagAssetLayoutId)
 			}
 			if flagName != "" {
-				params["name"] = fmt.Sprintf("%v", flagName)
+				params["name"] = formatCLIParamValue(flagName)
 			}
 			if flagArchived != false {
-				params["archived"] = fmt.Sprintf("%v", flagArchived)
+				params["archived"] = formatCLIParamValue(flagArchived)
 			}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPageSize != 0 {
-				params["page_size"] = fmt.Sprintf("%v", flagPageSize)
+				params["page_size"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "assets", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

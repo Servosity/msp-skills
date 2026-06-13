@@ -33,10 +33,10 @@ func newFaqlistsGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagOrganisationId != "" {
-				params["organisation_id"] = fmt.Sprintf("%v", flagOrganisationId)
+				params["organisation_id"] = formatCLIParamValue(flagOrganisationId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "faqlists", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

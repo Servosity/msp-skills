@@ -16,7 +16,7 @@ func newContactsGetByNumberCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-by-number <ContactNumber>",
 		Short:       "Retrieves a specific contact by contact number in a Xero organisation",
-		Example:     "  xero-cli contacts get-by-number example-value",
+		Example:     "  xero-cli contacts get-by-number SB2",
 		Annotations: map[string]string{"pp:endpoint": "contacts.get-by-number", "pp:method": "GET", "pp:path": "/Contacts/{ContactNumber}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

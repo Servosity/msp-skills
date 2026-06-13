@@ -44,7 +44,7 @@ invoice (no invoices row references their ticket id).`,
 				}
 				cutoffDur = d
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := syncroOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w", err)
 			}

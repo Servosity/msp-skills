@@ -60,7 +60,7 @@ func newAppResellerResourceAccountV1UserApiPostPostCmd(flags *rootFlags) *cobra.
 			path := "/appReseller/v1/users"
 			params := map[string]string{}
 			if flagContext != "" {
-				params["context"] = fmt.Sprintf("%v", flagContext)
+				params["context"] = formatCLIParamValue(flagContext)
 			}
 			var body map[string]any
 			if stdinBody {

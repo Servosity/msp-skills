@@ -1,8 +1,8 @@
 {
   "manifest_version": "0.3",
-  "name": "pax8-pp-mcp",
+  "name": "pax8-mcp",
   "display_name": "Pax8",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces.",
   "author": {
     "name": "Servosity Inc."
@@ -10,12 +10,11 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/pax8-pp-mcp",
+    "entry_point": "bin/pax8-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/pax8-pp-mcp",
+      "command": "${__dirname}/bin/pax8-mcp",
       "args": [],
       "env": {
-        "PAX8_AUDIENCE": "${user_config.pax8_audience}",
         "PAX8_CLIENT_ID": "${user_config.pax8_client_id}",
         "PAX8_CLIENT_SECRET": "${user_config.pax8_client_secret}",
         "PAX8_OAUTH_SCOPE": "${user_config.pax8_oauth_scope}"
@@ -23,13 +22,6 @@
     }
   },
   "user_config": {
-    "pax8_audience": {
-      "type": "string",
-      "title": "PAX8_AUDIENCE",
-      "description": "Sets PAX8_AUDIENCE for the Pax8 MCP server. Required by the generated client for credential refresh or hand-written auth flow.",
-      "sensitive": true,
-      "required": true
-    },
     "pax8_client_id": {
       "type": "string",
       "title": "PAX8_CLIENT_ID",
@@ -60,10 +52,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T02:34:25.150653Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:06:22.520708Z",
     "spec_checksum": "sha256:eaa147c5030e5b1a49cc369d963c156708838cf78329f5661ed11f3737b0d1c6",
     "spec_format": "openapi3"
   }

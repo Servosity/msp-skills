@@ -11,32 +11,46 @@ metadata:
     requires:
       bins:
         - domotz-cli
+    install:
+      - kind: go
+        bins: [domotz-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/domotz/cmd/domotz-cli
 ---
 
-# Domotz Claude Code Skill
+# Domotz  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `domotz-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domotz/install.sh)
+   npx -y @mvanhorn/printing-press-library install domotz --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domotz/install.ps1 | iex
-   ```
-3. Verify: `domotz-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `domotz-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
 
-domotz-cli gives MSPs and AV integrators full command-line and agent access to Domotz Collectors, devices, variables, alerts, and network topology. It syncs your whole fleet into a local database so cross-site rollups  -  fleet health, every offline device, new-device detection, one unified inventory export  -  become single offline queries instead of agent-by-agent API sweeps.
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/domotz/cmd/domotz-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+
+domotz-cli gives MSPs and AV integrators full command-line and agent-native access to Domotz Collectors, devices, variables, alerts, and network topology. It syncs your whole fleet into a local database so cross-site rollups  -  fleet health, every offline device, new-device detection, one unified inventory export  -  become single offline queries instead of agent-by-agent API sweeps.
 
 ## When to Use This CLI
 
 Use domotz-cli when an agent or operator needs to query a fleet of Domotz-monitored networks from the terminal: checking which sites are down, finding every offline or newly-appeared device across all clients, exporting a unified asset inventory, or reading variables, alerts, and topology with structured JSON output. It is the right choice over raw API calls whenever the question spans more than one agent.
+
+## Anti-triggers
+
+Do not use this CLI for:
+- Do not use this CLI for non-Domotz monitoring stacks (PRTG, Zabbix, Datto RMM, NinjaOne)  -  it only talks to the Domotz Public API.
+- Do not use it for ticketing/PSA actions (creating tickets, billing)  -  pair it with a PSA tool instead.
+- Do not use it for ad-hoc network scans of arbitrary hosts; it reports what Domotz Collectors already monitor.
+- Do not use the fleet store-backed commands as a live source without a recent 'sync --full'  -  they read the local mirror.
 
 ## Unique Capabilities
 
@@ -280,16 +294,9 @@ domotz-cli topology --agent-id 12345 --cached --json
 
 Re-reads the last cached topology graph summary without re-hitting the API (fetch live first by running without --cached).
 
-## When NOT to Use
-
-- Non-Domotz monitoring stacks (PRTG, Zabbix, Datto RMM, NinjaOne)  -  this CLI only talks to the Domotz Public API.
-- Ticketing/PSA actions (creating tickets, billing)  -  pair it with a PSA tool instead.
-- Ad-hoc network scans of arbitrary hosts  -  it reports what Domotz Collectors already monitor.
-- Treating store-backed fleet commands as a live source  -  they read the local mirror; run `domotz-cli sync --full` first.
-
 ## Auth Setup
 
-Authenticate with an API key from the Domotz Portal (Settings > Services > API Keys). Set DOMOTZ_API_KEY (DOMOTZ_PUBLIC_API_KEY is also accepted as a fallback), and set your region/cell (shown beside the key, e.g. us-east-1-cell-1) via DOMOTZ_REGION so the CLI targets api-<region>.domotz.com.
+Authenticate with an API key from the Domotz Portal (Settings > API Key). Set DOMOTZ_API_KEY (DOMOTZ_PUBLIC_API_KEY is also accepted as a fallback), and set your region/cell (shown beside the key, e.g. us-east-1-cell-1) via DOMOTZ_REGION so the CLI targets api-<region>.domotz.com.
 
 Run `domotz-cli doctor` to verify setup.
 
@@ -383,13 +390,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `domotz-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add domotz-mcp -- domotz-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/domotz/cmd/domotz-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add domotz-mcp -- domotz-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

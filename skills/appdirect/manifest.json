@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "appdirect-mcp",
   "display_name": "AppDirect",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.",
   "author": {
     "name": "Servosity Inc."
@@ -39,9 +39,9 @@
     "appdirect_oauth_scope": {
       "type": "string",
       "title": "APPDIRECT_OAUTH_SCOPE",
-      "description": "Optional. Overrides the OAuth2 client_credentials scope sent to AppDirect (default: ROLE_PARTNER ROLE_PARTNER_READ). Leave blank unless your partner account needs a different scope.",
-      "sensitive": false,
-      "required": false
+      "description": "Sets APPDIRECT_OAUTH_SCOPE for the AppDirect MCP server. Required by the generated client for credential refresh or hand-written auth flow.",
+      "sensitive": true,
+      "required": true
     }
   },
   "compatibility": {
@@ -52,10 +52,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-07T13:49:42.13081Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:32:08.614655Z",
     "spec_checksum": "sha256:21a82c3829a501ee3520a2f502bf693bbb585b509c9edd96f0af2726930f880b",
     "spec_format": "openapi3"
   }

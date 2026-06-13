@@ -35,14 +35,14 @@ func newQueriesGetPendingFailedRejectedSoftwarePatchesCmd(flags *rootFlags) *cob
 
 			path := "/v2/queries/software-patches"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "queries", path, map[string]string{
-				"df":                fmt.Sprintf("%v", flagDf),
-				"ts":                fmt.Sprintf("%v", flagTs),
-				"status":            fmt.Sprintf("%v", flagStatus),
-				"productIdentifier": fmt.Sprintf("%v", flagProductIdentifier),
-				"type":              fmt.Sprintf("%v", flagType),
-				"impact":            fmt.Sprintf("%v", flagImpact),
-				"cursor":            fmt.Sprintf("%v", flagCursor),
-				"pageSize":          fmt.Sprintf("%v", flagPageSize),
+				"df":                formatCLIParamValue(flagDf),
+				"ts":                formatCLIParamValue(flagTs),
+				"status":            formatCLIParamValue(flagStatus),
+				"productIdentifier": formatCLIParamValue(flagProductIdentifier),
+				"type":              formatCLIParamValue(flagType),
+				"impact":            formatCLIParamValue(flagImpact),
+				"cursor":            formatCLIParamValue(flagCursor),
+				"pageSize":          formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "cursor", "cursor", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "action1-mcp",
   "display_name": "Action1",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
   "author": {
     "name": "Servosity Inc."
@@ -49,10 +49,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T22:13:28.99066Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T04:16:11.509925Z",
     "spec_checksum": null,
     "spec_format": null
   }

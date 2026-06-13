@@ -16,8 +16,9 @@ func newOpportunityPublicWinCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "public-win <externalIdentifier>",
-		Short:       "Win by ext ID",
+		Use:   "public-win <externalIdentifier>",
+		Short: "Win by ext ID",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  salesbuildr-cli opportunity public-win example-value",
 		Annotations: map[string]string{"pp:endpoint": "opportunity.public-win", "pp:method": "POST", "pp:path": "/opportunity/ext/{externalIdentifier}/win"},
 		RunE: func(cmd *cobra.Command, args []string) error {

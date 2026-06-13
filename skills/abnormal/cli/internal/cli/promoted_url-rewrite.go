@@ -34,12 +34,12 @@ func newUrlRewritePromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/url-rewrite/clicked-events"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "url-rewrite", path, map[string]string{
-				"limit":      fmt.Sprintf("%v", flagLimit),
-				"start":      fmt.Sprintf("%v", flagStart),
-				"end":        fmt.Sprintf("%v", flagEnd),
-				"recipient":  fmt.Sprintf("%v", flagRecipient),
-				"event_type": fmt.Sprintf("%v", flagEventType),
-				"offset":     fmt.Sprintf("%v", flagOffset),
+				"limit":      formatCLIParamValue(flagLimit),
+				"start":      formatCLIParamValue(flagStart),
+				"end":        formatCLIParamValue(flagEnd),
+				"recipient":  formatCLIParamValue(flagRecipient),
+				"event_type": formatCLIParamValue(flagEventType),
+				"offset":     formatCLIParamValue(flagOffset),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

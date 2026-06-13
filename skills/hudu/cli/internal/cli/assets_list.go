@@ -37,34 +37,34 @@ func newAssetsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/assets"
 			params := map[string]string{}
 			if flagCompanyId != "" {
-				params["company_id"] = fmt.Sprintf("%v", flagCompanyId)
+				params["company_id"] = formatCLIParamValue(flagCompanyId)
 			}
 			if flagAssetLayoutId != "" {
-				params["asset_layout_id"] = fmt.Sprintf("%v", flagAssetLayoutId)
+				params["asset_layout_id"] = formatCLIParamValue(flagAssetLayoutId)
 			}
 			if flagName != "" {
-				params["name"] = fmt.Sprintf("%v", flagName)
+				params["name"] = formatCLIParamValue(flagName)
 			}
 			if flagPrimarySerial != "" {
-				params["primary_serial"] = fmt.Sprintf("%v", flagPrimarySerial)
+				params["primary_serial"] = formatCLIParamValue(flagPrimarySerial)
 			}
 			if flagArchived != false {
-				params["archived"] = fmt.Sprintf("%v", flagArchived)
+				params["archived"] = formatCLIParamValue(flagArchived)
 			}
 			if flagSlug != "" {
-				params["slug"] = fmt.Sprintf("%v", flagSlug)
+				params["slug"] = formatCLIParamValue(flagSlug)
 			}
 			if flagSearch != "" {
-				params["search"] = fmt.Sprintf("%v", flagSearch)
+				params["search"] = formatCLIParamValue(flagSearch)
 			}
 			if flagUpdatedAt != "" {
-				params["updated_at"] = fmt.Sprintf("%v", flagUpdatedAt)
+				params["updated_at"] = formatCLIParamValue(flagUpdatedAt)
 			}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPageSize != 0 {
-				params["page_size"] = fmt.Sprintf("%v", flagPageSize)
+				params["page_size"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "assets", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

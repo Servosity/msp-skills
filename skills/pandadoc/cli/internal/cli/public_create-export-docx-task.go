@@ -18,7 +18,7 @@ func newPublicCreateExportDocxTaskCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-export-docx-task <document_id>",
 		Short:       "> ⏱️ Export as DOCX is a non-blocking (asynchronous) operation > The document generation process may take some time.",
-		Example:     "  pandadoc-cli public create-export-docx-task 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli public create-export-docx-task BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "public.create-export-docx-task", "pp:method": "POST", "pp:path": "/public/beta/documents/{document_id}/docx-export-tasks"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

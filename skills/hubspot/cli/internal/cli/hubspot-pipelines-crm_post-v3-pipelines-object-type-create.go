@@ -20,8 +20,9 @@ func newHubspotPipelinesCrmPostV3PipelinesObjectTypeCreateCmd(flags *rootFlags) 
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-v3-pipelines-object-type-create <objectType>",
-		Short:       "Create a new pipeline with the provided property values.",
+		Use:   "post-v3-pipelines-object-type-create <objectType>",
+		Short: "Create a new pipeline with the provided property values.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-pipelines-crm post-v3-pipelines-object-type-create example-value --label example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-pipelines-crm.post-v3-pipelines-object-type-create", "pp:method": "POST", "pp:path": "/crm/v3/pipelines/{objectType}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

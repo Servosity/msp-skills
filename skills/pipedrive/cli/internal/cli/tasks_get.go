@@ -34,12 +34,12 @@ func newTasksGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/tasks"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "tasks", path, map[string]string{
-				"cursor":         fmt.Sprintf("%v", flagCursor),
-				"limit":          fmt.Sprintf("%v", flagLimit),
-				"assignee_id":    fmt.Sprintf("%v", flagAssigneeId),
-				"project_id":     fmt.Sprintf("%v", flagProjectId),
-				"parent_task_id": fmt.Sprintf("%v", flagParentTaskId),
-				"done":           fmt.Sprintf("%v", flagDone),
+				"cursor":         formatCLIParamValue(flagCursor),
+				"limit":          formatCLIParamValue(flagLimit),
+				"assignee_id":    formatCLIParamValue(flagAssigneeId),
+				"project_id":     formatCLIParamValue(flagProjectId),
+				"parent_task_id": formatCLIParamValue(flagParentTaskId),
+				"done":           formatCLIParamValue(flagDone),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

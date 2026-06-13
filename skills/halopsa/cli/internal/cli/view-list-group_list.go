@@ -28,7 +28,7 @@ func newViewListGroupListCmd(flags *rootFlags) *cobra.Command {
 			path := "/ViewListGroup"
 			params := map[string]string{}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "view-list-group", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

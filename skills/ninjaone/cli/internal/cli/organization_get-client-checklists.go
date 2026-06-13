@@ -35,25 +35,25 @@ func newOrganizationGetClientChecklistsCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/organization/checklists"
 			params := map[string]string{}
 			if flagChecklistIds != "" {
-				params["checklistIds"] = fmt.Sprintf("%v", flagChecklistIds)
+				params["checklistIds"] = formatCLIParamValue(flagChecklistIds)
 			}
 			if flagOrganizationIds != "" {
-				params["organizationIds"] = fmt.Sprintf("%v", flagOrganizationIds)
+				params["organizationIds"] = formatCLIParamValue(flagOrganizationIds)
 			}
 			if flagChecklistName != "" {
-				params["checklistName"] = fmt.Sprintf("%v", flagChecklistName)
+				params["checklistName"] = formatCLIParamValue(flagChecklistName)
 			}
 			if flagAssignedToUserId != "" {
-				params["assignedToUserId"] = fmt.Sprintf("%v", flagAssignedToUserId)
+				params["assignedToUserId"] = formatCLIParamValue(flagAssignedToUserId)
 			}
 			if flagCompleted != false {
-				params["completed"] = fmt.Sprintf("%v", flagCompleted)
+				params["completed"] = formatCLIParamValue(flagCompleted)
 			}
 			if flagRequired != false {
-				params["required"] = fmt.Sprintf("%v", flagRequired)
+				params["required"] = formatCLIParamValue(flagRequired)
 			}
 			if flagIncludeArchived != false {
-				params["includeArchived"] = fmt.Sprintf("%v", flagIncludeArchived)
+				params["includeArchived"] = formatCLIParamValue(flagIncludeArchived)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "organization", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

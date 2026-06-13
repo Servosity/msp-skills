@@ -1,7 +1,7 @@
 {
   "name": "pandadoc",
-  "version": "0.1.0",
-  "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has  -  stalled deals, aging, recipient engagement, and open quote value from a local store.",
+  "version": "0.1.1",
+  "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has \u2014 stalled deals, aging, recipient engagement, and open quote value from a local store.",
   "author": {
     "name": "Servosity",
     "url": "https://www.servosity.com"

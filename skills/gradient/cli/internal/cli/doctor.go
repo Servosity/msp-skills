@@ -173,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export GRADIENT_TOKEN=<your-key>"
+					report["auth_hint"] = "Set your API key with: export GRADIENT_TOKEN=\"your-token-here\""
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"

@@ -30,6 +30,13 @@ var As = errors.As
 
 const paginatedGetMaxPages = 100
 
+func formatCLIParamValue(v any) string {
+	if f, ok := v.(float64); ok {
+		return strconv.FormatFloat(f, 'f', -1, 64)
+	}
+	return fmt.Sprintf("%v", v)
+}
+
 // noColor is set by the --no-color flag
 var noColor bool
 
@@ -201,6 +208,17 @@ func detectPartialFailure(data []byte) *partialFailureReport {
 // See SKILL.md "Phase 3: Build The GOAT" for the full pattern.
 func dryRunOK(flags *rootFlags) bool {
 	return flags != nil && flags.dryRun
+}
+
+// boundCtx applies the root --timeout flag to hand-written command work that
+// does not go through the generated internal/client.Client. Generated endpoint
+// commands already pass flags.timeout into client.New; sibling typed clients
+// used by novel commands need an explicit command-level context boundary.
+func boundCtx(parent context.Context, flags *rootFlags) (context.Context, context.CancelFunc) {
+	if flags == nil || flags.timeout <= 0 {
+		return parent, func() {}
+	}
+	return context.WithTimeout(parent, flags.timeout)
 }
 
 // parentNoSubcommandRunE returns a RunE that handles parents invoked without a
@@ -449,6 +467,30 @@ func looksLikeAccessDenial(body string) bool {
 	return false
 }
 
+// argumentMissingPatterns matches API error bodies that indicate the endpoint
+// requires a filter or identifier the vendor spec did not mark as required.
+// Each pattern keeps the missing/required/not-provided signal adjacent to an
+// argument noun so an unrelated 400 (e.g. "required field 'email' format is
+// invalid and the avatar is missing", "no results were provided") is not
+// demoted from a hard failure to a warning.
+var argumentMissingPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`\bargument(?:\s+is)?\s+missing\b`),
+	regexp.MustCompile(`\bmissing\s+(?:a\s+|an\s+|the\s+)?(?:required\s+)?(?:argument|parameter|param|field|filter|identifier|id)\b`),
+	regexp.MustCompile(`\brequired\s+(?:argument|parameter|param|filter|identifier|id)\b[^.\n]*\b(?:is\s+)?(?:missing|not\s+provided|not\s+supplied)\b`),
+	regexp.MustCompile(`\b(?:argument|parameter|param|filter)\s+(?:is\s+)?required\b`),
+	regexp.MustCompile(`\bno\s+(?:argument|parameter|param|filter|identifier|id)\b[^.\n]*\bprovided\b`),
+}
+
+func looksLikeArgumentMissing(body string) bool {
+	lower := strings.ToLower(body)
+	for _, p := range argumentMissingPatterns {
+		if p.MatchString(lower) {
+			return true
+		}
+	}
+	return false
+}
+
 // isSyncAccessWarning classifies err as an access-denial warning suitable for
 // sync's warn-and-continue path. It returns nil, false for any error that
 // should remain a hard sync failure: HTTP 401 (token-level auth failure
@@ -458,6 +500,7 @@ func looksLikeAccessDenial(body string) bool {
 // Recognized warning shapes:
 //   - HTTP 403 (per-resource ACL rejection)
 //   - HTTP 400 + access-denial body keyword (insufficient scope, etc.)
+//   - HTTP 400 + missing required argument body keyword
 //   - GraphQL response carrying only access-denial extension codes
 func isSyncAccessWarning(err error) (*accessWarning, bool) {
 	if err == nil {
@@ -472,6 +515,9 @@ func isSyncAccessWarning(err error) (*accessWarning, bool) {
 		case 400:
 			if looksLikeAccessDenial(apiErr.Body) {
 				return &accessWarning{Status: 400, Reason: "insufficient_access", Message: apiErr.Body}, true
+			}
+			if looksLikeArgumentMissing(apiErr.Body) {
+				return &accessWarning{Status: 400, Reason: "argument_missing", Message: apiErr.Body}, true
 			}
 		}
 	}
@@ -522,19 +568,19 @@ func classifyAPIError(err error, flags *rootFlags) error {
 		return authErr(err)
 	case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 		return authErr(fmt.Errorf("%w\nhint: the API rejected the request — this usually means auth is missing or invalid."+
-			"\n      Set your API key: export PAGERDUTY_API_KEY=<your-key>"+
+			"\n      Set your API key with: export PAGERDUTY_API_KEY=\"your-token-here\""+
 			"\n      See API docs: http://www.pagerduty.com/support"+
 			"\n      Run 'pagerduty-cli doctor' to check auth status."+
 			"\n      Response: "+cliutil.SanitizeErrorBody(msg), err))
 	case strings.Contains(msg, "HTTP 401"):
 		return authErr(fmt.Errorf("%w\nhint: check your API key."+
-			" Set it with: export PAGERDUTY_API_KEY=<your-key>"+
+			" Set your API key with: export PAGERDUTY_API_KEY=\"your-token-here\""+
 			"\n      See API docs: http://www.pagerduty.com/support"+
 			"\n      Run 'pagerduty-cli doctor' to check auth status.", err))
 	case strings.Contains(msg, "HTTP 403"):
 		return authErr(fmt.Errorf("%w\nhint: permission denied. Your credentials are valid but lack access to this resource."+
-			"\n      Check that your API key has the required permissions."+
-			"\n      Set it with: export PAGERDUTY_API_KEY=<your-key>"+
+			"\n      Check that your credentials have the required permissions and match the API's expected auth scheme."+
+			"\n      Set your API key with: export PAGERDUTY_API_KEY=\"your-token-here\""+
 			"\n      See API docs: http://www.pagerduty.com/support"+
 			"\n      Run 'pagerduty-cli doctor' to check auth status.", err))
 	case strings.Contains(msg, "HTTP 404"):
@@ -623,12 +669,22 @@ func paginatedGet(ctx context.Context, c interface {
 		var items []json.RawMessage
 		if json.Unmarshal(data, &items) == nil {
 			allItems = append(allItems, items...)
+			if next, ok := nextFullPageOffsetCursor(clean, cursorParam, paginationType, limitParam, len(items)); ok {
+				if page >= paginatedGetMaxPages {
+					emitPaginatedGetMaxPagesWarning()
+					break
+				}
+				clean[cursorParam] = next
+				continue
+			}
 		} else {
 			// Response is an object - look for array inside
 			var obj map[string]json.RawMessage
 			if json.Unmarshal(data, &obj) == nil {
+				itemCount := 0
 				if nested, ok := extractPaginatedItems(obj); ok {
 					allItems = append(allItems, nested...)
+					itemCount = len(nested)
 				}
 
 				// Check for next cursor
@@ -647,21 +703,35 @@ func paginatedGet(ctx context.Context, c interface {
 
 				// Check has_more. Page and offset paginators can advance
 				// client-side; cursor-based APIs still need a body cursor.
+				hasExplicitNoMore := false
 				if hasMoreField != "" {
 					if moreRaw, ok := rawAtPath(obj, hasMoreField); ok {
 						var more bool
-						if json.Unmarshal(moreRaw, &more) == nil && more {
-							if next, ok := nextClientSidePaginationCursor(clean, cursorParam, paginationType, limitParam); ok {
-								if page >= paginatedGetMaxPages {
-									emitPaginatedGetMaxPagesWarning()
-									break
+						if json.Unmarshal(moreRaw, &more) == nil {
+							if more {
+								if next, ok := nextClientSidePaginationCursor(clean, cursorParam, paginationType, limitParam); ok {
+									if page >= paginatedGetMaxPages {
+										emitPaginatedGetMaxPagesWarning()
+										break
+									}
+									clean[cursorParam] = next
+									continue
 								}
-								clean[cursorParam] = next
-								continue
+								emitMissingPaginationCursorWarning(nextCursorPath)
+								break
 							}
-							emitMissingPaginationCursorWarning(nextCursorPath)
+							hasExplicitNoMore = true
+						}
+					}
+				}
+				if !hasExplicitNoMore {
+					if next, ok := nextFullPageOffsetCursor(clean, cursorParam, paginationType, limitParam, itemCount); ok {
+						if page >= paginatedGetMaxPages {
+							emitPaginatedGetMaxPagesWarning()
 							break
 						}
+						clean[cursorParam] = next
+						continue
 					}
 				}
 			}
@@ -683,6 +753,17 @@ func paginatedGet(ctx context.Context, c interface {
 	}
 	result, _ := json.Marshal(allItems)
 	return json.RawMessage(result), nil
+}
+
+func nextFullPageOffsetCursor(params map[string]string, cursorParam, paginationType, limitParam string, itemCount int) (string, bool) {
+	if paginationType != "offset" || itemCount == 0 {
+		return "", false
+	}
+	limit, err := strconv.Atoi(params[limitParam])
+	if err != nil || limit <= 0 || itemCount < limit {
+		return "", false
+	}
+	return nextClientSidePaginationCursor(params, cursorParam, paginationType, limitParam)
 }
 
 func nextClientSidePaginationCursor(params map[string]string, cursorParam, paginationType, limitParam string) (string, bool) {
@@ -1057,10 +1138,11 @@ func compactFields(data json.RawMessage) json.RawMessage {
 // Two-layer keep rule:
 //
 //  1. A static allow-list covers canonical scalars (id/name/price/status/...).
-//  2. A data-driven extension also keeps any scalar key present in at least
-//     80% of input rows. This catches hand-written novel commands whose
-//     output keys (object_name, match_key, snippet) aren't on the canonical
-//     allow-list, without forcing every printed CLI to expand the list.
+//  2. A data-driven extension also keeps any key present in at least 80% of
+//     input rows. This catches hand-written novel commands whose payload keys
+//     (object_name, match_key, snippet, series, metrics) aren't on the
+//     canonical allow-list, without forcing every printed CLI to expand the
+//     list.
 //
 // Verbose fields (description, body, content, etc.) are excluded from the
 // data-driven extension regardless of frequency, so the compact intent
@@ -1096,8 +1178,8 @@ func compactListFields(items []map[string]any) json.RawMessage {
 	if len(items) > 0 {
 		keyCounts := map[string]int{}
 		for _, item := range items {
-			for k, v := range item {
-				if compactVerboseListFields[k] || !isCompactScalar(v) {
+			for k := range item {
+				if compactVerboseListFields[k] {
 					continue
 				}
 				keyCounts[k]++
@@ -1137,10 +1219,9 @@ func compactListFields(items []map[string]any) json.RawMessage {
 }
 
 // isCompactScalar reports whether v is a small primitive (string, number,
-// bool, null) suitable for --compact projection. Objects and arrays are
-// rejected: they almost always represent nested structure that defeats the
-// "short identifying value" intent of --compact, and including them in the
-// data-driven keep set would bloat agent output.
+// bool, null) suitable for compact table decisions. Compact list projection
+// may still retain frequent nested payload fields; this helper is about
+// display density, not whether a field carries agent-useful payload.
 func isCompactScalar(v any) bool {
 	switch v.(type) {
 	case nil, bool, float64, string:

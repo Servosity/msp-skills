@@ -67,12 +67,12 @@ func newEndpointsManagedIdMissingUpdatesCmd(flags *rootFlags) *cobra.Command {
 			}
 			path = replacePathParam(path, "endpointId", args[1])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "endpoints", path, map[string]string{
-				"limit":             fmt.Sprintf("%v", flagLimit),
-				"from":              fmt.Sprintf("%v", flagFrom),
-				"sortby":            fmt.Sprintf("%v", flagSortby),
-				"filter":            fmt.Sprintf("%v", flagFilter),
-				"approval_status":   fmt.Sprintf("%v", flagApprovalStatus),
-				"security_severity": fmt.Sprintf("%v", flagSecuritySeverity),
+				"limit":             formatCLIParamValue(flagLimit),
+				"from":              formatCLIParamValue(flagFrom),
+				"sortby":            formatCLIParamValue(flagSortby),
+				"filter":            formatCLIParamValue(flagFilter),
+				"approval_status":   formatCLIParamValue(flagApprovalStatus),
+				"security_severity": formatCLIParamValue(flagSecuritySeverity),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -31,16 +31,16 @@ func newServicedeskGetTimeLoggedByTechnicianCmd(flags *rootFlags) *cobra.Command
 			path := "/v2/servicedesk/dashboard/timebytechnician"
 			params := map[string]string{}
 			if flagStartDate != "" {
-				params["StartDate"] = fmt.Sprintf("%v", flagStartDate)
+				params["StartDate"] = formatCLIParamValue(flagStartDate)
 			}
 			if flagEndDate != "" {
-				params["EndDate"] = fmt.Sprintf("%v", flagEndDate)
+				params["EndDate"] = formatCLIParamValue(flagEndDate)
 			}
 			if flagSelectedUsersIds != "" {
-				params["SelectedUsersIds"] = fmt.Sprintf("%v", flagSelectedUsersIds)
+				params["SelectedUsersIds"] = formatCLIParamValue(flagSelectedUsersIds)
 			}
 			if flagTopPerformersCount != 0 {
-				params["TopPerformersCount"] = fmt.Sprintf("%v", flagTopPerformersCount)
+				params["TopPerformersCount"] = formatCLIParamValue(flagTopPerformersCount)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "servicedesk", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

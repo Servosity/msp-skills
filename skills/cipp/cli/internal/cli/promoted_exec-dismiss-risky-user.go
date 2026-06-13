@@ -20,9 +20,10 @@ func newExecDismissRiskyUserPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUserId2 string
 
 	cmd := &cobra.Command{
-		Use:         "exec-dismiss-risky-user",
-		Short:       "Exec dismiss risky user",
-		Long:        "Exec dismiss risky user",
+		Use:   "exec-dismiss-risky-user",
+		Short: "Exec dismiss risky user",
+		Long:  "Exec dismiss risky user",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-dismiss-risky-user --tenant-filter example-value --tenant-filter-2 example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-dismiss-risky-user.create", "pp:method": "POST", "pp:path": "/ExecDismissRiskyUser"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -47,13 +48,13 @@ func newExecDismissRiskyUserPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecDismissRiskyUser"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			if flagUserDisplayName != "" {
-				params["userDisplayName"] = fmt.Sprintf("%v", flagUserDisplayName)
+				params["userDisplayName"] = formatCLIParamValue(flagUserDisplayName)
 			}
 			if flagUserId != "" {
-				params["userId"] = fmt.Sprintf("%v", flagUserId)
+				params["userId"] = formatCLIParamValue(flagUserId)
 			}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -71,10 +72,10 @@ func newExecDismissRiskyUserPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

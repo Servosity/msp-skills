@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Cove Data Protection MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "The first CLI and MCP server for Cove Data Protection: fleet-wide backup health, billing usage, and storage trends from your terminal, with the local history the vendor console doesn't keep."
+description: "The first CLI and MCP server for Cove Data Protection \u2014 fleet-wide backup health, billing usage, and storage trends from a terminal, with the local history the vendor console doesn't keep."
 permalink: /skills/cove/
 skill_name: "Cove Data Protection MCP"
 image: /assets/social/cove/wide-1200x630.png

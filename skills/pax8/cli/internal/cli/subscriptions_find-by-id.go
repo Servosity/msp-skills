@@ -17,7 +17,7 @@ func newSubscriptionsFindByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "find-by-id <subscriptionId>",
 		Aliases:     []string{"get"},
 		Short:       "Returns the Subscription record specified by the subscriptionId",
-		Example:     "  pax8-cli subscriptions find-by-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pax8-cli subscriptions find-by-id 04814f37-bef0-48b7-b388-c04a1e31f889",
 		Annotations: map[string]string{"pp:endpoint": "subscriptions.find-by-id", "pp:method": "GET", "pp:path": "/subscriptions/{subscriptionId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

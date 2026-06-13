@@ -107,14 +107,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		{
 			Name:        "DOMOTZ_API_KEY",
 			Kind:        "per_call",
-			Required:    false,
-			Sensitive:   true,
-			Description: "Set to your API credential.",
-		},
-		{
-			Name:        "DOMOTZ_PUBLIC_API_KEY",
-			Kind:        "per_call",
-			Required:    false,
+			Required:    true,
 			Sensitive:   true,
 			Description: "Set to your API credential.",
 		},

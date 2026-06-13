@@ -17,9 +17,10 @@ func newExecModifyCalPermsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUserID string
 
 	cmd := &cobra.Command{
-		Use:         "exec-modify-cal-perms",
-		Short:       "Exec modify cal perms",
-		Long:        "Exec modify cal perms",
+		Use:   "exec-modify-cal-perms",
+		Short: "Exec modify cal perms",
+		Long:  "Exec modify cal perms",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-modify-cal-perms --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-modify-cal-perms.create", "pp:method": "POST", "pp:path": "/ExecModifyCalPerms"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -56,10 +57,10 @@ func newExecModifyCalPermsPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Abnormal Security MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "The full Abnormal Security REST API in your terminal and your agents - with a local threat store, ranked SOC triage, blocking remediation, and one-shot client reporting."
+description: "The full Abnormal Security REST API as an agent-ready CLI \u2014 with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers."
 permalink: /skills/abnormal/
 skill_name: "Abnormal Security MCP"
 image: /assets/social/abnormal/wide-1200x630.png

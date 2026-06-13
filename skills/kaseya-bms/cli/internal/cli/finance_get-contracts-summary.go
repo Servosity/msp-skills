@@ -36,15 +36,15 @@ func newFinanceGetContractsSummaryCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/finance/contracts/summary"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "finance", path, map[string]string{
-				"Filter.ContractType": fmt.Sprintf("%v", flagFilterContractType),
-				"Filter.ContractName": fmt.Sprintf("%v", flagFilterContractName),
-				"Filter.BillingCycle": fmt.Sprintf("%v", flagFilterBillingCycle),
-				"Filter.AccountName":  fmt.Sprintf("%v", flagFilterAccountName),
-				"Filter.Status":       fmt.Sprintf("%v", flagFilterStatus),
-				"Sort":                fmt.Sprintf("%v", flagSort),
-				"Exclude":             fmt.Sprintf("%v", flagExclude),
-				"PageSize":            fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":          fmt.Sprintf("%v", flagPageNumber),
+				"Filter.ContractType": formatCLIParamValue(flagFilterContractType),
+				"Filter.ContractName": formatCLIParamValue(flagFilterContractName),
+				"Filter.BillingCycle": formatCLIParamValue(flagFilterBillingCycle),
+				"Filter.AccountName":  formatCLIParamValue(flagFilterAccountName),
+				"Filter.Status":       formatCLIParamValue(flagFilterStatus),
+				"Sort":                formatCLIParamValue(flagSort),
+				"Exclude":             formatCLIParamValue(flagExclude),
+				"PageSize":            formatCLIParamValue(flagPageSize),
+				"PageNumber":          formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

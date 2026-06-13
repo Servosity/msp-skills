@@ -17,9 +17,10 @@ func newExecSetMailboxLocalePromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUser string
 
 	cmd := &cobra.Command{
-		Use:         "exec-set-mailbox-locale",
-		Short:       "Exec set mailbox locale",
-		Long:        "Exec set mailbox locale",
+		Use:   "exec-set-mailbox-locale",
+		Short: "Exec set mailbox locale",
+		Long:  "Exec set mailbox locale",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-set-mailbox-locale --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-set-mailbox-locale.create", "pp:method": "POST", "pp:path": "/ExecSetMailboxLocale"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -56,10 +57,10 @@ func newExecSetMailboxLocalePromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

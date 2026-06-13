@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "huntress-mcp",
   "display_name": "Huntress",
-  "version": "0.1.0",
-  "description": "Every Huntress endpoint, plus a local SQLite mirror that delivers fleet-wide incident, coverage, and billing rollups the API and official MCP can't.",
+  "version": "0.1.1",
+  "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
   "author": {
     "name": "Servosity Inc."
   },
@@ -44,10 +44,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T12:49:15.359235Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T03:45:09.770139Z",
     "spec_checksum": "sha256:cab57b837bbb529e6f9b1357ab6c27b78a1b5e7f800883bd9f7faea17dbc2c31",
     "spec_format": "openapi3"
   }

@@ -20,7 +20,7 @@ func newWorkspacesApiKeysCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <workspace_id>",
 		Short:       "Generate a new API key for the workspace. Check out [API Key Authentication article](https://developers.pandadoc.",
-		Example:     "  pandadoc-cli workspaces api-keys create 550e8400-e29b-41d4-a716-446655440000 --type production",
+		Example:     "  pandadoc-cli workspaces api-keys create BhVzRcxH9Z2LgfPPGXFUBa --type sandbox",
 		Annotations: map[string]string{"pp:endpoint": "api-keys.create", "pp:method": "POST", "pp:path": "/workspaces/{workspace_id}/api-keys"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

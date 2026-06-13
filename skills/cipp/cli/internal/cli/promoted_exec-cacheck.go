@@ -31,9 +31,10 @@ func newExecCacheckPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUserID string
 
 	cmd := &cobra.Command{
-		Use:         "exec-cacheck",
-		Short:       "Exec cacheck",
-		Long:        "Exec cacheck",
+		Use:   "exec-cacheck",
+		Short: "Exec cacheck",
+		Long:  "Exec cacheck",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-cacheck --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-cacheck.create", "pp:method": "POST", "pp:path": "/ExecCACheck"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -154,10 +155,10 @@ func newExecCacheckPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

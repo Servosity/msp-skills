@@ -36,15 +36,15 @@ func newQueriesGetInstalledSoftwarePatchesCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/queries/software-patch-installs"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "queries", path, map[string]string{
-				"df":                fmt.Sprintf("%v", flagDf),
-				"type":              fmt.Sprintf("%v", flagType),
-				"impact":            fmt.Sprintf("%v", flagImpact),
-				"status":            fmt.Sprintf("%v", flagStatus),
-				"productIdentifier": fmt.Sprintf("%v", flagProductIdentifier),
-				"installedBefore":   fmt.Sprintf("%v", flagInstalledBefore),
-				"installedAfter":    fmt.Sprintf("%v", flagInstalledAfter),
-				"cursor":            fmt.Sprintf("%v", flagCursor),
-				"pageSize":          fmt.Sprintf("%v", flagPageSize),
+				"df":                formatCLIParamValue(flagDf),
+				"type":              formatCLIParamValue(flagType),
+				"impact":            formatCLIParamValue(flagImpact),
+				"status":            formatCLIParamValue(flagStatus),
+				"productIdentifier": formatCLIParamValue(flagProductIdentifier),
+				"installedBefore":   formatCLIParamValue(flagInstalledBefore),
+				"installedAfter":    formatCLIParamValue(flagInstalledAfter),
+				"cursor":            formatCLIParamValue(flagCursor),
+				"pageSize":          formatCLIParamValue(flagPageSize),
 			}, nil, flagAll, "cursor", "cursor", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

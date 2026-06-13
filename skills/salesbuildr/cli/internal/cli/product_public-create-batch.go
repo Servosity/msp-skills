@@ -42,7 +42,7 @@ func newProductPublicCreateBatchCmd(flags *rootFlags) *cobra.Command {
 			path := "/product/batch"
 			params := map[string]string{}
 			if flagEnrich != false {
-				params["enrich"] = fmt.Sprintf("%v", flagEnrich)
+				params["enrich"] = formatCLIParamValue(flagEnrich)
 			}
 			var body map[string]any
 			if stdinBody {

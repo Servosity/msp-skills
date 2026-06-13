@@ -16,7 +16,7 @@ func newDocumentsSectionsListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list <document_id>",
 		Short:       "Retrieve information about the sections within a document.",
-		Example:     "  pandadoc-cli documents sections list 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents sections list BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "sections.list", "pp:method": "GET", "pp:path": "/documents/{document_id}/sections", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

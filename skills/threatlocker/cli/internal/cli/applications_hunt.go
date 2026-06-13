@@ -184,7 +184,7 @@ Sync first: threatlocker-cli sync --resources approvals,application-files,applic
 			if dbPath == "" {
 				dbPath = defaultDBPath("threatlocker-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := tlOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'threatlocker-cli sync --resources approvals,application-files,applications' first.", err)
 			}

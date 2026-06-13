@@ -18,9 +18,10 @@ func newExecPerUserMfaPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyUserPrincipalName string
 
 	cmd := &cobra.Command{
-		Use:         "exec-per-user-mfa",
-		Short:       "Exec per user mfa",
-		Long:        "Exec per user mfa",
+		Use:   "exec-per-user-mfa",
+		Short: "Exec per user mfa",
+		Long:  "Exec per user mfa",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-per-user-mfa --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-per-user-mfa.create", "pp:method": "POST", "pp:path": "/ExecPerUserMFA"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -60,10 +61,10 @@ func newExecPerUserMfaPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

@@ -610,3 +610,41 @@ func resolveLocal(ctx context.Context, flags *rootFlags, hintWriter io.Writer, r
 
 // Ensure time import is used (compilation guard).
 var _ = time.Now
+
+func halopsaOpenStoreSchemaAware(ctx context.Context, dbPath string) (*store.Store, error) {
+	var lastErr error
+	for attempt := 0; attempt < 8; attempt++ {
+		if st, ok := halopsaTryReadOnlyMigrated(dbPath); ok {
+			return st, nil
+		}
+		st, err := store.OpenWithContext(ctx, dbPath)
+		if err == nil {
+			return st, nil
+		}
+		lastErr = err
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		time.Sleep(time.Duration(20*(attempt+1)) * time.Millisecond)
+	}
+	return nil, lastErr
+}
+
+func halopsaTryReadOnlyMigrated(path string) (*store.Store, bool) {
+	if path == "" {
+		return nil, false
+	}
+	if _, err := os.Stat(path); err != nil {
+		return nil, false
+	}
+	st, err := store.OpenReadOnly(path)
+	if err != nil {
+		return nil, false
+	}
+	var one int
+	if err := st.DB().QueryRow(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='resources' LIMIT 1`).Scan(&one); err != nil {
+		_ = st.Close()
+		return nil, false
+	}
+	return st, true
+}

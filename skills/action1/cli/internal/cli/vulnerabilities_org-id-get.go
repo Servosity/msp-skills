@@ -83,19 +83,19 @@ func newVulnerabilitiesOrgIdGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/vulnerabilities/{orgId}"
 			path = replacePathParam(path, "orgId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "vulnerabilities", path, map[string]string{
-				"published_date_start":           fmt.Sprintf("%v", flagPublishedDateStart),
-				"published_date_end":             fmt.Sprintf("%v", flagPublishedDateEnd),
-				"remediation_required_start_day": fmt.Sprintf("%v", flagRemediationRequiredStartDay),
-				"remediation_required_end_day":   fmt.Sprintf("%v", flagRemediationRequiredEndDay),
-				"score":                          fmt.Sprintf("%v", flagScore),
-				"remediation_status":             fmt.Sprintf("%v", flagRemediationStatus),
-				"endpoint_id":                    fmt.Sprintf("%v", flagEndpointId),
-				"CVEIDs":                         fmt.Sprintf("%v", flagCVEIDs),
-				"from":                           fmt.Sprintf("%v", flagFrom),
-				"limit":                          fmt.Sprintf("%v", flagLimit),
-				"sortby":                         fmt.Sprintf("%v", flagSortby),
-				"filter":                         fmt.Sprintf("%v", flagFilter),
-				"reset_cache":                    fmt.Sprintf("%v", flagResetCache),
+				"published_date_start":           formatCLIParamValue(flagPublishedDateStart),
+				"published_date_end":             formatCLIParamValue(flagPublishedDateEnd),
+				"remediation_required_start_day": formatCLIParamValue(flagRemediationRequiredStartDay),
+				"remediation_required_end_day":   formatCLIParamValue(flagRemediationRequiredEndDay),
+				"score":                          formatCLIParamValue(flagScore),
+				"remediation_status":             formatCLIParamValue(flagRemediationStatus),
+				"endpoint_id":                    formatCLIParamValue(flagEndpointId),
+				"CVEIDs":                         formatCLIParamValue(flagCVEIDs),
+				"from":                           formatCLIParamValue(flagFrom),
+				"limit":                          formatCLIParamValue(flagLimit),
+				"sortby":                         formatCLIParamValue(flagSortby),
+				"filter":                         formatCLIParamValue(flagFilter),
+				"reset_cache":                    formatCLIParamValue(flagResetCache),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

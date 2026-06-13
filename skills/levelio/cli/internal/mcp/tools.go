@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +23,15 @@ import (
 	"levelio-pp-cli/internal/config"
 	"levelio-pp-cli/internal/mcp/cobratree"
 	"levelio-pp-cli/internal/store"
+)
+
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
 )
 
 // RegisterTools registers all API operations as MCP tools.
@@ -116,7 +127,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("custom-fields_delete",
-			mcplib.WithDescription("Permanently delete a custom field definition from the Level workspace by its id. Required: id (path). Returns no content on success (HTTP 204); a missing id yields 404. This removes the field and its values from all devices — irreversible. Use custom-fields_update to rename or re-scope a field instead of deleting it. Destructive."),
+			mcplib.WithDescription("Deletes a custom field. Required: id. Destructive."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("The ID of the custom field.")),
 			mcplib.WithDestructiveHintAnnotation(true),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -157,7 +168,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("devices_delete",
-			mcplib.WithDescription("Permanently remove a device (agent/endpoint) from the Level workspace by its id. Required: id (path). Returns no content on success (HTTP 204); an unknown id yields 404. This deletes the device record and detaches it from groups and alerts — irreversible. Prefer this only for decommissioned endpoints; to move a device between groups, update its group assignment rather than deleting. Destructive."),
+			mcplib.WithDescription("Deletes the specified device. Required: id. Destructive."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("The ID of the device to delete.")),
 			mcplib.WithDestructiveHintAnnotation(true),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -228,7 +239,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("groups_delete",
-			mcplib.WithDescription("Permanently delete a device group from the Level workspace by its id. Required: id (path). Returns no content on success (HTTP 204); a missing id yields 404. Removes the group container — member devices are not deleted, only ungrouped. Irreversible. Use groups_update to rename a group instead of recreating it. Destructive."),
+			mcplib.WithDescription("Deletes an existing group. Required: id. Destructive."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("The ID of the group to delete.")),
 			mcplib.WithDestructiveHintAnnotation(true),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -299,7 +310,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("tags_delete",
-			mcplib.WithDescription("Permanently delete a tag from the Level workspace by its id. Required: id (path). Returns no content on success (HTTP 204); a missing id yields 404. Removes the tag and unassigns it from every device it was applied to — irreversible. Use tags_update to rename a tag rather than deleting and recreating. Destructive."),
+			mcplib.WithDescription("Deletes a tag. Required: id. Destructive."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("The ID of the tag to delete.")),
 			mcplib.WithDestructiveHintAnnotation(true),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -383,6 +394,8 @@ func RegisterTools(s *server.MCPServer) {
 		),
 		makeAPIHandler("GET", "/v2/updates/{id}", true, false, nil, []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
 	)
+	// Intent tools — higher-level compositions declared in the spec or lifted from recipes.
+	RegisterIntents(s)
 	// Search tool — faster than iterating list endpoints for finding specific items
 	s.AddTool(
 		mcplib.NewTool("search",
@@ -398,7 +411,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -425,6 +438,34 @@ type mcpParamBinding struct {
 	PublicName string
 	WireName   string
 	Location   string
+}
+
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // makeAPIHandler creates a generic MCP tool handler for an API endpoint.
@@ -471,11 +512,11 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				bodyArgs[binding.WireName] = v
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -485,7 +526,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -497,7 +538,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "POST", "PUT", "PATCH":
 				bodyArgs[k] = v
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -553,17 +594,17 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key: export LEVEL_API_TOKEN=<your-key>" +
+					"\n      Set it with: levelio-cli auth set-token <token> or export LEVEL_API_TOKEN=\"your-token-here\"" +
 					"\n      Run 'levelio-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your token." +
-					"\n      Set it with: export LEVEL_API_TOKEN=<your-key>" +
+					"\n      Set it with: levelio-cli auth set-token <token> or export LEVEL_API_TOKEN=\"your-token-here\"" +
 					"\n      Run 'levelio-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: your credentials are valid but lack access to this resource." +
-					"\n      Set it with: export LEVEL_API_TOKEN=<your-key>" +
+					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
+					"\n      Set it with: levelio-cli auth set-token <token> or export LEVEL_API_TOKEN=\"your-token-here\"" +
 					"\n      Run 'levelio-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
 				if method == "DELETE" {
@@ -577,21 +618,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -600,8 +626,129 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
@@ -611,7 +758,7 @@ func newMCPClient() (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -660,22 +807,27 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -707,6 +859,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -774,7 +1017,7 @@ func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
 func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	ctx := map[string]any{
 		"api":         "levelio",
-		"description": "Level RMM public API: manage devices, groups, tags, custom fields, alerts, OS updates, and trigger automations.",
+		"description": "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command.",
 		"archetype":   "generic",
 		"tool_count":  32,
 		// tool_surface tells agents which surface a capability lives on.
@@ -857,34 +1100,34 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "At-risk device ranking", "command": "at-risk", "description": "Rank the worst endpoints across every axis at once — active alerts, pending patches, low security score", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Patch posture rollup", "command": "patch-posture", "description": "Aggregate OS updates across the fleet — available vs installed, by category and device", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Fleet inventory rollup", "command": "fleet", "description": "One-screen inventory rollup, cross-tabbed any way you slice it — by OS, platform, group", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Alert triage clustering", "command": "alert-triage", "description": "Cluster unresolved alerts by group and severity with device context, so systemic fires surface above one-off noise.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Stale / dark devices", "command": "stale", "description": "List devices that have gone dark — not seen in N days — with an option to exclude machines intentionally in maintenance", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Client posture scorecard", "command": "client-scorecard", "description": "One row per top-level group (client) with device count, online %, open critical alerts, average security score", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Custom-field coverage", "command": "cf-coverage", "description": "Audit which devices, groups", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Security posture", "command": "security-posture", "description": "Show the fleet security-score distribution and everyone under a threshold, optionally rolled up by group.", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Group tree with rolled health", "command": "group-tree", "description": "Render the Level group hierarchy with each node showing its real rolled-up health — descendant device, alert, stale", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Fleet drift since window", "command": "since", "description": "Show what changed in a recent time window — new alerts, newly published updates", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Alert recurrence ranking", "command": "alert-recurrence", "description": "Rank which alert names fire most often across the fleet and on how many distinct devices", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Reboot-due devices", "command": "reboot-due", "description": "List devices waiting on a reboot to finalize installed patches — and how long they have been waiting — joined with", "rationale": "", "via": "mcp-command-mirror"},
-			{"name": "Tag hygiene audit", "command": "tag-audit", "description": "Surface tag-data drift: devices with zero tags, orphan tags applied to nothing", "rationale": "", "via": "mcp-command-mirror"},
+			{"name": "At-risk device ranking", "command": "at-risk", "description": "Rank the worst endpoints across every axis at once — active alerts, pending patches, low security score, and how long they have been dark — as a single weighted risk score.", "rationale": "Requires a weighted composite join across devices, alerts, updates, security_score, and last_seen that no single Level API call computes.", "via": "mcp-command-mirror"},
+			{"name": "Patch posture rollup", "command": "patch-posture", "description": "Aggregate OS updates across the fleet — available vs installed, by category and device, including patches that errored — so you can see exposure at a glance.", "rationale": "The API lists patches per device; only a local rollup over the synced updates table aggregates them by category/device with error counts.", "via": "mcp-command-mirror"},
+			{"name": "Fleet inventory rollup", "command": "fleet", "description": "One-screen inventory rollup, cross-tabbed any way you slice it — by OS, platform, group, or tag — with online and maintenance counts.", "rationale": "Cross-tabs devices against groups and tags in a single summary the API can only assemble with many calls plus client-side grouping.", "via": "mcp-command-mirror"},
+			{"name": "Alert triage clustering", "command": "alert-triage", "description": "Cluster unresolved alerts by group and severity with device context, so systemic fires surface above one-off noise.", "rationale": "Joins active alerts to device and to the group hierarchy locally — the API returns a flat alert list with no group clustering.", "via": "mcp-command-mirror"},
+			{"name": "Stale / dark devices", "command": "stale", "description": "List devices that have gone dark — not seen in N days — with an option to exclude machines intentionally in maintenance mode.", "rationale": "Computes a last_seen_at time window against the online and maintenance_mode flags across the whole estate offline.", "via": "mcp-command-mirror"},
+			{"name": "Client posture scorecard", "command": "client-scorecard", "description": "One row per top-level group (client) with device count, online %, open critical alerts, average security score, stale count, and patch exposure — the QBR-ready per-client rollup.", "rationale": "Joins devices, the group tree, alerts, updates, and security scores and rolls every metric to each top-level group — a five-table aggregation no Level API call or UI screen produces.", "via": "mcp-command-mirror"},
+			{"name": "Custom-field coverage", "command": "cf-coverage", "description": "Audit which devices, groups, or the org are missing a custom-field value — the absence the UI can't show — via an anti-join.", "rationale": "Anti-joins custom_fields against custom_field_values across assignees; the API and UI only show values that exist, never the gaps.", "via": "mcp-command-mirror"},
+			{"name": "Security posture", "command": "security-posture", "description": "Show the fleet security-score distribution and everyone under a threshold, optionally rolled up by group.", "rationale": "Buckets security_score into a histogram and per-group rollup locally — no Level endpoint returns a score distribution.", "via": "mcp-command-mirror"},
+			{"name": "Group tree with rolled health", "command": "group-tree", "description": "Render the Level group hierarchy with each node showing its real rolled-up health — descendant device, alert, stale, and score counts.", "rationale": "Walks the parent/child group tree and rolls descendant metrics up each node — a recursive aggregation the flat API responses don't provide.", "via": "mcp-command-mirror"},
+			{"name": "Fleet drift since window", "command": "since", "description": "Show what changed in a recent time window — new alerts, newly published updates, and devices last seen — so you can answer 'what happened since I last looked'.", "rationale": "Time-windows alert started_at, update published_on, and device last_seen across the local store — a unified change view no single API call returns.", "via": "mcp-command-mirror"},
+			{"name": "Alert recurrence ranking", "command": "alert-recurrence", "description": "Rank which alert names fire most often across the fleet and on how many distinct devices, so chronically noisy monitors surface above one-off fires.", "rationale": "Requires a recurrence rollup (count per alert name plus distinct affected devices) over the full synced alert history that the flat alerts endpoint never returns.", "via": "mcp-command-mirror"},
+			{"name": "Reboot-due devices", "command": "reboot-due", "description": "List devices waiting on a reboot to finalize installed patches — and how long they have been waiting — joined with online and maintenance state.", "rationale": "Filters the synced updates table for installed-but-reboot-pending rows joined to device state; no Level endpoint returns fleet-wide reboot debt.", "via": "mcp-command-mirror"},
+			{"name": "Tag hygiene audit", "command": "tag-audit", "description": "Surface tag-data drift: devices with zero tags, orphan tags applied to nothing, and duplicate tag names that fragment the fleet.", "rationale": "Anti-joins tags against device-tag membership in the local store — absences and orphans the Level UI structurally cannot show.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
-			{"topic": "At-risk device ranking", "insight": ""},
-			{"topic": "Patch posture rollup", "insight": ""},
-			{"topic": "Fleet inventory rollup", "insight": ""},
-			{"topic": "Alert triage clustering", "insight": ""},
-			{"topic": "Stale / dark devices", "insight": ""},
-			{"topic": "Client posture scorecard", "insight": ""},
-			{"topic": "Custom-field coverage", "insight": ""},
-			{"topic": "Security posture", "insight": ""},
-			{"topic": "Group tree with rolled health", "insight": ""},
-			{"topic": "Fleet drift since window", "insight": ""},
-			{"topic": "Alert recurrence ranking", "insight": ""},
-			{"topic": "Reboot-due devices", "insight": ""},
-			{"topic": "Tag hygiene audit", "insight": ""},
+			{"topic": "At-risk device ranking", "insight": "Requires a weighted composite join across devices, alerts, updates, security_score, and last_seen that no single Level API call computes."},
+			{"topic": "Patch posture rollup", "insight": "The API lists patches per device; only a local rollup over the synced updates table aggregates them by category/device with error counts."},
+			{"topic": "Fleet inventory rollup", "insight": "Cross-tabs devices against groups and tags in a single summary the API can only assemble with many calls plus client-side grouping."},
+			{"topic": "Alert triage clustering", "insight": "Joins active alerts to device and to the group hierarchy locally — the API returns a flat alert list with no group clustering."},
+			{"topic": "Stale / dark devices", "insight": "Computes a last_seen_at time window against the online and maintenance_mode flags across the whole estate offline."},
+			{"topic": "Client posture scorecard", "insight": "Joins devices, the group tree, alerts, updates, and security scores and rolls every metric to each top-level group — a five-table aggregation no Level API call or UI screen produces."},
+			{"topic": "Custom-field coverage", "insight": "Anti-joins custom_fields against custom_field_values across assignees; the API and UI only show values that exist, never the gaps."},
+			{"topic": "Security posture", "insight": "Buckets security_score into a histogram and per-group rollup locally — no Level endpoint returns a score distribution."},
+			{"topic": "Group tree with rolled health", "insight": "Walks the parent/child group tree and rolls descendant metrics up each node — a recursive aggregation the flat API responses don't provide."},
+			{"topic": "Fleet drift since window", "insight": "Time-windows alert started_at, update published_on, and device last_seen across the local store — a unified change view no single API call returns."},
+			{"topic": "Alert recurrence ranking", "insight": "Requires a recurrence rollup (count per alert name plus distinct affected devices) over the full synced alert history that the flat alerts endpoint never returns."},
+			{"topic": "Reboot-due devices", "insight": "Filters the synced updates table for installed-but-reboot-pending rows joined to device state; no Level endpoint returns fleet-wide reboot debt."},
+			{"topic": "Tag hygiene audit", "insight": "Anti-joins tags against device-tag membership in the local store — absences and orphans the Level UI structurally cannot show."},
 		},
 	}
 	return toolResultJSON(ctx)

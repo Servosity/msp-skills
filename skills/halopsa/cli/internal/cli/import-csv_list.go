@@ -29,10 +29,10 @@ func newImportCsvListCmd(flags *rootFlags) *cobra.Command {
 			path := "/ImportCSV"
 			params := map[string]string{}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagTypeId != "" {
-				params["type_id"] = fmt.Sprintf("%v", flagTypeId)
+				params["type_id"] = formatCLIParamValue(flagTypeId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "import-csv", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

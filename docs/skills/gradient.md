@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Gradient MSP MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "The Gradient MSP Synthesize vendor API from your terminal: bulk usage pushes with a single billing rebuild, a local push-drift ledger, and alert-to-ticket tracing the portal and SDK don't offer."
+description: "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has."
 permalink: /skills/gradient/
 skill_name: "Gradient MSP MCP"
 image: /assets/social/gradient/wide-1200x630.png

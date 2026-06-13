@@ -38,7 +38,6 @@ Add (or merge with your existing `mcpServers` block):
       "command": "domotz-mcp",
       "env": {
         "DOMOTZ_API_KEY": "<your-domotz_api_key>",
-        "DOMOTZ_PUBLIC_API_KEY": "<your-domotz_public_api_key>",
         "DOMOTZ_REGION": "<your-domotz_region>"
       }
     }
@@ -65,7 +64,6 @@ Configuration**) and add:
       "command": "domotz-mcp",
       "env": {
         "DOMOTZ_API_KEY": "<your-domotz_api_key>",
-        "DOMOTZ_PUBLIC_API_KEY": "<your-domotz_public_api_key>",
         "DOMOTZ_REGION": "<your-domotz_region>"
       }
     }
@@ -88,7 +86,6 @@ Claude Desktop:
       "command": "domotz-mcp",
       "env": {
         "DOMOTZ_API_KEY": "<your-domotz_api_key>",
-        "DOMOTZ_PUBLIC_API_KEY": "<your-domotz_public_api_key>",
         "DOMOTZ_REGION": "<your-domotz_region>"
       }
     }
@@ -107,7 +104,7 @@ All remote agents need `domotz-mcp` reachable as a public **HTTPS** endpoint. Ru
 in HTTP mode with your credentials in the environment:
 
 ```bash
-DOMOTZ_API_KEY=<value> DOMOTZ_PUBLIC_API_KEY=<value> DOMOTZ_REGION=<value> domotz-mcp --transport http --addr :7777
+DOMOTZ_API_KEY=<value> DOMOTZ_REGION=<value> domotz-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

@@ -31,9 +31,9 @@ func newWorkflowsListIntegrationConnectionsCmd(flags *rootFlags) *cobra.Command 
 
 			path := "/workflows/integrations/connections"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "workflows", path, map[string]string{
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"cursor": fmt.Sprintf("%v", flagCursor),
-				"name":   fmt.Sprintf("%v", flagName),
+				"limit":  formatCLIParamValue(flagLimit),
+				"cursor": formatCLIParamValue(flagCursor),
+				"name":   formatCLIParamValue(flagName),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

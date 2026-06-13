@@ -32,19 +32,19 @@ func newTicketRulesListCmd(flags *rootFlags) *cobra.Command {
 			path := "/TicketRules"
 			params := map[string]string{}
 			if flagAccessControlLevel != 0 {
-				params["access_control_level"] = fmt.Sprintf("%v", flagAccessControlLevel)
+				params["access_control_level"] = formatCLIParamValue(flagAccessControlLevel)
 			}
 			if flagExcludeworkflow != false {
-				params["excludeworkflow"] = fmt.Sprintf("%v", flagExcludeworkflow)
+				params["excludeworkflow"] = formatCLIParamValue(flagExcludeworkflow)
 			}
 			if flagIncludecriteriainfo != false {
-				params["includecriteriainfo"] = fmt.Sprintf("%v", flagIncludecriteriainfo)
+				params["includecriteriainfo"] = formatCLIParamValue(flagIncludecriteriainfo)
 			}
 			if flagIsconfig != false {
-				params["isconfig"] = fmt.Sprintf("%v", flagIsconfig)
+				params["isconfig"] = formatCLIParamValue(flagIsconfig)
 			}
 			if flagRuleUse != 0 {
-				params["rule_use"] = fmt.Sprintf("%v", flagRuleUse)
+				params["rule_use"] = formatCLIParamValue(flagRuleUse)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "ticket-rules", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

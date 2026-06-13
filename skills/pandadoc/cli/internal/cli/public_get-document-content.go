@@ -17,7 +17,7 @@ func newPublicGetDocumentContentCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-document-content <document_id>",
 		Short:       "Returns the document content for the specified document. Use query parameter `format` to select the content format.",
-		Example:     "  pandadoc-cli public get-document-content 550e8400-e29b-41d4-a716-446655440000 --format plaintext",
+		Example:     "  pandadoc-cli public get-document-content D3okRfgHRX7NEhavcACReB --format plaintext",
 		Annotations: map[string]string{"pp:endpoint": "public.get-document-content", "pp:method": "GET", "pp:path": "/public/beta/documents/{document_id}/content", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
@@ -54,7 +54,7 @@ func newPublicGetDocumentContentCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "document_id", args[0])
 			params := map[string]string{}
 			if flagFormat != "" {
-				params["format"] = fmt.Sprintf("%v", flagFormat)
+				params["format"] = formatCLIParamValue(flagFormat)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "public", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

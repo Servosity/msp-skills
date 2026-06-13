@@ -1,7 +1,7 @@
 {
   "name": "knowbe4",
-  "version": "0.1.0",
-  "description": "Every KnowBe4 KMSAT reporting feature plus a local SQLite store that answers the cross-client questions the console can't \u2014 repeat-clicker hunts and training-coverage anti-joins.",
+  "version": "0.1.1",
+  "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer.",
   "author": {
     "name": "Servosity",
     "url": "https://www.servosity.com"

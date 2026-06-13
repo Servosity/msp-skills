@@ -45,7 +45,7 @@ func newStatusDashboardsGetServiceImpactsByUrlSlugCmd(flags *rootFlags) *cobra.C
 			path = replacePathParam(path, "url_slug", args[0])
 			params := map[string]string{}
 			if flagAdditionalFields != "" {
-				params["additional_fields[]"] = fmt.Sprintf("%v", flagAdditionalFields)
+				params["additional_fields[]"] = formatCLIParamValue(flagAdditionalFields)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "status-dashboards", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

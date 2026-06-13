@@ -34,12 +34,12 @@ func newAlertsGetQueriesV2Cmd(flags *rootFlags) *cobra.Command {
 
 			path := "/alerts/queries/alerts/v2"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "alerts", path, map[string]string{
-				"include_hidden": fmt.Sprintf("%v", flagIncludeHidden),
-				"offset":         fmt.Sprintf("%v", flagOffset),
-				"limit":          fmt.Sprintf("%v", flagLimit),
-				"sort":           fmt.Sprintf("%v", flagSort),
-				"filter":         fmt.Sprintf("%v", flagFilter),
-				"q":              fmt.Sprintf("%v", flagQ),
+				"include_hidden": formatCLIParamValue(flagIncludeHidden),
+				"offset":         formatCLIParamValue(flagOffset),
+				"limit":          formatCLIParamValue(flagLimit),
+				"sort":           formatCLIParamValue(flagSort),
+				"filter":         formatCLIParamValue(flagFilter),
+				"q":              formatCLIParamValue(flagQ),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

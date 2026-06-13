@@ -94,21 +94,21 @@ func newIncidentsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/incidents"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "incidents", path, map[string]string{
-				"limit":         fmt.Sprintf("%v", flagLimit),
-				"offset":        fmt.Sprintf("%v", flagOffset),
-				"total":         fmt.Sprintf("%v", flagTotal),
-				"date_range":    fmt.Sprintf("%v", flagDateRange),
-				"incident_key":  fmt.Sprintf("%v", flagIncidentKey),
-				"service_ids[]": fmt.Sprintf("%v", flagServiceIds),
-				"team_ids[]":    fmt.Sprintf("%v", flagTeamIds),
-				"user_ids[]":    fmt.Sprintf("%v", flagUserIds),
-				"urgencies[]":   fmt.Sprintf("%v", flagUrgencies),
-				"time_zone":     fmt.Sprintf("%v", flagTimeZone),
-				"statuses[]":    fmt.Sprintf("%v", flagStatuses),
-				"sort_by":       fmt.Sprintf("%v", flagSortBy),
-				"include[]":     fmt.Sprintf("%v", flagInclude),
-				"since":         fmt.Sprintf("%v", flagSince),
-				"until":         fmt.Sprintf("%v", flagUntil),
+				"limit":         formatCLIParamValue(flagLimit),
+				"offset":        formatCLIParamValue(flagOffset),
+				"total":         formatCLIParamValue(flagTotal),
+				"date_range":    formatCLIParamValue(flagDateRange),
+				"incident_key":  formatCLIParamValue(flagIncidentKey),
+				"service_ids[]": formatCLIParamValue(flagServiceIds),
+				"team_ids[]":    formatCLIParamValue(flagTeamIds),
+				"user_ids[]":    formatCLIParamValue(flagUserIds),
+				"urgencies[]":   formatCLIParamValue(flagUrgencies),
+				"time_zone":     formatCLIParamValue(flagTimeZone),
+				"statuses[]":    formatCLIParamValue(flagStatuses),
+				"sort_by":       formatCLIParamValue(flagSortBy),
+				"include[]":     formatCLIParamValue(flagInclude),
+				"since":         formatCLIParamValue(flagSince),
+				"until":         formatCLIParamValue(flagUntil),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

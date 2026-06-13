@@ -17,9 +17,10 @@ func newEnterpriseRequestClosureCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "request-closure",
-		Aliases:     []string{"create"},
-		Short:       "**Requires permission: `manage_enterprise`** The request is available only for a free Action1 account.",
+		Use:     "request-closure",
+		Aliases: []string{"create"},
+		Short:   "**Requires permission: `manage_enterprise`** The request is available only for a free Action1 account.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  action1-cli enterprise request-closure --reason example-value",
 		Annotations: map[string]string{"pp:endpoint": "enterprise.request-closure", "pp:method": "POST", "pp:path": "/enterprise/request-closure"},
 		RunE: func(cmd *cobra.Command, args []string) error {

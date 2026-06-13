@@ -35,14 +35,14 @@ func newCrmGetQuotationsListSummaryCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/crm/quotes/summary"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "crm", path, map[string]string{
-				"Filter.AccountId":     fmt.Sprintf("%v", flagFilterAccountId),
-				"Filter.StatusIds":     fmt.Sprintf("%v", flagFilterStatusIds),
-				"Filter.CreatedOnFrom": fmt.Sprintf("%v", flagFilterCreatedOnFrom),
-				"Filter.CreatedOnTo":   fmt.Sprintf("%v", flagFilterCreatedOnTo),
-				"Sort":                 fmt.Sprintf("%v", flagSort),
-				"Exclude":              fmt.Sprintf("%v", flagExclude),
-				"PageSize":             fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":           fmt.Sprintf("%v", flagPageNumber),
+				"Filter.AccountId":     formatCLIParamValue(flagFilterAccountId),
+				"Filter.StatusIds":     formatCLIParamValue(flagFilterStatusIds),
+				"Filter.CreatedOnFrom": formatCLIParamValue(flagFilterCreatedOnFrom),
+				"Filter.CreatedOnTo":   formatCLIParamValue(flagFilterCreatedOnTo),
+				"Sort":                 formatCLIParamValue(flagSort),
+				"Exclude":              formatCLIParamValue(flagExclude),
+				"PageSize":             formatCLIParamValue(flagPageSize),
+				"PageNumber":           formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

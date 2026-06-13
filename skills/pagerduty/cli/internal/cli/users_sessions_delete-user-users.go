@@ -14,8 +14,9 @@ import (
 func newUsersSessionsDeleteUserUsersCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "delete-user-users <id> <type> <session_id>",
-		Short:       "<!-- theme: warning --> > ### Deprecated > This endpoint is deprecated as OAuth token revocation is now synchronous.",
+		Use:   "delete-user-users <id> <type> <session_id>",
+		Short: "<!-- theme: warning --> > ### Deprecated > This endpoint is deprecated as OAuth token revocation is now synchronous.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pagerduty-cli users sessions delete-user-users 550e8400-e29b-41d4-a716-446655440000 example-value 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "sessions.delete-user-users", "pp:method": "DELETE", "pp:path": "/users/{id}/sessions/{type}/{session_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

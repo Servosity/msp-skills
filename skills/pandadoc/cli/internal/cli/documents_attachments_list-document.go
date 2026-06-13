@@ -16,7 +16,7 @@ func newDocumentsAttachmentsListDocumentCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list-document <id>",
 		Short:       "Returns a list of attachments associated with a specified document.",
-		Example:     "  pandadoc-cli documents attachments list-document 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents attachments list-document BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "attachments.list-document", "pp:method": "GET", "pp:path": "/documents/{id}/attachments", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

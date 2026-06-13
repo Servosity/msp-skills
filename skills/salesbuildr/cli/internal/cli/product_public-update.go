@@ -59,7 +59,7 @@ func newProductPublicUpdateCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagEnrich != false {
-				params["enrich"] = fmt.Sprintf("%v", flagEnrich)
+				params["enrich"] = formatCLIParamValue(flagEnrich)
 			}
 			var body map[string]any
 			if stdinBody {

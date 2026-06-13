@@ -40,18 +40,18 @@ func newAuditsPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/audits"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "audits", path, map[string]string{
-				"include":                 fmt.Sprintf("%v", flagInclude),
-				"page[number]":            fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":              fmt.Sprintf("%v", flagPageSize),
-				"filter[created_at][gt]":  fmt.Sprintf("%v", flagFilterCreatedAtGt),
-				"filter[created_at][gte]": fmt.Sprintf("%v", flagFilterCreatedAtGte),
-				"filter[created_at][lt]":  fmt.Sprintf("%v", flagFilterCreatedAtLt),
-				"filter[created_at][lte]": fmt.Sprintf("%v", flagFilterCreatedAtLte),
-				"filter[user_id]":         fmt.Sprintf("%v", flagFilterUserId),
-				"filter[api_key_id]":      fmt.Sprintf("%v", flagFilterApiKeyId),
-				"filter[source]":          fmt.Sprintf("%v", flagFilterSource),
-				"filter[item_type]":       fmt.Sprintf("%v", flagFilterItemType),
-				"sort":                    fmt.Sprintf("%v", flagSort),
+				"include":                 formatCLIParamValue(flagInclude),
+				"page[number]":            formatCLIParamValue(flagPageNumber),
+				"page[size]":              formatCLIParamValue(flagPageSize),
+				"filter[created_at][gt]":  formatCLIParamValue(flagFilterCreatedAtGt),
+				"filter[created_at][gte]": formatCLIParamValue(flagFilterCreatedAtGte),
+				"filter[created_at][lt]":  formatCLIParamValue(flagFilterCreatedAtLt),
+				"filter[created_at][lte]": formatCLIParamValue(flagFilterCreatedAtLte),
+				"filter[user_id]":         formatCLIParamValue(flagFilterUserId),
+				"filter[api_key_id]":      formatCLIParamValue(flagFilterApiKeyId),
+				"filter[source]":          formatCLIParamValue(flagFilterSource),
+				"filter[item_type]":       formatCLIParamValue(flagFilterItemType),
+				"sort":                    formatCLIParamValue(flagSort),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

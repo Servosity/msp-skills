@@ -11,25 +11,30 @@ metadata:
     requires:
       bins:
         - ninjaone-cli
+    install:
+      - kind: go
+        bins: [ninjaone-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/ninjaone/cmd/ninjaone-cli
 ---
 
-# NinjaOne Claude Code Skill
+# NinjaOne  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `ninjaone-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ninjaone/install.sh)
+   npx -y @mvanhorn/printing-press-library install ninjaone --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ninjaone/install.ps1 | iex
-   ```
-3. Verify: `ninjaone-cli --version`
+2. Verify: `ninjaone-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-The installer drops `ninjaone-cli` and `ninjaone-mcp` into your user bin path. Ensure that directory is on `$PATH` for the agent/runtime that will invoke this skill.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/ninjaone/cmd/ninjaone-cli@latest
+```
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
@@ -39,12 +44,13 @@ Existing NinjaOne tools are 1:1 API mirrors or Python libraries you script yours
 
 Use this CLI when an agent or technician needs fleet-wide answers across many NinjaOne organizations  -  patch compliance, unprotected-device detection, AV threat blast-radius, OS end-of-life exposure, software sprawl, or week-over-week drift  -  rather than a single device or report lookup. It is also the right tool for scripted automation: every command speaks --json/--select with typed exit codes, and the local store keeps queries fast and offline.
 
-## When NOT to Use This CLI
+## Anti-triggers
 
-- Inspecting a single device's backup bytes or job history: use the generated `backup` / `queries` backup-usage commands, not `backup-coverage`.
-- Trend-over-time questions: use `drift`, not `fleet-health`; for a point-in-time score use `fleet-health`, not `drift`.
-- Real-time alert paging, remote control sessions, or console-only workflows: this CLI covers the NinjaOne public API surface only.
-- Other RMM platforms (Datto RMM, N-able N-central, Atera): this CLI is NinjaOne-only.
+Do not use this CLI for:
+- Inspecting a single device's backup bytes or job history  -  use the generated backup / queries backup-usage commands, not backup-coverage
+- Trend-over-time questions  -  use drift, not fleet-health; point-in-time scoring  -  use fleet-health, not drift
+- Real-time alert paging, remote control sessions, or console-only workflows  -  this CLI covers the NinjaOne public API surface only
+- Other RMM platforms (Datto RMM, N-able N-central, Atera)  -  this CLI is NinjaOne-only
 
 ## Unique Capabilities
 
@@ -569,13 +575,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `ninjaone-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add ninjaone-mcp -- ninjaone-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/ninjaone/cmd/ninjaone-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add ninjaone-mcp -- ninjaone-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

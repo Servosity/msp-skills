@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "superops-cli",
-			Description: "Every SuperOps PSA+RMM entity in your terminal",
+			Description: "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

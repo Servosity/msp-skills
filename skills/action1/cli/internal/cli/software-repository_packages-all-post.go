@@ -21,9 +21,10 @@ func newSoftwareRepositoryPackagesAllPostCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "packages-all-post <orgId>",
-		Aliases:     []string{"create"},
-		Short:       "**Requires permission",
+		Use:     "packages-all-post <orgId>",
+		Aliases: []string{"create"},
+		Short:   "**Requires permission",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  action1-cli software-repository packages-all-post 550e8400-e29b-41d4-a716-446655440000 --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "software-repository.packages-all-post", "pp:method": "POST", "pp:path": "/software-repository/{orgId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

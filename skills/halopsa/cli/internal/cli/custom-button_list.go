@@ -31,16 +31,16 @@ func newCustomButtonListCmd(flags *rootFlags) *cobra.Command {
 			path := "/CustomButton"
 			params := map[string]string{}
 			if flagIsbuttonsetup != false {
-				params["isbuttonsetup"] = fmt.Sprintf("%v", flagIsbuttonsetup)
+				params["isbuttonsetup"] = formatCLIParamValue(flagIsbuttonsetup)
 			}
 			if flagIspermissionsetup != false {
-				params["ispermissionsetup"] = fmt.Sprintf("%v", flagIspermissionsetup)
+				params["ispermissionsetup"] = formatCLIParamValue(flagIspermissionsetup)
 			}
 			if flagMsid != "" {
-				params["msid"] = fmt.Sprintf("%v", flagMsid)
+				params["msid"] = formatCLIParamValue(flagMsid)
 			}
 			if flagTypeid != "" {
-				params["typeid"] = fmt.Sprintf("%v", flagTypeid)
+				params["typeid"] = formatCLIParamValue(flagTypeid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "custom-button", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

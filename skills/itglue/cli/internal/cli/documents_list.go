@@ -33,12 +33,12 @@ func newDocumentsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/documents"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "documents", path, map[string]string{
-				"filter[id]":              fmt.Sprintf("%v", flagFilterId),
-				"filter[name]":            fmt.Sprintf("%v", flagFilterName),
-				"filter[organization_id]": fmt.Sprintf("%v", flagFilterOrganizationId),
-				"page[number]":            fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":              fmt.Sprintf("%v", flagPageSize),
-				"sort":                    fmt.Sprintf("%v", flagSort),
+				"filter[id]":              formatCLIParamValue(flagFilterId),
+				"filter[name]":            formatCLIParamValue(flagFilterName),
+				"filter[organization_id]": formatCLIParamValue(flagFilterOrganizationId),
+				"page[number]":            formatCLIParamValue(flagPageNumber),
+				"page[size]":              formatCLIParamValue(flagPageSize),
+				"sort":                    formatCLIParamValue(flagSort),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

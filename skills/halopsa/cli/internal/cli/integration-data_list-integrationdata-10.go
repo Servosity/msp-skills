@@ -32,11 +32,11 @@ func newIntegrationDataListIntegrationdata10Cmd(flags *rootFlags) *cobra.Command
 
 			path := "/IntegrationData/Get/Barracuda"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", path, map[string]string{
-				"after":     fmt.Sprintf("%v", flagAfter),
-				"datatype":  fmt.Sprintf("%v", flagDatatype),
-				"keypair":   fmt.Sprintf("%v", flagKeypair),
-				"pageinapi": fmt.Sprintf("%v", flagPageinapi),
-				"varname":   fmt.Sprintf("%v", flagVarname),
+				"after":     formatCLIParamValue(flagAfter),
+				"datatype":  formatCLIParamValue(flagDatatype),
+				"keypair":   formatCLIParamValue(flagKeypair),
+				"pageinapi": formatCLIParamValue(flagPageinapi),
+				"varname":   formatCLIParamValue(flagVarname),
 			}, nil, flagAll, "after", "cursor", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

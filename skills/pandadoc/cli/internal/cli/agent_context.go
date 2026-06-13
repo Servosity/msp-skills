@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "pandadoc-cli",
-			Description: "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has — stalled deals, aging",
+			Description: "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has — stalled deals, aging, recipient engagement, and open quote value from a local store.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

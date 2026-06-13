@@ -131,7 +131,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "pax8-cli",
-			Description: "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR",
+			Description: "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

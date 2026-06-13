@@ -33,8 +33,8 @@ func newIncidentsPastIncidentsGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/incidents/{id}/past_incidents"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "past-incidents", path, map[string]string{
-				"limit": fmt.Sprintf("%v", flagLimit),
-				"total": fmt.Sprintf("%v", flagTotal),
+				"limit": formatCLIParamValue(flagLimit),
+				"total": formatCLIParamValue(flagTotal),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

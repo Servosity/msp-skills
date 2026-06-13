@@ -39,18 +39,18 @@ func newCrmGetSalesAcceleratorDataCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/crm/salesaccelerator/dashboard/data"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "crm", path, map[string]string{
-				"AccountName":           fmt.Sprintf("%v", flagAccountName),
-				"ServiceName":           fmt.Sprintf("%v", flagServiceName),
-				"AccountType":           fmt.Sprintf("%v", flagAccountType),
-				"ServiceCategoryIds":    fmt.Sprintf("%v", flagServiceCategoryIds),
-				"ServiceSubCategoryIds": fmt.Sprintf("%v", flagServiceSubCategoryIds),
-				"UnitOfMeasureIds":      fmt.Sprintf("%v", flagUnitOfMeasureIds),
-				"StartRow":              fmt.Sprintf("%v", flagStartRow),
-				"EndRow":                fmt.Sprintf("%v", flagEndRow),
-				"Sort":                  fmt.Sprintf("%v", flagSort),
-				"Exclude":               fmt.Sprintf("%v", flagExclude),
-				"PageSize":              fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":            fmt.Sprintf("%v", flagPageNumber),
+				"AccountName":           formatCLIParamValue(flagAccountName),
+				"ServiceName":           formatCLIParamValue(flagServiceName),
+				"AccountType":           formatCLIParamValue(flagAccountType),
+				"ServiceCategoryIds":    formatCLIParamValue(flagServiceCategoryIds),
+				"ServiceSubCategoryIds": formatCLIParamValue(flagServiceSubCategoryIds),
+				"UnitOfMeasureIds":      formatCLIParamValue(flagUnitOfMeasureIds),
+				"StartRow":              formatCLIParamValue(flagStartRow),
+				"EndRow":                formatCLIParamValue(flagEndRow),
+				"Sort":                  formatCLIParamValue(flagSort),
+				"Exclude":               formatCLIParamValue(flagExclude),
+				"PageSize":              formatCLIParamValue(flagPageSize),
+				"PageNumber":            formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

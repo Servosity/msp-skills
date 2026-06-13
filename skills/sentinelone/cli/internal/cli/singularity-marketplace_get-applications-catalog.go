@@ -33,19 +33,19 @@ func newSingularityMarketplaceGetApplicationsCatalogCmd(flags *rootFlags) *cobra
 			path := "/singularity-marketplace/applications-catalog"
 			params := map[string]string{}
 			if flagDescriptionContains != "" {
-				params["description__contains"] = fmt.Sprintf("%v", flagDescriptionContains)
+				params["description__contains"] = formatCLIParamValue(flagDescriptionContains)
 			}
 			if flagId != "" {
-				params["id"] = fmt.Sprintf("%v", flagId)
+				params["id"] = formatCLIParamValue(flagId)
 			}
 			if flagCategoryContains != "" {
-				params["category__contains"] = fmt.Sprintf("%v", flagCategoryContains)
+				params["category__contains"] = formatCLIParamValue(flagCategoryContains)
 			}
 			if flagQuery != "" {
-				params["query"] = fmt.Sprintf("%v", flagQuery)
+				params["query"] = formatCLIParamValue(flagQuery)
 			}
 			if flagNameContains != "" {
-				params["name__contains"] = fmt.Sprintf("%v", flagNameContains)
+				params["name__contains"] = formatCLIParamValue(flagNameContains)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "singularity-marketplace", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

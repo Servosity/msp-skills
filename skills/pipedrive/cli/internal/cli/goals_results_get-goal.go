@@ -46,10 +46,10 @@ func newGoalsResultsGetGoalCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagPeriodStart != "" {
-				params["period.start"] = fmt.Sprintf("%v", flagPeriodStart)
+				params["period.start"] = formatCLIParamValue(flagPeriodStart)
 			}
 			if flagPeriodEnd != "" {
-				params["period.end"] = fmt.Sprintf("%v", flagPeriodEnd)
+				params["period.end"] = formatCLIParamValue(flagPeriodEnd)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "results", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

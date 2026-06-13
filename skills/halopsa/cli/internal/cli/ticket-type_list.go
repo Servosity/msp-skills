@@ -49,70 +49,70 @@ func newTicketTypeListCmd(flags *rootFlags) *cobra.Command {
 			path := "/TicketType"
 			params := map[string]string{}
 			if flagAccessControlLevel != 0 {
-				params["access_control_level"] = fmt.Sprintf("%v", flagAccessControlLevel)
+				params["access_control_level"] = formatCLIParamValue(flagAccessControlLevel)
 			}
 			if flagAnonanduser != false {
-				params["anonanduser"] = fmt.Sprintf("%v", flagAnonanduser)
+				params["anonanduser"] = formatCLIParamValue(flagAnonanduser)
 			}
 			if flagCanCreateOnly != false {
-				params["can_create_only"] = fmt.Sprintf("%v", flagCanCreateOnly)
+				params["can_create_only"] = formatCLIParamValue(flagCanCreateOnly)
 			}
 			if flagCanEditOnly != false {
-				params["can_edit_only"] = fmt.Sprintf("%v", flagCanEditOnly)
+				params["can_edit_only"] = formatCLIParamValue(flagCanEditOnly)
 			}
 			if flagCanagentsselect != false {
-				params["canagentsselect"] = fmt.Sprintf("%v", flagCanagentsselect)
+				params["canagentsselect"] = formatCLIParamValue(flagCanagentsselect)
 			}
 			if flagCanusercreate != false {
-				params["canusercreate"] = fmt.Sprintf("%v", flagCanusercreate)
+				params["canusercreate"] = formatCLIParamValue(flagCanusercreate)
 			}
 			if flagClientId != "" {
-				params["client_id"] = fmt.Sprintf("%v", flagClientId)
+				params["client_id"] = formatCLIParamValue(flagClientId)
 			}
 			if flagDomain != "" {
-				params["domain"] = fmt.Sprintf("%v", flagDomain)
+				params["domain"] = formatCLIParamValue(flagDomain)
 			}
 			if flagGroupId != "" {
-				params["group_id"] = fmt.Sprintf("%v", flagGroupId)
+				params["group_id"] = formatCLIParamValue(flagGroupId)
 			}
 			if flagIncludeCurrent != 0 {
-				params["include_current"] = fmt.Sprintf("%v", flagIncludeCurrent)
+				params["include_current"] = formatCLIParamValue(flagIncludeCurrent)
 			}
 			if flagIncludeMandatoryFieldCheck != false {
-				params["include_mandatory_field_check"] = fmt.Sprintf("%v", flagIncludeMandatoryFieldCheck)
+				params["include_mandatory_field_check"] = formatCLIParamValue(flagIncludeMandatoryFieldCheck)
 			}
 			if flagIsquicktimedropdown != false {
-				params["isquicktimedropdown"] = fmt.Sprintf("%v", flagIsquicktimedropdown)
+				params["isquicktimedropdown"] = formatCLIParamValue(flagIsquicktimedropdown)
 			}
 			if flagItilType != 0 {
-				params["itil_type"] = fmt.Sprintf("%v", flagItilType)
+				params["itil_type"] = formatCLIParamValue(flagItilType)
 			}
 			if flagOutcomeId != "" {
-				params["outcome_id"] = fmt.Sprintf("%v", flagOutcomeId)
+				params["outcome_id"] = formatCLIParamValue(flagOutcomeId)
 			}
 			if flagSearchtickets != "" {
-				params["searchtickets"] = fmt.Sprintf("%v", flagSearchtickets)
+				params["searchtickets"] = formatCLIParamValue(flagSearchtickets)
 			}
 			if flagShowall != false {
-				params["showall"] = fmt.Sprintf("%v", flagShowall)
+				params["showall"] = formatCLIParamValue(flagShowall)
 			}
 			if flagShowcounts != false {
-				params["showcounts"] = fmt.Sprintf("%v", flagShowcounts)
+				params["showcounts"] = formatCLIParamValue(flagShowcounts)
 			}
 			if flagShowinactive != false {
-				params["showinactive"] = fmt.Sprintf("%v", flagShowinactive)
+				params["showinactive"] = formatCLIParamValue(flagShowinactive)
 			}
 			if flagSprintsOnly != false {
-				params["sprints_only"] = fmt.Sprintf("%v", flagSprintsOnly)
+				params["sprints_only"] = formatCLIParamValue(flagSprintsOnly)
 			}
 			if flagTicketareaId != "" {
-				params["ticketarea_id"] = fmt.Sprintf("%v", flagTicketareaId)
+				params["ticketarea_id"] = formatCLIParamValue(flagTicketareaId)
 			}
 			if flagUserOnly != false {
-				params["user_only"] = fmt.Sprintf("%v", flagUserOnly)
+				params["user_only"] = formatCLIParamValue(flagUserOnly)
 			}
 			if flagViewId != "" {
-				params["view_id"] = fmt.Sprintf("%v", flagViewId)
+				params["view_id"] = formatCLIParamValue(flagViewId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "ticket-type", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

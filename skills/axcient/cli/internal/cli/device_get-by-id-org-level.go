@@ -17,7 +17,7 @@ func newDeviceGetByIdOrgLevelCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-by-id-org-level <device_id>",
 		Aliases:     []string{"get"},
 		Short:       "This request returns information about device by its id.",
-		Example:     "  axcient-cli device get-by-id-org-level 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  axcient-cli device get-by-id-org-level 555",
 		Annotations: map[string]string{"pp:endpoint": "device.get-by-id-org-level", "pp:method": "GET", "pp:path": "/device/{device_id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

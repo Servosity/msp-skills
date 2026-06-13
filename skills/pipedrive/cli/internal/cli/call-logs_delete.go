@@ -16,7 +16,7 @@ func newCallLogsDeleteCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete <id>",
 		Short:       "Deletes a call log. If there is an audio recording attached to it, it will also be deleted.",
-		Example:     "  pipedrive-cli call-logs delete 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pipedrive-cli call-logs delete 3cde3b05035cae14dcfc172bd8000d08",
 		Annotations: map[string]string{"pp:endpoint": "call-logs.delete", "pp:method": "DELETE", "pp:path": "/callLogs/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -28,7 +28,7 @@ func newToDoListCmd(flags *rootFlags) *cobra.Command {
 			path := "/ToDo"
 			params := map[string]string{}
 			if flagTicketId != "" {
-				params["ticket_id"] = fmt.Sprintf("%v", flagTicketId)
+				params["ticket_id"] = formatCLIParamValue(flagTicketId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "to-do", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

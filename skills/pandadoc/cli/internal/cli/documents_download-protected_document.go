@@ -18,7 +18,7 @@ func newDocumentsDownloadProtectedDocumentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "document <id>",
 		Aliases:     []string{"get"},
 		Short:       "Download a completed document as a verifiable PDF (Download Protected Document)",
-		Example:     "  pandadoc-cli documents download-protected document 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents download-protected document Mebvyy3NGsGBnY2rPLkH84",
 		Annotations: map[string]string{"pp:endpoint": "download-protected.document", "pp:method": "GET", "pp:path": "/documents/{id}/download-protected", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -37,7 +37,7 @@ func newDocumentsDownloadProtectedDocumentCmd(flags *rootFlags) *cobra.Command {
 			}
 			params := map[string]string{}
 			if flagSeparateFiles != false {
-				params["separate_files"] = fmt.Sprintf("%v", flagSeparateFiles)
+				params["separate_files"] = formatCLIParamValue(flagSeparateFiles)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "download-protected", false, path, params, headerOverrides, cmd.ErrOrStderr())
 			if err != nil {

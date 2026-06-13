@@ -29,10 +29,10 @@ func newIntegrationDataListIntegrationdata97Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/Twitter"
 			params := map[string]string{}
 			if flagCallbackurl != "" {
-				params["callbackurl"] = fmt.Sprintf("%v", flagCallbackurl)
+				params["callbackurl"] = formatCLIParamValue(flagCallbackurl)
 			}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

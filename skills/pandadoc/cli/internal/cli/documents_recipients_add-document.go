@@ -21,7 +21,7 @@ func newDocumentsRecipientsAddDocumentCmd(flags *rootFlags) *cobra.Command {
 		Use:         "add-document <id>",
 		Aliases:     []string{"create"},
 		Short:       "Add a CC recipient to a document.",
-		Example:     "  pandadoc-cli documents recipients add-document 550e8400-e29b-41d4-a716-446655440000 --id-2 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents recipients add-document BhVzRcxH9Z2LgfPPGXFUBa --id-2 2eWSKSvVqmuVCnuUK3iWwD",
 		Annotations: map[string]string{"pp:endpoint": "recipients.add-document", "pp:method": "POST", "pp:path": "/documents/{id}/recipients"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

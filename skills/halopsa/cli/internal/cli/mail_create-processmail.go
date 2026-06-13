@@ -33,7 +33,7 @@ func newMailCreateProcessmailCmd(flags *rootFlags) *cobra.Command {
 			path := "/Mail/ProcessMail"
 			params := map[string]string{}
 			if flagTaskId != "" {
-				params["task_id"] = fmt.Sprintf("%v", flagTaskId)
+				params["task_id"] = formatCLIParamValue(flagTaskId)
 			}
 			var body map[string]any
 			if stdinBody {

@@ -17,9 +17,10 @@ func newListAppConsentRequestsPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-app-consent-requests",
-		Short:       "List app consent requests",
-		Long:        "List app consent requests",
+		Use:   "list-app-consent-requests",
+		Short: "List app consent requests",
+		Long:  "List app consent requests",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-app-consent-requests --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-app-consent-requests.list", "pp:method": "GET", "pp:path": "/ListAppConsentRequests", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,13 +42,13 @@ func newListAppConsentRequestsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListAppConsentRequests"
 			params := map[string]string{}
 			if flagFilter != "" {
-				params["Filter"] = fmt.Sprintf("%v", flagFilter)
+				params["Filter"] = formatCLIParamValue(flagFilter)
 			}
 			if flagRequestStatus != "" {
-				params["RequestStatus"] = fmt.Sprintf("%v", flagRequestStatus)
+				params["RequestStatus"] = formatCLIParamValue(flagRequestStatus)
 			}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-app-consent-requests", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

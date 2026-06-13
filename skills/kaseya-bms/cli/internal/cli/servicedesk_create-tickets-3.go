@@ -17,8 +17,9 @@ func newServicedeskCreateTickets3Cmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create-tickets-3 <ticketId>",
-		Short:       "Create tickets 3",
+		Use:   "create-tickets-3 <ticketId>",
+		Short: "Create tickets 3",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli servicedesk create-tickets-3 42 --details example-value",
 		Annotations: map[string]string{"pp:endpoint": "servicedesk.create-tickets-3", "pp:method": "POST", "pp:path": "/v2/servicedesk/tickets/{ticketId}/ticketresolution/refine"},
 		RunE: func(cmd *cobra.Command, args []string) error {

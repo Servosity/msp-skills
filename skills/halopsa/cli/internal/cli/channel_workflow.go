@@ -6,10 +6,10 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"halopsa-pp-cli/internal/store"
 	"time"
 
 	"github.com/spf13/cobra"
-	"halopsa-pp-cli/internal/store"
 )
 
 func newWorkflowCmd(flags *rootFlags) *cobra.Command {

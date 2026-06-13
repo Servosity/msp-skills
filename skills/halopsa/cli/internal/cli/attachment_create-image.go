@@ -156,388 +156,388 @@ func newAttachmentCreateImageCmd(flags *rootFlags) *cobra.Command {
 			path := "/Attachment/image"
 			params := map[string]string{}
 			if flagAtblob != "" {
-				params["atblob"] = fmt.Sprintf("%v", flagAtblob)
+				params["atblob"] = formatCLIParamValue(flagAtblob)
 			}
 			if flagFileStreamCanRead != false {
-				params["file_stream.CanRead"] = fmt.Sprintf("%v", flagFileStreamCanRead)
+				params["file_stream.CanRead"] = formatCLIParamValue(flagFileStreamCanRead)
 			}
 			if flagFileStreamCanSeek != false {
-				params["file_stream.CanSeek"] = fmt.Sprintf("%v", flagFileStreamCanSeek)
+				params["file_stream.CanSeek"] = formatCLIParamValue(flagFileStreamCanSeek)
 			}
 			if flagFileStreamCanWrite != false {
-				params["file_stream.CanWrite"] = fmt.Sprintf("%v", flagFileStreamCanWrite)
+				params["file_stream.CanWrite"] = formatCLIParamValue(flagFileStreamCanWrite)
 			}
 			if flagFileStreamCapacity != 0 {
-				params["file_stream.Capacity"] = fmt.Sprintf("%v", flagFileStreamCapacity)
+				params["file_stream.Capacity"] = formatCLIParamValue(flagFileStreamCapacity)
 			}
 			if flagFileStreamLength != 0 {
-				params["file_stream.Length"] = fmt.Sprintf("%v", flagFileStreamLength)
+				params["file_stream.Length"] = formatCLIParamValue(flagFileStreamLength)
 			}
 			if flagFileStreamPosition != 0 {
-				params["file_stream.Position"] = fmt.Sprintf("%v", flagFileStreamPosition)
+				params["file_stream.Position"] = formatCLIParamValue(flagFileStreamPosition)
 			}
 			if flagFileStreamCanTimeout != false {
-				params["file_stream.CanTimeout"] = fmt.Sprintf("%v", flagFileStreamCanTimeout)
+				params["file_stream.CanTimeout"] = formatCLIParamValue(flagFileStreamCanTimeout)
 			}
 			if flagFileStreamReadTimeout != 0 {
-				params["file_stream.ReadTimeout"] = fmt.Sprintf("%v", flagFileStreamReadTimeout)
+				params["file_stream.ReadTimeout"] = formatCLIParamValue(flagFileStreamReadTimeout)
 			}
 			if flagFileStreamWriteTimeout != 0 {
-				params["file_stream.WriteTimeout"] = fmt.Sprintf("%v", flagFileStreamWriteTimeout)
+				params["file_stream.WriteTimeout"] = formatCLIParamValue(flagFileStreamWriteTimeout)
 			}
 			if flagTicketId != "" {
-				params["ticket_id"] = fmt.Sprintf("%v", flagTicketId)
+				params["ticket_id"] = formatCLIParamValue(flagTicketId)
 			}
 			if flagActionId != "" {
-				params["action_id"] = fmt.Sprintf("%v", flagActionId)
+				params["action_id"] = formatCLIParamValue(flagActionId)
 			}
 			if flagOutcomeId != "" {
-				params["outcome_id"] = fmt.Sprintf("%v", flagOutcomeId)
+				params["outcome_id"] = formatCLIParamValue(flagOutcomeId)
 			}
 			if flagAauserid != "" {
-				params["aauserid"] = fmt.Sprintf("%v", flagAauserid)
+				params["aauserid"] = formatCLIParamValue(flagAauserid)
 			}
 			if flagAaunum != 0 {
-				params["aaunum"] = fmt.Sprintf("%v", flagAaunum)
+				params["aaunum"] = formatCLIParamValue(flagAaunum)
 			}
 			if flagAttachmentactionId != "" {
-				params["attachmentaction_id"] = fmt.Sprintf("%v", flagAttachmentactionId)
+				params["attachmentaction_id"] = formatCLIParamValue(flagAttachmentactionId)
 			}
 			if flagCopytopath != "" {
-				params["copytopath"] = fmt.Sprintf("%v", flagCopytopath)
+				params["copytopath"] = formatCLIParamValue(flagCopytopath)
 			}
 			if flagCanupdate != false {
-				params["_canupdate"] = fmt.Sprintf("%v", flagCanupdate)
+				params["_canupdate"] = formatCLIParamValue(flagCanupdate)
 			}
 			if flagAtguid != "" {
-				params["atguid"] = fmt.Sprintf("%v", flagAtguid)
+				params["atguid"] = formatCLIParamValue(flagAtguid)
 			}
 			if flagUseThisGuid != "" {
-				params["useThisGuid"] = fmt.Sprintf("%v", flagUseThisGuid)
+				params["useThisGuid"] = formatCLIParamValue(flagUseThisGuid)
 			}
 			if flagImageUploadId != "" {
-				params["image_upload_id"] = fmt.Sprintf("%v", flagImageUploadId)
+				params["image_upload_id"] = formatCLIParamValue(flagImageUploadId)
 			}
 			if flagImageUploadKey != "" {
-				params["image_upload_key"] = fmt.Sprintf("%v", flagImageUploadKey)
+				params["image_upload_key"] = formatCLIParamValue(flagImageUploadKey)
 			}
 			if flagEnduserportalpdfprint != false {
-				params["_enduserportalpdfprint"] = fmt.Sprintf("%v", flagEnduserportalpdfprint)
+				params["_enduserportalpdfprint"] = formatCLIParamValue(flagEnduserportalpdfprint)
 			}
 			if flagAtthirdpartyid != "" {
-				params["atthirdpartyid"] = fmt.Sprintf("%v", flagAtthirdpartyid)
+				params["atthirdpartyid"] = formatCLIParamValue(flagAtthirdpartyid)
 			}
 			if flagAtallowguid != false {
-				params["atallowguid"] = fmt.Sprintf("%v", flagAtallowguid)
+				params["atallowguid"] = formatCLIParamValue(flagAtallowguid)
 			}
 			if flagAtencid != "" {
-				params["atencid"] = fmt.Sprintf("%v", flagAtencid)
+				params["atencid"] = formatCLIParamValue(flagAtencid)
 			}
 			if flagLink != "" {
-				params["link"] = fmt.Sprintf("%v", flagLink)
+				params["link"] = formatCLIParamValue(flagLink)
 			}
 			if flagAtipaddress != "" {
-				params["atipaddress"] = fmt.Sprintf("%v", flagAtipaddress)
+				params["atipaddress"] = formatCLIParamValue(flagAtipaddress)
 			}
 			if flagAtimageuse != 0 {
-				params["atimageuse"] = fmt.Sprintf("%v", flagAtimageuse)
+				params["atimageuse"] = formatCLIParamValue(flagAtimageuse)
 			}
 			if flagAtcontenttype != "" {
-				params["atcontenttype"] = fmt.Sprintf("%v", flagAtcontenttype)
+				params["atcontenttype"] = formatCLIParamValue(flagAtcontenttype)
 			}
 			if flagAnonOutcomeid != "" {
-				params["anon_outcomeid"] = fmt.Sprintf("%v", flagAnonOutcomeid)
+				params["anon_outcomeid"] = formatCLIParamValue(flagAnonOutcomeid)
 			}
 			if flagContentId != "" {
-				params["content_id"] = fmt.Sprintf("%v", flagContentId)
+				params["content_id"] = formatCLIParamValue(flagContentId)
 			}
 			if flagHasScanned != false {
-				params["has_scanned"] = fmt.Sprintf("%v", flagHasScanned)
+				params["has_scanned"] = formatCLIParamValue(flagHasScanned)
 			}
 			if flagWarning != "" {
-				params["_warning"] = fmt.Sprintf("%v", flagWarning)
+				params["_warning"] = formatCLIParamValue(flagWarning)
 			}
 			if flagIsNewVersion != false {
-				params["_is_new_version"] = fmt.Sprintf("%v", flagIsNewVersion)
+				params["_is_new_version"] = formatCLIParamValue(flagIsNewVersion)
 			}
 			if flagParentName != "" {
-				params["parent_name"] = fmt.Sprintf("%v", flagParentName)
+				params["parent_name"] = formatCLIParamValue(flagParentName)
 			}
 			if flagParentDesc != "" {
-				params["parent_desc"] = fmt.Sprintf("%v", flagParentDesc)
+				params["parent_desc"] = formatCLIParamValue(flagParentDesc)
 			}
 			if flagVersionCount != 0 {
-				params["version_count"] = fmt.Sprintf("%v", flagVersionCount)
+				params["version_count"] = formatCLIParamValue(flagVersionCount)
 			}
 			if flagLastUpdated != "" {
-				params["last_updated"] = fmt.Sprintf("%v", flagLastUpdated)
+				params["last_updated"] = formatCLIParamValue(flagLastUpdated)
 			}
 			if flagAlreadyuploaded != false {
-				params["_alreadyuploaded"] = fmt.Sprintf("%v", flagAlreadyuploaded)
+				params["_alreadyuploaded"] = formatCLIParamValue(flagAlreadyuploaded)
 			}
 			if flagCopyFromId != "" {
-				params["copy_from_id"] = fmt.Sprintf("%v", flagCopyFromId)
+				params["copy_from_id"] = formatCLIParamValue(flagCopyFromId)
 			}
 			if flagNewExternalLinkElid != "" {
-				params["new_external_link.elid"] = fmt.Sprintf("%v", flagNewExternalLinkElid)
+				params["new_external_link.elid"] = formatCLIParamValue(flagNewExternalLinkElid)
 			}
 			if flagNewExternalLinkEltableid != "" {
-				params["new_external_link.eltableid"] = fmt.Sprintf("%v", flagNewExternalLinkEltableid)
+				params["new_external_link.eltableid"] = formatCLIParamValue(flagNewExternalLinkEltableid)
 			}
 			if flagNewExternalLinkElmoduleid != "" {
-				params["new_external_link.elmoduleid"] = fmt.Sprintf("%v", flagNewExternalLinkElmoduleid)
+				params["new_external_link.elmoduleid"] = formatCLIParamValue(flagNewExternalLinkElmoduleid)
 			}
 			if flagNewExternalLinkElintegrationname != "" {
-				params["new_external_link.elintegrationname"] = fmt.Sprintf("%v", flagNewExternalLinkElintegrationname)
+				params["new_external_link.elintegrationname"] = formatCLIParamValue(flagNewExternalLinkElintegrationname)
 			}
 			if flagNewExternalLinkElhaloid != "" {
-				params["new_external_link.elhaloid"] = fmt.Sprintf("%v", flagNewExternalLinkElhaloid)
+				params["new_external_link.elhaloid"] = formatCLIParamValue(flagNewExternalLinkElhaloid)
 			}
 			if flagNewExternalLinkElthirdpartyid != "" {
-				params["new_external_link.elthirdpartyid"] = fmt.Sprintf("%v", flagNewExternalLinkElthirdpartyid)
+				params["new_external_link.elthirdpartyid"] = formatCLIParamValue(flagNewExternalLinkElthirdpartyid)
 			}
 			if flagNewExternalLinkElthirdpartydesc != "" {
-				params["new_external_link.elthirdpartydesc"] = fmt.Sprintf("%v", flagNewExternalLinkElthirdpartydesc)
+				params["new_external_link.elthirdpartydesc"] = formatCLIParamValue(flagNewExternalLinkElthirdpartydesc)
 			}
 			if flagNewExternalLinkElthirdpartytype != "" {
-				params["new_external_link.elthirdpartytype"] = fmt.Sprintf("%v", flagNewExternalLinkElthirdpartytype)
+				params["new_external_link.elthirdpartytype"] = formatCLIParamValue(flagNewExternalLinkElthirdpartytype)
 			}
 			if flagNewExternalLinkElthirdpartyurl != "" {
-				params["new_external_link.elthirdpartyurl"] = fmt.Sprintf("%v", flagNewExternalLinkElthirdpartyurl)
+				params["new_external_link.elthirdpartyurl"] = formatCLIParamValue(flagNewExternalLinkElthirdpartyurl)
 			}
 			if flagNewExternalLinkElthirdpartyassignedto != "" {
-				params["new_external_link.elthirdpartyassignedto"] = fmt.Sprintf("%v", flagNewExternalLinkElthirdpartyassignedto)
+				params["new_external_link.elthirdpartyassignedto"] = formatCLIParamValue(flagNewExternalLinkElthirdpartyassignedto)
 			}
 			if flagNewExternalLinkElthirdpartycount != 0 {
-				params["new_external_link.elthirdpartycount"] = fmt.Sprintf("%v", flagNewExternalLinkElthirdpartycount)
+				params["new_external_link.elthirdpartycount"] = formatCLIParamValue(flagNewExternalLinkElthirdpartycount)
 			}
 			if flagNewExternalLinkElisprimary != false {
-				params["new_external_link.elisprimary"] = fmt.Sprintf("%v", flagNewExternalLinkElisprimary)
+				params["new_external_link.elisprimary"] = formatCLIParamValue(flagNewExternalLinkElisprimary)
 			}
 			if flagNewExternalLinkHaloDesc != "" {
-				params["new_external_link.halo_desc"] = fmt.Sprintf("%v", flagNewExternalLinkHaloDesc)
+				params["new_external_link.halo_desc"] = formatCLIParamValue(flagNewExternalLinkHaloDesc)
 			}
 			if flagNewExternalLinkHaloSecondId != "" {
-				params["new_external_link.halo_second_id"] = fmt.Sprintf("%v", flagNewExternalLinkHaloSecondId)
+				params["new_external_link.halo_second_id"] = formatCLIParamValue(flagNewExternalLinkHaloSecondId)
 			}
 			if flagNewExternalLinkHaloSecondDesc != "" {
-				params["new_external_link.halo_second_desc"] = fmt.Sprintf("%v", flagNewExternalLinkHaloSecondDesc)
+				params["new_external_link.halo_second_desc"] = formatCLIParamValue(flagNewExternalLinkHaloSecondDesc)
 			}
 			if flagNewExternalLinkExtraMatchField != "" {
-				params["new_external_link.extra_match_field"] = fmt.Sprintf("%v", flagNewExternalLinkExtraMatchField)
+				params["new_external_link.extra_match_field"] = formatCLIParamValue(flagNewExternalLinkExtraMatchField)
 			}
 			if flagNewExternalLinkEldetailsid != "" {
-				params["new_external_link.eldetailsid"] = fmt.Sprintf("%v", flagNewExternalLinkEldetailsid)
+				params["new_external_link.eldetailsid"] = formatCLIParamValue(flagNewExternalLinkEldetailsid)
 			}
 			if flagNewExternalLinkThirdPartySecondaryId != "" {
-				params["new_external_link.third_party_secondary_id"] = fmt.Sprintf("%v", flagNewExternalLinkThirdPartySecondaryId)
+				params["new_external_link.third_party_secondary_id"] = formatCLIParamValue(flagNewExternalLinkThirdPartySecondaryId)
 			}
 			if flagNewExternalLinkWarning != "" {
-				params["new_external_link._warning"] = fmt.Sprintf("%v", flagNewExternalLinkWarning)
+				params["new_external_link._warning"] = formatCLIParamValue(flagNewExternalLinkWarning)
 			}
 			if flagNewExternalLinkElthirdpartystatus != "" {
-				params["new_external_link.elthirdpartystatus"] = fmt.Sprintf("%v", flagNewExternalLinkElthirdpartystatus)
+				params["new_external_link.elthirdpartystatus"] = formatCLIParamValue(flagNewExternalLinkElthirdpartystatus)
 			}
 			if flagNewExternalLinkElthirdpartypriority != "" {
-				params["new_external_link.elthirdpartypriority"] = fmt.Sprintf("%v", flagNewExternalLinkElthirdpartypriority)
+				params["new_external_link.elthirdpartypriority"] = formatCLIParamValue(flagNewExternalLinkElthirdpartypriority)
 			}
 			if flagNewExternalLinkMatch != false {
-				params["new_external_link._match"] = fmt.Sprintf("%v", flagNewExternalLinkMatch)
+				params["new_external_link._match"] = formatCLIParamValue(flagNewExternalLinkMatch)
 			}
 			if flagNewExternalLinkPopulateUrl != false {
-				params["new_external_link.populate_url"] = fmt.Sprintf("%v", flagNewExternalLinkPopulateUrl)
+				params["new_external_link.populate_url"] = formatCLIParamValue(flagNewExternalLinkPopulateUrl)
 			}
 			if flagNewExternalLinkEldatecreated != "" {
-				params["new_external_link.eldatecreated"] = fmt.Sprintf("%v", flagNewExternalLinkEldatecreated)
+				params["new_external_link.eldatecreated"] = formatCLIParamValue(flagNewExternalLinkEldatecreated)
 			}
 			if flagNewExternalLinkEldateupdated != "" {
-				params["new_external_link.eldateupdated"] = fmt.Sprintf("%v", flagNewExternalLinkEldateupdated)
+				params["new_external_link.eldateupdated"] = formatCLIParamValue(flagNewExternalLinkEldateupdated)
 			}
 			if flagNewExternalLinkElsubscriptionid != "" {
-				params["new_external_link.elsubscriptionid"] = fmt.Sprintf("%v", flagNewExternalLinkElsubscriptionid)
+				params["new_external_link.elsubscriptionid"] = formatCLIParamValue(flagNewExternalLinkElsubscriptionid)
 			}
 			if flagNewExternalLinkElsubscriptionkey != "" {
-				params["new_external_link.elsubscriptionkey"] = fmt.Sprintf("%v", flagNewExternalLinkElsubscriptionkey)
+				params["new_external_link.elsubscriptionkey"] = formatCLIParamValue(flagNewExternalLinkElsubscriptionkey)
 			}
 			if flagNewExternalLinkNewSubscriptionKey != "" {
-				params["new_external_link.new_subscription_key"] = fmt.Sprintf("%v", flagNewExternalLinkNewSubscriptionKey)
+				params["new_external_link.new_subscription_key"] = formatCLIParamValue(flagNewExternalLinkNewSubscriptionKey)
 			}
 			if flagNewExternalLinkElsubscriptionexpiry != "" {
-				params["new_external_link.elsubscriptionexpiry"] = fmt.Sprintf("%v", flagNewExternalLinkElsubscriptionexpiry)
+				params["new_external_link.elsubscriptionexpiry"] = formatCLIParamValue(flagNewExternalLinkElsubscriptionexpiry)
 			}
 			if flagNewExternalLinkWebhookaction != 0 {
-				params["new_external_link._webhookaction"] = fmt.Sprintf("%v", flagNewExternalLinkWebhookaction)
+				params["new_external_link._webhookaction"] = formatCLIParamValue(flagNewExternalLinkWebhookaction)
 			}
 			if flagNewExternalLinkElrevisions != 0 {
-				params["new_external_link.elrevisions"] = fmt.Sprintf("%v", flagNewExternalLinkElrevisions)
+				params["new_external_link.elrevisions"] = formatCLIParamValue(flagNewExternalLinkElrevisions)
 			}
 			if flagNewExternalLinkEldontmoveexistingassets != false {
-				params["new_external_link.eldontmoveexistingassets"] = fmt.Sprintf("%v", flagNewExternalLinkEldontmoveexistingassets)
+				params["new_external_link.eldontmoveexistingassets"] = formatCLIParamValue(flagNewExternalLinkEldontmoveexistingassets)
 			}
 			if flagNewExternalLinkChatMessageCount != 0 {
-				params["new_external_link.chat_message_count"] = fmt.Sprintf("%v", flagNewExternalLinkChatMessageCount)
+				params["new_external_link.chat_message_count"] = formatCLIParamValue(flagNewExternalLinkChatMessageCount)
 			}
 			if flagNewExternalLinkElthirdpartyadditionalid != "" {
-				params["new_external_link.elthirdpartyadditionalid"] = fmt.Sprintf("%v", flagNewExternalLinkElthirdpartyadditionalid)
+				params["new_external_link.elthirdpartyadditionalid"] = formatCLIParamValue(flagNewExternalLinkElthirdpartyadditionalid)
 			}
 			if flagNewExternalLinkEldescription != "" {
-				params["new_external_link.eldescription"] = fmt.Sprintf("%v", flagNewExternalLinkEldescription)
+				params["new_external_link.eldescription"] = formatCLIParamValue(flagNewExternalLinkEldescription)
 			}
 			if flagNewExternalLinkUpdateExistingLink != false {
-				params["new_external_link.update_existing_link"] = fmt.Sprintf("%v", flagNewExternalLinkUpdateExistingLink)
+				params["new_external_link.update_existing_link"] = formatCLIParamValue(flagNewExternalLinkUpdateExistingLink)
 			}
 			if flagNewExternalLinkFilters != "" {
-				params["new_external_link.filters"] = fmt.Sprintf("%v", flagNewExternalLinkFilters)
+				params["new_external_link.filters"] = formatCLIParamValue(flagNewExternalLinkFilters)
 			}
 			if flagNewExternalLinkElparentid != "" {
-				params["new_external_link.elparentid"] = fmt.Sprintf("%v", flagNewExternalLinkElparentid)
+				params["new_external_link.elparentid"] = formatCLIParamValue(flagNewExternalLinkElparentid)
 			}
 			if flagNewExternalLinkChildLinks != "" {
-				params["new_external_link.child_links"] = fmt.Sprintf("%v", flagNewExternalLinkChildLinks)
+				params["new_external_link.child_links"] = formatCLIParamValue(flagNewExternalLinkChildLinks)
 			}
 			if flagNewExternalLinkElurlforlinkedentity != "" {
-				params["new_external_link.elurlforlinkedentity"] = fmt.Sprintf("%v", flagNewExternalLinkElurlforlinkedentity)
+				params["new_external_link.elurlforlinkedentity"] = formatCLIParamValue(flagNewExternalLinkElurlforlinkedentity)
 			}
 			if flagNewExternalLinkElurlforlinkedentitycaption != "" {
-				params["new_external_link.elurlforlinkedentitycaption"] = fmt.Sprintf("%v", flagNewExternalLinkElurlforlinkedentitycaption)
+				params["new_external_link.elurlforlinkedentitycaption"] = formatCLIParamValue(flagNewExternalLinkElurlforlinkedentitycaption)
 			}
 			if flagNewExternalLinkEliconforlinkedentity != "" {
-				params["new_external_link.eliconforlinkedentity"] = fmt.Sprintf("%v", flagNewExternalLinkEliconforlinkedentity)
+				params["new_external_link.eliconforlinkedentity"] = formatCLIParamValue(flagNewExternalLinkEliconforlinkedentity)
 			}
 			if flagMatchThirdpartyId != "" {
-				params["_match_thirdparty_id"] = fmt.Sprintf("%v", flagMatchThirdpartyId)
+				params["_match_thirdparty_id"] = formatCLIParamValue(flagMatchThirdpartyId)
 			}
 			if flagMatchAdditionalId != "" {
-				params["_match_additional_id"] = fmt.Sprintf("%v", flagMatchAdditionalId)
+				params["_match_additional_id"] = formatCLIParamValue(flagMatchAdditionalId)
 			}
 			if flagMatchIntegrationId != "" {
-				params["_match_integration_id"] = fmt.Sprintf("%v", flagMatchIntegrationId)
+				params["_match_integration_id"] = formatCLIParamValue(flagMatchIntegrationId)
 			}
 			if flagMatchIntegrationName != "" {
-				params["_match_integration_name"] = fmt.Sprintf("%v", flagMatchIntegrationName)
+				params["_match_integration_name"] = formatCLIParamValue(flagMatchIntegrationName)
 			}
 			if flagImportDetailsId != "" {
-				params["import_details_id"] = fmt.Sprintf("%v", flagImportDetailsId)
+				params["import_details_id"] = formatCLIParamValue(flagImportDetailsId)
 			}
 			if flagExternalLinks != "" {
-				params["external_links"] = fmt.Sprintf("%v", flagExternalLinks)
+				params["external_links"] = formatCLIParamValue(flagExternalLinks)
 			}
 			if flagAccessControl != "" {
-				params["access_control"] = fmt.Sprintf("%v", flagAccessControl)
+				params["access_control"] = formatCLIParamValue(flagAccessControl)
 			}
 			if flagStartTranscription != false {
-				params["_start_transcription"] = fmt.Sprintf("%v", flagStartTranscription)
+				params["_start_transcription"] = formatCLIParamValue(flagStartTranscription)
 			}
 			if flagTranscriptionStarted != false {
-				params["_transcription_started"] = fmt.Sprintf("%v", flagTranscriptionStarted)
+				params["_transcription_started"] = formatCLIParamValue(flagTranscriptionStarted)
 			}
 			if flagTranscriptionIsNewAction != false {
-				params["_transcription_is_new_action"] = fmt.Sprintf("%v", flagTranscriptionIsNewAction)
+				params["_transcription_is_new_action"] = formatCLIParamValue(flagTranscriptionIsNewAction)
 			}
 			if flagAtid != "" {
-				params["atid"] = fmt.Sprintf("%v", flagAtid)
+				params["atid"] = formatCLIParamValue(flagAtid)
 			}
 			if flagAtfilename != "" {
-				params["atfilename"] = fmt.Sprintf("%v", flagAtfilename)
+				params["atfilename"] = formatCLIParamValue(flagAtfilename)
 			}
 			if flagAtdatecreated != "" {
-				params["atdatecreated"] = fmt.Sprintf("%v", flagAtdatecreated)
+				params["atdatecreated"] = formatCLIParamValue(flagAtdatecreated)
 			}
 			if flagAtnote != "" {
-				params["atnote"] = fmt.Sprintf("%v", flagAtnote)
+				params["atnote"] = formatCLIParamValue(flagAtnote)
 			}
 			if flagAtfilesize != 0 {
-				params["atfilesize"] = fmt.Sprintf("%v", flagAtfilesize)
+				params["atfilesize"] = formatCLIParamValue(flagAtfilesize)
 			}
 			if flagAttype != 0 {
-				params["attype"] = fmt.Sprintf("%v", flagAttype)
+				params["attype"] = formatCLIParamValue(flagAttype)
 			}
 			if flagAtuniqueid != "" {
-				params["atuniqueid"] = fmt.Sprintf("%v", flagAtuniqueid)
+				params["atuniqueid"] = formatCLIParamValue(flagAtuniqueid)
 			}
 			if flagAtdesc != "" {
-				params["atdesc"] = fmt.Sprintf("%v", flagAtdesc)
+				params["atdesc"] = formatCLIParamValue(flagAtdesc)
 			}
 			if flagAtshowforusers != false {
-				params["atshowforusers"] = fmt.Sprintf("%v", flagAtshowforusers)
+				params["atshowforusers"] = formatCLIParamValue(flagAtshowforusers)
 			}
 			if flagAtisimage != false {
-				params["atisimage"] = fmt.Sprintf("%v", flagAtisimage)
+				params["atisimage"] = formatCLIParamValue(flagAtisimage)
 			}
 			if flagAashowforusers != false {
-				params["aashowforusers"] = fmt.Sprintf("%v", flagAashowforusers)
+				params["aashowforusers"] = formatCLIParamValue(flagAashowforusers)
 			}
 			if flagAashowforchildren != false {
-				params["aashowforchildren"] = fmt.Sprintf("%v", flagAashowforchildren)
+				params["aashowforchildren"] = formatCLIParamValue(flagAashowforchildren)
 			}
 			if flagAashowforrelated != false {
-				params["aashowforrelated"] = fmt.Sprintf("%v", flagAashowforrelated)
+				params["aashowforrelated"] = formatCLIParamValue(flagAashowforrelated)
 			}
 			if flagAtblobBase64 != "" {
-				params["atblob_base64"] = fmt.Sprintf("%v", flagAtblobBase64)
+				params["atblob_base64"] = formatCLIParamValue(flagAtblobBase64)
 			}
 			if flagThirdPartyId != "" {
-				params["third_party_id"] = fmt.Sprintf("%v", flagThirdPartyId)
+				params["third_party_id"] = formatCLIParamValue(flagThirdPartyId)
 			}
 			if flagAlreadyPosted != false {
-				params["already_posted"] = fmt.Sprintf("%v", flagAlreadyPosted)
+				params["already_posted"] = formatCLIParamValue(flagAlreadyPosted)
 			}
 			if flagAtlastupdated != "" {
-				params["atlastupdated"] = fmt.Sprintf("%v", flagAtlastupdated)
+				params["atlastupdated"] = formatCLIParamValue(flagAtlastupdated)
 			}
 			if flagFaultid != "" {
-				params["faultid"] = fmt.Sprintf("%v", flagFaultid)
+				params["faultid"] = formatCLIParamValue(flagFaultid)
 			}
 			if flagIsimport != false {
-				params["_isimport"] = fmt.Sprintf("%v", flagIsimport)
+				params["_isimport"] = formatCLIParamValue(flagIsimport)
 			}
 			if flagImporttype != "" {
-				params["_importtype"] = fmt.Sprintf("%v", flagImporttype)
+				params["_importtype"] = formatCLIParamValue(flagImporttype)
 			}
 			if flagAtkey != "" {
-				params["atkey"] = fmt.Sprintf("%v", flagAtkey)
+				params["atkey"] = formatCLIParamValue(flagAtkey)
 			}
 			if flagS3url != "" {
-				params["s3url"] = fmt.Sprintf("%v", flagS3url)
+				params["s3url"] = formatCLIParamValue(flagS3url)
 			}
 			if flagAtlink != "" {
-				params["atlink"] = fmt.Sprintf("%v", flagAtlink)
+				params["atlink"] = formatCLIParamValue(flagAtlink)
 			}
 			if flagChildCount != 0 {
-				params["child_count"] = fmt.Sprintf("%v", flagChildCount)
+				params["child_count"] = formatCLIParamValue(flagChildCount)
 			}
 			if flagAtparentid != "" {
-				params["atparentid"] = fmt.Sprintf("%v", flagAtparentid)
+				params["atparentid"] = formatCLIParamValue(flagAtparentid)
 			}
 			if flagAtlinkedversionid != "" {
-				params["atlinkedversionid"] = fmt.Sprintf("%v", flagAtlinkedversionid)
+				params["atlinkedversionid"] = formatCLIParamValue(flagAtlinkedversionid)
 			}
 			if flagAtallowanonupload != false {
-				params["atallowanonupload"] = fmt.Sprintf("%v", flagAtallowanonupload)
+				params["atallowanonupload"] = formatCLIParamValue(flagAtallowanonupload)
 			}
 			if flagTickettypeId != "" {
-				params["tickettype_id"] = fmt.Sprintf("%v", flagTickettypeId)
+				params["tickettype_id"] = formatCLIParamValue(flagTickettypeId)
 			}
 			if flagTickettypeGuid != "" {
-				params["tickettype_guid"] = fmt.Sprintf("%v", flagTickettypeGuid)
+				params["tickettype_guid"] = formatCLIParamValue(flagTickettypeGuid)
 			}
 			if flagValidateGuid != "" {
-				params["validate_guid"] = fmt.Sprintf("%v", flagValidateGuid)
+				params["validate_guid"] = formatCLIParamValue(flagValidateGuid)
 			}
 			if flagDateCreatedOverride != "" {
-				params["date_created_override"] = fmt.Sprintf("%v", flagDateCreatedOverride)
+				params["date_created_override"] = formatCLIParamValue(flagDateCreatedOverride)
 			}
 			if flagImportParentid != "" {
-				params["import_parentid"] = fmt.Sprintf("%v", flagImportParentid)
+				params["import_parentid"] = formatCLIParamValue(flagImportParentid)
 			}
 			if flagFolderHierarchy != "" {
-				params["folder_hierarchy"] = fmt.Sprintf("%v", flagFolderHierarchy)
+				params["folder_hierarchy"] = formatCLIParamValue(flagFolderHierarchy)
 			}
 			if flagAccessControlLevel != 0 {
-				params["access_control_level"] = fmt.Sprintf("%v", flagAccessControlLevel)
+				params["access_control_level"] = formatCLIParamValue(flagAccessControlLevel)
 			}
 			if flagIsS3 != false {
-				params["is_s3"] = fmt.Sprintf("%v", flagIsS3)
+				params["is_s3"] = formatCLIParamValue(flagIsS3)
 			}
 			fields := map[string]string{}
 			fileFields := map[string]string{}

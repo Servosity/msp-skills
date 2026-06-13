@@ -1,6 +1,6 @@
 ---
 name: datto-bcdr
-description: "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't. Trigger phrases: `which datto backups failed screenshot verification`, `datto bcdr fleet health`, `which clients are at risk in datto`, `find stale datto backups`, `datto storage runway`, `use datto-bcdr`, `run datto-bcdr-cli`, `datto recoverability score`, `client backup report for qbr`, `triage datto alerts fleet-wide`."
+description: "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk. Trigger phrases: `which datto backups failed screenshot verification`, `datto bcdr fleet health`, `which clients are at risk in datto`, `find stale datto backups`, `datto storage runway`, `use datto-bcdr`, `run datto-bcdr-cli`, `datto recoverability score`, `client backup report for qbr`, `triage datto alerts fleet-wide`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Datto BCDR"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - datto-bcdr-cli
+    install:
+      - kind: go
+        bins: [datto-bcdr-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/datto-bcdr/cmd/datto-bcdr-cli
 ---
 
-# Datto BCDR Claude Code Skill
+# Datto BCDR  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `datto-bcdr-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/datto-bcdr/install.sh)
+   npx -y @mvanhorn/printing-press-library install datto-bcdr --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/datto-bcdr/install.ps1 | iex
-   ```
-3. Verify: `datto-bcdr-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `datto-bcdr-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/datto-bcdr/cmd/datto-bcdr-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 The Datto BCDR API is strictly per-device  -  to check backup health you query one appliance at a time. This CLI syncs every device, agent, share, and alert into a local store, then runs fleet-wide local joins: screenshots --failed surfaces every silently-unbootable backup, client-risk ranks your clients by composite risk, and storage-runway tells you which appliance fills up first. All read-only, all agent-native with --json and --select.
 
@@ -318,9 +324,9 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server (the installer drops both `datto-bcdr-cli` and `datto-bcdr-mcp` into your user bin path):
+1. Install the MCP server:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/datto-bcdr/install.sh)
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/datto-bcdr/cmd/datto-bcdr-mcp@latest
    ```
 2. Register with Claude Code:
    ```bash

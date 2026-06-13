@@ -42,7 +42,7 @@ func newCompanyPostConfigurationsBulkCmd(flags *rootFlags) *cobra.Command {
 			path := "/company/configurations/bulk"
 			params := map[string]string{}
 			if flagManagedInformation != "" {
-				params["managedInformation"] = fmt.Sprintf("%v", flagManagedInformation)
+				params["managedInformation"] = formatCLIParamValue(flagManagedInformation)
 			}
 			var body map[string]any
 			if stdinBody {

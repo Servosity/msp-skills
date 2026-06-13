@@ -45,19 +45,19 @@ func newDealsGetArchivedSummaryCmd(flags *rootFlags) *cobra.Command {
 			path := "/deals/summary/archived"
 			params := map[string]string{}
 			if flagStatus != "" {
-				params["status"] = fmt.Sprintf("%v", flagStatus)
+				params["status"] = formatCLIParamValue(flagStatus)
 			}
 			if flagFilterId != "" {
-				params["filter_id"] = fmt.Sprintf("%v", flagFilterId)
+				params["filter_id"] = formatCLIParamValue(flagFilterId)
 			}
 			if flagUserId != "" {
-				params["user_id"] = fmt.Sprintf("%v", flagUserId)
+				params["user_id"] = formatCLIParamValue(flagUserId)
 			}
 			if flagPipelineId != "" {
-				params["pipeline_id"] = fmt.Sprintf("%v", flagPipelineId)
+				params["pipeline_id"] = formatCLIParamValue(flagPipelineId)
 			}
 			if flagStageId != "" {
-				params["stage_id"] = fmt.Sprintf("%v", flagStageId)
+				params["stage_id"] = formatCLIParamValue(flagStageId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "deals", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

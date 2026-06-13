@@ -74,7 +74,7 @@ func newSchedulesUpdateCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagOverflow != false {
-				params["overflow"] = fmt.Sprintf("%v", flagOverflow)
+				params["overflow"] = formatCLIParamValue(flagOverflow)
 			}
 			var body map[string]any
 			if stdinBody {

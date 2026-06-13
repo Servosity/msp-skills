@@ -21,7 +21,7 @@ func newClientDeviceGetJobHistoryOrgLevelCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-job-history-org-level <client_id> <device_id> <job_id>",
 		Short:       "This request returns information about job history by it's job ID.",
-		Example:     "  axcient-cli client device get-job-history-org-level 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  axcient-cli client device get-job-history-org-level 333 555 777",
 		Annotations: map[string]string{"pp:endpoint": "device.get-job-history-org-level", "pp:method": "GET", "pp:path": "/client/{client_id}/device/{device_id}/job/{job_id}/history", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -56,10 +56,10 @@ func newClientDeviceGetJobHistoryOrgLevelCmd(flags *rootFlags) *cobra.Command {
 			}
 			path = replacePathParam(path, "job_id", args[2])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "device", path, map[string]string{
-				"limit":           fmt.Sprintf("%v", flagLimit),
-				"offset":          fmt.Sprintf("%v", flagOffset),
-				"starttime_begin": fmt.Sprintf("%v", flagStarttimeBegin),
-				"status":          fmt.Sprintf("%v", flagStatus),
+				"limit":           formatCLIParamValue(flagLimit),
+				"offset":          formatCLIParamValue(flagOffset),
+				"starttime_begin": formatCLIParamValue(flagStarttimeBegin),
+				"status":          formatCLIParamValue(flagStatus),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

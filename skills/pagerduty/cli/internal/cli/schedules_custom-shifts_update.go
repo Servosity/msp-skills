@@ -21,7 +21,7 @@ func newSchedulesCustomShiftsUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update <id> <custom_shift_id>",
 		Short:       "<!",
-		Example:     "  pagerduty-cli schedules custom-shifts update 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pagerduty-cli schedules custom-shifts update PSJUKNI AGO4624VGZ44ZJDFTW5NSZ2CG4",
 		Annotations: map[string]string{"pp:endpoint": "custom-shifts.update", "pp:method": "PUT", "pp:path": "/v3/schedules/{id}/custom_shifts/{custom_shift_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

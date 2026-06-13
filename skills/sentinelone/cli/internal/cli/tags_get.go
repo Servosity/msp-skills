@@ -34,9 +34,10 @@ func newTagsGetCmd(flags *rootFlags) *cobra.Command {
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "get",
-		Aliases:     []string{"list"},
-		Short:       "Get tags.",
+		Use:     "get",
+		Aliases: []string{"list"},
+		Short:   "Get tags.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli tags get --type example-value",
 		Annotations: map[string]string{"pp:endpoint": "tags.get", "pp:method": "GET", "pp:path": "/tags", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -56,25 +57,25 @@ func newTagsGetCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/tags"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "tags", path, map[string]string{
-				"skip":              fmt.Sprintf("%v", flagSkip),
-				"sortOrder":         fmt.Sprintf("%v", flagSortOrder),
-				"ids":               fmt.Sprintf("%v", flagIds),
-				"kind":              fmt.Sprintf("%v", flagKind),
-				"disablePagination": fmt.Sprintf("%v", flagDisablePagination),
-				"scope":             fmt.Sprintf("%v", flagScope),
-				"name__contains":    fmt.Sprintf("%v", flagNameContains),
-				"siteIds":           fmt.Sprintf("%v", flagSiteIds),
-				"sortBy":            fmt.Sprintf("%v", flagSortBy),
-				"groupIds":          fmt.Sprintf("%v", flagGroupIds),
-				"limit":             fmt.Sprintf("%v", flagLimit),
-				"query":             fmt.Sprintf("%v", flagQuery),
-				"onlyParents":       fmt.Sprintf("%v", flagOnlyParents),
-				"accountIds":        fmt.Sprintf("%v", flagAccountIds),
-				"cursor":            fmt.Sprintf("%v", flagCursor),
-				"type":              fmt.Sprintf("%v", flagType),
-				"tenant":            fmt.Sprintf("%v", flagTenant),
-				"skipCount":         fmt.Sprintf("%v", flagSkipCount),
-				"countOnly":         fmt.Sprintf("%v", flagCountOnly),
+				"skip":              formatCLIParamValue(flagSkip),
+				"sortOrder":         formatCLIParamValue(flagSortOrder),
+				"ids":               formatCLIParamValue(flagIds),
+				"kind":              formatCLIParamValue(flagKind),
+				"disablePagination": formatCLIParamValue(flagDisablePagination),
+				"scope":             formatCLIParamValue(flagScope),
+				"name__contains":    formatCLIParamValue(flagNameContains),
+				"siteIds":           formatCLIParamValue(flagSiteIds),
+				"sortBy":            formatCLIParamValue(flagSortBy),
+				"groupIds":          formatCLIParamValue(flagGroupIds),
+				"limit":             formatCLIParamValue(flagLimit),
+				"query":             formatCLIParamValue(flagQuery),
+				"onlyParents":       formatCLIParamValue(flagOnlyParents),
+				"accountIds":        formatCLIParamValue(flagAccountIds),
+				"cursor":            formatCLIParamValue(flagCursor),
+				"type":              formatCLIParamValue(flagType),
+				"tenant":            formatCLIParamValue(flagTenant),
+				"skipCount":         formatCLIParamValue(flagSkipCount),
+				"countOnly":         formatCLIParamValue(flagCountOnly),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

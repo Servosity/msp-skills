@@ -33,8 +33,8 @@ func newAuditGetDeviceSoftwareCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/audit/device/{deviceUid}/software"
 			path = replacePathParam(path, "deviceUid", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "audit", path, map[string]string{
-				"page": fmt.Sprintf("%v", flagPage),
-				"max":  fmt.Sprintf("%v", flagMax),
+				"page": formatCLIParamValue(flagPage),
+				"max":  formatCLIParamValue(flagMax),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

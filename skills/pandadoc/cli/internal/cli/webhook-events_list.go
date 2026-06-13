@@ -24,7 +24,7 @@ func newWebhookEventsListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "This operation retrieves a paginated list of all webhook events.",
-		Example:     "  pandadoc-cli webhook-events list --count 50 --page 42",
+		Example:     "  pandadoc-cli webhook-events list --count 10 --page 1",
 		Annotations: map[string]string{"pp:endpoint": "webhook-events.list", "pp:method": "GET", "pp:path": "/webhook-events", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
@@ -46,13 +46,13 @@ func newWebhookEventsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/webhook-events"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "webhook-events", path, map[string]string{
-				"count":            fmt.Sprintf("%v", flagCount),
-				"page":             fmt.Sprintf("%v", flagPage),
-				"since":            fmt.Sprintf("%v", flagSince),
-				"to":               fmt.Sprintf("%v", flagTo),
-				"type":             fmt.Sprintf("%v", flagType),
-				"http_status_code": fmt.Sprintf("%v", flagHttpStatusCode),
-				"error":            fmt.Sprintf("%v", flagError),
+				"count":            formatCLIParamValue(flagCount),
+				"page":             formatCLIParamValue(flagPage),
+				"since":            formatCLIParamValue(flagSince),
+				"to":               formatCLIParamValue(flagTo),
+				"type":             formatCLIParamValue(flagType),
+				"http_status_code": formatCLIParamValue(flagHttpStatusCode),
+				"error":            formatCLIParamValue(flagError),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

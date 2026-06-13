@@ -16,7 +16,7 @@ func newPublicDeleteNotarizationRequestCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete-notarization-request <session_request_id>",
 		Short:       "Use this method to delete a notarization request. Once notarization request is deleted it cannot be restored.",
-		Example:     "  pandadoc-cli public delete-notarization-request 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli public delete-notarization-request 0b2256a2-5803-4ae9-b1b8-595f48e37173",
 		Annotations: map[string]string{"pp:endpoint": "public.delete-notarization-request", "pp:method": "DELETE", "pp:path": "/public/v2/notary/notarization-requests/{session_request_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

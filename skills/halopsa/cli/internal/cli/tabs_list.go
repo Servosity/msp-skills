@@ -29,10 +29,10 @@ func newTabsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Tabs"
 			params := map[string]string{}
 			if flagType != 0 {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			if flagTypeid != "" {
-				params["typeid"] = fmt.Sprintf("%v", flagTypeid)
+				params["typeid"] = formatCLIParamValue(flagTypeid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "tabs", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

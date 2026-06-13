@@ -15,9 +15,10 @@ func newListSafeLinksPolicyPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-safe-links-policy",
-		Short:       "This function is used to list the Safe Links policies in the tenant, including unmatched rules and policies.",
-		Long:        "This function is used to list the Safe Links policies in the tenant, including unmatched rules and policies.",
+		Use:   "list-safe-links-policy",
+		Short: "This function is used to list the Safe Links policies in the tenant, including unmatched rules and policies.",
+		Long:  "This function is used to list the Safe Links policies in the tenant, including unmatched rules and policies.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-safe-links-policy --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-safe-links-policy.list", "pp:method": "GET", "pp:path": "/ListSafeLinksPolicy", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,7 @@ func newListSafeLinksPolicyPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListSafeLinksPolicy"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-safe-links-policy", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

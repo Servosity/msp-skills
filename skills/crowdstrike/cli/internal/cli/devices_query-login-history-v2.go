@@ -34,13 +34,13 @@ func newDevicesQueryLoginHistoryV2Cmd(flags *rootFlags) *cobra.Command {
 			path := "/devices/combined/devices/login-history/v2"
 			params := map[string]string{}
 			if flagLimit != 0 {
-				params["limit"] = fmt.Sprintf("%v", flagLimit)
+				params["limit"] = formatCLIParamValue(flagLimit)
 			}
 			if flagFrom != "" {
-				params["from"] = fmt.Sprintf("%v", flagFrom)
+				params["from"] = formatCLIParamValue(flagFrom)
 			}
 			if flagTo != "" {
-				params["to"] = fmt.Sprintf("%v", flagTo)
+				params["to"] = formatCLIParamValue(flagTo)
 			}
 			var body map[string]any
 			if stdinBody {

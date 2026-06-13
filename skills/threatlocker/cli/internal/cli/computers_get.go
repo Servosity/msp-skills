@@ -37,7 +37,7 @@ func newComputersGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/Computer/ComputerGetForEditById"
 			params := map[string]string{}
 			if flagComputerId != "" {
-				params["computerId"] = fmt.Sprintf("%v", flagComputerId)
+				params["computerId"] = formatCLIParamValue(flagComputerId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "computers", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

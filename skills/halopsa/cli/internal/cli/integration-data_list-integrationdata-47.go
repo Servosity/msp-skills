@@ -32,19 +32,19 @@ func newIntegrationDataListIntegrationdata47Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/Intune"
 			params := map[string]string{}
 			if flagAreaAzureTenant != 0 {
-				params["areaAzureTenant"] = fmt.Sprintf("%v", flagAreaAzureTenant)
+				params["areaAzureTenant"] = formatCLIParamValue(flagAreaAzureTenant)
 			}
 			if flagConnectionid != "" {
-				params["connectionid"] = fmt.Sprintf("%v", flagConnectionid)
+				params["connectionid"] = formatCLIParamValue(flagConnectionid)
 			}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			if flagDoPaginate != false {
-				params["doPaginate"] = fmt.Sprintf("%v", flagDoPaginate)
+				params["doPaginate"] = formatCLIParamValue(flagDoPaginate)
 			}
 			if flagNextLink != "" {
-				params["nextLink"] = fmt.Sprintf("%v", flagNextLink)
+				params["nextLink"] = formatCLIParamValue(flagNextLink)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

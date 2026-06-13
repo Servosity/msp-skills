@@ -25,7 +25,7 @@ func newPublicCreateNotarizationRequestCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-notarization-request",
 		Short:       "Create a notarization request to connect with a notary and complete online notarizations for your signers within",
-		Example:     "  pandadoc-cli public create-notarization-request --document-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli public create-notarization-request --document-id 8DstGmLJDBXBKrh3wnqzpe",
 		Annotations: map[string]string{"pp:endpoint": "public.create-notarization-request", "pp:method": "POST", "pp:path": "/public/v2/notary/notarization-requests"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

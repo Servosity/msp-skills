@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Kaseya BMS MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-time analytics the web grid can't compute."
+description: "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute."
 permalink: /skills/kaseya-bms/
 skill_name: "Kaseya BMS MCP"
 image: /assets/social/kaseya-bms/wide-1200x630.png

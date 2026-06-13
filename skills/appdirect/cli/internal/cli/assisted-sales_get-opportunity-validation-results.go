@@ -33,7 +33,7 @@ func newAssistedSalesGetOpportunityValidationResultsCmd(flags *rootFlags) *cobra
 			path = replacePathParam(path, "opportunityId", args[0])
 			params := map[string]string{}
 			if flagEnforce != false {
-				params["enforce"] = fmt.Sprintf("%v", flagEnforce)
+				params["enforce"] = formatCLIParamValue(flagEnforce)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "assisted-sales", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

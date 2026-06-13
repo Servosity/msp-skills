@@ -33,12 +33,12 @@ func newIntegrationDataListIntegrationdata27Cmd(flags *rootFlags) *cobra.Command
 
 			path := "/IntegrationData/Get/Etilize"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", path, map[string]string{
-				"catalog":   fmt.Sprintf("%v", flagCatalog),
-				"datatype":  fmt.Sprintf("%v", flagDatatype),
-				"locale":    fmt.Sprintf("%v", flagLocale),
-				"page_size": fmt.Sprintf("%v", flagPageSize),
-				"pageno":    fmt.Sprintf("%v", flagPageno),
-				"search":    fmt.Sprintf("%v", flagSearch),
+				"catalog":   formatCLIParamValue(flagCatalog),
+				"datatype":  formatCLIParamValue(flagDatatype),
+				"locale":    formatCLIParamValue(flagLocale),
+				"page_size": formatCLIParamValue(flagPageSize),
+				"pageno":    formatCLIParamValue(flagPageno),
+				"search":    formatCLIParamValue(flagSearch),
 			}, nil, flagAll, "", "offset", "page_size", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

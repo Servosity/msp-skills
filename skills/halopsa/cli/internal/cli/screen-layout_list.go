@@ -28,7 +28,7 @@ func newScreenLayoutListCmd(flags *rootFlags) *cobra.Command {
 			path := "/ScreenLayout"
 			params := map[string]string{}
 			if flagTypeid != "" {
-				params["typeid"] = fmt.Sprintf("%v", flagTypeid)
+				params["typeid"] = formatCLIParamValue(flagTypeid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "screen-layout", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -21,7 +21,7 @@ func newCampaignListIdsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "list-ids",
 		Aliases:     []string{"list"},
 		Short:       "Heavily rate limited (50 requests per rolling 24 hours). Prefer the local synced store for repeated queries.",
-		Example:     "  proofpoint-cli campaign list-ids --interval example-value",
+		Example:     "  proofpoint-cli campaign list-ids --interval 2026-06-05T00:00:00Z/2026-06-06T00:00:00Z",
 		Annotations: map[string]string{"pp:endpoint": "campaign.list-ids", "pp:method": "GET", "pp:path": "/campaign/ids", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
@@ -40,9 +40,9 @@ func newCampaignListIdsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/campaign/ids"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "campaign", path, map[string]string{
-				"interval": fmt.Sprintf("%v", flagInterval),
-				"size":     fmt.Sprintf("%v", flagSize),
-				"page":     fmt.Sprintf("%v", flagPage),
+				"interval": formatCLIParamValue(flagInterval),
+				"size":     formatCLIParamValue(flagSize),
+				"page":     formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

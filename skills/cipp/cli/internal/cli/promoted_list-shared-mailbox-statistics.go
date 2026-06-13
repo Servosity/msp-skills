@@ -15,9 +15,10 @@ func newListSharedMailboxStatisticsPromotedCmd(flags *rootFlags) *cobra.Command 
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-shared-mailbox-statistics",
-		Short:       "List shared mailbox statistics",
-		Long:        "List shared mailbox statistics",
+		Use:   "list-shared-mailbox-statistics",
+		Short: "List shared mailbox statistics",
+		Long:  "List shared mailbox statistics",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-shared-mailbox-statistics --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-shared-mailbox-statistics.list", "pp:method": "GET", "pp:path": "/ListSharedMailboxStatistics", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,7 @@ func newListSharedMailboxStatisticsPromotedCmd(flags *rootFlags) *cobra.Command 
 			path := "/ListSharedMailboxStatistics"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-shared-mailbox-statistics", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

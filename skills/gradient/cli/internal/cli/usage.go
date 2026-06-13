@@ -11,7 +11,7 @@ func newNovelUsageCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "usage",
-		Short:       "Usage-count pushes and drift against the local push ledger",
+		Short:       "usage subcommands: drift, push",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

@@ -15,9 +15,10 @@ func newCheckoutDeleteDiscountByShoppingCartIdCmd(flags *rootFlags) *cobra.Comma
 	var flagItemId string
 
 	cmd := &cobra.Command{
-		Use:         "delete-discount-by-shopping-cart-id <shoppingCartId> <discountCode>",
-		Aliases:     []string{"delete"},
-		Short:       "Deletes a discount by code from shopping cart items.",
+		Use:     "delete-discount-by-shopping-cart-id <shoppingCartId> <discountCode>",
+		Aliases: []string{"delete"},
+		Short:   "Deletes a discount by code from shopping cart items.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli checkout delete-discount-by-shopping-cart-id 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "checkout.delete-discount-by-shopping-cart-id", "pp:method": "DELETE", "pp:path": "/v3/checkout/shoppingCarts/{shoppingCartId}/discounts/{discountCode}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newCheckoutDeleteDiscountByShoppingCartIdCmd(flags *rootFlags) *cobra.Comma
 			path = replacePathParam(path, "discountCode", args[1])
 			params := map[string]string{}
 			if flagItemId != "" {
-				params["itemId"] = fmt.Sprintf("%v", flagItemId)
+				params["itemId"] = formatCLIParamValue(flagItemId)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

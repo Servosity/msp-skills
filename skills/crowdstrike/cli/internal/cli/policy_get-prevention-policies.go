@@ -15,9 +15,10 @@ func newPolicyGetPreventionPoliciesCmd(flags *rootFlags) *cobra.Command {
 	var flagIds string
 
 	cmd := &cobra.Command{
-		Use:         "get-prevention-policies",
-		Aliases:     []string{"list"},
-		Short:       "Retrieve a set of Prevention Policies by specifying their IDs",
+		Use:     "get-prevention-policies",
+		Aliases: []string{"list"},
+		Short:   "Retrieve a set of Prevention Policies by specifying their IDs",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  crowdstrike-cli policy get-prevention-policies --ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "policy.get-prevention-policies", "pp:method": "GET", "pp:path": "/policy/entities/prevention/v1", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -38,7 +39,7 @@ func newPolicyGetPreventionPoliciesCmd(flags *rootFlags) *cobra.Command {
 			path := "/policy/entities/prevention/v1"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "policy", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

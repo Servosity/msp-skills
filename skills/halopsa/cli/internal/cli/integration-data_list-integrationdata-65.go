@@ -30,9 +30,9 @@ func newIntegrationDataListIntegrationdata65Cmd(flags *rootFlags) *cobra.Command
 
 			path := "/IntegrationData/Get/NinjaRMM"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", path, map[string]string{
-				"datatype":       fmt.Sprintf("%v", flagDatatype),
-				"organizationid": fmt.Sprintf("%v", flagOrganizationid),
-				"page":           fmt.Sprintf("%v", flagPage),
+				"datatype":       formatCLIParamValue(flagDatatype),
+				"organizationid": formatCLIParamValue(flagOrganizationid),
+				"page":           formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

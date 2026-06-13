@@ -32,7 +32,7 @@ func newBillingResourceSubscriptionCancelSubscriptionDeleteCmd(flags *rootFlags)
 			path = replacePathParam(path, "subscriptionId", args[0])
 			params := map[string]string{}
 			if flagSendNotification != false {
-				params["sendNotification"] = fmt.Sprintf("%v", flagSendNotification)
+				params["sendNotification"] = formatCLIParamValue(flagSendNotification)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

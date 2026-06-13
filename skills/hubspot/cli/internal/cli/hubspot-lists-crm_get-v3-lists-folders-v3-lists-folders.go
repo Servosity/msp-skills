@@ -28,7 +28,7 @@ func newHubspotListsCrmGetV3ListsFoldersV3ListsFoldersCmd(flags *rootFlags) *cob
 			path := "/crm/v3/lists/folders"
 			params := map[string]string{}
 			if flagFolderId != "" {
-				params["folderId"] = fmt.Sprintf("%v", flagFolderId)
+				params["folderId"] = formatCLIParamValue(flagFolderId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "hubspot-lists-crm", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

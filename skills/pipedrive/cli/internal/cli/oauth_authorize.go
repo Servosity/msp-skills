@@ -17,9 +17,10 @@ func newOauthAuthorizeCmd(flags *rootFlags) *cobra.Command {
 	var flagState string
 
 	cmd := &cobra.Command{
-		Use:         "authorize",
-		Aliases:     []string{"list"},
-		Short:       "Authorize a user by redirecting them to the Pipedrive OAuth authorization page and request their permissions to act on",
+		Use:     "authorize",
+		Aliases: []string{"list"},
+		Short:   "Authorize a user by redirecting them to the Pipedrive OAuth authorization page and request their permissions to act on",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pipedrive-cli oauth authorize --client-id 550e8400-e29b-41d4-a716-446655440000 --redirect-uri example-value",
 		Annotations: map[string]string{"pp:endpoint": "oauth.authorize", "pp:method": "GET", "pp:path": "https://oauth.pipedrive.com/oauth/authorize", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -43,13 +44,13 @@ func newOauthAuthorizeCmd(flags *rootFlags) *cobra.Command {
 			path := "https://oauth.pipedrive.com/oauth/authorize"
 			params := map[string]string{}
 			if flagClientId != "" {
-				params["client_id"] = fmt.Sprintf("%v", flagClientId)
+				params["client_id"] = formatCLIParamValue(flagClientId)
 			}
 			if flagRedirectUri != "" {
-				params["redirect_uri"] = fmt.Sprintf("%v", flagRedirectUri)
+				params["redirect_uri"] = formatCLIParamValue(flagRedirectUri)
 			}
 			if flagState != "" {
-				params["state"] = fmt.Sprintf("%v", flagState)
+				params["state"] = formatCLIParamValue(flagState)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "oauth", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

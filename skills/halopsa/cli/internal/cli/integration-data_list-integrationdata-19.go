@@ -30,9 +30,9 @@ func newIntegrationDataListIntegrationdata19Cmd(flags *rootFlags) *cobra.Command
 
 			path := "/IntegrationData/Get/DattoCommerce"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", path, map[string]string{
-				"connectionid": fmt.Sprintf("%v", flagConnectionid),
-				"datatype":     fmt.Sprintf("%v", flagDatatype),
-				"page":         fmt.Sprintf("%v", flagPage),
+				"connectionid": formatCLIParamValue(flagConnectionid),
+				"datatype":     formatCLIParamValue(flagDatatype),
+				"page":         formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

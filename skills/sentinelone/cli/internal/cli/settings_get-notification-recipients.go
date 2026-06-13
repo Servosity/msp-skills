@@ -33,22 +33,22 @@ func newSettingsGetNotificationRecipientsCmd(flags *rootFlags) *cobra.Command {
 			path := "/settings/recipients"
 			params := map[string]string{}
 			if flagSiteIds != "" {
-				params["siteIds"] = fmt.Sprintf("%v", flagSiteIds)
+				params["siteIds"] = formatCLIParamValue(flagSiteIds)
 			}
 			if flagName != "" {
-				params["name"] = fmt.Sprintf("%v", flagName)
+				params["name"] = formatCLIParamValue(flagName)
 			}
 			if flagSms != "" {
-				params["sms"] = fmt.Sprintf("%v", flagSms)
+				params["sms"] = formatCLIParamValue(flagSms)
 			}
 			if flagEmail != "" {
-				params["email"] = fmt.Sprintf("%v", flagEmail)
+				params["email"] = formatCLIParamValue(flagEmail)
 			}
 			if flagQuery != "" {
-				params["query"] = fmt.Sprintf("%v", flagQuery)
+				params["query"] = formatCLIParamValue(flagQuery)
 			}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "settings", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

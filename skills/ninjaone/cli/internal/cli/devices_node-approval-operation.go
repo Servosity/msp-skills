@@ -45,7 +45,7 @@ func newDevicesNodeApprovalOperationCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			path := "/v2/devices/approval/{mode}"
-			path = replacePathParam(path, "mode", fmt.Sprintf("%v", flagMode))
+			path = replacePathParam(path, "mode", formatCLIParamValue(flagMode))
 			params := map[string]string{}
 			var body map[string]any
 			if stdinBody {

@@ -1,135 +1,157 @@
-# N-central CLI
+# N Central CLI
 
-**Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, and a JWT-expiry guardian no other N-central tool has.**
-
-A single cross-platform binary for N-able N-central. It mirrors service orgs, customers, sites, devices, active issues, and custom properties into local SQLite so you can search and SQL across every tenant offline. It matches the 87-tool community MCP server's REST coverage and beats it with `fanout` cross-server search, `triage` issue rollups, `props audit` custom-property coverage, and a `guardian` that kills the silent JWT/password-expiry outage.
+N-able N-central RMM REST API  -  manage devices, customers, sites, org units, active issues, custom properties, scheduled tasks, and maintenance windows across an MSP's N-central instance.
 
 Created by [@dstevens](https://github.com/dstevens) (Damien Stevens).
 Contributors: [@DamienStevens](https://github.com/DamienStevens) (Damien Stevens).
 
-For the short install path see [README.md](./README.md). This file is the command reference.
+## Install
 
-## Authentication
+The recommended path installs both the `n-central-cli` binary and the `pp-n-central` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
-Authentication uses an N-central API-only user's JSON Web Token. Generate it in N-central (Administration → User Management → Users → API Access → Generate JSON Web Token; MFA must be OFF). Set NCENTRAL_JWT and your tenant base URL N_CENTRAL_BASE_URL (e.g. https://yourmsp.ncod.n-able.com/api). The CLI exchanges the long-lived JWT for a short-lived access token via POST /api/auth/authenticate and auto-refreshes it. Watch the API user's password expiry (default 90 days)  -  it silently invalidates the JWT; `guardian` warns you before it does.
+```bash
+npx -y @mvanhorn/printing-press-library install n-central
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install n-central --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install n-central --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install n-central --agent claude-code
+npx -y @mvanhorn/printing-press-library install n-central --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/developer-tools/n-central/cmd/n-central-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/n-central-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install n-central --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-n-central --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-n-central --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install n-central --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/n-central-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `NCENTRAL_JWT` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/developer-tools/n-central/cmd/n-central-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "n-central": {
+      "command": "n-central-mcp",
+      "env": {
+        "NCENTRAL_JWT": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Quick Start
 
-```bash
-# confirm the JWT is valid and the password is not about to expire before anything else
-n-central-cli guardian
+### 1. Install
 
+See [Install](#install) above.
 
-# mirror the org tree, devices, and active issues into local SQLite
-n-central-cli sync
+### 2. Set Up Credentials
 
-
-# see today's active issues grouped and ranked across customers
-n-central-cli triage --by customer
-
-
-# locate a device by name across every tenant
-n-central-cli whereis DC01
-
-```
-
-## Unique Features
-
-These capabilities aren't available in any other tool for this API.
-
-### Cross-tenant intelligence
-
-- **`fanout`**  -  Search every configured N-central server at once  -  find a device, customer, or active issue across all your tenants without clicking through each console.
-
-  _Reach for this when an MSP runs more than one N-central server and needs one answer across all of them._
-
-  ```bash
-  n-central-cli fanout "backup failed" --agent
-  ```
-- **`triage`**  -  Group active monitoring issues by customer, device, or monitor type and rank by severity  -  the daily NOC sweep as one command.
-
-  _Reach for this to start a shift with one ranked view instead of per-customer Active Issues screens._
-
-  ```bash
-  n-central-cli triage --by customer --agent
-  ```
-- **`whereis`**  -  Given a device name fragment, return its full path  -  server, service org, customer, site  -  plus its current active-issue count.
-
-  _Reach for this when a ticket names a device but not which customer or server it lives on._
-
-  ```bash
-  n-central-cli whereis DC01 --agent
-  ```
-
-### Local state that compounds
-
-- **`props audit`**  -  Report which devices are missing a required custom-property value, as a coverage percentage grouped by customer.
-
-  _Reach for this when custom properties drive automation and you need coverage, not a manual CSV spot-check._
-
-  ```bash
-  n-central-cli props audit --required BackupTier --agent
-  ```
-- **`maint coverage`**  -  List devices and sites with no maintenance window before a reboot/patch wave, so nothing reboots in business hours.
-
-  _Reach for this before a patch wave to find the blind spots the per-device view can't show._
-
-  ```bash
-  n-central-cli maint coverage --before 2026-06-15 --agent
-  ```
-
-### Reachability mitigation
-
-- **`guardian`**  -  Validate the access token, warn when the API user's password (and thus the JWT) is about to expire, and detect N-central's HTTP-200-with-error-body failures.
-
-  _Reach for this in CI or a cron check so a silent JWT expiry never takes your integrations down at day 90._
-
-  ```bash
-  n-central-cli guardian --password-set 2026-03-01
-  ```
-
-## Recipes
-
-
-### Morning NOC sweep across customers
+Get your access token from your API provider's developer portal, then store it:
 
 ```bash
-n-central-cli triage --by customer --agent
+n-central-cli auth set-token YOUR_TOKEN_HERE
 ```
 
-One ranked, grouped view of every active issue instead of per-customer console screens.
-
-### Find a device anywhere
+Or set it via environment variable:
 
 ```bash
-n-central-cli whereis DC01 --agent
+export NCENTRAL_JWT="your-token-here"
 ```
 
-Resolves a device fragment to server → SO → customer → site with its live issue count.
-
-### Audit a required custom property
+### 3. Verify Setup
 
 ```bash
-n-central-cli props audit --required BackupTier --agent --select customerName,coveragePct
+n-central-cli doctor
 ```
 
-Per-customer coverage of a property that drives automation, narrowed to the two fields that matter.
+This checks your configuration and credentials.
 
-### Pre-patch maintenance-window check
+### 4. Try Your First Command
 
 ```bash
-n-central-cli maint coverage --before 2026-06-15 --agent
+n-central-cli access-groups <id>
 ```
-
-Lists devices/sites with no window before the reboot wave.
-
-### Guard against silent JWT expiry in CI
-
-```bash
-n-central-cli guardian --password-set 2026-03-01 --agent
-```
-
-Exits non-zero when the token is invalid or the password is near expiry  -  wire it into a cron/CI check.
 
 ## Usage
 
@@ -196,7 +218,7 @@ Scheduled tasks  -  run scripts/automation policies on devices and track them.
 Server info and health.
 
 - **`n-central-cli server health`** - Return the start and current time of the server (lightweight reachability check).
-- **`n-central-cli server get`** - Return version information for the N-central API service and systems.
+- **`n-central-cli server info`** - Return version information for the N-central API service and systems.
 
 ### service-orgs
 
@@ -224,19 +246,19 @@ N-central users.
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-n-central-cli access-groups 550e8400-e29b-41d4-a716-446655440000
+n-central-cli access-groups <id>
 
 # JSON for scripting and agents
-n-central-cli access-groups 550e8400-e29b-41d4-a716-446655440000 --json
+n-central-cli access-groups <id> --json
 
 # Filter to specific fields
-n-central-cli access-groups 550e8400-e29b-41d4-a716-446655440000 --json --select id,name,status
+n-central-cli access-groups <id> --json --select id,name,status
 
 # Dry run  -  show the request without sending
-n-central-cli access-groups 550e8400-e29b-41d4-a716-446655440000 --dry-run
+n-central-cli access-groups <id> --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-n-central-cli access-groups 550e8400-e29b-41d4-a716-446655440000 --agent
+n-central-cli access-groups <id> --agent
 ```
 
 ## Agent Usage
@@ -287,23 +309,6 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Check the resource ID is correct
 - Run the `list` command to see available items
 
-### API-specific
-
-- **Every call returns HTTP 500 INTERNAL ERROR**  -  The API user's password likely expired (default 90 days), which invalidates the JWT. Reset the password and regenerate the JWT; run `guardian --password-set <date>` to track it.
-- **403 Forbidden on a script or repository item**  -  That item is not API-enabled. In N-central, enable the item for the API (scripts must be ID >= 2000 with 'Enable API' toggled).
-- **A call returns HTTP 200 but nothing happened**  -  N-central can return failures as an Error Message inside a 200 body. Run `guardian` or re-check the response; the CLI surfaces these as errors.
-- **429 Too Many Requests on a fan-out**  -  N-central enforces per-endpoint concurrency caps (some as low as 1). The CLI throttles per endpoint automatically; lower --concurrency if you still hit it.
-
 ---
-
-## Sources & Inspiration
-
-This CLI was built by studying these projects and resources:
-
-- [**PS-NCentral**](https://github.com/ToschAutomatisering/PS-NCentral)  -  PowerShell (42 stars)
-- [**NC-API-Documentation**](https://github.com/AngryProgrammerInside/NC-API-Documentation)  -  PowerShell (20 stars)
-- [**pyncentral**](https://github.com/RenierM26/pyncentral)  -  Python (6 stars)
-- [**NCRestAPI**](https://github.com/theonlytruebigmac/NCRestAPI)  -  PowerShell (4 stars)
-- [**N-central_MCP**](https://github.com/theonlytruebigmac/N-central_MCP)  -  TypeScript
 
 Generated by [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press)

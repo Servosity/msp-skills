@@ -46,7 +46,7 @@ func newHubspotTasksCrmPatchV3ObjectsTasksTaskIdUpdateCmd(flags *rootFlags) *cob
 			path = replacePathParam(path, "taskId", args[0])
 			params := map[string]string{}
 			if flagIdProperty != "" {
-				params["idProperty"] = fmt.Sprintf("%v", flagIdProperty)
+				params["idProperty"] = formatCLIParamValue(flagIdProperty)
 			}
 			var body map[string]any
 			if stdinBody {

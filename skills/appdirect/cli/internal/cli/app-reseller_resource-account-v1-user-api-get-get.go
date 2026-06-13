@@ -73,17 +73,17 @@ func newAppResellerResourceAccountV1UserApiGetGetCmd(flags *rootFlags) *cobra.Co
 
 			path := "/appReseller/v1/users"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "app-reseller", path, map[string]string{
-				"context":    fmt.Sprintf("%v", flagContext),
-				"partner":    fmt.Sprintf("%v", flagPartner),
-				"companyId":  fmt.Sprintf("%v", flagCompanyId),
-				"active":     fmt.Sprintf("%v", flagActive),
-				"searchText": fmt.Sprintf("%v", flagSearchText),
-				"fromDate":   fmt.Sprintf("%v", flagFromDate),
-				"toDate":     fmt.Sprintf("%v", flagToDate),
-				"sortField":  fmt.Sprintf("%v", flagSortField),
-				"sortOrder":  fmt.Sprintf("%v", flagSortOrder),
-				"page":       fmt.Sprintf("%v", flagPage),
-				"size":       fmt.Sprintf("%v", flagSize),
+				"context":    formatCLIParamValue(flagContext),
+				"partner":    formatCLIParamValue(flagPartner),
+				"companyId":  formatCLIParamValue(flagCompanyId),
+				"active":     formatCLIParamValue(flagActive),
+				"searchText": formatCLIParamValue(flagSearchText),
+				"fromDate":   formatCLIParamValue(flagFromDate),
+				"toDate":     formatCLIParamValue(flagToDate),
+				"sortField":  formatCLIParamValue(flagSortField),
+				"sortOrder":  formatCLIParamValue(flagSortOrder),
+				"page":       formatCLIParamValue(flagPage),
+				"size":       formatCLIParamValue(flagSize),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

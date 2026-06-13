@@ -57,16 +57,16 @@ func newAutomationActionsListInvocationsCmd(flags *rootFlags) *cobra.Command {
 			path := "/automation_actions/invocations"
 			params := map[string]string{}
 			if flagInvocationState != "" {
-				params["invocation_state"] = fmt.Sprintf("%v", flagInvocationState)
+				params["invocation_state"] = formatCLIParamValue(flagInvocationState)
 			}
 			if flagNotInvocationState != "" {
-				params["not_invocation_state"] = fmt.Sprintf("%v", flagNotInvocationState)
+				params["not_invocation_state"] = formatCLIParamValue(flagNotInvocationState)
 			}
 			if flagIncidentId != "" {
-				params["incident_id"] = fmt.Sprintf("%v", flagIncidentId)
+				params["incident_id"] = formatCLIParamValue(flagIncidentId)
 			}
 			if flagActionId != "" {
-				params["action_id"] = fmt.Sprintf("%v", flagActionId)
+				params["action_id"] = formatCLIParamValue(flagActionId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "automation-actions", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -10,14 +10,8 @@ import (
 func newNovelFleetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:   "fleet",
-		Short: "Fleet-wide views across all your organizations (offline, cross-org)",
-		Long: `Fleet-wide views the org-scoped Action1 API cannot give you. These commands
-read the locally synced SQLite store and aggregate across every organization:
-patch posture, exploit-aware vulnerability triage, dark-agent detection,
-patch drift over time, software rollups, endpoint health scores, automation
-outcomes, per-client posture scorecards, and reboot-pending sweeps. Run
-'action1-cli sync' first to populate the store.`,
+		Use:         "fleet",
+		Short:       "fleet subcommands: automation-health, health-score, org-scorecard, patch-drift, patch-posture, reboot-pending, software-rollup, stale, vuln-triage",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

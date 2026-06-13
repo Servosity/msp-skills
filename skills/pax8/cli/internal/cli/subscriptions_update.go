@@ -19,7 +19,7 @@ func newSubscriptionsUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update <subscriptionId>",
 		Short:       "Updates a subscription. Currently NOT supported for subscriptions with a future date.",
-		Example:     "  pax8-cli subscriptions update 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pax8-cli subscriptions update 04814f37-bef0-48b7-b388-c04a1e31f889",
 		Annotations: map[string]string{"pp:endpoint": "subscriptions.update", "pp:method": "PUT", "pp:path": "/subscriptions/{subscriptionId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

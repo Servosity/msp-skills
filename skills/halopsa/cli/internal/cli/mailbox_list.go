@@ -33,22 +33,22 @@ func newMailboxListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Mailbox"
 			params := map[string]string{}
 			if flagDepartmentId != "" {
-				params["department_id"] = fmt.Sprintf("%v", flagDepartmentId)
+				params["department_id"] = formatCLIParamValue(flagDepartmentId)
 			}
 			if flagFromAddresses != false {
-				params["from_addresses"] = fmt.Sprintf("%v", flagFromAddresses)
+				params["from_addresses"] = formatCLIParamValue(flagFromAddresses)
 			}
 			if flagIgnoreDefault != false {
-				params["ignore_default"] = fmt.Sprintf("%v", flagIgnoreDefault)
+				params["ignore_default"] = formatCLIParamValue(flagIgnoreDefault)
 			}
 			if flagOrganisationId != "" {
-				params["organisation_id"] = fmt.Sprintf("%v", flagOrganisationId)
+				params["organisation_id"] = formatCLIParamValue(flagOrganisationId)
 			}
 			if flagShowall != false {
-				params["showall"] = fmt.Sprintf("%v", flagShowall)
+				params["showall"] = formatCLIParamValue(flagShowall)
 			}
 			if flagTeamId != "" {
-				params["team_id"] = fmt.Sprintf("%v", flagTeamId)
+				params["team_id"] = formatCLIParamValue(flagTeamId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "mailbox", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

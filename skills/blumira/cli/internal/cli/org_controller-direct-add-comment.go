@@ -18,9 +18,10 @@ func newOrgControllerDirectAddCommentCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "controller-direct-add-comment <finding_id>",
-		Aliases:     []string{"create"},
-		Short:       "Add a comment to a finding in the org",
+		Use:     "controller-direct-add-comment <finding_id>",
+		Aliases: []string{"create"},
+		Short:   "Add a comment to a finding in the org",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  blumira-cli org controller-direct-add-comment 550e8400-e29b-41d4-a716-446655440000 --body example-value",
 		Annotations: map[string]string{"pp:endpoint": "org.controller-direct-add-comment", "pp:method": "POST", "pp:path": "/org/findings/{finding_id}/comments"},
 		RunE: func(cmd *cobra.Command, args []string) error {

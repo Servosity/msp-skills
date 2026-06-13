@@ -21,7 +21,7 @@ func newSchedulesGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <id>",
 		Short:       "Show detailed information about a schedule, including entries for each layer. Scoped OAuth requires: `schedules.read`",
-		Example:     "  pagerduty-cli schedules get 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pagerduty-cli schedules get P2LJD7G",
 		Annotations: map[string]string{"pp:endpoint": "schedules.get", "pp:method": "GET", "pp:path": "/schedules/{id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -36,19 +36,19 @@ func newSchedulesGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagTimeZone != "" {
-				params["time_zone"] = fmt.Sprintf("%v", flagTimeZone)
+				params["time_zone"] = formatCLIParamValue(flagTimeZone)
 			}
 			if flagSince != "" {
-				params["since"] = fmt.Sprintf("%v", flagSince)
+				params["since"] = formatCLIParamValue(flagSince)
 			}
 			if flagUntil != "" {
-				params["until"] = fmt.Sprintf("%v", flagUntil)
+				params["until"] = formatCLIParamValue(flagUntil)
 			}
 			if flagOverflow != false {
-				params["overflow"] = fmt.Sprintf("%v", flagOverflow)
+				params["overflow"] = formatCLIParamValue(flagOverflow)
 			}
 			if flagIncludeNextOncallForUser != "" {
-				params["include_next_oncall_for_user"] = fmt.Sprintf("%v", flagIncludeNextOncallForUser)
+				params["include_next_oncall_for_user"] = formatCLIParamValue(flagIncludeNextOncallForUser)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "schedules", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

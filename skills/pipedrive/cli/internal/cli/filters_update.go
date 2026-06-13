@@ -47,7 +47,7 @@ func newFiltersUpdateCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagIncludeFieldCode != false {
-				params["include_field_code"] = fmt.Sprintf("%v", flagIncludeFieldCode)
+				params["include_field_code"] = formatCLIParamValue(flagIncludeFieldCode)
 			}
 			var body map[string]any
 			if stdinBody {

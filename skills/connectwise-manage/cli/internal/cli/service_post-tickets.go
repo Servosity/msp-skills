@@ -199,8 +199,9 @@ func newServicePostTicketsCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-tickets",
-		Short:       "Post Ticket",
+		Use:   "post-tickets",
+		Short: "Post Ticket",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  connectwise-manage-cli service post-tickets --summary example-value",
 		Annotations: map[string]string{"pp:endpoint": "service.post-tickets", "pp:method": "POST", "pp:path": "/service/tickets"},
 		RunE: func(cmd *cobra.Command, args []string) error {

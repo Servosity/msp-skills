@@ -18,9 +18,10 @@ func newSyncStatePromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyState string
 
 	cmd := &cobra.Command{
-		Use:         "sync-state <id>",
-		Short:       "This endpoint is exempt from rate limiting",
-		Long:        "This endpoint is exempt from rate limiting",
+		Use:   "sync-state <id>",
+		Short: "This endpoint is exempt from rate limiting",
+		Long:  "This endpoint is exempt from rate limiting",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  salesbuildr-cli sync-state 550e8400-e29b-41d4-a716-446655440000 --entity-type quote --error example-value",
 		Annotations: map[string]string{"pp:endpoint": "sync-state.sync-public-put", "pp:method": "PUT", "pp:path": "/sync-state/{entityType}/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -73,7 +74,7 @@ func newSyncStatePromotedCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("id is required\nUsage: %s <%s>", cmd.CommandPath(), "id"))
 			}
 			path = replacePathParam(path, "id", args[0])
-			path = replacePathParam(path, "entityType", fmt.Sprintf("%v", flagEntityType))
+			path = replacePathParam(path, "entityType", formatCLIParamValue(flagEntityType))
 			params := map[string]string{}
 			// HasStore + non-GET falls through to a live API call here
 			// rather than through resolveRead (GET-only internally); a
@@ -91,10 +92,10 @@ func newSyncStatePromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PutWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

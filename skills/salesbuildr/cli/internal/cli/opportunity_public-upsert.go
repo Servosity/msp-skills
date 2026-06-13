@@ -38,9 +38,10 @@ func newOpportunityPublicUpsertCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "public-upsert <externalIdentifier>",
-		Aliases:     []string{"update"},
-		Short:       "Create or update a opportunity using the ext ID as key",
+		Use:     "public-upsert <externalIdentifier>",
+		Aliases: []string{"update"},
+		Short:   "Create or update a opportunity using the ext ID as key",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  salesbuildr-cli opportunity public-upsert example-value --name example-resource",
 		Annotations: map[string]string{"pp:endpoint": "opportunity.public-upsert", "pp:method": "PUT", "pp:path": "/opportunity/ext/{externalIdentifier}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

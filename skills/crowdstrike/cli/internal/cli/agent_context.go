@@ -131,7 +131,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "crowdstrike-cli",
-			Description: "Every CrowdStrike Falcon MSP operation",
+			Description: "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once — something no other Falcon tool (including the official MCP server) does.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

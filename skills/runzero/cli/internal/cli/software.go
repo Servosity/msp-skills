@@ -11,8 +11,7 @@ func newNovelSoftwareCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "software",
-		Short:       "Software inventory rollups from the local store",
-		Long:        "Query the locally-synced software inventory. Use 'software rollup' to group installed software by product and version with per-version asset counts.",
+		Short:       "software subcommands: rollup",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

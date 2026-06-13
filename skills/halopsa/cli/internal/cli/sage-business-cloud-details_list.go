@@ -29,10 +29,10 @@ func newSageBusinessCloudDetailsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/SageBusinessCloudDetails"
 			params := map[string]string{}
 			if flagConnectedonly != false {
-				params["connectedonly"] = fmt.Sprintf("%v", flagConnectedonly)
+				params["connectedonly"] = formatCLIParamValue(flagConnectedonly)
 			}
 			if flagTenantid != "" {
-				params["tenantid"] = fmt.Sprintf("%v", flagTenantid)
+				params["tenantid"] = formatCLIParamValue(flagTenantid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "sage-business-cloud-details", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

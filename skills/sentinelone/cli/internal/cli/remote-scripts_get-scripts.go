@@ -40,18 +40,18 @@ func newRemoteScriptsGetScriptsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/remote-scripts"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "remote-scripts", path, map[string]string{
-				"cursor":     fmt.Sprintf("%v", flagCursor),
-				"scriptType": fmt.Sprintf("%v", flagScriptType),
-				"accountIds": fmt.Sprintf("%v", flagAccountIds),
-				"sortOrder":  fmt.Sprintf("%v", flagSortOrder),
-				"query":      fmt.Sprintf("%v", flagQuery),
-				"sortBy":     fmt.Sprintf("%v", flagSortBy),
-				"siteIds":    fmt.Sprintf("%v", flagSiteIds),
-				"osTypes":    fmt.Sprintf("%v", flagOsTypes),
-				"limit":      fmt.Sprintf("%v", flagLimit),
-				"skipCount":  fmt.Sprintf("%v", flagSkipCount),
-				"skip":       fmt.Sprintf("%v", flagSkip),
-				"countOnly":  fmt.Sprintf("%v", flagCountOnly),
+				"cursor":     formatCLIParamValue(flagCursor),
+				"scriptType": formatCLIParamValue(flagScriptType),
+				"accountIds": formatCLIParamValue(flagAccountIds),
+				"sortOrder":  formatCLIParamValue(flagSortOrder),
+				"query":      formatCLIParamValue(flagQuery),
+				"sortBy":     formatCLIParamValue(flagSortBy),
+				"siteIds":    formatCLIParamValue(flagSiteIds),
+				"osTypes":    formatCLIParamValue(flagOsTypes),
+				"limit":      formatCLIParamValue(flagLimit),
+				"skipCount":  formatCLIParamValue(flagSkipCount),
+				"skip":       formatCLIParamValue(flagSkip),
+				"countOnly":  formatCLIParamValue(flagCountOnly),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -43,13 +43,13 @@ func newDvGetEventsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/dv/events"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "dv", path, map[string]string{
-				"sortBy":    fmt.Sprintf("%v", flagSortBy),
-				"limit":     fmt.Sprintf("%v", flagLimit),
-				"skip":      fmt.Sprintf("%v", flagSkip),
-				"sortOrder": fmt.Sprintf("%v", flagSortOrder),
-				"subQuery":  fmt.Sprintf("%v", flagSubQuery),
-				"cursor":    fmt.Sprintf("%v", flagCursor),
-				"queryId":   fmt.Sprintf("%v", flagQueryId),
+				"sortBy":    formatCLIParamValue(flagSortBy),
+				"limit":     formatCLIParamValue(flagLimit),
+				"skip":      formatCLIParamValue(flagSkip),
+				"sortOrder": formatCLIParamValue(flagSortOrder),
+				"subQuery":  formatCLIParamValue(flagSubQuery),
+				"cursor":    formatCLIParamValue(flagCursor),
+				"queryId":   formatCLIParamValue(flagQueryId),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

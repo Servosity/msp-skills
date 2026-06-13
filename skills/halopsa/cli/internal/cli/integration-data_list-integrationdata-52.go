@@ -29,10 +29,10 @@ func newIntegrationDataListIntegrationdata52Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/Kashflow"
 			params := map[string]string{}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			if flagTenantid != "" {
-				params["tenantid"] = fmt.Sprintf("%v", flagTenantid)
+				params["tenantid"] = formatCLIParamValue(flagTenantid)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

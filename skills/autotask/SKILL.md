@@ -1,6 +1,6 @@
 ---
 name: autotask
-description: "Use when the user asks to triage the Autotask service desk, find unbilled or uninvoiced time before a billing run, check contract burn or retainer run-out, pull a company 360, age the ticket queue, balance technician workload, resolve an Autotask picklist ID, or run any cross-entity question against Autotask PSA (Datto Autotask PSA). Wraps the full Autotask REST API plus zone discovery and a local SQLite mirror. Trigger phrases: `list autotask tickets`, `triage the autotask service desk`, `find unbilled time in autotask`, `autotask company 360`, `contract burn in autotask`, `who is overloaded in autotask`, `autotask ticket aging`, `Autotask + ChatGPT`, `Autotask + Claude`, `use autotask`, `run autotask-cli`."
+description: "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can. Trigger phrases: `list autotask tickets`, `autotask company 360`, `who is overloaded in autotask`, `unbilled time in autotask`, `autotask ticket aging`, `use autotask`, `run autotask-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Autotask"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - autotask-cli
+    install:
+      - kind: go
+        bins: [autotask-cli]
+        module: github.com/mvanhorn/printing-press-library/library/project-management/autotask/cmd/autotask-cli
 ---
 
-# Autotask PSA Claude Code Skill
+# Autotask PSA  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `autotask-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/install.sh)
+   npx -y @mvanhorn/printing-press-library install autotask --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/install.ps1 | iex
-   ```
-3. Verify: `autotask-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `autotask-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/project-management/autotask/cmd/autotask-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Autotask PSA CLI syncs your PSA into a local database and hides Autotask's non-standard query/paging mechanics behind clean list/search/get commands. Beyond CRUD, it ships service-desk intelligence  -  ticket-aging, workload, sla-breaches, triage  -  and money views like unbilled and contract-burn, all offline, scriptable, and agent-native.
 
@@ -38,12 +44,13 @@ Autotask PSA CLI syncs your PSA into a local database and hides Autotask's non-s
 
 Use this CLI when an agent or technician needs to read, search, or report on an Autotask PSA tenant from the terminal  -  service-desk triage, time/billing reconciliation, contract burn, account 360, or any analytics that requires joining across tickets, companies, contracts, and time. Prefer it over raw API calls whenever the answer requires aggregation across many records.
 
-### When NOT to use this CLI
+## Anti-triggers
 
-- Administering Autotask configuration (workflows, security levels, UI settings)  -  this CLI covers the REST entity surface only.
-- Running the analytics commands (triage, unbilled, company-360, reconcile, retainer, ...) without `sync`  -  they read the local mirror, not the live API.
-- Bulk destructive operations across entities  -  deletes are per-record and require explicit ids.
-- Raw API exploration with precise filters  -  prefer the per-entity `query` commands over `search` (search hits the local FTS index).
+Do not use this CLI for:
+- Do not use this CLI to administer Autotask configuration (workflows, security levels, UI settings)  -  it covers the REST entity surface only.
+- Do not use the novel analytics commands (triage, unbilled, company-360, reconcile, retainer, ...) without running sync first  -  they read the local SQLite mirror, not the live API.
+- Do not use this CLI for bulk destructive operations across entities; deletes are per-record and require explicit ids.
+- For one-off raw API exploration with full control of filters, prefer the per-entity query commands over search  -  search hits the local FTS index.
 
 ## Unique Capabilities
 
@@ -863,13 +870,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-Install the MCP binary (the `install.sh` / `install.ps1` above drop both `autotask-cli` and `autotask-mcp` into your user bin path), then register it:
-
-```bash
-claude mcp add autotask-mcp -- autotask-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/project-management/autotask/cmd/autotask-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add autotask-mcp -- autotask-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

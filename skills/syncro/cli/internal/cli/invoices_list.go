@@ -32,11 +32,11 @@ func newInvoicesListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/invoices"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "invoices", path, map[string]string{
-				"paid":             fmt.Sprintf("%v", flagPaid),
-				"unpaid":           fmt.Sprintf("%v", flagUnpaid),
-				"ticket_id":        fmt.Sprintf("%v", flagTicketId),
-				"since_updated_at": fmt.Sprintf("%v", flagSinceUpdatedAt),
-				"page":             fmt.Sprintf("%v", flagPage),
+				"paid":             formatCLIParamValue(flagPaid),
+				"unpaid":           formatCLIParamValue(flagUnpaid),
+				"ticket_id":        formatCLIParamValue(flagTicketId),
+				"since_updated_at": formatCLIParamValue(flagSinceUpdatedAt),
+				"page":             formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

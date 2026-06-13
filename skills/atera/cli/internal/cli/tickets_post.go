@@ -29,8 +29,9 @@ func newTicketsPostCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post",
-		Short:       "Creates a new ticket. Requires the enduser contact ID, title, and description.",
+		Use:   "post",
+		Short: "Creates a new ticket. Requires the enduser contact ID, title, and description.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  atera-cli tickets post --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "tickets.post", "pp:method": "POST", "pp:path": "/tickets"},
 		RunE: func(cmd *cobra.Command, args []string) error {

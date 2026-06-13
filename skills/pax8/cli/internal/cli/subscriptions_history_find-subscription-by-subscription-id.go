@@ -17,7 +17,7 @@ func newSubscriptionsHistoryFindSubscriptionBySubscriptionIdCmd(flags *rootFlags
 		Use:         "find-subscription-by-subscription-id <subscriptionId>",
 		Aliases:     []string{"get"},
 		Short:       "Returns a list of changes for a subscription",
-		Example:     "  pax8-cli subscriptions history find-subscription-by-subscription-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pax8-cli subscriptions history find-subscription-by-subscription-id 04814f37-bef0-48b7-b388-c04a1e31f889",
 		Annotations: map[string]string{"pp:endpoint": "history.find-subscription-by-subscription-id", "pp:method": "GET", "pp:path": "/subscriptions/{subscriptionId}/history", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

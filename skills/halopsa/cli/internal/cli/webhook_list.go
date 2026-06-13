@@ -29,10 +29,10 @@ func newWebhookListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Webhook"
 			params := map[string]string{}
 			if flagIsazureautomation != false {
-				params["isazureautomation"] = fmt.Sprintf("%v", flagIsazureautomation)
+				params["isazureautomation"] = formatCLIParamValue(flagIsazureautomation)
 			}
 			if flagType != 0 {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "webhook", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

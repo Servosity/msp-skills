@@ -29,7 +29,7 @@ func newRemoveTenantCapabilitiesCachePromotedCmd(flags *rootFlags) *cobra.Comman
 			path := "/RemoveTenantCapabilitiesCache"
 			params := map[string]string{}
 			if flagDefaultDomainName != "" {
-				params["defaultDomainName"] = fmt.Sprintf("%v", flagDefaultDomainName)
+				params["defaultDomainName"] = formatCLIParamValue(flagDefaultDomainName)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "remove-tenant-capabilities-cache", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

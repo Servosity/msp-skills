@@ -37,16 +37,16 @@ func newCatalogEntityChecklistsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/catalog_entity_checklists"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "catalog-entity-checklists", path, map[string]string{
-				"page[number]":                          fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":                            fmt.Sprintf("%v", flagPageSize),
-				"filter[status]":                        fmt.Sprintf("%v", flagFilterStatus),
-				"filter[catalog_checklist_template_id]": fmt.Sprintf("%v", flagFilterCatalogChecklistTemplateId),
-				"filter[auditable_type]":                fmt.Sprintf("%v", flagFilterAuditableType),
-				"filter[auditable_id]":                  fmt.Sprintf("%v", flagFilterAuditableId),
-				"filter[created_at][gt]":                fmt.Sprintf("%v", flagFilterCreatedAtGt),
-				"filter[created_at][gte]":               fmt.Sprintf("%v", flagFilterCreatedAtGte),
-				"filter[created_at][lt]":                fmt.Sprintf("%v", flagFilterCreatedAtLt),
-				"filter[created_at][lte]":               fmt.Sprintf("%v", flagFilterCreatedAtLte),
+				"page[number]":                          formatCLIParamValue(flagPageNumber),
+				"page[size]":                            formatCLIParamValue(flagPageSize),
+				"filter[status]":                        formatCLIParamValue(flagFilterStatus),
+				"filter[catalog_checklist_template_id]": formatCLIParamValue(flagFilterCatalogChecklistTemplateId),
+				"filter[auditable_type]":                formatCLIParamValue(flagFilterAuditableType),
+				"filter[auditable_id]":                  formatCLIParamValue(flagFilterAuditableId),
+				"filter[created_at][gt]":                formatCLIParamValue(flagFilterCreatedAtGt),
+				"filter[created_at][gte]":               formatCLIParamValue(flagFilterCreatedAtGte),
+				"filter[created_at][lt]":                formatCLIParamValue(flagFilterCreatedAtLt),
+				"filter[created_at][lte]":               formatCLIParamValue(flagFilterCreatedAtLte),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -14,8 +14,9 @@ import (
 func newUsersSessionsGetUserUsersCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "get-user-users <id> <type> <session_id>",
-		Short:       "<!",
+		Use:   "get-user-users <id> <type> <session_id>",
+		Short: "<!",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pagerduty-cli users sessions get-user-users 550e8400-e29b-41d4-a716-446655440000 example-value 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "sessions.get-user-users", "pp:method": "GET", "pp:path": "/users/{id}/sessions/{type}/{session_id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

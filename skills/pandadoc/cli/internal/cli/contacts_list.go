@@ -28,7 +28,7 @@ func newContactsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/contacts"
 			params := map[string]string{}
 			if flagEmail != "" {
-				params["email"] = fmt.Sprintf("%v", flagEmail)
+				params["email"] = formatCLIParamValue(flagEmail)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "contacts", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

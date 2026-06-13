@@ -1,6 +1,6 @@
 ---
 name: pipedrive
-description: "Use when the user asks to find stale or aging Pipedrive deals, forecast the weighted pipeline, rank reps on a leaderboard, dedupe contacts, pull a one-card view of a person before a call, or run any Pipedrive CRUD (deals, persons, organizations, activities, leads, notes) - backed by a local SQLite mirror so cross-entity questions answer offline. Trigger phrases: `which deals are going stale in pipedrive`, `what's my weighted pipeline forecast`, `who do I need to follow up with today`, `find duplicate contacts in pipedrive`, `show the sales rep leaderboard`, `use pipedrive`, `run pipedrive-cli`."
+description: "Full Pipedrive CRUD plus a local SQLite pipeline copy: stale deals, forecasts, aging, dupes, rep leaderboards. Trigger phrases: `which deals are going stale in pipedrive`, `what's my weighted pipeline forecast`, `who do I need to follow up with today`, `find duplicate contacts in pipedrive`, `show the sales rep leaderboard`, `use pipedrive`, `run pipedrive`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Pipedrive"
@@ -11,32 +11,46 @@ metadata:
     requires:
       bins:
         - pipedrive-cli
+    install:
+      - kind: go
+        bins: [pipedrive-cli]
+        module: github.com/mvanhorn/printing-press-library/library/sales-and-crm/pipedrive/cmd/pipedrive-cli
 ---
 
-# Pipedrive Claude Code Skill
+# Pipedrive  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `pipedrive-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pipedrive/install.sh)
+   npx -y @mvanhorn/printing-press-library install pipedrive --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pipedrive/install.ps1 | iex
-   ```
-3. Verify: `pipedrive-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `pipedrive-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/pipedrive/cmd/pipedrive-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Existing Pipedrive CLIs and MCP servers are thin mirrors of the REST API  -  none keep a local copy of your pipeline, so none can tell you which deals are going stale, what your weighted forecast is, who's aging in a stage, or where your duplicate contacts are. This CLI syncs the whole deal-person-org-activity graph into local SQLite with full-text search, then adds the cross-entity intelligence layer on top: stale, forecast, aging, digest, changes, dupes, and leaderboard. Plus an offline `search`, offline `analytics` (count and group-by over synced data), and agent-native `--json`/`--select`/`--csv` on every command.
 
 ## When to Use This CLI
 
 Reach for this CLI when an agent or operator needs to reason about a Pipedrive pipeline as a dataset rather than poke individual records: morning triage of stale deals, weekly weighted forecasting and per-rep leaderboards, deduping contacts, scripting incremental change feeds, or running offline analytics over the synced CRM. It is the right tool whenever the question spans many deals, a time window, or several entities at once  -  the cases a single REST call can't answer.
+
+## Anti-triggers
+
+Do not use this CLI for:
+- Fuzzy text lookup across many records to find an entity  -  use the 'search' command (or the API search endpoints), not 'who'.
+- Live per-record reads that must reflect this second's CRM state  -  the novel commands read the local synced store; run 'sync' first or use the generated endpoint commands.
+- Pipeline analytics before a first 'sync --full'  -  every local-join command (stale, forecast, aging, digest, changes, dupes, leaderboard, next-activity, lost, who) returns empty counts on an unsynced store.
+- Sending email or managing Pipedrive automations/workflows  -  not part of this CLI's surface.
 
 ## Unique Capabilities
 
@@ -117,14 +131,6 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   pipedrive-cli dupes --entity persons --agent
   ```
-
-## When NOT to Use This CLI
-
-- **Fuzzy entity lookup across many records**  -  use `pipedrive-cli search "<term>" --type persons`, not `who` (`who` returns one joined profile card).
-- **Stage-velocity vs. recency confusion**  -  `aging` finds deals stuck past their stage's median dwell time; `stale` finds deals nobody has touched in N days; `next-activity --missing` finds deals with nothing scheduled ahead. Pick by intent.
-- **Machine diff vs. human rollup**  -  `changes` emits a per-entity machine-readable diff; `digest` is the human standup summary. Don't pipe `digest` into scripts.
-- **This-second CRM state**  -  novel commands read the local store; for live reads use the generated endpoint commands (e.g. `deals list-deals`) or run `sync` first.
-- **Sending email or managing Pipedrive automations/workflows**  -  outside this CLI's surface.
 
 ## Command Reference
 
@@ -577,13 +583,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `pipedrive-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add pipedrive-mcp -- pipedrive-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/pipedrive/cmd/pipedrive-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add pipedrive-mcp -- pipedrive-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

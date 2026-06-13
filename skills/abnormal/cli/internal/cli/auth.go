@@ -42,7 +42,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "Get a key at: https://portal.abnormalsecurity.com/home/settings/integrations")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export ABNORMAL_API_TOKEN=\"<your-token>\"")
+			fmt.Fprintln(w, "  export ABNORMAL_API_TOKEN=\"your-token-here\"")
 			fmt.Fprintln(w, "  abnormal-cli auth set-token <token>")
 			if !launch {
 				return nil

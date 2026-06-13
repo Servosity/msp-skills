@@ -33,10 +33,10 @@ func newSystemDownloadProfilePictureCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "userId", args[0])
 			params := map[string]string{}
 			if flagWidth != 0 {
-				params["width"] = fmt.Sprintf("%v", flagWidth)
+				params["width"] = formatCLIParamValue(flagWidth)
 			}
 			if flagHeight != 0 {
-				params["height"] = fmt.Sprintf("%v", flagHeight)
+				params["height"] = formatCLIParamValue(flagHeight)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "system", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

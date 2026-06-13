@@ -29,7 +29,7 @@ func newListGdapinvitePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListGDAPInvite"
 			params := map[string]string{}
 			if flagRelationshipId != "" {
-				params["RelationshipId"] = fmt.Sprintf("%v", flagRelationshipId)
+				params["RelationshipId"] = formatCLIParamValue(flagRelationshipId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-gdapinvite", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

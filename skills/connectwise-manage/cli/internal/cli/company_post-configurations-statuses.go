@@ -21,8 +21,9 @@ func newCompanyPostConfigurationsStatusesCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-configurations-statuses",
-		Short:       "Post ConfigurationStatus",
+		Use:   "post-configurations-statuses",
+		Short: "Post ConfigurationStatus",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  connectwise-manage-cli company post-configurations-statuses --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "company.post-configurations-statuses", "pp:method": "POST", "pp:path": "/company/configurations/statuses"},
 		RunE: func(cmd *cobra.Command, args []string) error {

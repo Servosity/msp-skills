@@ -37,7 +37,7 @@ func newApprovalsGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/ApprovalRequest/ApprovalRequestGetById"
 			params := map[string]string{}
 			if flagApprovalRequestId != "" {
-				params["approvalRequestId"] = fmt.Sprintf("%v", flagApprovalRequestId)
+				params["approvalRequestId"] = formatCLIParamValue(flagApprovalRequestId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "approvals", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

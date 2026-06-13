@@ -34,10 +34,10 @@ func newAgentUptimeGetAgentCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "agent_id", args[0])
 			params := map[string]string{}
 			if flagFrom != "" {
-				params["from"] = fmt.Sprintf("%v", flagFrom)
+				params["from"] = formatCLIParamValue(flagFrom)
 			}
 			if flagTo != "" {
-				params["to"] = fmt.Sprintf("%v", flagTo)
+				params["to"] = formatCLIParamValue(flagTo)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "uptime", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

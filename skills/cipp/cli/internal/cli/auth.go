@@ -20,11 +20,11 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 		RunE:  parentNoSubcommandRunE(flags),
 	}
 
-	cmd.AddCommand(newAuthLoginCmd(flags))
 	cmd.AddCommand(newAuthSetupCmd(flags))
 	cmd.AddCommand(newAuthStatusCmd(flags))
 	cmd.AddCommand(newAuthSetTokenCmd(flags))
 	cmd.AddCommand(newAuthLogoutCmd(flags))
+	cmd.AddCommand(newAuthLoginCmd(flags))
 
 	return cmd
 }
@@ -44,7 +44,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "  In CIPP: Integrations > CIPP-API > Create New Client (use a read-only Custom Role for safe testing). Then run 'cipp-cli auth login' with the Client ID, Secret, Tenant ID, and base URL (must end in /api), or set CIPP_API_KEY to a bearer token directly.")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export CIPP_API_KEY=\"<your-token>\"")
+			fmt.Fprintln(w, "  export CIPP_API_KEY=\"your-token-here\"")
 			fmt.Fprintln(w, "  cipp-cli auth set-token <token>")
 			if !launch {
 				return nil

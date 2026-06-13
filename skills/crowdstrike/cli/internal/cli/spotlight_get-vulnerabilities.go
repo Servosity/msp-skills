@@ -15,8 +15,9 @@ func newSpotlightGetVulnerabilitiesCmd(flags *rootFlags) *cobra.Command {
 	var flagIds string
 
 	cmd := &cobra.Command{
-		Use:         "get-vulnerabilities",
-		Short:       "Get details on vulnerabilities by providing one or more IDs",
+		Use:   "get-vulnerabilities",
+		Short: "Get details on vulnerabilities by providing one or more IDs",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  crowdstrike-cli spotlight get-vulnerabilities --ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "spotlight.get-vulnerabilities", "pp:method": "GET", "pp:path": "/spotlight/entities/vulnerabilities/v2", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +38,7 @@ func newSpotlightGetVulnerabilitiesCmd(flags *rootFlags) *cobra.Command {
 			path := "/spotlight/entities/vulnerabilities/v2"
 			params := map[string]string{}
 			if flagIds != "" {
-				params["ids"] = fmt.Sprintf("%v", flagIds)
+				params["ids"] = formatCLIParamValue(flagIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "spotlight", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

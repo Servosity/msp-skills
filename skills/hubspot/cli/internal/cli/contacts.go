@@ -11,7 +11,7 @@ func newNovelContactsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "contacts",
-		Short:       "Bulk contact operations and contact analytics beyond the raw HubSpot CRM endpoints",
+		Short:       "contacts subcommands: bulk-update, funnel, win-back",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

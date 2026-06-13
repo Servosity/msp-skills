@@ -30,9 +30,9 @@ func newProjectGetLookupCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/project/projects/lookup"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "project", path, map[string]string{
-				"Filter.Name": fmt.Sprintf("%v", flagFilterName),
-				"PageSize":    fmt.Sprintf("%v", flagPageSize),
-				"PageNumber":  fmt.Sprintf("%v", flagPageNumber),
+				"Filter.Name": formatCLIParamValue(flagFilterName),
+				"PageSize":    formatCLIParamValue(flagPageSize),
+				"PageNumber":  formatCLIParamValue(flagPageNumber),
 			}, nil, flagAll, "PageNumber", "page", "PageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

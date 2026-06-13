@@ -8,10 +8,14 @@
 package cli
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"threatlocker-pp-cli/internal/store"
 )
 
 // isTLTokenWellFormed validates a ThreatLocker Portal API token against its
@@ -130,4 +134,46 @@ func tlString(p *string) string {
 		return ""
 	}
 	return *p
+}
+
+// tlOpenStore opens the local mirror for the read-only novel commands:
+// read-only when the schema exists (no write lock -> no SQLITE_BUSY under
+// parallel reads), else read-write-migrate, with a short retry to ride out the
+// first-run create/migrate race. Non-nil on a nil error.
+func tlOpenStore(ctx context.Context, dbPath string) (*store.Store, error) {
+	if dbPath == "" {
+		dbPath = defaultDBPath("threatlocker-cli")
+	}
+	var lastErr error
+	for attempt := 0; attempt < 8; attempt++ {
+		if st, ok := tlTryReadOnlyMigrated(dbPath); ok {
+			return st, nil
+		}
+		st, err := store.OpenWithContext(ctx, dbPath)
+		if err == nil {
+			return st, nil
+		}
+		lastErr = err
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		time.Sleep(time.Duration(20*(attempt+1)) * time.Millisecond)
+	}
+	return nil, lastErr
+}
+
+func tlTryReadOnlyMigrated(path string) (*store.Store, bool) {
+	if _, err := os.Stat(path); err != nil {
+		return nil, false
+	}
+	st, err := store.OpenReadOnly(path)
+	if err != nil {
+		return nil, false
+	}
+	var one int
+	if err := st.DB().QueryRow(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='resources' LIMIT 1`).Scan(&one); err != nil {
+		_ = st.Close()
+		return nil, false
+	}
+	return st, true
 }

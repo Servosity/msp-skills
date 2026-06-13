@@ -1,6 +1,6 @@
 ---
 name: sherweb
-description: "Use when the user asks to reconcile Sherweb billing, compute net margin per customer (receivable minus payable), find orphaned or under-billed subscriptions, catch metered usage leakage, right-size seats, preview a seat change before committing it, roll up subscriptions across the whole customer book, or run any cross-entity question against the Sherweb Partner API. Wraps the full Distributor and Service Provider surface (customers, subscriptions, payable and receivable charges, platforms, catalog, orders) plus an offline SQLite mirror with full-text search. Trigger phrases: `reconcile sherweb billing`, `what's my margin per customer in sherweb`, `find orphaned sherweb subscriptions`, `list sherweb customers`, `preview a sherweb seat change`, `Sherweb + ChatGPT`, `Sherweb + Claude`, `use sherweb`, `run sherweb-cli`."
+description: "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has. Trigger phrases: `reconcile sherweb billing`, `what's my margin per customer in sherweb`, `find orphaned sherweb subscriptions`, `list sherweb customers`, `preview a sherweb seat change`, `use sherweb`, `run sherweb-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Sherweb"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - sherweb-cli
+    install:
+      - kind: go
+        bins: [sherweb-cli]
+        module: github.com/mvanhorn/printing-press-library/library/commerce/sherweb/cmd/sherweb-cli
 ---
 
-# Sherweb Claude Code Skill
+# Sherweb  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `sherweb-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sherweb/install.sh)
+   npx -y @mvanhorn/printing-press-library install sherweb --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sherweb/install.ps1 | iex
-   ```
-3. Verify: `sherweb-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `sherweb-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/commerce/sherweb/cmd/sherweb-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 sherweb-cli wraps the full documented Sherweb Distributor and Service Provider surface  -  customers, subscriptions, payable and receivable charges, platforms, catalog, orders  -  then adds what the portal and every existing wrapper lack: an offline SQLite copy, offline analytics, agent-native --json/--select, --dry-run on every mutation, and cross-entity reporting like margin per customer (receivable minus payable), bill drift across snapshots, and orphaned-subscription detection.
 
@@ -287,13 +293,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `sherweb-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add sherweb-mcp -- sherweb-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/commerce/sherweb/cmd/sherweb-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add sherweb-mcp -- sherweb-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

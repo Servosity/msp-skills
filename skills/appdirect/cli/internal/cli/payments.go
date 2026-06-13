@@ -11,7 +11,7 @@ func newNovelPaymentsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "payments",
-		Short:       "Cross-company payment radar over locally synced billing data",
+		Short:       "payments subcommands: unpaid",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

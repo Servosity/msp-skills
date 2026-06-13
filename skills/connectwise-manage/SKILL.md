@@ -1,6 +1,6 @@
 ---
 name: connectwise-manage
-description: "Use when the user asks to triage a ConnectWise board, find unbilled time before an invoice run, check agreement burn against block hours, pull a client account 360, log time on a ticket, find stale tickets, balance tech workload, or run any cross-entity question against ConnectWise PSA (Manage). Wraps the full Manage REST API plus a local SQLite mirror and a typed conditions query builder. Trigger phrases: `list connectwise tickets`, `triage the help desk board`, `find unbilled time in connectwise`, `connectwise account 360 for a client`, `agreement burn for Acme`, `log time on a connectwise ticket`, `ConnectWise + ChatGPT`, `ConnectWise + Claude`, `use connectwise-manage`, `run connectwise-manage-cli`."
+description: "Every ConnectWise PSA workflow from the terminal  -  with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you. Trigger phrases: `list connectwise tickets`, `triage the help desk board`, `find unbilled time in connectwise`, `connectwise account 360 for a client`, `log time on a connectwise ticket`, `use connectwise-manage`, `run connectwise-manage-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "ConnectWise Manage"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - connectwise-manage-cli
+    install:
+      - kind: go
+        bins: [connectwise-manage-cli]
+        module: github.com/mvanhorn/printing-press-library/library/project-management/connectwise-manage/cmd/connectwise-manage-cli
 ---
 
-# ConnectWise Manage Claude Code Skill
+# ConnectWise PSA  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `connectwise-manage-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-manage/install.sh)
+   npx -y @mvanhorn/printing-press-library install connectwise-manage --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-manage/install.ps1 | iex
-   ```
-3. Verify: `connectwise-manage-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `connectwise-manage-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/project-management/connectwise-manage/cmd/connectwise-manage-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 A spec-generated CLI over the ConnectWise Manage REST API covering tickets, time, companies, contacts, agreements, configurations, projects, opportunities, and members. It syncs the high-gravity entities into a local SQLite store so you get instant full-text search and cross-table views the PSA never surfaces in one place  -  `unbilled` reconciles tickets against logged time, `account` assembles a full company 360, `board`/`stale`/`workload` give a dispatcher's queue at a glance. Every command speaks `--json`/`--select` and the whole tree is exposed as an MCP server for AI-driven triage.
 
@@ -732,13 +738,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-Install the MCP binary (the `install.sh` / `install.ps1` above drop both `connectwise-manage-cli` and `connectwise-manage-mcp` into your user bin path), then register it:
-
-```bash
-claude mcp add connectwise-manage-mcp -- connectwise-manage-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/project-management/connectwise-manage/cmd/connectwise-manage-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add connectwise-manage-mcp -- connectwise-manage-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

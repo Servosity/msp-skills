@@ -20,8 +20,9 @@ func newProductsUploadAndLinkPdfFileCmd(flags *rootFlags) *cobra.Command {
 	var bodyProductRefId string
 
 	cmd := &cobra.Command{
-		Use:         "upload-and-link-pdf-file",
-		Short:       "Uploads a PDF file and links it to a specific product as documentation or resource material.",
+		Use:   "upload-and-link-pdf-file",
+		Short: "Uploads a PDF file and links it to a specific product as documentation or resource material.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli products upload-and-link-pdf-file --file example-value",
 		Annotations: map[string]string{"pp:endpoint": "products.upload-and-link-pdf-file", "pp:method": "POST", "pp:path": "/products/v1/resources/file/uploadAndLink"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -32,19 +32,19 @@ func newSlackDetailsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/SlackDetails"
 			params := map[string]string{}
 			if flagAgentId != "" {
-				params["agent_id"] = fmt.Sprintf("%v", flagAgentId)
+				params["agent_id"] = formatCLIParamValue(flagAgentId)
 			}
 			if flagChannelName != "" {
-				params["channel_name"] = fmt.Sprintf("%v", flagChannelName)
+				params["channel_name"] = formatCLIParamValue(flagChannelName)
 			}
 			if flagIncludedisabled != "" {
-				params["includedisabled"] = fmt.Sprintf("%v", flagIncludedisabled)
+				params["includedisabled"] = formatCLIParamValue(flagIncludedisabled)
 			}
 			if flagIncludeenabled != "" {
-				params["includeenabled"] = fmt.Sprintf("%v", flagIncludeenabled)
+				params["includeenabled"] = formatCLIParamValue(flagIncludeenabled)
 			}
 			if flagTeamName != "" {
-				params["team_name"] = fmt.Sprintf("%v", flagTeamName)
+				params["team_name"] = formatCLIParamValue(flagTeamName)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "slack-details", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -30,9 +30,9 @@ func newAccountGetUserOpenAlertsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/account/alerts/open"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "account", path, map[string]string{
-				"page":  fmt.Sprintf("%v", flagPage),
-				"max":   fmt.Sprintf("%v", flagMax),
-				"muted": fmt.Sprintf("%v", flagMuted),
+				"page":  formatCLIParamValue(flagPage),
+				"max":   formatCLIParamValue(flagMax),
+				"muted": formatCLIParamValue(flagMuted),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

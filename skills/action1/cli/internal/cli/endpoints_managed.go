@@ -134,18 +134,18 @@ func newEndpointsManagedCmd(flags *rootFlags) *cobra.Command {
 			path := "/endpoints/managed/{orgId}"
 			path = replacePathParam(path, "orgId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "endpoints", path, map[string]string{
-				"limit":                fmt.Sprintf("%v", flagLimit),
-				"from":                 fmt.Sprintf("%v", flagFrom),
-				"sortby":               fmt.Sprintf("%v", flagSortby),
-				"filter":               fmt.Sprintf("%v", flagFilter),
-				"fields":               fmt.Sprintf("%v", flagFields),
-				"status":               fmt.Sprintf("%v", flagStatus),
-				"online_status":        fmt.Sprintf("%v", flagOnlineStatus),
-				"update_status":        fmt.Sprintf("%v", flagUpdateStatus),
-				"vulnerability_status": fmt.Sprintf("%v", flagVulnerabilityStatus),
-				"reboot_required":      fmt.Sprintf("%v", flagRebootRequired),
-				"os":                   fmt.Sprintf("%v", flagOs),
-				"reset_cache":          fmt.Sprintf("%v", flagResetCache),
+				"limit":                formatCLIParamValue(flagLimit),
+				"from":                 formatCLIParamValue(flagFrom),
+				"sortby":               formatCLIParamValue(flagSortby),
+				"filter":               formatCLIParamValue(flagFilter),
+				"fields":               formatCLIParamValue(flagFields),
+				"status":               formatCLIParamValue(flagStatus),
+				"online_status":        formatCLIParamValue(flagOnlineStatus),
+				"update_status":        formatCLIParamValue(flagUpdateStatus),
+				"vulnerability_status": formatCLIParamValue(flagVulnerabilityStatus),
+				"reboot_required":      formatCLIParamValue(flagRebootRequired),
+				"os":                   formatCLIParamValue(flagOs),
+				"reset_cache":          formatCLIParamValue(flagResetCache),
 			}, nil, flagAll, "", "page", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -183,7 +183,7 @@ func newBillingResourceOtherChangeSubscriptionPutCmd(flags *rootFlags) *cobra.Co
 			path = replacePathParam(path, "userId", args[2])
 			params := map[string]string{}
 			if flagSendNotification != false {
-				params["sendNotification"] = fmt.Sprintf("%v", flagSendNotification)
+				params["sendNotification"] = formatCLIParamValue(flagSendNotification)
 			}
 			var body map[string]any
 			if stdinBody {

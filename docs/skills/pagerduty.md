@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "PagerDuty MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
-description: "The first real CLI for PagerDuty incident response and on-call management - incidents, services, schedules, escalation policies, and analytics mirrored locally, with live triage, on-call resolution, coverage audits, and MTTA/MTTR reporting no single API call returns."
+description: "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions \u2014 MTTA/MTTR, on-call coverage gaps, responder load \u2014 that neither the API nor the web UI can."
 permalink: /skills/pagerduty/
 skill_name: "PagerDuty MCP"
 image: /assets/social/pagerduty/wide-1200x630.png

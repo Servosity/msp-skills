@@ -46,7 +46,7 @@ func newPaymentsDeleteCmd(flags *rootFlags) *cobra.Command {
 			path := "/payment"
 			params := map[string]string{}
 			if flagOperation != "" {
-				params["operation"] = fmt.Sprintf("%v", flagOperation)
+				params["operation"] = formatCLIParamValue(flagOperation)
 			}
 			var body map[string]any
 			if stdinBody {

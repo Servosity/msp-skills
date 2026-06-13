@@ -44,10 +44,10 @@ func newRetrospectiveConfigurationsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v1/retrospective_configurations"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "retrospective-configurations", path, map[string]string{
-				"include":      fmt.Sprintf("%v", flagInclude),
-				"page[number]": fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":   fmt.Sprintf("%v", flagPageSize),
-				"filter[kind]": fmt.Sprintf("%v", flagFilterKind),
+				"include":      formatCLIParamValue(flagInclude),
+				"page[number]": formatCLIParamValue(flagPageNumber),
+				"page[size]":   formatCLIParamValue(flagPageSize),
+				"filter[kind]": formatCLIParamValue(flagFilterKind),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -30,16 +30,16 @@ func newExecWebhookSubscriptionsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ExecWebhookSubscriptions"
 			params := map[string]string{}
 			if flagAction != "" {
-				params["Action"] = fmt.Sprintf("%v", flagAction)
+				params["Action"] = formatCLIParamValue(flagAction)
 			}
 			if flagWebhookID != "" {
-				params["WebhookID"] = fmt.Sprintf("%v", flagWebhookID)
+				params["WebhookID"] = formatCLIParamValue(flagWebhookID)
 			}
 			data, _, err := c.DeleteWithParams(cmd.Context(), path, params)
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope

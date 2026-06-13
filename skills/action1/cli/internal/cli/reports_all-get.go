@@ -42,7 +42,7 @@ func newReportsAllGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/reports/all"
 			params := map[string]string{}
 			if flagSubtree != "" {
-				params["subtree"] = fmt.Sprintf("%v", flagSubtree)
+				params["subtree"] = formatCLIParamValue(flagSubtree)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "reports", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

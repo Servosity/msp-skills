@@ -22,9 +22,10 @@ func newFilesAddCmd(flags *rootFlags) *cobra.Command {
 	var bodyProjectId string
 
 	cmd := &cobra.Command{
-		Use:         "add",
-		Aliases:     []string{"create"},
-		Short:       "Lets you upload a file and associate it with a deal, person, organization, activity, product or lead.",
+		Use:     "add",
+		Aliases: []string{"create"},
+		Short:   "Lets you upload a file and associate it with a deal, person, organization, activity, product or lead.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  pipedrive-cli files add --file example-value",
 		Annotations: map[string]string{"pp:endpoint": "files.add", "pp:method": "POST", "pp:path": "/files"},
 		RunE: func(cmd *cobra.Command, args []string) error {

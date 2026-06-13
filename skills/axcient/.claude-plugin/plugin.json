@@ -1,7 +1,7 @@
 {
   "name": "axcient",
-  "version": "0.2.2",
-  "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give  -  offline, joined, and agent-ready.",
+  "version": "0.2.3",
+  "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give \u2014 offline, joined, and agent-ready.",
   "author": {
     "name": "Servosity",
     "url": "https://www.servosity.com"

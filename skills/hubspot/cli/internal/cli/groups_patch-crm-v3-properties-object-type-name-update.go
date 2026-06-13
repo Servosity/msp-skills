@@ -18,8 +18,9 @@ func newGroupsPatchCrmV3PropertiesObjectTypeNameUpdateCmd(flags *rootFlags) *cob
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "patch-crm-v3-properties-object-type-name-update <groupName> <objectType>",
-		Short:       "Perform a partial update of a property group identified by {groupName}. Provided fields will be overwritten.",
+		Use:   "patch-crm-v3-properties-object-type-name-update <groupName> <objectType>",
+		Short: "Perform a partial update of a property group identified by {groupName}. Provided fields will be overwritten.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli groups patch-crm-v3-properties-object-type-name-update example-resource example-value",
 		Annotations: map[string]string{"pp:endpoint": "groups.patch-crm-v3-properties-object-type-name-update", "pp:method": "PATCH", "pp:path": "/crm/v3/properties/{objectType}/groups/{groupName}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

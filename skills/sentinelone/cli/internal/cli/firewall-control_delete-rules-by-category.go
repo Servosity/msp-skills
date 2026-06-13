@@ -14,8 +14,9 @@ import (
 func newFirewallControlDeleteRulesByCategoryCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "delete-rules-by-category <firewall_rule_category>",
-		Short:       "Delete Firewall Control rules that match the filter.",
+		Use:   "delete-rules-by-category <firewall_rule_category>",
+		Short: "Delete Firewall Control rules that match the filter.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli firewall-control delete-rules-by-category example-value",
 		Annotations: map[string]string{"pp:endpoint": "firewall-control.delete-rules-by-category", "pp:method": "DELETE", "pp:path": "/firewall-control/{firewall_rule_category}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

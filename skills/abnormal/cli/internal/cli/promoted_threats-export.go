@@ -57,13 +57,13 @@ func newThreatsExportPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/threats_export/csv"
 			params := map[string]string{}
 			if flagFormat != "" {
-				params["format"] = fmt.Sprintf("%v", flagFormat)
+				params["format"] = formatCLIParamValue(flagFormat)
 			}
 			if flagFilter != "" {
-				params["filter"] = fmt.Sprintf("%v", flagFilter)
+				params["filter"] = formatCLIParamValue(flagFilter)
 			}
 			if flagSource != "" {
-				params["source"] = fmt.Sprintf("%v", flagSource)
+				params["source"] = formatCLIParamValue(flagSource)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "threats-export", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

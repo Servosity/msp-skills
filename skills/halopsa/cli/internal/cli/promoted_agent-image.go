@@ -48,22 +48,22 @@ func newAgentImagePromotedCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagClientidoverride != "" {
-				params["clientidoverride"] = fmt.Sprintf("%v", flagClientidoverride)
+				params["clientidoverride"] = formatCLIParamValue(flagClientidoverride)
 			}
 			if flagGetHtmldesignerSignature != false {
-				params["get_htmldesigner_signature"] = fmt.Sprintf("%v", flagGetHtmldesignerSignature)
+				params["get_htmldesigner_signature"] = formatCLIParamValue(flagGetHtmldesignerSignature)
 			}
 			if flagGetholidayallowance != false {
-				params["getholidayallowance"] = fmt.Sprintf("%v", flagGetholidayallowance)
+				params["getholidayallowance"] = formatCLIParamValue(flagGetholidayallowance)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagIsagentconfig != false {
-				params["isagentconfig"] = fmt.Sprintf("%v", flagIsagentconfig)
+				params["isagentconfig"] = formatCLIParamValue(flagIsagentconfig)
 			}
 			if flagLoadcache != false {
-				params["loadcache"] = fmt.Sprintf("%v", flagLoadcache)
+				params["loadcache"] = formatCLIParamValue(flagLoadcache)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "agent-image", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

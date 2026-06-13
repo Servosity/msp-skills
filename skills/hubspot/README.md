@@ -125,7 +125,6 @@ HUBSPOT_ACCESS_TOKEN=<value> hubspot-cli doctor
 | Are my reps overloaded? | `hubspot-cli owner-load --pipeline default` |
 | What's the cross-object timeline for this deal? (every call + email + meeting + note + task) | `hubspot-cli engagements of deal:1234567 --since 90d` |
 | What changed across contacts, deals, engagements, and companies since yesterday? | `hubspot-cli since 24h` |
-| What did I do with the CLI in the last hour? (local audit log) | `hubspot-cli history --since 1h` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 

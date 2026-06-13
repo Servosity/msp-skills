@@ -16,8 +16,9 @@ func newCustomvaluesCustomValuesSetAgentFieldAgentfield2Cmd(flags *rootFlags) *c
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "custom-values-set-agent-field-agentfield-2 <agentId> <fieldName> <value>",
-		Short:       "Set value of custom field for specified Agent",
+		Use:   "custom-values-set-agent-field-agentfield-2 <agentId> <fieldName> <value>",
+		Short: "Set value of custom field for specified Agent",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  atera-cli customvalues custom-values-set-agent-field-agentfield-2 42 example-resource example-value",
 		Annotations: map[string]string{"pp:endpoint": "customvalues.custom-values-set-agent-field-agentfield-2", "pp:method": "PUT", "pp:path": "/customvalues/agentfield/{agentId}/{fieldName}/{value}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

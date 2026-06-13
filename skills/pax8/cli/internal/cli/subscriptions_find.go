@@ -74,13 +74,13 @@ func newSubscriptionsFindCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/subscriptions"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "subscriptions", path, map[string]string{
-				"page":        fmt.Sprintf("%v", flagPage),
-				"size":        fmt.Sprintf("%v", flagSize),
-				"sort":        fmt.Sprintf("%v", flagSort),
-				"status":      fmt.Sprintf("%v", flagStatus),
-				"billingTerm": fmt.Sprintf("%v", flagBillingTerm),
-				"companyId":   fmt.Sprintf("%v", flagCompanyId),
-				"productId":   fmt.Sprintf("%v", flagProductId),
+				"page":        formatCLIParamValue(flagPage),
+				"size":        formatCLIParamValue(flagSize),
+				"sort":        formatCLIParamValue(flagSort),
+				"status":      formatCLIParamValue(flagStatus),
+				"billingTerm": formatCLIParamValue(flagBillingTerm),
+				"companyId":   formatCLIParamValue(flagCompanyId),
+				"productId":   formatCLIParamValue(flagProductId),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -42,21 +42,21 @@ func newCustomIntegrationMethodListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/CustomIntegrationMethod"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "custom-integration-method", path, map[string]string{
-				"count":          fmt.Sprintf("%v", flagCount),
-				"integration_id": fmt.Sprintf("%v", flagIntegrationId),
-				"order":          fmt.Sprintf("%v", flagOrder),
-				"order2":         fmt.Sprintf("%v", flagOrder2),
-				"order3":         fmt.Sprintf("%v", flagOrder3),
-				"order4":         fmt.Sprintf("%v", flagOrder4),
-				"order5":         fmt.Sprintf("%v", flagOrder5),
-				"orderdesc":      fmt.Sprintf("%v", flagOrderdesc),
-				"orderdesc2":     fmt.Sprintf("%v", flagOrderdesc2),
-				"orderdesc3":     fmt.Sprintf("%v", flagOrderdesc3),
-				"orderdesc4":     fmt.Sprintf("%v", flagOrderdesc4),
-				"orderdesc5":     fmt.Sprintf("%v", flagOrderdesc5),
-				"page_no":        fmt.Sprintf("%v", flagPageNo),
-				"page_size":      fmt.Sprintf("%v", flagPageSize),
-				"pageinate":      fmt.Sprintf("%v", flagPageinate),
+				"count":          formatCLIParamValue(flagCount),
+				"integration_id": formatCLIParamValue(flagIntegrationId),
+				"order":          formatCLIParamValue(flagOrder),
+				"order2":         formatCLIParamValue(flagOrder2),
+				"order3":         formatCLIParamValue(flagOrder3),
+				"order4":         formatCLIParamValue(flagOrder4),
+				"order5":         formatCLIParamValue(flagOrder5),
+				"orderdesc":      formatCLIParamValue(flagOrderdesc),
+				"orderdesc2":     formatCLIParamValue(flagOrderdesc2),
+				"orderdesc3":     formatCLIParamValue(flagOrderdesc3),
+				"orderdesc4":     formatCLIParamValue(flagOrderdesc4),
+				"orderdesc5":     formatCLIParamValue(flagOrderdesc5),
+				"page_no":        formatCLIParamValue(flagPageNo),
+				"page_size":      formatCLIParamValue(flagPageSize),
+				"pageinate":      formatCLIParamValue(flagPageinate),
 			}, nil, flagAll, "", "offset", "page_size", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

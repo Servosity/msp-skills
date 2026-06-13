@@ -30,9 +30,9 @@ func newIntegrationDataListIntegrationdata93Cmd(flags *rootFlags) *cobra.Command
 
 			path := "/IntegrationData/Get/Syncro"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", path, map[string]string{
-				"dataOnly": fmt.Sprintf("%v", flagDataOnly),
-				"datatype": fmt.Sprintf("%v", flagDatatype),
-				"page":     fmt.Sprintf("%v", flagPage),
+				"dataOnly": formatCLIParamValue(flagDataOnly),
+				"datatype": formatCLIParamValue(flagDatatype),
+				"page":     formatCLIParamValue(flagPage),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

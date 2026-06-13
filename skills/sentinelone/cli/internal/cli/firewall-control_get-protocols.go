@@ -36,15 +36,15 @@ func newFirewallControlGetProtocolsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/firewall-control/protocols"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "firewall-control", path, map[string]string{
-				"sortBy":            fmt.Sprintf("%v", flagSortBy),
-				"limit":             fmt.Sprintf("%v", flagLimit),
-				"skipCount":         fmt.Sprintf("%v", flagSkipCount),
-				"skip":              fmt.Sprintf("%v", flagSkip),
-				"sortOrder":         fmt.Sprintf("%v", flagSortOrder),
-				"query":             fmt.Sprintf("%v", flagQuery),
-				"disablePagination": fmt.Sprintf("%v", flagDisablePagination),
-				"countOnly":         fmt.Sprintf("%v", flagCountOnly),
-				"cursor":            fmt.Sprintf("%v", flagCursor),
+				"sortBy":            formatCLIParamValue(flagSortBy),
+				"limit":             formatCLIParamValue(flagLimit),
+				"skipCount":         formatCLIParamValue(flagSkipCount),
+				"skip":              formatCLIParamValue(flagSkip),
+				"sortOrder":         formatCLIParamValue(flagSortOrder),
+				"query":             formatCLIParamValue(flagQuery),
+				"disablePagination": formatCLIParamValue(flagDisablePagination),
+				"countOnly":         formatCLIParamValue(flagCountOnly),
+				"cursor":            formatCLIParamValue(flagCursor),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

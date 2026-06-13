@@ -43,7 +43,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "  Copy your personal API token from Personal preferences -> API.")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export PIPEDRIVE_API_KEY=\"<your-token>\"")
+			fmt.Fprintln(w, "  export PIPEDRIVE_API_KEY=\"your-token-here\"")
 			fmt.Fprintln(w, "  pipedrive-cli auth set-token <token>")
 			if !launch {
 				return nil

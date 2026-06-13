@@ -16,8 +16,9 @@ func newIntegrationGetProductsByIdsCmd(flags *rootFlags) *cobra.Command {
 	var flagItemNumbers string
 
 	cmd := &cobra.Command{
-		Use:         "get-products-by-ids",
-		Short:       "Get products by ids",
+		Use:   "get-products-by-ids",
+		Short: "Get products by ids",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli integration get-products-by-ids --external-tenant-id 550e8400-e29b-41d4-a716-446655440000 --item-numbers example-value",
 		Annotations: map[string]string{"pp:endpoint": "integration.get-products-by-ids", "pp:method": "GET", "pp:path": "/v2/integration/qbd/products/byids", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,10 +42,10 @@ func newIntegrationGetProductsByIdsCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/integration/qbd/products/byids"
 			params := map[string]string{}
 			if flagExternalTenantId != "" {
-				params["ExternalTenantId"] = fmt.Sprintf("%v", flagExternalTenantId)
+				params["ExternalTenantId"] = formatCLIParamValue(flagExternalTenantId)
 			}
 			if flagItemNumbers != "" {
-				params["ItemNumbers"] = fmt.Sprintf("%v", flagItemNumbers)
+				params["ItemNumbers"] = formatCLIParamValue(flagItemNumbers)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

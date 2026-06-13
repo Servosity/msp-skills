@@ -145,17 +145,8 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 		Short: `Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, issue-triage rollups, and a JWT-expiry guardian no other N-central tool has.`,
 		Long: `Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, issue-triage rollups, and a JWT-expiry guardian no other N-central tool has.
 
-Highlights (not in the official API docs):
-  • fanout   Search every configured N-central server at once — find a device, customer, or active issue across all your tenants without clicking through each console.
-  • props audit   Report which devices or org units are missing a required custom-property value, as a coverage percentage grouped by customer.
-  • triage   Group active monitoring issues by customer, device, or monitor type and rank by severity — the daily NOC sweep as one command.
-  • guardian   Validate the access token, warn when the API user's password (and thus the JWT) is about to expire, and detect N-central's HTTP-200-with-error-body failures.
-  • maint coverage   List devices and sites with no maintenance window before a reboot/patch wave, so nothing reboots in business hours.
-  • whereis   Given a device name fragment, return its full path — server, service org, customer, site — plus its current active-issue count.
-
-Agent mode: add --agent to any command for JSON output + non-interactive mode.
-Health check: run 'n-central-cli doctor' to verify auth and connectivity.
-See README.md or the bundled SKILL.md for recipes.`,
+Add --agent to any command for JSON output + non-interactive mode.
+Run 'n-central-cli doctor' to verify auth and connectivity.`,
 		SilenceUsage: true,
 		Version:      version,
 	}
@@ -270,7 +261,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newAccessGroupsPromotedCmd(flags))
 	rootCmd.AddCommand(newDeviceFiltersPromotedCmd(flags))
 	rootCmd.AddCommand(newUsersPromotedCmd(flags))
-	rootCmd.AddCommand(newVersionCliCmd())
+	rootCmd.AddCommand(newVersionCmd())
 
 	return rootCmd
 }
@@ -322,14 +313,4 @@ func (f *rootFlags) printTable(w *cobra.Command, headers []string, rows [][]stri
 		fmt.Fprintln(tw, line)
 	}
 	return tw.Flush()
-}
-
-func newVersionCliCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Print version",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("%s %s\n", cmd.Root().Name(), version)
-		},
-	}
 }

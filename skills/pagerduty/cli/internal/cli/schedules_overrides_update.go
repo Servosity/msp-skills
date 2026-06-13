@@ -22,7 +22,7 @@ func newSchedulesOverridesUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update <id> <override_id>",
 		Short:       "<!",
-		Example:     "  pagerduty-cli schedules overrides update 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pagerduty-cli schedules overrides update PSJUKNI AGO4642RBB5RBGG65Q6I5X34VI",
 		Annotations: map[string]string{"pp:endpoint": "overrides.update", "pp:method": "PUT", "pp:path": "/v3/schedules/{id}/overrides/{override_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

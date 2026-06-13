@@ -38,10 +38,10 @@ func newAccountResourceCompanyInviteUsersPostCmd(flags *rootFlags) *cobra.Comman
 			path = replacePathParam(path, "companyUuid", args[0])
 			params := map[string]string{}
 			if flagApiUsesExternalIds != false {
-				params["api.usesExternalIds"] = fmt.Sprintf("%v", flagApiUsesExternalIds)
+				params["api.usesExternalIds"] = formatCLIParamValue(flagApiUsesExternalIds)
 			}
 			if flagInviterUuid != "" {
-				params["inviterUuid"] = fmt.Sprintf("%v", flagInviterUuid)
+				params["inviterUuid"] = formatCLIParamValue(flagInviterUuid)
 			}
 			var body map[string]any
 			if stdinBody {

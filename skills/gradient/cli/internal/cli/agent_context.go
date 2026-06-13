@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "gradient-cli",
-			Description: "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection",
+			Description: "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

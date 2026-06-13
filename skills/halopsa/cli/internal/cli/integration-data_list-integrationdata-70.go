@@ -33,12 +33,12 @@ func newIntegrationDataListIntegrationdata70Cmd(flags *rootFlags) *cobra.Command
 
 			path := "/IntegrationData/Get/Pax8"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", path, map[string]string{
-				"include_this_id": fmt.Sprintf("%v", flagIncludeThisId),
-				"page":            fmt.Sprintf("%v", flagPage),
-				"paginate":        fmt.Sprintf("%v", flagPaginate),
-				"remove_existing": fmt.Sprintf("%v", flagRemoveExisting),
-				"resource":        fmt.Sprintf("%v", flagResource),
-				"third_party_id":  fmt.Sprintf("%v", flagThirdPartyId),
+				"include_this_id": formatCLIParamValue(flagIncludeThisId),
+				"page":            formatCLIParamValue(flagPage),
+				"paginate":        formatCLIParamValue(flagPaginate),
+				"remove_existing": formatCLIParamValue(flagRemoveExisting),
+				"resource":        formatCLIParamValue(flagResource),
+				"third_party_id":  formatCLIParamValue(flagThirdPartyId),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

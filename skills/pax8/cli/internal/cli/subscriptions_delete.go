@@ -17,7 +17,7 @@ func newSubscriptionsDeleteCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete <subscriptionId>",
 		Short:       "Cancels the Subscription specified by subscriptionId",
-		Example:     "  pax8-cli subscriptions delete 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pax8-cli subscriptions delete 04814f37-bef0-48b7-b388-c04a1e31f889",
 		Annotations: map[string]string{"pp:endpoint": "subscriptions.delete", "pp:method": "DELETE", "pp:path": "/subscriptions/{subscriptionId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -32,7 +32,7 @@ func newSubscriptionsDeleteCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "subscriptionId", args[0])
 			params := map[string]string{}
 			if flagCancelDate != "" {
-				params["cancelDate"] = fmt.Sprintf("%v", flagCancelDate)
+				params["cancelDate"] = formatCLIParamValue(flagCancelDate)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

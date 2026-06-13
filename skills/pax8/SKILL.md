@@ -1,6 +1,6 @@
 ---
 name: pax8
-description: "Use when the user asks to reconcile Pax8 billing, find invoice leakage, compute Pax8 MRR and margin, catch usage overages before they invoice, see what changed in their book of business, rank customers by spend, pull a Pax8 customer-360, or run any cross-entity question against the Pax8 Partner API. Wraps the full Partner API (companies, contacts, subscriptions, orders, products, invoices, usage) plus an offline SQLite mirror with full-text search. Trigger phrases: `reconcile pax8 billing`, `what is my pax8 mrr and margin`, `catch pax8 usage overages`, `what changed in pax8 this week`, `rank pax8 customers by spend`, `pax8 customer 360`, `Pax8 + ChatGPT`, `Pax8 + Claude`, `use pax8`, `run pax8-cli`."
+description: "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces. Trigger phrases: `reconcile pax8 billing`, `what is my pax8 mrr`, `list pax8 companies`, `check pax8 usage overages`, `pax8 customer 360`, `use pax8`, `run pax8-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Pax8"
@@ -11,40 +11,46 @@ metadata:
     requires:
       bins:
         - pax8-cli
+    install:
+      - kind: go
+        bins: [pax8-cli]
+        module: github.com/mvanhorn/printing-press-library/library/commerce/pax8/cmd/pax8-cli
 ---
 
-# Pax8 Claude Code Skill
+# Pax8  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `pax8-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pax8/install.sh)
+   npx -y @mvanhorn/printing-press-library install pax8 --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pax8/install.ps1 | iex
-   ```
-3. Verify: `pax8-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `pax8-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/commerce/pax8/cmd/pax8-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 pax8-cli mirrors the full Pax8 Partner API as typed, agent-native commands, then extends it with a local SQLite store. Reconcile invoices against subscriptions, compute MRR and margin, catch metered overages before they bill, and pull a true customer-360  -  the reports the portal makes you build by hand.
 
 ## When to Use This CLI
 
-Use pax8-cli when an MSP needs to do anything with the Pax8 Partner API from the terminal or an agent: list/create/update companies and contacts, pull products and pricing, manage subscriptions and orders, fetch invoices and usage, and especially the cross-entity analytics (reconcile, mrr, overage, spend, customer-360) that the Pax8 portal cannot produce in one place.
+Use pax8-cli when an MSP needs to do anything with the Pax8 Partner API from the terminal or an agent: list/create/update companies and contacts, pull products and pricing, manage subscriptions and orders, fetch invoices and usage, and especially the cross-entity analytics (reconcile, mrr, overage, spend, customer-360) that the Pax8 portal cannot produce in one place. The six analytics commands (reconcile, mrr, overage, since, company show, spend) read the local synced store  -  run sync first; sync needs PAX8_CLIENT_ID/PAX8_CLIENT_SECRET.
 
+## Anti-triggers
 
-## When NOT to Use This CLI
-
-- PSA/RMM tasks (tickets, alerts, patching)  -  use the PSA/RMM tool's own CLI; Pax8 only covers marketplace billing/provisioning.
-- Vendor-portal-only actions (Microsoft 365 admin, Azure resource management)  -  Pax8 resells the products; it cannot administer them.
-- Payments or invoice disputes with Pax8 itself  -  portal/support workflow, not a Partner API surface.
-- Quoting or CPQ workflows  -  the Partner API has no quote endpoints.
+Do not use this CLI for:
+- PSA/RMM tasks (tickets, alerts, patching)  -  Pax8 only covers marketplace billing/provisioning
+- Vendor-portal administration (Microsoft 365 admin, Azure resources)  -  Pax8 resells products, it cannot administer them
+- Payments or invoice disputes with Pax8 itself  -  portal/support workflow, not a Partner API surface
+- Quoting/CPQ workflows  -  the Partner API has no quote endpoints
 
 ## Unique Capabilities
 
@@ -196,7 +202,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  pax8-cli companies get <companyId> --agent --select id,name,status
+  pax8-cli companies get <id> --agent --select id,name,status
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
@@ -248,7 +254,7 @@ A profile is a saved set of flag values, reused across invocations. Use it when 
 
 ```
 pax8-cli profile save briefing --json
-pax8-cli --profile briefing companies get <companyId>
+pax8-cli --profile briefing companies get <id>
 pax8-cli profile list --json
 pax8-cli profile show briefing
 pax8-cli profile delete briefing --yes
@@ -278,13 +284,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `pax8-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add pax8-mcp -- pax8-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/commerce/pax8/cmd/pax8-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add pax8-mcp -- pax8-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

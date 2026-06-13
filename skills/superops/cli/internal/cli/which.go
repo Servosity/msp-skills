@@ -29,11 +29,11 @@ type whichEntry struct {
 var whichIndex = []whichEntry{
 	{Command: "sla-watch", Description: "See which open tickets are breaching or about to breach SLA, grouped by technician or client.", Group: "Cross-entity insight from local state", WhyItMatters: "Reach for this to answer 'who is about to miss SLA and on whose queue' in one call instead of five filtered views."},
 	{Command: "unbilled", Description: "Find logged worklog time that never landed on an invoice, totaled in dollars per client.", Group: "Cross-entity insight from local state", WhyItMatters: "Reach for this at month-end to surface revenue leaking out of the billing pipeline."},
-	{Command: "at-risk-assets", Description: "List assets missing a critical patch that also carry an open ticket.", Group: "Cross-entity insight from local state", WhyItMatters: "Reach for this to prioritize remediation on endpoints that are both vulnerable and already causing pain."},
-	{Command: "alert-coverage", Description: "Split active alerts into those that became tickets and orphans that did not.", Group: "Cross-entity insight from local state", WhyItMatters: "Reach for this to catch alerts slipping through without a ticket — work nobody is tracking."},
+	{Command: "at-risk-assets", Description: "List assets missing a critical patch that also have an active (unresolved) alert.", Group: "Cross-entity insight from local state", WhyItMatters: "Reach for this to prioritize remediation on endpoints that are both vulnerable and actively alerting."},
+	{Command: "alert-coverage", Description: "Partition alerts into open (uncovered) vs resolved, grouped by client.", Group: "Cross-entity insight from local state", WhyItMatters: "Reach for this to catch clients with alerts still sitting unhandled — work nobody is tracking."},
 	{Command: "client-360", Description: "One offline bundle of a client plus its sites, users, contracts, open tickets, assets, and open invoices.", Group: "Cross-entity insight from local state", WhyItMatters: "Reach for this before a QBR or escalation to load the full client picture in one command."},
 	{Command: "stale-tickets", Description: "Open tickets with no conversation, note, or worklog activity in N days.", Group: "Cross-entity insight from local state", WhyItMatters: "Reach for this to catch neglected tickets before they turn into SLA misses or angry clients."},
-	{Command: "context-ticket", Description: "Assemble a ticket plus its conversation, notes, asset, client, contract, and SLA into one agent-shaped JSON blob.", Group: "Agent-native plumbing", WhyItMatters: "Reach for this as an AI triage agent's single read to ground a decision without six round-trips."},
+	{Command: "context-ticket", Description: "Assemble a ticket plus its worklogs, client, and SLA into one agent-shaped JSON blob (conversation/notes fetched live).", Group: "Agent-native plumbing", WhyItMatters: "Reach for this as an AI triage agent's single read to ground a decision without six round-trips."},
 }
 
 // whichMatch pairs an index entry with its ranking score for a query.
@@ -137,6 +137,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

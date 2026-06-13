@@ -33,22 +33,22 @@ func newViewColumnsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/ViewColumns"
 			params := map[string]string{}
 			if flagGlobalonly != false {
-				params["globalonly"] = fmt.Sprintf("%v", flagGlobalonly)
+				params["globalonly"] = formatCLIParamValue(flagGlobalonly)
 			}
 			if flagShowall != false {
-				params["showall"] = fmt.Sprintf("%v", flagShowall)
+				params["showall"] = formatCLIParamValue(flagShowall)
 			}
 			if flagShowallforteam != 0 {
-				params["showallforteam"] = fmt.Sprintf("%v", flagShowallforteam)
+				params["showallforteam"] = formatCLIParamValue(flagShowallforteam)
 			}
 			if flagShowallfortech != 0 {
-				params["showallfortech"] = fmt.Sprintf("%v", flagShowallfortech)
+				params["showallfortech"] = formatCLIParamValue(flagShowallfortech)
 			}
 			if flagTicketareaId != "" {
-				params["ticketarea_id"] = fmt.Sprintf("%v", flagTicketareaId)
+				params["ticketarea_id"] = formatCLIParamValue(flagTicketareaId)
 			}
 			if flagType != "" {
-				params["type"] = fmt.Sprintf("%v", flagType)
+				params["type"] = formatCLIParamValue(flagType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "view-columns", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

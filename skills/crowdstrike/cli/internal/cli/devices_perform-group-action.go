@@ -55,10 +55,10 @@ func newDevicesPerformGroupActionCmd(flags *rootFlags) *cobra.Command {
 			path := "/devices/entities/host-group-actions/v1"
 			params := map[string]string{}
 			if flagActionName != "" {
-				params["action_name"] = fmt.Sprintf("%v", flagActionName)
+				params["action_name"] = formatCLIParamValue(flagActionName)
 			}
 			if flagDisableHostnameCheck != false {
-				params["disable_hostname_check"] = fmt.Sprintf("%v", flagDisableHostnameCheck)
+				params["disable_hostname_check"] = formatCLIParamValue(flagDisableHostnameCheck)
 			}
 			var body map[string]any
 			if stdinBody {

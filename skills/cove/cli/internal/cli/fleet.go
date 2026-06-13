@@ -11,7 +11,7 @@ func newNovelFleetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "fleet",
-		Short:       "Fleet-wide backup health rollups",
+		Short:       "fleet subcommands: health",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

@@ -11,7 +11,7 @@ func newNovelFleetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "fleet",
-		Short:       "Cross-fleet rollups the agent-scoped API can't do in one call",
+		Short:       "fleet subcommands: agents, alerts, breakdown, events, health, inventory, ip-conflicts, new, offline, speedtest, stale, triggers, unmonitored",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

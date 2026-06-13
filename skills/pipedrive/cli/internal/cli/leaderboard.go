@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"pipedrive-pp-cli/internal/pipeintel"
-	"pipedrive-pp-cli/internal/store"
 )
 
 type leaderboardRow struct {
@@ -77,7 +76,7 @@ Reads the local store, so run 'pipedrive-cli sync' first.`,
 			if !ok {
 				return fmt.Errorf("--by must be one of: won-value, open-value, weighted, won, open, win-rate (got %q)", by)
 			}
-			db, err := store.OpenWithContext(cmd.Context(), novelDBPath(dbPath))
+			db, err := pdOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local store: %w", err)
 			}

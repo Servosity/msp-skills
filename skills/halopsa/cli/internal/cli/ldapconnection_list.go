@@ -28,7 +28,7 @@ func newLdapconnectionListCmd(flags *rootFlags) *cobra.Command {
 			path := "/LDAPConnection"
 			params := map[string]string{}
 			if flagClientidoverride != "" {
-				params["clientidoverride"] = fmt.Sprintf("%v", flagClientidoverride)
+				params["clientidoverride"] = formatCLIParamValue(flagClientidoverride)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "ldapconnection", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

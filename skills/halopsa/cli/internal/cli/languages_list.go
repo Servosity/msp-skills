@@ -28,7 +28,7 @@ func newLanguagesListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Languages"
 			params := map[string]string{}
 			if flagShowall != false {
-				params["showall"] = fmt.Sprintf("%v", flagShowall)
+				params["showall"] = formatCLIParamValue(flagShowall)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "languages", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

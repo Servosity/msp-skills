@@ -20,7 +20,7 @@ func newInvoicesItemsFindPartnerInvoiceCmd(flags *rootFlags) *cobra.Command {
 		Use:         "find-partner-invoice <invoiceId>",
 		Aliases:     []string{"get"},
 		Short:       "Fetch a paginated list of invoice items. Default page is 0 and default size is 10. The maximum page size is 200",
-		Example:     "  pax8-cli invoices items find-partner-invoice 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pax8-cli invoices items find-partner-invoice 57328a3c-6e95-493c-ad2f-e33b896378c7",
 		Annotations: map[string]string{"pp:endpoint": "items.find-partner-invoice", "pp:method": "GET", "pp:path": "/invoices/{invoiceId}/items", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -34,8 +34,8 @@ func newInvoicesItemsFindPartnerInvoiceCmd(flags *rootFlags) *cobra.Command {
 			path := "/invoices/{invoiceId}/items"
 			path = replacePathParam(path, "invoiceId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "items", path, map[string]string{
-				"page": fmt.Sprintf("%v", flagPage),
-				"size": fmt.Sprintf("%v", flagSize),
+				"page": formatCLIParamValue(flagPage),
+				"size": formatCLIParamValue(flagSize),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

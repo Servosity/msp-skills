@@ -42,37 +42,37 @@ func newTicketTypeGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagCanCreateOnly != false {
-				params["can_create_only"] = fmt.Sprintf("%v", flagCanCreateOnly)
+				params["can_create_only"] = formatCLIParamValue(flagCanCreateOnly)
 			}
 			if flagCanEditOnly != false {
-				params["can_edit_only"] = fmt.Sprintf("%v", flagCanEditOnly)
+				params["can_edit_only"] = formatCLIParamValue(flagCanEditOnly)
 			}
 			if flagDebug != false {
-				params["debug"] = fmt.Sprintf("%v", flagDebug)
+				params["debug"] = formatCLIParamValue(flagDebug)
 			}
 			if flagIncludeconfig != false {
-				params["includeconfig"] = fmt.Sprintf("%v", flagIncludeconfig)
+				params["includeconfig"] = formatCLIParamValue(flagIncludeconfig)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagIncludekbinfo != false {
-				params["includekbinfo"] = fmt.Sprintf("%v", flagIncludekbinfo)
+				params["includekbinfo"] = formatCLIParamValue(flagIncludekbinfo)
 			}
 			if flagIncludeteamrestrictions != false {
-				params["includeteamrestrictions"] = fmt.Sprintf("%v", flagIncludeteamrestrictions)
+				params["includeteamrestrictions"] = formatCLIParamValue(flagIncludeteamrestrictions)
 			}
 			if flagIsdetailscreen != false {
-				params["isdetailscreen"] = fmt.Sprintf("%v", flagIsdetailscreen)
+				params["isdetailscreen"] = formatCLIParamValue(flagIsdetailscreen)
 			}
 			if flagIsnewticket != false {
-				params["isnewticket"] = fmt.Sprintf("%v", flagIsnewticket)
+				params["isnewticket"] = formatCLIParamValue(flagIsnewticket)
 			}
 			if flagSurveyFields != false {
-				params["survey_fields"] = fmt.Sprintf("%v", flagSurveyFields)
+				params["survey_fields"] = formatCLIParamValue(flagSurveyFields)
 			}
 			if flagTicketId != "" {
-				params["ticket_id"] = fmt.Sprintf("%v", flagTicketId)
+				params["ticket_id"] = formatCLIParamValue(flagTicketId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "ticket-type", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

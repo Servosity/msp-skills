@@ -110,16 +110,16 @@ func newUpdatesOrgIdPackageIdGetCmd(flags *rootFlags) *cobra.Command {
 			}
 			path = replacePathParam(path, "packageId", args[1])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "updates", path, map[string]string{
-				"filter":            fmt.Sprintf("%v", flagFilter),
-				"sortby":            fmt.Sprintf("%v", flagSortby),
-				"from":              fmt.Sprintf("%v", flagFrom),
-				"limit":             fmt.Sprintf("%v", flagLimit),
-				"approval_status":   fmt.Sprintf("%v", flagApprovalStatus),
-				"custom":            fmt.Sprintf("%v", flagCustom),
-				"builtin":           fmt.Sprintf("%v", flagBuiltin),
-				"security_severity": fmt.Sprintf("%v", flagSecuritySeverity),
-				"fields":            fmt.Sprintf("%v", flagFields),
-				"only_latest":       fmt.Sprintf("%v", flagOnlyLatest),
+				"filter":            formatCLIParamValue(flagFilter),
+				"sortby":            formatCLIParamValue(flagSortby),
+				"from":              formatCLIParamValue(flagFrom),
+				"limit":             formatCLIParamValue(flagLimit),
+				"approval_status":   formatCLIParamValue(flagApprovalStatus),
+				"custom":            formatCLIParamValue(flagCustom),
+				"builtin":           formatCLIParamValue(flagBuiltin),
+				"security_severity": formatCLIParamValue(flagSecuritySeverity),
+				"fields":            formatCLIParamValue(flagFields),
+				"only_latest":       formatCLIParamValue(flagOnlyLatest),
 			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

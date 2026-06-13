@@ -39,7 +39,7 @@ func newUserCreateEndCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/user/end-users"
 			params := map[string]string{}
 			if flagSendInvitation != false {
-				params["sendInvitation"] = fmt.Sprintf("%v", flagSendInvitation)
+				params["sendInvitation"] = formatCLIParamValue(flagSendInvitation)
 			}
 			var body map[string]any
 			if stdinBody {

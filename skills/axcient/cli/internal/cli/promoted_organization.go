@@ -17,7 +17,7 @@ func newOrganizationPromotedCmd(flags *rootFlags) *cobra.Command {
 		Use:         "organization",
 		Short:       "This request returns information about organization retrieved by auth data",
 		Long:        "This request returns information about organization retrieved by auth data",
-		Example:     "  axcient-cli organization",
+		Example:     "  axcient-cli organization --json",
 		Annotations: map[string]string{"pp:endpoint": "organization.get", "pp:method": "GET", "pp:path": "/organization", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()

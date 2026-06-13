@@ -46,7 +46,7 @@ func newEmailAddressesVerifyUserEmailAddressCmd(flags *rootFlags) *cobra.Command
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagToken != "" {
-				params["token"] = fmt.Sprintf("%v", flagToken)
+				params["token"] = formatCLIParamValue(flagToken)
 			}
 			var body map[string]any
 			if stdinBody {

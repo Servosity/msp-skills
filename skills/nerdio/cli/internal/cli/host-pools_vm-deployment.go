@@ -14,8 +14,9 @@ import (
 func newHostPoolsVmDeploymentCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "vm-deployment <account_id> <subscription_id> <resource_group> <pool_name>",
-		Short:       "Get host pool VM deployment settings",
+		Use:   "vm-deployment <account_id> <subscription_id> <resource_group> <pool_name>",
+		Short: "Get host pool VM deployment settings",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  nerdio-cli host-pools vm-deployment 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "host-pools.vm-deployment", "pp:method": "GET", "pp:path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/vm-deployment", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

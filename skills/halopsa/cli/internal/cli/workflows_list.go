@@ -29,10 +29,10 @@ func newWorkflowsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/Workflow"
 			params := map[string]string{}
 			if flagAccessControlLevel != 0 {
-				params["access_control_level"] = fmt.Sprintf("%v", flagAccessControlLevel)
+				params["access_control_level"] = formatCLIParamValue(flagAccessControlLevel)
 			}
 			if flagIncludeinactive != false {
-				params["includeinactive"] = fmt.Sprintf("%v", flagIncludeinactive)
+				params["includeinactive"] = formatCLIParamValue(flagIncludeinactive)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "workflows", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

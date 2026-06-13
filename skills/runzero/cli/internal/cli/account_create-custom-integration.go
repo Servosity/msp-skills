@@ -21,7 +21,7 @@ func newAccountCreateCustomIntegrationCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-custom-integration",
 		Short:       "Create a new custom integration",
-		Example:     "  runzero-cli account create-custom-integration --name example-resource",
+		Example:     "  runzero-cli account create-custom-integration --name my-custom-integration",
 		Annotations: map[string]string{"pp:endpoint": "account.create-custom-integration", "pp:method": "POST", "pp:path": "/account/custom-integrations"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

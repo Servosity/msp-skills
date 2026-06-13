@@ -30,10 +30,10 @@ func newListGitHubReleaseNotesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListGitHubReleaseNotes"
 			params := map[string]string{}
 			if flagOwner != "" {
-				params["Owner"] = fmt.Sprintf("%v", flagOwner)
+				params["Owner"] = formatCLIParamValue(flagOwner)
 			}
 			if flagRepository != "" {
-				params["Repository"] = fmt.Sprintf("%v", flagRepository)
+				params["Repository"] = formatCLIParamValue(flagRepository)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-git-hub-release-notes", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

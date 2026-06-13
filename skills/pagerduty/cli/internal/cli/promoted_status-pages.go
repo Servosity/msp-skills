@@ -42,7 +42,7 @@ func newStatusPagesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/status_pages"
 			params := map[string]string{}
 			if flagStatusPageType != "" {
-				params["status_page_type"] = fmt.Sprintf("%v", flagStatusPageType)
+				params["status_page_type"] = formatCLIParamValue(flagStatusPageType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "status-pages", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

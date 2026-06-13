@@ -33,10 +33,10 @@ func newIncidentsPerformActionCmd(flags *rootFlags) *cobra.Command {
 			path := "/incidents/entities/incident-actions/v1"
 			params := map[string]string{}
 			if flagUpdateDetects != false {
-				params["update_detects"] = fmt.Sprintf("%v", flagUpdateDetects)
+				params["update_detects"] = formatCLIParamValue(flagUpdateDetects)
 			}
 			if flagOverwriteDetects != false {
-				params["overwrite_detects"] = fmt.Sprintf("%v", flagOverwriteDetects)
+				params["overwrite_detects"] = formatCLIParamValue(flagOverwriteDetects)
 			}
 			var body map[string]any
 			if stdinBody {

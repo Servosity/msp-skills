@@ -78,13 +78,13 @@ func newAccountsMembershipsGetV1AccountsAccountIdCmd(flags *rootFlags) *cobra.Co
 			path := "/v1/accounts/{account_id}/memberships"
 			path = replacePathParam(path, "account_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "memberships", path, map[string]string{
-				"limit":           fmt.Sprintf("%v", flagLimit),
-				"page_token":      fmt.Sprintf("%v", flagPageToken),
-				"sort_field":      fmt.Sprintf("%v", flagSortField),
-				"sort_direction":  fmt.Sprintf("%v", flagSortDirection),
-				"organization_id": fmt.Sprintf("%v", flagOrganizationId),
-				"user_id":         fmt.Sprintf("%v", flagUserId),
-				"permissions":     fmt.Sprintf("%v", flagPermissions),
+				"limit":           formatCLIParamValue(flagLimit),
+				"page_token":      formatCLIParamValue(flagPageToken),
+				"sort_field":      formatCLIParamValue(flagSortField),
+				"sort_direction":  formatCLIParamValue(flagSortDirection),
+				"organization_id": formatCLIParamValue(flagOrganizationId),
+				"user_id":         formatCLIParamValue(flagUserId),
+				"permissions":     formatCLIParamValue(flagPermissions),
 			}, nil, flagAll, "page_token", "page_token", "limit", "nextPageToken", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

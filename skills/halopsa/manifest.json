@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "halopsa-mcp",
   "display_name": "HaloPSA",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
   "author": {
     "name": "Servosity Inc."
@@ -48,14 +48,14 @@
     "halopsa_oauth_scope": {
       "type": "string",
       "title": "HALOPSA_OAUTH_SCOPE",
-      "description": "OAuth2 scope sent in the token request. Optional - defaults to \"all\" when unset.",
-      "required": false
+      "description": "Sets HALOPSA_OAUTH_SCOPE for the HaloPSA MCP server. Required by the generated client for credential refresh or hand-written auth flow.",
+      "sensitive": true,
+      "required": true
     },
     "halopsa_scope": {
       "type": "string",
       "title": "HALOPSA_SCOPE",
-      "description": "Legacy config-file scope label; not sent in the token request (use HALOPSA_OAUTH_SCOPE for that).",
-      "required": false
+      "description": "Optional. OAuth2 scope (defaults to \"all\"); set to a narrower scope when your API application requires it"
     },
     "halopsa_tenant": {
       "type": "string",
@@ -78,10 +78,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T12:16:25.694721Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T05:49:07.18155Z",
     "spec_checksum": "sha256:370351194ebedc0319937b2956930c3c3254bc436648b8b6bead4903aa75b7df",
     "spec_format": "openapi3"
   }

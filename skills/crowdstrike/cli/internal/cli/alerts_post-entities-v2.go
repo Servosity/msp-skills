@@ -32,7 +32,7 @@ func newAlertsPostEntitiesV2Cmd(flags *rootFlags) *cobra.Command {
 			path := "/alerts/entities/alerts/v2"
 			params := map[string]string{}
 			if flagIncludeHidden != false {
-				params["include_hidden"] = fmt.Sprintf("%v", flagIncludeHidden)
+				params["include_hidden"] = formatCLIParamValue(flagIncludeHidden)
 			}
 			var body map[string]any
 			if stdinBody {

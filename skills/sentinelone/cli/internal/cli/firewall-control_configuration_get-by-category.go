@@ -18,9 +18,10 @@ func newFirewallControlConfigurationGetByCategoryCmd(flags *rootFlags) *cobra.Co
 	var flagTenant string
 
 	cmd := &cobra.Command{
-		Use:         "get-by-category <firewall_rule_category>",
-		Aliases:     []string{"get"},
-		Short:       "Get the Firewall Control configuration for a given scope.",
+		Use:     "get-by-category <firewall_rule_category>",
+		Aliases: []string{"get"},
+		Short:   "Get the Firewall Control configuration for a given scope.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli firewall-control configuration get-by-category example-value",
 		Annotations: map[string]string{"pp:endpoint": "configuration.get-by-category", "pp:method": "GET", "pp:path": "/firewall-control/{firewall_rule_category}/configuration", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -36,16 +37,16 @@ func newFirewallControlConfigurationGetByCategoryCmd(flags *rootFlags) *cobra.Co
 			path = replacePathParam(path, "firewall_rule_category", args[0])
 			params := map[string]string{}
 			if flagSiteIds != "" {
-				params["siteIds"] = fmt.Sprintf("%v", flagSiteIds)
+				params["siteIds"] = formatCLIParamValue(flagSiteIds)
 			}
 			if flagGroupIds != "" {
-				params["groupIds"] = fmt.Sprintf("%v", flagGroupIds)
+				params["groupIds"] = formatCLIParamValue(flagGroupIds)
 			}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			if flagTenant != "" {
-				params["tenant"] = fmt.Sprintf("%v", flagTenant)
+				params["tenant"] = formatCLIParamValue(flagTenant)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "configuration", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

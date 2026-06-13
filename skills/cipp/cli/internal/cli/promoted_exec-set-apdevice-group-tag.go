@@ -18,9 +18,10 @@ func newExecSetApdeviceGroupTagPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "exec-set-apdevice-group-tag",
-		Short:       "Exec set apdevice group tag",
-		Long:        "Exec set apdevice group tag",
+		Use:   "exec-set-apdevice-group-tag",
+		Short: "Exec set apdevice group tag",
+		Long:  "Exec set apdevice group tag",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-set-apdevice-group-tag --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-set-apdevice-group-tag.create", "pp:method": "POST", "pp:path": "/ExecSetAPDeviceGroupTag"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -60,10 +61,10 @@ func newExecSetApdeviceGroupTagPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

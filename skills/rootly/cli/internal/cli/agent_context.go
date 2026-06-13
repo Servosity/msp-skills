@@ -131,7 +131,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "rootly-cli",
-			Description: "Every Rootly incident, alert",
+			Description: "Every Rootly incident, alert, and on-call object as a typed command, with a local SQLite mirror for offline analytics.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{

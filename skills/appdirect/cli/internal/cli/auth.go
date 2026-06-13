@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"appdirect-pp-cli/internal/client"
 	"appdirect-pp-cli/internal/cliutil"
 	"appdirect-pp-cli/internal/config"
 	"github.com/spf13/cobra"
@@ -48,8 +47,7 @@ func newAuthLoginCmd(flags *rootFlags) *cobra.Command {
 		Use:   "login",
 		Short: "Mint an OAuth2 bearer token via the client_credentials grant",
 		Long: strings.TrimSpace(`
-Mint an OAuth2 bearer token via POST <your-marketplace>/oauth2/token (derived
-from APPDIRECT_BASE_URL, default https://marketplace.appdirect.com) with
+Mint an OAuth2 bearer token via POST https://marketplace.appdirect.com/oauth2/token with
 grant_type=client_credentials and cache it on disk. Subsequent commands
 auto-refresh the token before expiry.
 
@@ -84,7 +82,10 @@ Credentials default to APPDIRECT_CLIENT_ID (Client ID) and APPDIRECT_CLIENT_SECR
 				return configErr(err)
 			}
 
-			tokenURL := client.ResolveAppDirectTokenURL(cfg)
+			tokenURL := cfg.TokenURL
+			if tokenURL == "" {
+				tokenURL = "https://marketplace.appdirect.com/oauth2/token"
+			}
 			tok, err := mintClientCredentialsToken(http.DefaultClient, tokenURL, clientID, clientSecret)
 			if err != nil {
 				return authErr(err)

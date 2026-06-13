@@ -28,7 +28,7 @@ func newAdminGetCompanySettingsCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/admin/companysettings"
 			params := map[string]string{}
 			if flagSettingKey != "" {
-				params["SettingKey"] = fmt.Sprintf("%v", flagSettingKey)
+				params["SettingKey"] = formatCLIParamValue(flagSettingKey)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "admin", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -173,7 +173,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "export RUNZERO_API_KEY=<your-key>"
+					report["auth_hint"] = "Set it with: runzero-cli auth set-token <token> or export RUNZERO_API_KEY=\"your-token-here\""
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"

@@ -32,7 +32,7 @@ func newFieldDeleteCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagKind != "" {
-				params["kind"] = fmt.Sprintf("%v", flagKind)
+				params["kind"] = formatCLIParamValue(flagKind)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

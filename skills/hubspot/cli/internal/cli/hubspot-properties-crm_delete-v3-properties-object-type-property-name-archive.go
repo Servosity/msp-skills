@@ -14,8 +14,9 @@ import (
 func newHubspotPropertiesCrmDeleteV3PropertiesObjectTypePropertyNameArchiveCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "delete-v3-properties-object-type-property-name-archive <objectType> <propertyName>",
-		Short:       "Move a property identified by {propertyName} to the recycling bin.",
+		Use:   "delete-v3-properties-object-type-property-name-archive <objectType> <propertyName>",
+		Short: "Move a property identified by {propertyName} to the recycling bin.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-properties-crm delete-v3-properties-object-type-property-name-archive example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-properties-crm.delete-v3-properties-object-type-property-name-archive", "pp:method": "DELETE", "pp:path": "/crm/v3/properties/{objectType}/{propertyName}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

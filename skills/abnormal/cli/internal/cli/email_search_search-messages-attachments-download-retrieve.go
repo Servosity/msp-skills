@@ -60,22 +60,22 @@ func newEmailSearchSearchMessagesAttachmentsDownloadRetrieveCmd(flags *rootFlags
 			}
 			params := map[string]string{}
 			if flagMessageId != "" {
-				params["message_id"] = fmt.Sprintf("%v", flagMessageId)
+				params["message_id"] = formatCLIParamValue(flagMessageId)
 			}
 			if flagAttachmentName != "" {
-				params["attachment_name"] = fmt.Sprintf("%v", flagAttachmentName)
+				params["attachment_name"] = formatCLIParamValue(flagAttachmentName)
 			}
 			if flagTenantId != "" {
-				params["tenant_id"] = fmt.Sprintf("%v", flagTenantId)
+				params["tenant_id"] = formatCLIParamValue(flagTenantId)
 			}
 			if flagRawMessageId != "" {
-				params["raw_message_id"] = fmt.Sprintf("%v", flagRawMessageId)
+				params["raw_message_id"] = formatCLIParamValue(flagRawMessageId)
 			}
 			if flagNativeUserId != "" {
-				params["native_user_id"] = fmt.Sprintf("%v", flagNativeUserId)
+				params["native_user_id"] = formatCLIParamValue(flagNativeUserId)
 			}
 			if flagRecipientMailbox != "" {
-				params["recipient_mailbox"] = fmt.Sprintf("%v", flagRecipientMailbox)
+				params["recipient_mailbox"] = formatCLIParamValue(flagRecipientMailbox)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "email_search", false, path, params, headerOverrides, cmd.ErrOrStderr())
 			if err != nil {

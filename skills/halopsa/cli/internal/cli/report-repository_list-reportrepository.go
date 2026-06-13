@@ -48,67 +48,67 @@ func newReportRepositoryListReportrepositoryCmd(flags *rootFlags) *cobra.Command
 			path := "/ReportRepository/ReportCategories"
 			params := map[string]string{}
 			if flagAccessControlLevel != 0 {
-				params["access_control_level"] = fmt.Sprintf("%v", flagAccessControlLevel)
+				params["access_control_level"] = formatCLIParamValue(flagAccessControlLevel)
 			}
 			if flagAssettypeId != "" {
-				params["assettype_id"] = fmt.Sprintf("%v", flagAssettypeId)
+				params["assettype_id"] = formatCLIParamValue(flagAssettypeId)
 			}
 			if flagClientId != "" {
-				params["client_id"] = fmt.Sprintf("%v", flagClientId)
+				params["client_id"] = formatCLIParamValue(flagClientId)
 			}
 			if flagClientname != "" {
-				params["clientname"] = fmt.Sprintf("%v", flagClientname)
+				params["clientname"] = formatCLIParamValue(flagClientname)
 			}
 			if flagContractId != "" {
-				params["contract_id"] = fmt.Sprintf("%v", flagContractId)
+				params["contract_id"] = formatCLIParamValue(flagContractId)
 			}
 			if flagCountryCodeId != "" {
-				params["country_code_id"] = fmt.Sprintf("%v", flagCountryCodeId)
+				params["country_code_id"] = formatCLIParamValue(flagCountryCodeId)
 			}
 			if flagDbcCompanyId != "" {
-				params["dbc_company_id"] = fmt.Sprintf("%v", flagDbcCompanyId)
+				params["dbc_company_id"] = formatCLIParamValue(flagDbcCompanyId)
 			}
 			if flagDomain != "" {
-				params["domain"] = fmt.Sprintf("%v", flagDomain)
+				params["domain"] = formatCLIParamValue(flagDomain)
 			}
 			if flagExcludeNocharge != false {
-				params["exclude_nocharge"] = fmt.Sprintf("%v", flagExcludeNocharge)
+				params["exclude_nocharge"] = formatCLIParamValue(flagExcludeNocharge)
 			}
 			if flagExcludeNolinkedtypes != false {
-				params["exclude_nolinkedtypes"] = fmt.Sprintf("%v", flagExcludeNolinkedtypes)
+				params["exclude_nolinkedtypes"] = formatCLIParamValue(flagExcludeNolinkedtypes)
 			}
 			if flagExcludeZero != false {
-				params["exclude_zero"] = fmt.Sprintf("%v", flagExcludeZero)
+				params["exclude_zero"] = formatCLIParamValue(flagExcludeZero)
 			}
 			if flagIscustomfield != false {
-				params["iscustomfield"] = fmt.Sprintf("%v", flagIscustomfield)
+				params["iscustomfield"] = formatCLIParamValue(flagIscustomfield)
 			}
 			if flagIstree != false {
-				params["istree"] = fmt.Sprintf("%v", flagIstree)
+				params["istree"] = formatCLIParamValue(flagIstree)
 			}
 			if flagLookupid != "" {
-				params["lookupid"] = fmt.Sprintf("%v", flagLookupid)
+				params["lookupid"] = formatCLIParamValue(flagLookupid)
 			}
 			if flagOrdervaluetype != 0 {
-				params["ordervaluetype"] = fmt.Sprintf("%v", flagOrdervaluetype)
+				params["ordervaluetype"] = formatCLIParamValue(flagOrdervaluetype)
 			}
 			if flagOutcomeId != "" {
-				params["outcome_id"] = fmt.Sprintf("%v", flagOutcomeId)
+				params["outcome_id"] = formatCLIParamValue(flagOutcomeId)
 			}
 			if flagShowallcodes != false {
-				params["showallcodes"] = fmt.Sprintf("%v", flagShowallcodes)
+				params["showallcodes"] = formatCLIParamValue(flagShowallcodes)
 			}
 			if flagTicketId != "" {
-				params["ticket_id"] = fmt.Sprintf("%v", flagTicketId)
+				params["ticket_id"] = formatCLIParamValue(flagTicketId)
 			}
 			if flagUnameaprestriction != false {
-				params["unameaprestriction"] = fmt.Sprintf("%v", flagUnameaprestriction)
+				params["unameaprestriction"] = formatCLIParamValue(flagUnameaprestriction)
 			}
 			if flagUse != 0 {
-				params["use"] = fmt.Sprintf("%v", flagUse)
+				params["use"] = formatCLIParamValue(flagUse)
 			}
 			if flagUse2 != 0 {
-				params["use2"] = fmt.Sprintf("%v", flagUse2)
+				params["use2"] = formatCLIParamValue(flagUse2)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "report-repository", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

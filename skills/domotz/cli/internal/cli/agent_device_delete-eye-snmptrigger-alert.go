@@ -55,7 +55,7 @@ func newAgentDeviceDeleteEyeSnmptriggerAlertCmd(flags *rootFlags) *cobra.Command
 				return usageErr(fmt.Errorf("trigger_id is required\nUsage: %s <%s>", cmd.CommandPath(), "trigger_id"))
 			}
 			path = replacePathParam(path, "trigger_id", args[3])
-			path = replacePathParam(path, "medium_name", fmt.Sprintf("%v", flagMediumName))
+			path = replacePathParam(path, "medium_name", formatCLIParamValue(flagMediumName))
 			params := map[string]string{}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {

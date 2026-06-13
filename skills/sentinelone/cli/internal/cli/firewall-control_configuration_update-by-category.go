@@ -16,9 +16,10 @@ func newFirewallControlConfigurationUpdateByCategoryCmd(flags *rootFlags) *cobra
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update-by-category <firewall_rule_category>",
-		Aliases:     []string{"update"},
-		Short:       "Change the Firewall Control configuration for a given scope.",
+		Use:     "update-by-category <firewall_rule_category>",
+		Aliases: []string{"update"},
+		Short:   "Change the Firewall Control configuration for a given scope.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli firewall-control configuration update-by-category example-value",
 		Annotations: map[string]string{"pp:endpoint": "configuration.update-by-category", "pp:method": "PUT", "pp:path": "/firewall-control/{firewall_rule_category}/configuration"},
 		RunE: func(cmd *cobra.Command, args []string) error {

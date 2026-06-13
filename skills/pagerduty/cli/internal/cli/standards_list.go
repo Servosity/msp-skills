@@ -42,10 +42,10 @@ func newStandardsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/standards"
 			params := map[string]string{}
 			if flagActive != false {
-				params["active"] = fmt.Sprintf("%v", flagActive)
+				params["active"] = formatCLIParamValue(flagActive)
 			}
 			if flagResourceType != "" {
-				params["resource_type"] = fmt.Sprintf("%v", flagResourceType)
+				params["resource_type"] = formatCLIParamValue(flagResourceType)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "standards", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

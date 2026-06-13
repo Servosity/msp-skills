@@ -28,7 +28,7 @@ func newApprovalProcessListCmd(flags *rootFlags) *cobra.Command {
 			path := "/ApprovalProcess"
 			params := map[string]string{}
 			if flagAccessControlLevel != 0 {
-				params["access_control_level"] = fmt.Sprintf("%v", flagAccessControlLevel)
+				params["access_control_level"] = formatCLIParamValue(flagAccessControlLevel)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "approval-process", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

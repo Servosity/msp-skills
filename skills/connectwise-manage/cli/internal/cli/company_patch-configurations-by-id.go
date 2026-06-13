@@ -46,7 +46,7 @@ func newCompanyPatchConfigurationsByIdCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagManagedInformation != "" {
-				params["managedInformation"] = fmt.Sprintf("%v", flagManagedInformation)
+				params["managedInformation"] = formatCLIParamValue(flagManagedInformation)
 			}
 			var body map[string]any
 			if stdinBody {

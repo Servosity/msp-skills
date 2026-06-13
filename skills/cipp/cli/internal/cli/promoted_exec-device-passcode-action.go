@@ -17,9 +17,10 @@ func newExecDevicePasscodeActionPromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "exec-device-passcode-action",
-		Short:       "Exec device passcode action",
-		Long:        "Exec device passcode action",
+		Use:   "exec-device-passcode-action",
+		Short: "Exec device passcode action",
+		Long:  "Exec device passcode action",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli exec-device-passcode-action --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "exec-device-passcode-action.create", "pp:method": "POST", "pp:path": "/ExecDevicePasscodeAction"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -56,10 +57,10 @@ func newExecDevicePasscodeActionPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

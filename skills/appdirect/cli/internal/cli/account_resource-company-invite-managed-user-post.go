@@ -40,7 +40,7 @@ func newAccountResourceCompanyInviteManagedUserPostCmd(flags *rootFlags) *cobra.
 			path = replacePathParam(path, "userUuid", args[1])
 			params := map[string]string{}
 			if flagInviterUuid != "" {
-				params["inviterUuid"] = fmt.Sprintf("%v", flagInviterUuid)
+				params["inviterUuid"] = formatCLIParamValue(flagInviterUuid)
 			}
 			var body map[string]any
 			if stdinBody {

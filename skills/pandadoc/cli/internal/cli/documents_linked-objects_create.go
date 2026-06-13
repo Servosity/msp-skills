@@ -21,7 +21,7 @@ func newDocumentsLinkedObjectsCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <id>",
 		Short:       "Create a linked object in the document. > 🚧 > > You can only link each document to each CRM once.",
-		Example:     "  pandadoc-cli documents linked-objects create 550e8400-e29b-41d4-a716-446655440000 --entity-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents linked-objects create ZPeAfcpzr9aiVs5vqUf6jg --entity-id 9372",
 		Annotations: map[string]string{"pp:endpoint": "linked-objects.create", "pp:method": "POST", "pp:path": "/documents/{id}/linked-objects"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

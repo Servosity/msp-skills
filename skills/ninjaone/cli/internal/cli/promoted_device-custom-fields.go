@@ -42,7 +42,7 @@ func newDeviceCustomFieldsPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/device-custom-fields"
 			params := map[string]string{}
 			if flagScopes != "" {
-				params["scopes"] = fmt.Sprintf("%v", flagScopes)
+				params["scopes"] = formatCLIParamValue(flagScopes)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "device-custom-fields", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

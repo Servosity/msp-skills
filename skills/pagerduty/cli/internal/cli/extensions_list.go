@@ -47,13 +47,13 @@ func newExtensionsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/extensions"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "extensions", path, map[string]string{
-				"limit":               fmt.Sprintf("%v", flagLimit),
-				"offset":              fmt.Sprintf("%v", flagOffset),
-				"total":               fmt.Sprintf("%v", flagTotal),
-				"query":               fmt.Sprintf("%v", flagQuery),
-				"extension_object_id": fmt.Sprintf("%v", flagExtensionObjectId),
-				"extension_schema_id": fmt.Sprintf("%v", flagExtensionSchemaId),
-				"include[]":           fmt.Sprintf("%v", flagInclude),
+				"limit":               formatCLIParamValue(flagLimit),
+				"offset":              formatCLIParamValue(flagOffset),
+				"total":               formatCLIParamValue(flagTotal),
+				"query":               formatCLIParamValue(flagQuery),
+				"extension_object_id": formatCLIParamValue(flagExtensionObjectId),
+				"extension_schema_id": formatCLIParamValue(flagExtensionSchemaId),
+				"include[]":           formatCLIParamValue(flagInclude),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

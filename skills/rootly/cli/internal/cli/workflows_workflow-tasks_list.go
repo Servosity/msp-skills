@@ -38,12 +38,12 @@ func newWorkflowsWorkflowTasksListCmd(flags *rootFlags) *cobra.Command {
 			path := "/v1/workflows/{workflow_id}/workflow_tasks"
 			path = replacePathParam(path, "workflow_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "workflow-tasks", path, map[string]string{
-				"include":        fmt.Sprintf("%v", flagInclude),
-				"page[number]":   fmt.Sprintf("%v", flagPageNumber),
-				"page[size]":     fmt.Sprintf("%v", flagPageSize),
-				"filter[search]": fmt.Sprintf("%v", flagFilterSearch),
-				"filter[name]":   fmt.Sprintf("%v", flagFilterName),
-				"filter[slug]":   fmt.Sprintf("%v", flagFilterSlug),
+				"include":        formatCLIParamValue(flagInclude),
+				"page[number]":   formatCLIParamValue(flagPageNumber),
+				"page[size]":     formatCLIParamValue(flagPageSize),
+				"filter[search]": formatCLIParamValue(flagFilterSearch),
+				"filter[name]":   formatCLIParamValue(flagFilterName),
+				"filter[slug]":   formatCLIParamValue(flagFilterSlug),
 			}, nil, flagAll, "page[number]", "page", "page[size]", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

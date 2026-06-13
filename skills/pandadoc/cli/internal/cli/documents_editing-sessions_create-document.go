@@ -21,7 +21,7 @@ func newDocumentsEditingSessionsCreateDocumentCmd(flags *rootFlags) *cobra.Comma
 		Use:         "create-document <id>",
 		Aliases:     []string{"create"},
 		Short:       "Creates a new editing session for the Embedded Editor.",
-		Example:     "  pandadoc-cli documents editing-sessions create-document 550e8400-e29b-41d4-a716-446655440000 --email user@example.com",
+		Example:     "  pandadoc-cli documents editing-sessions create-document pSgK5XYZjyg3zXYZxsoUWg --email user@example.com",
 		Annotations: map[string]string{"pp:endpoint": "editing-sessions.create-document", "pp:method": "POST", "pp:path": "/documents/{id}/editing-sessions"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

@@ -29,10 +29,10 @@ func newSettingsGetNotificationCmd(flags *rootFlags) *cobra.Command {
 			path := "/settings/notifications"
 			params := map[string]string{}
 			if flagSiteIds != "" {
-				params["siteIds"] = fmt.Sprintf("%v", flagSiteIds)
+				params["siteIds"] = formatCLIParamValue(flagSiteIds)
 			}
 			if flagAccountIds != "" {
-				params["accountIds"] = fmt.Sprintf("%v", flagAccountIds)
+				params["accountIds"] = formatCLIParamValue(flagAccountIds)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "settings", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

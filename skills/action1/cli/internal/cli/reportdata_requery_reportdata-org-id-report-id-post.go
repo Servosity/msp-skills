@@ -41,7 +41,7 @@ func newReportdataRequeryReportdataOrgIdReportIdPostCmd(flags *rootFlags) *cobra
 			path = replacePathParam(path, "reportId", args[1])
 			params := map[string]string{}
 			if flagEndpointId != "" {
-				params["endpoint_id"] = fmt.Sprintf("%v", flagEndpointId)
+				params["endpoint_id"] = formatCLIParamValue(flagEndpointId)
 			}
 			var body map[string]any
 			if stdinBody {

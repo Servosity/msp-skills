@@ -23,7 +23,7 @@ func newSubscriptionsUsageSummariesFindSubscriptionCmd(flags *rootFlags) *cobra.
 		Use:         "find-subscription <subscriptionId>",
 		Aliases:     []string{"get"},
 		Short:       "Fetch a paginated list of usage summaries. Default page is 0 and default size is 10. The maximum page size is 200",
-		Example:     "  pax8-cli subscriptions usage-summaries find-subscription 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pax8-cli subscriptions usage-summaries find-subscription 04814f37-bef0-48b7-b388-c04a1e31f889",
 		Annotations: map[string]string{"pp:endpoint": "usage-summaries.find-subscription", "pp:method": "GET", "pp:path": "/subscriptions/{subscriptionId}/usage-summaries", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -50,11 +50,11 @@ func newSubscriptionsUsageSummariesFindSubscriptionCmd(flags *rootFlags) *cobra.
 			path := "/subscriptions/{subscriptionId}/usage-summaries"
 			path = replacePathParam(path, "subscriptionId", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "usage-summaries", path, map[string]string{
-				"page":          fmt.Sprintf("%v", flagPage),
-				"size":          fmt.Sprintf("%v", flagSize),
-				"sort":          fmt.Sprintf("%v", flagSort),
-				"resourceGroup": fmt.Sprintf("%v", flagResourceGroup),
-				"companyId":     fmt.Sprintf("%v", flagCompanyId),
+				"page":          formatCLIParamValue(flagPage),
+				"size":          formatCLIParamValue(flagSize),
+				"sort":          formatCLIParamValue(flagSort),
+				"resourceGroup": formatCLIParamValue(flagResourceGroup),
+				"companyId":     formatCLIParamValue(flagCompanyId),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

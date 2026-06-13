@@ -43,7 +43,7 @@ func newAccountResourceInvitationUpdateInvitationWithRegistrationPostCmd(flags *
 			path = replacePathParam(path, "invitationToken", args[0])
 			params := map[string]string{}
 			if flagApiUsesExternalIds != false {
-				params["api.usesExternalIds"] = fmt.Sprintf("%v", flagApiUsesExternalIds)
+				params["api.usesExternalIds"] = formatCLIParamValue(flagApiUsesExternalIds)
 			}
 			var body map[string]any
 			if stdinBody {

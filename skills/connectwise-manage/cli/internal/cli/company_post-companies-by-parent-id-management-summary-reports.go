@@ -61,8 +61,9 @@ func newCompanyPostCompaniesByParentIdManagementSummaryReportsCmd(flags *rootFla
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-companies-by-parent-id-management-summary-reports <parentId>",
-		Short:       "Post CompanyManagementSummary",
+		Use:   "post-companies-by-parent-id-management-summary-reports <parentId>",
+		Short: "Post CompanyManagementSummary",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  connectwise-manage-cli company post-companies-by-parent-id-management-summary-reports 42 --group-identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "company.post-companies-by-parent-id-management-summary-reports", "pp:method": "POST", "pp:path": "/company/companies/{parentId}/managementSummaryReports"},
 		RunE: func(cmd *cobra.Command, args []string) error {

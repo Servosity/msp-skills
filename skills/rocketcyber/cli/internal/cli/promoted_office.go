@@ -29,7 +29,7 @@ func newOfficePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/office"
 			params := map[string]string{}
 			if flagAccountId != "" {
-				params["accountId"] = fmt.Sprintf("%v", flagAccountId)
+				params["accountId"] = formatCLIParamValue(flagAccountId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "office", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {
@@ -84,6 +84,7 @@ func newOfficePromotedCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&flagAccountId, "account-id", "", "Account ID to scope the report")
 
 	// Wire sibling endpoints and sub-resources as subcommands
+	cmd.AddCommand(newNovelOfficeTrendCmd(flags))
 
 	return cmd
 }

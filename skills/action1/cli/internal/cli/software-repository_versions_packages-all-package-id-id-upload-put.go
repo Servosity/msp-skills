@@ -70,10 +70,10 @@ func newSoftwareRepositoryVersionsPackagesAllPackageIdIdUploadPutCmd(flags *root
 			path = replacePathParam(path, "orgId", args[2])
 			params := map[string]string{}
 			if flagPlatform != "" {
-				params["platform"] = fmt.Sprintf("%v", flagPlatform)
+				params["platform"] = formatCLIParamValue(flagPlatform)
 			}
 			if flagUploadId != "" {
-				params["upload_id"] = fmt.Sprintf("%v", flagUploadId)
+				params["upload_id"] = formatCLIParamValue(flagUploadId)
 			}
 			var body map[string]any
 			if stdinBody {

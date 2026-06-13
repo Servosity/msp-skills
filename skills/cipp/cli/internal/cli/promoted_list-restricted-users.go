@@ -15,9 +15,10 @@ func newListRestrictedUsersPromotedCmd(flags *rootFlags) *cobra.Command {
 	var flagTenantFilter string
 
 	cmd := &cobra.Command{
-		Use:         "list-restricted-users",
-		Short:       "Lists users from the restricted senders list in Exchange Online.",
-		Long:        "Lists users from the restricted senders list in Exchange Online.",
+		Use:   "list-restricted-users",
+		Short: "Lists users from the restricted senders list in Exchange Online.",
+		Long:  "Lists users from the restricted senders list in Exchange Online.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli list-restricted-users --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "list-restricted-users.list", "pp:method": "GET", "pp:path": "/ListRestrictedUsers", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,7 @@ func newListRestrictedUsersPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/ListRestrictedUsers"
 			params := map[string]string{}
 			if flagTenantFilter != "" {
-				params["tenantFilter"] = fmt.Sprintf("%v", flagTenantFilter)
+				params["tenantFilter"] = formatCLIParamValue(flagTenantFilter)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "list-restricted-users", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -120,21 +120,21 @@ func newBillingResourceOtherReadPurchaseOrdersGetCmd(flags *rootFlags) *cobra.Co
 
 			path := "/billing/v1/orders"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "billing", path, map[string]string{
-				"startDateFrom":      fmt.Sprintf("%v", flagStartDateFrom),
-				"startDateTo":        fmt.Sprintf("%v", flagStartDateTo),
-				"status":             fmt.Sprintf("%v", flagStatus),
-				"currency":           fmt.Sprintf("%v", flagCurrency),
-				"type":               fmt.Sprintf("%v", flagType),
-				"frequency":          fmt.Sprintf("%v", flagFrequency),
-				"orderReferenceCode": fmt.Sprintf("%v", flagOrderReferenceCode),
-				"applicationIds":     fmt.Sprintf("%v", flagApplicationIds),
-				"fromCreationDate":   fmt.Sprintf("%v", flagFromCreationDate),
-				"toCreationDate":     fmt.Sprintf("%v", flagToCreationDate),
-				"page":               fmt.Sprintf("%v", flagPage),
-				"referenceCode":      fmt.Sprintf("%v", flagReferenceCode),
-				"size":               fmt.Sprintf("%v", flagSize),
-				"sortField":          fmt.Sprintf("%v", flagSortField),
-				"sortOrder":          fmt.Sprintf("%v", flagSortOrder),
+				"startDateFrom":      formatCLIParamValue(flagStartDateFrom),
+				"startDateTo":        formatCLIParamValue(flagStartDateTo),
+				"status":             formatCLIParamValue(flagStatus),
+				"currency":           formatCLIParamValue(flagCurrency),
+				"type":               formatCLIParamValue(flagType),
+				"frequency":          formatCLIParamValue(flagFrequency),
+				"orderReferenceCode": formatCLIParamValue(flagOrderReferenceCode),
+				"applicationIds":     formatCLIParamValue(flagApplicationIds),
+				"fromCreationDate":   formatCLIParamValue(flagFromCreationDate),
+				"toCreationDate":     formatCLIParamValue(flagToCreationDate),
+				"page":               formatCLIParamValue(flagPage),
+				"referenceCode":      formatCLIParamValue(flagReferenceCode),
+				"size":               formatCLIParamValue(flagSize),
+				"sortField":          formatCLIParamValue(flagSortField),
+				"sortOrder":          formatCLIParamValue(flagSortOrder),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

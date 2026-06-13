@@ -32,19 +32,19 @@ func newChargeRateListCmd(flags *rootFlags) *cobra.Command {
 			path := "/ChargeRate"
 			params := map[string]string{}
 			if flagChargerateId != "" {
-				params["chargerate_id"] = fmt.Sprintf("%v", flagChargerateId)
+				params["chargerate_id"] = formatCLIParamValue(flagChargerateId)
 			}
 			if flagClientId != "" {
-				params["client_id"] = fmt.Sprintf("%v", flagClientId)
+				params["client_id"] = formatCLIParamValue(flagClientId)
 			}
 			if flagContractId != "" {
-				params["contract_id"] = fmt.Sprintf("%v", flagContractId)
+				params["contract_id"] = formatCLIParamValue(flagContractId)
 			}
 			if flagCurrentonly != false {
-				params["currentonly"] = fmt.Sprintf("%v", flagCurrentonly)
+				params["currentonly"] = formatCLIParamValue(flagCurrentonly)
 			}
 			if flagGlobalonly != false {
-				params["globalonly"] = fmt.Sprintf("%v", flagGlobalonly)
+				params["globalonly"] = formatCLIParamValue(flagGlobalonly)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "charge-rate", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

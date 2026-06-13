@@ -16,9 +16,10 @@ func newFirewallControlCopyRulesByCategoryCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "by-category <firewall_rule_category>",
-		Aliases:     []string{"create"},
-		Short:       "Copy a set of rules to other scopes. In the filter of the body, enter the properties to define the source.",
+		Use:     "by-category <firewall_rule_category>",
+		Aliases: []string{"create"},
+		Short:   "Copy a set of rules to other scopes. In the filter of the body, enter the properties to define the source.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli firewall-control copy-rules by-category example-value",
 		Annotations: map[string]string{"pp:endpoint": "copy-rules.by-category", "pp:method": "POST", "pp:path": "/firewall-control/{firewall_rule_category}/copy-rules"},
 		RunE: func(cmd *cobra.Command, args []string) error {

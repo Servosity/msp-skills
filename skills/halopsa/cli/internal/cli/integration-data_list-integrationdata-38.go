@@ -16,6 +16,7 @@ func newIntegrationDataListIntegrationdata38Cmd(flags *rootFlags) *cobra.Command
 	var flagMappingid string
 	var flagNexttoken string
 	var flagPaginate bool
+	var flagAll bool
 
 	cmd := &cobra.Command{
 		Use:         "list-integrationdata-38",
@@ -29,20 +30,12 @@ func newIntegrationDataListIntegrationdata38Cmd(flags *rootFlags) *cobra.Command
 			}
 
 			path := "/IntegrationData/Get/GoogleWorkplace"
-			params := map[string]string{}
-			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
-			}
-			if flagMappingid != "" {
-				params["mappingid"] = fmt.Sprintf("%v", flagMappingid)
-			}
-			if flagNexttoken != "" {
-				params["nexttoken"] = fmt.Sprintf("%v", flagNexttoken)
-			}
-			if flagPaginate != false {
-				params["paginate"] = fmt.Sprintf("%v", flagPaginate)
-			}
-			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
+			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", path, map[string]string{
+				"datatype":  formatCLIParamValue(flagDatatype),
+				"mappingid": formatCLIParamValue(flagMappingid),
+				"nexttoken": formatCLIParamValue(flagNexttoken),
+				"paginate":  formatCLIParamValue(flagPaginate),
+			}, nil, flagAll, "nexttoken", "cursor", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -94,6 +87,7 @@ func newIntegrationDataListIntegrationdata38Cmd(flags *rootFlags) *cobra.Command
 	cmd.Flags().StringVar(&flagMappingid, "mappingid", "", "Mappingid")
 	cmd.Flags().StringVar(&flagNexttoken, "nexttoken", "", "Nexttoken")
 	cmd.Flags().BoolVar(&flagPaginate, "paginate", false, "Paginate")
+	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
 
 	return cmd
 }

@@ -35,7 +35,7 @@ func newKaseyaOneGetWorkTypesLookupCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/kaseya-one/worktypes/lookup"
 			params := map[string]string{}
 			if flagSkipToken != "" {
-				params["skipToken"] = fmt.Sprintf("%v", flagSkipToken)
+				params["skipToken"] = formatCLIParamValue(flagSkipToken)
 			}
 			var body map[string]any
 			if stdinBody {

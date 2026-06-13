@@ -43,7 +43,7 @@ func newOrgRemoveBulkAssetsCmd(flags *rootFlags) *cobra.Command {
 			path := "/org/assets/bulk/delete"
 			params := map[string]string{}
 			if flagOid != "" {
-				params["_oid"] = fmt.Sprintf("%v", flagOid)
+				params["_oid"] = formatCLIParamValue(flagOid)
 			}
 			var body map[string]any
 			if stdinBody {

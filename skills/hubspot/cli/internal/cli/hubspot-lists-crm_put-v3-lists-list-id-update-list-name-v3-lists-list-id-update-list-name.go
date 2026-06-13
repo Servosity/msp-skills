@@ -37,10 +37,10 @@ func newHubspotListsCrmPutV3ListsListIdUpdateListNameV3ListsListIdUpdateListName
 			path = replacePathParam(path, "listId", args[0])
 			params := map[string]string{}
 			if flagIncludeFilters != false {
-				params["includeFilters"] = fmt.Sprintf("%v", flagIncludeFilters)
+				params["includeFilters"] = formatCLIParamValue(flagIncludeFilters)
 			}
 			if flagListName != "" {
-				params["listName"] = fmt.Sprintf("%v", flagListName)
+				params["listName"] = formatCLIParamValue(flagListName)
 			}
 			var body map[string]any
 			if stdinBody {

@@ -127,8 +127,7 @@ func resolveClientCredentialsScope() string {
 	if scope := os.Getenv("HALOPSA_OAUTH_SCOPE"); scope != "" {
 		return scope
 	}
-	scopes := []string{"all"}
-	return strings.Join(scopes, " ")
+	return "all"
 }
 
 // mintClientCredentialsToken POSTs grant_type=client_credentials to the
@@ -139,9 +138,8 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 		"client_id":     {clientID},
 		"client_secret": {clientSecret},
 	}
-	scopes := []string{resolveClientCredentialsScope()}
-	if scopes[0] != "" {
-		form.Set("scope", strings.Join(scopes, " "))
+	if scope := resolveClientCredentialsScope(); scope != "" {
+		form.Set("scope", scope)
 	}
 	req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {

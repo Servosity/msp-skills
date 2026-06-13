@@ -32,10 +32,10 @@ func newDocumentsUploadPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/documents?upload"
 			params := map[string]string{}
 			if flagEditorVer != "" {
-				params["editor_ver"] = fmt.Sprintf("%v", flagEditorVer)
+				params["editor_ver"] = formatCLIParamValue(flagEditorVer)
 			}
 			if flagUseFormFieldProperties != "" {
-				params["use_form_field_properties"] = fmt.Sprintf("%v", flagUseFormFieldProperties)
+				params["use_form_field_properties"] = formatCLIParamValue(flagUseFormFieldProperties)
 			}
 			fields := map[string]string{}
 			fileFields := map[string]string{}
@@ -50,10 +50,10 @@ func newDocumentsUploadPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			data, statusCode, err := c.PostMultipartWithParams(cmd.Context(), path, params, fields, fileFields)
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

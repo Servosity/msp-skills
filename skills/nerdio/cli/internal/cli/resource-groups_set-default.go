@@ -18,8 +18,9 @@ func newResourceGroupsSetDefaultCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "set-default",
-		Short:       "Set the default MSP-level resource group",
+		Use:   "set-default",
+		Short: "Set the default MSP-level resource group",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  nerdio-cli resource-groups set-default --resource-group example-value",
 		Annotations: map[string]string{"pp:endpoint": "resource-groups.set-default", "pp:method": "PUT", "pp:path": "/rest-api/v1/resource-group/setDefault"},
 		RunE: func(cmd *cobra.Command, args []string) error {

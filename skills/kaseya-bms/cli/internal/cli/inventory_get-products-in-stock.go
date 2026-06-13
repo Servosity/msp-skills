@@ -38,13 +38,13 @@ func newInventoryGetProductsInStockCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "typeId", args[1])
 			params := map[string]string{}
 			if flagWareHouseId != "" {
-				params["wareHouseId"] = fmt.Sprintf("%v", flagWareHouseId)
+				params["wareHouseId"] = formatCLIParamValue(flagWareHouseId)
 			}
 			if flagStockByLocationId != "" {
-				params["stockByLocationId"] = fmt.Sprintf("%v", flagStockByLocationId)
+				params["stockByLocationId"] = formatCLIParamValue(flagStockByLocationId)
 			}
 			if flagProjectId != "" {
-				params["projectId"] = fmt.Sprintf("%v", flagProjectId)
+				params["projectId"] = formatCLIParamValue(flagProjectId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "inventory", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

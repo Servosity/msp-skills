@@ -23,8 +23,9 @@ func newHubspotEmailsCrmPostV3ObjectsEmailsSearchDoSearchCmd(flags *rootFlags) *
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "post-v3-objects-emails-search-do-search",
-		Short:       "Perform a search for emails based on the provided query parameters and return matching results.",
+		Use:   "post-v3-objects-emails-search-do-search",
+		Short: "Perform a search for emails based on the provided query parameters and return matching results.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  hubspot-cli hubspot-emails-crm post-v3-objects-emails-search-do-search --after example-value",
 		Annotations: map[string]string{"pp:endpoint": "hubspot-emails-crm.post-v3-objects-emails-search-do-search", "pp:method": "POST", "pp:path": "/crm/v3/objects/emails/search"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -49,11 +49,11 @@ func newAccountResourceGroupReadAllGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/account/v2/companies/{companyUuid}/groups"
 			path = replacePathParam(path, "companyUuid", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "account", path, map[string]string{
-				"page":       fmt.Sprintf("%v", flagPage),
-				"searchText": fmt.Sprintf("%v", flagSearchText),
-				"size":       fmt.Sprintf("%v", flagSize),
-				"sortField":  fmt.Sprintf("%v", flagSortField),
-				"sortOrder":  fmt.Sprintf("%v", flagSortOrder),
+				"page":       formatCLIParamValue(flagPage),
+				"searchText": formatCLIParamValue(flagSearchText),
+				"size":       formatCLIParamValue(flagSize),
+				"sortField":  formatCLIParamValue(flagSortField),
+				"sortOrder":  formatCLIParamValue(flagSortOrder),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

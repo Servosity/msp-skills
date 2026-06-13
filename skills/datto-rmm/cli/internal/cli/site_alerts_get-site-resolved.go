@@ -34,9 +34,9 @@ func newSiteAlertsGetSiteResolvedCmd(flags *rootFlags) *cobra.Command {
 			path := "/v2/site/{siteUid}/alerts/resolved"
 			path = replacePathParam(path, "siteUid", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "alerts", path, map[string]string{
-				"page":  fmt.Sprintf("%v", flagPage),
-				"max":   fmt.Sprintf("%v", flagMax),
-				"muted": fmt.Sprintf("%v", flagMuted),
+				"page":  formatCLIParamValue(flagPage),
+				"max":   formatCLIParamValue(flagMax),
+				"muted": formatCLIParamValue(flagMuted),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

@@ -17,7 +17,7 @@ func newUsersDetailsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "details <user_id>",
 		Aliases:     []string{"get"},
 		Short:       "Get detailed information about a specific user by their ID, including contact information, license type",
-		Example:     "  pandadoc-cli users details 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli users details ajnN7eGutJZsRKjQrNuPkh",
 		Annotations: map[string]string{"pp:endpoint": "users.details", "pp:method": "GET", "pp:path": "/users/{user_id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

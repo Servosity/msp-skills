@@ -55,7 +55,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			resources := []string{"abilities", "addons", "alert-grouping-settings", "audit", "automation-actions", "automation-actions-invocations", "automation-actions-runners", "business-services", "business-services-impactors", "business-services-impacts", "change-events", "escalation-policies", "event-orchestrations", "extension-schemas", "extensions", "incident-workflows", "incident-workflows-actions", "incident-workflows-triggers", "incidents", "incidents-custom-fields", "incidents-types", "ip-allow-lists", "license-allocations", "licenses", "log-entries", "maintenance-windows", "oncalls", "priorities", "rulesets", "schedules", "services", "services-custom-fields", "session-configurations", "sre-agent", "standards", "status-dashboards", "status-pages", "tags", "teams", "templates", "templates-fields", "users", "vendors", "webhook-subscriptions", "webhook-subscriptions-oauth-clients", "workflows", "workflows-integrations-connections"}
+			resources := []string{"audit", "automation-actions", "automation-actions-runners", "change-events", "incident-workflows-actions", "incident-workflows-triggers", "ip-allow-lists", "licenses", "services-custom-fields", "session-configurations", "status-dashboards", "webhook-subscriptions-oauth-clients", "workflows", "workflows-integrations-connections"}
 			totalSynced := 0
 			syncEventWriter := cmd.OutOrStdout()
 			if flags.asJSON {

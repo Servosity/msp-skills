@@ -17,8 +17,9 @@ func newPoliciesDeleteCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "delete",
-		Short:       "Delete policies by id",
+		Use:   "delete",
+		Short: "Delete policies by id",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  threatlocker-cli policies delete --policy-ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "policies.delete", "pp:method": "PUT", "pp:path": "/Policy/PolicyUpdateForDeleteByIds"},
 		RunE: func(cmd *cobra.Command, args []string) error {

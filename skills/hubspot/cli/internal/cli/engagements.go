@@ -11,7 +11,7 @@ func newNovelEngagementsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "engagements",
-		Short:       "Unified call/email/meeting/note/task timelines across CRM objects",
+		Short:       "engagements subcommands: of",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

@@ -30,10 +30,10 @@ func newOnlineDevicesPromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/OnlineDevices/OnlineDevicesGetByParameters"
 			params := map[string]string{}
 			if flagPageNumber != 0 {
-				params["pageNumber"] = fmt.Sprintf("%v", flagPageNumber)
+				params["pageNumber"] = formatCLIParamValue(flagPageNumber)
 			}
 			if flagPageSize != 0 {
-				params["pageSize"] = fmt.Sprintf("%v", flagPageSize)
+				params["pageSize"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "online-devices", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

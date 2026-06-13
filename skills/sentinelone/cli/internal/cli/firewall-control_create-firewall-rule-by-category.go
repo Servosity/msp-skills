@@ -16,8 +16,9 @@ func newFirewallControlCreateFirewallRuleByCategoryCmd(flags *rootFlags) *cobra.
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create-firewall-rule-by-category <firewall_rule_category>",
-		Short:       "Create a Firewall Control rule for a scope specified by ID (run 'accounts', 'sites', 'groups'",
+		Use:   "create-firewall-rule-by-category <firewall_rule_category>",
+		Short: "Create a Firewall Control rule for a scope specified by ID (run 'accounts', 'sites', 'groups'",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli firewall-control create-firewall-rule-by-category example-value",
 		Annotations: map[string]string{"pp:endpoint": "firewall-control.create-firewall-rule-by-category", "pp:method": "POST", "pp:path": "/firewall-control/{firewall_rule_category}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

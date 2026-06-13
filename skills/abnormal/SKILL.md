@@ -1,6 +1,6 @@
 ---
 name: abnormal
-description: "Every Abnormal Security threat, case, vendor, employee, and dashboard operation, plus a local threat store, ranked SOC triage, and one-shot client reporting. Trigger phrases: `triage abnormal threats`, `remediate a phishing campaign in abnormal`, `abnormal email threat report`, `check account takeover risk for an employee`, `vendor email compromise check`, `use abnormal security`, `run abnormal-cli`."
+description: "The full Abnormal Security REST API as an agent-ready CLI  -  with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers. Trigger phrases: `triage abnormal threats`, `remediate a phishing campaign in abnormal`, `abnormal email threat report`, `check account takeover risk for an employee`, `vendor email compromise check`, `use abnormal security`, `run abnormal-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Abnormal Security"
@@ -11,26 +11,32 @@ metadata:
     requires:
       bins:
         - abnormal-cli
+    install:
+      - kind: go
+        bins: [abnormal-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/abnormal/cmd/abnormal-cli
 ---
 
-# Abnormal Security Claude Code Skill
+# Abnormal Security  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `abnormal-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/abnormal/install.sh)
+   npx -y @mvanhorn/printing-press-library install abnormal --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/abnormal/install.ps1 | iex
-   ```
-3. Verify: `abnormal-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `abnormal-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/abnormal/cmd/abnormal-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Every threat, case, vendor, employee, and dashboard operation from Abnormal's official API, plus a synced SQLite store that powers a ranked `triage` queue, joined `employee-risk` and `vendor-risk` investigation views, blocking `remediate-watch` confirmation, and a consolidated `report-snapshot` for client reporting. The incumbent integrations live inside SOAR and SIEM platforms; this runs in your terminal and your agents.
 
@@ -150,7 +156,7 @@ These capabilities aren't available in any other tool for this API.
 - `abnormal-cli detection360 reports-create`  -  Use this to report a detection misclassification judgement by Abnormal Security.
 - `abnormal-cli detection360 reports-retrieve`  -  Get a list of Detection 360 reports that you have submitted and view corresponding details for each case
 
-**email-search**  -  Manage email search
+**email_search**  -  Manage email search
 
 - `abnormal-cli email-search search-activities-retrieve`  -  List activity logs for search and remediation operations. Optionally filter by tenant_ids query parameter (e.g., ?
 - `abnormal-cli email-search search-activities-status-retrieve`  -  Get detailed status of a specific activity including remediation results.
@@ -269,7 +275,7 @@ Vendor details, recent activity, and open vendor cases joined into one investiga
 
 ## Auth Setup
 
-Mint a REST API token in the Abnormal portal under Settings → Integrations → Abnormal REST API, then export it as `ABNORMAL_API_TOKEN`. Abnormal enforces IP allowlisting on the integration: add your egress IP in the same portal screen or every call returns 403. EU tenants must point the CLI at the EU host: `export ABNORMAL_BASE_URL=https://eu.api.abnormalplatform.com/v1`. You can also store the token with `abnormal-cli auth set-token <token>` and inspect it with `abnormal-cli auth status`.
+Mint a REST API token in the Abnormal portal under Settings → Integrations → Abnormal REST API, then export it as `ABNORMAL_API_TOKEN`. Abnormal enforces IP allowlisting on the integration: add your egress IP in the same portal screen or every call returns 403. EU tenants must point the CLI at the EU host: `export ABNORMAL_BASE_URL=https://eu.rest.abnormalsecurity.com/v1`. You can also store the token with `abnormal-cli auth set-token <token>` and inspect it with `abnormal-cli auth status`.
 
 Run `abnormal-cli doctor` to verify setup.
 
@@ -363,13 +369,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `abnormal-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add abnormal-mcp -- abnormal-mcp
-```
-
-Then verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/abnormal/cmd/abnormal-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add abnormal-mcp -- abnormal-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

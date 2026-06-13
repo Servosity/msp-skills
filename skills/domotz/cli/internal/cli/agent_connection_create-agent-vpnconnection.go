@@ -19,9 +19,10 @@ func newAgentConnectionCreateAgentVpnconnectionCmd(flags *rootFlags) *cobra.Comm
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "create-agent-vpnconnection <agent_id>",
-		Aliases:     []string{"create"},
-		Short:       "Creates a temporary VPN server on the collector and returns the vpn configuration file content.",
+		Use:     "create-agent-vpnconnection <agent_id>",
+		Aliases: []string{"create"},
+		Short:   "Creates a temporary VPN server on the collector and returns the vpn configuration file content.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  domotz-cli agent connection create-agent-vpnconnection 550e8400-e29b-41d4-a716-446655440000 --allowed-ip example-value",
 		Annotations: map[string]string{"pp:endpoint": "connection.create-agent-vpnconnection", "pp:method": "POST", "pp:path": "/agent/{agent_id}/connection/vpn-session"},
 		RunE: func(cmd *cobra.Command, args []string) error {

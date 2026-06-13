@@ -31,7 +31,7 @@ var whichIndex = []whichEntry{
 	{Command: "pull", Description: "Write filters like \"Update Date >= 2026-05-29\" and the CLI compiles them into MSPbots' comma-encoded operator DSL.", Group: "Agent-native plumbing", WhyItMatters: "Reach for this instead of hand-building query strings; it handles operator encoding, spaces in column names, and URL-escaping."},
 	{Command: "snapshot", Description: "Capture point-in-time copies of any dataset or widget into local SQLite — the history MSPbots doesn't keep.", Group: "Local state that compounds", WhyItMatters: "Run it on a schedule and every later question about \"how has this changed\" becomes answerable offline."},
 	{Command: "export", Description: "Dump an entire dataset or widget to CSV or JSONL, walking every page automatically.", Group: "Agent-native plumbing", WhyItMatters: "One command replaces a babysat pagination loop when feeding spreadsheets or downstream pipelines."},
-	{Command: "trend", Description: "Time-series and window-over-window deltas for any numeric column across stored snapshots.", Group: "Local state that compounds", WhyItMatters: "Answers \"is this KPI up or down since last week\" — the question the live API structurally cannot answer."},
+	{Command: "trend", Description: "Time-series and point-over-point deltas for any numeric column across stored snapshots.", Group: "Local state that compounds", WhyItMatters: "Answers \"is this KPI up or down since last week\" — the question the live API structurally cannot answer."},
 	{Command: "diff", Description: "Row-level added/removed/changed comparison between two stored snapshots of the same resource.", Group: "Local state that compounds", WhyItMatters: "Shows exactly which tickets entered or left a queue between two captures, not just the count."},
 	{Command: "describe", Description: "Sample live rows and infer the column names and types of a dataset or widget.", Group: "Agent-native plumbing", WhyItMatters: "Run it before building --where filters so column names and types are known instead of guessed."},
 }
@@ -137,6 +137,7 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 		Use:   "which [query]",
 		Short: "Find the command that implements a capability",
 		Annotations: map[string]string{
+			"mcp:read-only":       "true",
 			"pp:typed-exit-codes": "0,2",
 		},
 		Long: `which resolves a natural-language capability query (for example, "search messages" or "stale tickets") to the best matching command from this CLI's curated feature index.

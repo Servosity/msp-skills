@@ -17,8 +17,9 @@ func newAgentByDeviceCmd(flags *rootFlags) *cobra.Command {
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "by-device <serialNumber>",
-		Short:       "List protected agents on a specific device",
+		Use:   "by-device <serialNumber>",
+		Short: "List protected agents on a specific device",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  datto-bcdr-cli agent by-device example-value",
 		Annotations: map[string]string{"pp:endpoint": "agent.by-device", "pp:method": "GET", "pp:path": "/bcdr/device/{serialNumber}/asset/agent", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -33,8 +34,8 @@ func newAgentByDeviceCmd(flags *rootFlags) *cobra.Command {
 			path := "/bcdr/device/{serialNumber}/asset/agent"
 			path = replacePathParam(path, "serialNumber", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "agent", path, map[string]string{
-				"_page":    fmt.Sprintf("%v", flagPage),
-				"_perPage": fmt.Sprintf("%v", flagPerPage),
+				"_page":    formatCLIParamValue(flagPage),
+				"_perPage": formatCLIParamValue(flagPerPage),
 			}, nil, flagAll, "", "offset", "", "", "pagination.totalPages", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

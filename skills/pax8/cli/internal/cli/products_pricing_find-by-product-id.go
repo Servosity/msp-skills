@@ -18,7 +18,7 @@ func newProductsPricingFindByProductIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "find-by-product-id <productId>",
 		Aliases:     []string{"get"},
 		Short:       "Returns recommended pricing and partner cost for the specified productId. A products pricing is dynamic data.",
-		Example:     "  pax8-cli products pricing find-by-product-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pax8-cli products pricing find-by-product-id aaaee3f-262c-47a4-b0e6-f9ce8b54fcd7",
 		Annotations: map[string]string{"pp:endpoint": "pricing.find-by-product-id", "pp:method": "GET", "pp:path": "/products/{productId}/pricing", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -33,7 +33,7 @@ func newProductsPricingFindByProductIdCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "productId", args[0])
 			params := map[string]string{}
 			if flagCompanyId != "" {
-				params["companyId"] = fmt.Sprintf("%v", flagCompanyId)
+				params["companyId"] = formatCLIParamValue(flagCompanyId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "pricing", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

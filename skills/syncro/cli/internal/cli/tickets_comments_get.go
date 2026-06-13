@@ -40,15 +40,15 @@ func newTicketsCommentsGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/tickets/{id}/comments"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "comments", path, map[string]string{
-				"sort_by":        fmt.Sprintf("%v", flagSortBy),
-				"sort_direction": fmt.Sprintf("%v", flagSortDirection),
-				"created_after":  fmt.Sprintf("%v", flagCreatedAfter),
-				"created_before": fmt.Sprintf("%v", flagCreatedBefore),
-				"updated_after":  fmt.Sprintf("%v", flagUpdatedAfter),
-				"updated_before": fmt.Sprintf("%v", flagUpdatedBefore),
-				"page":           fmt.Sprintf("%v", flagPage),
-				"per_page":       fmt.Sprintf("%v", flagPerPage),
-				"comment_format": fmt.Sprintf("%v", flagCommentFormat),
+				"sort_by":        formatCLIParamValue(flagSortBy),
+				"sort_direction": formatCLIParamValue(flagSortDirection),
+				"created_after":  formatCLIParamValue(flagCreatedAfter),
+				"created_before": formatCLIParamValue(flagCreatedBefore),
+				"updated_after":  formatCLIParamValue(flagUpdatedAfter),
+				"updated_before": formatCLIParamValue(flagUpdatedBefore),
+				"page":           formatCLIParamValue(flagPage),
+				"per_page":       formatCLIParamValue(flagPerPage),
+				"comment_format": formatCLIParamValue(flagCommentFormat),
 			}, nil, flagAll, "page", "page", "per_page", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

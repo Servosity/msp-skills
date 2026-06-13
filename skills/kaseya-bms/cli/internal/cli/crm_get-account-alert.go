@@ -31,7 +31,7 @@ func newCrmGetAccountAlertCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/v2/crm/accounts/{accountId}/alerts/{accountAlertType}"
 			path = replacePathParam(path, "accountId", args[0])
-			path = replacePathParam(path, "accountAlertType", fmt.Sprintf("%v", flagAccountAlertType))
+			path = replacePathParam(path, "accountAlertType", formatCLIParamValue(flagAccountAlertType))
 			params := map[string]string{}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "crm", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

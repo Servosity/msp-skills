@@ -148,9 +148,10 @@ func newAddEditTransportRulePromotedCmd(flags *rootFlags) *cobra.Command {
 	var bodyValue string
 
 	cmd := &cobra.Command{
-		Use:         "add-edit-transport-rule",
-		Short:       "This function creates a new transport rule or edits an existing one (mail flow rule).",
-		Long:        "This function creates a new transport rule or edits an existing one (mail flow rule).",
+		Use:   "add-edit-transport-rule",
+		Short: "This function creates a new transport rule or edits an existing one (mail flow rule).",
+		Long:  "This function creates a new transport rule or edits an existing one (mail flow rule).",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  cipp-cli add-edit-transport-rule --tenant-filter example-value",
 		Annotations: map[string]string{"pp:endpoint": "add-edit-transport-rule.create", "pp:method": "POST", "pp:path": "/AddEditTransportRule"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -611,10 +612,10 @@ func newAddEditTransportRulePromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 
-			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)

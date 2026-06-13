@@ -7,8 +7,6 @@ import (
 	"sort"
 
 	"github.com/spf13/cobra"
-
-	"atera-pp-cli/internal/store"
 )
 
 type slaTicket struct {
@@ -50,11 +48,13 @@ func newNovelTicketsSlaCmd(flags *rootFlags) *cobra.Command {
 			if dbPath == "" {
 				dbPath = defaultDBPath("atera-cli")
 			}
-			s, err := store.OpenWithContext(cmd.Context(), dbPath)
+			s, nvOK, err := nvOpenRead(dbPath)
 			if err != nil {
 				return fmt.Errorf("opening store: %w", err)
 			}
-			defer s.Close()
+			if nvOK {
+				defer s.Close()
+			}
 
 			if !hintIfUnsynced(cmd, s, "tickets") {
 				hintIfStale(cmd, s, "tickets", flags.maxAge)

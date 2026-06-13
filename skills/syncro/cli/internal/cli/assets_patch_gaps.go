@@ -35,7 +35,7 @@ to its asset and the asset's customer, and rank assets by missing-patch count.`,
 			if dbPath == "" {
 				dbPath = defaultDBPath("syncro-cli")
 			}
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := syncroOpenStore(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w", err)
 			}

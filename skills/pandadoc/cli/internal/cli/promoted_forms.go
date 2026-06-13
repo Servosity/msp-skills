@@ -47,12 +47,12 @@ func newFormsPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/forms"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "forms", path, map[string]string{
-				"count":    fmt.Sprintf("%v", flagCount),
-				"page":     fmt.Sprintf("%v", flagPage),
-				"status":   fmt.Sprintf("%v", flagStatus),
-				"order_by": fmt.Sprintf("%v", flagOrderBy),
-				"asc":      fmt.Sprintf("%v", flagAsc),
-				"name":     fmt.Sprintf("%v", flagName),
+				"count":    formatCLIParamValue(flagCount),
+				"page":     formatCLIParamValue(flagPage),
+				"status":   formatCLIParamValue(flagStatus),
+				"order_by": formatCLIParamValue(flagOrderBy),
+				"asc":      formatCLIParamValue(flagAsc),
+				"name":     formatCLIParamValue(flagName),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

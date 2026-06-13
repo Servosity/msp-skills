@@ -33,12 +33,12 @@ func newDevicesListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/devices"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "devices", path, map[string]string{
-				"filterId":   fmt.Sprintf("%v", flagFilterId),
-				"pageNumber": fmt.Sprintf("%v", flagPageNumber),
-				"pageSize":   fmt.Sprintf("%v", flagPageSize),
-				"sortBy":     fmt.Sprintf("%v", flagSortBy),
-				"sortOrder":  fmt.Sprintf("%v", flagSortOrder),
-				"select":     fmt.Sprintf("%v", flagSelect),
+				"filterId":   formatCLIParamValue(flagFilterId),
+				"pageNumber": formatCLIParamValue(flagPageNumber),
+				"pageSize":   formatCLIParamValue(flagPageSize),
+				"sortBy":     formatCLIParamValue(flagSortBy),
+				"sortOrder":  formatCLIParamValue(flagSortOrder),
+				"select":     formatCLIParamValue(flagSelect),
 			}, nil, flagAll, "pageNumber", "page", "pageSize", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

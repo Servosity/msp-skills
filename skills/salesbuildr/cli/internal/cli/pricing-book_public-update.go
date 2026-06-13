@@ -23,9 +23,10 @@ func newPricingBookPublicUpdateCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "public-update <id>",
-		Aliases:     []string{"update"},
-		Short:       "Update an existing pricing book",
+		Use:     "public-update <id>",
+		Aliases: []string{"update"},
+		Short:   "Update an existing pricing book",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  salesbuildr-cli pricing-book public-update 550e8400-e29b-41d4-a716-446655440000 --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "pricing-book.public-update", "pp:method": "PUT", "pp:path": "/pricing-book/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

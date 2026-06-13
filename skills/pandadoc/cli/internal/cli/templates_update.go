@@ -20,7 +20,7 @@ func newTemplatesUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update <id>",
 		Short:       "Update a template. Currently supports updating template variables (`tokens`) and managing template roles.",
-		Example:     "  pandadoc-cli templates update 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli templates update BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "templates.update", "pp:method": "PATCH", "pp:path": "/templates/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

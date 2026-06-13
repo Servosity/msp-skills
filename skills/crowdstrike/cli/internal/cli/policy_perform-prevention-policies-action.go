@@ -54,7 +54,7 @@ func newPolicyPerformPreventionPoliciesActionCmd(flags *rootFlags) *cobra.Comman
 			path := "/policy/entities/prevention-actions/v1"
 			params := map[string]string{}
 			if flagActionName != "" {
-				params["action_name"] = fmt.Sprintf("%v", flagActionName)
+				params["action_name"] = formatCLIParamValue(flagActionName)
 			}
 			var body map[string]any
 			if stdinBody {

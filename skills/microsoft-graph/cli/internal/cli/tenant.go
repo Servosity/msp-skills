@@ -11,7 +11,7 @@ func newNovelTenantCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "tenant",
-		Short:       "Whole-tenant posture rollups over the local store",
+		Short:       "tenant subcommands: snapshot",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

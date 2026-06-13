@@ -30,13 +30,13 @@ func newApprovalProcessRuleListCmd(flags *rootFlags) *cobra.Command {
 			path := "/ApprovalProcessRule"
 			params := map[string]string{}
 			if flagGlobal != false {
-				params["global"] = fmt.Sprintf("%v", flagGlobal)
+				params["global"] = formatCLIParamValue(flagGlobal)
 			}
 			if flagProcessId != "" {
-				params["process_id"] = fmt.Sprintf("%v", flagProcessId)
+				params["process_id"] = formatCLIParamValue(flagProcessId)
 			}
 			if flagStepId != "" {
-				params["step_id"] = fmt.Sprintf("%v", flagStepId)
+				params["step_id"] = formatCLIParamValue(flagStepId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "approval-process-rule", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

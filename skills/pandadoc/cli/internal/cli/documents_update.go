@@ -29,7 +29,7 @@ func newDocumentsUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update <id>",
 		Short:       "Use the PATCH method to update a PandaDoc document.",
-		Example:     "  pandadoc-cli documents update 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pandadoc-cli documents update BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "documents.update", "pp:method": "PATCH", "pp:path": "/documents/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

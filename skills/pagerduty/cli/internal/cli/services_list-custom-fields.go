@@ -41,7 +41,7 @@ func newServicesListCustomFieldsCmd(flags *rootFlags) *cobra.Command {
 			path := "/services/custom_fields"
 			params := map[string]string{}
 			if flagInclude != "" {
-				params["include[]"] = fmt.Sprintf("%v", flagInclude)
+				params["include[]"] = formatCLIParamValue(flagInclude)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "services", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

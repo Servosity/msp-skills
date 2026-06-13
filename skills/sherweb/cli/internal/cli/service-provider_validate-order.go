@@ -45,7 +45,7 @@ func newServiceProviderValidateOrderCmd(flags *rootFlags) *cobra.Command {
 			path := "/service-provider/v1/orders/validate"
 			params := map[string]string{}
 			if flagCustomerId != "" {
-				params["customerId"] = fmt.Sprintf("%v", flagCustomerId)
+				params["customerId"] = formatCLIParamValue(flagCustomerId)
 			}
 			var body map[string]any
 			if stdinBody {

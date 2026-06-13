@@ -29,10 +29,10 @@ func newIntegrationDataListIntegrationdata5Cmd(flags *rootFlags) *cobra.Command 
 			path := "/IntegrationData/Get/Autotask"
 			params := map[string]string{}
 			if flagDatatype != "" {
-				params["datatype"] = fmt.Sprintf("%v", flagDatatype)
+				params["datatype"] = formatCLIParamValue(flagDatatype)
 			}
 			if flagNexturl != "" {
-				params["nexturl"] = fmt.Sprintf("%v", flagNexturl)
+				params["nexturl"] = formatCLIParamValue(flagNexturl)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

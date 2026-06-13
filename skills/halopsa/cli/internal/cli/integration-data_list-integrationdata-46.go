@@ -29,10 +29,10 @@ func newIntegrationDataListIntegrationdata46Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/Interact"
 			params := map[string]string{}
 			if flagSearchString != "" {
-				params["searchString"] = fmt.Sprintf("%v", flagSearchString)
+				params["searchString"] = formatCLIParamValue(flagSearchString)
 			}
 			if flagTestOnly != false {
-				params["testOnly"] = fmt.Sprintf("%v", flagTestOnly)
+				params["testOnly"] = formatCLIParamValue(flagTestOnly)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

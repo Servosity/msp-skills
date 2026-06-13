@@ -17,7 +17,7 @@ func newUsageSummariesPromotedCmd(flags *rootFlags) *cobra.Command {
 		Use:         "usage-summaries <usageSummaryId>",
 		Short:       "Fetch a paginated list of usage summaries. Default page is 0 and default size is 10. The maximum page size is 200",
 		Long:        "Fetch a paginated list of usage summaries. Default page is 0 and default size is 10. The maximum page size is 200",
-		Example:     "  pax8-cli usage-summaries 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  pax8-cli usage-summaries f5e4cefe-09ff-46a0-b3b0-4f392cfae44c",
 		Annotations: map[string]string{"pp:endpoint": "usage-summaries.find-subscription-usage-summary", "pp:method": "GET", "pp:path": "/usage-summaries/{usageSummaryId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()

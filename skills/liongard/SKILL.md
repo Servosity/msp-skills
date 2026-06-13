@@ -1,6 +1,6 @@
 ---
 name: liongard
-description: "Use when the user asks to see what changed across their Liongard environments, find stale launchpoints or offline agents, run an estate-wide health or coverage check, pivot a Liongard metric across every system, review failed inspections, or sync and search their whole Liongard estate offline. Wraps the Liongard API plus an offline SQLite mirror with cross-estate analytics. Trigger phrases: `what changed across my Liongard environments`, `show stale Liongard launchpoints`, `which Liongard agents are offline`, `pivot a Liongard metric across all systems`, `Liongard drift report`, `use liongard`, `run liongard-cli`."
+description: "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command. Trigger phrases: `what changed across my Liongard environments`, `show stale Liongard launchpoints`, `which Liongard agents are offline`, `pivot a Liongard metric across all systems`, `Liongard drift report`, `use liongard`, `run liongard`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Liongard"
@@ -11,47 +11,38 @@ metadata:
     requires:
       bins:
         - liongard-cli
+    install:
+      - kind: go
+        bins: [liongard-cli]
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/liongard/cmd/liongard-cli
 ---
 
-# Liongard Claude Code Skill
+# Liongard  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `liongard-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. macOS / Linux:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/liongard/install.sh)
+   npx -y @mvanhorn/printing-press-library install liongard --cli-only
    ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/liongard/install.ps1 | iex
-   ```
-3. Verify: `liongard-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+2. Verify: `liongard-cli --version`
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/liongard/cmd/liongard-cli@latest
+```
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Liongard's API answers one environment at a time and only through the web UI or per-instance REST calls. This CLI syncs every environment, system, launchpoint, inspector, agent, detection, metric, and timeline entry into a local SQLite store, then runs cross-estate joins the live API never returns: drift since a window, stale launchpoints, offline agents, monitoring-coverage gaps, and metric pivots. Agent-native throughout  -  --json, --select, --csv, and typed exit codes.
 
 ## When to Use This CLI
 
 Reach for this CLI when an agent needs whole-estate Liongard answers  -  what changed across all clients, which collectors are stale, which agents are offline, where monitoring coverage is missing, or one metric pivoted across every system. It is the right tool for scripted MSP health sweeps and QBR/SLA reporting where the per-environment web UI and one-call-at-a-time API are too slow. Prefer it over raw API calls whenever the question spans more than one environment or needs offline, structured, composable output.
-
-## Quick Start (sync first)
-
-The cross-estate capabilities below read the local SQLite mirror, so run a sync once before trusting their results (they return empty against an unsynced store):
-
-```bash
-# confirm instance + credentials resolve
-liongard-cli doctor
-
-# pull the whole estate into the local store so offline joins work
-liongard-cli sync --full
-
-# then ask cross-estate questions, e.g. what changed in the last day
-liongard-cli drift --since 24h --agent
-```
 
 ## Unique Capabilities
 
@@ -302,7 +293,7 @@ Every system whose patch age crosses the threshold, across all clients.
 
 ## Auth Setup
 
-Liongard issues an Access Key ID and an Access Key Secret per user. The CLI sends them as the X-ROAR-API-KEY header (base64 of `accessKeyId:accessKeySecret`). Set LIONGARD_INSTANCE (your subdomain, e.g. acme for acme.app.liongard.com), LIONGARD_ACCESS_KEY_ID, and LIONGARD_ACCESS_KEY_SECRET; or set a pre-encoded LIONGARD_API_KEY directly. Run `doctor` to confirm the host and credentials resolve.
+Liongard issues an Access Key ID and an Access Key Secret per user. The CLI sends them as the X-ROAR-API-KEY header (base64 of `accessKeyId:accessKeySecret`). Set LIONGARD_INSTANCE (your subdomain, e.g. us1), LIONGARD_ACCESS_KEY_ID, and LIONGARD_ACCESS_KEY_SECRET; or set a pre-encoded LIONGARD_API_KEY directly. Run `doctor` to confirm the host and credentials resolve.
 
 Run `liongard-cli doctor` to verify setup.
 
@@ -396,13 +387,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-The installer above drops `liongard-mcp` alongside the CLI. Register it:
-
-```bash
-claude mcp add liongard-mcp -- liongard-mcp
-```
-
-Verify: `claude mcp list`
+1. Install the MCP server:
+   ```bash
+   go install github.com/mvanhorn/printing-press-library/library/monitoring/liongard/cmd/liongard-mcp@latest
+   ```
+2. Register with Claude Code:
+   ```bash
+   claude mcp add liongard-mcp -- liongard-mcp
+   ```
+3. Verify: `claude mcp list`
 
 ## Direct Use
 

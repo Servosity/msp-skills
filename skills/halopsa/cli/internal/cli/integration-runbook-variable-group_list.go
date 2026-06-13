@@ -29,10 +29,10 @@ func newIntegrationRunbookVariableGroupListCmd(flags *rootFlags) *cobra.Command 
 			path := "/IntegrationRunbookVariableGroup"
 			params := map[string]string{}
 			if flagExcludeMethodId != false {
-				params["exclude_method_id"] = fmt.Sprintf("%v", flagExcludeMethodId)
+				params["exclude_method_id"] = formatCLIParamValue(flagExcludeMethodId)
 			}
 			if flagOneRunbookId != "" {
-				params["one_runbook_id"] = fmt.Sprintf("%v", flagOneRunbookId)
+				params["one_runbook_id"] = formatCLIParamValue(flagOneRunbookId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-runbook-variable-group", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

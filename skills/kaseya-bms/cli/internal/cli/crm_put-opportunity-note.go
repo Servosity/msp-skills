@@ -17,8 +17,9 @@ func newCrmPutOpportunityNoteCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "put-opportunity-note <opportunityId> <noteId>",
-		Short:       "Put opportunity note",
+		Use:   "put-opportunity-note <opportunityId> <noteId>",
+		Short: "Put opportunity note",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  kaseya-bms-cli crm put-opportunity-note 42 42 --note example-value",
 		Annotations: map[string]string{"pp:endpoint": "crm.put-opportunity-note", "pp:method": "PUT", "pp:path": "/v2/crm/opportunities/{opportunityId}/notes/{noteId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

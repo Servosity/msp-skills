@@ -30,10 +30,10 @@ func newXtypeRolePromotedCmd(flags *rootFlags) *cobra.Command {
 			path := "/XtypeRole"
 			params := map[string]string{}
 			if flagXtypeId != "" {
-				params["xtype_id"] = fmt.Sprintf("%v", flagXtypeId)
+				params["xtype_id"] = formatCLIParamValue(flagXtypeId)
 			}
 			if flagXtyperoleId != "" {
-				params["xtyperole_id"] = fmt.Sprintf("%v", flagXtyperoleId)
+				params["xtyperole_id"] = formatCLIParamValue(flagXtyperoleId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "xtype-role", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

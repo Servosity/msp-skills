@@ -30,10 +30,10 @@ func newApplianceGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/appliance"
 			params := map[string]string{}
 			if flagServiceId != "" {
-				params["service_id"] = fmt.Sprintf("%v", flagServiceId)
+				params["service_id"] = formatCLIParamValue(flagServiceId)
 			}
 			if flagIncludeDevices != false {
-				params["include_devices"] = fmt.Sprintf("%v", flagIncludeDevices)
+				params["include_devices"] = formatCLIParamValue(flagIncludeDevices)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "appliance", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

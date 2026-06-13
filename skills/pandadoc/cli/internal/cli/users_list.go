@@ -30,9 +30,9 @@ func newUsersListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/users"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "users", path, map[string]string{
-				"count":        fmt.Sprintf("%v", flagCount),
-				"page":         fmt.Sprintf("%v", flagPage),
-				"show_removed": fmt.Sprintf("%v", flagShowRemoved),
+				"count":        formatCLIParamValue(flagCount),
+				"page":         formatCLIParamValue(flagPage),
+				"show_removed": formatCLIParamValue(flagShowRemoved),
 			}, nil, flagAll, "page", "page", "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

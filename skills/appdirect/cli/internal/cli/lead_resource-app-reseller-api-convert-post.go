@@ -62,13 +62,13 @@ func newLeadResourceAppResellerApiConvertPostCmd(flags *rootFlags) *cobra.Comman
 			path := "/lead/v2/conversion"
 			params := map[string]string{}
 			if flagContext != "" {
-				params["context"] = fmt.Sprintf("%v", flagContext)
+				params["context"] = formatCLIParamValue(flagContext)
 			}
 			if flagCompanyId != "" {
-				params["companyId"] = fmt.Sprintf("%v", flagCompanyId)
+				params["companyId"] = formatCLIParamValue(flagCompanyId)
 			}
 			if flagLeadId != "" {
-				params["leadId"] = fmt.Sprintf("%v", flagLeadId)
+				params["leadId"] = formatCLIParamValue(flagLeadId)
 			}
 			var body map[string]any
 			if stdinBody {

@@ -16,7 +16,7 @@ func newClientDeviceGetJobsByIdOrgLevelCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-jobs-by-id-org-level <client_id> <device_id>",
 		Short:       "This request returns information about all jobs for this device.",
-		Example:     "  axcient-cli client device get-jobs-by-id-org-level 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  axcient-cli client device get-jobs-by-id-org-level 333 555",
 		Annotations: map[string]string{"pp:endpoint": "device.get-jobs-by-id-org-level", "pp:method": "GET", "pp:path": "/client/{client_id}/device/{device_id}/job", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

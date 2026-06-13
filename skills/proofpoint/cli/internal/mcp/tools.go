@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +23,15 @@ import (
 	"proofpoint-pp-cli/internal/config"
 	"proofpoint-pp-cli/internal/mcp/cobratree"
 	"proofpoint-pp-cli/internal/store"
+)
+
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
 )
 
 // RegisterTools registers all API operations as MCP tools.
@@ -45,7 +56,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/campaign/ids", true, false, nil, []mcpParamBinding{{PublicName: "interval", WireName: "interval", Location: "query"}, {PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "page", WireName: "page", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/campaign/ids", true, false, nil, []mcpParamBinding{{PublicName: "interval", WireName: "interval", Location: "query"}, {PublicName: "size", WireName: "size", Location: "query", Default: "100"}, {PublicName: "page", WireName: "page", Location: "query", Default: "1"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("forensics_get",
@@ -57,7 +68,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/forensics", true, false, nil, []mcpParamBinding{{PublicName: "threatId", WireName: "threatId", Location: "query"}, {PublicName: "campaignId", WireName: "campaignId", Location: "query"}, {PublicName: "includeCampaignForensics", WireName: "includeCampaignForensics", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/forensics", true, false, nil, []mcpParamBinding{{PublicName: "threatId", WireName: "threatId", Location: "query"}, {PublicName: "campaignId", WireName: "campaignId", Location: "query"}, {PublicName: "includeCampaignForensics", WireName: "includeCampaignForensics", Location: "query", Default: "false"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("people_list-top-clickers",
@@ -69,7 +80,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/people/top-clickers", true, false, nil, []mcpParamBinding{{PublicName: "window", WireName: "window", Location: "query"}, {PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "page", WireName: "page", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/people/top-clickers", true, false, nil, []mcpParamBinding{{PublicName: "window", WireName: "window", Location: "query", Default: "30"}, {PublicName: "size", WireName: "size", Location: "query", Default: "100"}, {PublicName: "page", WireName: "page", Location: "query", Default: "1"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("people_list-vap",
@@ -81,7 +92,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/people/vap", true, false, nil, []mcpParamBinding{{PublicName: "window", WireName: "window", Location: "query"}, {PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "page", WireName: "page", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/people/vap", true, false, nil, []mcpParamBinding{{PublicName: "window", WireName: "window", Location: "query", Default: "30"}, {PublicName: "size", WireName: "size", Location: "query", Default: "1000"}, {PublicName: "page", WireName: "page", Location: "query", Default: "1"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("siem_list-all-events",
@@ -96,7 +107,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/siem/all", true, false, nil, []mcpParamBinding{{PublicName: "sinceSeconds", WireName: "sinceSeconds", Location: "query"}, {PublicName: "interval", WireName: "interval", Location: "query"}, {PublicName: "sinceTime", WireName: "sinceTime", Location: "query"}, {PublicName: "format", WireName: "format", Location: "query"}, {PublicName: "threatType", WireName: "threatType", Location: "query"}, {PublicName: "threatStatus", WireName: "threatStatus", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/siem/all", true, false, nil, []mcpParamBinding{{PublicName: "sinceSeconds", WireName: "sinceSeconds", Location: "query", Default: "3600"}, {PublicName: "interval", WireName: "interval", Location: "query"}, {PublicName: "sinceTime", WireName: "sinceTime", Location: "query"}, {PublicName: "format", WireName: "format", Location: "query", Default: "json"}, {PublicName: "threatType", WireName: "threatType", Location: "query"}, {PublicName: "threatStatus", WireName: "threatStatus", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("siem_list-clicks-blocked",
@@ -111,7 +122,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/siem/clicks/blocked", true, false, nil, []mcpParamBinding{{PublicName: "sinceSeconds", WireName: "sinceSeconds", Location: "query"}, {PublicName: "interval", WireName: "interval", Location: "query"}, {PublicName: "sinceTime", WireName: "sinceTime", Location: "query"}, {PublicName: "format", WireName: "format", Location: "query"}, {PublicName: "threatType", WireName: "threatType", Location: "query"}, {PublicName: "threatStatus", WireName: "threatStatus", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/siem/clicks/blocked", true, false, nil, []mcpParamBinding{{PublicName: "sinceSeconds", WireName: "sinceSeconds", Location: "query", Default: "3600"}, {PublicName: "interval", WireName: "interval", Location: "query"}, {PublicName: "sinceTime", WireName: "sinceTime", Location: "query"}, {PublicName: "format", WireName: "format", Location: "query", Default: "json"}, {PublicName: "threatType", WireName: "threatType", Location: "query"}, {PublicName: "threatStatus", WireName: "threatStatus", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("siem_list-clicks-permitted",
@@ -126,7 +137,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/siem/clicks/permitted", true, false, nil, []mcpParamBinding{{PublicName: "sinceSeconds", WireName: "sinceSeconds", Location: "query"}, {PublicName: "interval", WireName: "interval", Location: "query"}, {PublicName: "sinceTime", WireName: "sinceTime", Location: "query"}, {PublicName: "format", WireName: "format", Location: "query"}, {PublicName: "threatType", WireName: "threatType", Location: "query"}, {PublicName: "threatStatus", WireName: "threatStatus", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/siem/clicks/permitted", true, false, nil, []mcpParamBinding{{PublicName: "sinceSeconds", WireName: "sinceSeconds", Location: "query", Default: "3600"}, {PublicName: "interval", WireName: "interval", Location: "query"}, {PublicName: "sinceTime", WireName: "sinceTime", Location: "query"}, {PublicName: "format", WireName: "format", Location: "query", Default: "json"}, {PublicName: "threatType", WireName: "threatType", Location: "query"}, {PublicName: "threatStatus", WireName: "threatStatus", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("siem_list-issues",
@@ -141,7 +152,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/siem/issues", true, false, nil, []mcpParamBinding{{PublicName: "sinceSeconds", WireName: "sinceSeconds", Location: "query"}, {PublicName: "interval", WireName: "interval", Location: "query"}, {PublicName: "sinceTime", WireName: "sinceTime", Location: "query"}, {PublicName: "format", WireName: "format", Location: "query"}, {PublicName: "threatType", WireName: "threatType", Location: "query"}, {PublicName: "threatStatus", WireName: "threatStatus", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/siem/issues", true, false, nil, []mcpParamBinding{{PublicName: "sinceSeconds", WireName: "sinceSeconds", Location: "query", Default: "3600"}, {PublicName: "interval", WireName: "interval", Location: "query"}, {PublicName: "sinceTime", WireName: "sinceTime", Location: "query"}, {PublicName: "format", WireName: "format", Location: "query", Default: "json"}, {PublicName: "threatType", WireName: "threatType", Location: "query"}, {PublicName: "threatStatus", WireName: "threatStatus", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("siem_list-messages-blocked",
@@ -156,7 +167,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/siem/messages/blocked", true, false, nil, []mcpParamBinding{{PublicName: "sinceSeconds", WireName: "sinceSeconds", Location: "query"}, {PublicName: "interval", WireName: "interval", Location: "query"}, {PublicName: "sinceTime", WireName: "sinceTime", Location: "query"}, {PublicName: "format", WireName: "format", Location: "query"}, {PublicName: "threatType", WireName: "threatType", Location: "query"}, {PublicName: "threatStatus", WireName: "threatStatus", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/siem/messages/blocked", true, false, nil, []mcpParamBinding{{PublicName: "sinceSeconds", WireName: "sinceSeconds", Location: "query", Default: "3600"}, {PublicName: "interval", WireName: "interval", Location: "query"}, {PublicName: "sinceTime", WireName: "sinceTime", Location: "query"}, {PublicName: "format", WireName: "format", Location: "query", Default: "json"}, {PublicName: "threatType", WireName: "threatType", Location: "query"}, {PublicName: "threatStatus", WireName: "threatStatus", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("siem_list-messages-delivered",
@@ -171,7 +182,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/siem/messages/delivered", true, false, nil, []mcpParamBinding{{PublicName: "sinceSeconds", WireName: "sinceSeconds", Location: "query"}, {PublicName: "interval", WireName: "interval", Location: "query"}, {PublicName: "sinceTime", WireName: "sinceTime", Location: "query"}, {PublicName: "format", WireName: "format", Location: "query"}, {PublicName: "threatType", WireName: "threatType", Location: "query"}, {PublicName: "threatStatus", WireName: "threatStatus", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/siem/messages/delivered", true, false, nil, []mcpParamBinding{{PublicName: "sinceSeconds", WireName: "sinceSeconds", Location: "query", Default: "3600"}, {PublicName: "interval", WireName: "interval", Location: "query"}, {PublicName: "sinceTime", WireName: "sinceTime", Location: "query"}, {PublicName: "format", WireName: "format", Location: "query", Default: "json"}, {PublicName: "threatType", WireName: "threatType", Location: "query"}, {PublicName: "threatStatus", WireName: "threatStatus", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("threat_get-summary",
@@ -207,7 +218,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -234,6 +245,35 @@ type mcpParamBinding struct {
 	PublicName string
 	WireName   string
 	Location   string
+	Default    string
+}
+
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // makeAPIHandler creates a generic MCP tool handler for an API endpoint.
@@ -274,17 +314,21 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			knownArgs[binding.PublicName] = true
 			v, ok := args[binding.PublicName]
 			if !ok {
-				continue
+				if binding.Default != "" {
+					v = binding.Default
+				} else {
+					continue
+				}
 			}
 			switch binding.Location {
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				bodyArgs[binding.WireName] = v
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -294,7 +338,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -306,7 +350,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "POST", "PUT", "PATCH":
 				bodyArgs[k] = v
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -362,19 +406,19 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key: export PROOFPOINT_SERVICE_PRINCIPAL=<your-key>" +
+					"\n      Set Basic credentials with: export PROOFPOINT_SERVICE_PRINCIPAL=\"your-token-here\" PROOFPOINT_API_SECRET=\"your-token-here\"" +
 					"\n      See API docs: https://help.proofpoint.com/Threat_Insight_Dashboard/API_Documentation" +
 					"\n      Run 'proofpoint-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: check your API key." +
-					"\n      Set it with: export PROOFPOINT_SERVICE_PRINCIPAL=<your-key>" +
+					"\nhint: check your Basic credentials." +
+					"\n      Set Basic credentials with: export PROOFPOINT_SERVICE_PRINCIPAL=\"your-token-here\" PROOFPOINT_API_SECRET=\"your-token-here\"" +
 					"\n      See API docs: https://help.proofpoint.com/Threat_Insight_Dashboard/API_Documentation" +
 					"\n      Run 'proofpoint-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: your credentials are valid but lack access to this resource." +
-					"\n      Set it with: export PROOFPOINT_SERVICE_PRINCIPAL=<your-key>" +
+					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
+					"\n      Set Basic credentials with: export PROOFPOINT_SERVICE_PRINCIPAL=\"your-token-here\" PROOFPOINT_API_SECRET=\"your-token-here\"" +
 					"\n      See API docs: https://help.proofpoint.com/Threat_Insight_Dashboard/API_Documentation" +
 					"\n      Run 'proofpoint-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
@@ -389,21 +433,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -412,8 +441,129 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
@@ -423,7 +573,7 @@ func newMCPClient() (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -472,22 +622,27 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -519,6 +674,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -586,7 +832,7 @@ func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
 func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	ctx := map[string]any{
 		"api":         "proofpoint",
-		"description": "Every TAP Threat Insight endpoint",
+		"description": "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions — who is both attacked and clicking, what touched this user — inside Proofpoint's punishing daily quotas.",
 		"archetype":   "generic",
 		"tool_count":  13,
 		// tool_surface tells agents which surface a capability lives on.
@@ -652,7 +898,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"query_tips": []string{
 			"Pagination uses cursor-based paging. Pass page parameter for subsequent pages.",
 			"Control page size with the limit parameter (default 100).",
-			"Use sinceTime for incremental fetches (filter by modification time).",
+			"Use sinceSeconds for incremental fetches (filter by modification time).",
 			"Use the sql tool for ad-hoc analysis on synced data. Run sync first to populate the local database.",
 			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints.",
 			"Prefer sql/search over repeated API calls when the data is already synced.",
@@ -660,12 +906,12 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "SIEM window-loop backfill", "command": "backfill", "description": "Reconstruct up to 7 days of SIEM threat events in one command — the CLI auto-loops the API's mandatory 1-hour windows", "rationale": "The SIEM API refuses windows over 1 hour with a 7-day lookback; the loop, pacing", "via": "mcp-command-mirror"},
-			{"name": "Incident brief composer", "command": "incident", "description": "Turn a threatId into a single incident brief: severity, actors, malware, techniques, forensic evidence", "rationale": "Composes the threat summary endpoint, the forensics endpoint", "via": "mcp-command-mirror"},
-			{"name": "Flat IOC extractor", "command": "iocs", "description": "Flatten TAP's nested forensic evidence tree into a paste-ready indicator table: hashes, URLs, domains, IPs, files", "rationale": "The forensics endpoint returns deeply nested evidence objects", "via": "mcp-command-mirror"},
-			{"name": "VAP and top-clicker overlap", "command": "risk-overlap", "description": "List the people who are both Very Attacked AND top clickers — attack index beside click count — your highest-risk", "rationale": "Requires joining the VAP and top-clickers tables locally; no TAP endpoint can answer it in one call.", "via": "mcp-command-mirror"},
+			{"name": "SIEM window-loop backfill", "command": "backfill", "description": "Reconstruct up to 7 days of SIEM threat events in one command — the CLI auto-loops the API's mandatory 1-hour windows and persists every page locally.", "rationale": "The SIEM API refuses windows over 1 hour with a 7-day lookback; the loop, pacing, and local persistence only exist because the CLI owns a SQLite store.", "via": "mcp-command-mirror"},
+			{"name": "Incident brief composer", "command": "incident", "description": "Turn a threatId into a single incident brief: severity, actors, malware, techniques, forensic evidence, and every local event that touched it.", "rationale": "Composes the threat summary endpoint, the forensics endpoint, and local synced events — three sources no single API call returns together.", "via": "mcp-command-mirror"},
+			{"name": "Flat IOC extractor", "command": "iocs", "description": "Flatten TAP's nested forensic evidence tree into a paste-ready indicator table: hashes, URLs, domains, IPs, files, registry keys, processes.", "rationale": "The forensics endpoint returns deeply nested evidence objects; the flatten-to-blocklist transform is what analysts actually need and no other tool ships it.", "via": "mcp-command-mirror"},
+			{"name": "VAP and top-clicker overlap", "command": "risk-overlap", "description": "List the people who are both Very Attacked AND top clickers — attack index beside click count — your highest-risk humans.", "rationale": "Requires joining the VAP and top-clickers tables locally; no TAP endpoint can answer it in one call.", "via": "mcp-command-mirror"},
 			{"name": "Per-user activity timeline", "command": "user", "description": "Everything the local store knows about one person: clicks, threat messages, VAP status, and clicker status in one view.", "rationale": "Fans one identity across four local tables — clicks, messages, VAPs, top clickers — which no single TAP endpoint can do.", "via": "mcp-command-mirror"},
-			{"name": "Campaign threats expansion", "command": "campaign-threats", "description": "Expand one campaign into the threats inside it, enriched with severity and family from the local threat store.", "rationale": "Uses the unlimited campaign-detail endpoint plus local threat summaries", "via": "mcp-command-mirror"},
+			{"name": "Campaign threats expansion", "command": "campaign-threats", "description": "Expand one campaign into the threats inside it, enriched with severity and family from the local threat store.", "rationale": "Uses the unlimited campaign-detail endpoint plus local threat summaries, so repeated campaign questions never touch the 50-per-day campaign-ids quota.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
 			{"topic": "SIEM window-loop backfill", "insight": "The SIEM API refuses windows over 1 hour with a 7-day lookback; the loop, pacing, and local persistence only exist because the CLI owns a SQLite store."},

@@ -17,8 +17,9 @@ func newComputersRestartServiceCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "restart-service",
-		Short:       "Restart the ThreatLocker service on computers",
+		Use:   "restart-service",
+		Short: "Restart the ThreatLocker service on computers",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  threatlocker-cli computers restart-service --computer-ids example-value",
 		Annotations: map[string]string{"pp:endpoint": "computers.restart-service", "pp:method": "POST", "pp:path": "/Computer/ComputerUpdateShouldRestartByIds"},
 		RunE: func(cmd *cobra.Command, args []string) error {

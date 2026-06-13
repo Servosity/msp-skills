@@ -37,7 +37,7 @@ func newStoragePoliciesGetCmd(flags *rootFlags) *cobra.Command {
 			path := "/StoragePolicy/StoragePolicyGetById"
 			params := map[string]string{}
 			if flagStoragePolicyId != "" {
-				params["storagePolicyId"] = fmt.Sprintf("%v", flagStoragePolicyId)
+				params["storagePolicyId"] = formatCLIParamValue(flagStoragePolicyId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "storage-policies", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

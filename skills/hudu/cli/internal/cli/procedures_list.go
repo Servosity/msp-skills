@@ -32,19 +32,19 @@ func newProceduresListCmd(flags *rootFlags) *cobra.Command {
 			path := "/procedures"
 			params := map[string]string{}
 			if flagCompanyId != "" {
-				params["company_id"] = fmt.Sprintf("%v", flagCompanyId)
+				params["company_id"] = formatCLIParamValue(flagCompanyId)
 			}
 			if flagName != "" {
-				params["name"] = fmt.Sprintf("%v", flagName)
+				params["name"] = formatCLIParamValue(flagName)
 			}
 			if flagSlug != "" {
-				params["slug"] = fmt.Sprintf("%v", flagSlug)
+				params["slug"] = formatCLIParamValue(flagSlug)
 			}
 			if flagPage != "" {
-				params["page"] = fmt.Sprintf("%v", flagPage)
+				params["page"] = formatCLIParamValue(flagPage)
 			}
 			if flagPageSize != 0 {
-				params["page_size"] = fmt.Sprintf("%v", flagPageSize)
+				params["page_size"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "procedures", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

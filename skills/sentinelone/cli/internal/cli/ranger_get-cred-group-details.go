@@ -43,22 +43,22 @@ func newRangerGetCredGroupDetailsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/ranger/cred-groups/details"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "ranger", path, map[string]string{
-				"siteIds":      fmt.Sprintf("%v", flagSiteIds),
-				"sortBy":       fmt.Sprintf("%v", flagSortBy),
-				"credTypeLike": fmt.Sprintf("%v", flagCredTypeLike),
-				"ids":          fmt.Sprintf("%v", flagIds),
-				"groupIds":     fmt.Sprintf("%v", flagGroupIds),
-				"tenant":       fmt.Sprintf("%v", flagTenant),
-				"credGroupIds": fmt.Sprintf("%v", flagCredGroupIds),
-				"limit":        fmt.Sprintf("%v", flagLimit),
-				"skipCount":    fmt.Sprintf("%v", flagSkipCount),
-				"skip":         fmt.Sprintf("%v", flagSkip),
-				"sortOrder":    fmt.Sprintf("%v", flagSortOrder),
-				"title":        fmt.Sprintf("%v", flagTitle),
-				"titleLike":    fmt.Sprintf("%v", flagTitleLike),
-				"accountIds":   fmt.Sprintf("%v", flagAccountIds),
-				"countOnly":    fmt.Sprintf("%v", flagCountOnly),
-				"cursor":       fmt.Sprintf("%v", flagCursor),
+				"siteIds":      formatCLIParamValue(flagSiteIds),
+				"sortBy":       formatCLIParamValue(flagSortBy),
+				"credTypeLike": formatCLIParamValue(flagCredTypeLike),
+				"ids":          formatCLIParamValue(flagIds),
+				"groupIds":     formatCLIParamValue(flagGroupIds),
+				"tenant":       formatCLIParamValue(flagTenant),
+				"credGroupIds": formatCLIParamValue(flagCredGroupIds),
+				"limit":        formatCLIParamValue(flagLimit),
+				"skipCount":    formatCLIParamValue(flagSkipCount),
+				"skip":         formatCLIParamValue(flagSkip),
+				"sortOrder":    formatCLIParamValue(flagSortOrder),
+				"title":        formatCLIParamValue(flagTitle),
+				"titleLike":    formatCLIParamValue(flagTitleLike),
+				"accountIds":   formatCLIParamValue(flagAccountIds),
+				"countOnly":    formatCLIParamValue(flagCountOnly),
+				"cursor":       formatCLIParamValue(flagCursor),
 			}, nil, flagAll, "cursor", "cursor", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

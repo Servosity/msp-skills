@@ -28,7 +28,7 @@ func newTwitterDetailsListCmd(flags *rootFlags) *cobra.Command {
 			path := "/TwitterDetails"
 			params := map[string]string{}
 			if flagAccountId != "" {
-				params["account_id"] = fmt.Sprintf("%v", flagAccountId)
+				params["account_id"] = formatCLIParamValue(flagAccountId)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "twitter-details", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

@@ -30,13 +30,13 @@ func newIntegrationDataListIntegrationdata18Cmd(flags *rootFlags) *cobra.Command
 			path := "/IntegrationData/Get/Datto"
 			params := map[string]string{}
 			if flagDataType != "" {
-				params["dataType"] = fmt.Sprintf("%v", flagDataType)
+				params["dataType"] = formatCLIParamValue(flagDataType)
 			}
 			if flagFetchSites != false {
-				params["fetchSites"] = fmt.Sprintf("%v", flagFetchSites)
+				params["fetchSites"] = formatCLIParamValue(flagFetchSites)
 			}
 			if flagKeyPair != false {
-				params["keyPair"] = fmt.Sprintf("%v", flagKeyPair)
+				params["keyPair"] = formatCLIParamValue(flagKeyPair)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "integration-data", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

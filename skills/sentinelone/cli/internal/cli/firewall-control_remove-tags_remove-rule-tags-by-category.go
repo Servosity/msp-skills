@@ -16,9 +16,10 @@ func newFirewallControlRemoveTagsRemoveRuleTagsByCategoryCmd(flags *rootFlags) *
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "remove-rule-tags-by-category <firewall_rule_category>",
-		Aliases:     []string{"create"},
-		Short:       "Remove firewall tags from rules matching the filter.",
+		Use:     "remove-rule-tags-by-category <firewall_rule_category>",
+		Aliases: []string{"create"},
+		Short:   "Remove firewall tags from rules matching the filter.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  sentinelone-cli firewall-control remove-tags remove-rule-tags-by-category example-value",
 		Annotations: map[string]string{"pp:endpoint": "remove-tags.remove-rule-tags-by-category", "pp:method": "POST", "pp:path": "/firewall-control/{firewall_rule_category}/remove-tags"},
 		RunE: func(cmd *cobra.Command, args []string) error {

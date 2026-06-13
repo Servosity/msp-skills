@@ -14,8 +14,9 @@ import (
 func newNotificationResourceTemplateApiGetTemplateParametersGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "resource-template-api-get-template-parameters-get <type>",
-		Short:       "This call returns all parameter details from a notification template for a specified template type.",
+		Use:   "resource-template-api-get-template-parameters-get <type>",
+		Short: "This call returns all parameter details from a notification template for a specified template type.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli notification resource-template-api-get-template-parameters-get example-value",
 		Annotations: map[string]string{"pp:endpoint": "notification.resource-template-api-get-template-parameters-get", "pp:method": "GET", "pp:path": "/notification/v1/templates/parameters/{type}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

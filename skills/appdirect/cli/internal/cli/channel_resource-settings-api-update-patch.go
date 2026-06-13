@@ -17,8 +17,9 @@ func newChannelResourceSettingsApiUpdatePatchCmd(flags *rootFlags) *cobra.Comman
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "resource-settings-api-update-patch <partner>",
-		Short:       "Use the PATCH method to update one or more channel settings.",
+		Use:   "resource-settings-api-update-patch <partner>",
+		Short: "Use the PATCH method to update one or more channel settings.",
+		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  appdirect-cli channel resource-settings-api-update-patch example-value",
 		Annotations: map[string]string{"pp:endpoint": "channel.resource-settings-api-update-patch", "pp:method": "PATCH", "pp:path": "/channel/v1/settings/{partner}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -34,9 +34,9 @@ func newMspListUsersCmd(flags *rootFlags) *cobra.Command {
 			path := "/msp/accounts/{account_id}/users"
 			path = replacePathParam(path, "account_id", args[0])
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "msp", path, map[string]string{
-				"page":      fmt.Sprintf("%v", flagPage),
-				"page_size": fmt.Sprintf("%v", flagPageSize),
-				"limit":     fmt.Sprintf("%v", flagLimit),
+				"page":      formatCLIParamValue(flagPage),
+				"page_size": formatCLIParamValue(flagPageSize),
+				"limit":     formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "page", "page", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

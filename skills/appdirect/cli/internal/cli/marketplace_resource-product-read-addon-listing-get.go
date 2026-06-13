@@ -34,25 +34,25 @@ func newMarketplaceResourceProductReadAddonListingGetCmd(flags *rootFlags) *cobr
 			path := "/marketplace/v1/addons"
 			params := map[string]string{}
 			if flagStart != 0 {
-				params["start"] = fmt.Sprintf("%v", flagStart)
+				params["start"] = formatCLIParamValue(flagStart)
 			}
 			if flagCount != 0 {
-				params["count"] = fmt.Sprintf("%v", flagCount)
+				params["count"] = formatCLIParamValue(flagCount)
 			}
 			if flagParentProductId != 0.0 {
-				params["parentProductId"] = fmt.Sprintf("%v", flagParentProductId)
+				params["parentProductId"] = formatCLIParamValue(flagParentProductId)
 			}
 			if flagParentProductUuid != "" {
-				params["parentProductUuid"] = fmt.Sprintf("%v", flagParentProductUuid)
+				params["parentProductUuid"] = formatCLIParamValue(flagParentProductUuid)
 			}
 			if flagCountry != "" {
-				params["country"] = fmt.Sprintf("%v", flagCountry)
+				params["country"] = formatCLIParamValue(flagCountry)
 			}
 			if flagCurrency != "" {
-				params["currency"] = fmt.Sprintf("%v", flagCurrency)
+				params["currency"] = formatCLIParamValue(flagCurrency)
 			}
 			if flagLocale != "" {
-				params["locale"] = fmt.Sprintf("%v", flagLocale)
+				params["locale"] = formatCLIParamValue(flagLocale)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "marketplace", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

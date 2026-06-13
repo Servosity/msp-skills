@@ -6,9 +6,117 @@ runZero's console and SDK answer one query at a time, online-only, against a lic
 
 ## Install
 
-For the short install path (one-line installer, Claude Desktop `.mcpb`, and the
-per-agent MCP wire-up) see [README.md](./README.md) and
-[mcp-install.md](./mcp-install.md). This file is the command reference.
+The recommended path installs both the `runzero-cli` binary and the `pp-runzero` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+
+```bash
+npx -y @mvanhorn/printing-press-library install runzero
+```
+
+For CLI only (no skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install runzero --cli-only
+```
+
+For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install runzero --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install runzero --agent claude-code
+npx -y @mvanhorn/printing-press-library install runzero --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/runzero/cmd/runzero-cli@latest
+```
+
+This installs the CLI only  -  no skill.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/runzero-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install runzero --cli-only
+```
+
+Then install the focused Hermes skill.
+
+From the Hermes CLI:
+
+```bash
+hermes skills install mvanhorn/printing-press-library/cli-skills/pp-runzero --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install mvanhorn/printing-press-library/cli-skills/pp-runzero --force
+```
+
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
+
+```bash
+npx -y @mvanhorn/printing-press-library install runzero --agent openclaw
+```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/runzero-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `RUNZERO_API_KEY` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/monitoring/runzero/cmd/runzero-mcp@latest
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "runzero": {
+      "command": "runzero-mcp",
+      "env": {
+        "RUNZERO_API_KEY": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Authentication
 
@@ -88,7 +196,7 @@ These capabilities aren't available in any other tool for this API.
   _Use this to find how many distinct versions of a package are deployed and which assets run the laggards._
 
   ```bash
-  runzero-cli software rollup "openssl" --agent
+  runzero-cli software rollup <name> --agent   # e.g. <name> = openssl
   ```
 - **`stale`**  -  Bucket assets by last-seen age, end-of-life OS, and missing tag/owner  -  emitting IDs ready to pipe into the bulk commands.
 
@@ -145,10 +253,10 @@ Find assets not seen in 45 days (plus EOL-OS and untagged/unowned) locally; feed
 ### Software version rollup across the fleet
 
 ```bash
-runzero-cli software rollup "openssl" --agent
+runzero-cli software rollup <name> --agent   # e.g. <name> = openssl
 ```
 
-Group every installed OpenSSL build by version with the count of assets running each, so you can target the outdated ones.
+Group every installed build of a product (here, OpenSSL) by version with the count of assets running each, so you can target the outdated ones. Omit `<name>` to roll up the entire software inventory.
 
 ## Usage
 

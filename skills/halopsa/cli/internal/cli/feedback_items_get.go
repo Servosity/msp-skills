@@ -34,13 +34,13 @@ func newFeedbackItemsGetCmd(flags *rootFlags) *cobra.Command {
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagClearcomment != false {
-				params["clearcomment"] = fmt.Sprintf("%v", flagClearcomment)
+				params["clearcomment"] = formatCLIParamValue(flagClearcomment)
 			}
 			if flagIncludedetails != false {
-				params["includedetails"] = fmt.Sprintf("%v", flagIncludedetails)
+				params["includedetails"] = formatCLIParamValue(flagIncludedetails)
 			}
 			if flagKey != "" {
-				params["key"] = fmt.Sprintf("%v", flagKey)
+				params["key"] = formatCLIParamValue(flagKey)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "feedback_items", false, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {

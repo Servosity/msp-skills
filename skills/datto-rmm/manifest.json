@@ -1,8 +1,8 @@
 {
   "manifest_version": "0.3",
-  "name": "datto-rmm-pp-mcp",
+  "name": "datto-rmm-mcp",
   "display_name": "Datto RMM",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
   "author": {
     "name": "Servosity Inc."
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/datto-rmm-pp-mcp",
+    "entry_point": "bin/datto-rmm-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/datto-rmm-pp-mcp",
+      "command": "${__dirname}/bin/datto-rmm-mcp",
       "args": [],
       "env": {
         "DATTO_RMM_API_KEY": "${user_config.datto_rmm_api_key}",
@@ -51,10 +51,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.22.0",
+  "printing_press_version": "4.24.0",
   "press_provenance": {
-    "printing_press_version": "4.22.0",
-    "generated_at": "2026-06-06T03:31:48.584715Z",
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-13T03:40:38.265725Z",
     "spec_checksum": "sha256:392cc374179c2fbdbf54b04ccc03a2c8ef58852910047c285b9592e68fc495e3",
     "spec_format": "openapi3"
   }

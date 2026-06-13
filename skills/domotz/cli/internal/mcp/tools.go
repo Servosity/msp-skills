@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +23,15 @@ import (
 	"domotz-pp-cli/internal/store"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+)
+
+const (
+	mcpToolResultMaxBytes = 60000
+	mcpToolResultMaxItems = 50
+	// MCP hosts can fan out tool calls faster than a human CLI session.
+	// Keep them on the same polite-client limiter path instead of disabling
+	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
+	defaultMCPRateLimit = 2
 )
 
 // RegisterTools registers all API operations as MCP tools.
@@ -43,7 +54,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Tables match resource names.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -71,8 +82,36 @@ type mcpParamBinding struct {
 	WireName   string
 	Location   string
 	BodyPath   []string
+	Default    string
 }
 
+func formatMCPParamValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case bool:
+		return strconv.FormatBool(tv)
+	case float64:
+		if math.IsNaN(tv) || math.IsInf(tv, 0) {
+			return strconv.FormatFloat(tv, 'f', -1, 64)
+		}
+		if math.Trunc(tv) == tv && math.Abs(tv) < 1e15 {
+			return strconv.FormatInt(int64(tv), 10)
+		}
+		return strconv.FormatFloat(tv, 'f', -1, 64)
+	case float32:
+		f := float64(tv)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return strconv.FormatFloat(f, 'f', -1, 32)
+		}
+		if math.Trunc(f) == f && math.Abs(f) < 1e15 {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 32)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
 func setNestedBodyArg(body map[string]any, path []string, value any) {
 	if len(path) == 0 {
 		return
@@ -131,13 +170,17 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			knownArgs[binding.PublicName] = true
 			v, ok := args[binding.PublicName]
 			if !ok {
-				continue
+				if binding.Default != "" {
+					v = binding.Default
+				} else {
+					continue
+				}
 			}
 			switch binding.Location {
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			case "body":
 				if len(binding.BodyPath) > 0 {
 					setNestedBodyArg(bodyArgs, binding.BodyPath, v)
@@ -145,7 +188,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 					bodyArgs[binding.WireName] = v
 				}
 			default:
-				params[binding.WireName] = fmt.Sprintf("%v", v)
+				params[binding.WireName] = formatMCPParamValue(v)
 			}
 		}
 		for _, p := range positionalParams {
@@ -155,7 +198,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, fmt.Sprintf("%v", v), 1)
+				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
 			}
 		}
 
@@ -167,7 +210,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "POST", "PUT", "PATCH":
 				bodyArgs[k] = v
 			default:
-				params[k] = fmt.Sprintf("%v", v)
+				params[k] = formatMCPParamValue(v)
 			}
 		}
 
@@ -223,19 +266,19 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key: export DOMOTZ_API_KEY=<your-key>" +
+					"\n      Set your API key with: export DOMOTZ_API_KEY=\"your-token-here\"" +
 					"\n      Get a key at: https://portal.domotz.com/portal/settings/services?selected_menu=api_keys" +
 					"\n      Run 'domotz-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your API key." +
-					"\n      Set it with: export DOMOTZ_API_KEY=<your-key>" +
+					"\n      Set your API key with: export DOMOTZ_API_KEY=\"your-token-here\"" +
 					"\n      Get a key at: https://portal.domotz.com/portal/settings/services?selected_menu=api_keys" +
 					"\n      Run 'domotz-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: your credentials are valid but lack access to this resource." +
-					"\n      Set it with: export DOMOTZ_API_KEY=<your-key>" +
+					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
+					"\n      Set your API key with: export DOMOTZ_API_KEY=\"your-token-here\"" +
 					"\n      Get a key at: https://portal.domotz.com/portal/settings/services?selected_menu=api_keys" +
 					"\n      Run 'domotz-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
@@ -250,21 +293,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		// For GET responses, wrap bare arrays with count metadata
-		if method == "GET" {
-			trimmed := strings.TrimSpace(string(data))
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				var items []json.RawMessage
-				if json.Unmarshal(data, &items) == nil {
-					wrapped := map[string]any{
-						"count": len(items),
-						"items": items,
-					}
-					out, _ := json.Marshal(wrapped)
-					return mcplib.NewToolResultText(string(out)), nil
-				}
-			}
-		}
 		if binaryResponse {
 			out, _ := json.Marshal(map[string]any{
 				"content_encoding": "base64",
@@ -273,8 +301,129 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			})
 			return mcplib.NewToolResultText(string(out)), nil
 		}
-		return mcplib.NewToolResultText(string(data)), nil
+		return mcpToolResultText(method, data), nil
 	}
+}
+
+func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
+	trimmed := strings.TrimSpace(string(data))
+	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
+		}
+	}
+	if len(data) <= mcpToolResultMaxBytes {
+		return mcplib.NewToolResultText(string(data))
+	}
+	if strings.EqualFold(method, "GET") {
+		if out, ok := mcpBoundedSingleArrayObject(data); ok {
+			return mcplib.NewToolResultText(string(out))
+		}
+	}
+	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+}
+
+func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return nil, false
+	}
+	arrayField := ""
+	var items []json.RawMessage
+	for key, raw := range obj {
+		trimmed := strings.TrimSpace(string(raw))
+		if len(trimmed) == 0 || trimmed[0] != '[' {
+			continue
+		}
+		var candidate []json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil {
+			continue
+		}
+		if arrayField != "" {
+			return nil, false
+		}
+		arrayField = key
+		items = candidate
+	}
+	if arrayField == "" {
+		return nil, false
+	}
+	build := func(subset []json.RawMessage) any {
+		out := make(map[string]any, len(obj)+6)
+		for key, raw := range obj {
+			if key == arrayField {
+				out[key] = subset
+				continue
+			}
+			out[key] = raw
+		}
+		if len(subset) < len(items) {
+			out["_pp_truncated"] = true
+			out["_pp_total_count"] = len(items)
+			out["_pp_returned_count"] = len(subset)
+			out["_pp_original_bytes"] = len(data)
+			out["_pp_max_bytes"] = mcpToolResultMaxBytes
+			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	out := mcpFitJSONItems(items, build)
+	if len(out) > mcpToolResultMaxBytes {
+		return nil, false
+	}
+	return out, true
+}
+
+func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
+	build := func(subset []json.RawMessage) any {
+		out := map[string]any{
+			"count": len(items),
+			field:   subset,
+		}
+		if len(subset) < len(items) {
+			out["truncated"] = true
+			out["returned_count"] = len(subset)
+			out["original_bytes"] = originalBytes
+			out["max_bytes"] = mcpToolResultMaxBytes
+			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
+		}
+		return out
+	}
+	return mcpFitJSONItems(items, build)
+}
+
+func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
+	limit := len(items)
+	if limit > mcpToolResultMaxItems {
+		limit = mcpToolResultMaxItems
+	}
+	for n := limit; n >= 0; n-- {
+		out, err := json.Marshal(build(items[:n]))
+		if err != nil {
+			continue
+		}
+		if len(out) <= mcpToolResultMaxBytes || n == 0 {
+			return out
+		}
+	}
+	out, _ := json.Marshal(build(items[:0]))
+	return out
+}
+
+func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
+	previewBytes := data
+	if len(previewBytes) > 4000 {
+		previewBytes = previewBytes[:4000]
+	}
+	out, _ := json.Marshal(map[string]any{
+		"truncated":      true,
+		"original_bytes": len(data),
+		"max_bytes":      mcpToolResultMaxBytes,
+		"preview":        string(previewBytes),
+		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+	})
+	return out
 }
 
 func newMCPClient() (*client.Client, error) {
@@ -284,7 +433,7 @@ func newMCPClient() (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
-	c := client.New(cfg, 60*time.Second, 0)
+	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -333,22 +482,27 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 // mutating tool lets MCP hosts auto-approve writes and is treated as a real
 // bug per the project's agent-native security model.
 //
-// The gate is an allowlist (SELECT or WITH only) applied AFTER stripping the
-// leading whitespace, line comments, block comments, and semicolons that
-// SQLite itself ignores before parsing. A naive HasPrefix check on a
-// keyword blocklist is bypassable by prefixing the dangerous statement with
-// "/* x */" or "-- x\n" — TrimSpace strips outer whitespace but does not
-// understand SQL comment syntax. Combined with the empirical fact that
-// modernc.org/sqlite's mode=ro does NOT block VACUUM INTO (writes a snapshot
-// to a new file) or ATTACH DATABASE (opens a separate writable handle),
-// such a bypass produces silent exfiltration to an attacker-chosen path.
+// The gate rejects multi-statement input, then applies an allowlist (SELECT or
+// WITH only) AFTER stripping the leading whitespace, line comments, block
+// comments, and semicolons that SQLite itself ignores before parsing. A naive
+// HasPrefix check on a keyword blocklist is bypassable by prefixing the
+// dangerous statement with "/* x */" or "-- x\n"; a naive leading-keyword
+// allowlist is bypassable by appending "; ATTACH DATABASE ...". Combined with
+// the empirical fact that modernc.org/sqlite's mode=ro does NOT block VACUUM
+// INTO (writes a snapshot to a new file) or ATTACH DATABASE (opens a separate
+// writable handle), either bypass produces silent exfiltration to an
+// attacker-chosen path.
 //
 // SELECT and WITH are the only allowed leading keywords. WITH supports
 // SELECT-form CTEs; CTE-wrapped writes ("WITH x AS (...) INSERT ...") are
 // caught by OpenReadOnly's mode=ro one layer down. PRAGMA, ATTACH, VACUUM,
 // and every other DDL/DML keyword fail at this gate before reaching SQLite.
 func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(stripLeadingSQLNoise(query))
+	stripped := stripLeadingSQLNoise(query)
+	if hasTrailingSQLStatement(stripped) {
+		return fmt.Errorf("only a single SELECT or WITH statement is allowed")
+	}
+	upper := strings.ToUpper(stripped)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
@@ -380,6 +534,97 @@ func stripLeadingSQLNoise(query string) string {
 			return query
 		}
 	}
+}
+
+// hasTrailingSQLStatement reports whether query contains a statement
+// terminator followed by more executable SQL. A trailing semicolon is allowed;
+// a second statement is not. Semicolons inside string literals, quoted
+// identifiers, bracket identifiers, and comments are ignored to match SQLite's
+// parser shape closely enough for this security gate.
+func hasTrailingSQLStatement(query string) bool {
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inBracket := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		switch {
+		case inLineComment:
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		case inBlockComment:
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		case inSingle:
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingle = false
+			}
+			continue
+		case inDouble:
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDouble = false
+			}
+			continue
+		case inBacktick:
+			if ch == '`' {
+				if next == '`' {
+					i++
+					continue
+				}
+				inBacktick = false
+			}
+			continue
+		case inBracket:
+			if ch == ']' {
+				inBracket = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+		case ch == '\'':
+			inSingle = true
+		case ch == '"':
+			inDouble = true
+		case ch == '`':
+			inBacktick = true
+		case ch == '[':
+			inBracket = true
+		case ch == ';':
+			if stripLeadingSQLNoise(query[i+1:]) != "" {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -458,14 +703,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				{
 					"name":        "DOMOTZ_API_KEY",
 					"kind":        "per_call",
-					"required":    false,
-					"sensitive":   true,
-					"description": "Set to your API credential.",
-				},
-				{
-					"name":        "DOMOTZ_PUBLIC_API_KEY",
-					"kind":        "per_call",
-					"required":    false,
+					"required":    true,
 					"sensitive":   true,
 					"description": "Set to your API credential.",
 				},
@@ -552,7 +790,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "Fleet health rollup", "command": "fleet health", "description": "One status board across every Domotz Collector: online/offline agents, degraded sites, and down-device counts per site.", "rationale": "The Domotz API is agent-scoped — no endpoint returns status across all agents.", "via": "mcp-command-mirror"},
+			{"name": "Fleet health rollup", "command": "fleet health", "description": "One status board across every Domotz Collector: online/offline agents, degraded sites, and down-device counts per site.", "rationale": "The Domotz API is agent-scoped — no endpoint returns status across all agents. This rolls up every synced agent in one local query.", "via": "mcp-command-mirror"},
 			{"name": "Cross-site offline devices", "command": "fleet offline", "description": "Every unreachable or offline device across all sites in one prioritized list, with site and importance.", "rationale": "Requires a local join over every device synced from every agent; the API only exposes device status per-agent.", "via": "mcp-command-mirror"},
 			{"name": "New / rogue device detection", "command": "fleet new", "description": "Devices first-seen anywhere in the fleet within a time window — a rogue-device security signal.", "rationale": "Needs first_seen_on compared across the whole fleet in a window; there is no fleet-wide 'new devices' endpoint.", "via": "mcp-command-mirror"},
 			{"name": "Unified fleet inventory export", "command": "fleet inventory", "description": "One asset table — vendor, model, type, OS, serial, site — for every device across every agent.", "rationale": "The API returns inventory per-device; this assembles a single export across the whole fleet from the local store.", "via": "mcp-command-mirror"},
@@ -562,11 +800,11 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			{"name": "WAN speed-test trends", "command": "fleet speedtest", "description": "Per-site WAN speed-test history aggregated into fleet min/avg/max and a worst-site ranking.", "rationale": "Aggregates per-agent speed-test history that the API only returns one agent at a time.", "via": "mcp-command-mirror"},
 			{"name": "Offline network topology", "command": "topology", "description": "Cached network topology for a site, summarized (node/edge counts, gateways) and queryable offline.", "rationale": "Serves the synced topology graph from the local store without re-hitting the API.", "via": "mcp-command-mirror"},
 			{"name": "Config / inventory drift", "command": "drift", "description": "Diffs two local snapshots for a site to surface configuration and inventory changes over time.", "rationale": "Cross-time compare of snapshots the API cannot diff in a single call.", "via": "mcp-command-mirror"},
-			{"name": "Fleet degraded-agent sweep", "command": "fleet agents", "description": "Only the sites (Collectors) that are offline or degraded right now, with location, organization, and version", "rationale": "The agent list endpoint returns every agent raw; triaging problem sites needs a filtered", "via": "mcp-command-mirror"},
-			{"name": "Stale-agent / sync-freshness check", "command": "fleet stale", "description": "Collectors whose local snapshot has gone quiet — last-synced or last-seen older than a threshold", "rationale": "The API has no sync cursor; only the local store knows when each agent's data was last refreshed", "via": "mcp-command-mirror"},
-			{"name": "Fleet down-sensor sweep", "command": "fleet triggers", "description": "TCP service sensors (eyes) currently DOWN across every device on every agent, in one fleet-wide list.", "rationale": "The API lists eyes per agent only, and SNMP trigger state is per-sensor", "via": "mcp-command-mirror"},
-			{"name": "Monitoring-coverage audit", "command": "fleet unmonitored", "description": "Devices Domotz can't fully monitor — failed or missing authentication and SNMP status — surfaced fleet-wide as a", "rationale": "authentication_status and snmp_status exist per device only", "via": "mcp-command-mirror"},
-			{"name": "Fleet event timeline", "command": "fleet events", "description": "Per-agent activity-log and network-event history merged into one chronological fleet-wide timeline.", "rationale": "Events are exposed per agent only", "via": "mcp-command-mirror"},
+			{"name": "Fleet degraded-agent sweep", "command": "fleet agents", "description": "Only the sites (Collectors) that are offline or degraded right now, with location, organization, and version, in one prioritized list.", "rationale": "The agent list endpoint returns every agent raw; triaging problem sites needs a filtered, prioritized local query over the synced agent mirror.", "via": "mcp-command-mirror"},
+			{"name": "Stale-agent / sync-freshness check", "command": "fleet stale", "description": "Collectors whose local snapshot has gone quiet — last-synced or last-seen older than a threshold, a silent monitoring blind spot.", "rationale": "The API has no sync cursor; only the local store knows when each agent's data was last refreshed, so staleness is a purely local question.", "via": "mcp-command-mirror"},
+			{"name": "Fleet down-sensor sweep", "command": "fleet triggers", "description": "TCP service sensors (eyes) currently DOWN across every device on every agent, in one fleet-wide list.", "rationale": "The API lists eyes per agent only, and SNMP trigger state is per-sensor; the TCP sensor sweep is the fleet-wide live view no endpoint returns.", "via": "mcp-command-mirror"},
+			{"name": "Monitoring-coverage audit", "command": "fleet unmonitored", "description": "Devices Domotz can't fully monitor — failed or missing authentication and SNMP status — surfaced fleet-wide as a coverage-gap audit.", "rationale": "authentication_status and snmp_status exist per device only; no endpoint reports monitoring coverage across the whole fleet.", "via": "mcp-command-mirror"},
+			{"name": "Fleet event timeline", "command": "fleet events", "description": "Per-agent activity-log and network-event history merged into one chronological fleet-wide timeline.", "rationale": "Events are exposed per agent only; a cross-site 'what happened recently' feed requires merging synced event history locally.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
 			{"topic": "Fleet health rollup", "insight": "The Domotz API is agent-scoped — no endpoint returns status across all agents. This rolls up every synced agent in one local query."},
@@ -581,7 +819,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			{"topic": "Config / inventory drift", "insight": "Cross-time compare of snapshots the API cannot diff in a single call."},
 			{"topic": "Fleet degraded-agent sweep", "insight": "The agent list endpoint returns every agent raw; triaging problem sites needs a filtered, prioritized local query over the synced agent mirror."},
 			{"topic": "Stale-agent / sync-freshness check", "insight": "The API has no sync cursor; only the local store knows when each agent's data was last refreshed, so staleness is a purely local question."},
-			{"topic": "Fleet down-sensor sweep", "insight": "The API lists eyes per agent only, and SNMP trigger state is per-sensor; one fleet-wide active-trigger list needs a local join across all synced sensors."},
+			{"topic": "Fleet down-sensor sweep", "insight": "The API lists eyes per agent only, and SNMP trigger state is per-sensor; the TCP sensor sweep is the fleet-wide live view no endpoint returns."},
 			{"topic": "Monitoring-coverage audit", "insight": "authentication_status and snmp_status exist per device only; no endpoint reports monitoring coverage across the whole fleet."},
 			{"topic": "Fleet event timeline", "insight": "Events are exposed per agent only; a cross-site 'what happened recently' feed requires merging synced event history locally."},
 		},

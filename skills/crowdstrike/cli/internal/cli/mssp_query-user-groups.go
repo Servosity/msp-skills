@@ -44,10 +44,10 @@ func newMsspQueryUserGroupsCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/mssp/queries/user-groups/v1"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "mssp", path, map[string]string{
-				"name":   fmt.Sprintf("%v", flagName),
-				"sort":   fmt.Sprintf("%v", flagSort),
-				"offset": fmt.Sprintf("%v", flagOffset),
-				"limit":  fmt.Sprintf("%v", flagLimit),
+				"name":   formatCLIParamValue(flagName),
+				"sort":   formatCLIParamValue(flagSort),
+				"offset": formatCLIParamValue(flagOffset),
+				"limit":  formatCLIParamValue(flagLimit),
 			}, nil, flagAll, "offset", "offset", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)

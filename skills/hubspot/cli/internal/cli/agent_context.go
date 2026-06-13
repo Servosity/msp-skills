@@ -124,7 +124,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
 			Name:        "hubspot-cli",
-			Description: "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting",
+			Description: "Every Sales Hub feature, plus offline cross-object queries and retained property-change history.",
 			Version:     rootCmd.Version,
 		},
 		Auth: agentContextAuth{
