@@ -58,7 +58,7 @@ missing column. Appliances and devices pair on their shared service SID.
 D2C (Direct-to-Cloud) devices have no appliance and are reported in the
 unmapped count, not under an appliance.
 
-Run 'axcient-cli sync --resources clients,device,appliance' first.
+Run 'axcient-cli sync' first.
 `, "\n"),
 		Example: strings.Trim(`
   # Fleet-wide appliance triage view
@@ -163,7 +163,7 @@ Run 'axcient-cli sync --resources clients,device,appliance' first.
 				Appliances:      rows,
 			}
 			if len(appliances) == 0 {
-				view.Note = "no appliances in the local store; run 'axcient-cli sync --resources clients,device,appliance' first"
+				view.Note = "no appliances in the local store; run 'axcient-cli sync' first"
 			}
 
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {

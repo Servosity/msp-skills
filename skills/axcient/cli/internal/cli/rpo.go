@@ -53,7 +53,7 @@ vault), or any (the newest across all three, the default).
 Do NOT use it for job-run failures (a job can succeed yet RPO still slip);
 use 'health' for last-job status instead.
 
-Run 'axcient-cli sync --resources clients,device' first.
+Run 'axcient-cli sync' first.
 `, "\n"),
 		Example: strings.Trim(`
   # Everything without any restore point in the last 24 hours
@@ -132,7 +132,7 @@ Run 'axcient-cli sync --resources clients,device' first.
 				Breaches:       breaches,
 			}
 			if len(devices) == 0 {
-				view.Note = "no devices in the local store; run 'axcient-cli sync --resources clients,device' first"
+				view.Note = "no devices in the local store; run 'axcient-cli sync' first"
 			}
 
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {

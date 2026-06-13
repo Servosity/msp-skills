@@ -162,7 +162,7 @@
       "skill_path": "skills/axcient",
       "cli_binary": "axcient-cli",
       "mcp_binary": "axcient-mcp",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "license": "Apache-2.0",
       "vendor": "Axcient",
       "vendor_trademark_owner": "Axcient, Inc",

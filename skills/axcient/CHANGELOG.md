@@ -4,6 +4,26 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.2] - unreleased
+
+### Changed
+- Standardized the local-store refresh step on one canonical command, bare
+  `axcient-cli sync`, across the quick-start, the morning-sweep recipe, and every
+  fleet command's help text and empty-store hint. Previously the docs and
+  per-command hints suggested five different `--resources` scopes
+  (`clients,device`, `clients,device,autoverify`, `clients,device,appliance`,
+  `clients,device,vault,appliance`, and bare), so "refresh the mirror" was
+  ambiguous depending on which surface you followed. Bare `sync` pulls every
+  top-level resource plus all dependents (restore points, AutoVerify, client-device
+  maps), so it is the complete, unambiguous refresh. (Reported in #86.)
+
+### Tests
+- Added a sync-wiring regression test that drives the per-device restore_point
+  endpoint with the live item shape (timestamp-string `restore_point_id`, no
+  `device_id`) through `syncDependentResource`, proving the typed table populates
+  with the `rp:<device_id>:<restore_point_id>` key - end-to-end coverage that
+  complements the store-layer `restore_point` tests shipped in 0.2.1.
+
 ## [0.2.1] - unreleased
 
 ### Fixed
