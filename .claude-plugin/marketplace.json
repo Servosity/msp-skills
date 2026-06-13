@@ -810,7 +810,7 @@
       "name": "connectwise-automate",
       "source": "./skills/connectwise-automate",
       "description": "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift.",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "category": "rmm",
       "tags": [
         "connectwise-automate",

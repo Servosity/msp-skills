@@ -38,6 +38,7 @@ Add (or merge with your existing `mcpServers` block):
       "command": "connectwise-automate-mcp",
       "env": {
         "CONNECTWISE_AUTOMATE_SERVER": "<your-connectwise_automate_server>",
+        "CONNECTWISE_AUTOMATE_CLIENT_ID": "<your-connectwise_automate_client_id>",
         "CONNECTWISE_AUTOMATE_TOKEN": "<your-connectwise_automate_token>"
       }
     }
@@ -64,6 +65,7 @@ Configuration**) and add:
       "command": "connectwise-automate-mcp",
       "env": {
         "CONNECTWISE_AUTOMATE_SERVER": "<your-connectwise_automate_server>",
+        "CONNECTWISE_AUTOMATE_CLIENT_ID": "<your-connectwise_automate_client_id>",
         "CONNECTWISE_AUTOMATE_TOKEN": "<your-connectwise_automate_token>"
       }
     }
@@ -86,6 +88,7 @@ Claude Desktop:
       "command": "connectwise-automate-mcp",
       "env": {
         "CONNECTWISE_AUTOMATE_SERVER": "<your-connectwise_automate_server>",
+        "CONNECTWISE_AUTOMATE_CLIENT_ID": "<your-connectwise_automate_client_id>",
         "CONNECTWISE_AUTOMATE_TOKEN": "<your-connectwise_automate_token>"
       }
     }
@@ -104,7 +107,7 @@ All remote agents need `connectwise-automate-mcp` reachable as a public **HTTPS*
 in HTTP mode with your credentials in the environment:
 
 ```bash
-CONNECTWISE_AUTOMATE_SERVER=<value> CONNECTWISE_AUTOMATE_TOKEN=<value> connectwise-automate-mcp --transport http --addr :7777
+CONNECTWISE_AUTOMATE_SERVER=<value> CONNECTWISE_AUTOMATE_CLIENT_ID=<value> CONNECTWISE_AUTOMATE_TOKEN=<value> connectwise-automate-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

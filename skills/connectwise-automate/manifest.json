@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "connectwise-automate-pp-mcp",
   "display_name": "ConnectWise Automate",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift.",
   "author": {
     "name": "Servosity Inc."
@@ -16,6 +16,7 @@
       "args": [],
       "env": {
         "CONNECTWISE_AUTOMATE_SERVER": "${user_config.connectwise_automate_server}",
+        "CONNECTWISE_AUTOMATE_CLIENT_ID": "${user_config.connectwise_automate_client_id}",
         "CONNECTWISE_AUTOMATE_TOKEN": "${user_config.connectwise_automate_token}"
       }
     }
@@ -24,8 +25,15 @@
     "connectwise_automate_server": {
       "type": "string",
       "title": "CONNECTWISE_AUTOMATE_SERVER",
-      "description": "Sets CONNECTWISE_AUTOMATE_SERVER for the endpoint template variable {server}.",
-      "default": "YOUR_SERVER.hostedrmm.com"
+      "description": "Your Automate host, e.g. company.hostedrmm.com. Sets CONNECTWISE_AUTOMATE_SERVER for the endpoint base URL.",
+      "default": "YOUR_SERVER.hostedrmm.com",
+      "required": true
+    },
+    "connectwise_automate_client_id": {
+      "type": "string",
+      "title": "CONNECTWISE_AUTOMATE_CLIENT_ID",
+      "description": "Your registered integration clientId GUID, sent as the clientId header on every request (required for ConnectWise Automate v2020.11+).",
+      "required": true
     },
     "connectwise_automate_token": {
       "type": "string",
