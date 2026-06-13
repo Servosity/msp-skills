@@ -1,5 +1,5 @@
 {
-  "count": 52,
+  "count": 53,
   "connectors": [
     {
       "slug": "abnormal",
@@ -408,6 +408,14 @@
       "category": "Security",
       "verification": "awaiting",
       "url": "/skills/threatlocker/"
+    },
+    {
+      "slug": "veeam",
+      "display_name": "Veeam",
+      "tagline": "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.",
+      "category": "Backup/DR",
+      "verification": "awaiting",
+      "url": "/skills/veeam/"
     },
     {
       "slug": "xero",

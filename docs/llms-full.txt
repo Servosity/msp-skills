@@ -1911,6 +1911,41 @@ A: No. The Portal stays best for authoring policies and the interactive approve/
 
 Governance: The skill drives the threatlocker-cli and threatlocker-mcp binaries, authenticating with a THREATLOCKER_API_KEY read from the environment, never logged and never sent anywhere except the ThreatLocker API. Read commands (approvals triage, audit drift, audit export, audit retention-check, devices health, applications hunt, search) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule, preview with --dry-run, show the exact command, get approval, then run the write. Keep computers delete and policies delete human-only. The strongest control is the scope of the API key you mint in the Portal.
 
+### Veeam (Backup/DR)
+
+Page: https://msp-skills.compoundingteams.com/skills/veeam/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/veeam/install.sh)
+
+Ask your AI "which customers have failing backups?" or "who's past their RPO?" and get a cross-tenant answer in one shot. Veeam Service Provider Console is built per-tenant. This skill syncs every company's jobs, agents, alarms, and license usage into a local mirror, then answers the multi-tenant backup questions the console makes you click through company by company.
+
+Outcomes (question -> command your AI agent runs):
+- Which backup jobs are failing across all my customers? -> veeam-cli fleet-health --agent
+- Which jobs and agents haven't had a successful run in 3+ days? -> veeam-cli stale-backups --days 3 --agent
+- Which protected workloads are past their RPO? -> veeam-cli at-risk --rpo 24h --agent
+- What active alarms actually need a human, deduped across tenants? -> veeam-cli alarms-triage --severity Error --agent
+- How is one customer doing across backups, agents, alarms, and license? -> veeam-cli company-overview --company "Contoso Ltd" --agent
+- What's each customer's license usage and the change since last run? -> veeam-cli license-usage --agent
+- What changed across the fleet in the last 24h - failures, alarms, new agents? -> veeam-cli since 24h --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Veeam MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Veeam data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Does this work with standalone Veeam Backup & Replication (VBR)?
+A: No. This skill targets the Veeam Service Provider Console (VSPC) v3 REST API for multi-tenant MSP estates. A single VBR server with no VSPC in front of it exposes a separate API.
+Q: Will this hammer my VSPC appliance or hit rate limits?
+A: The local mirror is the point. You sync once, then rollups, triage, and search run against local SQLite, so day-to-day questions never touch the appliance. Only sync and the live get commands call VSPC.
+Q: Can it change backup jobs or run restores?
+A: The full VSPC v3 surface is exposed, including create/delete jobs and agent deployment, but those are gated human-in-the-loop in governance.md. Day-to-day this is read-first monitoring; destructive and infrastructure commands need explicit approval.
+
+Governance: The skill is read-first: cross-tenant health, stale-backup and at-risk sweeps, alarm triage, license usage, and search are read-only and safe to let an agent run. The write surface is large - creating and deleting backup jobs, policies and rules, installing agents, rebooting and deploying to real customer infrastructure, and credential/certificate operations - and is gated human-in-the-loop. The VSPC token's own permissions are the outer limit on anything the agent can do.
+
 ### Xero (Billing)
 
 Page: https://msp-skills.compoundingteams.com/skills/xero/

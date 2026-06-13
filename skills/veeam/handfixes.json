@@ -1,0 +1,59 @@
+{
+  "slug": "veeam",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint or onboard --resume must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and FAILS CI if a reprint dropped one.",
+  "handfixes": [
+    {
+      "id": "manifest-clean-mcp-binary-name",
+      "summary": "manifest.json name/entry_point/command use the clean `veeam-mcp`, not the press `-pp-mcp`",
+      "why": "onboard.py re-copies the SOURCE manifest.json on every --resume, and the printing-press source keeps the `-pp-mcp` convention. The repo builds/ships `veeam-mcp`, so a stale `-pp-mcp` name mismatches the .mcpb the release matrix produces. See project_onboard_manifest_deleak_and_envvar.",
+      "status": "active",
+      "asserts": [
+        {"file": "manifest.json", "contains": "veeam-mcp", "min_count": 2},
+        {"file": "manifest.json", "not_contains": "veeam-pp-mcp"}
+      ]
+    },
+    {
+      "id": "manifest-server-base-url-env",
+      "summary": "VEEAM_BASE_URL is a required env var in manifest.json + server.json (per-instance appliance URL)",
+      "why": "VSPC is appliance-hosted, so the REST base URL is per-instance; config.go reads VEEAM_BASE_URL and the placeholder default (your-vspc-host:1280) is dead. The press generated the manifest with only VEEAM_TOKEN (the per-instance BASE_URL-omission pattern), so a fresh reprint drops it again. server.json also marks BASE_URL non-secret (it is a URL). See project_onboard_perinstance_baseurl_and_bareword_claims.",
+      "status": "active",
+      "asserts": [
+        {"file": "manifest.json", "contains": "VEEAM_BASE_URL", "min_count": 2},
+        {"file": "server.json", "contains": "VEEAM_BASE_URL", "min_count": 1}
+      ]
+    },
+    {
+      "id": "governance-infra-destructive-execution-tiers",
+      "summary": "Governance gates the large VSPC write surface: an 'Infrastructure and agent execution' tier, a Destructive tier, and secret-returning reads placed in Credential (not Read)",
+      "why": "VSPC has ~410 write/destructive commands. gen_governance is method-blind: it lumped install-backup-agent-on-computer / reboot-computer / start-rule / force-collect (run software on real customer machines) into 'Write (routine)' and produced no infra tier. The get-*-credentials-by-server / get-*-encryption-passwords-by-server commands RETURN stored secrets and must be Credential, not Read, even though the binary tags them mcp:read-only. A full reprint re-runs the classifier and reverts. See feedback_secret_read_commands_not_read_tier + project_action1_onboard_traps.",
+      "status": "active",
+      "asserts": [
+        {"file": "governance.md", "contains": "Infrastructure and agent execution", "min_count": 1},
+        {"file": "governance.md", "contains": "secret-returning reads", "min_count": 1},
+        {"file": "governance.md", "contains": "delete-tenant", "min_count": 1}
+      ]
+    },
+    {
+      "id": "page-json-stripped-binary-name",
+      "summary": "page.json command examples use the stripped `veeam-cli`, never the source `veeam-pp-cli`",
+      "why": "The generated SKILL.md/source examples use `veeam-pp-cli`; the INSTALLED binary is `veeam-cli`. page.json command examples authored from the source leaked `veeam-pp-cli`, which propagated into the published docs page + llms corpus (copy-paste fails: that name is not on PATH). check_cli_claims is BLIND to the binary-name prefix, so only adversarial review caught it. A reprint/re-author must keep the stripped name. See feedback_outcome_prose_must_match_command_output_fields.",
+      "status": "active",
+      "asserts": [
+        {"file": "page.json", "contains": "veeam-cli ", "min_count": 5},
+        {"file": "page.json", "not_contains": "veeam-pp-cli"}
+      ]
+    },
+    {
+      "id": "skill-guide-deleak",
+      "summary": "SKILL.md + guide.md stay free of Printing Press / npx-library / go-install / openclaw-install-block leaks",
+      "why": "onboard.py only de-leaks the SKILL.md description, not the body H1/prereqs/HeyGen-Beacon/MCP-install lines, the openclaw frontmatter `install:` block (a printing-press-library go module path), or guide.md's npx/go install section. A reprint re-vendors both and re-introduces the leaks. See project_onboard_skillmd_guide_deleak.",
+      "status": "active",
+      "asserts": [
+        {"file": "SKILL.md", "not_contains": "@mvanhorn/printing-press-library"},
+        {"file": "SKILL.md", "not_contains": "printing-press-library/library/monitoring"},
+        {"file": "guide.md", "not_contains": "npx -y @mvanhorn"}
+      ]
+    }
+  ]
+}

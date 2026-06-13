@@ -1203,6 +1203,28 @@
       },
       "install_auth_hint": "Then set `THREATLOCKER_API_KEY` (Portal > Administrators > API Users > Generate API Token) and run `threatlocker-cli doctor`"
     },
+    "veeam": {
+      "system": "Veeam Service Provider Console (VSPC): multi-tenant backup monitoring, alarms, licensing and reseller management for MSPs",
+      "status": "beta",
+      "cli_binary": "veeam-cli",
+      "mcp_binary": "veeam-mcp",
+      "vendor": "Veeam",
+      "vendor_trademark_owner": "Veeam Software",
+      "first_party": false,
+      "category": "Backup/DR",
+      "display_name": "Veeam",
+      "cli_hash": "sha256:bb384b1bf3114c81687737462d69eb496e3a72f27ad51c4d7855248d7f4a3267",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "xero": {
       "system": "the Xero cloud accounting platform",
       "status": "beta",

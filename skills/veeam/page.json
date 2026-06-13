@@ -1,0 +1,115 @@
+{
+  "outcome_intro": "Ask your AI \"which customers have failing backups?\" or \"who's past their RPO?\" and get a cross-tenant answer in one shot. Veeam Service Provider Console is built per-tenant. This skill syncs every company's jobs, agents, alarms, and license usage into a local mirror, then answers the multi-tenant backup questions the console makes you click through company by company.",
+  "instead_of_say": [
+    {
+      "instead": "Logging into VSPC and clicking each company to see which backup jobs failed overnight",
+      "say": "Which backup jobs are failing across all my customers?",
+      "cli": "veeam-cli fleet-health --agent"
+    },
+    {
+      "instead": "Finding out a customer's backups silently failed for a week only when they ask for a restore",
+      "say": "Which protected workloads are past their RPO or have no recent restore point?",
+      "cli": "veeam-cli at-risk --rpo 24h --agent"
+    },
+    {
+      "instead": "Pulling license consumption per tenant from the console before the monthly invoice",
+      "say": "What's each customer's Veeam license usage and how much did it change?",
+      "cli": "veeam-cli license-usage --agent"
+    }
+  ],
+  "pain_points": [
+    "VSPC is organized per-tenant, so \"which customers have a failed backup right now?\" means clicking into each company - exactly the question that matters most at 8am.",
+    "Backups fail silently. The worst time to discover a week of failures is when a customer asks for a restore, and the console doesn't surface stale protection across the whole fleet in one view.",
+    "License reconciliation and RPO compliance for a QBR or invoice mean assembling numbers per tenant by hand."
+  ],
+  "outcomes": [
+    {
+      "question": "Which backup jobs are failing across all my customers?",
+      "command": "veeam-cli fleet-health --agent"
+    },
+    {
+      "question": "Which jobs and agents haven't had a successful run in 3+ days?",
+      "command": "veeam-cli stale-backups --days 3 --agent"
+    },
+    {
+      "question": "Which protected workloads are past their RPO?",
+      "command": "veeam-cli at-risk --rpo 24h --agent"
+    },
+    {
+      "question": "What active alarms actually need a human, deduped across tenants?",
+      "command": "veeam-cli alarms-triage --severity Error --agent"
+    },
+    {
+      "question": "How is one customer doing across backups, agents, alarms, and license?",
+      "command": "veeam-cli company-overview --company \"Contoso Ltd\" --agent"
+    },
+    {
+      "question": "What's each customer's license usage and the change since last run?",
+      "command": "veeam-cli license-usage --agent"
+    },
+    {
+      "question": "What changed across the fleet in the last 24h - failures, alarms, new agents?",
+      "command": "veeam-cli since 24h --agent"
+    }
+  ],
+  "different_vs_wrappers": "Most Veeam integrations proxy each question into a live API call against one console - fine for one job, useless when you ask \"across all 60 customers.\" This skill syncs every tenant into a local SQLite mirror, so a cross-company rollup is one local join: instant, offline, and your AI sees the answer, not thousands of raw job records.",
+  "different_vs_vendor": "VSPC's console and reports are built for per-tenant administration. This complements them by answering the whole-portfolio backup questions - failing jobs, stale protection, RPO breaches, license drift - in a single command, without touching your console workflows.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Veeam MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Veeam data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Does this work with standalone Veeam Backup & Replication (VBR)?",
+      "a": "No. This skill targets the Veeam Service Provider Console (VSPC) v3 REST API for multi-tenant MSP estates. A single VBR server with no VSPC in front of it exposes a separate API."
+    },
+    {
+      "q": "Will this hammer my VSPC appliance or hit rate limits?",
+      "a": "The local mirror is the point. You sync once, then rollups, triage, and search run against local SQLite, so day-to-day questions never touch the appliance. Only sync and the live get commands call VSPC."
+    },
+    {
+      "q": "Can it change backup jobs or run restores?",
+      "a": "The full VSPC v3 surface is exposed, including create/delete jobs and agent deployment, but those are gated human-in-the-loop in governance.md. Day-to-day this is read-first monitoring; destructive and infrastructure commands need explicit approval."
+    }
+  ],
+  "governance_summary": "The skill is read-first: cross-tenant health, stale-backup and at-risk sweeps, alarm triage, license usage, and search are read-only and safe to let an agent run. The write surface is large - creating and deleting backup jobs, policies and rules, installing agents, rebooting and deploying to real customer infrastructure, and credential/certificate operations - and is gated human-in-the-loop. The VSPC token's own permissions are the outer limit on anything the agent can do.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "fleet-health, stale-backups, at-risk, alarms-triage, company-overview, license-usage, since, and every get / list / search command",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (config)",
+      "examples": "configuration create/patch backup-policy, infrastructure create/assign jobs, discovery create/patch rules, alarms acknowledge/resolve",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Infrastructure and agent execution",
+      "examples": "discovery install-backup-agent-on-computer / reboot-computer / start-rule, infrastructure activate / force-collect, deployment wait-task",
+      "policy": "Human-in-the-loop, explicit confirmation (runs/installs software on real customer machines)"
+    },
+    {
+      "tier": "Destructive",
+      "examples": "infrastructure delete-tenant / delete-backup-agent / delete-vb365-server, configuration delete-backup-policy, alarms delete-active",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    },
+    {
+      "tier": "Credential / security",
+      "examples": "authentication generate-totp-secret / decrypt-pkcs12-container, infrastructure create/get backup-server-credentials and encryption-passwords, users tokens revoke-authentication",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

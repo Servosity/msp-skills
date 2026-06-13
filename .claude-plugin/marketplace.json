@@ -821,6 +821,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "veeam",
+      "source": "./skills/veeam",
+      "description": "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "veeam",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
