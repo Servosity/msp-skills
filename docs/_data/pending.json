@@ -279,6 +279,13 @@
     "current_hash": "sha256:7133449a52620edb5695864cb68c1d2beabc2cefeaf20a98572a0ae7c03e9006",
     "released_hash": "sha256:7133449a52620edb5695864cb68c1d2beabc2cefeaf20a98572a0ae7c03e9006"
   },
+  "rewst": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:54c8803b7b521ae6b9883977e080f8e72a18961187cac30554139cc9be0274fd",
+    "released_hash": null
+  },
   "rocketcyber": {
     "state": "version-pending",
     "version": "0.1.1",
