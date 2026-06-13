@@ -18,7 +18,6 @@ func newSecurityDeleteUserCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "delete-user",
-		Aliases:     []string{"create"},
 		Short:       "Deletes an instance user. Requires the `x-anti-forgery-token` header. Wire format: positional array `['<userName>']`.",
 		Example:     "  connectwise-control-cli security delete-user --user-name example-resource",
 		Annotations: map[string]string{"pp:endpoint": "security.delete-user", "pp:method": "POST", "pp:path": "/Services/SecurityService.ashx/DeleteUser"},

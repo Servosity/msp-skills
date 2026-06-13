@@ -17,7 +17,6 @@ func newAuditGetInfoCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "get-info",
-		Aliases:     []string{"create"},
 		Short:       "Returns metadata about the audit subsystem (available event types and retention).",
 		Example:     "  connectwise-control-cli audit get-info",
 		Annotations: map[string]string{"pp:endpoint": "audit.get-info", "pp:method": "POST", "pp:path": "/Services/AuditService.ashx/GetAuditInfo"},

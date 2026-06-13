@@ -74,6 +74,17 @@
         {"file": "SKILL.md", "not_contains": "Services/<Service>.ashx"},
         {"file": "guide.md", "not_contains": "npx -y @mvanhorn"}
       ]
+    },
+    {
+      "id": "cli-no-create-alias-on-mutations",
+      "summary": "delete-user / add-event-to / get-info carry NO `create` Cobra alias; the press auto-aliases the alphabetically-first POST command in each resource group to `create`",
+      "why": "The press assigns `Aliases: []string{\"create\"}` to the first POST command per resource group. Here that lands on `security delete-user` (so `security create` would DELETE an instance user), `sessions add-event-to` (queues control events like Wake-on-LAN), and `audit get-info` - none of which create anything; the delete-user case is a catastrophic footgun. check_cli_claims is blind to Cobra aliases (project_onboard_cobra_alias_cli_claims_blindspot) so the gate passed; CodeRabbit flagged it on PR #99. A reprint re-adds the alias - remove it from all three command files. Systemic press bug; a retro should teach the press not to alias destructive/non-create POSTs to `create`.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/cli/security_delete-user.go", "not_contains": "[]string{\"create\"}"},
+        {"file": "cli/internal/cli/sessions_add-event-to.go", "not_contains": "[]string{\"create\"}"},
+        {"file": "cli/internal/cli/audit_get-info.go", "not_contains": "[]string{\"create\"}"}
+      ]
     }
   ]
 }

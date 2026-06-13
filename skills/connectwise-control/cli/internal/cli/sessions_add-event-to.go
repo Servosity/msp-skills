@@ -21,7 +21,6 @@ func newSessionsAddEventToCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "add-event-to",
-		Aliases:     []string{"create"},
 		Short:       "Queues a session event (such as Wake-on-LAN) against one or more sessions.",
 		Example:     "  connectwise-control-cli sessions add-event-to --session-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "sessions.add-event-to", "pp:method": "POST", "pp:path": "/Services/PageService.ashx/AddEventToSessions"},
