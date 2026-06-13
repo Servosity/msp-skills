@@ -7,7 +7,11 @@ All notable changes to this skill are documented here. Format follows
 ## [0.3.0] - unreleased
 
 ### Changed
-- Describe the changes in this release.
+- Regenerated the vendored `servosity-cli` / `servosity-mcp` source from
+  cli-printing-press 4.24.0 and re-rendered the templated skill surfaces. No
+  changes to command names or flags; the fleet mirror, snapshot history, search,
+  and the reporting/revenue commands (`qbr`, `fleet-health`, `email-draft`,
+  `backup-facts`, `storage-trend`, `unprovisioned`, `triage`) behave as before.
 
 ## [0.2.0]
 
