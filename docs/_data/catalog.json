@@ -1,5 +1,5 @@
 {
-  "count": 54,
+  "count": 55,
   "connectors": [
     {
       "slug": "abnormal",
@@ -96,6 +96,14 @@
       "category": "RMM",
       "verification": "awaiting",
       "url": "/skills/connectwise-automate/"
+    },
+    {
+      "slug": "connectwise-control",
+      "display_name": "ConnectWise Control",
+      "tagline": "Manage ConnectWise Control (ScreenConnect) remote support and access sessions from the terminal or your AI agent: list and inspect sessions across groups, run commands on guest machines, rename and tag sessions, manage instance users, and query the audit log - the whole instance from one CLI.",
+      "category": "Remote Access",
+      "verification": "awaiting",
+      "url": "/skills/connectwise-control/"
     },
     {
       "slug": "connectwise-manage",
