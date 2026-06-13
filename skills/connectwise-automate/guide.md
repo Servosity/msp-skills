@@ -2,114 +2,13 @@
 
 **Every ConnectWise Automate endpoint plus a local SQLite mirror that answers cross-client fleet questions the per-server web UI can't**
 
-ConnectWise Automate's value is locked behind a per-server console built for one-endpoint-at-a-time work. This CLI syncs your whole fleet  -  computers, clients, locations, alerts, and patch history  -  into local SQLite, then answers the questions MSPs actually ask across clients: where the offline agents are (stale-agents), who's behind on patches (patch-compliance), and what changed overnight (since). Everything is offline, scriptable, and agent-native.
+ConnectWise Automate's value is locked behind a per-server console built for one-endpoint-at-a-time work. This CLI syncs your whole fleet  -  computers, clients, locations, alerts, and patch history  -  into local SQLite, then answers the questions MSPs actually ask across clients: where the offline agents are (stale-agents), who's behind on patches (patch-compliance), and what changed overnight (since). Everything is offline, scriptable, and built for AI agents.
 
 ## Install
 
-The recommended path installs both the `connectwise-automate-cli` binary and the `pp-connectwise-automate` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
-
-```bash
-npx -y @mvanhorn/printing-press-library install connectwise-automate
-```
-
-For CLI only (no skill):
-
-```bash
-npx -y @mvanhorn/printing-press-library install connectwise-automate --cli-only
-```
-
-For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
-
-```bash
-npx -y @mvanhorn/printing-press-library install connectwise-automate --skill-only
-```
-
-To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
-
-```bash
-npx -y @mvanhorn/printing-press-library install connectwise-automate --agent claude-code
-npx -y @mvanhorn/printing-press-library install connectwise-automate --agent claude-code --agent codex
-```
-
-### Without Node
-
-The generated install path is category-agnostic until this CLI is published. If `npx` is not available before publish, install Node or use the category-specific Go fallback from the public-library entry after publish.
-
-### Pre-built binary
-
-Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/connectwise-automate-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
-
-<!-- pp-hermes-install-anchor -->
-## Install for Hermes
-
-Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
-
-```bash
-npx -y @mvanhorn/printing-press-library install connectwise-automate --cli-only
-```
-
-Then install the focused Hermes skill.
-
-From the Hermes CLI:
-
-```bash
-hermes skills install mvanhorn/printing-press-library/cli-skills/pp-connectwise-automate --force
-```
-
-Inside a Hermes chat session:
-
-```bash
-/skills install mvanhorn/printing-press-library/cli-skills/pp-connectwise-automate --force
-```
-
-Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
-
-## Install for OpenClaw
-Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
-
-```bash
-npx -y @mvanhorn/printing-press-library install connectwise-automate --agent openclaw
-```
-
-Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
-
-## Use with Claude Desktop
-
-This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
-
-To install:
-
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/connectwise-automate-current).
-2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `CONNECTWISE_AUTOMATE_TOKEN` when Claude Desktop prompts you.
-
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
-
-<details>
-<summary>Manual JSON config (advanced)</summary>
-
-If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
-
-
-Install the MCP binary from this CLI's published public-library entry or pre-built release.
-
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "connectwise-automate": {
-      "command": "connectwise-automate-mcp",
-      "env": {
-        "CONNECTWISE_AUTOMATE_SERVER": "<server>",
-        "CONNECTWISE_AUTOMATE_TOKEN": "<your-key>"
-      }
-    }
-  }
-}
-```
-
-</details>
+For the short install path see [README.md](./README.md). For wiring the MCP
+server into every agent (Claude Desktop, ChatGPT, Codex, and more), see
+[mcp-install.md](./mcp-install.md). This file is the command reference.
 
 ## Authentication
 

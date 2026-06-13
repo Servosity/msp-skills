@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "connectwise-automate-pp-mcp",
+  "name": "connectwise-automate-mcp",
   "display_name": "ConnectWise Automate",
   "version": "0.1.0",
   "description": "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift.",
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/connectwise-automate-pp-mcp",
+    "entry_point": "bin/connectwise-automate-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/connectwise-automate-pp-mcp",
+      "command": "${__dirname}/bin/connectwise-automate-mcp",
       "args": [],
       "env": {
         "CONNECTWISE_AUTOMATE_SERVER": "${user_config.connectwise_automate_server}",

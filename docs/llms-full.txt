@@ -449,6 +449,41 @@ A: No. CIPP stays your portal for deep single-tenant work. This skill adds the c
 
 Governance: The skill drives the cipp-cli and cipp-mcp binaries, authenticating to your self-hosted CIPP instance with a bearer token from CIPP_API_KEY (obtained via OAuth2 client credentials - 'auth login' performs and caches the exchange) read from the environment, never logged or sent anywhere except the CIPP API. CIPP is a read-write management API: read and rollup commands change nothing; bulk prints its plan and only writes with --execute; everything else (create/edit/offboard/delete, MFA and token actions) sends on run unless you pass --dry-run first. The real permission boundary is the scope you grant the API client in CIPP, so keep autonomous agents to reads plus previewed writes.
 
+### ConnectWise Automate (RMM)
+
+Page: https://msp-skills.compoundingteams.com/skills/connectwise-automate/
+Badge: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-automate/install.sh)
+
+Ask your AI "which clients are behind on patches?" or "where are my offline agents?" and get a fleet-wide answer in one shot. ConnectWise Automate's console is per-server and built for one endpoint at a time. This skill syncs your whole fleet - computers, clients, alerts, patch history - into a local SQLite mirror, then answers the cross-client questions the web UI can't.
+
+Outcomes (question -> command your AI agent runs):
+- Which agents haven't checked in for 30+ days, by client? -> connectwise-automate-cli stale-agents --days 30 --agent
+- Which clients are behind on patches, worst first? -> connectwise-automate-cli patch-compliance --agent
+- What open alerts need a human across every client? -> connectwise-automate-cli alert-triage --min-priority 3 --agent
+- What's my whole-fleet health right now - online/offline, last contact, open alerts? -> connectwise-automate-cli fleet-health --agent
+- Give me a one-line snapshot per client for the review. -> connectwise-automate-cli client-rollup --agent
+- What operating systems are end-of-life across the fleet? -> connectwise-automate-cli os-inventory --eol-only --agent
+- What changed overnight - new alerts, check-ins, patches installed? -> connectwise-automate-cli since --hours 24 --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local ConnectWise Automate MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my ConnectWise Automate data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Is this for ConnectWise Automate or ConnectWise Manage (PSA)?
+A: ConnectWise Automate - the RMM, formerly LabTech. ConnectWise Manage (the PSA) is a separate skill. This one talks to your Automate server's API for computers, clients, alerts, patching, scripts, and monitors.
+Q: Will this hit my Automate API rate limits?
+A: The local mirror is the point. You sync once, then every roll-up, triage, and search runs against local SQLite, so day-to-day questions never touch the API. Only sync and the live list/get commands call Automate.
+Q: Do I need to be a ConnectWise partner?
+A: You need an Automate server you administer plus an API token, and a registered integration clientId GUID (required for v2020.11+). The skill authenticates as you and adds nothing to your ConnectWise account.
+
+Governance: The skill is read-first: fleet roll-ups, stale-agent sweeps, patch posture, alert triage, inventory, and search are all read-only and safe to let an agent run. A small set of commands change real endpoints - running a command on an agent (computers command-execute) and deploying patches across the fleet (patching deploy-approved / deploy-security / reattempt-failed) - plus token minting; keep those human-in-the-loop. The credential's own ConnectWise Automate permissions are the outer limit on anything the agent can do.
+
 ### ConnectWise PSA (Manage) (PSA)
 
 Page: https://msp-skills.compoundingteams.com/skills/connectwise-manage/

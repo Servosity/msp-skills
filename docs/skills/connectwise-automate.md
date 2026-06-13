@@ -124,6 +124,7 @@ After install, authenticate once with your ConnectWise Automate credentials, the
 | --- | --- | --- |
 | Read | fleet-health, stale-agents, patch-compliance, alert-triage, client-rollup, os-inventory, since, and every list / get / search command | Allow |
 | Endpoint and fleet actions | computers command-execute (runs a real command on an agent), patching deploy-approved / deploy-security / reattempt-failed (fleet-wide patch deployment) | Human-in-the-loop, explicit confirmation |
+| Write (data) | import <resource> (creates/upserts records via the API) | Preview with --dry-run, then a reviewed write |
 | Credential | apitoken mint, apitoken refresh, auth set-token | Human-in-the-loop only |
 
 The skill is read-first: fleet roll-ups, stale-agent sweeps, patch posture, alert triage, inventory, and search are all read-only and safe to let an agent run. A small set of commands change real endpoints - running a command on an agent (computers command-execute) and deploying patches across the fleet (patching deploy-approved / deploy-security / reattempt-failed) - plus token minting; keep those human-in-the-loop. The credential's own ConnectWise Automate permissions are the outer limit on anything the agent can do. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/connectwise-automate/governance.md).

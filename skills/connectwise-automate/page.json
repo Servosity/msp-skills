@@ -97,6 +97,11 @@
       "policy": "Human-in-the-loop, explicit confirmation"
     },
     {
+      "tier": "Write (data)",
+      "examples": "import <resource> (creates/upserts records via the API)",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
       "tier": "Credential",
       "examples": "apitoken mint, apitoken refresh, auth set-token",
       "policy": "Human-in-the-loop only"

@@ -1,4 +1,4 @@
-# ConnectWise + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
+# ConnectWise Automate + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the ConnectWise
 > API. Not affiliated with, endorsed by, or sponsored by ConnectWise, LLC.
@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/connectwise-automate/">
-    <img src="../../docs/assets/social/connectwise-automate/wide-1200x630.png" alt="ConnectWise Automate - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/connectwise-automate/animated-og.gif" alt="ConnectWise Automate demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/connectwise-automate/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/connectwise-automate/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
@@ -145,25 +145,35 @@ CONNECTWISE_AUTOMATE_SERVER=<value> CONNECTWISE_AUTOMATE_CLIENT_ID=<value> CONNE
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `connectwise-automate-cli ...` |
-
--->
+| Which agents haven't checked in for 30+ days, by client? | `connectwise-automate-cli stale-agents --days 30 --agent` |
+| Which clients are behind on patches, worst first? | `connectwise-automate-cli patch-compliance --agent` |
+| What open alerts need a human across every client? | `connectwise-automate-cli alert-triage --min-priority 3 --agent` |
+| What's my whole-fleet health right now? | `connectwise-automate-cli fleet-health --agent` |
+| Give me a one-line snapshot per client for the review. | `connectwise-automate-cli client-rollup --agent` |
+| What operating systems are end-of-life across the fleet? | `connectwise-automate-cli os-inventory --eol-only --agent` |
+| What changed overnight - alerts, check-ins, patches? | `connectwise-automate-cli since --hours 24 --agent` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most ConnectWise integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most ConnectWise Automate integrations and MCP servers proxy each question into a live API call. That's fine for one computer. It dies at scale, when you're asking "how many agents are offline across all 40 clients" or "who's behind on patches before this morning's QBR".
 
-This skill syncs ConnectWise into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs ConnectWise Automate into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `fleet-health`, `patch-compliance`, and `alert-triage` join across computers, clients, locations, alerts, and patch history - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+Automate (formerly LabTech) is built around a per-server console that excels at drilling into one endpoint and falls apart at "show me this across every client." On MSPGeek - the long-running ConnectWise Automate community forum - and on r/msp, the recurring complaints are the same: no fast cross-client roll-up, offline and stale agents quietly inflating license counts, and patch-compliance for a QBR that means assembling a report per client by hand. The data is all in Automate; getting a fleet-wide answer out of it is the work - and it lands at the worst times, before a license true-up or the morning of a review.
+
+This skill answers those questions directly:
+
+- `stale-agents --days 30` - offline agents grouped by client, ready for a true-up
+- `patch-compliance` - per-client patch posture, worst first, ready for the QBR
+- `alert-triage --min-priority 3` - what needs a human across every client this morning
+- `fleet-health` - online/offline, last-contact age, and open alerts in one roll-up
+- `os-inventory --eol-only` - end-of-life OSes flagged for the refresh conversation
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +195,21 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Is this for ConnectWise Automate or ConnectWise Manage (PSA)?
+
+ConnectWise Automate - the RMM, formerly LabTech. ConnectWise Manage (the PSA) is a separate skill. This one talks to your Automate server's API for computers, clients, alerts, patching, scripts, and monitors.
+
+### Will this hit my Automate API rate limits?
+
+The local mirror is the point. You `sync` once, then every roll-up, triage, and search runs against local SQLite, so day-to-day questions never touch the API. Only `sync` and the live `list`/`get` commands call Automate.
+
+### Do I need to be a ConnectWise partner?
+
+You need an Automate server you administer plus an API token, and a registered integration `clientId` GUID (required for v2020.11+). The skill authenticates as you and adds nothing to your ConnectWise account.
+
+### Will this replace the Automate console?
+
+No. It's for cross-client reporting and triage from the terminal or your AI agent. The console stays where you configure monitors, scripts, and policies.
 
 ### What does it cost?
 
@@ -198,17 +217,14 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
+| Read | `fleet-health`, `stale-agents`, `patch-compliance`, `alert-triage`, `client-rollup`, `os-inventory`, `since`, all `list`/`get`/`search` | Allow |
+| Endpoint and fleet actions | `computers command-execute` (runs a real command on an agent), `patching deploy-approved` / `deploy-security` / `reattempt-failed` (fleet-wide patch deployment) | Human-in-the-loop, explicit confirmation |
+| Write (data) | `import <resource>` (creates/upserts records via the API) | Preview with `--dry-run`, then a reviewed write |
+| Credential | `apitoken mint` / `refresh`, `auth set-token` | Human-in-the-loop only |
 
--->
-
-The strongest control is the **scope you grant the ConnectWise credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
+The strongest control is the **scope you grant the ConnectWise Automate credentials** - the CLI can only do what the token is permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 
@@ -218,4 +234,4 @@ Beta. Validated against the ConnectWise API surface and being validated with MSP
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-12._

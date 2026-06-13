@@ -1,6 +1,6 @@
 ---
 name: connectwise-automate
-description: "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift."
+description: "Use when the user asks to check ConnectWise Automate fleet health, find stale or offline agents, report patch compliance by client, triage open alerts across clients, inventory end-of-life OSes, or see what changed overnight across an RMM fleet. Syncs your whole Automate server into a local SQLite mirror so it answers cross-client questions the per-server console can't. Trigger phrases: `connectwise automate fleet health`, `stale automate agents`, `automate patch compliance by client`, `triage automate alerts`, `use connectwise automate`, `run connectwise-automate-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "ConnectWise"
@@ -13,24 +13,26 @@ metadata:
         - connectwise-automate-cli
 ---
 
-# ConnectWise Automate  -  Printing Press CLI
+# ConnectWise Automate Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `connectwise-automate-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install connectwise-automate --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-automate/install.sh)
    ```
-2. Verify: `connectwise-automate-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-automate/install.ps1 | iex
+   ```
+3. Verify: `connectwise-automate-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails before this CLI has a public-library category, install Node or use the category-specific Go fallback after publish.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
-
-ConnectWise Automate's value is locked behind a per-server console built for one-endpoint-at-a-time work. This CLI syncs your whole fleet  -  computers, clients, locations, alerts, and patch history  -  into local SQLite, then answers the questions MSPs actually ask across clients: where the offline agents are (stale-agents), who's behind on patches (patch-compliance), and what changed overnight (since). Everything is offline, scriptable, and agent-native.
+ConnectWise Automate's value is locked behind a per-server console built for one-endpoint-at-a-time work. This CLI syncs your whole fleet  -  computers, clients, locations, alerts, and patch history  -  into local SQLite, then answers the questions MSPs actually ask across clients: where the offline agents are (stale-agents), who's behind on patches (patch-compliance), and what changed overnight (since). Everything is offline, scriptable, and built for AI agents.
 
 ## Unique Capabilities
 
@@ -94,7 +96,7 @@ These capabilities aren't available in any other tool for this API.
 ### Morning triage across all clients
 
 ```bash
-connectwise-automate-cli alert-triage --min-priority 3 --agent --select client_name,computer_name,priority,message
+connectwise-automate-cli alert-triage --min-priority 3 --agent --select client,computer,priority,message
 ```
 
 Narrows the alert payload to the four fields that matter so an agent doesn't burn context on the full alert objects.
@@ -273,7 +275,7 @@ Unknown schemes are refused with a structured error naming the supported set. We
 
 ## Named Profiles
 
-A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration - HeyGen's "Beacon" pattern.
+A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration.
 
 ```
 connectwise-automate-cli profile save briefing --json
@@ -307,7 +309,7 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-Install the MCP binary from this CLI's published public-library entry or pre-built release, then register it:
+Install the MCP binary (run the install script from the Prerequisites section, or see [mcp-install.md](./mcp-install.md) for per-agent wire-up), then register it:
 
 ```bash
 claude mcp add connectwise-automate-mcp -- connectwise-automate-mcp
