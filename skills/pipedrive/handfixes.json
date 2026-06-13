@@ -1,0 +1,19 @@
+{
+  "slug": "pipedrive",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. governance.md is preserved by onboard.py --resume but a FULL reprint re-runs gen_governance.py and would re-introduce the mis-tiering.",
+  "handfixes": [
+    {
+      "id": "governance-add-as-create-write-tier",
+      "summary": "Pipedrive uses `add` as its create verb; the Write tier hand-includes every `<resource> add` create (gen_governance's WRITE keywords omit `add`)",
+      "why": "gen_governance.py's WRITE keyword tuple is (create,update,patch,comment,ignore,archive,reactivate,triage,clear,set) - it does NOT include `add`. Pipedrive uses `add` as the create verb (`deals add`, `persons add`, `organizations add`, `notes add`, `activities add`, `leads add`, `products add`, ...), so EVERY create fell into NO tier -> silently Read (false-negative). The governance Write tier was hand-corrected from the authoritative pp:method to include all 73 routine writes (the `add` creates + `update` + verb-less `import`). A full reprint re-runs gen_governance and drops every `add` create back to Read. See project_gen_governance_missing_add_verb.",
+      "status": "active",
+      "spec_encode_followup": "Make gen_governance method-aware off agent-context pp:method (would fix add/verb-less/setup at once). Until then every add-verb (Pipedrive-shaped) API needs this hand-correction.",
+      "asserts": [
+        {"file": "governance.md", "contains": "`deals add`", "min_count": 1},
+        {"file": "governance.md", "contains": "`persons add`", "min_count": 1},
+        {"file": "governance.md", "contains": "`organizations add`", "min_count": 1}
+      ]
+    }
+  ]
+}

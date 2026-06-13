@@ -1,0 +1,27 @@
+{
+  "slug": "domotz",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. governance.md is preserved by onboard.py --resume but a FULL reprint re-runs gen_governance.py and would re-introduce the mis-tiering.",
+  "handfixes": [
+    {
+      "id": "governance-physical-device-control-tier",
+      "summary": "Hand-added a 'Physical / device control' tier; gen_governance files Domotz's hardware-action verbs (power-action/outlet/onvif/vpn) into Read because they carry no write keyword",
+      "why": "gen_governance.py keyword-matches command paths, so Domotz's device-action verbs that mutate real hardware (power outlets, cameras, VPN tunnels) - `power-action-on`, `trigger-outlet-action`, `attach-to-outlet`/`detach-from-outlet`, `onvif-snapshot`, `connect-to`, `backup-configuration`, `create-agent-vpnconnection` - carry no write keyword and fell into Read/Allow. A network-monitoring/RMM connector with hardware control needs a human-in-the-loop Physical tier. A full reprint re-runs gen_governance and drops these back to Read. See project_domotz_onboard_gotchas.",
+      "status": "active",
+      "asserts": [
+        {"file": "governance.md", "contains": "Physical / device control", "min_count": 1},
+        {"file": "governance.md", "contains": "power-action-on", "min_count": 1},
+        {"file": "governance.md", "contains": "trigger-outlet-action", "min_count": 1}
+      ]
+    },
+    {
+      "id": "governance-snmp-secret-read-credential-tier",
+      "summary": "`agent device get-snmpauthentication` is a secret-returning READ; moved to the Credential tier, not Read/Allow",
+      "why": "Its response schema (SNMPDomotzAuthentication) includes snmp_read_community, snmp_write_community, authentication_key, encryption_key - a secret-returning read, the SNMP sibling of the itglue passwords-get case. It must NOT be Read/Allow. (The plain `agent device get` has no typed schema and does NOT return community strings, so it correctly stays Read.) A full reprint's keyword classifier would file get-snmpauthentication as a benign get. See feedback_secret_read_commands_not_read_tier.",
+      "status": "active",
+      "asserts": [
+        {"file": "governance.md", "contains": "`agent device get-snmpauthentication` (returns SNMP secrets)", "min_count": 1}
+      ]
+    }
+  ]
+}

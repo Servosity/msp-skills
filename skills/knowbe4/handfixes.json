@@ -1,0 +1,27 @@
+{
+  "slug": "knowbe4",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one.",
+  "handfixes": [
+    {
+      "id": "user-event-secondary-client",
+      "summary": "Separate userevents client + KNOWBE4_USER_EVENT_API_KEY for the User Event API (events group); a hand-authored second-key client",
+      "why": "KnowBe4 exposes two APIs behind one CLI: the Reporting API (KNOWBE4_API_KEY) and a separate User Event API on its own host with its own key (KNOWBE4_USER_EVENT_API_KEY). The `events` group (create/delete) talks to the User Event API via a dedicated hand-authored client package; the Reporting key cannot reach it. A reprint that drops the userevents package or its EnvKey breaks the events write surface.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/userevents/userevents.go", "contains": "KNOWBE4_USER_EVENT_API_KEY", "min_count": 1},
+        {"file": "cli/internal/cli/events.go", "contains": "KNOWBE4_USER_EVENT_API_KEY", "min_count": 1}
+      ]
+    },
+    {
+      "id": "import-uses-main-key-not-event-key",
+      "summary": "`import` is a write but uses the MAIN Reporting key (flags.newClient), NOT the secondary User Event key; docs attribute keys per-write",
+      "why": "The natural-but-wrong mental model is 'the events sub-product is the write surface, so all writes use the events key.' FALSE: `import` is a bulk POST write that uses the MAIN Reporting key (import.go calls flags.newClient(), the primary client) - only `events create`/`events delete` use the secondary key. Two adversarial rounds were needed to get the docs right (README + SKILL.md both initially mis-attributed). The governance Write row must keep `import` attributed to the main key (no secondary-key note) while `events create` notes it needs KNOWBE4_USER_EVENT_API_KEY.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/cli/import.go", "contains": "flags.newClient()", "min_count": 1},
+        {"file": "governance.md", "contains": "`events create` (push a custom risk event; needs `KNOWBE4_USER_EVENT_API_KEY`), `import`", "min_count": 1}
+      ]
+    }
+  ]
+}

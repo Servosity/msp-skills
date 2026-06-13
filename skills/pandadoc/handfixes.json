@@ -1,0 +1,28 @@
+{
+  "slug": "pandadoc",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one.",
+  "handfixes": [
+    {
+      "id": "auth-header-api-key-prefix",
+      "summary": "Authorization header must be `API-Key <token>` (spec x-auth-value-prefix); AuthHeader() prepends the prefix and is idempotent",
+      "why": "PandaDoc authenticates with `Authorization: API-Key <key>`, not a bare bearer token. The generator ignores `x-auth-value-prefix` (2nd confirmed instance after sentinelone), so a stock AuthHeader() returns the bare token -> silent live 401. The prior 4.19 print shipped broken (never live-verified). Hand-fixed in config.go (prefix + HasPrefix idempotency) and pinned by pandadoc_auth_test.go. Grep x-auth-value-prefix in spec + AuthHeader in config.go on every reprint.",
+      "status": "active",
+      "spec_encode_followup": "Make the press honor x-auth-value-prefix when emitting AuthHeader(); until then this hand-fix recurs on every reprint.",
+      "asserts": [
+        {"file": "cli/internal/config/config.go", "contains": "return \"API-Key \" + token", "min_count": 1},
+        {"file": "cli/internal/config/config.go", "contains": "strings.HasPrefix(token, \"API-Key \")", "min_count": 1},
+        {"file": "cli/internal/config/pandadoc_auth_test.go", "contains": "API-Key", "min_count": 1}
+      ]
+    },
+    {
+      "id": "webhook-coverage-resource-name-drift",
+      "summary": "webhook_coverage novel reads the hyphen resource name `webhook-subscriptions` (matches the syncer) with an underscore legacy fallback",
+      "why": "The syncer persists rows under `webhook-subscriptions` (hyphen) but the prior 4.19 novel read `webhook_subscriptions` (underscore), so the coverage report always saw 0 rows. When porting prior novels, every db.List(\"...\") must match defaultSyncResources()/sync.go's resource names. The fix reads the canonical hyphen name first and falls back to the underscore form for legacy local stores.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/cli/webhook_coverage.go", "contains": "db.List(\"webhook-subscriptions\"", "min_count": 1}
+      ]
+    }
+  ]
+}

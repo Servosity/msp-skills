@@ -51,5 +51,12 @@
       "linux",
       "win32"
     ]
+  },
+  "printing_press_version": "4.22.0",
+  "press_provenance": {
+    "printing_press_version": "4.22.0",
+    "generated_at": "2026-06-06T02:42:04.958433Z",
+    "spec_checksum": "sha256:20614fd747a37ffae33ac5a6ae4cc2ca1b08fa21d154307cebba49d7014ec00f",
+    "spec_format": "openapi3"
   }
 }

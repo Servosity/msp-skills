@@ -1,0 +1,27 @@
+{
+  "slug": "action1",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. governance.md is preserved by onboard.py --resume but a FULL reprint re-runs gen_governance.py and would re-introduce the mis-tiering.",
+  "handfixes": [
+    {
+      "id": "governance-endpoint-patch-execution-tier",
+      "summary": "Hand-added an 'Endpoint / patch execution' tier; gen_governance is method-blind and missed all 31 POSTs (run-automation, approve-updates, remote-sessions, scripts)",
+      "why": "Action1 is a patch/RMM connector whose members RUN CODE/PATCHES on live managed endpoints. gen_governance.py keyword-matches and ignores pp:method, so it caught only -patch/-delete suffixes and missed every POST: `automations policies-instances-org-id-post` (run an automation), the stop-automation, `updates approvals updates-org-id` (approve updates for deployment), `endpoints ...-remote-sessions-post/-patch`, `installed-software requery ...post`, `scripts org-id-post`/`org-id-id-patch`. governance.md was rewritten method-aware from the authoritative agent-context pp:method. A full reprint re-runs the keyword classifier and drops these execution writes to Read. See project_action1_onboard_traps.",
+      "status": "active",
+      "asserts": [
+        {"file": "governance.md", "contains": "Endpoint / patch execution", "min_count": 1},
+        {"file": "governance.md", "contains": "run an automation", "min_count": 1},
+        {"file": "governance.md", "contains": "approve updates for deployment", "min_count": 1}
+      ]
+    },
+    {
+      "id": "governance-oauth2-mint-credential-tier",
+      "summary": "`oauth2` (mints a bearer token) + user/role management are in the Credential tier, not Read",
+      "why": "gen_governance put `(none detected)` for Credential and missed the `oauth2` token mint plus users/roles management entirely (method-blind, all POSTs). These touch identity/credentials and must be human-in-the-loop. A full reprint re-runs the classifier and leaves Credential empty. See project_action1_onboard_traps.",
+      "status": "active",
+      "asserts": [
+        {"file": "governance.md", "contains": "`oauth2` (mints a bearer token)", "min_count": 1}
+      ]
+    }
+  ]
+}

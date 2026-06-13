@@ -1,0 +1,41 @@
+{
+  "slug": "nerdio",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: project_nerdio_print_gotchas.md (first print 2026-06-06, press 4.22.0, NMM Partner API). NOTE the NERDIO_*-MCP binary still ships the -pp- name (peer fleet drift, passes verify_all) - that is NOT a hand-fix and is deliberately not asserted here.",
+  "handfixes": [
+    {
+      "id": "oauth2-per-instance-five-vars",
+      "summary": "All 5 env vars (NERDIO_BASE_URL, NERDIO_TOKEN_URL, NERDIO_OAUTH_SCOPE + CLIENT_ID/SECRET) are in manifest.json user_config/mcp env + server.json + docs; the press documented only the 2 auth.env_vars",
+      "why": "Per-instance oauth2 trap variant: config.go reads FIVE vars but the press generator documents only CLIENT_ID/SECRET (auth.env_vars) in README env table, mcpb user_config, server.json, and doctor checks. Without BASE_URL/TOKEN_URL/OAUTH_SCOPE the .mcpb extension and every documented env example point at nothing and fail. Hand-added to manifest user_config + mcp_config.env + server.json + docs. A reprint drops the three non-auth vars again. Cousin of hudu/n-central per-instance BASE_URL omission.",
+      "status": "active",
+      "spec_encode_followup": "Fix belongs in the press: per-instance oauth2 connectors should derive the full required-var set (base_url/token_url/scope) for docs + manifest, not just auth.env_vars. Doctor still only checks 2 (retro candidate).",
+      "asserts": [
+        {"file": "manifest.json", "contains": "NERDIO_BASE_URL", "min_count": 1},
+        {"file": "manifest.json", "contains": "NERDIO_TOKEN_URL", "min_count": 1},
+        {"file": "manifest.json", "contains": "NERDIO_OAUTH_SCOPE", "min_count": 1},
+        {"file": "server.json", "contains": "NERDIO_TOKEN_URL", "min_count": 1}
+      ]
+    },
+    {
+      "id": "oauth-scope-no-api-prefix-doc",
+      "summary": "Docs warn NERDIO_OAUTH_SCOPE is the bare '<app-id>/.default' with NO api:// prefix (api:// triggers AADSTS500011)",
+      "why": "Nerdio's correct AAD scope is the bare Application ID URI default with no api:// prefix; adding api:// triggers AADSTS500011 (Nerdio's own docs got this wrong for years). The press has no knowledge of this Azure-AD quirk, so the hand-authored guide.md/SKILL.md note is the only place a user learns it. A reprint regenerates the docs without the warning.",
+      "status": "active",
+      "asserts": [
+        {"file": "guide.md", "contains": "AADSTS500011", "min_count": 1},
+        {"file": "SKILL.md", "contains": "NO api:// prefix", "min_count": 1}
+      ]
+    },
+    {
+      "id": "job-singular-rename-no-dup-parent",
+      "summary": "Reserved framework command `jobs` renamed to `job` (singular, matches /job/{id}); novel scripted-actions dup-parent (TODO stub) removed",
+      "why": "(1) `jobs` is a reserved framework command, so the spec resource was renamed to `job` (singular, matches the API path /job/{id}). (2) The novel emitter resolved the existing parent by derived filename (scripted_actions.go underscore) and missed the generated scripted-actions.go (hyphen), creating TWO Cobra parents with Use 'scripted-actions', the novel one showing 'TODO: implement' in root help. The duplicate novel parent file + its root.go registration were deleted; the generated Hidden parent already AddCommands the novel subcommand. A reprint reintroduces both the reserved-name collision and the duplicate TODO parent.",
+      "status": "active",
+      "spec_encode_followup": "(1) `job` rename is spec-encoded (x-pp-resource); keep it on re-copy. (2) The dup-parent is a press novel-emitter bug (filename hyphen/underscore mismatch) - filed/file as a retro so the emitter resolves parents structurally, not by derived filename.",
+      "asserts": [
+        {"file": "cli/internal/cli/job.go", "contains": "Use:         \"job\"", "min_count": 1},
+        {"file": "cli/internal/cli/root.go", "not_contains": "TODO: implement"}
+      ]
+    }
+  ]
+}

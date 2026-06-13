@@ -1,0 +1,39 @@
+{
+  "slug": "abnormal",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: project_abnormal_print_gotchas.md (first print 2026-06-06, press 4.22.0). NOTE the big trap: a mid-build `generate --force` re-emits novel TODO stubs over implemented hand-authored novel files even without the generated header - do ALL spec repairs BEFORE implementing novels on any reprint.",
+  "handfixes": [
+    {
+      "id": "x-pp-resource-renames",
+      "summary": "Spec resources renamed to avoid reserved/collision: /search* -> email-search, /resources* -> api-resources (typed FTS table collided with framework resources_fts)",
+      "why": "`search` is a reserved template command (parse-time collision); `resources` collides with the framework `resources_fts` typed-FTS table - NOT caught at parse time, surfaces as store test failures ('no column named description') and silently-wrong runtime FTS. The renames produce the email-search / api-resources commands and typed store tables. A reprint without the x-pp-resource renames reintroduces the collisions.",
+      "status": "active",
+      "spec_encode_followup": "These ARE spec-encoded (x-pp-resource on the affected paths in the abnormal spec); the markers below assert the rename survived into the generated CLI + store schema. Keep the x-pp-resource annotations on any spec re-copy.",
+      "asserts": [
+        {"file": "cli/internal/cli/email_search.go", "contains": "Use:         \"email-search\"", "min_count": 1},
+        {"file": "cli/internal/cli/api_resources.go", "contains": "Use:         \"api-resources\"", "min_count": 1},
+        {"file": "cli/internal/store/store.go", "contains": "\"api_resources\"", "min_count": 1},
+        {"file": "cli/internal/store/store.go", "contains": "\"email_search\"", "min_count": 1}
+      ]
+    },
+    {
+      "id": "eu-base-url-documented",
+      "summary": "ABNORMAL_BASE_URL (EU host override) is documented in guide.md env table + troubleshoots; the press omits the optional base-URL var from docs",
+      "why": "config.go reads ABNORMAL_BASE_URL as an optional override for EU tenants (https://eu.api.abnormalplatform.com/v1); the press doc generator only documents the bearer token (ABNORMAL_API_TOKEN). Without the override documented, EU customers get empty results / 4xx with no guidance. A reprint drops the EU-host documentation.",
+      "status": "active",
+      "asserts": [
+        {"file": "guide.md", "contains": "ABNORMAL_BASE_URL", "min_count": 1},
+        {"file": "cli/internal/config/config.go", "contains": "ABNORMAL_BASE_URL", "min_count": 1}
+      ]
+    },
+    {
+      "id": "portal-url-no-trailing-backtick",
+      "summary": "Vendor portal URL prose must not carry the markdown-quote trailing backtick harvested from spec prose (integrations`)",
+      "why": "The vendor spec prose put a markdown backtick after 'integrations', which the press harvested verbatim into helpers/auth/doctor/mcp-tools output (a runtime artifact, not just docs). Stripped during onboarding. A reprint re-harvests the trailing backtick.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/cli/auth.go", "not_contains": "integrations`"}
+      ]
+    }
+  ]
+}

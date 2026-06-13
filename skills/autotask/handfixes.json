@@ -1,0 +1,62 @@
+{
+  "slug": "autotask",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. These are spec-shape-triggered PSA gotchas; the next PSA reprint (connectwise-manage, halopsa) will hit several again.",
+  "handfixes": [
+    {
+      "id": "psa-resources-table-shadow-rename",
+      "summary": "The API entity 'Resources' collides with the framework's generic `resources` table; shadow-renamed to `psa_resources` (table + FTS + triggers + upsert + Search)",
+      "why": "Autotask has an entity literally named 'Resources'. The generator emits a typed table `resources` that collides with the framework's generic `resources` store table; 4.22's typed-FTS triggers then crash EVERY sync insert (`resources_fts has no column named name`). The generator shadow-renames colliding Cobra commands but NOT store tables, so the typed Resources table was hand-renamed to `psa_resources` (with its FTS index, triggers, backfill, typed upsert, SearchX, and upgrade test).",
+      "status": "active",
+      "spec_encode_followup": "Press should shadow-rename a typed store table that collides with a reserved/generic framework table (filed via printing-press-retro).",
+      "asserts": [
+        {"file": "cli/internal/store/store.go", "contains": "psa_resources", "min_count": 5}
+      ]
+    },
+    {
+      "id": "multi-apikey-no-header-blanking",
+      "summary": "The composed-apiKey header-blanking bug must stay fixed: client must NOT re-Set UserName/Secret to empty after setting them",
+      "why": "The 4.22 generated client.go emitted unconditional `req.Header.Set(\"UserName\", \"\"); req.Header.Set(\"Secret\", \"\")` resets right after setting the sibling apiKey credentials, blanking them -> all live calls 401. The hand-fix removes the reset lines (the buggy pattern now survives only as an explanatory NOTE comment, pinned by autotask_headers_test.go) and sets the real values. NOTE: the literal blanked-Set string intentionally remains inside the explanatory comment, so this entry asserts the FIX (the documenting comment + the real value-Sets) rather than banning a substring that legitimately appears in the comment.",
+      "status": "active",
+      "spec_encode_followup": "Press must stop emitting empty-string header resets for composed-apiKey schemes (filed via printing-press-retro).",
+      "asserts": [
+        {"file": "cli/internal/client/client.go", "contains": "those reset lines are removed", "min_count": 1},
+        {"file": "cli/internal/client/client.go", "contains": "req.Header.Set(\"UserName\", v)", "min_count": 1},
+        {"file": "cli/internal/client/client.go", "contains": "req.Header.Set(\"Secret\", v)", "min_count": 1}
+      ]
+    },
+    {
+      "id": "redirect-strips-sibling-credentials",
+      "summary": "CheckRedirect deletes ALL custom auth headers (ApiIntegrationCode + sibling UserName/Secret) before a cross-host redirect, not just the primary",
+      "why": "Go's default cross-host redirect handling strips only standard auth; the generated CheckRedirect deleted only the PRIMARY custom header, so sibling apiKey headers (UserName/Secret) forwarded verbatim to cross-host redirect targets -> credential leak. The hand-fix adds the extra Header.Del calls for the sibling credentials.",
+      "status": "active",
+      "spec_encode_followup": "Press CheckRedirect should delete every custom auth header for composed-apiKey schemes on cross-host hops.",
+      "asserts": [
+        {"file": "cli/internal/client/client.go", "contains": "req.Header.Del(\"UserName\")", "min_count": 1},
+        {"file": "cli/internal/client/client.go", "contains": "req.Header.Del(\"Secret\")", "min_count": 1}
+      ]
+    },
+    {
+      "id": "novel-stub-collision-data-gaps-and-stale",
+      "summary": "Novel commands renamed/registered to avoid framework-name collisions: generic newStaleCmd (pm_stale.go) dropped, novel `data-gaps` keeps a unique name",
+      "why": "The 4.22 novel-stub emitter re-emits framework-named commands alongside same-name novels (dup-cobra, first-added wins). pm_stale.go (generic data-layer `stale`) collided with the hand-built novel `stale`; pm_stale.go was deleted and its registration dropped (the transcendence spec keeps the novel impl). The novel aggregation was named `data-gaps` (not a framework name like pm_orphans' `orphans`). A reprint must not re-register the generic newStaleCmd (the root.go comment documents the dropped registration) and must keep the unique `data-gaps` name. (The gate cannot assert pm_stale.go's absence directly - it asserts the documenting comment + the data-gaps name/registration instead.)",
+      "status": "active",
+      "spec_encode_followup": "Press novel-stub emitter must not emit a stub whose name collides with a declared novel/framework command.",
+      "asserts": [
+        {"file": "cli/internal/cli/data_gaps.go", "contains": "Use:   \"data-gaps\"", "min_count": 1},
+        {"file": "cli/internal/cli/root.go", "contains": "newNovelDataGapsCmd(flags)", "min_count": 1},
+        {"file": "cli/internal/cli/root.go", "contains": "the generic pm_stale", "min_count": 1}
+      ]
+    },
+    {
+      "id": "novel-store-list-uncapped",
+      "summary": "Hand-written novel aggregations pass math.MaxInt32 to store.List so they are not silently capped at 200 rows",
+      "why": "store.List(rt, 0) silently means LIMIT 200, not unlimited (same unabsorbed press gap as sherweb/pax8). Every hand-written novel that aggregates across the fleet must pass math.MaxInt32 or it truncates at 200 rows and reports wrong PSA rollups.",
+      "status": "active",
+      "spec_encode_followup": "Fix store.List limit<=0 semantics in the press (no cap means no cap).",
+      "asserts": [
+        {"file": "cli/internal/cli/novel_shared.go", "contains": "math.MaxInt32", "min_count": 1}
+      ]
+    }
+  ]
+}

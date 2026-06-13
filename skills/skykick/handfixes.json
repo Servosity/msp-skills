@@ -1,0 +1,40 @@
+{
+  "slug": "skykick",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: project_skykick_onboard_traps.md (PR #69, 2026-06-07).",
+  "handfixes": [
+    {
+      "id": "oauth-scope-optional-nonsecret",
+      "summary": "SKYKICK_OAUTH_SCOPE is optional + non-secret (has a working source default 'Partner'); the press marked it required + sensitive",
+      "why": "auth.go resolveClientCredentialsScope() returns the working default 'Partner' when SKYKICK_OAUTH_SCOPE is empty and SENDS it, so the scope is not a credential and the user need not supply one. The press emitted required:true / sensitive:true in BOTH manifest.json user_config AND server.json environmentVariables. A reprint reverts both to required+secret, falsely demanding a non-credential the binary defaults. Same shape as appdirect and domotz REGION-with-default.",
+      "status": "active",
+      "spec_encode_followup": "Spec hook: mark OAUTH_SCOPE optional + non-secret in x-auth-env-vars metadata so the press emits required:false / sensitive:false by construction (the press currently defaults oauth scope vars to required+secret).",
+      "asserts": [
+        {"file": "manifest.json", "contains": "\"skykick_oauth_scope\"", "min_count": 1},
+        {"file": "server.json", "contains": "SKYKICK_OAUTH_SCOPE", "min_count": 1}
+      ]
+    },
+    {
+      "id": "governance-method-aware-write-tier",
+      "summary": "Governance Write tier hand-authored to the 5 real POSTs; storage-settings / subscription-settings are noted read-only (keyword classifier missed both directions)",
+      "why": "gen_governance double-miss: (FALSE-POSITIVE) `backup storage-settings` + `backup subscription-settings` matched the `set` keyword and were placed in Write, but both are pp:method:GET / mcp:read-only reads; (FALSE-NEGATIVE) the 5 real POSTs all fell to Read because their verbs (`complete`, `discover-*`, verb-less `import`, `--apply`) aren't in the classifier's write-verb list. Hand-authored governance.md/README/page.json: Write tier = alerts complete, alert-sweep --apply, backup discover-mailboxes, backup discover-sites, import; storage-settings/subscription-settings explicitly read-only. A reprint regenerates governance.md from the blind classifier and reverts both.",
+      "status": "active",
+      "spec_encode_followup": "Real fix is a method-aware gen_governance (classify from pp:method, not the command-name verb). Tracked across project_gen_governance_misses_verbless_writes / project_gen_governance_setup_substring_bug.",
+      "asserts": [
+        {"file": "governance.md", "contains": "discover-mailboxes", "min_count": 1},
+        {"file": "governance.md", "contains": "alert-sweep --complete", "min_count": 1},
+        {"file": "governance.md", "contains": "read-only", "min_count": 1}
+      ]
+    },
+    {
+      "id": "mcp-binary-rename",
+      "summary": "MCP binary renamed skykick-pp-mcp -> skykick-mcp in manifest.json (name/entry_point); the press emits the -pp- name",
+      "why": "onboard re-vendors+patches manifest.json from source every run, so the -pp-mcp -> skykick-mcp rename in name/entry_point must be re-applied after the final --resume. A reprint/re-onboard reverts the public-facing binary name to skykick-pp-mcp. Honors the autotask #35 rename convention.",
+      "status": "active",
+      "asserts": [
+        {"file": "manifest.json", "contains": "skykick-mcp", "min_count": 1},
+        {"file": "manifest.json", "not_contains": "skykick-pp-mcp"}
+      ]
+    }
+  ]
+}
