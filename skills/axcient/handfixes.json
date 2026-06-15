@@ -51,7 +51,8 @@
       "status": "upstreamed",
       "asserts": [
         {"file": "cli/internal/cli/sync.go", "contains": "isDryRunResponse(data)", "min_count": 2},
-        {"file": "cli/internal/cli/sync.go", "contains": "if full && !c.DryRun {", "min_count": 1}
+        {"file": "cli/internal/cli/sync.go", "contains": "if full && !c.DryRun {", "min_count": 1},
+        {"file": "cli/internal/cli/restore_point_sync_wiring_test.go", "contains": "TestSyncDependentResource_DryRunDoesNotMutateSyncState", "min_count": 1}
       ]
     },
     {

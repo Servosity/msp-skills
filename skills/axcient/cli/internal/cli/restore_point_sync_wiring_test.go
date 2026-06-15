@@ -98,3 +98,53 @@ func TestSyncDependentResource_RestorePointInjectsDeviceIDAndPopulates(t *testin
 		t.Fatalf("injected device_id = %q, want 7654321", deviceID)
 	}
 }
+
+// TestSyncDependentResource_DryRunDoesNotMutateSyncState is the regression for
+// the v0.2.0 fix (#80): a `sync --dry-run` must not write sync-state for cascaded
+// dependent resources. The dependent loop returns on the {"dry_run":true} sentinel
+// BEFORE its SaveSyncState, so a pre-existing checkpoint is preserved. The 4.24.0
+// re-vendor kept the guard strings; this proves the BEHAVIOR survived (the same
+// string-asserted-but-untested gap that let the rp:/av: storage-key regression
+// ship unseen). See handfixes.json: sync-dryrun-no-mutation.
+func TestSyncDependentResource_DryRunDoesNotMutateSyncState(t *testing.T) {
+	db, err := store.OpenWithContext(context.Background(), filepath.Join(t.TempDir(), "data.db"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer db.Close()
+
+	if err := db.Upsert("device", "7654321", json.RawMessage(`{"id":7654321,"name":"fs01"}`)); err != nil {
+		t.Fatalf("seed device: %v", err)
+	}
+	// Pre-existing checkpoint a dry run must leave untouched.
+	if err := db.SaveSyncState("restore_point", "cursor-XYZ", 99); err != nil {
+		t.Fatalf("seed sync_state: %v", err)
+	}
+
+	// The client returns the dry-run sentinel the real client emits under --dry-run.
+	client := &stubRestorePointClient{payload: json.RawMessage(`{"dry_run": true}`)}
+
+	var dep dependentResourceDef
+	for _, d := range dependentResourceDefs() {
+		if d.Name == "restore_point" {
+			dep = d
+			break
+		}
+	}
+	if dep.Name == "" {
+		t.Fatal("restore_point dependent definition not found")
+	}
+
+	res := syncDependentResource(context.Background(), client, db, dep, "", false, 0, false, &syncUserParams{}, io.Discard)
+	if res.Err != nil {
+		t.Fatalf("syncDependentResource (dry-run) returned error: %v", res.Err)
+	}
+
+	cursor, _, count, err := db.GetSyncState("restore_point")
+	if err != nil {
+		t.Fatalf("GetSyncState: %v", err)
+	}
+	if cursor != "cursor-XYZ" || count != 99 {
+		t.Fatalf("dry-run mutated sync_state: cursor=%q count=%d, want cursor-XYZ/99 (the #80 regression)", cursor, count)
+	}
+}
