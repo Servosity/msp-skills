@@ -181,3 +181,5 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Which agent: https://msp-skills.compoundingteams.com/which-agent/
 - Full corpus for AI search: https://msp-skills.compoundingteams.com/llms-full.txt
 
+
+# transient: re-verify catalog bot pushes via admin PAT under required security-gate (auto-reverted)
