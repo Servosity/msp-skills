@@ -1894,6 +1894,14 @@ func wrapWithProvenance(data json.RawMessage, prov DataProvenance) (json.RawMess
 
 // defaultDBPath returns the canonical path for the local SQLite database.
 func defaultDBPath(name string) string {
+	// QUICKBOOKS_DB_PATH pins the local mirror to a caller-chosen path so a
+	// single machine can hold separate sandbox and production mirrors. QBO
+	// entity IDs are per-company and collide across companies (sandbox Id "58"
+	// vs production Id "58"), so one shared data.db would corrupt aggregates
+	// after a mode switch. Recorded hand-fix `qbo-db-path-env` in handfixes.json.
+	if v := os.Getenv("QUICKBOOKS_DB_PATH"); v != "" {
+		return v
+	}
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".local", "share", name, "data.db")
 }

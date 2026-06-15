@@ -16,9 +16,31 @@ import (
 	"quickbooks-pp-cli/internal/store"
 )
 
+// ensureAgingSnapshotsTable creates the aging-delta snapshot table on demand.
+// This table is private to the aging-delta novel command and has no store
+// migration, so a fresh (or freshly reprinted) DB lacks it; without this, the
+// first aging-delta run fails on "no such table: aging_snapshots" instead of
+// recording a baseline. CREATE IF NOT EXISTS is idempotent and cheap. Recorded
+// hand-fix `qbo-aging-snapshots-table` in handfixes.json.
+func ensureAgingSnapshotsTable(ctx context.Context, db *store.Store) error {
+	_, err := db.DB().ExecContext(ctx,
+		`CREATE TABLE IF NOT EXISTS aging_snapshots (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			taken_at TEXT NOT NULL,
+			payload TEXT NOT NULL
+		)`)
+	if err != nil {
+		return fmt.Errorf("ensuring aging_snapshots table: %w", err)
+	}
+	return nil
+}
+
 // loadLatestAgingSnapshot returns the most recent persisted snapshot, or
 // (nil, nil) when none exists yet (first run).
 func loadLatestAgingSnapshot(ctx context.Context, db *store.Store) (*analytics.AgingSnapshot, error) {
+	if err := ensureAgingSnapshotsTable(ctx, db); err != nil {
+		return nil, err
+	}
 	var payload string
 	err := db.DB().QueryRowContext(ctx,
 		`SELECT payload FROM aging_snapshots ORDER BY taken_at DESC, id DESC LIMIT 1`).Scan(&payload)

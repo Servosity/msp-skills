@@ -475,17 +475,25 @@ func syncResource(ctx context.Context, c interface {
 		// SQL-like `query` parameter. The generic sync path sends a bare /query
 		// that QBO answers with a 200 SystemFault (unextractable), so the upsert
 		// path reports "missing id for <resource>". Inject the per-entity query
-		// here. Recorded hand-fix `qbo-query-injection` in handfixes.json so a
-		// cli-printing-press reprint cannot silently clobber it. Caps at 1000
-		// rows/entity (no STARTPOSITION paging); the durable home is a press
-		// spec-hint, tracked as spec_encode_followup in the ledger.
+		// here, paging via QBO's in-query STARTPOSITION/MAXRESULTS (the loop's
+		// `cursor` carries the next STARTPOSITION; see the paging block after
+		// extractPageItems). Recorded hand-fixes `qbo-query-injection` and
+		// `qbo-query-paging` in handfixes.json so a cli-printing-press reprint
+		// cannot silently clobber them; the durable home is a press spec-hint,
+		// tracked as spec_encode_followup in the ledger.
 		if path == "/query" {
 			entity, ok := quickbooksEntity[resource]
 			if !ok {
 				return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("no QBO entity mapping for %q", resource), Duration: time.Since(started)}
 			}
+			start := 1
+			if cursor != "" {
+				if n, convErr := strconv.Atoi(cursor); convErr == nil && n > 0 {
+					start = n
+				}
+			}
 			params = map[string]string{
-				"query":        fmt.Sprintf("select * from %s maxresults 1000", entity),
+				"query":        fmt.Sprintf("select * from %s startposition %d maxresults %d", entity, start, qboMaxResults),
 				"minorversion": "75",
 			}
 		}
@@ -539,6 +547,28 @@ func syncResource(ctx context.Context, c interface {
 			currentOffset, _ := strconv.Atoi(cursor)
 			nextCursor = strconv.Itoa(currentOffset + pageSize.limit)
 			hasMore = true
+		}
+
+		// QuickBooks Online paginates via in-query STARTPOSITION/MAXRESULTS, not a
+		// body cursor, so extractPageItems surfaces no next page. Drive it from the
+		// page fill: a full page (== qboMaxResults) means more rows may follow, so
+		// advance the STARTPOSITION carried in `cursor`; a short page is the last.
+		// Recorded hand-fix `qbo-query-paging`. Without this, sync stops after one
+		// 1000-row page and the offline mirror silently truncates large books.
+		if path == "/query" {
+			if len(items) >= qboMaxResults {
+				start := 1
+				if cursor != "" {
+					if n, convErr := strconv.Atoi(cursor); convErr == nil && n > 0 {
+						start = n
+					}
+				}
+				nextCursor = strconv.Itoa(start + qboMaxResults)
+				hasMore = true
+			} else {
+				nextCursor = ""
+				hasMore = false
+			}
 		}
 
 		if len(items) == 0 && len(data) > 0 && !isJSONResponse(data) {
@@ -685,10 +715,18 @@ func syncResource(ctx context.Context, c interface {
 		lastNextCursor = nextCursor
 
 		// Determine if there are more pages.
-		if !resourceSupportsPagination(resource) {
+		// /query (QuickBooks Online) drives its own STARTPOSITION paging via the
+		// hasMore/nextCursor set above, so it must not break on the generic
+		// "resource declares no pagination" guard (resourceSupportsPagination is
+		// false for every QBO entity) nor on the generic short-page check (QBO's
+		// page size is the in-query MAXRESULTS, not pageSize.limit).
+		if !resourceSupportsPagination(resource) && path != "/query" {
 			break
 		}
-		if !hasMore || len(items) < pageSize.limit {
+		if !hasMore {
+			break
+		}
+		if path != "/query" && len(items) < pageSize.limit {
 			break
 		}
 		if nextCursor == "" {
@@ -1476,6 +1514,11 @@ func syncResourcePath(resource string) (string, error) {
 	}
 	return "", fmt.Errorf("unknown sync resource %q", resource)
 }
+
+// qboMaxResults is QuickBooks Online's hard cap on a /query page (MAXRESULTS
+// may not exceed 1000). sync pages via STARTPOSITION in increments of this
+// until a short page returns. Recorded hand-fix `qbo-query-paging`.
+const qboMaxResults = 1000
 
 // quickbooksEntity maps each sync resource to its QuickBooks Online entity name
 // for the /query endpoint (`select * from <Entity>`). Recorded hand-fix
