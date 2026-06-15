@@ -83,6 +83,7 @@ func newSearchCmd(flags *rootFlags) *cobra.Command {
 	var resourceType string
 	var limit int
 	var dbPath string
+	var full bool
 
 	cmd := &cobra.Command{
 		Use:   "search <query>",
@@ -132,7 +133,7 @@ In local mode: searches locally synced data only.`,
 
 			maybeEmitSyncHints(cmd, db, resourceType, flags.maxAge)
 
-			var results []json.RawMessage
+			var hits []store.SearchHit
 			switch resourceType {
 			case "":
 				// Search every FTS-enabled source — typed per-resource tables
@@ -144,21 +145,21 @@ In local mode: searches locally synced data only.`,
 				seen := make(map[string]bool)
 				_ = seen // prevent unused error when no FTS tables exist
 				{
-					partial, searchErr := db.Search(query, limit)
+					partial, searchErr := db.SearchHits(query, limit)
 					if searchErr != nil {
 						return fmt.Errorf("search resources_fts failed: %w", searchErr)
 					}
 					for _, r := range partial {
-						key := string(r)
+						key := string(r.Data)
 						if !seen[key] {
 							seen[key] = true
-							results = append(results, r)
+							hits = append(hits, r)
 						}
 					}
 				}
 			default:
 				// Unrecognized type -- filter generic resources by type.
-				results, err = db.Search(query, limit, resourceType)
+				hits, err = db.SearchHits(query, limit, resourceType)
 			}
 			if err != nil {
 				return fmt.Errorf("search failed: %w", err)
@@ -170,13 +171,14 @@ In local mode: searches locally synced data only.`,
 			}
 			prov := localProvenance(db, "search", reason)
 
-			return outputSearchResults(cmd, flags, results, limit, prov)
+			return renderSearchResults(cmd, flags, hits, limit, prov, full, query)
 		},
 	}
 
 	cmd.Flags().StringVar(&resourceType, "type", "", "Filter by resource type")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum results to return")
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/axcient-cli/data.db)")
+	cmd.Flags().BoolVar(&full, "full", false, "Return whole records instead of the concise id/name/type/match projection")
 
 	return cmd
 }
