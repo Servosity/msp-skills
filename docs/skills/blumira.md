@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Blumira MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Blumira MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account - in one offline-searchable store with cross-account triage and over-time trends no single API call can answer."
 permalink: /skills/blumira/
 skill_name: "Blumira MCP"
 image: /assets/social/blumira/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for Blumira?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Blumira, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Blumira MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Blumira MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -26,12 +30,15 @@ howto:
     text: "Ask your AI agent a Blumira question in plain language; it runs blumira-cli for you."
 ---
 
-# Blumira + AI in 60 seconds
+# The Blumira MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Blumira
-> API. Not affiliated with, endorsed by, or sponsored by Blumira, Inc..
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Blumira, Inc..
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Blumira. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Blumira to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Running Blumira across a book of client accounts? Ask your AI "what are the worst open findings everywhere," "which detections fell out of coverage this week," or "which domain controllers went dark," and get one cross-account answer the Blumira portal can't compose. Every sub-account is mirrored into a local store, so one ranked triage queue, one MTTR rollup, and one coverage-drift report replace dozens of one-account-at-a-time portal logins.
 
@@ -131,6 +138,14 @@ The skill reads findings, detections, agents, and evidence through your Blumira 
 
 ## Frequently asked questions
 
+### Is there an MCP server for Blumira?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Blumira, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Blumira MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Blumira MCP server via a secure bridge. Step-by-step in the install guide.
@@ -152,9 +167,15 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 The cross-account commands (triage, overview, coverage across every client) read Blumira's MSP sub-account API, so they need partner API credentials with sub-account access. A single-org account still gets every direct-org command, findings, evidence search, and agent and detection rollups, plus offline sync. Generate credentials under Settings > Organization > Generate API Credentials, then run `blumira-cli auth login`.
 
 
+## More Security connectors
+
+Run more than one Security tool, or comparing options? These connectors work the same way: [Abnormal Security](/skills/abnormal/) · [CIPP](/skills/cipp/) · [CrowdStrike Falcon](/skills/crowdstrike/) · [Huntress](/skills/huntress/) · [KnowBe4](/skills/knowbe4/) · [Microsoft Graph](/skills/microsoft-graph/) · [Proofpoint TAP](/skills/proofpoint/) · [RocketCyber](/skills/rocketcyber/) · [runZero](/skills/runzero/) · [SentinelOne](/skills/sentinelone/) · [ThreatLocker](/skills/threatlocker/)
+
 ## Status
 
 Beta. Validated against the Blumira API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

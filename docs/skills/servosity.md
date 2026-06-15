@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Servosity MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Servosity MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients."
 permalink: /skills/servosity/
 skill_name: "Servosity MCP"
 image: /assets/social/servosity/wide-1200x630.png
 verification: live-verified
 faqs:
+  - q: "Is there an MCP server for Servosity?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Servosity, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Servosity MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Servosity MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -32,12 +36,14 @@ howto:
     text: "Ask your AI agent a Servosity question in plain language; it runs servosity-cli for you."
 ---
 
-# Servosity + AI in 60 seconds
+# The Servosity MCP Server - free, local, built for MSPs
 
 > Published by Servosity Inc. for MSP partners. Servosity is a trademark of
 > Servosity Inc.. Apache-2.0 licensed.
 
-**Live-verified** - confirmed by a real MSP against a live Servosity tenant (2026-06-05).
+**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-06-05.
+
+Yes - there is an MCP server for Servosity. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Servosity to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 MSPs run Servosity as the backup and DR platform - M365, DR Server, and DR Desktop protection across a whole book of clients. Ask your AI "where is my attention needed today", "which backups went stale this week", or "build Acme's QBR backup section" and get fleet-wide answers the per-client dashboard can't compose: ranked attention sweeps, day-over-day drift, ready-to-send stale-backup follow-ups, and the whole book's QBR reports in one pass.
 
@@ -133,6 +139,14 @@ First-party: published by Servosity for MSP partners. The skill drives the servo
 
 ## Frequently asked questions
 
+### Is there an MCP server for Servosity?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Servosity, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Servosity MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Servosity MCP server via a secure bridge. Step-by-step in the install guide.
@@ -166,9 +180,15 @@ After a sync, the fleet views (attention, drift, stale-backups, backup-facts, qb
 Yes - the CLI authenticates with an MSP partner token. If you're not a partner yet, start at servosity.com; the skill itself is Apache-2.0 and free either way.
 
 
+## More Backup/DR connectors
+
+Run more than one Backup/DR tool, or comparing options? These connectors work the same way: [Acronis Cyber Protect Cloud](/skills/acronis/) · [Afi](/skills/afi/) · [Axcient x360Recover](/skills/axcient/) · [Cove Data Protection](/skills/cove/) · [Datto BCDR](/skills/datto-bcdr/) · [SkyKick](/skills/skykick/) · [Veeam](/skills/veeam/)
+
 ## Status
 
 Beta. Validated against the Servosity API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

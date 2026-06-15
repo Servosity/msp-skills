@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Rootly MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Rootly MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every Rootly incident, alert, and on-call object as a typed command, with a local SQLite mirror for offline analytics."
 permalink: /skills/rootly/
 skill_name: "Rootly MCP"
 image: /assets/social/rootly/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for Rootly?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Rootly, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Rootly MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Rootly MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -26,12 +30,15 @@ howto:
     text: "Ask your AI agent a Rootly question in plain language; it runs rootly-cli for you."
 ---
 
-# Rootly + AI in 60 seconds
+# The Rootly MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Rootly
-> API. Not affiliated with, endorsed by, or sponsored by Rootly, Inc..
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Rootly, Inc..
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Rootly. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Rootly to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask "who's on call for this service right now?" or "what's our MTTR by service this quarter?" and get the answer in one command. Rootly syncs to a local SQLite mirror, so incident-similarity, resolution mining, on-call coverage audits, and MTTA/MTTR analytics run instantly and offline - no portal clicking, no per-question API call.
 
@@ -130,6 +137,14 @@ The skill reads incidents, alerts, schedules, and on-call data, and can create o
 
 ## Frequently asked questions
 
+### Is there an MCP server for Rootly?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Rootly, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Rootly MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Rootly MCP server via a secure bridge. Step-by-step in the install guide.
@@ -151,9 +166,15 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Rarely. Read questions run against the local SQLite mirror, not the API - you sync once, then analytics, search, and the on-call views are offline. Only sync and live writes call Rootly.
 
 
+## More Incident Response connectors
+
+Run more than one Incident Response tool, or comparing options? These connectors work the same way: [PagerDuty](/skills/pagerduty/)
+
 ## Status
 
 Beta. Validated against the Rootly API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

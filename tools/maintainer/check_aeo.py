@@ -42,6 +42,14 @@ MAX_WORDS = 90
 # description. Resolved by permalink front matter where present.
 REQUIRE_TITLE_DESC_PERMALINKS = {"/why/", "/what-is-an-mcp-server/"}
 
+# Every docs/skills/*.md page must follow the generator's AEO formulas
+# (render_docs_page.py): the title carries the search keywords MSPs type
+# ("MCP Server", free/open-source/local), and the first answer paragraph is a
+# literal direct answer to "is there an MCP server for X?". These assertions
+# keep a hand edit or a generator regression from silently dropping either.
+SKILL_TITLE_REQUIRED = "MCP Server - Free, Open Source, Runs Locally | MSP Skills"
+SKILL_ANSWER_PREFIX = "Yes - there is an MCP server for"
+
 # Per-file answer-first allowlist. key = path relative to ROOT, value = reason.
 # Keep this list short and justified; each entry is a deferred-closure marker.
 # Currently EMPTY: every in-scope page (homepage, why, glossary, skills, guides)
@@ -85,6 +93,14 @@ def is_banner_block(block: str) -> bool:
     include div, a horizontal rule, or a Liquid include line."""
     s = block.strip()
     if not s:
+        return True
+    # The verification-badge paragraph render_docs_page.py emits above the
+    # direct answer (both states, current and legacy spellings) is chrome,
+    # not the answer.
+    if s.startswith(
+        ("**✓ Live-verified", "**Passes all 4 mechanical gates**",
+         "**Live-verified**", "**Awaiting live verification**")
+    ):
         return True
     first = s.splitlines()[0].lstrip()
     if first.startswith("#"):  # heading
@@ -172,6 +188,12 @@ def main() -> int:
                     )
                 else:
                     desc_seen[desc] = rel
+            # --- Assertion 3: skill pages follow the AEO title formula. ---
+            if is_skill and title and SKILL_TITLE_REQUIRED not in title:
+                errors.append(
+                    f"{rel}: skill-page title missing the AEO formula "
+                    f"({SKILL_TITLE_REQUIRED!r}): {title!r}"
+                )
 
         # --- Assertion 1: answer-first paragraph <= MAX_WORDS. ---
         if rel in ANSWER_FIRST_ALLOWLIST:
@@ -180,6 +202,13 @@ def main() -> int:
         if not para:
             errors.append(f"{rel}: no answer paragraph found after the title/banner")
             continue
+        # --- Assertion 4: skill pages open with the literal direct answer. ---
+        if is_skill and not para.startswith(SKILL_ANSWER_PREFIX):
+            preview = " ".join(para.split()[:12])
+            errors.append(
+                f"{rel}: skill-page first paragraph must start with "
+                f"{SKILL_ANSWER_PREFIX!r}: \"{preview} ...\""
+            )
         wc = word_count(para)
         if wc > MAX_WORDS:
             preview = " ".join(para.split()[:12])

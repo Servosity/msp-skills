@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "HubSpot MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "HubSpot MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has."
 permalink: /skills/hubspot/
 skill_name: "HubSpot MCP"
 image: /assets/social/hubspot/wide-1200x630.png
 verification: live-verified
 faqs:
+  - q: "Is there an MCP server for HubSpot?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for HubSpot, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the HubSpot MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local HubSpot MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -30,12 +34,15 @@ howto:
     text: "Ask your AI agent a HubSpot question in plain language; it runs hubspot-cli for you."
 ---
 
-# HubSpot + AI in 60 seconds
+# The HubSpot MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the HubSpot
-> API. Not affiliated with, endorsed by, or sponsored by HubSpot, Inc..
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by HubSpot, Inc..
 
-**Live-verified** - confirmed by a real MSP against a live HubSpot tenant (2026-06-05).
+**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-06-05.
+
+Yes - there is an MCP server for HubSpot. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects HubSpot to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 MSPs run HubSpot as the sales CRM - pipeline, deals, quote-chasing. Ask your AI "which deals went cold," "what's my pipeline health," or "who do I call today," and get an answer the portal can't compose: cross-object rollups across deals, contacts, owners, and engagements, computed offline in one query instead of a dozen exports and saved views.
 
@@ -131,6 +138,14 @@ The skill drives the hubspot-cli and hubspot-mcp binaries, authenticating only w
 
 ## Frequently asked questions
 
+### Is there an MCP server for HubSpot?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for HubSpot, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the HubSpot MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local HubSpot MCP server via a secure bridge. Step-by-step in the install guide.
@@ -160,9 +175,15 @@ No partnership is required. You create a HubSpot Private App access token from y
 It works against any portal that issues a Private App access token with the read scopes you grant. Which objects, properties, and history depth are available is governed by your HubSpot plan and the scopes on the token, not by this skill.
 
 
+## More CRM connectors
+
+Run more than one CRM tool, or comparing options? These connectors work the same way: [Pipedrive](/skills/pipedrive/) · [Salesbuildr](/skills/salesbuildr/)
+
 ## Status
 
 Beta. Validated against the HubSpot API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

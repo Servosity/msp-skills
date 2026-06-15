@@ -372,6 +372,15 @@ def build_docs_catalog(skills: list[dict]) -> dict:
             "tagline": s.get("tagline", s.get("description", "")),
             "category": s.get("category", ""),
             "verification": s.get("verification", "awaiting"),
+            # Named verification: who confirmed it against a production tenant,
+            # and the public receipt (it-works issue) when one exists. Null
+            # until verify_live.py records them - the site renders the names.
+            "verified_by": (
+                (SKILL_META[s["name"]].get("live_verified") or {}).get("verified_by")
+            ),
+            "issue_url": (
+                (SKILL_META[s["name"]].get("live_verified") or {}).get("issue_url")
+            ),
             "url": f"/skills/{s['name']}/",
         }
         for s in skills

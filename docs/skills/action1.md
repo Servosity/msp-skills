@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Action1 MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Action1 MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations."
 permalink: /skills/action1/
 skill_name: "Action1 MCP"
 image: /assets/social/action1/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for Action1?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Action1, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Action1 MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Action1 MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -28,12 +32,15 @@ howto:
     text: "Ask your AI agent a Action1 question in plain language; it runs action1-cli for you."
 ---
 
-# Action1 + AI in 60 seconds
+# The Action1 MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Action1
-> API. Not affiliated with, endorsed by, or sponsored by Action1 Corporation.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Action1 Corporation.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Action1. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Action1 to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask "which endpoints across all my clients are missing the most patches?" and get one ranked list - no clicking org by org. Action1's API and console are siloed per client organization; this skill syncs every org into a local mirror so patch posture, CVE blast-radius, stale agents, and a per-client scorecard become single fleet-wide commands your AI agent runs from the terminal.
 
@@ -132,6 +139,14 @@ The skill reads freely - fleet rollups, lists, reports, search, export - and tho
 
 ## Frequently asked questions
 
+### Is there an MCP server for Action1?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Action1, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Action1 MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Action1 MCP server via a secure bridge. Step-by-step in the install guide.
@@ -157,9 +172,15 @@ An API client (Client ID + Client Secret) from your Action1 console's API Creden
 No. The console stays your place to configure automations and approve patches interactively. This skill answers the cross-organization questions the console shows one org at a time - fleet patch posture, CVE blast-radius, per-client scorecards - and lets your AI agent run them.
 
 
+## More RMM connectors
+
+Run more than one RMM tool, or comparing options? These connectors work the same way: [Atera](/skills/atera/) · [ConnectWise Automate](/skills/connectwise-automate/) · [Datto RMM](/skills/datto-rmm/) · [Level](/skills/levelio/) · [N-able N-central](/skills/n-central/) · [Nerdio Manager](/skills/nerdio/) · [NinjaOne](/skills/ninjaone/) · [Tactical RMM](/skills/tactical-rmm/)
+
 ## Status
 
 Beta. Validated against the Action1 API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

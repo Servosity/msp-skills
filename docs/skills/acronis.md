@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Acronis Cyber Protect Cloud MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Acronis Cyber Protect Cloud MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "The first real CLI for the Acronis Cyber Protect Cloud platform \u2014 every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns."
 permalink: /skills/acronis/
 skill_name: "Acronis Cyber Protect Cloud MCP"
 image: /assets/social/acronis/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for Acronis Cyber Protect Cloud?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Acronis Cyber Protect Cloud, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Acronis Cyber Protect Cloud MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Acronis MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -32,12 +36,15 @@ howto:
     text: "Ask your AI agent a Acronis Cyber Protect Cloud question in plain language; it runs acronis-cli for you."
 ---
 
-# Acronis Cyber Protect Cloud + AI in 60 seconds
+# The Acronis Cyber Protect Cloud MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Acronis
-> API. Not affiliated with, endorsed by, or sponsored by Acronis International GmbH.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Acronis International GmbH.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Acronis Cyber Protect Cloud. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Acronis Cyber Protect Cloud to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 MSPs run Acronis Cyber Protect Cloud across dozens of customer tenants, but its partner dashboards report one tenant at a time. Ask your AI "whose backups failed last night," "which agents went offline," or "where am I billing for protection that isn't running," and get the cross-tenant answer in one table - computed offline from a local mirror, not six console drill-downs or a month-end CSV export.
 
@@ -137,6 +144,14 @@ The skill drives the acronis-cli and acronis-mcp binaries, authenticating with a
 
 ## Frequently asked questions
 
+### Is there an MCP server for Acronis Cyber Protect Cloud?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Acronis Cyber Protect Cloud, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Acronis Cyber Protect Cloud MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Acronis MCP server via a secure bridge. Step-by-step in the install guide.
@@ -170,9 +185,15 @@ Whichever hosts your Acronis account. Set ACRONIS_DATACENTER (for example us-clo
 No. The console stays best for configuring protection plans and running restores. This skill adds the cross-tenant reporting layer the partner dashboards don't - one place to ask whose backups failed, which agents are offline, and where billing and protection diverge.
 
 
+## More Backup/DR connectors
+
+Run more than one Backup/DR tool, or comparing options? These connectors work the same way: [Afi](/skills/afi/) · [Axcient x360Recover](/skills/axcient/) · [Cove Data Protection](/skills/cove/) · [Datto BCDR](/skills/datto-bcdr/) · [Servosity](/skills/servosity/) · [SkyKick](/skills/skykick/) · [Veeam](/skills/veeam/)
+
 ## Status
 
 Beta. Validated against the Acronis Cyber Protect Cloud API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 
