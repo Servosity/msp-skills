@@ -40,7 +40,30 @@ MAX_WORDS = 90
 
 # Permalinks (or repo-relative doc paths) that must have unique title +
 # description. Resolved by permalink front matter where present.
-REQUIRE_TITLE_DESC_PERMALINKS = {"/why/", "/what-is-an-mcp-server/"}
+# PR-3 adds the connector hub, the Trust Center, the receipts wall, the four
+# /answers/* AEO pages, and the Build-Sessions bridge - each owns a unique
+# title + description and an answer-first first paragraph.
+REQUIRE_TITLE_DESC_PERMALINKS = {
+    "/why/",
+    "/what-is-an-mcp-server/",
+    "/skills/",
+    "/governance/",
+    "/verified/",
+    "/build-sessions/",
+    "/reprint-survival/",
+    "/answers/are-mcp-servers-safe-for-msp-client-data/",
+    "/answers/mcp-server-vs-vendor-built-in-ai/",
+    "/answers/how-msps-use-claude-and-chatgpt-with-their-psa/",
+    "/answers/what-is-a-claude-code-skill/",
+}
+
+# The connector-formula assertions (a fixed "...MCP Server - Free, Open Source,
+# Runs Locally | MSP Skills" title, and a "Yes - there is an MCP server for X"
+# opening line) apply only to GENERATED per-connector pages, which always carry
+# a `skill_name` front-matter key (render_docs_page.py emits it). The hand-
+# authored connector hub at docs/skills/index.md lives in the same directory but
+# is NOT a connector page, so it is exempt from the formula while still owing a
+# unique title + description.
 
 # Every docs/skills/*.md page must follow the generator's AEO formulas
 # (render_docs_page.py): the title carries the search keywords MSPs type
@@ -149,8 +172,11 @@ def main() -> int:
     title_seen: dict[str, str] = {}
     desc_seen: dict[str, str] = {}
 
-    md_files = sorted(DOCS.glob("*.md")) + sorted(DOCS.glob("skills/*.md")) + sorted(
-        DOCS.glob("guides/*.md")
+    md_files = (
+        sorted(DOCS.glob("*.md"))
+        + sorted(DOCS.glob("skills/*.md"))
+        + sorted(DOCS.glob("guides/*.md"))
+        + sorted(DOCS.glob("answers/*.md"))
     )
 
     for md in md_files:
@@ -164,9 +190,15 @@ def main() -> int:
 
         permalink = fm.get("permalink", "")
 
+        # A GENERATED per-connector page (the formula assertions 3 + 4 apply only
+        # to these). The hand-authored hub at docs/skills/index.md sits in the
+        # same directory but carries no skill_name, so it is NOT a connector page.
+        is_connector_page = md.parent.name == "skills" and "skill_name" in fm
+
         # --- Assertion 2: unique title + description for the required pages. ---
-        is_skill = md.parent.name == "skills"
-        require_unique = is_skill or permalink in REQUIRE_TITLE_DESC_PERMALINKS
+        require_unique = (
+            is_connector_page or permalink in REQUIRE_TITLE_DESC_PERMALINKS
+        )
         if require_unique:
             title = fm.get("title", "").strip()
             desc = fm.get("description", "").strip()
@@ -189,7 +221,7 @@ def main() -> int:
                 else:
                     desc_seen[desc] = rel
             # --- Assertion 3: skill pages follow the AEO title formula. ---
-            if is_skill and title and SKILL_TITLE_REQUIRED not in title:
+            if is_connector_page and title and SKILL_TITLE_REQUIRED not in title:
                 errors.append(
                     f"{rel}: skill-page title missing the AEO formula "
                     f"({SKILL_TITLE_REQUIRED!r}): {title!r}"
@@ -203,7 +235,7 @@ def main() -> int:
             errors.append(f"{rel}: no answer paragraph found after the title/banner")
             continue
         # --- Assertion 4: skill pages open with the literal direct answer. ---
-        if is_skill and not para.startswith(SKILL_ANSWER_PREFIX):
+        if is_connector_page and not para.startswith(SKILL_ANSWER_PREFIX):
             preview = " ".join(para.split()[:12])
             errors.append(
                 f"{rel}: skill-page first paragraph must start with "

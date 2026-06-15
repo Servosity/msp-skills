@@ -8,6 +8,12 @@ github_url: "https://github.com/servosity/msp-skills"
 # Where the "be the first to verify" receipt form lives (PR-3 builds /verified/).
 receipt_form_url: "/verified/#receipt"
 
+# jekyll-seo-tag emits a <meta name="google-site-verification"> from this key.
+# TODO: real Search Console token - swap the placeholder once the property is
+# verified in Google Search Console (Settings > Ownership verification > HTML tag).
+webmaster_verifications:
+  google: "GOOGLE_SEARCH_CONSOLE_TOKEN_PLACEHOLDER"
+
 # AEO surface
 author:
   name: "Servosity"

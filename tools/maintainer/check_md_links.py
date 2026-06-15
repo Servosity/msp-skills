@@ -32,6 +32,13 @@ def md_files() -> list[Path]:
         # Skip vendored, generated module trees.
         if "cli" in parts and parts[0] == "skills":
             continue
+        # Skip the Jekyll build output (docs/_site/). It's a generated artifact
+        # (untracked, rebuilt by `jekyll build`); the rendered HTML copies the
+        # repo-doc .md files in, and their source-tree-relative links no longer
+        # resolve from the _site/ location. The source pages are the gate, not
+        # their build output. Only present when the site was built locally.
+        if parts[:2] == ("docs", "_site"):
+            continue
         # Skip the Jekyll-rendered landing site under docs/. Those pages use
         # Jekyll permalinks like /integrations/claude-desktop/ that only
         # resolve at render time, not as raw filesystem paths. The Jekyll
@@ -40,10 +47,13 @@ def md_files() -> list[Path]:
         # install-skill.md, install-mcp.md, contributing.md) ARE checked because
         # they live at docs/ top level and link with relative paths that resolve
         # on the filesystem too. The Jekyll-specific tree is docs/_layouts,
-        # docs/_includes, docs/integrations, docs/skills, docs/guides, and
-        # docs/index.md / docs/llms.txt.
+        # docs/_includes, docs/integrations, docs/skills, docs/guides,
+        # docs/answers, and docs/index.md / docs/llms.txt.
+        # docs/answers/*.md (PR-3 AEO pages) carry `permalink:` front matter and
+        # link with render-time permalinks (/skills/halopsa/, /governance/) that
+        # never resolve as filesystem paths; the Jekyll build is their gate.
         if parts[:1] == ("docs",) and len(parts) > 1 and parts[1] in (
-            "_layouts", "_includes", "integrations", "skills", "guides"
+            "_layouts", "_includes", "integrations", "skills", "guides", "answers"
         ):
             continue
         # Top-level Jekyll-rendered pages under docs/ (those declaring a
