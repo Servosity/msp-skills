@@ -5,6 +5,9 @@ baseurl: ""
 github_repo: "servosity/msp-skills"
 github_url: "https://github.com/servosity/msp-skills"
 
+# Where the "be the first to verify" receipt form lives (PR-3 builds /verified/).
+receipt_form_url: "/verified/#receipt"
+
 # AEO surface
 author:
   name: "Servosity"

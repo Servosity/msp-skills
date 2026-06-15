@@ -1,0 +1,22 @@
+{%- comment -%}
+Verification-state pill for a connector. PR-3 content pages render this from a
+catalog.json connector object.
+
+Usage:
+  {% include verification-badge.html connector=c %}
+
+  include.connector  - a catalog.json connector object with:
+      .verification   "live-verified" | "awaiting"
+      .verified_by    who confirmed it against a production tenant (live only)
+      .issue_url      optional receipt link (live only)
+      .display_name   connector name
+
+live-verified -> terracotta-fill pill + optional receipt link.
+awaiting      -> terracotta-outline pill linking the 60-second receipt form.
+{%- endcomment -%}
+{%- assign conn = include.connector -%}
+{%- if conn.verification == "live-verified" -%}
+<span class="verif-badge verified">&#10003; Live-verified by {{ conn.verified_by | default: "Servosity (maintainer)" }} against a production tenant{%- if conn.issue_url %} &middot; <a href="{{ conn.issue_url }}">receipt &rarr;</a>{%- endif -%}</span>
+{%- else -%}
+<span class="verif-badge awaiting">Passes all 4 mechanical gates - awaiting its first MSP receipt. <a href="{{ site.receipt_form_url | default: '/verified/#receipt' }}">Be the first, 60 seconds &rarr;</a></span>
+{%- endif -%}

@@ -3,6 +3,7 @@ layout: default
 title: "MCP Servers for MSPs - Connect ConnectWise, HaloPSA, HubSpot, Backup to Claude, ChatGPT, Copilot"
 description: "Free MCP servers and Skills that connect ConnectWise PSA, HaloPSA, HubSpot, and Servosity backup to the AI you already use - Claude, ChatGPT, Copilot, Codex. Local SQLite mirror, no data leaves your network. Built for MSP owners. No code required."
 permalink: /
+body_class: wide
 ---
 
 # Run your MSP tools by asking

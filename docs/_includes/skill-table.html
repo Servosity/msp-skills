@@ -6,10 +6,14 @@ the repo ships - the 2026-06-05 staleness bug (connectwise-manage + hubspot
 live in the catalog but missing here) is structurally closed.
 
 Emits markdown (Liquid runs before kramdown), so it must be included from a
-markdown context, not inside a block-level HTML element.
+markdown context, not inside a block-level HTML element. That's why the Status
+column stays as a short markdown string and does NOT call
+verification-badge.html (mixing the HTML pill into a kramdown table cell breaks
+the table render). The full pill lives on each connector's own page in PR-3; the
+wording here matches that badge: "Live-verified" vs "Awaiting MSP receipt".
 {%- endcomment %}
 | Connector | What it does | Status |
 | --- | --- | --- |
 {% for c in site.data.catalog.connectors -%}
-| [{{ c.display_name }} →]({{ c.url }}) | {{ c.tagline }} | {% if c.verification == "live-verified" %}Live-verified{% else %}Awaiting live verification{% endif %} |
+| [{{ c.display_name }} →]({{ c.url }}) | {{ c.tagline }} | {% if c.verification == "live-verified" %}Live-verified{% else %}Awaiting MSP receipt{% endif %} |
 {% endfor %}
