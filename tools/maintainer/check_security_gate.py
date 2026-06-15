@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check_security_gate.py — deterministic, release-blocking security gate.
+"""check_security_gate.py - deterministic, release-blocking security gate.
 
 The load-bearing control against a poisoned fix reaching downstream MSPs (threat T2).
 Model-layer defenses (prompt doctrine, the nonce) are ~22%-breakable; this gate is
@@ -7,16 +7,16 @@ deterministic and meant to run as a REQUIRED CI check so it can't be bypassed by
 socially-engineered agent.
 
 Always-on deterministic checks (no external tools needed):
-  * Dependency policy — any module in go.mod (require OR `replace` target) not in
+  * Dependency policy - any module in go.mod (require OR `replace` target) not in
     tools/maintainer/dep_allowlist.json is P1; a filesystem `replace` is P1
     (anti-typosquat / anti-backdoor / anti-fork-swap). go.sum changes are surfaced.
-  * Dangerous Go patterns — disabled TLS verify; shelling out / exec of a variable or
+  * Dangerous Go patterns - disabled TLS verify; shelling out / exec of a variable or
     shell; syscall.Exec/os.StartProcess/plugin.Open; cgo; //go:generate; //go:linkname;
     import "unsafe". (cobratree MCP→CLI bridge excluded; browser-open literal allowed.)
-  * Install-script patterns — pipe-to-shell, eval, base64-decode-then-exec, direct shell
+  * Install-script patterns - pipe-to-shell, eval, base64-decode-then-exec, direct shell
     invocation (cmd /c, & pwsh -Command, mshta/wscript...), non-GitHub download host in
     skills/<slug>/install.sh|.ps1 (the artifact MSPs run via curl|sh). NOTE: an installer
-    is executable by nature, so this flags KNOWN-BAD remote/shell-exec forms — it is not a
+    is executable by nature, so this flags KNOWN-BAD remote/shell-exec forms - it is not a
     complete sandbox. CODEOWNERS review of install-script changes is the human backstop.
 
 Suppressions are BASE-OWNED, not self-grantable: a finding is suppressed only if its
@@ -51,20 +51,20 @@ BT = "`"  # Go raw-string delimiter; included so backtick evasions are caught.
 # --- dangerous Go patterns -----------------------------------------------------
 # (id, severity, regex, exclude_path_substr). Calibrated to PASS the healthy fleet
 # and BLOCK genuinely dangerous code (false-RED is as useless as false-GREEN).
-# Legit press sites NOT flagged: OAuth browser-open (exec.Command("open"/... , url) —
+# Legit press sites NOT flagged: OAuth browser-open (exec.Command("open"/... , url) -
 # literal command) and the generated MCP→CLI bridge (internal/mcp/cobratree/).
 GO_RULES = [
     ("disabled-tls-verify", "P1",
      re.compile(r"InsecureSkipVerify\s*:\s*true"), None),
-    # exec of an interpreter (POSIX or Windows), or passing -c / /C — command injection.
+    # exec of an interpreter (POSIX or Windows), or passing -c / /C - command injection.
     ("shell-interpreter", "P1",
      re.compile(r'exec\.Command(?:Context)?\([^)]*(["' + BT + r'](?:/bin/|/usr/bin/)?(?:sh|bash|zsh|dash|ash|pwsh(?:\.exe)?|powershell(?:\.exe)?|cmd(?:\.exe)?)["' + BT + r']|,\s*["' + BT + r'](?:-c|/[cC])["' + BT + r'])'),
      None),
-    # exec with a NON-literal command (a variable) — the injectable shape.
+    # exec with a NON-literal command (a variable) - the injectable shape.
     ("exec-nonliteral-cmd", "P1",
      re.compile(r'(?:exec\.Command\(\s*[A-Za-z_]|exec\.CommandContext\(\s*[A-Za-z_]\w*\s*,\s*[A-Za-z_])'),
      "/internal/mcp/cobratree/"),
-    # exec with a concatenated command (first arg builds a string) — also injectable.
+    # exec with a concatenated command (first arg builds a string) - also injectable.
     ("exec-concat-cmd", "P1",
      re.compile(r'(?:exec\.Command\(\s*[^,)]*\+|exec\.CommandContext\([^,]*,\s*[^,)]*\+)'),
      "/internal/mcp/cobratree/"),
@@ -87,7 +87,7 @@ INSTALL_RULES = [
     ("decode-then-run", "P1", re.compile(r'\bbase64\s+(?:-d|--decode|-D)\b|\bfrombase64string\b', re.I)),
     # PowerShell EXECUTION sinks (the dangerous part). Note: Invoke-RestMethod / irm /
     # Invoke-WebRequest to a variable is a benign download (the legit installers query
-    # the GitHub releases API that way) — only flag execution: IEX, DownloadString,
+    # the GitHub releases API that way) - only flag execution: IEX, DownloadString,
     # encoded commands, spawning a shell, or a download PIPED into IEX.
     ("powershell-rce", "P1",
      re.compile(r'\b(?:iex|invoke-expression)\b|\bdownloadstring\b|-e(?:nc\b|ncodedcommand\b)|start-process\b[^\n]{0,60}\b(?:powershell|pwsh|cmd)(?:\.exe)?\b|(?:irm|invoke-restmethod|iwr|invoke-webrequest)\b[^\n|]*\|\s*(?:iex|invoke-expression)', re.I)),
@@ -95,7 +95,7 @@ INSTALL_RULES = [
     # via `& $var` is NOT a shell and won't match; a literal shell/scripting-host does.
     # Covers POSIX (`bash -c`, `/bin/sh -c`, `env sh -c`), Windows cmd with padded flags
     # (`cmd /d /s /c`), powershell with any flags before -Command, the `&` call operator,
-    # and scripting hosts. NOTE: an installer is executable by nature — this catches
+    # and scripting hosts. NOTE: an installer is executable by nature - this catches
     # known-bad direct-exec forms; CODEOWNERS review of install-script changes is the
     # backstop for the unbounded tail.
     ("shell-invocation", "P1",
@@ -110,7 +110,7 @@ INSTALL_RULES = [
 ]
 
 # Matches both indented require-block entries AND single-line `require X vY`
-# (a single-line require was previously invisible to the allowlist — codex P1).
+# (a single-line require was previously invisible to the allowlist - codex P1).
 MOD_RE = re.compile(r"(?m)^(?:\s+|require\s+)([a-zA-Z0-9][^\s]*\.[^\s]+/[^\s]+)\s+v\S+")
 ARROW_RE = re.compile(r"=>\s+(\S+)")  # `replace X => TARGET [vY]`
 
@@ -149,7 +149,7 @@ def rebuild_allowlist() -> int:
     ALLOWLIST.write_text(json.dumps({
         "_comment": ("Approved Go module dependencies for msp-skills connectors. A module in "
                      "any skills/*/cli/go.mod (require OR `replace` target) NOT listed here is a "
-                     "P1 in check_security_gate.py — review every addition (anti-typosquat / "
+                     "P1 in check_security_gate.py - review every addition (anti-typosquat / "
                      "anti-backdoor / anti-fork-swap). Regenerate with --rebuild-allowlist ONLY "
                      "after a human has vetted the new dependency."),
         "allowed": sorted(mods),
@@ -253,17 +253,17 @@ def scan_dependencies(slug: str, allow: set[str], only: list[Path] | None) -> li
         if touched_sum and not touched_mod:
             findings.append({"tool": "dep-allowlist", "rule": "gosum-changed-review", "severity": "P2",
                              "file": f"skills/{slug}/cli/go.sum", "line": 0,
-                             "evidence": "go.sum changed without go.mod — review for a swapped checksum."})
+                             "evidence": "go.sum changed without go.mod - review for a swapped checksum."})
         if touched_mod:
             findings.append({"tool": "dep-allowlist", "rule": "gomod-version-review", "severity": "P2",
                              "file": f"skills/{slug}/cli/go.mod", "line": 0,
-                             "evidence": "go.mod changed — review every version bump (an allowlisted module "
+                             "evidence": "go.mod changed - review every version bump (an allowlisted module "
                                          "bumped to a malicious tag still passes the path check)."})
     # require-block modules not in the allowlist
     for mod in sorted(modules_in_gomod(gomod) - allow):
         findings.append({"tool": "dep-allowlist", "rule": "unapproved-dependency", "severity": "P1",
                          "file": f"skills/{slug}/cli/go.mod", "line": 0,
-                         "evidence": f"{mod} is not in dep_allowlist.json — vet it (typosquat/backdoor?)."})
+                         "evidence": f"{mod} is not in dep_allowlist.json - vet it (typosquat/backdoor?)."})
     # replace directives: filesystem target, or a module target not allowlisted
     for tgt in replace_targets(gomod):
         if tgt.startswith((".", "/", "..")):
@@ -357,7 +357,7 @@ def main() -> int:
     allow = load_allowlist(args.policy_base)
     suppress = load_suppressions(args.policy_base)
     if not allow:
-        print("WARNING: dep_allowlist.json empty/missing — run --rebuild-allowlist (after vetting).",
+        print("WARNING: dep_allowlist.json empty/missing - run --rebuild-allowlist (after vetting).",
               file=sys.stderr)
 
     slugs = list_slugs() if args.all else ([args.slug] if args.slug else [])
@@ -374,7 +374,7 @@ def main() -> int:
             print(f"[{'BLOCK' if r['verdict'] == 'block' else 'pass'}] {r['slug']} ({r['scope']}): "
                   f"{r['p1_count']} P1 / {len(r['findings'])} findings")
             for f in r["findings"]:
-                print(f"    {f['severity']} {f['tool']}:{f['rule']} {f['file']}:{f['line']} — {f['evidence']}")
+                print(f"    {f['severity']} {f['tool']}:{f['rule']} {f['file']}:{f['line']} - {f['evidence']}")
         missing = [t for t, ok in results[0]["tools"].items() if not ok] if results else []
         if missing:
             print(f"\nNOTE: external scanners not installed locally: {', '.join(missing)} "

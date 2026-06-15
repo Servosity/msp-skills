@@ -14,7 +14,7 @@
 /skills/halopsa/         @Servosity
 /skills/servosity/       @Servosity
 
-# SECURITY GATE — the deterministic supply-chain control and its policy. A change
+# SECURITY GATE - the deterministic supply-chain control and its policy. A change
 # here can weaken every connector's defense, so it MUST get a security-maintainer
 # review (the security-gate workflow also fails any PR that edits these, so they
 # can't be self-approved). Keep these explicit even if /tools/ ownership narrows.

@@ -2,7 +2,7 @@
 # Folded into check_security_gate.py when semgrep is installed, and run directly in
 # the security-gate CI workflow. These mirror the deterministic built-in patterns so
 # semgrep's dataflow can catch variants the regexes miss. Vetted exceptions go in the
-# BASE-OWNED tools/maintainer/security_suppressions.json (keyed by file+rule) — inline
+# BASE-OWNED tools/maintainer/security_suppressions.json (keyed by file+rule) - inline
 # `// #nosec` is NOT honored by the gate (an attacker could add it in their own diff).
 rules:
   - id: msp-insecure-skip-verify

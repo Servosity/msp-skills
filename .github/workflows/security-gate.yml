@@ -21,7 +21,7 @@ on:
       # The gate must also run when its OWN logic files change, so the guard step
       # below fires on workflow/CODEOWNERS-only PRs (codex P1). GitHub runs the BASE
       # branch's copy of this workflow for pull_request, so a malicious in-PR edit
-      # to these doesn't take effect for the run — but the guard still fails the PR.
+      # to these doesn't take effect for the run - but the guard still fails the PR.
       - ".github/workflows/security-gate.yml"
       - ".github/workflows/release.yml"
       - ".github/CODEOWNERS"
@@ -59,20 +59,20 @@ jobs:
         run: |
           set -uo pipefail
           # A PR that edits the gate LOGIC could neuter the gate AND self-approve in the
-          # same change (codex P1) — the workflow runs the PR's own copy of the script.
+          # same change (codex P1) - the workflow runs the PR's own copy of the script.
           # Hard-fail those so a security maintainer (CODEOWNERS) must review them.
           # NOTE: the DATA files (dep_allowlist.json, security_suppressions.json) are NOT
-          # hard-failed here — the gate reads them from the trusted base (--policy-base),
+          # hard-failed here - the gate reads them from the trusted base (--policy-base),
           # so in-PR edits don't take effect, and CODEOWNERS still gates them. Hard-failing
           # them would make a legitimate dependency/suppression addition impossible.
           changed="$(git diff --name-only "$BASE_SHA"...HEAD)"
           if printf '%s\n' "$changed" | grep -qE '^(tools/maintainer/check_security_gate\.py|\.semgrep\.yml|\.github/workflows/security-gate\.yml|\.github/workflows/release\.yml|\.github/CODEOWNERS)$'; then
             echo "::error::This PR modifies the security gate LOGIC. That cannot be self-"
-            echo "::error::approved — a security maintainer (CODEOWNERS) must review it; the"
+            echo "::error::approved - a security maintainer (CODEOWNERS) must review it; the"
             echo "::error::gate fails by design until then. Split unrelated changes out."
             exit 1
           fi
-          echo "No gate-logic files changed — proceeding."
+          echo "No gate-logic files changed - proceeding."
 
       - name: Run the deterministic security gate (diff-scoped, base-trusted policy)
         env:
@@ -83,7 +83,7 @@ jobs:
           slugs="$(git diff --name-only "$BASE_SHA"...HEAD \
             | sed -nE 's#^skills/([^/]+)/.*#\1#p' | sort -u)"
           if [ -z "$slugs" ]; then
-            echo "No connector changes in this PR — security gate trivially passes."
+            echo "No connector changes in this PR - security gate trivially passes."
             exit 0
           fi
           rc=0
@@ -96,7 +96,7 @@ jobs:
             echo "::endgroup::"
           done
           if [ "$rc" -ne 0 ]; then
-            echo "::error::security-gate found P1 finding(s) — see logs. A poisoned/insecure"
+            echo "::error::security-gate found P1 finding(s) - see logs. A poisoned/insecure"
             echo "::error::change must not merge. Fix the finding, or add a vetted entry to"
             echo "::error::tools/maintainer/security_suppressions.json in a separate, reviewed PR."
           fi
