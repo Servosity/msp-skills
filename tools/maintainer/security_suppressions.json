@@ -1,0 +1,10 @@
+{
+  "_comment": "BASE-OWNED suppressions for check_security_gate.py. A finding is suppressed ONLY if its (file, rule) pair is listed here. This is intentionally NOT self-grantable from a PR diff: inline `// #nosec` is no longer honored by the gate, and a change to THIS file is a glaring, reviewed diff line (the security-gate workflow watches it) \u2014 same trust model as dep_allowlist.json. Add an entry only after a human has vetted that the flagged pattern is safe.",
+  "suppress": [
+    {
+      "file": "skills/servosity/cli/internal/qbrreport/qbrreport.go",
+      "rule": "exec-nonliteral-cmd",
+      "reason": "chrome binary path is allowlist-resolved (not user input) before exec; pre-vetted, also annotated // #nosec G204 at the call site. servosity is an internal-only connector."
+    }
+  ]
+}

@@ -41,8 +41,40 @@ jobs:
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "any=$(printf '%s' "$matrix" | python3 -c 'import json,sys; print(str(len(json.load(sys.stdin)["skill"])>0).lower())')" >> "$GITHUB_OUTPUT"
 
+  # Release-time security gate (Layer 3): re-verify the tagged connector before any
+  # build/publish. Belt-and-suspenders with the PR `security-gate` check — a tag could
+  # be pushed on a commit that never went through a gated PR. Add a tag-protection rule
+  # for `*-v*` so a release can't bypass this.
+  security_gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+      - name: Install scanners (best-effort; built-in deterministic checks always run)
+        run: |
+          set -uo pipefail
+          go install github.com/securego/gosec/v2/cmd/gosec@latest || true
+          go install golang.org/x/vuln/cmd/govulncheck@latest || true
+          python3 -m pip install --quiet semgrep || true
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Gate the tagged connector (P1 blocks the release)
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -uo pipefail
+          slug="${TAG%-v*}"
+          if [ ! -d "skills/$slug/cli" ]; then
+            echo "No connector for tag $TAG (slug=$slug) — nothing to gate."; exit 0
+          fi
+          python3 tools/maintainer/check_security_gate.py --slug "$slug"
+
   # Create the GitHub Release once, before the matrix build jobs upload to it.
   create-release:
+    needs: [security_gate]
     runs-on: ubuntu-latest
     steps:
       - name: Ensure release exists
@@ -58,7 +90,7 @@ jobs:
           fi
 
   build:
-    needs: [prepare, create-release]
+    needs: [prepare, create-release, security_gate]
     if: needs.prepare.outputs.any == 'true'
     runs-on: ubuntu-latest
     strategy:

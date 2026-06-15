@@ -186,3 +186,4 @@ skills-lock.json
 *.dmg
 .history/
 assets/social/
+.gstack/

@@ -59,6 +59,7 @@ if run python3 tools/maintainer/check_aeo.py;             then pass "AEO answer-
 if run python3 tools/maintainer/check_surface_coverage.py; then pass "surface coverage";   else fail "surface coverage";    fi
 if run python3 tools/maintainer/check_media_block.py;     then pass "README media block";  else fail "README media block";  fi
 if run python3 tools/maintainer/check_handfixes.py;       then pass "hand-fix ledgers";    else fail "hand-fix ledgers";    fi
+if run python3 tools/maintainer/check_security_gate.py --all; then pass "security gate";   else fail "security gate";       fi
 if run bash    tools/maintainer/ci_guards.sh;             then pass "repo hygiene guards"; else fail "repo hygiene guards"; fi
 
 echo "== Plugin manifest validation (claude plugin validate --strict) =="

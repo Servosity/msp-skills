@@ -1,0 +1,56 @@
+# Custom Semgrep rules for the msp-skills security gate (Layer 3).
+# Folded into check_security_gate.py when semgrep is installed, and run directly in
+# the security-gate CI workflow. These mirror the deterministic built-in patterns so
+# semgrep's dataflow can catch variants the regexes miss. Vetted exceptions go in the
+# BASE-OWNED tools/maintainer/security_suppressions.json (keyed by file+rule) — inline
+# `// #nosec` is NOT honored by the gate (an attacker could add it in their own diff).
+rules:
+  - id: msp-insecure-skip-verify
+    languages: [go]
+    severity: ERROR
+    message: >-
+      TLS verification disabled (InsecureSkipVerify true). A connector that skips
+      certificate verification exposes every downstream MSP to MITM. Remove it.
+    pattern: "InsecureSkipVerify: true"
+
+  - id: msp-shell-interpreter-exec
+    languages: [go]
+    severity: ERROR
+    message: >-
+      Shelling out to an interpreter (sh/bash/...) or passing "-c" enables command
+      injection. Connectors are HTTP clients and must not invoke a shell.
+    patterns:
+      - pattern-either:
+          - pattern: exec.Command("sh", ...)
+          - pattern: exec.Command("/bin/sh", ...)
+          - pattern: exec.Command("bash", ...)
+          - pattern: exec.Command("/bin/bash", ...)
+          - pattern: exec.Command("zsh", ...)
+          - pattern: exec.Command("powershell", ...)
+          - pattern: exec.Command("pwsh", ...)
+          - pattern: exec.Command(..., "-c", ...)
+          - pattern: exec.CommandContext(..., "-c", ...)
+
+  - id: msp-exec-nonliteral-command
+    languages: [go]
+    severity: ERROR
+    message: >-
+      exec with a non-literal command (a variable) is the command-injection shape.
+      Use a literal command, or add a vetted (file, rule) entry to
+      tools/maintainer/security_suppressions.json if the path is allowlist-resolved
+      and human-vetted.
+    patterns:
+      - pattern-either:
+          - pattern: exec.Command($CMD, ...)
+          - pattern: exec.CommandContext($CTX, $CMD, ...)
+      - metavariable-pattern:
+          metavariable: $CMD
+          patterns:
+            - pattern-not-regex: '^"[^"]*"$'
+
+  - id: msp-unsafe-import
+    languages: [go]
+    severity: ERROR
+    message: >-
+      Importing "unsafe" in connector code is unusual and dangerous; review carefully.
+    pattern: import "unsafe"
