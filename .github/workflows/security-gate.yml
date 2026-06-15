@@ -4,27 +4,13 @@ name: security-gate
 # connector diff may carry a poisoned fix that would ship to downstream MSPs. This gate
 # runs deterministic supply-chain + dangerous-pattern checks and FAILS the PR on any P1.
 #
-# Make this a REQUIRED status check in branch protection on `main` (Settings → Branches),
-# and add a tag-protection rule for `*-v*` tags, so a release can't bypass it. Until then
-# the gate runs but is advisory.
+# Runs on EVERY PR (no paths filter) so it always reports a conclusion and is safe to
+# make a REQUIRED status check in branch protection on `main`. On PRs that touch no
+# connector/installer files it short-circuits to success without the scanner install.
+# Pair it with a `*-v*` tag-protection rule so a release tag cannot bypass it.
 
 on:
   pull_request:
-    paths:
-      - "skills/**/cli/**"
-      - "skills/**/install.sh"
-      - "skills/**/install.ps1"
-      - "tools/maintainer/check_security_gate.py"
-      - "tools/maintainer/dep_allowlist.json"
-      - "tools/maintainer/security_suppressions.json"
-      - ".semgrep.yml"
-      # The gate must also run when its OWN logic files change, so the guard step
-      # below fires on workflow/CODEOWNERS-only PRs (codex P1). GitHub runs the BASE
-      # branch's copy of this workflow for pull_request, so a malicious in-PR edit
-      # to these doesn't take effect for the run - but the guard still fails the PR.
-      - ".github/workflows/security-gate.yml"
-      - ".github/workflows/release.yml"
-      - ".github/CODEOWNERS"
   workflow_dispatch:
 
 permissions:
@@ -39,58 +25,64 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Scope - what did this PR change?
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -uo pipefail
+          changed="$(git diff --name-only "${BASE_SHA}...HEAD")"
+          # Gate-LOGIC changes cannot be self-approved (the workflow runs the PR's own
+          # copy of the script). Hard-fail so a security maintainer (CODEOWNERS) reviews
+          # them. DATA files (dep_allowlist.json, security_suppressions.json) are NOT
+          # hard-failed: the gate reads them from the trusted base (--policy-base), so an
+          # in-PR edit cannot take effect, and CODEOWNERS still gates them.
+          if printf '%s\n' "$changed" | grep -qE '^(tools/maintainer/check_security_gate\.py|\.semgrep\.yml|\.github/workflows/security-gate\.yml|\.github/workflows/release\.yml|\.github/CODEOWNERS)$'; then
+            echo "::error::This PR modifies the security-gate LOGIC. That cannot be self-"
+            echo "::error::approved - a security maintainer (CODEOWNERS) must review it;"
+            echo "::error::the gate fails by design until then. Split unrelated changes out."
+            exit 1
+          fi
+          # Connectors / installers touched? Restrict to the valid slug charset so a
+          # hostile path cannot smuggle anything downstream.
+          slugs="$(printf '%s\n' "$changed" | sed -nE 's#^skills/([a-z0-9][a-z0-9-]*)/.*#\1#p' | sort -u)"
+          if [ -n "$slugs" ]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            { echo "slugs<<SLUGS_EOF"; printf '%s\n' "$slugs"; echo "SLUGS_EOF"; } >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "No connector/installer changes - security gate trivially passes."
+          fi
+
       - name: Setup Go
+        if: steps.scope.outputs.relevant == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: "1.26"
 
       - name: Install scanners (gosec, govulncheck, osv-scanner, semgrep)
+        if: steps.scope.outputs.relevant == 'true'
         run: |
-          set -euo pipefail
+          set -uo pipefail
           go install github.com/securego/gosec/v2/cmd/gosec@latest || echo "gosec install failed (non-fatal)"
           go install golang.org/x/vuln/cmd/govulncheck@latest || echo "govulncheck install failed (non-fatal)"
           go install github.com/google/osv-scanner/cmd/osv-scanner@latest || echo "osv-scanner install failed (non-fatal)"
           python3 -m pip install --quiet semgrep || echo "semgrep install failed (non-fatal)"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: Guard the gate itself (policy/gate changes need maintainer review)
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          set -uo pipefail
-          # A PR that edits the gate LOGIC could neuter the gate AND self-approve in the
-          # same change (codex P1) - the workflow runs the PR's own copy of the script.
-          # Hard-fail those so a security maintainer (CODEOWNERS) must review them.
-          # NOTE: the DATA files (dep_allowlist.json, security_suppressions.json) are NOT
-          # hard-failed here - the gate reads them from the trusted base (--policy-base),
-          # so in-PR edits don't take effect, and CODEOWNERS still gates them. Hard-failing
-          # them would make a legitimate dependency/suppression addition impossible.
-          changed="$(git diff --name-only "$BASE_SHA"...HEAD)"
-          if printf '%s\n' "$changed" | grep -qE '^(tools/maintainer/check_security_gate\.py|\.semgrep\.yml|\.github/workflows/security-gate\.yml|\.github/workflows/release\.yml|\.github/CODEOWNERS)$'; then
-            echo "::error::This PR modifies the security gate LOGIC. That cannot be self-"
-            echo "::error::approved - a security maintainer (CODEOWNERS) must review it; the"
-            echo "::error::gate fails by design until then. Split unrelated changes out."
-            exit 1
-          fi
-          echo "No gate-logic files changed - proceeding."
-
       - name: Run the deterministic security gate (diff-scoped, base-trusted policy)
+        if: steps.scope.outputs.relevant == 'true'
         env:
+          # Pass slugs via env (NOT ${{ }} inlined into the script) so a hostile dir
+          # name can never be interpreted as a command. check_security_gate also
+          # re-validates each slug.
+          SLUGS: ${{ steps.scope.outputs.slugs }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -uo pipefail
-          # Which connectors did this PR touch?
-          slugs="$(git diff --name-only "$BASE_SHA"...HEAD \
-            | sed -nE 's#^skills/([^/]+)/.*#\1#p' | sort -u)"
-          if [ -z "$slugs" ]; then
-            echo "No connector changes in this PR - security gate trivially passes."
-            exit 0
-          fi
           rc=0
-          for s in $slugs; do
+          for s in $SLUGS; do
             echo "::group::security-gate $s"
-            # --policy-base: read allowlist/suppressions from the trusted base, so an
-            # in-PR policy edit cannot take effect (codex P1).
             python3 tools/maintainer/check_security_gate.py \
               --slug "$s" --base "$BASE_SHA" --policy-base "$BASE_SHA" || rc=1
             echo "::endgroup::"
