@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "AppDirect MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "AppDirect MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins."
 permalink: /skills/appdirect/
 skill_name: "AppDirect MCP"
 image: /assets/social/appdirect/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for AppDirect?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for AppDirect, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the AppDirect MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local AppDirect MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -28,12 +32,15 @@ howto:
     text: "Ask your AI agent a AppDirect question in plain language; it runs appdirect-cli for you."
 ---
 
-# AppDirect + AI in 60 seconds
+# The AppDirect MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the AppDirect
-> API. Not affiliated with, endorsed by, or sponsored by AppDirect, Inc.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by AppDirect, Inc.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for AppDirect. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects AppDirect to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask 'which AppDirect payments failed this week?' or 'reconcile billing before month-close' and get an answer across every reseller company in one call. The skill syncs your whole AppDirect marketplace - subscriptions, invoices, payments, companies, pipeline - into a local mirror, so cross-company billing questions that take hundreds of console clicks return instantly, offline, from your terminal or your AI agent.
 
@@ -130,6 +137,14 @@ The skill reads marketplace data - companies, users, subscriptions, invoices, pa
 
 ## Frequently asked questions
 
+### Is there an MCP server for AppDirect?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for AppDirect, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the AppDirect MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local AppDirect MCP server via a secure bridge. Step-by-step in the install guide.
@@ -155,9 +170,15 @@ Yes. The skill authenticates with partner API credentials (OAuth2 client_credent
 It is built to avoid them. The marketplace REST API uses leaky-bucket rate limits (for example, 20-request buckets that refill a few per second); because this skill syncs to a local mirror and answers most questions offline, your day-to-day queries make almost no live calls. Sync itself respects the limits and you can cap request rate with --rate-limit.
 
 
+## More Billing connectors
+
+Run more than one Billing tool, or comparing options? These connectors work the same way: [Gradient MSP](/skills/gradient/) · [Pax8](/skills/pax8/) · [QuickBooks Online](/skills/quickbooks/) · [Sherweb](/skills/sherweb/) · [Xero](/skills/xero/)
+
 ## Status
 
 Beta. Validated against the AppDirect API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

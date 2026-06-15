@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "ConnectWise Automate MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "ConnectWise Automate MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift."
 permalink: /skills/connectwise-automate/
 skill_name: "ConnectWise Automate MCP"
 image: /assets/social/connectwise-automate/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for ConnectWise Automate?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for ConnectWise Automate, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the ConnectWise Automate MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local ConnectWise Automate MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -30,12 +34,15 @@ howto:
     text: "Ask your AI agent a ConnectWise Automate question in plain language; it runs connectwise-automate-cli for you."
 ---
 
-# ConnectWise Automate + AI in 60 seconds
+# The ConnectWise Automate MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the ConnectWise
-> API. Not affiliated with, endorsed by, or sponsored by ConnectWise, LLC.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by ConnectWise, LLC.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for ConnectWise Automate. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects ConnectWise Automate to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask your AI "which clients are behind on patches?" or "where are my offline agents?" and get a fleet-wide answer in one shot. ConnectWise Automate's console is per-server and built for one endpoint at a time. This skill syncs your whole fleet - computers, clients, alerts, patch history - into a local SQLite mirror, then answers the cross-client questions the web UI can't.
 
@@ -131,6 +138,14 @@ The skill is read-first: fleet roll-ups, stale-agent sweeps, patch posture, aler
 
 ## Frequently asked questions
 
+### Is there an MCP server for ConnectWise Automate?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for ConnectWise Automate, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the ConnectWise Automate MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local ConnectWise Automate MCP server via a secure bridge. Step-by-step in the install guide.
@@ -160,9 +175,15 @@ The local mirror is the point. You sync once, then every roll-up, triage, and se
 You need an Automate server you administer plus an API token, and a registered integration clientId GUID (required for v2020.11+). The skill authenticates as you and adds nothing to your ConnectWise account.
 
 
+## More RMM connectors
+
+Run more than one RMM tool, or comparing options? These connectors work the same way: [Action1](/skills/action1/) · [Atera](/skills/atera/) · [Datto RMM](/skills/datto-rmm/) · [Level](/skills/levelio/) · [N-able N-central](/skills/n-central/) · [Nerdio Manager](/skills/nerdio/) · [NinjaOne](/skills/ninjaone/) · [Tactical RMM](/skills/tactical-rmm/)
+
 ## Status
 
 Beta. Validated against the ConnectWise Automate API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

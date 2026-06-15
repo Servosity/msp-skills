@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Proofpoint TAP MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Proofpoint TAP MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions \u2014 who is both attacked and clicking, what touched this user \u2014 inside Proofpoint's punishing daily quotas."
 permalink: /skills/proofpoint/
 skill_name: "Proofpoint TAP MCP"
 image: /assets/social/proofpoint/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for Proofpoint TAP?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Proofpoint TAP, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Proofpoint TAP MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Proofpoint MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -28,12 +32,15 @@ howto:
     text: "Ask your AI agent a Proofpoint TAP question in plain language; it runs proofpoint-cli for you."
 ---
 
-# Proofpoint TAP + AI in 60 seconds
+# The Proofpoint TAP MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Proofpoint
-> API. Not affiliated with, endorsed by, or sponsored by Proofpoint, Inc.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Proofpoint, Inc.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Proofpoint TAP. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Proofpoint TAP to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Proofpoint TAP's dashboard answers one threat, one clicker, one campaign at a time, and every SIEM pull spends against a hard daily quota. This skill backfills clicks, messages, campaigns, Very Attacked People, and clickers into a local SQLite store, then answers the questions the console can't: who is both heavily attacked and clicking, every event that touched one user, and a full incident brief from a single threatId - offline, in seconds.
 
@@ -130,6 +137,14 @@ The skill reads your Proofpoint TAP threat data - SIEM click and message events,
 
 ## Frequently asked questions
 
+### Is there an MCP server for Proofpoint TAP?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Proofpoint TAP, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Proofpoint TAP MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Proofpoint MCP server via a secure bridge. Step-by-step in the install guide.
@@ -155,9 +170,15 @@ No - avoiding that is the point. TAP caps you at 1,800 SIEM requests and 50 camp
 No. It uses your standard TAP (Targeted Attack Protection) Service Principal and Secret, created under Settings then Connected Applications in the TAP dashboard. It reads the Threat Insight endpoints your account already exposes; it does not require Proofpoint Essentials administration or a separate partner program.
 
 
+## More Security connectors
+
+Run more than one Security tool, or comparing options? These connectors work the same way: [Abnormal Security](/skills/abnormal/) · [Blumira](/skills/blumira/) · [CIPP](/skills/cipp/) · [CrowdStrike Falcon](/skills/crowdstrike/) · [Huntress](/skills/huntress/) · [KnowBe4](/skills/knowbe4/) · [Microsoft Graph](/skills/microsoft-graph/) · [RocketCyber](/skills/rocketcyber/) · [runZero](/skills/runzero/) · [SentinelOne](/skills/sentinelone/) · [ThreatLocker](/skills/threatlocker/)
+
 ## Status
 
 Beta. Validated against the Proofpoint TAP API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

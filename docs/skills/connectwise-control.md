@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "ConnectWise Control MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "ConnectWise Control MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Manage ConnectWise Control (ScreenConnect) remote support and access sessions from the terminal or your AI agent: list and inspect sessions across groups, run commands on guest machines, rename and tag sessions, manage instance users, and query the audit log - the whole instance from one CLI."
 permalink: /skills/connectwise-control/
 skill_name: "ConnectWise Control MCP"
 image: /assets/social/connectwise-control/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for ConnectWise Control?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for ConnectWise Control, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the ConnectWise Control MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local ConnectWise Control MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -30,12 +34,15 @@ howto:
     text: "Ask your AI agent a ConnectWise Control question in plain language; it runs connectwise-control-cli for you."
 ---
 
-# ConnectWise Control + AI in 60 seconds
+# The ConnectWise Control MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the ConnectWise
-> API. Not affiliated with, endorsed by, or sponsored by ConnectWise, LLC.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by ConnectWise, LLC.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for ConnectWise Control. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects ConnectWise Control to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Drive ConnectWise Control (ScreenConnect) from the terminal or your AI agent instead of clicking the web console: list and search remote-support and access sessions, inspect a machine's session detail, run an approved command on a guest, rename and tag sessions, manage users, and read the audit log - scriptable, with an offline SQLite mirror so session lookups are fast and local.
 
@@ -132,6 +139,14 @@ The skill is read-first: listing and inspecting sessions, session groups, instan
 
 ## Frequently asked questions
 
+### Is there an MCP server for ConnectWise Control?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for ConnectWise Control, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the ConnectWise Control MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local ConnectWise Control MCP server via a secure bridge. Step-by-step in the install guide.
@@ -164,6 +179,8 @@ Yes, via sessions run-command, but that is gated human-in-the-loop in governance
 ## Status
 
 Beta. Validated against the ConnectWise Control API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "QuickBooks Online MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "QuickBooks Online MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships."
 permalink: /skills/quickbooks/
 skill_name: "QuickBooks Online MCP"
 image: /assets/social/quickbooks/wide-1200x630.png
 verification: live-verified
 faqs:
+  - q: "Is there an MCP server for QuickBooks Online?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for QuickBooks Online, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the QuickBooks Online MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local QuickBooks Online MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -28,12 +32,15 @@ howto:
     text: "Ask your AI agent a QuickBooks Online question in plain language; it runs quickbooks-cli for you."
 ---
 
-# QuickBooks Online + AI in 60 seconds
+# The QuickBooks Online MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the QuickBooks Online
-> API. Not affiliated with, endorsed by, or sponsored by Intuit Inc..
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Intuit Inc..
 
-**Live-verified** - confirmed by a real MSP against a live QuickBooks Online tenant (2026-06-12).
+**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-06-12.
+
+Yes - there is an MCP server for QuickBooks Online. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects QuickBooks Online to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask your books a question and get the answer, not a CSV export. The skill syncs your QuickBooks Online company into a local SQLite mirror, then answers who owes you (ar-aging), what you owe (ap-aging), where the cash is (balances), which invoices to chase first (invoices stale), and whether the books are clean to close (reconcile) - instantly, offline, across the whole book. No portal clicking, no per-question API call.
 
@@ -130,6 +137,14 @@ The skill reads everything - aging, balances, DSO, cash forecast, reconciliation
 
 ## Frequently asked questions
 
+### Is there an MCP server for QuickBooks Online?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for QuickBooks Online, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the QuickBooks Online MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local QuickBooks Online MCP server via a secure bridge. Step-by-step in the install guide.
@@ -155,9 +170,15 @@ Rarely. The only API-heavy step is the one-time sync that mirrors your company i
 No. You need a QuickBooks Online company and an OAuth access token scoped to com.intuit.quickbooks.accounting, plus your company realm ID. You mint the token from the Intuit Developer portal or the OAuth 2.0 Playground, and `quickbooks-cli auth refresh` turns a refresh token into a fresh access token - no partner status required.
 
 
+## More Billing connectors
+
+Run more than one Billing tool, or comparing options? These connectors work the same way: [AppDirect](/skills/appdirect/) · [Gradient MSP](/skills/gradient/) · [Pax8](/skills/pax8/) · [Sherweb](/skills/sherweb/) · [Xero](/skills/xero/)
+
 ## Status
 
 Beta. Validated against the QuickBooks Online API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

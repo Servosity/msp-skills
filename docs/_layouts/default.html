@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#7C3AED">
+  <meta name="theme-color" content="#F2EAE0">
   <title>{{ page.title | default: site.title }}</title>
   <meta name="description" content="{{ page.description | default: site.description }}">
   {% seo title=false description=false %}
@@ -11,97 +11,296 @@
   <link rel="canonical" href="{{ page.url | replace:'index.html','' | absolute_url }}">
   <link rel="alternate" type="application/llms+txt" href="/llms.txt">
   <link rel="alternate" type="application/llms+txt" href="/llms-full.txt" title="full corpus">
+
+  <!-- Display face: Fraunces (variable serif). Degrades to Georgia if the font fails to load. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&display=swap">
+
   <style>
     :root {
-      --fg: #1a1a1a;
-      --muted: #555;
-      --bg: #fdfdfd;
-      --accent: #7C3AED;
-      --rule: #e5e5e5;
-      --code-bg: #f4f4f5;
+      --paper:    #F2EAE0;  /* page background */
+      --ink:      #1A1714;  /* body text (warm near-black) */
+      --muted:    #6E655B;  /* warm gray */
+      --accent:   #C0532F;  /* terracotta - links, primary buttons, badges, rules */
+      --accent-d: #A6431F;  /* darker terracotta for hover */
+      --rule:     #DDD2C2;  /* warm hairlines */
+      --panel:    #211D1A;  /* terminal dark - code blocks, pre */
+      --panel-fg: #E8E2D9;  /* mono text on the panel */
+      --card:     #FAF5EC;  /* raised card surface */
+      --code-tint:#EBE0D2;  /* warm tint for inline code */
+
+      --serif: "Fraunces", Georgia, "Times New Roman", serif;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
     }
     html { box-sizing: border-box; }
     *, *:before, *:after { box-sizing: inherit; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      color: var(--fg);
-      background: var(--bg);
+      font-family: var(--sans);
+      color: var(--ink);
+      background: var(--paper);
       line-height: 1.6;
       max-width: 760px;
       margin: 0 auto;
       padding: 1.5rem;
       font-size: 17px;
+      -webkit-font-smoothing: antialiased;
     }
+    /* Homepage / hero pages may opt into a wider canvas. */
+    body.wide { max-width: 960px; }
+
     a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    h1, h2, h3 { line-height: 1.25; margin-top: 2.2rem; }
-    h1 { font-size: 2.1rem; margin-top: 0.5rem; }
-    h2 { font-size: 1.5rem; border-top: 1px solid var(--rule); padding-top: 1.5rem; }
-    h3 { font-size: 1.2rem; }
+    a:hover { color: var(--accent-d); text-decoration: underline; }
+
+    h1, h2, h3, h4 {
+      font-family: var(--serif);
+      font-weight: 600;
+      line-height: 1.18;
+      margin-top: 2.2rem;
+      letter-spacing: -0.01em;
+    }
+    h1 { font-size: 2.4rem; font-weight: 900; margin-top: 0.5rem; letter-spacing: -0.02em; }
+    h2 { font-size: 1.7rem; border-top: 1px solid var(--rule); padding-top: 1.5rem; }
+    h3 { font-size: 1.25rem; }
+    h4 { font-size: 1.05rem; }
+
+    /* Eyebrow / kicker - small-caps terracotta label for hero + section heads. */
+    .eyebrow {
+      font-family: var(--serif);
+      font-weight: 600;
+      font-size: 0.8rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      display: block;
+      margin: 0 0 0.4rem;
+    }
+
+    p, li { color: var(--ink); }
+
     blockquote {
       border-left: 4px solid var(--accent);
-      padding: 0.5rem 1rem;
+      padding: 0.65rem 1.15rem;
       margin: 1.5rem 0;
-      background: #faf7ff;
-      color: var(--fg);
+      background: var(--card);
+      color: var(--ink);
+      border-radius: 0 8px 8px 0;
     }
-    code { background: var(--code-bg); padding: 0.15rem 0.35rem; border-radius: 4px; font-size: 0.92em; }
-    pre { background: var(--code-bg); padding: 1rem; overflow-x: auto; border-radius: 6px; }
-    pre code { background: none; padding: 0; }
-    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-    th, td { border-bottom: 1px solid var(--rule); padding: 0.5rem 0.7rem; text-align: left; vertical-align: top; }
-    th { font-weight: 600; background: #f9f9fb; }
+    blockquote p:first-child { margin-top: 0; }
+    blockquote p:last-child { margin-bottom: 0; }
+
+    /* Inline code on a warm tint; pre becomes a terminal panel. */
+    code {
+      background: var(--code-tint);
+      padding: 0.15rem 0.38rem;
+      border-radius: 4px;
+      font-size: 0.9em;
+      font-family: var(--mono);
+    }
+    pre {
+      background: var(--panel);
+      color: var(--panel-fg);
+      padding: 2.4rem 1.1rem 1.1rem;
+      overflow-x: auto;
+      border-radius: 8px;
+      position: relative;
+      font-family: var(--mono);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+      margin: 1.5rem 0;
+    }
+    /* Terminal top bar with three dots. */
+    pre::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1.6rem;
+      background: rgba(255,255,255,0.04);
+      border-radius: 8px 8px 0 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    pre::after {
+      content: "";
+      position: absolute;
+      top: 0.6rem; left: 0.95rem;
+      width: 0.55rem; height: 0.55rem;
+      border-radius: 50%;
+      background: #E0683E;
+      box-shadow: 1rem 0 0 #E5B53F, 2rem 0 0 #6FA85C;
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      color: var(--panel-fg);
+      font-size: 0.88rem;
+    }
+
+    table { border-collapse: collapse; width: 100%; margin: 1.25rem 0; font-size: 0.97rem; }
+    th, td { border-bottom: 1px solid var(--rule); padding: 0.55rem 0.75rem; text-align: left; vertical-align: top; }
+    th { font-weight: 600; background: var(--card); font-family: var(--serif); }
+    tbody tr:nth-child(even) { background: rgba(250,245,236,0.5); }
+
     .btn {
       display: inline-block;
-      padding: 0.5rem 0.9rem;
-      border-radius: 6px;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
       border: 1px solid var(--rule);
-      margin-right: 0.5rem;
-      font-weight: 500;
+      background: var(--card);
+      color: var(--ink);
+      margin: 0.25rem 0.4rem 0.25rem 0;
+      font-weight: 600;
+      font-size: 0.95rem;
     }
-    .btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
-    .btn-primary:hover { text-decoration: none; opacity: 0.92; }
-    nav.site-nav { padding: 0.5rem 0 1.5rem; border-bottom: 1px solid var(--rule); margin-bottom: 1rem; font-size: 0.95rem; }
-    nav.site-nav a { margin-right: 1rem; color: var(--muted); }
-    footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: 0.9rem; }
+    .btn:hover { text-decoration: none; border-color: var(--accent); color: var(--accent); }
+    .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn-primary:hover { background: var(--accent-d); border-color: var(--accent-d); color: #fff; }
+
+    nav.site-nav {
+      padding: 0.5rem 0 1.25rem;
+      border-bottom: 1px solid var(--rule);
+      margin-bottom: 1.5rem;
+      font-size: 0.95rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.35rem 1.1rem;
+    }
+    nav.site-nav .brand {
+      font-family: var(--serif);
+      font-weight: 900;
+      color: var(--ink);
+      font-size: 1.05rem;
+      letter-spacing: -0.01em;
+      margin-right: 0.4rem;
+    }
+    nav.site-nav a { color: var(--muted); }
+    nav.site-nav a:hover { color: var(--accent); text-decoration: none; }
+
+    footer {
+      margin-top: 4rem;
+      padding-top: 1.75rem;
+      border-top: 1px solid var(--rule);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    footer a { color: var(--accent); }
+    footer .build-room { margin-top: 1rem; font-style: normal; color: var(--muted); }
+
     hr { border: none; border-top: 1px solid var(--rule); margin: 2rem 0; }
+
+    /* "Instead of / just ask" block. */
     .instead-of {
       border: 1px solid var(--rule);
       border-left: 4px solid var(--accent);
-      border-radius: 6px;
+      border-radius: 8px;
       padding: 1rem 1.25rem;
       margin: 1.5rem 0;
-      background: #faf7ff;
+      background: var(--card);
     }
     .instead-of p { margin: 0.3rem 0; }
     .instead-of .io-instead { color: var(--muted); }
-    .instead-of .io-say { font-size: 1.1rem; }
+    .instead-of .io-say { font-size: 1.1rem; font-family: var(--serif); }
     .instead-of .io-cli { margin-top: 0.6rem; font-size: 0.85rem; color: var(--muted); }
     .instead-of .io-cli code { font-size: 0.85em; }
     .instead-of .io-cli-note { display: block; margin-top: 0.2rem; font-size: 0.8rem; color: var(--muted); }
+
     .vocab-bridge {
       border: 1px solid var(--rule);
-      border-radius: 6px;
-      padding: 0.75rem 1.1rem;
+      border-radius: 8px;
+      padding: 0.85rem 1.15rem;
       margin: 1.5rem 0;
-      background: #f9f9fb;
+      background: var(--card);
     }
     .vocab-bridge p { margin: 0; font-size: 0.95rem; }
-    .why-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
-    .why-card { border: 1px solid var(--rule); border-radius: 6px; padding: 1rem; }
-    .why-card h3 { margin-top: 0; font-size: 1.05rem; }
-    .why-card p { margin: 0.4rem 0 0; font-size: 0.92rem; color: var(--muted); }
+
+    .why-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+    .why-card { border: 1px solid var(--rule); border-radius: 10px; padding: 1.15rem; background: var(--card); }
+    .why-card h3 { margin-top: 0; font-size: 1.1rem; font-family: var(--serif); }
+    .why-card p { margin: 0.45rem 0 0; font-size: 0.92rem; color: var(--muted); }
+
+    /* Verification badge pills. */
+    .verif-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.88rem;
+      font-weight: 600;
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+      line-height: 1.3;
+      margin: 0.5rem 0;
+    }
+    .verif-badge.verified { background: var(--accent); color: #fff; }
+    .verif-badge.verified a { color: #fff; text-decoration: underline; }
+    .verif-badge.awaiting { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+    .verif-badge.awaiting a { color: var(--accent); text-decoration: underline; }
+
+    /* Email-capture block. */
+    .email-capture {
+      border: 1px solid var(--rule);
+      border-radius: 10px;
+      padding: 1.1rem 1.25rem;
+      margin: 1.5rem 0;
+      background: var(--card);
+    }
+    .email-capture .ec-title { font-family: var(--serif); font-weight: 600; font-size: 1.1rem; margin: 0 0 0.5rem; }
+    .email-capture p { margin: 0 0 0.75rem; color: var(--muted); font-size: 0.92rem; }
+    .email-capture form { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .email-capture input[type="email"] {
+      flex: 1 1 220px;
+      padding: 0.5rem 0.7rem;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 0.95rem;
+    }
+    .email-capture button {
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      font-family: var(--sans);
+    }
+    .email-capture button:hover { background: var(--accent-d); border-color: var(--accent-d); }
+
+    /* Proof strip. */
+    .proof-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+    .proof-card { border: 1px solid var(--rule); border-radius: 10px; padding: 1.15rem; background: var(--card); }
+    .proof-card .ps-eyebrow {
+      font-family: var(--serif); font-weight: 600; font-size: 0.78rem;
+      letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent);
+      display: block; margin-bottom: 0.4rem;
+    }
+    .proof-card p { margin: 0; font-size: 0.95rem; }
+    .proof-card .ps-link { display: inline-block; margin-top: 0.6rem; font-size: 0.88rem; }
+
+    /* Build Room one-liner. */
+    .build-room-line {
+      margin: 1.5rem 0;
+      padding: 0.75rem 1rem;
+      border-left: 3px solid var(--accent);
+      background: var(--card);
+      border-radius: 0 8px 8px 0;
+      font-size: 0.95rem;
+    }
+    .build-room-line strong { font-family: var(--serif); }
   </style>
 </head>
-<body>
+<body{% if page.body_class %} class="{{ page.body_class }}"{% endif %}>
   <nav class="site-nav">
-    <a href="/">Home</a>
-    <a href="/why/">Why msp-skills?</a>
-    <a href="/skills/halopsa/">HaloPSA</a>
-    <a href="/skills/servosity/">Servosity</a>
-    <a href="/which-agent/">Which Agent?</a>
+    <a class="brand" href="/">MSP Skills</a>
+    <a href="/skills/">Connectors</a>
+    <a href="/why/">Why</a>
+    <a href="/governance/">Trust Center</a>
+    <a href="/verified/">Verified</a>
+    <a href="/build-sessions/">Build Sessions</a>
     <a href="https://github.com/servosity/msp-skills">GitHub</a>
-    <a href="https://compoundingteams.com/build-sessions">Build Sessions</a>
   </nav>
 
   <main>
@@ -109,9 +308,19 @@
   </main>
 
   <footer>
+    {% include email-capture.html %}
+
     <p><strong>MSP Skills</strong> · Built by <a href="https://www.servosity.com">Servosity Inc.</a> · Maintained by Damien Stevens · Apache-2.0 · <a href="https://github.com/servosity/msp-skills">github.com/servosity/msp-skills</a></p>
     <p><a href="/what-is-an-mcp-server/">What is an MCP server?</a> · <a href="/guides/first-time-setup/">First-time setup</a> · <a href="/which-agent/">Which agent?</a></p>
     <p>Methodology: <a href="https://compoundingteams.com">Compounding Teams</a> · <a href="/llms.txt">/llms.txt</a> · <a href="/llms-full.txt">/llms-full.txt</a> for AI search engines.</p>
+
+    {% include build-room-line.html %}
   </footer>
+
+  <!-- GoatCounter: uncomment + set data-goatcounter when the account exists -->
+  <!--
+  <script data-goatcounter="https://YOURCODE.goatcounter.com/count"
+          async src="//gc.zgo.at/count.js"></script>
+  -->
 </body>
 </html>

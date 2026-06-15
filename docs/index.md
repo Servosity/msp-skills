@@ -3,13 +3,22 @@ layout: default
 title: "MCP Servers for MSPs - Connect ConnectWise, HaloPSA, HubSpot, Backup to Claude, ChatGPT, Copilot"
 description: "Free MCP servers and Skills that connect ConnectWise PSA, HaloPSA, HubSpot, and Servosity backup to the AI you already use - Claude, ChatGPT, Copilot, Codex. Local SQLite mirror, no data leaves your network. Built for MSP owners. No code required."
 permalink: /
+body_class: wide
 ---
 
-# Run your MSP tools by asking
+<span class="eyebrow">{{ site.data.catalog.count }} FREE CONNECTORS · OPEN SOURCE · RUNS ON YOUR MACHINE</span>
 
-MCP servers and Skills that connect your PSA, RMM, backup, and more to the AI you already use.
+# Your MSP tools, answerable by AI - without your data leaving your network.
 
-Ask your AI a plain-English question about your stack and get a real answer back - no exports, no dashboards, no developer experience required. Every connector is **free, open source, and runs on your own machine**: it keeps a local SQLite copy of your tool's data so cross-client questions the live API can't answer in one shot come back instantly, and **no data leaves your network**. {{ site.data.catalog.count }} connectors are live today - {% for c in site.data.catalog.connectors %}{% if forloop.last and forloop.length > 1 %}and {% endif %}{{ c.display_name }}{% unless forloop.last %}, {% endunless %}{% endfor %} - and more PSA, RMM, backup, and M365 connectors ship every week.
+Ask one plain-English question across every client - "which clients had backup failures last quarter?" - and get the answer back in seconds, not an afternoon of exports and pivot tables. Every connector is free, open source, and runs on your own machine: your tools stay where they are, and the answers come to you.
+
+- **Cross-client answers in one ask.** One question spans your whole book of business - not one client at a time.
+- **Nothing to trust but your own machine.** No cloud middleman, no servers of ours, credentials stay local. Your AI sees answers, not your raw data.
+- **Every command is safety-tiered** - read, write, or destructive - so you control what an agent may do. [See the Trust Center →](/governance/)
+
+[Find your tool →](/skills/){: .btn .btn-primary} &nbsp; [Already have an official MCP server? →](#why-this-one){: .btn} &nbsp; [View on GitHub →](https://github.com/servosity/msp-skills){: .btn}
+
+{% include proof-strip.html %}
 
 {% include instead-of.html
    instead="exporting three reports and pivoting them in Excel"
@@ -18,11 +27,25 @@ Ask your AI a plain-English question about your stack and get a real answer back
 
 > 🛠 **Built live with MSPs.** Join a free weekly **Build Session** at **[compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions)** - watch a connector built against a real MSP system, or bring your own.
 
-[Why msp-skills? →](/why/){: .btn .btn-primary} &nbsp; [Install in 60 seconds →](#install-in-60-seconds){: .btn} &nbsp; [View on GitHub →](https://github.com/servosity/msp-skills){: .btn}
-
 {% include vocab-bridge.html %}
 
 <video autoplay muted loop playsinline preload="metadata" style="width:100%; max-width:960px; border-radius:12px; display:block; margin: 18px 0;" poster="/assets/social/og-1280x640.png" src="/assets/video/hero-14s.mp4"></video>
+
+## My vendor already ships an MCP server. Why add this one? {#why-this-one}
+
+**Keep it - it's good at what it does.** A vendor's own MCP server is excellent for working inside that one product: pulling up a record, drafting a reply, summarizing a single ticket. This is not a replacement for that.
+
+An MSP Skills connector is the layer your vendors structurally can't ship: the **cross-client, cross-system** layer. It keeps a private, searchable copy of your tool's data on your own machine, so a question that spans every client and joins your PSA to your backup tool comes back as one instant local lookup - not hundreds of rate-limited API calls.
+
+| | A typical MCP server | An MSP Skills connector |
+| --- | --- | --- |
+| Where answers come from | A live API call per question | A private local copy of your data, plus the live API |
+| Cross-client questions | One client at a time, paginated and rate-limited | The whole book of business in one ask |
+| What the AI reads | Raw records streamed into the chat | Query results - the answer, not the bulk data |
+| Systems per question | One (the vendor's own product) | Many - join your PSA, backup, RMM, and M365 |
+| Where it runs | Often a hosted cloud service | Your own machine - nothing leaves your network |
+
+It is **complementary, not a replacement**: keep your vendor's MCP server for in-product work, add an MSP Skills connector for everything that has to span your whole MSP.
 
 
 ## Why MSP owners use this

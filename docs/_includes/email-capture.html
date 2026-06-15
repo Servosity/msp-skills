@@ -1,0 +1,16 @@
+{%- comment -%}
+Reusable email-capture block. Used in the footer (every page) and on PR-3
+content pages.
+
+The form currently points at /question-book/ as a placeholder.
+TODO: swap action to Brevo form endpoint when creds land.
+{%- endcomment -%}
+<div class="email-capture">
+  <p class="ec-title">Get the MSP AI Question Book</p>
+  <p>200+ plain-English questions your AI can already answer from the tools you run - no code required.</p>
+  <!-- TODO: swap action to Brevo form endpoint when creds land -->
+  <form action="/question-book/" method="get">
+    <input type="email" name="email" placeholder="you@yourmsp.com" aria-label="Your work email" autocomplete="email">
+    <button type="submit">Send me the Question Book</button>
+  </form>
+</div>

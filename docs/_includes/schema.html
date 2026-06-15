@@ -47,7 +47,31 @@ escaping: every interpolated string runs through `jsonify`.
       "license": "https://www.apache.org/licenses/LICENSE-2.0",
       "publisher": { "@id": "https://www.servosity.com/#organization" },
       "url": "{{ page.url | absolute_url }}",
+      "dateModified": "{{ page.last_modified_at | default: site.time | date_to_xmlschema }}",
       "codeRepository": "https://github.com/servosity/msp-skills"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "{{ '/' | absolute_url }}"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Connectors",
+          "item": "{{ '/skills/' | absolute_url }}"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": {{ page.skill_name | jsonify }},
+          "item": "{{ page.url | absolute_url }}"
+        }
+      ]
     }
     {%- endif -%}
     {%- if page.faqs -%},
@@ -85,6 +109,7 @@ escaping: every interpolated string runs through `jsonify`.
       "name": {{ page.title | default: site.title | jsonify }},
       "description": {{ page.description | default: site.description | jsonify }},
       "url": "{{ page.url | absolute_url }}",
+      "dateModified": "{{ page.last_modified_at | default: site.time | date_to_xmlschema }}",
       "isPartOf": { "@id": "https://www.servosity.com/#organization" }
     }
     {%- endunless -%}

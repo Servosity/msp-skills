@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Rewst MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Rewst MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time."
 permalink: /skills/rewst/
 skill_name: "Rewst MCP"
 image: /assets/social/rewst/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for Rewst?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Rewst, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Rewst MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Rewst MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -30,12 +34,15 @@ howto:
     text: "Ask your AI agent a Rewst question in plain language; it runs rewst-cli for you."
 ---
 
-# Rewst + AI in 60 seconds
+# The Rewst MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Rewst
-> API. Not affiliated with, endorsed by, or sponsored by Rewst, Inc..
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Rewst, Inc..
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Rewst. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Rewst to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask your AI "is automation healthy for this client?" or "which workflows failed overnight?" and get an answer across every tenant. Rewst's only surface is a GraphQL gateway with no first-party CLI. This skill turns every entity into a typed command and adds cross-org rollups - execution health, failure triage, ROI, dormant workflows, config drift, and pack coverage - the web app makes you assemble one client at a time.
 
@@ -132,6 +139,14 @@ The skill is read-first: the six cross-org rollups (health, failures, dormant, r
 
 ## Frequently asked questions
 
+### Is there an MCP server for Rewst?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Rewst, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Rewst MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Rewst MCP server via a secure bridge. Step-by-step in the install guide.
@@ -164,6 +179,8 @@ Yes. The rollups (health, failures, drift, coverage) are multi-org by design and
 ## Status
 
 Beta. Validated against the Rewst API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

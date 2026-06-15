@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Abnormal Security MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Abnormal Security MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "The full Abnormal Security REST API as an agent-ready CLI \u2014 with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers."
 permalink: /skills/abnormal/
 skill_name: "Abnormal Security MCP"
 image: /assets/social/abnormal/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for Abnormal Security?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Abnormal Security, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Abnormal Security MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Abnormal Security MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -32,12 +36,15 @@ howto:
     text: "Ask your AI agent a Abnormal Security question in plain language; it runs abnormal-cli for you."
 ---
 
-# Abnormal Security + AI in 60 seconds
+# The Abnormal Security MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Abnormal Security
-> API. Not affiliated with, endorsed by, or sponsored by Abnormal Security Corporation.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Abnormal Security Corporation.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Abnormal Security. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Abnormal Security to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Abnormal Security plus your AI answers the SOC questions the portal makes you click for: what new email threats are still unremediated right now, what numbers go in this quarter's client security report, and an employee's full account-takeover risk picture - each in one command. It syncs your tenant to a local store, ranks the threat queue, and confirms remediations actually completed.
 
@@ -133,6 +140,14 @@ The skill authenticates with a single ABNORMAL_API_TOKEN scoped to your tenant. 
 
 ## Frequently asked questions
 
+### Is there an MCP server for Abnormal Security?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Abnormal Security, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Abnormal Security MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Abnormal Security MCP server via a secure bridge. Step-by-step in the install guide.
@@ -166,9 +181,15 @@ It can remediate threats and delete or move malicious messages through the remed
 No. Detection tuning, policy, and configuration stay in the portal. This is a read-first, action-on-approval surface for your terminal and your agents, not a replacement UI.
 
 
+## More Security connectors
+
+Run more than one Security tool, or comparing options? These connectors work the same way: [Blumira](/skills/blumira/) · [CIPP](/skills/cipp/) · [CrowdStrike Falcon](/skills/crowdstrike/) · [Huntress](/skills/huntress/) · [KnowBe4](/skills/knowbe4/) · [Microsoft Graph](/skills/microsoft-graph/) · [Proofpoint TAP](/skills/proofpoint/) · [RocketCyber](/skills/rocketcyber/) · [runZero](/skills/runzero/) · [SentinelOne](/skills/sentinelone/) · [ThreatLocker](/skills/threatlocker/)
+
 ## Status
 
 Beta. Validated against the Abnormal Security API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

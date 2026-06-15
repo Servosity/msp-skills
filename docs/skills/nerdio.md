@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Nerdio Manager MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Nerdio Manager MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has."
 permalink: /skills/nerdio/
 skill_name: "Nerdio Manager MCP"
 image: /assets/social/nerdio/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for Nerdio Manager?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Nerdio Manager, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Nerdio Manager MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Nerdio Manager MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -30,12 +34,15 @@ howto:
     text: "Ask your AI agent a Nerdio Manager question in plain language; it runs nerdio-cli for you."
 ---
 
-# Nerdio Manager + AI in 60 seconds
+# The Nerdio Manager MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Nerdio Manager
-> API. Not affiliated with, endorsed by, or sponsored by Nerdio, Inc.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Nerdio, Inc.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Nerdio Manager. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Nerdio Manager to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask "which host pools have autoscale off across all my customers?" and get one table - not 30 portal logins. Every MSP runs its own Nerdio Manager (NMM) install, so each answer normally means clicking through one tenant at a time. This skill pulls your whole NMM fleet into a local mirror and answers cross-account autoscale, power-state, billing, and Intune questions in a single command.
 
@@ -135,6 +142,14 @@ The skill reads your whole NMM fleet - accounts, host pools, session hosts, Intu
 
 ## Frequently asked questions
 
+### Is there an MCP server for Nerdio Manager?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Nerdio Manager, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Nerdio Manager MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Nerdio Manager MCP server via a secure bridge. Step-by-step in the install guide.
@@ -164,9 +179,15 @@ No. It is a read-first, cross-account companion. Day-to-day operating still happ
 Every NMM mutation (provisioning, scripted actions, backup, host power) is async and returns a job ID. Run nerdio-cli job wait <job_id> to poll it to a terminal state and exit non-zero if it failed - so your agent never reports "done" on a job that actually errored.
 
 
+## More RMM connectors
+
+Run more than one RMM tool, or comparing options? These connectors work the same way: [Action1](/skills/action1/) · [Atera](/skills/atera/) · [ConnectWise Automate](/skills/connectwise-automate/) · [Datto RMM](/skills/datto-rmm/) · [Level](/skills/levelio/) · [N-able N-central](/skills/n-central/) · [NinjaOne](/skills/ninjaone/) · [Tactical RMM](/skills/tactical-rmm/)
+
 ## Status
 
 Beta. Validated against the Nerdio Manager API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

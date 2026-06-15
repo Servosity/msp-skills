@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "ConnectWise PSA (Manage) MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "ConnectWise PSA (Manage) MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every ConnectWise PSA workflow from the terminal \u2014 with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you."
 permalink: /skills/connectwise-manage/
 skill_name: "ConnectWise PSA (Manage) MCP"
 image: /assets/social/connectwise-manage/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for ConnectWise PSA (Manage)?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for ConnectWise PSA (Manage), built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the ConnectWise PSA (Manage) MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local ConnectWise Manage MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -32,12 +36,15 @@ howto:
     text: "Ask your AI agent a ConnectWise PSA (Manage) question in plain language; it runs connectwise-manage-cli for you."
 ---
 
-# ConnectWise PSA (Manage) + AI in 60 seconds
+# The ConnectWise PSA (Manage) MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the ConnectWise Manage
-> API. Not affiliated with, endorsed by, or sponsored by ConnectWise, LLC.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by ConnectWise, LLC.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for ConnectWise PSA (Manage). It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects ConnectWise PSA (Manage) to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 MSPs run ConnectWise PSA (Manage) as the system of record - tickets, time, agreements, billing. Ask your AI "what's rotting on the board," "which closed tickets have no time logged," or "how burned is that block-hours agreement," and get answers the portal can't compose: cross-entity joins across tickets, time, agreements, and configurations, computed offline from a local mirror in one query instead of five portal screens and an Excel export.
 
@@ -133,6 +140,14 @@ The skill drives the connectwise-manage-cli and connectwise-manage-mcp binaries,
 
 ## Frequently asked questions
 
+### Is there an MCP server for ConnectWise PSA (Manage)?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for ConnectWise PSA (Manage), built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the ConnectWise PSA (Manage) MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local ConnectWise Manage MCP server via a secure bridge. Step-by-step in the install guide.
@@ -166,9 +181,15 @@ An API Member with public/private keys from your own Manage instance, plus a cli
 Yes. CW_SITE accepts your own server's hostname as well as the cloud region hosts; the CLI builds the standard v4_6_release/apis/3.0 base URL either way.
 
 
+## More PSA connectors
+
+Run more than one PSA tool, or comparing options? These connectors work the same way: [Autotask PSA](/skills/autotask/) · [HaloPSA](/skills/halopsa/) · [Kaseya BMS](/skills/kaseya-bms/) · [SuperOps](/skills/superops/) · [Syncro](/skills/syncro/)
+
 ## Status
 
 Beta. Validated against the ConnectWise PSA (Manage) API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

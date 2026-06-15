@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "CrowdStrike Falcon MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "CrowdStrike Falcon MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once \u2014 something no other Falcon tool (including the official MCP server) does."
 permalink: /skills/crowdstrike/
 skill_name: "CrowdStrike Falcon MCP"
 image: /assets/social/crowdstrike/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for CrowdStrike Falcon?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for CrowdStrike Falcon, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the CrowdStrike Falcon MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local CrowdStrike MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -32,12 +36,15 @@ howto:
     text: "Ask your AI agent a CrowdStrike Falcon question in plain language; it runs crowdstrike-cli for you."
 ---
 
-# CrowdStrike Falcon + AI in 60 seconds
+# The CrowdStrike Falcon MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the CrowdStrike
-> API. Not affiliated with, endorsed by, or sponsored by CrowdStrike, Inc..
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by CrowdStrike, Inc..
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for CrowdStrike Falcon. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects CrowdStrike Falcon to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Running CrowdStrike Falcon across a book of client tenants? Ask your AI "what should I triage first across every CID," "which sensors went silent," or "where are the critical vulnerabilities," and get one cross-tenant answer the Falcon console can't compose. Every child CID is mirrored into one local store keyed by CID, so a single scorecard, vuln ranking, and stale-sensor sweep replace flipping Flight Control tenant by tenant.
 
@@ -135,6 +142,14 @@ The skill drives the crowdstrike-cli and crowdstrike-mcp binaries, authenticatin
 
 ## Frequently asked questions
 
+### Is there an MCP server for CrowdStrike Falcon?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for CrowdStrike Falcon, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the CrowdStrike Falcon MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local CrowdStrike MCP server via a secure bridge. Step-by-step in the install guide.
@@ -168,9 +183,15 @@ Read scopes for the entities you query - Alerts (read), Hosts (read), Spotlight 
 No. The console stays best for hunting, RTR sessions, policy authoring, and the interactive response workflow inside one CID. This skill adds cross-tenant queries and scriptable actions to your AI agent so you stop scoping into each CID to answer book-wide questions.
 
 
+## More Security connectors
+
+Run more than one Security tool, or comparing options? These connectors work the same way: [Abnormal Security](/skills/abnormal/) · [Blumira](/skills/blumira/) · [CIPP](/skills/cipp/) · [Huntress](/skills/huntress/) · [KnowBe4](/skills/knowbe4/) · [Microsoft Graph](/skills/microsoft-graph/) · [Proofpoint TAP](/skills/proofpoint/) · [RocketCyber](/skills/rocketcyber/) · [runZero](/skills/runzero/) · [SentinelOne](/skills/sentinelone/) · [ThreatLocker](/skills/threatlocker/)
+
 ## Status
 
 Beta. Validated against the CrowdStrike Falcon API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

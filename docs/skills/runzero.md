@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "runZero MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "runZero MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice."
 permalink: /skills/runzero/
 skill_name: "runZero MCP"
 image: /assets/social/runzero/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for runZero?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for runZero, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the runZero MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local runZero MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -30,12 +34,15 @@ howto:
     text: "Ask your AI agent a runZero question in plain language; it runs runzero-cli for you."
 ---
 
-# runZero + AI in 60 seconds
+# The runZero MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the runZero
-> API. Not affiliated with, endorsed by, or sponsored by runZero, Inc..
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by runZero, Inc..
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for runZero. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects runZero to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 runZero's API answers one entity at a time; it cannot join assets to services to vulnerabilities in a single call. This skill syncs your whole attack surface into a local SQLite copy, then ranks exposure, diffs what changed since the last sync, and traces any CVE to the exact assets it hits - offline, at zero API quota. Ask in plain language; your agent runs the command and reads back the answer.
 
@@ -133,6 +140,14 @@ The skill reads your runZero attack surface - assets, services, software, vulner
 
 ## Frequently asked questions
 
+### Is there an MCP server for runZero?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for runZero, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the runZero MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local runZero MCP server via a secure bridge. Step-by-step in the install guide.
@@ -162,9 +177,15 @@ Yes. It defaults to the hosted console at console.runzero.com; point it at your 
 A read/Export token (Export ET, Organization OT, or Account CT key) covers sync and every analysis command. Launching a scan with scan-watch or org create-scan needs a token with scan permission. Scope the credential to only what your workflow uses.
 
 
+## More Security connectors
+
+Run more than one Security tool, or comparing options? These connectors work the same way: [Abnormal Security](/skills/abnormal/) · [Blumira](/skills/blumira/) · [CIPP](/skills/cipp/) · [CrowdStrike Falcon](/skills/crowdstrike/) · [Huntress](/skills/huntress/) · [KnowBe4](/skills/knowbe4/) · [Microsoft Graph](/skills/microsoft-graph/) · [Proofpoint TAP](/skills/proofpoint/) · [RocketCyber](/skills/rocketcyber/) · [SentinelOne](/skills/sentinelone/) · [ThreatLocker](/skills/threatlocker/)
+
 ## Status
 
 Beta. Validated against the runZero API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

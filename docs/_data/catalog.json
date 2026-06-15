@@ -7,6 +7,8 @@
       "tagline": "Triage Abnormal email threats, confirm remediations, and pull client-ready security reports from your terminal.",
       "category": "Security",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/abnormal/"
     },
     {
@@ -15,6 +17,8 @@
       "tagline": "Spot failed backups, offline agents, and unbilled usage across every Acronis tenant by asking.",
       "category": "Backup/DR",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/acronis/"
     },
     {
@@ -23,6 +27,8 @@
       "tagline": "Patch every client's endpoints and triage CVEs fleet-wide from your terminal.",
       "category": "RMM",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/action1/"
     },
     {
@@ -31,6 +37,8 @@
       "tagline": "Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.",
       "category": "Backup/DR",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/afi/"
     },
     {
@@ -39,6 +47,8 @@
       "tagline": "Reconcile AppDirect marketplace billing and chase failed payments across every reseller company before month-close.",
       "category": "Billing",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/appdirect/"
     },
     {
@@ -47,6 +57,8 @@
       "tagline": "Answer fleet-health, SLA, and book-of-business questions across your Atera estate from the terminal.",
       "category": "RMM",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/atera/"
     },
     {
@@ -55,6 +67,8 @@
       "tagline": "Triage tickets, surface unbilled time, and project retainer burn by asking.",
       "category": "PSA",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/autotask/"
     },
     {
@@ -63,6 +77,8 @@
       "tagline": "Catch failed and stale Axcient backups, RPO breaches, and unbilled usage across every client by asking.",
       "category": "Backup/DR",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/axcient/"
     },
     {
@@ -71,6 +87,8 @@
       "tagline": "Ask what's down, who's paged, where coverage is missing, and your MTTA/MTTR across your Better Stack account",
       "category": "Monitoring",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/betterstack/"
     },
     {
@@ -79,6 +97,8 @@
       "tagline": "Triage every Blumira finding across all your MSP client accounts from one ranked queue",
       "category": "Security",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/blumira/"
     },
     {
@@ -87,6 +107,8 @@
       "tagline": "Every client tenant's M365 posture, license waste, and stale accounts in one cross-tenant rollup.",
       "category": "Security",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/cipp/"
     },
     {
@@ -95,6 +117,8 @@
       "tagline": "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift.",
       "category": "RMM",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/connectwise-automate/"
     },
     {
@@ -103,6 +127,8 @@
       "tagline": "Manage ConnectWise Control (ScreenConnect) remote support and access sessions from the terminal or your AI agent: list and inspect sessions across groups, run commands on guest machines, rename and tag sessions, manage instance users, and query the audit log - the whole instance from one CLI.",
       "category": "Remote Access",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/connectwise-control/"
     },
     {
@@ -111,6 +137,8 @@
       "tagline": "Triage boards, catch unbilled time, and prep QBRs by asking.",
       "category": "PSA",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/connectwise-manage/"
     },
     {
@@ -119,6 +147,8 @@
       "tagline": "Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal.",
       "category": "Backup/DR",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/cove/"
     },
     {
@@ -127,6 +157,8 @@
       "tagline": "Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking.",
       "category": "Security",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/crowdstrike/"
     },
     {
@@ -135,6 +167,8 @@
       "tagline": "Fleet-wide Datto BCDR answers - failed screenshots, stale backups, at-risk clients - from a local mirror in one ask.",
       "category": "Backup/DR",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/datto-bcdr/"
     },
     {
@@ -143,6 +177,8 @@
       "tagline": "Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask.",
       "category": "RMM",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/datto-rmm/"
     },
     {
@@ -151,6 +187,8 @@
       "tagline": "Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal.",
       "category": "Network Monitoring",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/domotz/"
     },
     {
@@ -159,6 +197,8 @@
       "tagline": "Push usage counts, catch billing drift, and trace alerts to PSA tickets in Gradient MSP Synthesize from your terminal.",
       "category": "Billing",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/gradient/"
     },
     {
@@ -167,6 +207,8 @@
       "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.",
       "category": "PSA",
       "verification": "live-verified",
+      "verified_by": "Servosity (maintainer)",
+      "issue_url": null,
       "url": "/skills/halopsa/"
     },
     {
@@ -175,6 +217,8 @@
       "tagline": "Pipeline health, stale deals, and owner workload for every client by asking.",
       "category": "CRM",
       "verification": "live-verified",
+      "verified_by": "Servosity (maintainer)",
+      "issue_url": null,
       "url": "/skills/hubspot/"
     },
     {
@@ -183,6 +227,8 @@
       "tagline": "Audit Hudu documentation hygiene, find stale passwords and expiring certs, and search every company offline.",
       "category": "Documentation",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/hudu/"
     },
     {
@@ -191,6 +237,8 @@
       "tagline": "Triage Huntress incidents and coverage gaps across every client org from one queue.",
       "category": "Security",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/huntress/"
     },
     {
@@ -199,6 +247,8 @@
       "tagline": "Find any device, audit stale passwords, and rank thin client docs by asking.",
       "category": "Documentation",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/itglue/"
     },
     {
@@ -207,6 +257,8 @@
       "tagline": "Run the Kaseya BMS service desk, contracts, and billing from your terminal - with offline analytics the web grid can't compute.",
       "category": "PSA",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/kaseya-bms/"
     },
     {
@@ -215,6 +267,8 @@
       "tagline": "Hunt repeat clickers, track risk drift, and close training-coverage gaps across every KnowBe4 client from your terminal.",
       "category": "Security",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/knowbe4/"
     },
     {
@@ -223,6 +277,8 @@
       "tagline": "Rank your riskiest endpoints, patch posture, and stale devices across your Level RMM fleet from one command.",
       "category": "RMM",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/levelio/"
     },
     {
@@ -231,6 +287,8 @@
       "tagline": "See every config change, stale collector, and offline agent across your whole Liongard estate from one command.",
       "category": "Documentation",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/liongard/"
     },
     {
@@ -239,6 +297,8 @@
       "tagline": "Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking.",
       "category": "Security",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/microsoft-graph/"
     },
     {
@@ -247,6 +307,8 @@
       "tagline": "Pull datasets, snapshot KPIs, and track ticket backlog trends by asking.",
       "category": "Analytics",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/mspbots/"
     },
     {
@@ -255,6 +317,8 @@
       "tagline": "Find any device, triage issues, and search across every client by asking.",
       "category": "RMM",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/n-central/"
     },
     {
@@ -263,6 +327,8 @@
       "tagline": "Audit autoscale, sweep idle session hosts, and reconcile per-customer billing across every Nerdio Manager account from your terminal.",
       "category": "RMM",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/nerdio/"
     },
     {
@@ -271,6 +337,8 @@
       "tagline": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.",
       "category": "RMM",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/ninjaone/"
     },
     {
@@ -279,6 +347,8 @@
       "tagline": "Triage PagerDuty incidents, on-call schedules, and escalation policies from the terminal.",
       "category": "Incident Response",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/pagerduty/"
     },
     {
@@ -287,6 +357,8 @@
       "tagline": "Find stalled proposals, aging quotes, and unsigned PandaDoc documents from the terminal.",
       "category": "Documentation",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/pandadoc/"
     },
     {
@@ -295,6 +367,8 @@
       "tagline": "Reconcile Pax8 billing, track MRR, and catch usage overages before they hit the customer invoice",
       "category": "Billing",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/pax8/"
     },
     {
@@ -303,6 +377,8 @@
       "tagline": "Surface stale deals, weighted forecasts, and overdue follow-ups across your pipeline by asking.",
       "category": "CRM",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/pipedrive/"
     },
     {
@@ -311,6 +387,8 @@
       "tagline": "Investigate Proofpoint TAP threats, VAPs, and top clickers from your terminal without burning the daily API quota.",
       "category": "Security",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/proofpoint/"
     },
     {
@@ -319,6 +397,8 @@
       "tagline": "Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking.",
       "category": "Billing",
       "verification": "live-verified",
+      "verified_by": "Servosity (maintainer)",
+      "issue_url": null,
       "url": "/skills/quickbooks/"
     },
     {
@@ -327,6 +407,8 @@
       "tagline": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
       "category": "Automation",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/rewst/"
     },
     {
@@ -335,6 +417,8 @@
       "tagline": "Triage your managed SOC, rank devices at risk, and audit suppression rules from the terminal - no console logins.",
       "category": "Security",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/rocketcyber/"
     },
     {
@@ -343,6 +427,8 @@
       "tagline": "Every Rootly incident, alert, and on-call object as a typed command, plus offline MTTR and coverage-gap answers.",
       "category": "Incident Response",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/rootly/"
     },
     {
@@ -351,6 +437,8 @@
       "tagline": "Find every asset on your attack surface, diff it over time, and trace any CVE to the machines it hits.",
       "category": "Security",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/runzero/"
     },
     {
@@ -359,6 +447,8 @@
       "tagline": "Surface stale quotes, thin-margin lines, and pipeline velocity across your Salesbuildr quoting by asking.",
       "category": "CRM",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/salesbuildr/"
     },
     {
@@ -367,6 +457,8 @@
       "tagline": "Triage threats, find protection gaps, and catch overnight fleet drift across every SentinelOne tenant by asking.",
       "category": "Security",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/sentinelone/"
     },
     {
@@ -375,6 +467,8 @@
       "tagline": "Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.",
       "category": "Backup/DR",
       "verification": "live-verified",
+      "verified_by": "Servosity (maintainer)",
+      "issue_url": null,
       "url": "/skills/servosity/"
     },
     {
@@ -383,6 +477,8 @@
       "tagline": "Reconcile what you owe Sherweb against what customers owe you and surface true net margin per customer.",
       "category": "Billing",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/sherweb/"
     },
     {
@@ -391,6 +487,8 @@
       "tagline": "Catch silently-failing Microsoft 365 backups across every SkyKick tenant before a customer needs a restore.",
       "category": "Backup/DR",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/skykick/"
     },
     {
@@ -399,6 +497,8 @@
       "tagline": "Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking.",
       "category": "PSA",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/superops/"
     },
     {
@@ -407,6 +507,8 @@
       "tagline": "Run every Syncro PSA and RMM workflow from your terminal: tickets, billing, and patch gaps in one ask.",
       "category": "PSA",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/syncro/"
     },
     {
@@ -415,6 +517,8 @@
       "tagline": "Triage every agent, sweep patch posture, and run a script across a filtered cohort by asking.",
       "category": "RMM",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/tactical-rmm/"
     },
     {
@@ -423,6 +527,8 @@
       "tagline": "Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking.",
       "category": "Security",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/threatlocker/"
     },
     {
@@ -431,6 +537,8 @@
       "tagline": "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.",
       "category": "Backup/DR",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/veeam/"
     },
     {
@@ -439,6 +547,8 @@
       "tagline": "Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal - offline, in one call.",
       "category": "Billing",
       "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
       "url": "/skills/xero/"
     }
   ],

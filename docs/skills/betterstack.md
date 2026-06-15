@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Better Stack MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Better Stack MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics \u2014 what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift \u2014 that the API alone can't answer."
 permalink: /skills/betterstack/
 skill_name: "Better Stack MCP"
 image: /assets/social/betterstack/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for Better Stack?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Better Stack, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Better Stack MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Better Stack MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -30,12 +34,15 @@ howto:
     text: "Ask your AI agent a Better Stack question in plain language; it runs betterstack-cli for you."
 ---
 
-# Better Stack + AI in 60 seconds
+# The Better Stack MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Better Stack
-> API. Not affiliated with, endorsed by, or sponsored by Better Stack.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Better Stack.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Better Stack. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Better Stack to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask your AI "what's down and is anyone actually paged?" and get a straight answer across your whole Better Stack account: every client's monitors, heartbeats, open incidents, and on-call rotation in one view. It surfaces the silent monitors that page nobody, the noisy ones waking techs at 3am, your real MTTA/MTTR, and status pages showing green while a monitor is down.
 
@@ -133,6 +140,14 @@ The skill reads your Better Stack monitors, heartbeats, incidents, on-call calen
 
 ## Frequently asked questions
 
+### Is there an MCP server for Better Stack?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Better Stack, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Better Stack MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Better Stack MCP server via a secure bridge. Step-by-step in the install guide.
@@ -165,6 +180,8 @@ No, it complements it. The portal is still where you configure monitors and watc
 ## Status
 
 Beta. Validated against the Better Stack API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

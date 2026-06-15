@@ -1,3 +1,10 @@
+---
+layout: default
+title: "Request a new MSP connector - 90 seconds, no terminal | MSP Skills"
+description: "Don't see your PSA, RMM, backup, or M365 tool yet? Request a new MSP Skills connector in about 90 seconds - no code, no terminal, just a web form. The fastest way to move a system up the roadmap and get it co-built live in a free Build Session."
+permalink: /requesting-a-skill/
+---
+
 # How to request a new MSP Skill (90 seconds, no terminal)
 
 You don't see your PSA, RMM, backup, or M365 tool listed yet? Tell us. This is the fastest way to move a system up the roadmap and to get it co-built live in a Build Session.

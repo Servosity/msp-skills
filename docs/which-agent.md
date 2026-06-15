@@ -1,10 +1,17 @@
+---
+layout: default
+title: "Which AI agent? Install MSP Skills in Claude, ChatGPT, Codex, or Copilot | MSP Skills"
+description: "Which AI tools speak MCP today and how to install MSP Skills connectors in each: Claude Desktop, Claude Code, ChatGPT, Codex CLI, GitHub Copilot, Microsoft 365 Copilot, and Google Gemini. Pick your agent, follow the steps, mind the gotchas."
+permalink: /which-agent/
+---
+
 # Which AI agent? Install MSP Skills in any of them.
 
 MSP Skills works with **any AI tool that speaks MCP** (Model Context Protocol). This page tells you which AI tools speak MCP today, how to install the HaloPSA and Servosity skills in each one, and the gotchas to watch for.
 
 Pick the row for your agent and follow that section. If you're not sure what you have, jump to ["I don't know what I have"](#i-dont-know-what-i-have-yet) at the bottom.
 
-> **All paths assume you already ran the installer** for at least one skill - see the [main README](../README.md#install-in-60-seconds) for the one-liners. The installer drops `halopsa-cli` + `halopsa-mcp` (and / or `servosity-cli` + `servosity-mcp`) into your user `bin` path. After that, this page is purely about pointing your AI agent at those binaries.
+> **All paths assume you already ran the installer** for at least one skill - see the [install section on the homepage](/#install-in-60-seconds) for the one-liners. The installer drops `halopsa-cli` + `halopsa-mcp` (and / or `servosity-cli` + `servosity-mcp`) into your user `bin` path. After that, this page is purely about pointing your AI agent at those binaries.
 
 ## Quick lookup
 
@@ -255,7 +262,7 @@ Open-source AI assistant. **MCP tools only work in Agent mode.** Stdio, SSE, Str
 
 Google's Gemini comes in two shapes that consume MCP very differently - know which one you have.
 
-**Gemini CLI - local (the self-serve path).** Google's CLI agent speaks MCP natively (Gemini API + SDK + CLI, as of Mar–Apr 2026). This is the local-stdio path, just like Claude Code.
+**Gemini CLI - local (the self-serve path).** Google's CLI agent speaks MCP natively (Gemini API + SDK + CLI, as of Mar-Apr 2026). This is the local-stdio path, just like Claude Code.
 
 **Setup:** edit `~/.gemini/settings.json` (or the path Gemini CLI prints with `gemini config path`) and add an `mcpServers` block with the same shape as Claude Desktop:
 

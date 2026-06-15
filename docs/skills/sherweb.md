@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "Sherweb MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "Sherweb MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has."
 permalink: /skills/sherweb/
 skill_name: "Sherweb MCP"
 image: /assets/social/sherweb/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for Sherweb?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Sherweb, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the Sherweb MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Sherweb MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -30,12 +34,15 @@ howto:
     text: "Ask your AI agent a Sherweb question in plain language; it runs sherweb-cli for you."
 ---
 
-# Sherweb + AI in 60 seconds
+# The Sherweb MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the Sherweb
-> API. Not affiliated with, endorsed by, or sponsored by Sherweb Inc..
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Sherweb Inc..
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Sherweb. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Sherweb to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 MSPs resell Microsoft 365, Azure, and security through Sherweb, then spend the monthly close reconciling what they owe Sherweb against what they bill customers. Ask your AI "what's my net margin per customer," "which subscriptions am I paying for but not billing," or "what will this seat change cost," and get answers the Sherweb portal cannot compose: payable charges joined to receivable charges and subscriptions, computed offline from a local mirror in one query instead of a CSV export and a spreadsheet.
 
@@ -132,6 +139,14 @@ The skill drives the sherweb-cli and sherweb-mcp binaries, authenticating with S
 
 ## Frequently asked questions
 
+### Is there an MCP server for Sherweb?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Sherweb, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Sherweb MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Sherweb MCP server via a secure bridge. Step-by-step in the install guide.
@@ -161,9 +176,15 @@ After deep-sync, the analytics commands (margin, margin-trend, orphans, usage-le
 No. Provisioning, ordering, and subscription management stay in the portal. This skill answers the cross-entity margin and billing questions the portal cannot compose in one place, from your terminal or agent.
 
 
+## More Billing connectors
+
+Run more than one Billing tool, or comparing options? These connectors work the same way: [AppDirect](/skills/appdirect/) · [Gradient MSP](/skills/gradient/) · [Pax8](/skills/pax8/) · [QuickBooks Online](/skills/quickbooks/) · [Xero](/skills/xero/)
+
 ## Status
 
 Beta. Validated against the Sherweb API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 

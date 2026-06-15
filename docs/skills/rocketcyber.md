@@ -1,12 +1,16 @@
 ---
 layout: default
-title: "RocketCyber MCP Server - for Claude, ChatGPT, Copilot, and any MCP agent"
+title: "RocketCyber MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes."
 permalink: /skills/rocketcyber/
 skill_name: "RocketCyber MCP"
 image: /assets/social/rocketcyber/wide-1200x630.png
 verification: awaiting
 faqs:
+  - q: "Is there an MCP server for RocketCyber?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for RocketCyber, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the RocketCyber MCP server safe for client data?"
+    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local RocketCyber MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -26,12 +30,15 @@ howto:
     text: "Ask your AI agent a RocketCyber question in plain language; it runs rocketcyber-cli for you."
 ---
 
-# RocketCyber + AI in 60 seconds
+# The RocketCyber MCP Server - free, local, built for MSPs
 
-> Unofficial. Community-built Claude Code Skill and MCP server for the RocketCyber
-> API. Not affiliated with, endorsed by, or sponsored by Kaseya.
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Kaseya.
 
-**Awaiting live verification** - passes every mechanical gate (build, command-surface, claims, install). Be the first to confirm it against your tenant: [report it works](https://github.com/Servosity/msp-skills/issues/new?template=it-works.yml).
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for RocketCyber. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects RocketCyber to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask your AI "what broke across all my RocketCyber clients overnight?" and get one ranked board - open incidents, malicious event counts, and offline agents - instead of clicking through a per-client console. The same skill ranks devices at risk, computes incident MTTR for QBRs, trends Microsoft 365 secure scores, and flags stale suppression rules that quietly hide real detections. All from the terminal.
 
@@ -125,6 +132,14 @@ The skill reads your RocketCyber SOC data - incidents, agents, detection events,
 
 ## Frequently asked questions
 
+### Is there an MCP server for RocketCyber?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for RocketCyber, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the RocketCyber MCP server safe for client data?
+
+Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
 ### Does this work with ChatGPT?
 
 Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local RocketCyber MCP server via a secure bridge. Step-by-step in the install guide.
@@ -146,9 +161,15 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 A RocketCyber provider account and an API token you generate in the RocketCyber app. The skill talks to the RocketCyber Customer API v3 (US region by default; set ROCKETCYBER_BASE_URL for the EU endpoint) and reads your own SOC data - incidents, agents, detection events, Defender, Microsoft 365 posture, and suppression rules - scoped to the accounts your token can see.
 
 
+## More Security connectors
+
+Run more than one Security tool, or comparing options? These connectors work the same way: [Abnormal Security](/skills/abnormal/) · [Blumira](/skills/blumira/) · [CIPP](/skills/cipp/) · [CrowdStrike Falcon](/skills/crowdstrike/) · [Huntress](/skills/huntress/) · [KnowBe4](/skills/knowbe4/) · [Microsoft Graph](/skills/microsoft-graph/) · [Proofpoint TAP](/skills/proofpoint/) · [runZero](/skills/runzero/) · [SentinelOne](/skills/sentinelone/) · [ThreatLocker](/skills/threatlocker/)
+
 ## Status
 
 Beta. Validated against the RocketCyber API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
 ---
 
