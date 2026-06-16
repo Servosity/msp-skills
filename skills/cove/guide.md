@@ -116,7 +116,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 
 ## Authentication
 
-Cove's JSON-RPC API authenticates with a partner-scoped login, not an API key. Set `COVE_USERNAME` and `COVE_PASSWORD` (a backup.management user with API access enabled  -  typically a service account with the Security Officer + API flags; interactive 2FA accounts will not work) and optionally `COVE_PARTNER`. Run `cove-cli auth login` once: it calls the `Login` method, receives a session token (the "visa"), and caches it locally with auto-refresh on expiry. Hand-built commands (failures, stale, health, billing, snapshot, call) inject the visa automatically. Raw generated endpoint commands accept `--visa $(cove-cli auth token)` for ad-hoc use.
+Cove's JSON-RPC API authenticates with a partner-scoped login, not a bearer token or API key. Create a dedicated **API User** in the Cove Management Console (**Users > API Users**); it issues a login name and an API token (shown only once). Set `COVE_USERNAME` to the API user's login name, `COVE_PASSWORD` to the API token, and `COVE_PARTNER` to the customer/partner the API user was created for - for an API User `COVE_PARTNER` is **required**, not optional, and an empty partner is the usual cause of a `2100 "Unknown partner/username"` error. The API token is the *password*; it is not itself a visa and is never sent as a header (passing it to `--visa` fails by design). N-able removed the older per-user "API access" checkbox, and API Users cannot sign in to the console. Run `cove-cli auth login` once: it calls the `Login` method with these three values, receives a session token (the "visa"), and caches it locally with auto-refresh on expiry. Hand-built commands (failures, stale, health, billing, snapshot, call) inject the visa automatically. Raw generated endpoint commands accept `--visa $(cove-cli auth token)` for ad-hoc use.
 
 ## Quick Start
 
@@ -374,7 +374,7 @@ Static request headers can be configured under `headers`; per-command header ove
 
 ### API-specific
 - **error 1701 "Visa is inconsistent/corrupted"**  -  Session expired or missing  -  run `cove-cli auth login` again; hand-built commands re-login automatically when credentials are in the environment
-- **error 2100 "Unknown partner/username or bad password"**  -  Check COVE_USERNAME/COVE_PASSWORD and that the user has API access enabled in backup.management (Security Officer + API flag); 2FA-interactive accounts cannot use the API
+- **error 2100 "Unknown partner/username or bad password"**  -  Verify COVE_USERNAME is the API user's login name, COVE_PASSWORD is its API token, and COVE_PARTNER is the customer/partner the API user was created for. COVE_PARTNER is required for API Users and an empty partner is the most common cause. Create the API User under Users > API Users in the Cove Management Console (the older per-user "API access" checkbox has been removed)
 - **storage growth / devices changes return empty or a single-snapshot note**  -  These commands diff local snapshots  -  run `cove-cli snapshot` at least twice, some time apart, before asking for trends
 - **Generated endpoint commands (devices list, partners list) return an error envelope instead of data**  -  Raw endpoint commands need an explicit visa: pass --visa "$(cove-cli auth token)" or prefer the hand-built equivalents which authenticate automatically
 

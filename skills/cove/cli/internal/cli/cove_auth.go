@@ -20,11 +20,15 @@ func newCoveAuthCmd(flags *rootFlags) *cobra.Command {
 		Use:   "auth",
 		Short: "Manage the Cove session (Login → visa)",
 		Long: strings.Trim(`
-Cove's JSON-RPC API authenticates with a partner-scoped login, not an API key.
-Set COVE_USERNAME and COVE_PASSWORD (a backup.management user with API access
-enabled; interactive-2FA accounts cannot use the API) and optionally
-COVE_PARTNER, then run 'auth login'. The returned session token (the "visa")
-is cached locally and injected into every hand-built command automatically.
+Cove's JSON-RPC API authenticates with a partner-scoped login, not a bearer
+token. Create an API User in the Cove Management Console (Users > API Users); it
+issues a login name and an API token (shown only once). Set COVE_USERNAME to the
+API user's login name, COVE_PASSWORD to its API token, and COVE_PARTNER to the
+customer the API user was created for (COVE_PARTNER is required for API Users),
+then run 'auth login'. The API token is the password, not a visa, and is never
+sent as a header. The returned session token (the "visa") is cached locally and
+injected into every hand-built command automatically. N-able removed the older
+per-user "API access" checkbox; API Users cannot sign in to the console.
 `, "\n"),
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
@@ -42,7 +46,7 @@ func newCoveAuthLoginCmd(flags *rootFlags) *cobra.Command {
 		Use:   "login",
 		Short: "Log in with COVE_USERNAME/COVE_PASSWORD and cache the session visa",
 		Example: strings.Trim(`
-  export COVE_USERNAME=api-user@example.com COVE_PASSWORD=...   # once per shell
+  export COVE_PARTNER="Acme Corp" COVE_USERNAME=api-user COVE_PASSWORD=...   # API user creds, once per shell
   cove-cli auth login
   cove-cli auth login --json`, "\n"),
 		Annotations: map[string]string{"mcp:read-only": "false", "pp:requires-tier": "credentials"},
@@ -57,7 +61,7 @@ func newCoveAuthLoginCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !c.Creds.Present() {
 				_ = cmd.Usage()
-				return usageErr(fmt.Errorf("COVE_USERNAME and COVE_PASSWORD must be set (optionally COVE_PARTNER)"))
+				return usageErr(fmt.Errorf("COVE_USERNAME (API user login) and COVE_PASSWORD (API token) must be set; set COVE_PARTNER to the customer name when using an API User"))
 			}
 			result, err := c.Login(cmd.Context())
 			if err != nil {
