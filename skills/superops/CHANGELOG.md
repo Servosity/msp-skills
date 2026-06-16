@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.2] - unreleased
+
+### Changed
+- Describe the changes in this release.
+
 ## [0.1.1] - unreleased
 
 ### Fixed
