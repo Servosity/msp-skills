@@ -38,7 +38,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Intuit Inc..
 
-**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-06-12.
+**✓ Live-verified by a real MSP** against a production tenant · 2026-06-15.
 
 Yes - there is an MCP server for QuickBooks Online. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects QuickBooks Online to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 

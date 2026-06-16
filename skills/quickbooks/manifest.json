@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "quickbooks-mcp",
   "display_name": "QuickBooks Online",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
   "author": {
     "name": "Servosity Inc."

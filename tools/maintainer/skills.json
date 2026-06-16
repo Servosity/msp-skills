@@ -1014,18 +1014,16 @@
       "category": "Billing",
       "display_name": "QuickBooks Online",
       "tagline": "Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking.",
-      "cli_hash": "sha256:7133449a52620edb5695864cb68c1d2beabc2cefeaf20a98572a0ae7c03e9006",
+      "cli_hash": "sha256:20ae55cb4bb96d3b159d45d9ad454985f37727a0b3af90430ac488283e3f71e0",
       "template_version": 3,
-      "version": "0.1.2",
-      "cli_hash_at_release": "sha256:7133449a52620edb5695864cb68c1d2beabc2cefeaf20a98572a0ae7c03e9006",
+      "version": "0.1.3",
+      "cli_hash_at_release": "sha256:20ae55cb4bb96d3b159d45d9ad454985f37727a0b3af90430ac488283e3f71e0",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
-        "date": "2026-06-12",
+        "date": "2026-06-15",
         "source": "self",
-        "evidence": "Servosity (an MSP) verified end-to-end against an Intuit QuickBooks Online tenant on 2026-06-12: OAuth token refresh, live reads, sync 227 records across 8 resources, ar-aging and balances populated; after the /query sync fix (handfix qbo-query-injection).",
-        "verified_by": "Servosity (maintainer)",
-        "issue_url": null
+        "evidence": "Servosity (an MSP) verified end-to-end against its PRODUCTION QuickBooks Online tenant on 2026-06-15: full paginated sync of 44,211 records across 8 resources (invoices 17,940/17,940, payments 16,863/16,863) matching live count(*); ar-aging and balances computed over the complete book. Fixes qbo-query-paging + qbo-db-path-env."
       }
     },
     "rewst": {

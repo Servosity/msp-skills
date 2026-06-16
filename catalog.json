@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-13",
+  "generated_at": "2026-06-15",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -808,7 +808,7 @@
       "skill_path": "skills/quickbooks",
       "cli_binary": "quickbooks-cli",
       "mcp_binary": "quickbooks-mcp",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "printing_press_version": "4.24.0",
       "license": "Apache-2.0",
       "vendor": "QuickBooks Online",
