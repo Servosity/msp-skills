@@ -1007,7 +1007,7 @@
       "skill_path": "skills/superops",
       "cli_binary": "superops-cli",
       "mcp_binary": "superops-mcp",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "printing_press_version": "4.24.0",
       "license": "Apache-2.0",
       "vendor": "SuperOps",
