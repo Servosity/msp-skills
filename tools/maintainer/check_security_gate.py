@@ -277,34 +277,70 @@ def scan_dependencies(slug: str, allow: set[str], only: list[Path] | None) -> li
     return findings
 
 
-def scan_external(slug: str) -> list[dict]:
+def _external_rel(file_path: str, slug: str) -> tuple[str, str]:
+    """Normalize a scanner-reported file path to (repo_relative, slug_relative).
+
+    External scanners (gosec especially) emit ABSOLUTE paths; some emit
+    module-relative ones. Return both the repo-relative form
+    (skills/<slug>/cli/...) the other scanners use, and a slug-relative form
+    (cli/...). A suppression entry may then be written repo-relative (scopes to
+    one connector) OR slug-relative (fleet-wide, for the byte-identical
+    printing-press generated files every connector carries)."""
+    if not file_path:
+        return "", ""
+    skill_prefix = f"skills/{slug}/"        # slug-relative is relative to the skill dir -> cli/...
+    cli_prefix = f"skills/{slug}/cli/"      # reconstruct repo-relative from a module-relative path
+    p = Path(file_path)
+    if p.is_absolute():
+        try:
+            repo_rel = str(p.relative_to(REPO))
+        except ValueError:
+            repo_rel = file_path
+    elif file_path.startswith("skills/"):
+        repo_rel = file_path
+    else:
+        repo_rel = cli_prefix + file_path
+    slug_rel = repo_rel[len(skill_prefix):] if repo_rel.startswith(skill_prefix) else repo_rel
+    return repo_rel, slug_rel
+
+
+def scan_external(slug: str, suppress: set[tuple[str, str]]) -> list[dict]:
     findings = []
     mod = REPO / "skills" / slug / "cli"
+
+    # Same base-owned suppression model as scan_go_patterns / scan_install_scripts
+    # (the module docstring promises "a finding is suppressed only if its
+    # (file, rule) is listed"); previously the external scanners ignored it, so
+    # gosec findings were unsuppressable. Now normalized + filtered here.
+    def add(tool: str, rule: str, sev: str, file_path: str, line, evidence: str) -> None:
+        repo_rel, slug_rel = _external_rel(file_path, slug)
+        if (repo_rel, rule) in suppress or (slug_rel, rule) in suppress:
+            return
+        findings.append({"tool": tool, "rule": rule, "severity": sev,
+                         "file": repo_rel or file_path, "line": line, "evidence": evidence})
+
     if have("gosec"):
         _, out, _ = run(["gosec", "-quiet", "-fmt", "json", "./..."], cwd=str(mod))
         try:
             for iss in json.loads(out or "{}").get("Issues", []):
                 sev = "P1" if iss.get("severity", "").upper() in ("HIGH", "MEDIUM") else "P2"
-                findings.append({"tool": "gosec", "rule": iss.get("rule_id"), "severity": sev,
-                                 "file": iss.get("file", ""), "line": iss.get("line", 0),
-                                 "evidence": iss.get("details", "")[:120]})
+                add("gosec", iss.get("rule_id"), sev, iss.get("file", ""),
+                    iss.get("line", 0), iss.get("details", "")[:120])
         except json.JSONDecodeError:
             pass
     if have("govulncheck"):
         _, out, _ = run(["govulncheck", "-format", "json", "./..."], cwd=str(mod))
         if '"osv"' in out or "vulnerability" in out.lower():
-            findings.append({"tool": "govulncheck", "rule": "known-vuln", "severity": "P1",
-                             "file": f"skills/{slug}/cli/go.mod", "line": 0,
-                             "evidence": "govulncheck reported a reachable vulnerability."})
+            add("govulncheck", "known-vuln", "P1", f"skills/{slug}/cli/go.mod", 0,
+                "govulncheck reported a reachable vulnerability.")
     if have("osv-scanner"):
         _, out, _ = run(["osv-scanner", "--lockfile", "go.mod", "--format", "json"], cwd=str(mod))
         try:
             for res in json.loads(out or "{}").get("results", []):
                 for pkg in res.get("packages", []):
                     for v in pkg.get("vulnerabilities", []):
-                        findings.append({"tool": "osv-scanner", "rule": v.get("id", "OSV"), "severity": "P1",
-                                         "file": f"skills/{slug}/cli/go.mod", "line": 0,
-                                         "evidence": (v.get("summary", "") or "known vulnerability")[:120]})
+                        add("osv-scanner", v.get("id", "OSV"), "P1", f"skills/{slug}/cli/go.mod", 0,
+                            (v.get("summary", "") or "known vulnerability")[:120])
         except json.JSONDecodeError:
             pass
     cfg = REPO / ".semgrep.yml"
@@ -312,9 +348,8 @@ def scan_external(slug: str) -> list[dict]:
         _, out, _ = run(["semgrep", "--config", str(cfg), "--json", "--quiet", str(mod)])
         try:
             for r in json.loads(out or "{}").get("results", []):
-                findings.append({"tool": "semgrep", "rule": r.get("check_id"), "severity": "P1",
-                                 "file": r.get("path", ""), "line": r.get("start", {}).get("line", 0),
-                                 "evidence": (r.get("extra", {}).get("message", ""))[:120]})
+                add("semgrep", r.get("check_id"), "P1", r.get("path", ""),
+                    r.get("start", {}).get("line", 0), (r.get("extra", {}).get("message", ""))[:120])
         except json.JSONDecodeError:
             pass
     return findings
@@ -332,7 +367,7 @@ def gate_slug(slug: str, base: str | None, allow: set[str], suppress: set[tuple[
     findings += scan_go_patterns(go_files(slug, only), suppress)
     findings += scan_install_scripts(slug, only, suppress)
     findings += scan_dependencies(slug, allow, only)
-    findings += scan_external(slug)
+    findings += scan_external(slug, suppress)
     p1 = [f for f in findings if f["severity"] == "P1"]
     return {"slug": slug, "base": base, "scope": "diff" if only is not None else "full",
             "findings": findings, "p1_count": len(p1),
