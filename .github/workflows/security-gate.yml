@@ -83,8 +83,11 @@ jobs:
           rc=0
           for s in $SLUGS; do
             echo "::group::security-gate $s"
+            # --require-scanners: a missing/erroring required scanner (gosec/govulncheck/
+            # osv-scanner) is a P1, not a silent skip - a broken install cannot disable
+            # the gate. govulncheck (reachability) + osv (presence, demoted) honor it.
             python3 tools/maintainer/check_security_gate.py \
-              --slug "$s" --base "$BASE_SHA" --policy-base "$BASE_SHA" || rc=1
+              --slug "$s" --base "$BASE_SHA" --policy-base "$BASE_SHA" --require-scanners || rc=1
             echo "::endgroup::"
           done
           if [ "$rc" -ne 0 ]; then
