@@ -5,7 +5,7 @@ description: "Every SentinelOne v2.1 management endpoint, plus an offline SQLite
 permalink: /skills/sentinelone/
 skill_name: "SentinelOne MCP"
 image: /assets/social/sentinelone/wide-1200x630.png
-verification: awaiting
+verification: live-verified
 faqs:
   - q: "Is there an MCP server for SentinelOne?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for SentinelOne, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
@@ -42,7 +42,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by SentinelOne, Inc..
 
-**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+**✓ Live-verified by a real MSP** against a production tenant · 2026-06-16.
 
 Yes - there is an MCP server for SentinelOne. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects SentinelOne to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 

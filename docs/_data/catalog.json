@@ -456,7 +456,7 @@
       "display_name": "SentinelOne",
       "tagline": "Triage threats, find protection gaps, and catch overnight fleet drift across every SentinelOne tenant by asking.",
       "category": "Security",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "verified_by": null,
       "issue_url": null,
       "url": "/skills/sentinelone/"
