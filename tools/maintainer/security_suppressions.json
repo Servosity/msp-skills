@@ -6,7 +6,6 @@
       "rule": "exec-nonliteral-cmd",
       "reason": "chrome binary path is allowlist-resolved (not user input) before exec; pre-vetted, also annotated // #nosec G204 at the call site. servosity is an internal-only connector."
     },
-
     {
       "file": "cli/internal/mcp/cobratree/shellout.go",
       "rule": "G204",
@@ -106,6 +105,76 @@
       "file": "cli/internal/cli/jobs.go",
       "rule": "G404",
       "reason": "FLEET (generated). math/rand is used only to add timing jitter to a job-status poll backoff (interval + rand.Int63n(...)); no token, nonce, or key is derived from it, so crypto/rand is unnecessary. Surfaced by ninjaone #88."
+    },
+    {
+      "file": "cli/go.mod",
+      "rule": "GHSA-vvgj-x9jq-8cj9",
+      "reason": "FLEET (press-pinned indirect dep). quic-go v0.59.0 HTTP/3 QPACK trailer expansion memory exhaustion. These CLIs are REST/HTTP connectors; the HTTP/3 server path is not exercised - govulncheck (reachability) reports 'Your code is affected by 0 vulnerabilities'. osv-scanner has no reachability so it flags module presence only. FOLLOW-UP: bump quic-go at the PRESS level (durable fleet fix, tracked separately); interim suppression - govulncheck still gates any actually-reachable vuln."
+    },
+    {
+      "file": "cli/go.mod",
+      "rule": "GO-2026-5005",
+      "reason": "FLEET (press-pinned indirect dep). golang.org/x/crypto v0.51.0 ssh/agent advisory. golang.org/x/crypto/ssh* is NOT in these CLIs' import graph (verified via `go list -deps`); govulncheck reports 'Your code is affected by 0 vulnerabilities'. osv-scanner flags module presence only (no reachability). FOLLOW-UP: bump golang.org/x/crypto at the PRESS level (durable fleet fix, tracked separately); govulncheck still gates any reachable vuln."
+    },
+    {
+      "file": "cli/go.mod",
+      "rule": "GO-2026-5006",
+      "reason": "FLEET (press-pinned indirect dep). golang.org/x/crypto v0.51.0 ssh/agent advisory. ssh* not imported (go list -deps); govulncheck 0 affected. osv presence-only. FOLLOW-UP: bump x/crypto at the PRESS level; govulncheck still gates reachable vulns."
+    },
+    {
+      "file": "cli/go.mod",
+      "rule": "GO-2026-5013",
+      "reason": "FLEET (press-pinned indirect dep). golang.org/x/crypto v0.51.0 ssh advisory. ssh* not imported (go list -deps); govulncheck 0 affected. osv presence-only. FOLLOW-UP: bump x/crypto at the PRESS level; govulncheck still gates reachable vulns."
+    },
+    {
+      "file": "cli/go.mod",
+      "rule": "GO-2026-5014",
+      "reason": "FLEET (press-pinned indirect dep). golang.org/x/crypto v0.51.0 ssh advisory. ssh* not imported (go list -deps); govulncheck 0 affected. osv presence-only. FOLLOW-UP: bump x/crypto at the PRESS level; govulncheck still gates reachable vulns."
+    },
+    {
+      "file": "cli/go.mod",
+      "rule": "GO-2026-5015",
+      "reason": "FLEET (press-pinned indirect dep). golang.org/x/crypto v0.51.0 ssh advisory. ssh* not imported (go list -deps); govulncheck 0 affected. osv presence-only. FOLLOW-UP: bump x/crypto at the PRESS level; govulncheck still gates reachable vulns."
+    },
+    {
+      "file": "cli/go.mod",
+      "rule": "GO-2026-5016",
+      "reason": "FLEET (press-pinned indirect dep). golang.org/x/crypto v0.51.0 ssh advisory. ssh* not imported (go list -deps); govulncheck 0 affected. osv presence-only. FOLLOW-UP: bump x/crypto at the PRESS level; govulncheck still gates reachable vulns."
+    },
+    {
+      "file": "cli/go.mod",
+      "rule": "GO-2026-5017",
+      "reason": "FLEET (press-pinned indirect dep). golang.org/x/crypto v0.51.0 ssh advisory. ssh* not imported (go list -deps); govulncheck 0 affected. osv presence-only. FOLLOW-UP: bump x/crypto at the PRESS level; govulncheck still gates reachable vulns."
+    },
+    {
+      "file": "cli/go.mod",
+      "rule": "GO-2026-5018",
+      "reason": "FLEET (press-pinned indirect dep). golang.org/x/crypto v0.51.0 ssh advisory. ssh* not imported (go list -deps); govulncheck 0 affected. osv presence-only. FOLLOW-UP: bump x/crypto at the PRESS level; govulncheck still gates reachable vulns."
+    },
+    {
+      "file": "cli/go.mod",
+      "rule": "GO-2026-5019",
+      "reason": "FLEET (press-pinned indirect dep). golang.org/x/crypto v0.51.0 ssh advisory. ssh* not imported (go list -deps); govulncheck 0 affected. osv presence-only. FOLLOW-UP: bump x/crypto at the PRESS level; govulncheck still gates reachable vulns."
+    },
+    {
+      "file": "cli/go.mod",
+      "rule": "GO-2026-5020",
+      "reason": "FLEET (press-pinned indirect dep). golang.org/x/crypto v0.51.0 ssh advisory. ssh* not imported (go list -deps); govulncheck 0 affected. osv presence-only. FOLLOW-UP: bump x/crypto at the PRESS level; govulncheck still gates reachable vulns."
+    },
+    {
+      "file": "cli/go.mod",
+      "rule": "GO-2026-5021",
+      "reason": "FLEET (press-pinned indirect dep). golang.org/x/crypto v0.51.0 ssh/knownhosts advisory. ssh* not imported (go list -deps); govulncheck 0 affected. osv presence-only. FOLLOW-UP: bump x/crypto at the PRESS level; govulncheck still gates reachable vulns."
+    },
+    {
+      "file": "cli/go.mod",
+      "rule": "GO-2026-5023",
+      "reason": "FLEET (press-pinned indirect dep). golang.org/x/crypto v0.51.0 ssh advisory. ssh* not imported (go list -deps); govulncheck 0 affected. osv presence-only. FOLLOW-UP: bump x/crypto at the PRESS level; govulncheck still gates reachable vulns."
+    },
+    {
+      "file": "cli/go.mod",
+      "rule": "GO-2026-5033",
+      "reason": "FLEET (press-pinned indirect dep). golang.org/x/crypto v0.51.0 ssh/agent advisory. ssh* not imported (go list -deps); govulncheck 0 affected. osv presence-only. FOLLOW-UP: bump x/crypto at the PRESS level; govulncheck still gates reachable vulns."
     }
   ]
 }
