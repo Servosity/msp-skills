@@ -4,7 +4,17 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.3.0] - unreleased
+## [0.3.1] - 2026-06-16
+
+### Fixed
+- Authentication: `servosity-cli` / `servosity-mcp` now send the partner token
+  with the required `Token ` scheme on the `Authorization` header. The Servosity
+  API authenticates `SERVOSITY_MSP_TOKEN` via Django REST Framework's
+  `TokenAuthentication`, which rejects a bare token value with HTTP 403 on every
+  data endpoint; the documented bare-token setup now works as written. The MSP
+  token path normalizes to the `Token ` scheme, so a value that already carries
+  a scheme prefix (the `SERVOSITY_MSP_TOKEN="Token <token>"` workaround) is not
+  double-prefixed. Thanks to @sonofcar102 for the detailed report (#78).
 
 ### Changed
 - Regenerated the vendored `servosity-cli` / `servosity-mcp` source from
