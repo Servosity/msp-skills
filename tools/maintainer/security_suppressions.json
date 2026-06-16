@@ -1,10 +1,81 @@
 {
-  "_comment": "BASE-OWNED suppressions for check_security_gate.py. A finding is suppressed ONLY if its (file, rule) pair is listed here. This is intentionally NOT self-grantable from a PR diff: inline `// #nosec` is no longer honored by the gate, and a change to THIS file is a glaring, reviewed diff line (the security-gate workflow watches it) \u2014 same trust model as dep_allowlist.json. Add an entry only after a human has vetted that the flagged pattern is safe.",
+  "_comment": "BASE-OWNED suppressions for check_security_gate.py. A finding is suppressed ONLY if its (file, rule) pair is listed here. This is intentionally NOT self-grantable from a PR diff: inline `// #nosec` is no longer honored by the gate, and a change to THIS file is a glaring, reviewed diff line (the security-gate workflow watches it). Add an entry only after a human has vetted that the flagged pattern is safe. The `file` may be repo-relative (skills/<slug>/cli/..., scopes to one connector) OR slug-relative (cli/..., applies fleet-wide to the byte-identical printing-press generated file every connector carries). All scanners (builtin patterns, install scripts, and the external gosec/govulncheck/osv/semgrep set) honor these entries.",
   "suppress": [
     {
       "file": "skills/servosity/cli/internal/qbrreport/qbrreport.go",
       "rule": "exec-nonliteral-cmd",
       "reason": "chrome binary path is allowlist-resolved (not user input) before exec; pre-vetted, also annotated // #nosec G204 at the call site. servosity is an internal-only connector."
+    },
+
+    {
+      "file": "cli/internal/mcp/cobratree/shellout.go",
+      "rule": "G204",
+      "reason": "FLEET (generated). RunCLICommand execs the resolved companion CLI binary path with an explicit argv slice via exec.CommandContext - no shell, no `sh -c`, so args are not shell-interpreted. binPath is the CLI's own resolved path, not user input. Standard printing-press MCP dispatch pattern."
+    },
+    {
+      "file": "cli/internal/client/client.go",
+      "rule": "G119",
+      "reason": "FLEET (generated). CheckRedirect re-adds Authorization ONLY on a same-host redirect (req.URL.Host == via[0].URL.Host gate); cross-host hops explicitly delete it. Intentional and defended; without it nonce-bound auth schemes break on redirect."
+    },
+    {
+      "file": "cli/internal/client/client.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). Reads the local HTTP response-cache file at an app-determined path under the user's own ~/.cache; no untrusted path. Operating on the local user's own machine."
+    },
+    {
+      "file": "cli/internal/config/config.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). Reads the user's own config TOML at QUICKBOOKS_CONFIG or ~/.config/<cli>/config.toml. Operator-controlled local path on the user's own machine, not attacker input."
+    },
+    {
+      "file": "cli/internal/config/config.go",
+      "rule": "G703",
+      "reason": "FLEET (generated). 'Taint' flows from operator-set env vars (config path / base URL / realm) into a local path/URL the operator themselves chose. Single-user local CLI; the operator is not their own attacker."
+    },
+    {
+      "file": "cli/internal/config/config.go",
+      "rule": "G117",
+      "reason": "FLEET (generated). The OAuth access_token field is persisted to the user's local config TOML by design (written 0600). Storing the user's own token on their own machine is the intended auth-persistence behavior, not a leak."
+    },
+    {
+      "file": "cli/internal/cache/cache.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). Reads local cache files at app-determined paths under the user's own cache dir. Local, user-owned."
+    },
+    {
+      "file": "cli/internal/store/store.go",
+      "rule": "G201",
+      "reason": "FLEET (generated). The Sprintf'd token is a field name guarded by validIdentifierRE (rejected otherwise) and the column set is generated, not user-derived; all user values are bound via ? placeholders. Not injectable. Target is a local SQLite file."
+    },
+    {
+      "file": "cli/internal/store/store.go",
+      "rule": "G301",
+      "reason": "FLEET (generated). MkdirAll 0o755 on the local per-user data dir. Low risk on a single-user machine. FOLLOW-UP: tighten to 0700 at the press level (the local mirror can hold financial data); tracked as a press hardening, not a blocker."
+    },
+    {
+      "file": "cli/internal/cli/deliver.go",
+      "rule": "G301",
+      "reason": "FLEET (generated). MkdirAll 0o755 on a user-chosen output directory. Same low-risk local rationale + 0700 press follow-up as store.go G301."
+    },
+    {
+      "file": "cli/internal/cli/import.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). Opens the JSONL file the user explicitly passes to `import`. The user choosing which of their own files to import is the intended behavior, not path traversal."
+    },
+    {
+      "file": "cli/internal/cli/export.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). Opens the output file the user explicitly passes to `export`. User-chosen local destination on their own machine."
+    },
+    {
+      "file": "cli/internal/cli/profile.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). Reads the named-profile (saved flag sets) file at an app-determined path under the user's own config dir. Local, user-owned."
+    },
+    {
+      "file": "cli/internal/cli/feedback.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). Reads the local feedback log file at an app-determined path. Local, user-owned; no untrusted input."
     }
   ]
 }
