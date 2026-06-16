@@ -34,6 +34,7 @@ SKILLS_DIR = ROOT / "skills"
 README = ROOT / "README.md"
 CATALOG = ROOT / "catalog.json"
 DOCS_CATALOG = ROOT / "docs" / "_data" / "catalog.json"
+IT_WORKS_FORM = ROOT / ".github" / "ISSUE_TEMPLATE" / "it-works.yml"
 
 # Owner/repo and per-skill metadata are the single source of truth in
 # tools/skills.json (loaded via registry). Every install URL is built from
@@ -210,6 +211,36 @@ def replace_block(content: str, marker_start: str, marker_end: str, block: str) 
             "cannot regenerate the generated blocks."
         )
     return pattern.sub(rf"\1\n{block}\n\3", content)
+
+
+# The "Which skill" dropdown in the it-works issue form. Anchored on the FIRST
+# `options:` block (the `id: skill` dropdown precedes `id: agent` in the file)
+# up to its `validations:`. We rewrite the option LIST in place - same line
+# shape that already ships (`        - <slug>`) - rather than fencing with
+# YAML comments inside the sequence, which the GitHub form parser is fussier
+# about and which we cannot validate locally (no PyYAML in CI's catalog job).
+_FORM_OPTIONS_RE = re.compile(
+    r"(      options:\n)(?:        - .*\n)+?(    validations:\n)"
+)
+
+
+def render_it_works_form(content: str, skills: list[dict]) -> str:
+    """Regenerate the it-works form's skill dropdown from the registry: every
+    connector (markdown-only meta excluded), slug-sorted, plus the
+    "other / not listed" escape hatch. Returns the new file content."""
+    connectors = sorted(s["name"] for s in skills if not s.get("markdown_only"))
+    options = [f"        - {slug}" for slug in connectors]
+    options.append("        - other / not listed")
+    block = "\n".join(options) + "\n"
+    new_content, n = _FORM_OPTIONS_RE.subn(rf"\g<1>{block}\g<2>", content, count=1)
+    if n != 1:
+        raise SystemExit(
+            f"build-catalog: could not find the skill dropdown options block in "
+            f"{IT_WORKS_FORM.relative_to(ROOT)} (expected `      options:` followed "
+            f"by `        - ...` lines and `    validations:`). The form structure "
+            f"changed; update _FORM_OPTIONS_RE."
+        )
+    return new_content
 
 
 # --------------------------------------------------------------------------- #
@@ -456,6 +487,14 @@ def main() -> int:
         new_readme,
     )
     README.write_text(new_readme)
+
+    # Regenerate the it-works issue form's skill dropdown so a reporter can pick
+    # the exact connector (not be forced into "other"); the catalog.yml drift
+    # gate keeps it in lockstep with the registry. Skipped gracefully if the
+    # form is absent (e.g. a partial checkout).
+    if IT_WORKS_FORM.exists():
+        form = IT_WORKS_FORM.read_text()
+        IT_WORKS_FORM.write_text(render_it_works_form(form, skills))
 
     # Re-render every connector's docs page in the same pass, so a registry
     # change (live-verified flip, display rename) or a page.json edit shows up
