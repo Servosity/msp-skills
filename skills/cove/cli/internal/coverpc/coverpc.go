@@ -73,7 +73,7 @@ func (e *RPCError) Error() string {
 	case ErrDataVisa:
 		hint = " (session expired or missing — run `cove-cli auth login`)"
 	case ErrDataBadCredentials:
-		hint = " (check COVE_USERNAME/COVE_PASSWORD and that the user has API access enabled)"
+		hint = " (for an API User set COVE_PARTNER to the customer name it was created for, COVE_USERNAME to its login name, and COVE_PASSWORD to its API token; an empty COVE_PARTNER is the usual cause)"
 	}
 	return fmt.Sprintf("cove api error %d (data %d) on %s: %s%s", e.Code, e.Data, e.Method, e.Message, hint)
 }
@@ -188,7 +188,7 @@ func (c *Client) Visa(ctx context.Context) (string, error) {
 // inner "result" key).
 func (c *Client) Login(ctx context.Context) (json.RawMessage, error) {
 	if !c.Creds.Present() {
-		return nil, fmt.Errorf("missing credentials: set COVE_USERNAME and COVE_PASSWORD (and optionally COVE_PARTNER), then run `cove-cli auth login`")
+		return nil, fmt.Errorf("missing credentials: set COVE_USERNAME (API user login name), COVE_PASSWORD (API token), and COVE_PARTNER (the customer the API user was created for), then run `cove-cli auth login`")
 	}
 	params := map[string]string{
 		"partner":  c.Creds.Partner,

@@ -195,7 +195,7 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries. 
 
 ### What kind of Cove account does it need?
 
-An **API-enabled backup.management user**: a Security Officer service account with the API flag set. Interactive two-factor logins cannot use the JSON-RPC API. You set `COVE_USERNAME` and `COVE_PASSWORD` once; the skill exchanges them for a cached session visa and refreshes it automatically. See [mcp-install.md](./mcp-install.md).
+A dedicated **API User**, created in the Cove Management Console under **Users > API Users**. It issues a login name and an API token (shown only once); API Users can use the JSON-RPC API but cannot sign in to the console. Set `COVE_USERNAME` to the API user's login name, `COVE_PASSWORD` to the API token, and `COVE_PARTNER` to the customer/partner it was created for (required for API Users). The skill exchanges them for a cached session visa and refreshes it automatically. N-able retired the older per-user "API access" checkbox. See [mcp-install.md](./mcp-install.md).
 
 ### Can it restore files or browse backed-up data?
 

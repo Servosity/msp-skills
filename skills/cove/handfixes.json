@@ -1,0 +1,39 @@
+{
+  "slug": "cove",
+  "doc": "CHANGELOG.md (#115)",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: issue #115 (reporter @AvlCompCo), fixed 2026-06-16. The fix is documentation + error-string only; no new flag/command. N-able removed the per-user 'API access' checkbox and moved to dedicated API Users; API Users still authenticate via the JSON-RPC Login method (partner=customer name, username=API-user login, password=API token -> visa), so COVE_PARTNER is REQUIRED for them. There is no bearer/header auth in the Cove API; the API token is the Login password, not a visa.",
+  "handfixes": [
+    {
+      "id": "apiuser-auth-error-hints",
+      "summary": "Credential error hints (data 2100 / missing creds) name COVE_PARTNER as required for API Users",
+      "why": "Cove's data-2100 'Unknown partner/username' is most often an empty COVE_PARTNER for an API User scoped to a customer. The original hint pointed at the removed per-user 'API access' checkbox, which no longer exists in backup.management. Re-derived from N-able's API User authorization docs (issue #115).",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/coverpc/coverpc.go", "contains": "an empty COVE_PARTNER is the usual cause", "min_count": 1},
+        {"file": "cli/internal/coverpc/coverpc.go", "not_contains": "that the user has API access enabled"},
+        {"file": "cli/internal/coverpc/coverpc.go", "contains": "COVE_PARTNER (the customer the API user was created for)", "min_count": 1}
+      ]
+    },
+    {
+      "id": "apiuser-auth-help-text",
+      "summary": "`auth` command long help describes the API User flow (Users > API Users; token is the password, not a visa)",
+      "why": "The generated auth help previously taught the removed 'backup.management user with API access enabled' flow. A reprint regenerates this novel command as a stub and would drop the API-User guidance.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/cli/cove_auth.go", "contains": "Users > API Users", "min_count": 1},
+        {"file": "cli/internal/cli/cove_auth.go", "not_contains": "a backup.management user with API access"}
+      ]
+    },
+    {
+      "id": "apiuser-auth-docs",
+      "summary": "SKILL/README/guide/page auth sections teach the API User flow with COVE_PARTNER required",
+      "why": "The authored auth prose described the removed per-user 'API access' toggle and marked COVE_PARTNER optional. Issue #115 reporter followed it and could not authenticate. A full re-onboard regenerates these surfaces; keep the API-User guidance.",
+      "status": "active",
+      "asserts": [
+        {"file": "SKILL.md", "contains": "for an API User `COVE_PARTNER` is **required**", "min_count": 1},
+        {"file": "guide.md", "contains": "COVE_PARTNER is required for API Users", "min_count": 1},
+        {"file": "README.md", "contains": "Users > API Users", "min_count": 1}
+      ]
+    }
+  ]
+}
