@@ -175,6 +175,36 @@
       "file": "cli/go.mod",
       "rule": "GO-2026-5033",
       "reason": "FLEET (press-pinned indirect dep). golang.org/x/crypto v0.51.0 ssh/agent advisory. ssh* not imported (go list -deps); govulncheck 0 affected. osv presence-only. FOLLOW-UP: bump x/crypto at the PRESS level; govulncheck still gates reachable vulns."
+    },
+    {
+      "file": "cli/internal/cli/auth.go",
+      "rule": "G204",
+      "reason": "FLEET (generated). openSetupURL opens the OAuth setup URL in the OS default browser via exec.Command with a LITERAL per-OS command (open / xdg-open / rundll32) and the URL as an arg - no shell, no user-controlled command. gosec G204 flags any variable-arg exec; this is the standard press OAuth browser-open, vetted safe."
+    },
+    {
+      "file": "cli/internal/cli/auth.go",
+      "rule": "G112",
+      "reason": "FLEET (generated). The http.Server is an EPHEMERAL localhost OAuth-callback listener: it serves a single redirect during interactive auth login, is bound to a loopback listener, and exits after one code or a 2-minute timeout. Slowloris (the G112 concern) is irrelevant to a short-lived local loopback callback. FOLLOW-UP: press could add ReadHeaderTimeout; non-blocking."
+    },
+    {
+      "file": "cli/internal/cliutil/freshness.go",
+      "rule": "G201",
+      "reason": "FLEET (generated). fmt.Sprintf only injects a ?,?,... placeholder string (strings.Join of bound placeholders) into '... IN (%s)'; every user value is passed via db.QueryContext(query, args...) bound parameters. Not injectable. Same class as the store.go G201 FP."
+    },
+    {
+      "file": "cli/internal/cli/transcend.go",
+      "rule": "G301",
+      "reason": "FLEET (generated). os.MkdirAll 0o755 on the local per-user data dir (defaultDBPath). Low risk on a single-user machine. FOLLOW-UP: tighten to 0700 at the press level (tracked, same as store.go/deliver.go G301), not a blocker."
+    },
+    {
+      "file": "cli/internal/cli/contacts_bulk_update.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). os.Open on the CSV/JSONL file path the user explicitly passes to bulk-update. The user choosing which of their own files to import is the intended behavior, not path traversal. Same class as import.go/export.go G304."
+    },
+    {
+      "file": "skills/servosity/cli/internal/qbrreport/qbrreport.go",
+      "rule": "msp-exec-nonliteral-command",
+      "reason": "servosity (internal-only). semgrep twin of the already-suppressed builtin exec-nonliteral-cmd entry for the same call site: exec.Command(chrome, ...) where chrome is allowlist-resolved by findChrome() (LookPath of known binary names / macOS .app stat), never user input; annotated // #nosec G204. Vetted safe."
     }
   ]
 }
