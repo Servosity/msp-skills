@@ -51,7 +51,8 @@
       "status": "upstreamed",
       "asserts": [
         {"file": "cli/internal/cli/sync.go", "contains": "isDryRunResponse(data)", "min_count": 2},
-        {"file": "cli/internal/cli/sync.go", "contains": "if full && !c.DryRun {", "min_count": 1}
+        {"file": "cli/internal/cli/sync.go", "contains": "if full && !c.DryRun {", "min_count": 1},
+        {"file": "cli/internal/cli/restore_point_sync_wiring_test.go", "contains": "TestSyncDependentResource_DryRunDoesNotMutateSyncState", "min_count": 1}
       ]
     },
     {
@@ -100,6 +101,43 @@
         {"file": "cli/internal/cli/appliance_map.go", "not_contains": "sync --resources clients,device,appliance' first"},
         {"file": "SKILL.md", "not_contains": "sync --resources clients,device &&"},
         {"file": "guide.md", "not_contains": "sync --resources clients"}
+      ]
+    },
+    {
+      "id": "search-concise-projection",
+      "summary": "`search` defaults to a concise id/name/type/match projection (not whole raw records); --full restores raw. Logic lives in hand-authored files so a reprint can't clobber it.",
+      "why": "Issue #84/#101 residual item: `search` dumped entire raw JSON records, a token sink for agents. The fix adds store.SearchHits (returns resource_type alongside data) and a renderSearchResults projection, both in HAND-AUTHORED files (internal/store/search_hits.go, internal/cli/search_projection.go) that a cli-printing-press reprint of store.go/search.go won't touch. The generated search.go carries only a minimal hook (--full flag + SearchHits calls + renderSearchResults). A reprint must re-apply that hook; the asserts below fail CI if it regressed. Default-dumping-raw is systemic press behavior (a printing-press retro tracks the upstream fix).",
+      "status": "active",
+      "spec_encode_followup": "Belongs in the press: the generated search command should offer a concise projection by default with a --full opt-in. Until a reprint absorbs it, the hand-authored files + this hook guard it.",
+      "asserts": [
+        {"file": "cli/internal/store/search_hits.go", "contains": "func (s *Store) SearchHits", "min_count": 1},
+        {"file": "cli/internal/cli/search_projection.go", "contains": "func renderSearchResults", "min_count": 1},
+        {"file": "cli/internal/cli/search.go", "contains": "renderSearchResults", "min_count": 1},
+        {"file": "cli/internal/cli/search.go", "contains": "db.SearchHits", "min_count": 2}
+      ]
+    },
+    {
+      "id": "mcp-auth-hint-not-cli-doctor",
+      "summary": "MCP tool auth-error hints point to the MCP server's env config, not 'Run axcient-cli doctor' (which an MCP-only user can't run)",
+      "why": "Issue #84/#101 residual item: the MCP tool error handlers (internal/mcp/tools.go) told MCP-only users to 'Run axcient-cli doctor' - a CLI command they have no shell access to. doctor stays CLI-only (intentionally excluded from the MCP surface via frameworkCommands); the MCP hints now tell the user to set AXCIENT_API_KEY in the MCP server's configuration. The CLI's own classifyAPIError (internal/cli/helpers.go) KEEPS the doctor hint - correct for CLI users - so this assertion is scoped to tools.go only.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/mcp/tools.go", "not_contains": "Run 'axcient-cli doctor' to check auth status"},
+        {"file": "cli/internal/mcp/tools.go", "contains": "set AXCIENT_API_KEY in this server's configuration", "min_count": 1}
+      ]
+    },
+    {
+      "id": "restore-point-autoverify-storage-key-not-double-composited",
+      "summary": "resourceStorageID must NOT re-append the parent for the synthesized rp:/av: composite ids (would corrupt the key with a NUL byte); and the hand-authored regression tests guarding the restore_point/autoverify/sync fixes must exist.",
+      "why": "Press 4.24.0 (the #96 fleet re-vendor) added a generic resourceStorageID that appends `id\\x00<parent>` for any resource in resourceParentKeyColumns. restore_point and autoverify already synthesize parent-embedding ids (rp:<device_id>:..., av:<device_id>:...), so the generic append double-keyed them into e.g. `rp:dev:rpid\\x00dev` - a NUL-containing key that breaks clean-key offline lookups (regressing the #84 Error-1 fix). The fix skips the append ONLY when the id already carries the synthesized rp:/av: prefix; a bare native id still gets the parent composite (so same-id-different-parent rows don't collapse - see TestUpsertBatch_Keys*ByChildAndParent). SEPARATELY, the #96 re-vendor SILENTLY DROPPED the hand-authored regression tests (they are not generated, so the mint replaced the package without them); the fixes' strings survived (asserted elsewhere) but their behavioral guards vanished, which is how the \\x00 regression shipped unnoticed. These asserts fail CI if a future reprint re-introduces the double-composite OR drops the tests again. Systemic press behavior - printing-press retro filed (resourceStorageID should skip an already-parent-embedded id; the mint should preserve hand-authored *_test.go).",
+      "status": "active",
+      "spec_encode_followup": "Belongs in the press: resourceStorageID should not append the parent when the resolved id already embeds it, and the mint should not drop hand-authored test files on re-vendor. Until absorbed, this switch + these test-existence asserts guard it.",
+      "asserts": [
+        {"file": "cli/internal/store/store.go", "contains": "strings.HasPrefix(id, \"rp:\")", "min_count": 1},
+        {"file": "cli/internal/store/store.go", "contains": "strings.HasPrefix(id, \"av:\")", "min_count": 1},
+        {"file": "cli/internal/store/restore_point_id_test.go", "contains": "TestUpsertBatch_RestorePointRealShapePopulates", "min_count": 1},
+        {"file": "cli/internal/cli/restore_point_sync_wiring_test.go", "contains": "TestSyncDependentResource_RestorePointInjectsDeviceIDAndPopulates", "min_count": 1},
+        {"file": "cli/internal/cli/sync_resource_scoping_test.go", "contains": "TestFlatSyncResources_DropsDependentNames", "min_count": 1}
       ]
     }
   ]
