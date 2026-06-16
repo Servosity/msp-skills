@@ -39,7 +39,7 @@ const AlertsListQuery = `query($first: Int, $page: Int) {
       status
       createdTime
       resolvedTime
-      asset { assetId name hostName }
+      asset
     }
     listInfo { totalCount hasMore page pageSize }
   }
@@ -64,8 +64,8 @@ const AssetsGetQuery = `query($id: ID!) {
     agentVersion
     lastCommunicatedTime
     warrantyExpiryDate
-    client { accountId name }
-    site { id name }
+    client
+    site
   }
 }`
 
@@ -89,8 +89,8 @@ const AssetsListQuery = `query($first: Int, $page: Int) {
       agentVersion
       lastCommunicatedTime
       warrantyExpiryDate
-      client { accountId name }
-      site { id name }
+      client
+      site
     }
     listInfo { totalCount hasMore page pageSize }
   }
@@ -103,9 +103,9 @@ const ClientsGetQuery = `query($id: ID!) {
     stage
     status
     emailDomains
-    accountManager { userId name }
-    primaryContact { userId name email }
-    hqSite { id name }
+    accountManager
+    primaryContact
+    hqSite
   }
 }`
 
@@ -117,9 +117,9 @@ const ClientsListQuery = `query($first: Int, $page: Int) {
       stage
       status
       emailDomains
-      accountManager { userId name }
-      primaryContact { userId name email }
-      hqSite { id name }
+      accountManager
+      primaryContact
+      hqSite
     }
     listInfo { totalCount hasMore page pageSize }
   }
@@ -133,7 +133,7 @@ const ContractsListQuery = `query($first: Int, $page: Int) {
       contractType
       startDate
       endDate
-      client { accountId name }
+      client
     }
     listInfo { totalCount hasMore page pageSize }
   }
@@ -151,8 +151,8 @@ const InvoicesGetQuery = `query($id: ID!) {
     discountAmount
     paymentDate
     paymentMethod
-    client { accountId name }
-    site { id name }
+    client
+    site
   }
 }`
 
@@ -169,8 +169,8 @@ const InvoicesListQuery = `query($first: Int, $page: Int) {
       discountAmount
       paymentDate
       paymentMethod
-      client { accountId name }
-      site { id name }
+      client
+      site
     }
     listInfo { totalCount hasMore page pageSize }
   }
@@ -214,7 +214,7 @@ const ServiceItemsListQuery = `query($first: Int, $page: Int) {
       unitPrice
       afterHoursUnitPrice
       salesTaxEnabled
-      category { categoryId name }
+      category
     }
     listInfo { totalCount hasMore page pageSize }
   }
@@ -233,7 +233,7 @@ const SitesListQuery = `query($first: Int, $page: Int) {
       contactNumber
       timezoneCode
       hq
-      client { accountId name }
+      client
     }
     listInfo { totalCount hasMore page pageSize }
   }
@@ -252,8 +252,8 @@ const TasksGetQuery = `query($id: ID!) {
     overdue
     actualStartDate
     actualEndDate
-    technician { userId name }
-    ticket { ticketId displayId }
+    technician
+    ticket
   }
 }`
 
@@ -271,8 +271,8 @@ const TasksListQuery = `query($first: Int, $page: Int) {
       overdue
       actualStartDate
       actualEndDate
-      technician { userId name }
-      ticket { ticketId displayId }
+      technician
+      ticket
     }
     listInfo { totalCount hasMore page pageSize }
   }
@@ -285,9 +285,9 @@ const TechniciansListQuery = `query($first: Int, $page: Int) {
       name
       email
       contactNumber
-      designation { designationId name }
-      role { roleId name }
-      team { teamId name }
+      designation
+      role
+      team
     }
     listInfo { totalCount hasMore page pageSize }
   }
@@ -299,14 +299,14 @@ const TicketsGetQuery = `query($id: ID!) {
     displayId
     subject
     ticketType
-    status { statusId name }
-    priority { priorityId name }
-    client { accountId name }
-    site { id name }
-    requester { userId name email }
-    technician { userId name }
-    techGroup { groupId name }
-    sla { slaId name }
+    status
+    priority
+    client
+    site
+    requester
+    technician
+    techGroup
+    sla
     createdTime
     updatedTime
     resolutionDueTime
@@ -322,14 +322,14 @@ const TicketsListQuery = `query($first: Int, $page: Int) {
       displayId
       subject
       ticketType
-      status { statusId name }
-      priority { priorityId name }
-      client { accountId name }
-      site { id name }
-      requester { userId name email }
-      technician { userId name }
-      techGroup { groupId name }
-      sla { slaId name }
+      status
+      priority
+      client
+      site
+      requester
+      technician
+      techGroup
+      sla
       createdTime
       updatedTime
       resolutionDueTime
@@ -349,9 +349,9 @@ const UsersListQuery = `query($first: Int, $page: Int) {
       lastName
       email
       contactNumber
-      role { roleId name }
-      site { id name }
-      client { accountId name }
+      role
+      site
+      client
     }
     listInfo { totalCount hasMore page pageSize }
   }
@@ -367,8 +367,8 @@ const WorklogsListQuery = `query($first: Int, $page: Int) {
       afterHours
       startTime
       endTime
-      technician { userId name }
-      ticket { ticketId displayId }
+      technician
+      ticket
     }
     listInfo { totalCount hasMore page pageSize }
   }
