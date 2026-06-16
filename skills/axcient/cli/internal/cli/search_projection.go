@@ -143,7 +143,9 @@ func renderSearchResults(cmd *cobra.Command, flags *rootFlags, hits []store.Sear
 	for _, r := range rows {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", dashIfEmpty(r.ID), dashIfEmpty(r.Name), dashIfEmpty(r.Type), dashIfEmpty(r.Match))
 	}
-	tw.Flush()
+	if err := tw.Flush(); err != nil {
+		return err
+	}
 	fmt.Fprintln(cmd.ErrOrStderr(), "\nConcise view; pass --full for whole records.")
 	return nil
 }
