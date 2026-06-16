@@ -1,0 +1,46 @@
+{
+  "slug": "ninjaone",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED (\"DO NOT EDIT\") files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #88 (reporter @AndrewITLive), fixed 2026-06-15 on press 4.24.0.",
+  "handfixes": [
+    {
+      "id": "after-id-pagination",
+      "summary": "Sync loop fetches all pages for NinjaOne after-id (keyset) endpoints. NinjaOne list endpoints (/v2/devices, /v2/organizations, ...) return a bare JSON array and paginate via ?after=<lastEntityId> - no body cursor, no envelope has_more. The generated loop only handled envelope-cursor / page / offset paginators, so it stopped at the first full page and reported a truncated dataset (e.g. 1000 of 1115 devices) as complete. --max-pages 0 had no effect because the loop broke on !hasMore before the cap mattered.",
+      "why": "determinePaginationDefaults() hard-codes cursorParam/cursorType \"cursor\", and extractPageItems() returns hasMore=false for a bare array (sync.go), so the natural-end break (`if !hasMore || len(items) < pageSize.limit`) fired after page 1. The press's pagination profiler does not model after-id/keyset cursors; a plain reprint regenerates the same defaults (the 0.1.1 4.24.0 regen produced byte-identical code, confirming this). The fix adds a response-shape-driven after-id fallback: when a bare-array page is full and the last item exposes an id, advance under ?after=<lastId>. Object-enveloped responses (/v2/queries/* carry a `cursor` object) are unaffected. Applied to BOTH the flat syncResource loop and the syncDependentResource loop.",
+      "status": "active",
+      "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: teach the pagination profiler to detect after-id/keyset pagination (bare-array list + ?after param + id-derived cursor) and emit it natively. File via printing-press-retro. Until the press learns it, this hand-fix must survive every reprint.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "const afterIDParam = \"after\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "func isBareArrayResponse",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "func extractLastItemID",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "afterIDMode = true",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "cursorParam = afterIDParam",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/sync_after_id_test.go",
+          "contains": "func TestExtractLastItemID",
+          "min_count": 1
+        }
+      ]
+    }
+  ]
+}
