@@ -57,6 +57,11 @@
       "reason": "FLEET (generated). MkdirAll 0o755 on the local per-user data dir. Low risk on a single-user machine. FOLLOW-UP: tighten to 0700 at the press level (the local mirror can hold financial data); tracked as a press hardening, not a blocker."
     },
     {
+      "file": "skills/servosity/cli/internal/store/store.go",
+      "rule": "G101",
+      "reason": "servosity (generated). gosec G101 LOW-confidence false-positive on the variable NAME 'resourceParentKeyColumns' (the 'Key' substring); the value is a generated map of resource table -> parent foreign-key COLUMN names (e.g. agent_logs -> agent_sessions_id), not credential material. Same class as the auth.go/client.go G101 'tokenURL' FPs (#109). Repo-relative (scoped to servosity only). Surfaced by servosity #78."
+    },
+    {
       "file": "cli/internal/cli/deliver.go",
       "rule": "G301",
       "reason": "FLEET (generated). MkdirAll 0o755 on a user-chosen output directory. Same low-risk local rationale + 0700 press follow-up as store.go G301."
