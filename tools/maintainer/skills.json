@@ -1167,12 +1167,10 @@
       "cli_hash_at_release": "sha256:9e7615f226f01b36836ce08a6abfae33d9717999cf9cacc43a1ba9314f5e5eb8",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null,
-        "verified_by": null,
-        "issue_url": null
+        "status": "live-verified",
+        "date": "2026-06-16",
+        "source": "github",
+        "evidence": "https://github.com/Servosity/msp-skills/issues/116"
       }
     },
     "servosity": {
