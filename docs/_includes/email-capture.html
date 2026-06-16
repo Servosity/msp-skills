@@ -1,8 +1,8 @@
 {%- comment -%}
 Reusable email-capture block. Used in the footer (every page) and on content pages.
 
-Captures into the Brevo list (form 252473a9.sibforms.com, which has no CAPTCHA) and then sends the
-visitor to /question-book/. Field contract is verbatim from the live Brevo form:
+Captures into the Brevo list (form 252473a9.sibforms.com, which has no CAPTCHA) and confirms IN
+PLACE - it does NOT navigate away. Field contract is verbatim from the live Brevo form:
   FIRSTNAME, LASTNAME, EMAIL (required), email_address_check (anti-bot honeypot, must stay empty),
   locale (hidden, "en").
 
@@ -10,16 +10,20 @@ Why a custom submit instead of Brevo's main.js embed: Brevo's v2 endpoint only a
 multipart/form-data and returns no Access-Control-Allow-Origin header, so Brevo's own main.js XHR is
 CORS-blocked when the form is self-hosted on this domain (it would need the domain authorized in
 Brevo first). A native submit with mode:"no-cors" is a CORS "simple request" (multipart is
-safelisted): it delivers the POST and the contact registers, but we can't read the opaque response,
-so we redirect on settle. The
-endpoint carries ?isAjax=1 (Brevo's own success path → 200 {"success":true}) so it returns a clean
-result instead of a 303 thank-you redirect. No external JS, nothing to lazy-load.
+safelisted): it delivers the POST and the contact registers, but we can't read the opaque response.
+The endpoint carries ?isAjax=1 (Brevo's own success path) so it returns a clean result instead of a
+303 thank-you redirect. No external JS, nothing to lazy-load.
+
+On settle we swap the form for an inline confirmation (.ec-success) at the same scroll position -
+NO redirect to the long /question-book/ page (that jump-to-top with a blank form was the prior UX
+bug). The confirmation links to /question-book/ so the visitor opens the book on their terms.
 
 No-JS fallback: the form's native action (GET /question-book/) still lands the visitor on the
 content; that rare submission simply isn't captured.
 TODO (optional follow-on): a Brevo automation that emails the Question Book on list-join.
 {%- endcomment -%}
 <style>
+  .email-capture [hidden] { display: none !important; }
   .email-capture .ec-form { display: grid; gap: 0.6rem; max-width: 440px; margin-top: 0.25rem; }
   .email-capture .ec-names { display: grid; gap: 0.6rem; grid-template-columns: 1fr 1fr; }
   @media (max-width: 420px) { .email-capture .ec-names { grid-template-columns: 1fr; } }
@@ -40,24 +44,32 @@ TODO (optional follow-on): a Brevo automation that emails the Question Book on l
   .email-capture .ec-form button[disabled] { opacity: 0.6; cursor: default; }
   .email-capture .ec-hp { position: absolute !important; left: -9999px !important; width: 1px; height: 1px; overflow: hidden; }
   .email-capture .ec-msg { font-size: 0.88rem; color: var(--muted); min-height: 1em; }
+  .email-capture .ec-cta { display: inline-block; margin-top: 0.4rem; font-weight: 600; color: var(--accent); }
+  .email-capture .ec-cta:hover { color: var(--accent-d); }
 </style>
 <div class="email-capture">
-  <p class="ec-title">Get the MSP AI Question Book</p>
-  <p>200+ plain-English questions your AI can already answer from the tools you run - no code required.</p>
-  <form class="ec-form" method="get" action="/question-book/"
-        data-brevo-endpoint="https://252473a9.sibforms.com/v2/serve/MUIFACaFxI5474ebF6s3lqBIkHV0xZBYZfvyL_Z3S8qDB4_AFRK20m2JCLC6e2e7PYc8awlpAHqEt-TGbCplHcrTT4mITPweNwJmXsPCajB1xCuJ-t8fTrJHyPnp4PvOn_hLkC9D1uWzVgTl1934_6E4tNfzdLBvQHmWv8IfowlA34S3gq3Zjf3DexFgoSdR7x7Gka5_OF4UXlrmWQ==?isAjax=1"
-        data-redirect="/question-book/">
-    <div class="ec-names">
-      <input type="text" name="FIRSTNAME" placeholder="First name" aria-label="First name" autocomplete="given-name" maxlength="200" required>
-      <input type="text" name="LASTNAME" placeholder="Last name" aria-label="Last name" autocomplete="family-name" maxlength="200" required>
-    </div>
-    <input type="email" name="EMAIL" placeholder="you@yourmsp.com" aria-label="Work email" autocomplete="email" required>
-    {%- comment -%} Brevo anti-bot honeypot: keep empty, off-screen, out of the tab order. {%- endcomment -%}
-    <input type="text" name="email_address_check" value="" class="ec-hp" tabindex="-1" autocomplete="off" aria-hidden="true">
-    <input type="hidden" name="locale" value="en">
-    <button type="submit">Send me the Question Book</button>
-    <span class="ec-msg" role="status" aria-live="polite"></span>
-  </form>
+  <div class="ec-prompt">
+    <p class="ec-title">Get the MSP AI Question Book</p>
+    <p>200+ plain-English questions your AI can already answer from the tools you run - no code required.</p>
+    <form class="ec-form" method="get" action="/question-book/"
+          data-brevo-endpoint="https://252473a9.sibforms.com/v2/serve/MUIFACaFxI5474ebF6s3lqBIkHV0xZBYZfvyL_Z3S8qDB4_AFRK20m2JCLC6e2e7PYc8awlpAHqEt-TGbCplHcrTT4mITPweNwJmXsPCajB1xCuJ-t8fTrJHyPnp4PvOn_hLkC9D1uWzVgTl1934_6E4tNfzdLBvQHmWv8IfowlA34S3gq3Zjf3DexFgoSdR7x7Gka5_OF4UXlrmWQ==?isAjax=1">
+      <div class="ec-names">
+        <input type="text" name="FIRSTNAME" placeholder="First name" aria-label="First name" autocomplete="given-name" maxlength="200" required>
+        <input type="text" name="LASTNAME" placeholder="Last name" aria-label="Last name" autocomplete="family-name" maxlength="200" required>
+      </div>
+      <input type="email" name="EMAIL" placeholder="you@yourmsp.com" aria-label="Work email" autocomplete="email" required>
+      {%- comment -%} Brevo anti-bot honeypot: keep empty, off-screen, out of the tab order. {%- endcomment -%}
+      <input type="text" name="email_address_check" value="" class="ec-hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <input type="hidden" name="locale" value="en">
+      <button type="submit">Send me the Question Book</button>
+      <span class="ec-msg" role="status" aria-live="polite"></span>
+    </form>
+  </div>
+  <div class="ec-success" hidden role="status" aria-live="polite">
+    <p class="ec-title">You're in<span class="ec-name"></span>!</p>
+    <p>Your MSP AI Question Book is ready.</p>
+    <a class="ec-cta" href="/question-book/">Open the Question Book →</a>
+  </div>
 </div>
 <script>
 (function () {
@@ -68,15 +80,27 @@ TODO (optional follow-on): a Brevo automation that emails the Question Book on l
       if (!endpoint) { return; } // no endpoint -> native fallback (GET /question-book/)
       e.preventDefault();
       if (!form.checkValidity()) { form.reportValidity(); return; }
-      var redirect = form.getAttribute('data-redirect') || '/question-book/';
       var btn = form.querySelector('button[type="submit"]');
       var msg = form.querySelector('.ec-msg');
       if (btn) { btn.disabled = true; }
       if (msg) { msg.textContent = 'Sending…'; }
-      // no-cors: the multipart POST is delivered (contact registers) but the response is opaque,
-      // so we redirect once it settles. .then fires when sent; .catch only on real network failure.
+      // no-cors: the multipart POST is delivered (contact registers) but the response is opaque.
+      // On settle we confirm IN PLACE - no navigation. .then fires when sent; .catch only on a
+      // real network failure.
       fetch(endpoint, { method: 'POST', mode: 'no-cors', body: new FormData(form) })
-        .then(function () { window.location.assign(redirect); })
+        .then(function () {
+          var cap = form.closest('.email-capture');
+          if (!cap) { return; }
+          var first = (form.querySelector('input[name="FIRSTNAME"]') || {}).value || '';
+          var success = cap.querySelector('.ec-success');
+          var prompt = cap.querySelector('.ec-prompt');
+          if (success) {
+            var nameEl = success.querySelector('.ec-name');
+            if (nameEl && first.trim()) { nameEl.textContent = ', ' + first.trim(); }
+            success.hidden = false;
+          }
+          if (prompt) { prompt.hidden = true; }
+        })
         .catch(function () {
           if (btn) { btn.disabled = false; }
           if (msg) { msg.textContent = "Sorry - that didn't go through. Please try again."; }
