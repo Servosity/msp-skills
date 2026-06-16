@@ -6,11 +6,6 @@ All notable changes to this skill are documented here. Format follows
 
 ## [0.1.2] - unreleased
 
-### Changed
-- Describe the changes in this release.
-
-## [0.1.1] - unreleased
-
 ### Fixed
 - Typed `list`/`get` commands (`clients`, `assets`, `tickets`, and every other entity) no longer fail with GraphQL `SubSelectionNotAllowed` errors. The queries requested association/enum fields (`accountManager`, `primaryContact`, `hqSite`, `client`, `site`, `status`, `priority`, `requester`, `technician`, and others) with object sub-selections, but the SuperOps schema returns those fields as scalar leaf types (JSON/String); they are now requested as the scalars they are. Thanks to @AvlCompCo for the detailed report (#114).
 
