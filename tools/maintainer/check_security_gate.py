@@ -442,25 +442,25 @@ def scan_external(slug: str, suppress: set[tuple[str, str]],
                     f"required scanner {t} not installed (fail-closed in CI/release).")
 
     if have("gosec"):
-        # gosec exits 0 (clean) or 1 (issues found) on a successful run; it cannot
-        # compile broken code or times out -> any OTHER outcome (unparseable JSON,
-        # timeout 124, missing 127, compile errors) must fail CLOSED under --require-
-        # scanners, not silently report zero issues (codex). Note: exit code alone is
-        # ambiguous (1 = issues found), so the OK signal is "JSON parsed with no
-        # Golang compile errors".
+        # gosec exits 0 (clean) or 1 (issues found) on a successful run; exit code alone
+        # is ambiguous (1 = issues found), so the "ran" signal is parseable JSON. Fail
+        # CLOSED under --require-scanners only when gosec did NOT run: unparseable output,
+        # timeout (124), or not-installed (127). We deliberately do NOT treat a non-empty
+        # gosec "Golang errors" as a failure: its go/packages loader routinely emits benign
+        # per-package errors (e.g. `undefined: <sym>` from command-line-arguments loads) on
+        # HEALTHY connectors while still analyzing them (30+ Issues), so gating on it is a
+        # fleet-wide false-RED. A genuine build break is still caught by govulncheck
+        # (fail-closed) and the always-on builtin pattern scan.
         code, out, err = run(["gosec", "-quiet", "-fmt", "json", "./..."], cwd=str(mod), timeout=300)
         gj = None
         try:
             gj = json.loads(out or "{}")
         except json.JSONDecodeError:
             gj = None
-        if gj is None or code in (124, 127) or gj.get("Golang errors"):
-            if require:
-                detail = ("timeout" if code == 124 else "not-installed" if code == 127
-                          else "compile/analysis errors" if (gj and gj.get("Golang errors"))
-                          else "unparseable output")
-                add("gosec", "scanner-error", "P1", f"skills/{slug}/cli/go.mod", 0,
-                    f"gosec did not complete cleanly ({detail}, exit {code}) (fail-closed).")
+        if (gj is None or code in (124, 127)) and require:
+            detail = "timeout" if code == 124 else "not-installed" if code == 127 else "unparseable output"
+            add("gosec", "scanner-error", "P1", f"skills/{slug}/cli/go.mod", 0,
+                f"gosec did not complete ({detail}, exit {code}) (fail-closed).")
         for iss in (gj or {}).get("Issues", []):
             sev = "P1" if iss.get("severity", "").upper() in ("HIGH", "MEDIUM") else "P2"
             add("gosec", iss.get("rule_id"), sev, iss.get("file", ""),
