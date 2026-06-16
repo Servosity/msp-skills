@@ -86,6 +86,26 @@
       "file": "cli/internal/cli/feedback.go",
       "rule": "G304",
       "reason": "FLEET (generated). Reads the local feedback log file at an app-determined path. Local, user-owned; no untrusted input."
+    },
+    {
+      "file": "cli/internal/cli/auth.go",
+      "rule": "G101",
+      "reason": "FLEET (generated). The flagged literal is the PUBLIC OAuth token ENDPOINT URL (e.g. https://app.ninjarmm.com/ws/oauth/token) assigned to a var named `tokenURL`; G101 false-positives on the 'token' substring in the identifier. Not a secret, no credential material. Surfaced by ninjaone #88."
+    },
+    {
+      "file": "cli/internal/client/client.go",
+      "rule": "G101",
+      "reason": "FLEET (generated). Same as auth.go: the literal is the public OAuth token endpoint URL fallback assigned to `tokenURL` (G101 matches the var name, not a real credential). Surfaced by ninjaone #88."
+    },
+    {
+      "file": "cli/internal/cli/jobs.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). Reads/writes the CLI's own local jobs ledger at jobsFilePath() (and its .tmp) under the per-user data dir; the path is app-determined, not user- or network-tainted. Same class as the cache.go/config.go/import.go entries. Surfaced by ninjaone #88."
+    },
+    {
+      "file": "cli/internal/cli/jobs.go",
+      "rule": "G404",
+      "reason": "FLEET (generated). math/rand is used only to add timing jitter to a job-status poll backoff (interval + rand.Int63n(...)); no token, nonce, or key is derived from it, so crypto/rand is unnecessary. Surfaced by ninjaone #88."
     }
   ]
 }
