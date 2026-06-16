@@ -64,6 +64,26 @@ jobs:
           go install github.com/google/osv-scanner/cmd/osv-scanner@latest || true
           python3 -m pip install --quiet semgrep || true
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Pre-warm module + build cache for the tagged connector
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -uo pipefail
+          # gosec's go/packages loader downloads + compiles the connector before scanning.
+          # On a cold release runner a heavy-dep connector's fetch + build can exceed gosec's
+          # 300s budget and fail-close as a scanner timeout (exit 124) - NOT a real finding,
+          # just an infra flake (e.g. connectwise-control: enetx/http + enetx/surf; axcient:
+          # surf + quic-go + utls + modernc/sqlite). Pre-build the tagged connector here so
+          # the module AND build caches are warm; gosec then completes in ~1s (as it does
+          # locally). `go build` runs no connector code (pure Go, CGO off, no `go generate`),
+          # so it cannot weaken the gate - it only removes the cold-start cost from the
+          # scanners' timeout budget. Mirrors security-gate.yml (#125) for the release path.
+          slug="${TAG%-v*}"
+          if [ -f "skills/$slug/cli/go.mod" ]; then
+            echo "::group::pre-warm $slug"
+            (cd "skills/$slug/cli" && CGO_ENABLED=0 go build ./...) || echo "pre-warm failed for $slug (non-fatal)"
+            echo "::endgroup::"
+          fi
       - name: Gate the tagged connector (P1 blocks the release)
         env:
           TAG: ${{ github.ref_name }}
