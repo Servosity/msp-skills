@@ -281,10 +281,10 @@
   },
   "quickbooks": {
     "state": "version-pending",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "latest_tag": "quickbooks-v0.1.1",
-    "current_hash": "sha256:7133449a52620edb5695864cb68c1d2beabc2cefeaf20a98572a0ae7c03e9006",
-    "released_hash": "sha256:7133449a52620edb5695864cb68c1d2beabc2cefeaf20a98572a0ae7c03e9006"
+    "current_hash": "sha256:20ae55cb4bb96d3b159d45d9ad454985f37727a0b3af90430ac488283e3f71e0",
+    "released_hash": "sha256:20ae55cb4bb96d3b159d45d9ad454985f37727a0b3af90430ac488283e3f71e0"
   },
   "rewst": {
     "state": "never-released",

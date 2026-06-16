@@ -1477,7 +1477,7 @@ Governance: The skill reads your Proofpoint TAP threat data - SIEM click and mes
 ### QuickBooks Online (Billing)
 
 Page: https://msp-skills.compoundingteams.com/skills/quickbooks/
-Verification: Live-verified by Servosity (maintainer) (2026-06-12)
+Verification: Live-verified by a real MSP (2026-06-15)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/install.sh)
 
 Ask your books a question and get the answer, not a CSV export. The skill syncs your QuickBooks Online company into a local SQLite mirror, then answers who owes you (ar-aging), what you owe (ap-aging), where the cash is (balances), which invoices to chase first (invoices stale), and whether the books are clean to close (reconcile) - instantly, offline, across the whole book. No portal clicking, no per-question API call.
