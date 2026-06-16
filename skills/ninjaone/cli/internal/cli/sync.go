@@ -484,6 +484,10 @@ func syncResource(ctx context.Context, c interface {
 	var extractFailureTotal int
 	var consumedTotal int
 	anomalyEmitted := false
+	// afterIDMode is set once a bare-array response is detected (issue #88) so
+	// subsequent pages are requested with ?after=<lastId> rather than the
+	// spec-derived cursor param.
+	afterIDMode := false
 
 	for {
 		params := map[string]string{}
@@ -491,7 +495,11 @@ func syncResource(ctx context.Context, c interface {
 		if resourceSupportsPagination(resource) {
 			params[pageSize.limitParam] = strconv.Itoa(pageSize.limit)
 			if cursor != "" {
-				params[pageSize.cursorParam] = cursor
+				cursorParam := pageSize.cursorParam
+				if afterIDMode {
+					cursorParam = afterIDParam
+				}
+				params[cursorParam] = cursor
 			}
 		}
 
@@ -553,6 +561,21 @@ func syncResource(ctx context.Context, c interface {
 			currentOffset, _ := strconv.Atoi(cursor)
 			nextCursor = strconv.Itoa(currentOffset + pageSize.limit)
 			hasMore = true
+		}
+		// After-id paginator fallback (issue #88): NinjaOne list endpoints
+		// (/v2/devices, /v2/organizations, ...) return a bare JSON array and
+		// paginate via ?after=<lastEntityId> — no body cursor, no envelope
+		// has_more. Without this the loop stops at the first full page and
+		// reports a truncated dataset as complete. Derive the next cursor from
+		// the last item's id and advance under the `after` param. Detection is
+		// by response shape (bare array), so envelope-cursor resources such as
+		// /v2/queries/* are unaffected.
+		if nextCursor == "" && len(items) >= pageSize.limit && isBareArrayResponse(data) {
+			if lastID, ok := extractLastItemID(items); ok {
+				nextCursor = lastID
+				hasMore = true
+				afterIDMode = true
+			}
 		}
 
 		if len(items) == 0 && len(data) > 0 && !isJSONResponse(data) {
@@ -931,6 +954,62 @@ func extractPageItems(data json.RawMessage, cursorParam string) ([]json.RawMessa
 	}
 
 	return nil, "", false
+}
+
+// afterIDParam is the query parameter NinjaOne list endpoints use for after-id
+// (keyset) pagination: ?after=<id of the last entity on the prior page>. The
+// spec profiler models these bare-array endpoints as generic cursor
+// pagination, which cannot advance them; the sync loop falls back to after-id
+// paging keyed on this param. See issue #88.
+const afterIDParam = "after"
+
+// isBareArrayResponse reports whether the API returned a top-level JSON array
+// rather than an object envelope. NinjaOne's list endpoints (/v2/devices,
+// /v2/organizations, ...) return bare arrays and paginate via ?after=<lastId>
+// instead of an envelope cursor; the sync loop uses this to select the
+// after-id advance path. Object-enveloped responses (e.g. /v2/queries/*, which
+// carry a `cursor` object) return false and keep the existing envelope path,
+// so they are unaffected by the after-id fallback.
+func isBareArrayResponse(data json.RawMessage) bool {
+	if isJSONNull(data) {
+		return false
+	}
+	var arr []json.RawMessage
+	return json.Unmarshal(data, &arr) == nil
+}
+
+// extractLastItemID returns the identifier of the last item on a page, used as
+// the `after` cursor for after-id pagination (issue #88). It prefers the
+// canonical `id` field NinjaOne uses, with a few common fallbacks, and accepts
+// both numeric and string ids (numeric ids are read via json.Number to avoid
+// float rounding on large values). Returns false when no usable id is present
+// (or it is zero/empty) so the loop stops rather than looping on a cursor it
+// cannot advance; the sticky-cursor detector is the backstop if it does.
+func extractLastItemID(items []json.RawMessage) (string, bool) {
+	if len(items) == 0 {
+		return "", false
+	}
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(items[len(items)-1], &obj); err != nil {
+		return "", false
+	}
+	for _, key := range []string{"id", "uid", "entityId", "deviceId"} {
+		raw, ok := obj[key]
+		if !ok {
+			continue
+		}
+		var n json.Number
+		if json.Unmarshal(raw, &n) == nil {
+			if s := n.String(); s != "" && s != "0" {
+				return s, true
+			}
+		}
+		var s string
+		if json.Unmarshal(raw, &s) == nil && s != "" {
+			return s, true
+		}
+	}
+	return "", false
 }
 
 func extractItemsFromEnvelope(envelope map[string]json.RawMessage) ([]json.RawMessage, bool) {
@@ -1890,13 +1969,20 @@ func syncDependentResource(ctx context.Context, c interface {
 		cursor := ""
 		pagesFetched := 0
 		lastNextCursor := ""
+		// Reset per parent: set once a bare-array response is seen, then used to
+		// request later pages with ?after=<lastId>. Mirrors syncResource (#88).
+		afterIDMode := false
 
 		for {
 			params := map[string]string{}
 			if resourceSupportsPagination(dep.Name) {
 				params[pageSize.limitParam] = strconv.Itoa(pageSize.limit)
 				if cursor != "" {
-					params[pageSize.cursorParam] = cursor
+					cursorParam := pageSize.cursorParam
+					if afterIDMode {
+						cursorParam = afterIDParam
+					}
+					params[cursorParam] = cursor
 				}
 			}
 			if depSinceTS != "" {
@@ -1961,6 +2047,15 @@ func syncDependentResource(ctx context.Context, c interface {
 				currentOffset, _ := strconv.Atoi(cursor)
 				nextCursor = strconv.Itoa(currentOffset + pageSize.limit)
 				hasMore = true
+			}
+			// After-id paginator fallback — mirrors syncResource so dependent
+			// resources on bare-array ?after=<lastId> APIs also page fully (#88).
+			if nextCursor == "" && len(items) >= pageSize.limit && isBareArrayResponse(data) {
+				if lastID, ok := extractLastItemID(items); ok {
+					nextCursor = lastID
+					hasMore = true
+					afterIDMode = true
+				}
 			}
 
 			if len(items) == 0 && len(data) > 0 && !isJSONResponse(data) {
