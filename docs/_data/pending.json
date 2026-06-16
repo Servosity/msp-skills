@@ -77,18 +77,18 @@
     "released_hash": "sha256:aa0dc021cdb156c7c5bd704dc240c05f666bcc65074ff04bc8a5b76852f20f19"
   },
   "connectwise-automate": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:82c50b5f6439e25b563323766c7797e0e01c1c6beb2f5c37cc77b32f4cd6df4f",
-    "released_hash": null
+    "released_hash": "sha256:82c50b5f6439e25b563323766c7797e0e01c1c6beb2f5c37cc77b32f4cd6df4f"
   },
   "connectwise-control": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:db049a0f540cc8aeb4c04fde1daa7a9b246348efa2bc6327dfbaa04f2126ebae",
-    "released_hash": null
+    "released_hash": "sha256:db049a0f540cc8aeb4c04fde1daa7a9b246348efa2bc6327dfbaa04f2126ebae"
   },
   "connectwise-manage": {
     "state": "version-pending",
@@ -287,11 +287,11 @@
     "released_hash": "sha256:20ae55cb4bb96d3b159d45d9ad454985f37727a0b3af90430ac488283e3f71e0"
   },
   "rewst": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:47492ac068720a25f5b2ba99c0bd14583ea275d54a4316be01cf74d1ee4a1d56",
-    "released_hash": null
+    "released_hash": "sha256:47492ac068720a25f5b2ba99c0bd14583ea275d54a4316be01cf74d1ee4a1d56"
   },
   "rocketcyber": {
     "state": "version-pending",
@@ -378,11 +378,11 @@
     "released_hash": "sha256:1b845c41fae829b14d8195d9eb1a16613bd2cdf779a6b3d63eb638aba8305fa5"
   },
   "veeam": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:bb384b1bf3114c81687737462d69eb496e3a72f27ad51c4d7855248d7f4a3267",
-    "released_hash": null
+    "released_hash": "sha256:bb384b1bf3114c81687737462d69eb496e3a72f27ad51c4d7855248d7f4a3267"
   },
   "xero": {
     "state": "version-pending",
