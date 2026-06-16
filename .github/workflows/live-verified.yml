@@ -64,34 +64,66 @@ jobs:
           import json, os, re
 
           event = json.load(open(os.environ["GITHUB_EVENT_PATH"]))
-          body = (event.get("issue") or {}).get("body") or ""
+          issue = event.get("issue") or {}
+          body = issue.get("body") or ""
+          title = issue.get("title") or ""
 
-          # Known slugs come from the registry; "hubspot" et al. only count once
-          # they are registered. verify_live.py is the final gate on unknown
-          # slugs, but we pre-check here so we can leave a helpful comment.
+          # Known slugs come from the registry; a slug only counts once it is
+          # registered. verify_live.py is the final gate, but we pre-check here
+          # so we can leave a helpful comment.
           reg = json.load(open("tools/maintainer/skills.json"))
           known = set(reg.get("skills", {}))
 
-          slug = ""
+          # 1) The dropdown value (the structured signal). GitHub renders the
+          # "Which skill" dropdown as a "### Which skill" heading followed by the
+          # value on the next non-empty line.
+          dropdown = ""
           lines = body.splitlines()
           for i, line in enumerate(lines):
               if re.match(r"^#{1,6}\s*Which skill\s*$", line.strip(), re.IGNORECASE):
-                  # The value is the next non-empty, non-heading line.
                   for nxt in lines[i + 1:]:
                       val = nxt.strip()
                       if val and not val.startswith("#"):
-                          slug = val
+                          dropdown = val
                           break
                   break
+          dropdown = dropdown.strip().lower()
+          if dropdown in ("other / not listed", "other", "not listed", ""):
+              dropdown = ""
 
-          # Normalize: the form's "other / not listed" option is not a slug.
-          slug = slug.strip().lower()
-          if slug in ("other / not listed", "other", "not listed", ""):
-              slug = ""
+          # 2) Independent evidence from the title + body free-text - HIGH-signal
+          # only: an explicit "<slug>-mcp"/"<slug>-cli" mention, or the slug (with
+          # separators stripped, >=5 chars to avoid short-slug noise) appearing in
+          # the normalized title. This is a SAFETY CROSS-CHECK, never an
+          # auto-picker: when it disagrees with the dropdown we refuse and defer
+          # to a human - we never badge from a guess. (A reporter once picked
+          # "servosity" for a SentinelOne report, #116; this catches that.)
+          hay = (title + "\n" + body).lower()
+          norm_title = re.sub(r"[^a-z0-9]", "", title.lower())
+          evidence = set()
+          for k in known:
+              kn = re.sub(r"[^a-z0-9]", "", k)
+              if f"{k}-mcp" in hay or f"{k}-cli" in hay:
+                  evidence.add(k)
+              elif len(kn) >= 5 and kn in norm_title:
+                  evidence.add(k)
 
-          ok = "true" if slug and slug in known else "false"
+          # 3) Decide. Auto-badge ONLY when the dropdown names a known slug AND
+          # the independent evidence does not point at a DIFFERENT one. Unknown/
+          # "other" dropdown, or a dropdown-vs-evidence conflict, bails to the
+          # manual path - fail-safe, never a wrong badge.
+          conflict = bool(
+              dropdown and dropdown in known and evidence and dropdown not in evidence
+          )
+          ok = "true" if (dropdown and dropdown in known and not conflict) else "false"
+          # A single unambiguous inferred slug makes the maintainer's manual flip
+          # trivial; surface it for the bail-path comment.
+          inferred = next(iter(evidence)) if len(evidence) == 1 else ""
+
           print(f"ok={ok}")
-          print(f"slug={slug}")
+          print(f"slug={dropdown}")
+          print(f"inferred={inferred}")
+          print(f"conflict={'true' if conflict else 'false'}")
           PY
 
       - name: Comment that a maintainer must verify manually (parse failed)
@@ -100,15 +132,25 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ISSUE: ${{ github.event.issue.number }}
           SLUG: ${{ steps.parse.outputs.slug }}
+          INFERRED: ${{ steps.parse.outputs.inferred }}
+          CONFLICT: ${{ steps.parse.outputs.conflict }}
         run: |
           set -euo pipefail
-          if [ -n "$SLUG" ]; then
+          if [ "$CONFLICT" = "true" ]; then
+            note="the report's \"Which skill\" dropdown says '$SLUG' but the title/body looks like '$INFERRED' - they disagree, so we did not badge automatically"
+          elif [ -n "$SLUG" ]; then
             note="the skill '$SLUG' from this report is not a registered skill yet"
+          elif [ -n "$INFERRED" ]; then
+            note="the report did not pick a listed skill, but the title/body looks like '$INFERRED'"
           else
             note="we could not read the skill from this report"
           fi
-          gh issue comment "$ISSUE" --body "Thanks for the report. Automation could not badge this automatically: $note. A maintainer will run \`python3 tools/maintainer/verify_live.py\` by hand. No action needed from you."
-          echo "Parse failed or unknown slug; commented and exiting cleanly."
+          hint="\`python3 tools/maintainer/verify_live.py\`"
+          if [ -n "$INFERRED" ]; then
+            hint="\`python3 tools/maintainer/verify_live.py --slug $INFERRED --source github --evidence <this issue URL>\`"
+          fi
+          gh issue comment "$ISSUE" --body "Thanks for the report. Automation did not badge this automatically: $note. A maintainer will verify by hand ($hint). No action needed from you."
+          echo "Bailed to manual path (ok!=true); commented and exiting cleanly."
 
       - name: Flip the badge to live-verified
         if: steps.parse.outputs.ok == 'true'

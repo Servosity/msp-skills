@@ -1,3 +1,11 @@
+# NOTE: the "Which skill" dropdown options are GENERATED from tools/skills.json
+# by tools/maintainer/build-catalog.py (every connector, slug-sorted, plus
+# "other / not listed"). Do NOT edit the options by hand - register the skill
+# and run `python3 tools/maintainer/build-catalog.py`; CI (catalog.yml) fails
+# on drift. Listing every connector means a reporter can pick the exact skill
+# instead of being forced into "other", so the live-verified.yml automation can
+# badge the correct slug directly. (See live-verified.yml's parse step, which
+# also cross-checks the title/body and bails to a human on any disagreement.)
 name: "✅ Report: it works"
 description: Tell us a Skill or MCP server ran against your real tenant. We badge it "live-verified" and thank you.
 title: "[Works] "
@@ -14,9 +22,61 @@ body:
       label: Which skill
       description: The Skill / MCP server you ran.
       options:
+        - abnormal
+        - acronis
+        - action1
+        - afi
+        - appdirect
+        - atera
+        - autotask
+        - axcient
+        - betterstack
+        - blumira
+        - cipp
+        - connectwise-automate
+        - connectwise-control
+        - connectwise-manage
+        - cove
+        - crowdstrike
+        - datto-bcdr
+        - datto-rmm
+        - domotz
+        - gradient
         - halopsa
-        - servosity
         - hubspot
+        - hudu
+        - huntress
+        - itglue
+        - kaseya-bms
+        - knowbe4
+        - levelio
+        - liongard
+        - microsoft-graph
+        - mspbots
+        - n-central
+        - nerdio
+        - ninjaone
+        - pagerduty
+        - pandadoc
+        - pax8
+        - pipedrive
+        - proofpoint
+        - quickbooks
+        - rewst
+        - rocketcyber
+        - rootly
+        - runzero
+        - salesbuildr
+        - sentinelone
+        - servosity
+        - sherweb
+        - skykick
+        - superops
+        - syncro
+        - tactical-rmm
+        - threatlocker
+        - veeam
+        - xero
         - other / not listed
     validations:
       required: true
