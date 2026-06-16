@@ -4,6 +4,33 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.4] - unreleased
+
+### Fixed
+- `restore_point` and `autoverify` rows are keyed by their clean synthesized
+  composite again (`rp:<device_id>:<restore_point_id>`, `av:<device_id>:...`).
+  The 0.2.3 engine refresh added a generic parent-composite storage key that
+  appended `<id>\x00<parent>` for every parent-scoped resource, which double-keyed
+  these two (whose synthesized id already embeds the parent) into a NUL-containing
+  key that broke clean-key offline lookups. The parent append is now skipped when
+  the id already carries the `rp:`/`av:` prefix; a bare native id still gets the
+  parent composite so same-id-different-parent rows don't collapse. (#101)
+
+### Changed
+- `search` now returns a concise `id/name/type/match` projection by default
+  instead of dumping whole raw JSON records (a token sink for agents). Pass
+  `--full` for the whole records. (#101)
+- MCP tool auth-error hints no longer tell MCP-only users to "Run `axcient-cli
+  doctor`" (a CLI command they can't reach) and instead point to setting
+  `AXCIENT_API_KEY` in the MCP server's configuration. The CLI's own error hints
+  still reference `doctor`, which is correct for CLI users. (#101)
+
+### Tests
+- Restored the hand-authored regression tests for the `restore_point`,
+  `autoverify`-sync, and `--strict`-naming fixes that the 0.2.3 engine refresh
+  silently dropped, and added them to the hand-fix ledger so a future reprint
+  cannot drop them again. Added tests for the concise `search` projection.
+
 ## [0.2.3] - unreleased
 
 ### Changed

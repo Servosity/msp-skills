@@ -138,6 +138,7 @@ axcient-cli health --agent
 axcient-cli client-rollup --agent
 
 # Offline full-text search over synced hostnames and names
+# Returns a concise id/name/type/match view by default; add --full for whole records
 axcient-cli search "server" --type device
 
 ```

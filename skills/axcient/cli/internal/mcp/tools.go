@@ -496,17 +496,17 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
 					"\n      Set your API key with: export AXCIENT_API_KEY=\"your-token-here\"" +
-					"\n      Run 'axcient-cli doctor' to check auth status."), nil
+					"\n      In an MCP client, set AXCIENT_API_KEY in this server's configuration (the env block) and restart the client."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your API key." +
 					"\n      Set your API key with: export AXCIENT_API_KEY=\"your-token-here\"" +
-					"\n      Run 'axcient-cli doctor' to check auth status."), nil
+					"\n      In an MCP client, set AXCIENT_API_KEY in this server's configuration (the env block) and restart the client."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
 					"\n      Set your API key with: export AXCIENT_API_KEY=\"your-token-here\"" +
-					"\n      Run 'axcient-cli doctor' to check auth status."), nil
+					"\n      In an MCP client, set AXCIENT_API_KEY in this server's configuration (the env block) and restart the client."), nil
 			case strings.Contains(msg, "HTTP 404"):
 				if method == "DELETE" {
 					return mcplib.NewToolResultText("already deleted (no-op)"), nil

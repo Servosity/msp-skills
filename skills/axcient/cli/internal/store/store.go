@@ -1632,6 +1632,27 @@ func scalarIDString(value any) string {
 }
 
 func resourceStorageID(resourceType, id string, obj map[string]any) string {
+	// Hand-wired: when restore_point/autoverify resolve to their SYNTHESIZED
+	// composite id (rp:<device_id>:<restore_point_id> via restorePointResourceID;
+	// av:<device_id>:<vault_id>:<appliance_id> via the autoverify synth in
+	// sync.go), the parent is already embedded. Appending it again via the 4.24.0
+	// generic parent-composite would corrupt the key with a NUL byte + duplicate
+	// parent (e.g. rp:dev:rpid\x00dev), breaking clean-key offline lookups. Skip
+	// the append ONLY for the synthesized form — a bare native id still gets the
+	// parent composite so same-id-different-parent rows don't collapse. (Real
+	// axcient items always resolve to the synthesized form; the bare-id path is
+	// the generic mechanism's case. Printing-press retro filed so the press skips
+	// the composite when the id is already parent-embedded.)
+	switch resourceType {
+	case "restore_point", "restore-point":
+		if strings.HasPrefix(id, "rp:") {
+			return id
+		}
+	case "autoverify":
+		if strings.HasPrefix(id, "av:") {
+			return id
+		}
+	}
 	parentKey := resourceParentKeyColumns[resourceType]
 	if parentKey == "" {
 		return id
