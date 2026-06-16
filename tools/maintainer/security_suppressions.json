@@ -13,6 +13,16 @@
       "reason": "FLEET (generated). RunCLICommand execs the resolved companion CLI binary path with an explicit argv slice via exec.CommandContext - no shell, no `sh -c`, so args are not shell-interpreted. binPath is the CLI's own resolved path, not user input. Standard printing-press MCP dispatch pattern."
     },
     {
+      "file": "cli/internal/mcp/cobratree/shellout.go",
+      "rule": "msp-exec-nonliteral-command",
+      "reason": "FLEET (generated). Same call site as the G204 entry above: semgrep's rule flags the identical exec.CommandContext(binPath, args...) MCP-dispatch pattern. No shell interpretation; binPath is the resolved companion CLI, args are an explicit argv slice. Vetted safe for the same reason."
+    },
+    {
+      "file": "cli/go.mod",
+      "rule": "GO-2026-5024",
+      "reason": "FLEET (press-pinned dep). Integer overflow in NewNTUnicodeString in golang.org/x/sys/windows (x/sys v0.31.0, pinned by the printing-press template). govulncheck (which does reachability) reports it does NOT affect these CLIs' code - the Windows syscall path is never called by a read-mostly accounting/MSP tool. osv-scanner has no reachability so it flags presence only. FOLLOW-UP: bump golang.org/x/sys to >= v0.46.0 at the PRESS level (durable fleet fix); this advisory-specific suppression is the interim, and govulncheck still gates any actually-reachable vuln."
+    },
+    {
       "file": "cli/internal/client/client.go",
       "rule": "G119",
       "reason": "FLEET (generated). CheckRedirect re-adds Authorization ONLY on a same-host redirect (req.URL.Host == via[0].URL.Host gate); cross-host hops explicitly delete it. Intentional and defended; without it nonce-bound auth schemes break on redirect."

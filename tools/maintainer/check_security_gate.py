@@ -329,10 +329,16 @@ def scan_external(slug: str, suppress: set[tuple[str, str]]) -> list[dict]:
         except json.JSONDecodeError:
             pass
     if have("govulncheck"):
-        _, out, _ = run(["govulncheck", "-format", "json", "./..."], cwd=str(mod))
-        if '"osv"' in out or "vulnerability" in out.lower():
+        # govulncheck exits 3 IFF a vulnerability is reachable from THIS module's
+        # code; 0 means none affect it (even when advisories exist for required-
+        # but-uncalled deps). The prior `'"osv"' in out` check matched the OSV
+        # advisory-DB dump govulncheck always emits in JSON, so it flagged every
+        # module unconditionally (no connector could ever pass govulncheck). Use
+        # the exit code, which is govulncheck's actual reachability verdict.
+        code, _, _ = run(["govulncheck", "-format", "json", "./..."], cwd=str(mod))
+        if code == 3:
             add("govulncheck", "known-vuln", "P1", f"skills/{slug}/cli/go.mod", 0,
-                "govulncheck reported a reachable vulnerability.")
+                "govulncheck reported a vulnerability reachable from this module's code.")
     if have("osv-scanner"):
         _, out, _ = run(["osv-scanner", "--lockfile", "go.mod", "--format", "json"], cwd=str(mod))
         try:
