@@ -1,0 +1,35 @@
+{
+  "slug": "superops",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every `contains` marker is still present and every `not_contains` marker is still absent, failing CI if a reprint regressed one.",
+  "handfixes": [
+    {
+      "id": "graphql-scalar-field-selections-issue-114",
+      "summary": "Stripped object sub-selections from association/enum fields in queries.go - the live SuperOps schema returns them as scalar leaf types (JSON/String), so the `{ ... }` sub-selections caused SubSelectionNotAllowed on every typed list/get command (issue #114, reported by @AvlCompCo).",
+      "why": "The CLI was minted from published docs without live introspection (auth-gated → HTTP 400); the queries.go header literally warned VERIFY-ON-FIRST-USE. The source spec.yaml declared every association field `type: string` (→ a scalar Go struct field in internal/types) yet ALSO carried a `selection:` key, so the generator emitted a sub-selection that contradicts its own scalar output contract. All 46 such fields across 18 entities are scalar in internal/types, so the bare-scalar form is the only consistent shape. A full reprint re-runs the generator against the un-fixed spec.yaml and would re-introduce the bug. The not_contains markers below ban each buggy shape; queries_issue114_test.go is the behavioral guard.",
+      "status": "active",
+      "spec_encode_followup": "In the press source spec.yaml (~/printing-press/library/superops/spec.yaml, types: section), remove the `selection:` key from every association/enum field (status, priority, client, site, requester, technician, techGroup, sla, accountManager, primaryContact, hqSite, asset, category, designation, role, team, ticket). They are JSON/String scalars, not objects. Done on the press copy 2026-06-16; re-confirm before any reprint.",
+      "asserts": [
+        {"file": "cli/internal/client/queries_issue114_test.go", "contains": "TestQueries_NoScalarSubSelections", "min_count": 1},
+        {"file": "cli/internal/client/queries.go", "contains": "listInfo { totalCount hasMore page pageSize }", "min_count": 14},
+        {"file": "cli/internal/client/queries.go", "not_contains": "accountManager { userId name }"},
+        {"file": "cli/internal/client/queries.go", "not_contains": "primaryContact { userId name email }"},
+        {"file": "cli/internal/client/queries.go", "not_contains": "hqSite { id name }"},
+        {"file": "cli/internal/client/queries.go", "not_contains": "client { accountId name }"},
+        {"file": "cli/internal/client/queries.go", "not_contains": "site { id name }"},
+        {"file": "cli/internal/client/queries.go", "not_contains": "status { statusId name }"},
+        {"file": "cli/internal/client/queries.go", "not_contains": "priority { priorityId name }"},
+        {"file": "cli/internal/client/queries.go", "not_contains": "requester { userId name email }"},
+        {"file": "cli/internal/client/queries.go", "not_contains": "technician { userId name }"},
+        {"file": "cli/internal/client/queries.go", "not_contains": "techGroup { groupId name }"},
+        {"file": "cli/internal/client/queries.go", "not_contains": "sla { slaId name }"},
+        {"file": "cli/internal/client/queries.go", "not_contains": "asset { assetId name hostName }"},
+        {"file": "cli/internal/client/queries.go", "not_contains": "category { categoryId name }"},
+        {"file": "cli/internal/client/queries.go", "not_contains": "designation { designationId name }"},
+        {"file": "cli/internal/client/queries.go", "not_contains": "role { roleId name }"},
+        {"file": "cli/internal/client/queries.go", "not_contains": "team { teamId name }"},
+        {"file": "cli/internal/client/queries.go", "not_contains": "ticket { ticketId displayId }"}
+      ]
+    }
+  ]
+}
