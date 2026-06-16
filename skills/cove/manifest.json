@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "cove-mcp",
   "display_name": "Cove Data Protection",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "The first CLI and MCP server for Cove Data Protection \u2014 fleet-wide backup health, billing usage, and storage trends from a terminal, with the local history the vendor console doesn't keep.",
   "author": {
     "name": "Servosity Inc."
