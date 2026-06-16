@@ -87,7 +87,7 @@
     "state": "never-released",
     "version": "0.1.0",
     "latest_tag": null,
-    "current_hash": "sha256:bdb3213af8de39e089b08b9cc87e7e20bc2635ad33f889acafac2af88f5e2f9d",
+    "current_hash": "sha256:db049a0f540cc8aeb4c04fde1daa7a9b246348efa2bc6327dfbaa04f2126ebae",
     "released_hash": null
   },
   "connectwise-manage": {
@@ -290,7 +290,7 @@
     "state": "never-released",
     "version": "0.1.0",
     "latest_tag": null,
-    "current_hash": "sha256:54c8803b7b521ae6b9883977e080f8e72a18961187cac30554139cc9be0274fd",
+    "current_hash": "sha256:47492ac068720a25f5b2ba99c0bd14583ea275d54a4316be01cf74d1ee4a1d56",
     "released_hash": null
   },
   "rocketcyber": {
