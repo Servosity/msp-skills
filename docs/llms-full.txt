@@ -1684,7 +1684,7 @@ Governance: The skill reads your Salesbuildr quotes, opportunities, products, co
 ### SentinelOne (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/sentinelone/
-Verification: Awaiting live verification
+Verification: Live-verified by a real MSP (2026-06-16)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sentinelone/install.sh)
 
 Running SentinelOne across a book of customer sites? Ask your AI "what should I triage first across every client," "which endpoints went dark or dropped to detect-only," or "where did this malicious file spread," and get one cross-site answer the console can't compose. Every site is mirrored into a local store, so one triage worklist, one fleet-health rollup, and one posture scorecard replace the morning ritual of flipping the console scope selector tenant by tenant.

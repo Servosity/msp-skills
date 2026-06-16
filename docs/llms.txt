@@ -144,7 +144,7 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/salesbuildr/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/salesbuildr/install.sh)
 - SentinelOne (Security) - ask "What should I triage first across all my client sites right now?" - Triage threats, find protection gaps, and catch overnight fleet drift across every SentinelOne tenant by asking.
-  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/sentinelone/
+  Verification: Live-verified by a real MSP (2026-06-16). Page: https://msp-skills.compoundingteams.com/skills/sentinelone/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sentinelone/install.sh)
 - Servosity (Backup/DR) - ask "Where is my attention needed today, ranked worst-first?" - Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.
   Verification: Live-verified by Servosity (maintainer) (2026-06-05). Page: https://msp-skills.compoundingteams.com/skills/servosity/
