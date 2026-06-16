@@ -107,10 +107,28 @@ func (c *Config) AuthHeader() string {
 	if token == "" {
 		return ""
 	}
-	if c.ServosityMspToken == "" {
-		return ""
+	// The Servosity API authenticates the MSP partner token via Django REST
+	// Framework's TokenAuthentication, which requires the "Token " scheme on
+	// the Authorization header; a bare value is rejected with HTTP 403 on every
+	// data endpoint. The MSP partner token is always a DRF token, so normalize
+	// to the "Token " scheme: strip any scheme the user may have prefixed (the
+	// documented SERVOSITY_MSP_TOKEN="Token <token>" workaround, or a mistaken
+	// "Bearer " that the API would otherwise route to OAuth2 introspection) and
+	// re-apply "Token ". A caller needing a different scheme sets the
+	// auth_header override, which is returned verbatim above.
+	return "Token " + stripAuthScheme(token)
+}
+
+// stripAuthScheme removes a leading HTTP Authorization scheme (e.g. "Token " or
+// "Bearer ", case-insensitive) from v and returns the bare credential. A value
+// with no recognized scheme is returned unchanged.
+func stripAuthScheme(v string) string {
+	for _, scheme := range []string{"token ", "bearer "} {
+		if len(v) >= len(scheme) && strings.EqualFold(v[:len(scheme)], scheme) {
+			return strings.TrimLeft(v[len(scheme):], " ")
+		}
 	}
-	return token
+	return v
 }
 
 func applyAuthFormat(format string, replacements map[string]string) string {
