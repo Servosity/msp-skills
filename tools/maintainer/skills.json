@@ -313,8 +313,8 @@
       "display_name": "ConnectWise Control",
       "cli_hash": "sha256:bdb3213af8de39e089b08b9cc87e7e20bc2635ad33f889acafac2af88f5e2f9d",
       "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:db049a0f540cc8aeb4c04fde1daa7a9b246348efa2bc6327dfbaa04f2126ebae",
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:ea7242e1aacda6051c1ae37967e3d5aa0430b6f7af9d8a5d63263e563691d747",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
