@@ -32,6 +32,10 @@ const (
 	ErrDataVisa = 1701
 	// ErrDataBadCredentials is returned by Login for unknown partner/user/password.
 	ErrDataBadCredentials = 2100
+	// ErrDataSecurity ("Operation failed because of security reasons") is
+	// returned when a visa is presented but the method is refused — typically
+	// the API User's role does not permit it.
+	ErrDataSecurity = 13501
 )
 
 // Credentials carries the partner-scoped login triple. Username/Password are
@@ -73,7 +77,9 @@ func (e *RPCError) Error() string {
 	case ErrDataVisa:
 		hint = " (session expired or missing — run `cove-cli auth login`)"
 	case ErrDataBadCredentials:
-		hint = " (for an API User set COVE_PARTNER to the customer name it was created for, COVE_USERNAME to its login name, and COVE_PASSWORD to its API token; an empty COVE_PARTNER is the usual cause)"
+		hint = " (for an API User set COVE_PARTNER to the full customer/partner string shown in the Cove console customer dropdown — usually including the account email in parentheses, e.g. \"Acme Corp (admin@acme.com)\", not just the company name — COVE_USERNAME to its login name, and COVE_PASSWORD to its API token; Cove returns this same error for a wrong COVE_PARTNER format as for a bad password, and an empty COVE_PARTNER is the usual cause)"
+	case ErrDataSecurity:
+		hint = " (the visa was accepted but this method was refused for security reasons — the API User's role may not permit it; verify the API User's role in the Cove console, or run the method through `cove-cli call <Method>`, which manages the session visa automatically)"
 	}
 	return fmt.Sprintf("cove api error %d (data %d) on %s: %s%s", e.Code, e.Data, e.Method, e.Message, hint)
 }

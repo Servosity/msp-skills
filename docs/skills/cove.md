@@ -20,7 +20,7 @@ faqs:
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
   - q: "What kind of Cove account does it need?"
-    a: "A dedicated API User, created in the Cove Management Console under Users > API Users. It issues a login name and an API token (shown only once); API Users can use the JSON-RPC API but cannot sign in to the console. Set COVE_USERNAME to the API user's login name, COVE_PASSWORD to the API token, and COVE_PARTNER to the customer/partner it was created for (required for API Users). The skill exchanges them for a cached session visa and refreshes it automatically. N-able retired the older per-user API access checkbox."
+    a: "A dedicated API User, created in the Cove Management Console under Users > API Users. It issues a login name and an API token (shown only once); API Users can use the JSON-RPC API but cannot sign in to the console. Set COVE_USERNAME to the API user's login name, COVE_PASSWORD to the API token, and COVE_PARTNER to the customer/partner it was created for (required for API Users). COVE_PARTNER must be the full customer/partner string exactly as shown in the Cove console customer dropdown - usually including the account email in parentheses, e.g. Acme Corp (admin@acme.com), not just the company name; Cove returns the same Unknown partner/username or bad password error for a wrong format as for a bad password. The skill exchanges them for a cached session visa and refreshes it automatically. N-able retired the older per-user API access checkbox."
   - q: "Can it restore files or browse backed-up data?"
     a: "No. This skill speaks the Cove management API: fleet health, billing, storage trends, and enumeration. Restores and per-session file browsing run through the Backup Manager client and the storage-node Reporting Service, which this CLI does not cover."
 howto:
@@ -163,7 +163,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 ### What kind of Cove account does it need?
 
-A dedicated API User, created in the Cove Management Console under Users > API Users. It issues a login name and an API token (shown only once); API Users can use the JSON-RPC API but cannot sign in to the console. Set COVE_USERNAME to the API user's login name, COVE_PASSWORD to the API token, and COVE_PARTNER to the customer/partner it was created for (required for API Users). The skill exchanges them for a cached session visa and refreshes it automatically. N-able retired the older per-user API access checkbox.
+A dedicated API User, created in the Cove Management Console under Users > API Users. It issues a login name and an API token (shown only once); API Users can use the JSON-RPC API but cannot sign in to the console. Set COVE_USERNAME to the API user's login name, COVE_PASSWORD to the API token, and COVE_PARTNER to the customer/partner it was created for (required for API Users). COVE_PARTNER must be the full customer/partner string exactly as shown in the Cove console customer dropdown - usually including the account email in parentheses, e.g. Acme Corp (admin@acme.com), not just the company name; Cove returns the same Unknown partner/username or bad password error for a wrong format as for a bad password. The skill exchanges them for a cached session visa and refreshes it automatically. N-able retired the older per-user API access checkbox.
 
 ### Can it restore files or browse backed-up data?
 

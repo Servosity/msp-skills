@@ -25,9 +25,17 @@ token. Create an API User in the Cove Management Console (Users > API Users); it
 issues a login name and an API token (shown only once). Set COVE_USERNAME to the
 API user's login name, COVE_PASSWORD to its API token, and COVE_PARTNER to the
 customer the API user was created for (COVE_PARTNER is required for API Users),
-then run 'auth login'. The API token is the password, not a visa, and is never
-sent as a header. The returned session token (the "visa") is cached locally and
-injected into every hand-built command automatically. N-able removed the older
+then run 'auth login'. COVE_PARTNER must be the full customer/partner string
+exactly as shown in the Cove console customer dropdown — usually including the
+account email in parentheses, e.g. "Acme Corp (admin@acme.com)", not just the
+company name. Cove returns the same "Unknown partner/username or bad password"
+error for a wrong COVE_PARTNER format as for a bad password. The API token is the
+password, not a visa, and is never sent as a header. The returned session token
+(the "visa") is cached locally and injected into every hand-built command
+automatically (failures, stale, health, billing, snapshot, call). The raw
+generated endpoint commands (partners/devices/storage list·get, promoted *) do
+NOT auto-inject it — pass --visa "$(cove-cli auth token)", or prefer
+'cove-cli call <Method>', which injects the visa for you. N-able removed the older
 per-user "API access" checkbox; API Users cannot sign in to the console.
 `, "\n"),
 		Annotations: map[string]string{"mcp:read-only": "true"},
@@ -46,7 +54,7 @@ func newCoveAuthLoginCmd(flags *rootFlags) *cobra.Command {
 		Use:   "login",
 		Short: "Log in with COVE_USERNAME/COVE_PASSWORD and cache the session visa",
 		Example: strings.Trim(`
-  export COVE_PARTNER="Acme Corp" COVE_USERNAME=api-user COVE_PASSWORD=...   # API user creds, once per shell
+  export COVE_PARTNER="Acme Corp (admin@acme.com)" COVE_USERNAME=api-user COVE_PASSWORD=...   # full dropdown string; API user creds, once per shell
   cove-cli auth login
   cove-cli auth login --json`, "\n"),
 		Annotations: map[string]string{"mcp:read-only": "false", "pp:requires-tier": "credentials"},
@@ -61,7 +69,7 @@ func newCoveAuthLoginCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !c.Creds.Present() {
 				_ = cmd.Usage()
-				return usageErr(fmt.Errorf("COVE_USERNAME (API user login) and COVE_PASSWORD (API token) must be set; set COVE_PARTNER to the customer name when using an API User"))
+				return usageErr(fmt.Errorf("COVE_USERNAME (API user login) and COVE_PASSWORD (API token) must be set; set COVE_PARTNER to the full customer/partner string from the Cove console dropdown (usually including the account email in parentheses, e.g. \"Acme Corp (admin@acme.com)\") when using an API User"))
 			}
 			result, err := c.Login(cmd.Context())
 			if err != nil {
@@ -134,7 +142,11 @@ generated endpoint commands can authenticate:
 
   cove-cli devices list --visa "$(cove-cli auth token)" --params-partner-id 1234
 
-The visa is a short-lived session secret — avoid writing it to logs.
+For methods the typed commands don't cover, prefer 'cove-cli call <Method>': it
+injects (and refreshes) the visa automatically, so you don't compose --visa by
+hand. The visa Cove rotates on every response, so a token captured here is a
+point-in-time snapshot. The visa is a short-lived session secret — avoid writing
+it to logs.
 `, "\n"),
 		Example:     "  cove-cli server info --visa \"$(cove-cli auth token)\"",
 		Annotations: map[string]string{"mcp:read-only": "false", "pp:requires-tier": "credentials"},
