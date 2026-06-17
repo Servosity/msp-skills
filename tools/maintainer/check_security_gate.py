@@ -451,7 +451,12 @@ def scan_external(slug: str, suppress: set[tuple[str, str]],
         # HEALTHY connectors while still analyzing them (30+ Issues), so gating on it is a
         # fleet-wide false-RED. A genuine build break is still caught by govulncheck
         # (fail-closed) and the always-on builtin pattern scan.
-        code, out, err = run(["gosec", "-quiet", "-fmt", "json", "./..."], cwd=str(mod), timeout=300)
+        # 600s (not 300): gosec loads the whole module through go/packages; a cold load of
+        # a heavy dep tree (e.g. axcient: surf + quic-go + utls + modernc/libc) on a 2-core
+        # CI runner exceeds 300s and fail-closes as a scanner-error (exit 124) - an infra
+        # flake, not a finding. The go-vet pre-warm step covers the cold path; this headroom
+        # is the backstop so a slow runner can't false-RED a healthy connector.
+        code, out, err = run(["gosec", "-quiet", "-fmt", "json", "./..."], cwd=str(mod), timeout=600)
         gj = None
         try:
             gj = json.loads(out or "{}")
@@ -473,7 +478,10 @@ def scan_external(slug: str, suppress: set[tuple[str, str]],
         # govulncheck never once fired a P1 (verified: a known-REACHABLE x/text vuln
         # exits 0 under -format json, 3 under text mode). Any OTHER nonzero is a
         # load/build/usage error and fails CLOSED under --require-scanners.
-        code, out, err = run(["govulncheck", "./..."], cwd=str(mod), timeout=300)
+        # 600s (not 300): same go/packages-driven cold-load cost as gosec on heavy-dep
+        # connectors; give the reachability analysis matching headroom so a slow runner
+        # can't fail-close a healthy connector.
+        code, out, err = run(["govulncheck", "./..."], cwd=str(mod), timeout=600)
         if code == 3:
             ev = next((ln.strip() for ln in out.splitlines() if ln.strip().startswith("Vulnerability #")),
                       "govulncheck: a vulnerability is reachable from this module's code.")

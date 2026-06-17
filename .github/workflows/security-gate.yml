@@ -70,25 +70,25 @@ jobs:
           python3 -m pip install --quiet semgrep || echo "semgrep install failed (non-fatal)"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: Pre-warm module + build cache for changed connectors
+      - name: Pre-warm scanner caches for changed connectors
         if: steps.scope.outputs.relevant == 'true'
         env:
           SLUGS: ${{ steps.scope.outputs.slugs }}
         run: |
           set -uo pipefail
-          # gosec's go/packages loader downloads + compiles each connector before scanning.
-          # On a cold runner the FIRST (heaviest) connector's dependency fetch + build can
-          # exceed gosec's 300s budget and fail-close as a scanner timeout (exit 124) - NOT
-          # a real finding, just an infra flake that blocks heavy-dep connectors (e.g.
-          # axcient: surf + quic-go + utls + modernc/sqlite). Pre-build every changed
-          # connector here so the module AND build caches are warm; gosec then completes in
-          # ~1s (as it does locally). `go build` runs no connector code (pure Go, CGO off,
-          # no `go generate`), so it cannot weaken the gate - it only removes the cold-start
-          # cost from the scanners' timeout budget.
+          # gosec + govulncheck load each connector through golang.org/x/tools/go/packages.
+          # On a cold runner the FIRST (heaviest) connector's load - download + typecheck of
+          # a large dependency tree (e.g. axcient: surf + quic-go + utls + modernc/sqlite ->
+          # modernc/libc) - can exceed a scanner's timeout and fail-close as scanner-error
+          # (exit 124), which is NOT a real finding. `go vet ./...` drives the SAME
+          # go/packages loader, so it warms the module + export-data caches the scanners
+          # reuse. (A plain `go build` warms only the compile cache, not the go/packages
+          # export data - which is the actual cold cost, why an earlier build-based pre-warm
+          # did not help.) vet runs no connector code, so it cannot weaken the gate.
           for s in $SLUGS; do
             if [ -f "skills/$s/cli/go.mod" ]; then
               echo "::group::pre-warm $s"
-              (cd "skills/$s/cli" && CGO_ENABLED=0 go build ./...) || echo "pre-warm failed for $s (non-fatal)"
+              (cd "skills/$s/cli" && go vet ./...) >/dev/null 2>&1 || echo "pre-warm vet for $s reported issues (non-fatal)"
               echo "::endgroup::"
             fi
           done
