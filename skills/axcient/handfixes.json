@@ -136,8 +136,19 @@
         {"file": "cli/internal/store/store.go", "contains": "strings.HasPrefix(id, \"rp:\")", "min_count": 1},
         {"file": "cli/internal/store/store.go", "contains": "strings.HasPrefix(id, \"av:\")", "min_count": 1},
         {"file": "cli/internal/store/restore_point_id_test.go", "contains": "TestUpsertBatch_RestorePointRealShapePopulates", "min_count": 1},
-        {"file": "cli/internal/cli/restore_point_sync_wiring_test.go", "contains": "TestSyncDependentResource_RestorePointInjectsDeviceIDAndPopulates", "min_count": 1},
+        {"file": "cli/internal/cli/restore_point_sync_wiring_test.go", "contains": "TestSyncDependentResource_RestorePointFlattensVaultGroupsAndPopulates", "min_count": 1},
         {"file": "cli/internal/cli/sync_resource_scoping_test.go", "contains": "TestFlatSyncResources_DropsDependentNames", "min_count": 1}
+      ]
+    },
+    {
+      "id": "restore-point-nested-flatten",
+      "summary": "Live restore_point endpoint groups points by Cloud Vault; sync must descend into the nested restore_point[] array",
+      "why": "The per-device /device/{device_id}/restore_point endpoint returns a top-level array of {vault_id, restore_point:[...]} wrappers; the timestamp-string restore_point_id lives only on the inner elements. extractPageItems surfaces the OUTER wrappers (no restore_point_id), so every one fails id extraction (all_items_failed_id_extraction -> 0 rows) - the live #84 symptom that the earlier flat-array regression fixture (0.2.1/0.2.2) never reproduced because it fed the inner shape directly. syncDependentResource now flattens the nested array (flattenRestorePointGroups) before keying, carrying vault_id down onto each point. Live-discovered nested shape, absent from press templates.",
+      "status": "active",
+      "spec_encode_followup": "Belongs in the press: model a parent-grouped sub-collection so the generator descends one level into a named child array by construction. Printing-press retro filed alongside the #84 fix.",
+      "asserts": [
+        {"file": "cli/internal/cli/sync.go", "contains": "flattenRestorePointGroups", "min_count": 2},
+        {"file": "cli/internal/cli/restore_point_sync_wiring_test.go", "contains": "TestSyncDependentResource_RestorePointFlattensVaultGroupsAndPopulates", "min_count": 1}
       ]
     }
   ]
