@@ -4,7 +4,12 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.2] - unreleased
+## [0.1.3]
+
+### Fixed
+- Clarified that `COVE_PARTNER` must be the **full customer/partner string exactly as shown in the Cove Management Console customer dropdown** - usually including the account email in parentheses, e.g. `Acme Corp (admin@acme.com)`, not just the company name. Cove returns the same `2100 "Unknown partner/username or bad password"` error for a wrong `COVE_PARTNER` format as for a bad password, so the error message, `auth` help, and docs now call this out. Also decoded the `13501 "Operation failed because of security reasons"` visa error (the API User's role may not permit a method; use `cove-cli call <Method>`, which manages the session visa automatically) and documented that the raw generated endpoint commands (partners/devices/storage `list`·`get`, `promoted *`) need an explicit `--visa "$(cove-cli auth token)"` while `cove-cli call` injects it for you. Documentation and error-string only; no new flags or commands. Thanks to @AvlCompCo for the detailed report (#133).
+
+## [0.1.2]
 
 ### Fixed
 - Corrected the authentication guidance for N-able's current API model. Cove access now requires a dedicated **API User** (Cove Management Console > Users > API Users), not the removed per-user "API access" checkbox. Documented that `COVE_PARTNER` (the customer the API user was created for) is **required** for API Users, that `COVE_USERNAME`/`COVE_PASSWORD` are the API user's login name and API token, and that the token is the login *password* (not a bearer header, and not itself a visa, so passing it to `--visa` fails by design). Sharpened the `2100`/credential error hints to point at an empty `COVE_PARTNER` as the usual cause. No new flags or commands; the existing login path already supports API Users once `COVE_PARTNER` is set. Thanks to @AvlCompCo for the detailed report (#115).

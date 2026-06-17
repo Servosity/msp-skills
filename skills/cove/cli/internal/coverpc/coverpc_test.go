@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -125,6 +126,28 @@ func TestRPCErrorMapping(t *testing.T) {
 	}
 	if rpcErr.Data != ErrDataBadCredentials {
 		t.Fatalf("expected data 2100, got %d", rpcErr.Data)
+	}
+}
+
+// TestRPCErrorHints pins the actionable hints derived for issue #133: the 2100
+// credential error must explain the full-dropdown-string COVE_PARTNER format,
+// and the 13501 security error must be decoded (not shown as a bare data code).
+func TestRPCErrorHints(t *testing.T) {
+	cases := []struct {
+		data int
+		want []string
+	}{
+		{ErrDataBadCredentials, []string{"Cove console customer dropdown", "an empty COVE_PARTNER is the usual cause"}},
+		{ErrDataSecurity, []string{"refused for security reasons", "cove-cli call <Method>"}},
+		{ErrDataVisa, []string{"cove-cli auth login"}},
+	}
+	for _, tc := range cases {
+		msg := (&RPCError{Code: -32603, Data: tc.data, Method: "EnumeratePartners", Message: "x"}).Error()
+		for _, want := range tc.want {
+			if !strings.Contains(msg, want) {
+				t.Errorf("data %d hint missing %q in: %s", tc.data, want, msg)
+			}
+		}
 	}
 }
 
