@@ -52,7 +52,7 @@
     "state": "binary-pending",
     "version": "0.2.4",
     "latest_tag": "axcient-v0.2.4",
-    "current_hash": "sha256:8a11ac3320fb8b6a7d26ba7377e20d10f64d7ee3613965d37651a6246b2f0013",
+    "current_hash": "sha256:21b8a9092e3fc56def57d7090e999b57d7f638f9fd729c0b35294a5c324d67a6",
     "released_hash": "sha256:131a5e9daa30a0af3fe31b4dfa43d30db1c88d1b88d0e4aadc5cea9e9165f3d6"
   },
   "betterstack": {
@@ -84,10 +84,10 @@
     "released_hash": "sha256:82c50b5f6439e25b563323766c7797e0e01c1c6beb2f5c37cc77b32f4cd6df4f"
   },
   "connectwise-control": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.0",
     "latest_tag": "connectwise-control-v0.1.0",
-    "current_hash": "sha256:db049a0f540cc8aeb4c04fde1daa7a9b246348efa2bc6327dfbaa04f2126ebae",
+    "current_hash": "sha256:ea7242e1aacda6051c1ae37967e3d5aa0430b6f7af9d8a5d63263e563691d747",
     "released_hash": "sha256:db049a0f540cc8aeb4c04fde1daa7a9b246348efa2bc6327dfbaa04f2126ebae"
   },
   "connectwise-manage": {
