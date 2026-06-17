@@ -45,14 +45,24 @@ func shellOutToCLI(cliPath func() (string, error), commandPath []string) server.
 
 // blockedRootFlags are root-level CLI flags that an MCP client must not be
 // able to override via structured tool parameters. Allowing them lets a
-// caller swap auth credentials, redirect the API base URL, select a different
-// per-client filesystem, load a malicious config file, or change the delivery
-// target, all of which sit outside the per-command surface the agent is
-// supposed to be calling.
+// caller swap auth credentials, redirect the API base URL, load a malicious
+// config file, or change the delivery target, all of which sit outside the
+// per-command surface the agent is supposed to be calling.
+//
+// Hand-fix (issue #130, reported by @Xenith-B): `client` is intentionally NOT
+// blocked on this connector. There is no root/persistent `--client` flag here;
+// `client` is a per-command Int64 fleet filter (`--client <id>`, 0 = all
+// clients) defined locally on health/compliance/rpo/appliance-map. The press
+// template blocks `client` by name on the assumption it selects a per-client
+// filesystem/credential scope; that root flag does not exist in axcient, so
+// blocking it protected nothing and silently discarded the legitimate filter
+// (advertised in the tool schema, then dropped), unscoping every MCP fleet call
+// to the whole fleet. The genuine control-plane flags below stay blocked.
+// DO NOT re-add a "client" entry on reprint. Durable fix tracked upstream:
+// make this blocklist context-aware (block only inherited/root flags).
 var blockedRootFlags = map[string]bool{
 	"args":     true,
 	"base-url": true,
-	"client":   true,
 	"config":   true,
 	"deliver":  true,
 	"profile":  true,

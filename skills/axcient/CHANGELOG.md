@@ -4,6 +4,22 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.6] - unreleased
+
+### Fixed
+- MCP server now forwards the `client` fleet filter to the underlying CLI. The
+  client-scoped fleet commands (`health`, `compliance`, `rpo`, `appliance-map`)
+  advertise a `client` parameter in their MCP tool schema but the shell-out layer
+  silently dropped it, so every MCP call returned the whole fleet regardless of the
+  value passed. The CLI binary applied `--client` correctly, only the MCP path did
+  not. Cause: the generated `blockedRootFlags` denylist (meant for root
+  credential/base-url/config/delivery flags) included `client`, but `client` is not
+  a root flag on this connector: it is a per-command Int64 fleet filter. Removed
+  `client` from the denylist; the genuine control-plane flags
+  (`base-url`/`token`/`config`/`deliver`/`profile`/`args`) remain blocked. Added a
+  regression test asserting `client` forwards as `--client <id>` while control-plane
+  flags stay dropped. (reported by @Xenith-B, #130)
+
 ## [0.2.5] - unreleased
 
 ### Fixed

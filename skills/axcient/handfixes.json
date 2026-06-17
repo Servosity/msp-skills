@@ -150,6 +150,18 @@
         {"file": "cli/internal/cli/sync.go", "contains": "flattenRestorePointGroups", "min_count": 2},
         {"file": "cli/internal/cli/restore_point_sync_wiring_test.go", "contains": "TestSyncDependentResource_RestorePointFlattensVaultGroupsAndPopulates", "min_count": 1}
       ]
+    },
+    {
+      "id": "mcp-client-filter-forward",
+      "summary": "MCP shell-out must forward the per-command `client` fleet filter; the generic blockedRootFlags denylist wrongly dropped it",
+      "why": "health/compliance/rpo/appliance-map define `--client <id>` as a command-local Int64 fleet filter (0 = all clients). The cobratree MCP shell-out advertises it (toolOptionsForFlags walks NonInheritedFlags -> WithNumber) but cliArgsFromMCP discarded it because the press template hardcodes \"client\" in blockedRootFlags - a denylist meant for root credential/base-url/config/delivery flags. axcient has NO root/persistent --client flag, so the block protected nothing and silently unscoped every MCP fleet call to the whole fleet (issue #130, reported by @Xenith-B). Removed \"client\" from blockedRootFlags; base-url/token/config/deliver/profile/args stay blocked. Added TestCliArgsFromMCP_ForwardsClientFilter asserting {client:42} -> --client 42 while control-plane flags stay dropped.",
+      "status": "active",
+      "spec_encode_followup": "Belongs in the press: make blockedRootFlags context-aware - block a flag only when it is a genuine root/persistent (inherited) flag on the command, not a command-local flag of the same name. Printing-press retro filed alongside #130.",
+      "asserts": [
+        {"file": "cli/internal/mcp/cobratree/shellout.go", "contains": "Hand-fix (issue #130", "min_count": 1},
+        {"file": "cli/internal/mcp/cobratree/shellout.go", "not_contains": "\"client\":   true"},
+        {"file": "cli/internal/mcp/cobratree/shellout_test.go", "contains": "TestCliArgsFromMCP_ForwardsClientFilter", "min_count": 1}
+      ]
     }
   ]
 }
