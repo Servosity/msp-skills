@@ -4,6 +4,16 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.3] - unreleased
+
+### Fixed
+- Restored the `CustomerSubDomain` request header and EU region routing that the
+  v0.1.2 reprint silently dropped. Without the header, SuperOps' API gateway
+  rejected every request with HTTP 400 (empty body) before it reached the GraphQL
+  layer - breaking all API connectivity versus v0.1.0. Set `SUPEROPS_SUBDOMAIN`
+  (your tenant subdomain, sent as the `CustomerSubDomain` header) and optionally
+  `SUPEROPS_REGION=eu` (routes to `euapi.superops.ai`). Reported by @AvlCompCo (#132).
+
 ## [0.1.2] - unreleased
 
 ### Fixed

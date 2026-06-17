@@ -27,6 +27,15 @@ type Config struct {
 	envOverrides     map[string]bool   `toml:"-"`
 	fileConfig       *Config           `toml:"-"`
 	SuperopsApiToken string            `toml:"api_token"`
+	// Subdomain is the SuperOps tenant subdomain (Settings -> MSP Information).
+	// It is sent as the CustomerSubDomain header on every GraphQL request and
+	// scopes all queries to that tenant. Without it the API's nginx ingress
+	// rejects the request with HTTP 400 before it reaches the GraphQL app
+	// (issue #132 - dropped by the 4.24.0 reprint, restored here).
+	Subdomain string `toml:"subdomain,omitempty"`
+	// Region selects the SuperOps data center: "us" (default, api.superops.ai)
+	// or "eu" (euapi.superops.ai).
+	Region string `toml:"region,omitempty"`
 }
 
 func Load(configPath string) (*Config, error) {
@@ -90,6 +99,36 @@ func Load(configPath string) (*Config, error) {
 		if _, err := os.Stat(marker); err == nil {
 			cfg.AuthSource = "agentcookie"
 		}
+	}
+
+	// Region selects the data center. EU tenants are served from
+	// euapi.superops.ai; everything else defaults to the US host. An explicit
+	// SUPEROPS_BASE_URL (below) still wins for mock/test servers. Normalize
+	// after the env override so a config-file value with stray case/whitespace
+	// (region = " EU ") still routes correctly.
+	if v := os.Getenv("SUPEROPS_REGION"); v != "" {
+		cfg.Region = v
+	}
+	cfg.Region = strings.ToLower(strings.TrimSpace(cfg.Region))
+	if cfg.Region == "eu" {
+		if cfg.BaseURL == "" || cfg.BaseURL == "https://api.superops.ai" {
+			cfg.BaseURL = "https://euapi.superops.ai"
+		}
+	}
+
+	// Tenant subdomain -> CustomerSubDomain header on every request. SuperOps
+	// scopes all data to this header; without it the nginx ingress rejects
+	// the request with HTTP 400 (issue #132). Trim after the env override so a
+	// config-file value with stray whitespace does not send a malformed header.
+	if v := os.Getenv("SUPEROPS_SUBDOMAIN"); v != "" {
+		cfg.Subdomain = v
+	}
+	cfg.Subdomain = strings.TrimSpace(cfg.Subdomain)
+	if cfg.Subdomain != "" {
+		if cfg.Headers == nil {
+			cfg.Headers = map[string]string{}
+		}
+		cfg.Headers["CustomerSubDomain"] = cfg.Subdomain
 	}
 
 	// Base URL override (used by printing-press verify to point at mock/test servers)
