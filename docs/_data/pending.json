@@ -52,7 +52,7 @@
     "state": "binary-pending",
     "version": "0.2.5",
     "latest_tag": "axcient-v0.2.5",
-    "current_hash": "sha256:2ce2b5d3103cfbaa67ae1098982fc9a4227191b9f9dfb78d6f68a826708e2d26",
+    "current_hash": "sha256:b4e844db1cfc07027d7494fb54eeb21cf3564a53ad32c8de93ceee9ebe188a91",
     "released_hash": "sha256:c5f265165d720dce85062d792ed43f0f446d373fc9de76b81e470d16020579e0"
   },
   "betterstack": {
