@@ -259,7 +259,7 @@
       "name": "superops",
       "source": "./skills/superops",
       "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "psa",
       "tags": [
         "superops",
