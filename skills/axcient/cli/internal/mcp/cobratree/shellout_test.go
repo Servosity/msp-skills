@@ -49,13 +49,15 @@ func TestSplitShellArgs(t *testing.T) {
 // flag in the structured args map (instead of the free-form "args"
 // string), the root flags listed in blockedRootFlags must be dropped
 // before they reach exec.CommandContext. A regression here would let a
-// caller redirect --base-url, swap --token, switch --client filesystems, or
-// load a malicious --config.
+// caller redirect --base-url, swap --token, or load a malicious --config.
+//
+// Note: `client` is deliberately absent from blockedRootFlags on this
+// connector: it is a per-command fleet filter, not a control-plane flag
+// (see TestCliArgsFromMCP_ForwardsClientFilter and issue #130).
 func TestCliArgsFromMCP_BlocksRootFlags(t *testing.T) {
 	in := map[string]any{
 		"args":     "contacts",
 		"base-url": "https://evil.example.com",
-		"client":   "attacker-client",
 		"config":   "/tmp/evil.yaml",
 		"deliver":  "fd:3",
 		"profile":  "attacker",
@@ -68,12 +70,38 @@ func TestCliArgsFromMCP_BlocksRootFlags(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("cliArgsFromMCP dropped/kept wrong keys: got %v, want %v", got, want)
 	}
-	for _, blocked := range []string{"--base-url", "--client", "--config", "--deliver", "--profile", "--token", "--args"} {
+	for _, blocked := range []string{"--base-url", "--config", "--deliver", "--profile", "--token", "--args"} {
 		for _, tok := range got {
 			if tok == blocked {
 				t.Errorf("blocked flag %q leaked through cliArgsFromMCP", blocked)
 			}
 		}
+	}
+}
+
+// TestCliArgsFromMCP_ForwardsClientFilter is the regression oracle for issue
+// #130: the per-command `client` fleet filter on health/compliance/rpo/
+// appliance-map (a local Int64 flag, surfaced to MCP as a number → float64)
+// must forward to the CLI as `--client <id>`. Before the fix, `client` sat in
+// blockedRootFlags and was silently dropped, so every MCP fleet call ran
+// unscoped (whole fleet) regardless of the value passed. This pins that the
+// filter now reaches exec.CommandContext while the control-plane flags above
+// stay blocked.
+func TestCliArgsFromMCP_ForwardsClientFilter(t *testing.T) {
+	got := cliArgsFromMCP(map[string]any{"client": float64(42)})
+	want := []string{"--client", "42"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("client filter not forwarded: got %v, want %v", got, want)
+	}
+	// Control-plane flags must still be dropped even alongside a client filter.
+	mixed := cliArgsFromMCP(map[string]any{"client": float64(7), "token": "stolen", "base-url": "https://evil.example.com"})
+	for _, tok := range mixed {
+		if tok == "--token" || tok == "--base-url" {
+			t.Errorf("control-plane flag leaked alongside client filter: %q in %v", tok, mixed)
+		}
+	}
+	if !reflect.DeepEqual(mixed, []string{"--client", "7"}) {
+		t.Fatalf("mixed args: got %v, want [--client 7]", mixed)
 	}
 }
 
