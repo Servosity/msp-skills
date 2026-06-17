@@ -365,8 +365,8 @@
       "tagline": "Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal.",
       "cli_hash": "sha256:68a259245cc7f3d7f82196475d0fc79055223e4ece0a3a4e420c569e07fbc1db",
       "template_version": 3,
-      "version": "0.1.2",
-      "cli_hash_at_release": "sha256:0300f07f821959d36b8c9f730c82e1cfe37ca70e4b701171461c9f6691043295",
+      "version": "0.1.3",
+      "cli_hash_at_release": "sha256:3af6193fda701a481c7cc2479272af2c4a569bf2ef0cd910dfa7dad057236876",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
