@@ -64,6 +64,27 @@ jobs:
           go install github.com/google/osv-scanner/cmd/osv-scanner@latest || true
           python3 -m pip install --quiet semgrep || true
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Pre-warm scanner caches for the tagged connector
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -uo pipefail
+          # gosec + govulncheck load the connector through golang.org/x/tools/go/packages.
+          # On a cold release runner the load - download + typecheck of a large dependency
+          # tree (e.g. connectwise-control: enetx/http + enetx/surf; axcient: surf + quic-go
+          # + utls + modernc/sqlite -> modernc/libc) - can exceed a scanner's timeout and
+          # fail-close as scanner-error (exit 124), which is NOT a real finding. `go vet ./...`
+          # drives the SAME go/packages loader, so it warms the module + export-data caches
+          # the scanners reuse. (A plain `go build` warms only the compile cache, not the
+          # go/packages export data - which is the actual cold cost, why an earlier
+          # build-based pre-warm did not help.) vet runs no connector code, so it cannot
+          # weaken the gate. Mirrors security-gate.yml for the release path.
+          slug="${TAG%-v*}"
+          if [ -f "skills/$slug/cli/go.mod" ]; then
+            echo "::group::pre-warm $slug"
+            (cd "skills/$slug/cli" && go vet ./...) >/dev/null 2>&1 || echo "pre-warm vet for $slug reported issues (non-fatal)"
+            echo "::endgroup::"
+          fi
       - name: Gate the tagged connector (P1 blocks the release)
         env:
           TAG: ${{ github.ref_name }}
