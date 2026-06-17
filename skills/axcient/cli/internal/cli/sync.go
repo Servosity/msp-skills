@@ -1557,6 +1557,71 @@ func describeFailedResources(names []string) string {
 	return ": " + strings.Join(names, ", ")
 }
 
+// flattenRestorePointGroups expands the live x360Recover restore_point response
+// into individual restore points so each can be keyed and stored.
+//
+// Hand-wired: the per-device endpoint (/device/{device_id}/restore_point)
+// returns restore points GROUPED BY CLOUD VAULT — a top-level array of wrapper
+// objects, each carrying a `vault_id` and a nested `restore_point[]` array. The
+// timestamp-string `restore_point_id` lives ONLY on the inner array elements;
+// the outer wrapper has none. extractPageItems surfaces the OUTER wrappers, so
+// every one fails id extraction (sync_anomaly all_items_failed_id_extraction)
+// and the typed table stores zero rows — the live symptom in issue #84, which
+// the flat-array regression fixture never reproduced. This descends one level:
+// for each wrapper it emits one item per inner restore point, carrying the
+// wrapper's vault_id down so the row records which vault the point came from.
+//
+// Items that are already inner elements (carry restore_point_id directly, with
+// no nested `restore_point` array) pass through unchanged, so the single-device
+// write-through cache and any future flat-array response keep working. Empty
+// wrappers (a vault with no points) are dropped — there is nothing to store.
+func flattenRestorePointGroups(items []json.RawMessage) []json.RawMessage {
+	flattened := make([]json.RawMessage, 0, len(items))
+	for _, item := range items {
+		var obj map[string]json.RawMessage
+		if err := json.Unmarshal(item, &obj); err != nil {
+			// Not a JSON object (scalar/array) — leave it for the normal path.
+			flattened = append(flattened, item)
+			continue
+		}
+		nested, hasNested := obj["restore_point"]
+		if !hasNested {
+			// Already an inner element (or some unrelated shape); pass through.
+			flattened = append(flattened, item)
+			continue
+		}
+		var inner []json.RawMessage
+		if err := json.Unmarshal(nested, &inner); err != nil || len(inner) == 0 {
+			// `restore_point` present but not a non-empty array — nothing to
+			// descend into; drop the empty wrapper.
+			continue
+		}
+		vaultID, hasVault := obj["vault_id"]
+		for _, rp := range inner {
+			if !hasVault {
+				flattened = append(flattened, rp)
+				continue
+			}
+			var rpObj map[string]json.RawMessage
+			if err := json.Unmarshal(rp, &rpObj); err != nil {
+				flattened = append(flattened, rp)
+				continue
+			}
+			// Carry the wrapper's vault_id down onto the inner point if it
+			// doesn't already carry its own.
+			if _, ok := rpObj["vault_id"]; !ok {
+				rpObj["vault_id"] = vaultID
+			}
+			if merged, err := json.Marshal(rpObj); err == nil {
+				flattened = append(flattened, merged)
+			} else {
+				flattened = append(flattened, rp)
+			}
+		}
+	}
+	return flattened
+}
+
 func dependentResourceDefs() []dependentResourceDef {
 	return []dependentResourceDef{
 		{Name: "restore_point", ParentTable: "device", ParentIDParam: "device_id", PathTemplate: "/device/{device_id}/restore_point", KeyField: "", PathParams: []dependentPathParamDef{
@@ -1761,6 +1826,24 @@ func syncDependentResource(ctx context.Context, c interface {
 				break
 			}
 
+			// Capture the raw API page size BEFORE flattening so the
+			// pagination gates below still reason about API page units, not the
+			// expanded child rows a flatten may produce.
+			pageItemCount := len(items)
+
+			// Hand-wired: the live restore_point endpoint groups points by Cloud
+			// Vault (top-level [{vault_id, restore_point:[...]}, ...]); the
+			// timestamp-string restore_point_id lives only on the inner elements.
+			// Descend into the nested array so id extraction can key each point
+			// as rp:<device_id>:<restore_point_id>. Without this every wrapper
+			// fails extraction and the table stores 0 rows (issue #84).
+			if dep.Name == "restore_point" {
+				items = flattenRestorePointGroups(items)
+				if len(items) == 0 {
+					break
+				}
+			}
+
 			for i, item := range items {
 				var obj map[string]json.RawMessage
 				if err := json.Unmarshal(item, &obj); err == nil {
@@ -1842,7 +1925,7 @@ func syncDependentResource(ctx context.Context, c interface {
 			}
 
 			totalCount += stored
-			if resourceSupportsPagination(dep.Name) && nextCursor == "" && pageSize.cursorParam != "offset" && len(items) >= pageSize.limit && pageMayHaveMore(data) {
+			if resourceSupportsPagination(dep.Name) && nextCursor == "" && pageSize.cursorParam != "offset" && pageItemCount >= pageSize.limit && pageMayHaveMore(data) {
 				emitSyncMissingPaginationCursorWarning(syncEvents, humanFriendly, dep.Name, parentID)
 			}
 			pagesFetched++
@@ -1872,7 +1955,7 @@ func syncDependentResource(ctx context.Context, c interface {
 			if !resourceSupportsPagination(dep.Name) {
 				break
 			}
-			if !hasMore || len(items) < pageSize.limit {
+			if !hasMore || pageItemCount < pageSize.limit {
 				break
 			}
 			if nextCursor == "" {

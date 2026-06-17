@@ -4,6 +4,29 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.5] - unreleased
+
+### Fixed
+- `restore_point` sync now populates the typed table against the real live API
+  shape. The per-device endpoint groups restore points by Cloud Vault: a
+  top-level array of `{vault_id, restore_point:[...]}` wrappers whose
+  timestamp-string `restore_point_id` lives only on the inner array elements.
+  Sync was storing the outer vault wrappers (no `restore_point_id`), so every one
+  failed id extraction (`all_items_failed_id_extraction`) and the table stayed at
+  0 rows, even though fleet summaries and live per-device lookups were unaffected.
+  `syncDependentResource` now descends one level into the nested `restore_point[]`
+  array, carrying the wrapper's `vault_id` down onto each point and keying it as
+  `rp:<device_id>:<restore_point_id>`. The earlier flat-array regression fixture
+  (0.2.1/0.2.2) never reproduced this because it fed the inner shape directly; the
+  wiring test now drives the real nested grouped-by-vault payload. (#84)
+
+### Tests
+- Replaced the flat-array `restore_point` sync-wiring fixture with the live
+  grouped-by-vault nested shape (the test now fails without the flatten), and
+  added a flat-array passthrough test so the single-device write-through path
+  stays covered. Added the nested-flatten marker to the hand-fix ledger so a
+  future reprint cannot silently drop it.
+
 ## [0.2.4] - unreleased
 
 ### Fixed
