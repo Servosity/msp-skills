@@ -10,10 +10,18 @@ skill's "live_verified" key:
       "status": "live-verified" | "awaiting",
       "date": "YYYY-MM-DD",
       "source": "build-session" | "circle" | "github" | "self",
-      "evidence": "<url or note>"
+      "evidence": "<url or note>",
+      "verified_by": "<who confirmed it, e.g. @handle (MSP)>" | null,
+      "issue_url": "<clickable receipt link>" | null
     }
 
 A skill without the key is treated as "awaiting" - tools tolerate its absence.
+`verified_by` and `issue_url` are what the catalog + per-skill page actually
+render (the attribution line and the "receipt ->" link); pass --verified-by /
+--issue-url to set them. For a `--source github` flip whose --evidence is a
+github.com URL, issue_url defaults to that URL so the receipt link is never
+silently dropped (the gap that left sentinelone #116 reading "by Servosity
+(maintainer)" with no receipt).
 
 This is a DOCS-ONLY flip. It changes skills.json (which the catalog + per-skill
 pages render from); it does NOT cut a release or push a tag. After a flip,
@@ -22,6 +30,9 @@ regenerate the catalog and commit.
 Usage:
     python3 tools/maintainer/verify_live.py --slug halopsa --source build-session \\
         --evidence "https://circle.so/..." [--date 2026-06-04]
+    python3 tools/maintainer/verify_live.py --slug cove --source github \\
+        --evidence "https://github.com/Servosity/msp-skills/issues/139" \\
+        --verified-by "@AvlCompCo (MSP)"   # issue_url defaults from --evidence
     python3 tools/maintainer/verify_live.py --revoke --slug halopsa
     python3 tools/maintainer/verify_live.py --status
     python3 tools/maintainer/verify_live.py --slug halopsa --source self \\
@@ -112,7 +123,15 @@ def _print_followup(slug: str, source: str) -> None:
     print(f'  git commit -am "badge: {slug} live-verified ({source})"')
 
 
-def cmd_verify(slug: str, source: str, evidence: str, date: str | None, force: bool) -> int:
+def cmd_verify(
+    slug: str,
+    source: str,
+    evidence: str,
+    date: str | None,
+    force: bool,
+    verified_by: str | None = None,
+    issue_url: str | None = None,
+) -> int:
     reg = _read_registry()
     skills = reg.get("skills", {})
     if slug not in skills:
@@ -150,16 +169,29 @@ def cmd_verify(slug: str, source: str, evidence: str, date: str | None, force: b
         return 1
 
     use_date = date or dt.date.today().isoformat()
+    # The catalog + per-skill page render `verified_by` (who confirmed it) and
+    # `issue_url` (the clickable receipt). A GitHub "it works" report IS its own
+    # receipt, so default issue_url to the evidence URL when it points at a
+    # github.com issue/PR and the caller did not pass one explicitly.
+    use_issue_url = issue_url
+    if use_issue_url is None and source == "github" and evidence.startswith(
+        "https://github.com/"
+    ):
+        use_issue_url = evidence
     entry["live_verified"] = {
         "status": "live-verified",
         "date": use_date,
         "source": source,
         "evidence": evidence,
+        "verified_by": verified_by,
+        "issue_url": use_issue_url,
     }
     _write_registry(reg)
 
     print(f"{slug}: live-verified ({source}, {use_date})")
-    print(f"  evidence: {evidence}")
+    print(f"  evidence:    {evidence}")
+    print(f"  verified_by: {verified_by or '(default: Servosity (maintainer))'}")
+    print(f"  issue_url:   {use_issue_url or '(none)'}")
     _print_followup(slug, source)
     return 0
 
@@ -190,6 +222,8 @@ def parse_args(argv: list[str]) -> dict:
         "source": None,
         "evidence": None,
         "date": None,
+        "verified_by": None,
+        "issue_url": None,
         "revoke": False,
         "status": False,
         "force": False,
@@ -209,6 +243,12 @@ def parse_args(argv: list[str]) -> dict:
         elif a == "--date":
             i += 1
             opts["date"] = argv[i]
+        elif a == "--verified-by":
+            i += 1
+            opts["verified_by"] = argv[i]
+        elif a == "--issue-url":
+            i += 1
+            opts["issue_url"] = argv[i]
         elif a == "--revoke":
             opts["revoke"] = True
         elif a == "--status":
@@ -236,7 +276,8 @@ def main(argv: list[str]) -> int:
         if not opts["source"]:
             raise SystemExit("verify_live: a flip requires --source")
         return cmd_verify(
-            opts["slug"], opts["source"], opts["evidence"], opts["date"], opts["force"]
+            opts["slug"], opts["source"], opts["evidence"], opts["date"], opts["force"],
+            verified_by=opts["verified_by"], issue_url=opts["issue_url"],
         )
 
     raise SystemExit(

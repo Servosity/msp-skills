@@ -5,7 +5,7 @@ description: "The first CLI and MCP server for Cove Data Protection \u2014 fleet
 permalink: /skills/cove/
 skill_name: "Cove Data Protection MCP"
 image: /assets/social/cove/wide-1200x630.png
-verification: awaiting
+verification: live-verified
 faqs:
   - q: "Is there an MCP server for Cove Data Protection?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Cove Data Protection, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
@@ -38,7 +38,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by N-able.
 
-**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+**✓ Live-verified by @AvlCompCo (MSP)** against a production tenant · 2026-06-18 · [receipt →](https://github.com/Servosity/msp-skills/issues/139).
 
 Yes - there is an MCP server for Cove Data Protection. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Cove Data Protection to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
