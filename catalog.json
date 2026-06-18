@@ -317,7 +317,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cove/install.sh)",
       "install_mcp_doc": "skills/cove/mcp-install.md",
       "description": "The first CLI and MCP server for Cove Data Protection \u2014 fleet-wide backup health, billing usage, and storage trends from a terminal, with the local history the vendor console doesn't keep.",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "Backup/DR",
       "tagline": "Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal."
     },
@@ -1016,7 +1016,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/superops/install.sh)",
       "install_mcp_doc": "skills/superops/mcp-install.md",
       "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "PSA",
       "tagline": "Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking."
     },

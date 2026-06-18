@@ -369,12 +369,12 @@
       "cli_hash_at_release": "sha256:3af6193fda701a481c7cc2479272af2c4a569bf2ef0cd910dfa7dad057236876",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null,
-        "verified_by": null,
-        "issue_url": null
+        "status": "live-verified",
+        "date": "2026-06-18",
+        "source": "github",
+        "evidence": "https://github.com/Servosity/msp-skills/issues/139",
+        "verified_by": "@AvlCompCo (MSP)",
+        "issue_url": "https://github.com/Servosity/msp-skills/issues/139"
       }
     },
     "crowdstrike": {
@@ -1267,12 +1267,12 @@
       "cli_hash_at_release": "sha256:9940666a406c2f3b719fe330d147521d0ebfe6c38e700eb9b32ebfbffe32dec2",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null,
-        "verified_by": null,
-        "issue_url": null
+        "status": "live-verified",
+        "date": "2026-06-18",
+        "source": "github",
+        "evidence": "https://github.com/Servosity/msp-skills/issues/140",
+        "verified_by": "@AvlCompCo (MSP)",
+        "issue_url": "https://github.com/Servosity/msp-skills/issues/140"
       }
     },
     "syncro": {

@@ -49,7 +49,7 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/connectwise-manage/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-manage/install.sh)
 - Cove Data Protection (Backup/DR) - ask "Which devices failed their last backup since yesterday?" - Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal.
-  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/cove/
+  Verification: Live-verified by @AvlCompCo (MSP) (2026-06-18). Page: https://msp-skills.compoundingteams.com/skills/cove/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cove/install.sh)
 - CrowdStrike Falcon (Security) - ask "What should I triage first across all my client tenants right now?" - Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/crowdstrike/
@@ -156,7 +156,7 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/skykick/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/skykick/install.sh)
 - SuperOps (PSA) - ask "Who's about to breach SLA, grouped by technician?" - Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking.
-  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/superops/
+  Verification: Live-verified by @AvlCompCo (MSP) (2026-06-18). Page: https://msp-skills.compoundingteams.com/skills/superops/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/superops/install.sh)
 - Syncro (PSA) - ask "Which customers have logged time we never invoiced?" - Run every Syncro PSA and RMM workflow from your terminal: tickets, billing, and patch gaps in one ask.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/syncro/

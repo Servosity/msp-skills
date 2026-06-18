@@ -560,7 +560,7 @@ Governance: The skill drives the connectwise-manage-cli and connectwise-manage-m
 ### Cove Data Protection (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/cove/
-Verification: Awaiting live verification
+Verification: Live-verified by @AvlCompCo (MSP) (2026-06-18)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cove/install.sh)
 
 Ask which Cove backups failed last night and get every failed, aborted, or never-started device across all your customers in one sweep, the status codes decoded to plain names. Cove's console scopes to one partner at a time and forgets yesterday; this skill speaks the whole JSON-RPC API and keeps a local snapshot history, so storage-growth and what-changed-since-Friday trends exist at all.
@@ -1831,7 +1831,7 @@ Governance: The skill is read-first: every posture, staleness, coverage, retenti
 ### SuperOps (PSA)
 
 Page: https://msp-skills.compoundingteams.com/skills/superops/
-Verification: Awaiting live verification
+Verification: Live-verified by @AvlCompCo (MSP) (2026-06-18)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/superops/install.sh)
 
 SuperOps unifies PSA and RMM on one database, but the console still answers one entity at a time. Ask your AI "who's about to breach SLA, and on whose queue," "what's the full picture on Acme before the QBR," or "which endpoints are unpatched and actively alerting," and get cross-entity answers computed offline from a local SQLite mirror of your tenant - one query instead of five console screens or a scheduled report.

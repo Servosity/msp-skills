@@ -146,9 +146,9 @@
       "display_name": "Cove Data Protection",
       "tagline": "Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal.",
       "category": "Backup/DR",
-      "verification": "awaiting",
-      "verified_by": null,
-      "issue_url": null,
+      "verification": "live-verified",
+      "verified_by": "@AvlCompCo (MSP)",
+      "issue_url": "https://github.com/Servosity/msp-skills/issues/139",
       "url": "/skills/cove/"
     },
     {
@@ -496,9 +496,9 @@
       "display_name": "SuperOps",
       "tagline": "Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking.",
       "category": "PSA",
-      "verification": "awaiting",
-      "verified_by": null,
-      "issue_url": null,
+      "verification": "live-verified",
+      "verified_by": "@AvlCompCo (MSP)",
+      "issue_url": "https://github.com/Servosity/msp-skills/issues/140",
       "url": "/skills/superops/"
     },
     {
