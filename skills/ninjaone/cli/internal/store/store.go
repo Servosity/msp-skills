@@ -4313,36 +4313,53 @@ var resourceIDFieldOverrides = map[string]string{
 	// via resourceCompositeKeyColumns below (#136). Single-row-per-device
 	// resources (device-health, policy-overrides, operating-systems,
 	// computer-systems) key on deviceId alone. queries-backup-usage keeps its
-	// own `id` (pre-existing, working). The four queries-custom-fields* report
-	// variants are intentionally NOT listed: their row shape (nodeId vs
-	// deviceId, per-device vs per-field) is not confirmable from the connector
-	// source, and a wrong override would zero them out - tracked as a follow-up.
-	"queries-antivirus-status":        "deviceId",
-	"queries-antivirus-threats":       "deviceId",
-	"queries-backup-usage":            "id",
-	"queries-computer-systems":        "deviceId",
-	"queries-device-health":           "deviceId",
-	"queries-logged-on-users":         "deviceId",
-	"queries-network-interfaces":      "deviceId",
-	"queries-operating-systems":       "deviceId",
-	"queries-os-patch-installs":       "deviceId",
-	"queries-os-patches":              "deviceId",
-	"queries-policy-overrides":        "deviceId",
-	"queries-processors":              "deviceId",
-	"queries-raid-controllers":        "deviceId",
-	"queries-raid-drives":             "deviceId",
-	"queries-software":                "deviceId",
-	"queries-software-patch-installs": "deviceId",
-	"queries-software-patches":        "deviceId",
-	"queries-volumes":                 "deviceId",
-	"queries-windows-services":        "deviceId",
-	"related-items":                   "id",
-	"tag":                             "id",
-	"ticketing-app-user-contact":      "id",
-	"user":                            "id",
-	"user-end-users":                  "id",
-	"user-technicians":                "id",
-	"vulnerability":                   "id",
+	// own `id` (pre-existing, working).
+	//
+	// The four queries-custom-fields* report variants (#137) were deferred from
+	// #136 pending their row shape; the source OpenAPI schema confirms it:
+	//   - custom-fields / custom-fields-detailed (NodeAttributes /
+	//     NodeAttributesDetailed): one row per device packing all values into a
+	//     `fields` map/array -> key on deviceId alone, no discriminator. The
+	//     detailed variant marks deviceId writeOnly in the spec, so if the live
+	//     response omits it the override is a no-op and the resource stays at the
+	//     zero rows it already stores today - never a regression.
+	//   - scoped-custom-fields / scoped-custom-fields-detailed (ScopedAttributes
+	//     / ScopedAttributesDetailed): one row per (scope, entityId). entityId is
+	//     unique only WITHIN a scope (a device id and an org id can collide), so
+	//     these key on entityId + a `scope` discriminator (resourceCompositeKey
+	//     Columns below).
+	// All four store ZERO rows today (id-less rows fail extraction), so these
+	// overrides can only add rows or stay neutral - they cannot collapse.
+	"queries-antivirus-status":              "deviceId",
+	"queries-antivirus-threats":             "deviceId",
+	"queries-backup-usage":                  "id",
+	"queries-computer-systems":              "deviceId",
+	"queries-custom-fields":                 "deviceId",
+	"queries-custom-fields-detailed":        "deviceId",
+	"queries-device-health":                 "deviceId",
+	"queries-logged-on-users":               "deviceId",
+	"queries-network-interfaces":            "deviceId",
+	"queries-operating-systems":             "deviceId",
+	"queries-os-patch-installs":             "deviceId",
+	"queries-os-patches":                    "deviceId",
+	"queries-policy-overrides":              "deviceId",
+	"queries-processors":                    "deviceId",
+	"queries-raid-controllers":              "deviceId",
+	"queries-raid-drives":                   "deviceId",
+	"queries-scoped-custom-fields":          "entityId",
+	"queries-scoped-custom-fields-detailed": "entityId",
+	"queries-software":                      "deviceId",
+	"queries-software-patch-installs":       "deviceId",
+	"queries-software-patches":              "deviceId",
+	"queries-volumes":                       "deviceId",
+	"queries-windows-services":              "deviceId",
+	"related-items":                         "id",
+	"tag":                                   "id",
+	"ticketing-app-user-contact":            "id",
+	"user":                                  "id",
+	"user-end-users":                        "id",
+	"user-technicians":                      "id",
+	"vulnerability":                         "id",
 }
 
 // genericIDFieldFallbacks is the runtime safety net for resources that did
@@ -4547,20 +4564,27 @@ func scalarIDString(value any) string {
 // detect id-less device-scoped report endpoints and emit a composite key. Until
 // then this hand-fix must survive every reprint (recorded in handfixes.json).
 var resourceCompositeKeyColumns = map[string]string{
-	"queries-antivirus-status":        "productName",     // one row per AV product
-	"queries-antivirus-threats":       "threatId",        // one row per detected threat
-	"queries-network-interfaces":      "interfaceIndex",  // one row per NIC
-	"queries-logged-on-users":         "userName",        // one row per user
-	"queries-os-patches":              "id",              // one row per patch (id is the patch id)
-	"queries-os-patch-installs":       "id",              // one row per patch install
-	"queries-processors":              "name",            // one row per CPU
-	"queries-raid-controllers":        "controllerIndex", // one row per controller
-	"queries-raid-drives":             "driveId",         // one row per drive
-	"queries-software":                "name",            // one row per installed product
-	"queries-software-patches":        "id",              // one row per patch (id is the patch id)
-	"queries-software-patch-installs": "id",              // one row per patch install
-	"queries-volumes":                 "name",            // one row per volume
-	"queries-windows-services":        "name",            // one row per service
+	"queries-antivirus-status":   "productName",     // one row per AV product
+	"queries-antivirus-threats":  "threatId",        // one row per detected threat
+	"queries-network-interfaces": "interfaceIndex",  // one row per NIC
+	"queries-logged-on-users":    "userName",        // one row per user
+	"queries-os-patches":         "id",              // one row per patch (id is the patch id)
+	"queries-os-patch-installs":  "id",              // one row per patch install
+	"queries-processors":         "name",            // one row per CPU
+	"queries-raid-controllers":   "controllerIndex", // one row per controller
+	"queries-raid-drives":        "driveId",         // one row per drive
+	// scoped-custom-fields (#137): primary key is entityId, but entityId is only
+	// unique WITHIN a scope (a device id and an org id can collide), so `scope`
+	// (NODE/END_USER/LOCATION/ORGANIZATION) is the discriminator. Unlike the
+	// rows above this is not a multi-row-per-device case - it disambiguates the
+	// id namespace, one row per (scope, entityId).
+	"queries-scoped-custom-fields":          "scope",
+	"queries-scoped-custom-fields-detailed": "scope",
+	"queries-software":                      "name", // one row per installed product
+	"queries-software-patches":              "id",   // one row per patch (id is the patch id)
+	"queries-software-patch-installs":       "id",   // one row per patch install
+	"queries-volumes":                       "name", // one row per volume
+	"queries-windows-services":              "name", // one row per service
 	// operating-systems and computer-systems are one-row-per-device -> keyed on
 	// deviceId alone (no discriminator); they are in resourceIDFieldOverrides only.
 }

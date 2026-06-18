@@ -4,7 +4,25 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.3] - unreleased
+## [0.1.4] - unreleased
+
+### Fixed
+- `sync` now stores correct rows for the four `/v2/queries/custom-fields*` report
+  variants, which previously cached **zero** rows. Like the rest of the
+  `/v2/queries/*` family these rows carry no top-level `id`, so the generic key
+  path skipped every one of them (`all_items_failed_id_extraction`). The source
+  API schema confirms the row shapes:
+  - `queries-custom-fields` / `queries-custom-fields-detailed` return one row per
+    device (all values packed into a `fields` map/array), so each now keys on
+    `deviceId`.
+  - `queries-scoped-custom-fields` / `queries-scoped-custom-fields-detailed`
+    return one row per (`scope`, `entityId`); since `entityId` is unique only
+    within a scope, each now keys on `entityId` plus a `scope` discriminator so a
+    device and an organization sharing an id never collapse together.
+  Offline SQL and full-text `search` now see these custom-field reports. This
+  completes the `/v2/queries/*` storage fix begun in 0.1.3. (#137)
+
+## [0.1.3]
 
 ### Fixed
 - `sync` now stores correct rows for the device-scoped `/v2/queries/*` report
