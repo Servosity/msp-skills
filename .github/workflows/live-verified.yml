@@ -157,12 +157,15 @@ jobs:
         env:
           SLUG: ${{ steps.parse.outputs.slug }}
           EVIDENCE: ${{ github.event.issue.html_url }}
+          REPORTER: ${{ github.event.issue.user.login }}
         run: |
           set -euo pipefail
-          python3 tools/maintainer/verify_live.py \
-            --slug "$SLUG" \
-            --source github \
-            --evidence "$EVIDENCE"
+          # Credit the reporter (the MSP who confirmed it works) so the badge renders
+          # honest attribution + the receipt link, not the generic maintainer default.
+          # An array keeps the space in "@reporter (MSP)" correctly quoted.
+          args=(--slug "$SLUG" --source github --evidence "$EVIDENCE")
+          if [ -n "${REPORTER:-}" ]; then args+=(--verified-by "@${REPORTER} (MSP)"); fi
+          python3 tools/maintainer/verify_live.py "${args[@]}"
 
       - name: Regenerate catalog
         if: steps.parse.outputs.ok == 'true'
@@ -175,6 +178,7 @@ jobs:
           SLUG: ${{ steps.parse.outputs.slug }}
           ISSUE: ${{ github.event.issue.number }}
           EVIDENCE: ${{ github.event.issue.html_url }}
+          REPORTER: ${{ github.event.issue.user.login }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -204,10 +208,9 @@ jobs:
             # badge flip), and set -e would kill the loop before the staged-diff
             # check below can conclude there is nothing left to push. The diff
             # check is the real gate.
-            python3 tools/maintainer/verify_live.py \
-              --slug "$SLUG" \
-              --source github \
-              --evidence "$EVIDENCE" \
+            args=(--slug "$SLUG" --source github --evidence "$EVIDENCE")
+            if [ -n "${REPORTER:-}" ]; then args+=(--verified-by "@${REPORTER} (MSP)"); fi
+            python3 tools/maintainer/verify_live.py "${args[@]}" \
               || echo "verify_live returned non-zero (already verified?) - continuing to diff check"
             python3 tools/maintainer/build-catalog.py
             git add tools/maintainer/skills.json catalog.json README.md docs/_data/catalog.json docs/skills/ docs/_data/pending.json 2>/dev/null || true
