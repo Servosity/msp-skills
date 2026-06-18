@@ -44,10 +44,10 @@
     },
     {
       "id": "queries-composite-key-extraction",
-      "summary": "The device-scoped /v2/queries/* report family stored wrong/zero rows because the generic key path mis-keyed it. Two sub-symptoms: (a) the id-less reports (queries-antivirus-status, queries-device-health, queries-network-interfaces, queries-logged-on-users, queries-policy-overrides, queries-raid-controllers, queries-raid-drives) returned objects with NO top-level id -> ExtractResourceID returned \"\" -> every row skipped (all_items_failed_id_extraction, zero stored); (b) a broader set (queries-os-patches, queries-os-patch-installs, queries-software-patches, queries-software-patch-installs, queries-software, queries-operating-systems, queries-computer-systems, queries-processors, queries-volumes, queries-windows-services, queries-antivirus-threats) fell to genericIDFieldFallbacks and keyed on a PATCH id or a name WITHOUT a deviceId prefix, collapsing rows ACROSS devices (every 'Windows 11' device -> one stored row). Fix forces deviceId as the PRIMARY key for the whole family via resourceIDFieldOverrides, plus a per-row discriminator (productName/threatId/interfaceIndex/userName/controllerIndex/driveId/patch id/name) via the resourceCompositeKeyColumns map consulted by resourceStorageID for multi-row-per-device resources; single-row reports (operating-systems, computer-systems, device-health, policy-overrides) key on deviceId alone. The four queries-custom-fields* variants are deferred (shape unconfirmable offline) and tracked in #137.",
+      "summary": "The device-scoped /v2/queries/* report family stored wrong/zero rows because the generic key path mis-keyed it. Two sub-symptoms: (a) the id-less reports (queries-antivirus-status, queries-device-health, queries-network-interfaces, queries-logged-on-users, queries-policy-overrides, queries-raid-controllers, queries-raid-drives) returned objects with NO top-level id -> ExtractResourceID returned \"\" -> every row skipped (all_items_failed_id_extraction, zero stored); (b) a broader set (queries-os-patches, queries-os-patch-installs, queries-software-patches, queries-software-patch-installs, queries-software, queries-operating-systems, queries-computer-systems, queries-processors, queries-volumes, queries-windows-services, queries-antivirus-threats) fell to genericIDFieldFallbacks and keyed on a PATCH id or a name WITHOUT a deviceId prefix, collapsing rows ACROSS devices (every 'Windows 11' device -> one stored row). Fix forces deviceId as the PRIMARY key for the whole family via resourceIDFieldOverrides, plus a per-row discriminator (productName/threatId/interfaceIndex/userName/controllerIndex/driveId/patch id/name) via the resourceCompositeKeyColumns map consulted by resourceStorageID for multi-row-per-device resources; single-row reports (operating-systems, computer-systems, device-health, policy-overrides) key on deviceId alone. The four queries-custom-fields* variants are now keyed too (#137): the source OpenAPI schema confirmed their shapes - custom-fields/custom-fields-detailed (NodeAttributes/NodeAttributesDetailed) are one row per device keyed on deviceId alone; scoped-custom-fields/scoped-custom-fields-detailed (ScopedAttributes/ScopedAttributesDetailed) are one row per (scope, entityId) keyed on entityId plus a `scope` discriminator (entityId is unique only WITHIN a scope, so a device #5 and an org #5 would otherwise collide). All four stored ZERO rows before the fix (id-less), so the overrides can only add rows.",
       "why": "The press id profiler derives resourceIDFieldOverrides from the spec's x-resource-id / response-schema id field. NinjaOne's /v2/queries/* schemas either declare no id (so the generic fallback id/name/slug missed entirely) or declare an `id` that is a per-patch identifier shared across devices (so the fallback keyed on it and collapsed cross-device). A plain reprint regenerates the same gap. Every key/discriminator is grounded in the connector's own internal/types/types.go structs (DeviceOSPatch.id, DeviceSoftwarePatch.id, DeviceAntivirusThreat.threatId, DeviceProcessor.name, DeviceVolume.name, DeviceWindowsService.name, DeviceOperatingSystem/DeviceComputerSystem single-row, plus the #136 reporter's confirmed live shapes), never from the issue's suggested-fix text. resourceStorageID was refactored to append the resourceCompositeKeyColumns discriminator in addition to the existing resourceParentKeyColumns parent value; existing dependent-resource behavior is byte-equivalent (appends only when the field is present and non-empty). deviceId always leads the key so cross-device collapse is structurally impossible.",
       "status": "active",
-      "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: teach the id profiler to detect device-scoped report endpoints and emit a composite key (scope id + a per-row discriminator) rather than keying on a non-unique id/name. File via printing-press-retro alongside the after-id/keyset profiler gap. Until the press learns it, this hand-fix must survive every reprint. Known bounded residual (deviceId always leads, so NO cross-device loss): for queries-software/queries-processors/queries-volumes the single within-device discriminator (name) can collide on rare duplicate-name rows (dual-socket identical CPUs, dup-named software variants, blank-named volumes); a multi-field composite would tighten this if a report arrives. queries-software's row shape (assumed DeviceApplication) is the one discriminator not confirmed by a typed struct. The four queries-custom-fields* variants are deferred (shape unconfirmable offline) and tracked in #137.",
+      "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: teach the id profiler to detect device-scoped report endpoints and emit a composite key (scope id + a per-row discriminator) rather than keying on a non-unique id/name. File via printing-press-retro alongside the after-id/keyset profiler gap. Until the press learns it, this hand-fix must survive every reprint. Known bounded residual (deviceId always leads, so NO cross-device loss): for queries-software/queries-processors/queries-volumes the single within-device discriminator (name) can collide on rare duplicate-name rows (dual-socket identical CPUs, dup-named software variants, blank-named volumes); a multi-field composite would tighten this if a report arrives. queries-software's row shape (assumed DeviceApplication) is the one discriminator not confirmed by a typed struct. The four queries-custom-fields* variants are now keyed too (#137), grounded in the source OpenAPI schemas (NodeAttributes.deviceId; ScopedAttributes.scope+entityId), not the issue text. One bounded residual: NodeAttributesDetailed.deviceId is marked writeOnly in the spec, so if the live response omits it the override is a no-op and queries-custom-fields-detailed stays at the zero rows it already stored (never a regression); a captured live /v2/queries/custom-fields-detailed response would confirm it definitively. Second bounded residual (same class as the name-discriminator note above): the scoped variants rely on a populated `scope` to disambiguate entityId across scopes - resourceStorageID appends the discriminator only when non-empty (the shared #136 conditional-append shape), so an empty/absent scope would collapse same-id entities; this is contract-dependent (scope is the report's always-set grouping dimension) and still strictly more than today's zero rows, not a regression.",
       "asserts": [
         {
           "file": "cli/internal/store/store.go",
@@ -87,6 +87,31 @@
         {
           "file": "cli/internal/store/queries_composite_key_test.go",
           "contains": "func TestQueriesNoCrossDeviceCollapse",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"queries-custom-fields\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"queries-custom-fields-detailed\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"queries-scoped-custom-fields-detailed\"",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/store/queries_custom_fields_key_test.go",
+          "contains": "func TestScopedCustomFieldsKeyDisambiguatesScope",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/queries_custom_fields_key_test.go",
+          "contains": "func TestCustomFieldsKeyOnDeviceID",
           "min_count": 1
         }
       ]
