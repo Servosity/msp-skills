@@ -1,7 +1,7 @@
 {
   "slug": "ninjaone",
   "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits to GENERATED (\"DO NOT EDIT\") files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #88 (reporter @AndrewITLive), fixed 2026-06-15 on press 4.24.0.",
+  "_comment": "Connector-specific edits to GENERATED (\"DO NOT EDIT\") files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #88 (reporter @AndrewITLive), fixed 2026-06-15 on press 4.24.0; issues #136 queries-* composite-key + object-cursor (reporter @Xenith-B), fixed 2026-06-17.",
   "handfixes": [
     {
       "id": "after-id-pagination",
@@ -38,6 +38,79 @@
         {
           "file": "cli/internal/cli/sync_after_id_test.go",
           "contains": "func TestExtractLastItemID",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "queries-composite-key-extraction",
+      "summary": "The device-scoped /v2/queries/* report family stored wrong/zero rows because the generic key path mis-keyed it. Two sub-symptoms: (a) the id-less reports (queries-antivirus-status, queries-device-health, queries-network-interfaces, queries-logged-on-users, queries-policy-overrides, queries-raid-controllers, queries-raid-drives) returned objects with NO top-level id -> ExtractResourceID returned \"\" -> every row skipped (all_items_failed_id_extraction, zero stored); (b) a broader set (queries-os-patches, queries-os-patch-installs, queries-software-patches, queries-software-patch-installs, queries-software, queries-operating-systems, queries-computer-systems, queries-processors, queries-volumes, queries-windows-services, queries-antivirus-threats) fell to genericIDFieldFallbacks and keyed on a PATCH id or a name WITHOUT a deviceId prefix, collapsing rows ACROSS devices (every 'Windows 11' device -> one stored row). Fix forces deviceId as the PRIMARY key for the whole family via resourceIDFieldOverrides, plus a per-row discriminator (productName/threatId/interfaceIndex/userName/controllerIndex/driveId/patch id/name) via the resourceCompositeKeyColumns map consulted by resourceStorageID for multi-row-per-device resources; single-row reports (operating-systems, computer-systems, device-health, policy-overrides) key on deviceId alone. The four queries-custom-fields* variants are deferred (shape unconfirmable offline) and tracked in #137.",
+      "why": "The press id profiler derives resourceIDFieldOverrides from the spec's x-resource-id / response-schema id field. NinjaOne's /v2/queries/* schemas either declare no id (so the generic fallback id/name/slug missed entirely) or declare an `id` that is a per-patch identifier shared across devices (so the fallback keyed on it and collapsed cross-device). A plain reprint regenerates the same gap. Every key/discriminator is grounded in the connector's own internal/types/types.go structs (DeviceOSPatch.id, DeviceSoftwarePatch.id, DeviceAntivirusThreat.threatId, DeviceProcessor.name, DeviceVolume.name, DeviceWindowsService.name, DeviceOperatingSystem/DeviceComputerSystem single-row, plus the #136 reporter's confirmed live shapes), never from the issue's suggested-fix text. resourceStorageID was refactored to append the resourceCompositeKeyColumns discriminator in addition to the existing resourceParentKeyColumns parent value; existing dependent-resource behavior is byte-equivalent (appends only when the field is present and non-empty). deviceId always leads the key so cross-device collapse is structurally impossible.",
+      "status": "active",
+      "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: teach the id profiler to detect device-scoped report endpoints and emit a composite key (scope id + a per-row discriminator) rather than keying on a non-unique id/name. File via printing-press-retro alongside the after-id/keyset profiler gap. Until the press learns it, this hand-fix must survive every reprint. Known bounded residual (deviceId always leads, so NO cross-device loss): for queries-software/queries-processors/queries-volumes the single within-device discriminator (name) can collide on rare duplicate-name rows (dual-socket identical CPUs, dup-named software variants, blank-named volumes); a multi-field composite would tighten this if a report arrives. queries-software's row shape (assumed DeviceApplication) is the one discriminator not confirmed by a typed struct. The four queries-custom-fields* variants are deferred (shape unconfirmable offline) and tracked in #137.",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "var resourceCompositeKeyColumns",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "resourceCompositeKeyColumns[resourceType]",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"queries-antivirus-status\"",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"queries-device-health\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"queries-os-patches\"",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"queries-operating-systems\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/queries_composite_key_test.go",
+          "contains": "func TestQueriesCompositeKeysDoNotCollide",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/queries_composite_key_test.go",
+          "contains": "func TestQueriesNoCrossDeviceCollapse",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "queries-object-cursor-pagination",
+      "summary": "NinjaOne /v2/queries/* endpoints paginate via an OBJECT-valued cursor: \"cursor\":{\"name\":\"<token>\",\"offset\":0,\"count\":\"N\",\"expires\":...}. findCursorInMap only unmarshalled a string cursor, so the next-page token was never found; sync stopped after the first page and capped each queries resource at 100 rows (sync_warning pagination_cursor_missing). Fix adds cursorTokenFromObject, consulted by findCursorInMap only after the string unmarshal fails, which descends into the object and returns the first non-empty string token field (name/next_cursor/...).",
+      "why": "determinePaginationDefaults() emits cursorParam/cursorType \"cursor\" but the press models a string cursor only; it does not model an object cursor whose token is nested under a field. The natural-end (len<limit), sticky-cursor, and empty-page guards already in the loop make object-cursor advance terminate safely. String-cursor APIs are unaffected because the object descent runs only after the scalar unmarshal fails. A plain reprint regenerates the string-only findCursorInMap.",
+      "status": "active",
+      "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: teach the pagination profiler to detect object-valued cursors (cursor field is an object; token nested under name/next/cursor) and emit the descent natively. File via printing-press-retro. Until then this hand-fix must survive every reprint. Verification residual: multi-page completeness assumes NinjaOne returns a FRESH cursor.name per page; if a live tenant ever shows truncation (~2 pages then the sticky-cursor guard fires) the cursor.name is a stable session token and the fix must ALSO thread the cursor object's `offset`. This is monotonic vs main regardless (worst case == the prior 100-row single-page cap; the sticky-cursor + max-pages guards prevent any hang).",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "func cursorTokenFromObject",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "cursorTokenFromObject(raw)",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/queries_cursor_test.go",
+          "contains": "func TestExtractPageItemsFollowsObjectCursor",
           "min_count": 1
         }
       ]
