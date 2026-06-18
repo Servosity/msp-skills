@@ -199,7 +199,7 @@
       "name": "ninjaone",
       "source": "./skills/ninjaone",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "rmm",
       "tags": [
         "ninjaone",

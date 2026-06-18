@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "ninjaone-mcp",
   "display_name": "NinjaOne",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
   "author": {
     "name": "Servosity Inc."

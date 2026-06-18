@@ -866,8 +866,8 @@
       "tagline": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.",
       "cli_hash": "sha256:4e25b03a85fc5316977239d7d18fa1d34bdc79c7273897e0038dce3aad1da051",
       "template_version": 3,
-      "version": "0.1.2",
-      "cli_hash_at_release": "sha256:72d4978e6cced0a86ecb917e3afbed153177ff6e2ad26f76306b0e5c7639fde6",
+      "version": "0.1.3",
+      "cli_hash_at_release": "sha256:da30841600e38d9175f54b6ddbfdcefddca12128fbe008a873ec6b667bb6a273",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
