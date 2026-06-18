@@ -4303,14 +4303,46 @@ var resourceIDFieldOverrides = map[string]string{
 	"knowledgebase-organization-articles": "id",
 	"organization":                        "organizationId",
 	"organization-checklists":             "id",
-	"queries-backup-usage":                "id",
-	"related-items":                       "id",
-	"tag":                                 "id",
-	"ticketing-app-user-contact":          "id",
-	"user":                                "id",
-	"user-end-users":                      "id",
-	"user-technicians":                    "id",
-	"vulnerability":                       "id",
+	// /v2/queries/* report endpoints are device-scoped: every row carries a
+	// deviceId and the report family carries no globally-unique top-level id
+	// (where an `id` exists it is a PATCH id that repeats across devices). So
+	// deviceId is forced as the PRIMARY key for the whole family - without it
+	// the generic fallback keyed on a patch `id` or a `name` and silently
+	// collapsed rows ACROSS devices (every "Windows 11" device -> one row).
+	// Resources that return many rows per device add a secondary discriminator
+	// via resourceCompositeKeyColumns below (#136). Single-row-per-device
+	// resources (device-health, policy-overrides, operating-systems,
+	// computer-systems) key on deviceId alone. queries-backup-usage keeps its
+	// own `id` (pre-existing, working). The four queries-custom-fields* report
+	// variants are intentionally NOT listed: their row shape (nodeId vs
+	// deviceId, per-device vs per-field) is not confirmable from the connector
+	// source, and a wrong override would zero them out - tracked as a follow-up.
+	"queries-antivirus-status":        "deviceId",
+	"queries-antivirus-threats":       "deviceId",
+	"queries-backup-usage":            "id",
+	"queries-computer-systems":        "deviceId",
+	"queries-device-health":           "deviceId",
+	"queries-logged-on-users":         "deviceId",
+	"queries-network-interfaces":      "deviceId",
+	"queries-operating-systems":       "deviceId",
+	"queries-os-patch-installs":       "deviceId",
+	"queries-os-patches":              "deviceId",
+	"queries-policy-overrides":        "deviceId",
+	"queries-processors":              "deviceId",
+	"queries-raid-controllers":        "deviceId",
+	"queries-raid-drives":             "deviceId",
+	"queries-software":                "deviceId",
+	"queries-software-patch-installs": "deviceId",
+	"queries-software-patches":        "deviceId",
+	"queries-volumes":                 "deviceId",
+	"queries-windows-services":        "deviceId",
+	"related-items":                   "id",
+	"tag":                             "id",
+	"ticketing-app-user-contact":      "id",
+	"user":                            "id",
+	"user-end-users":                  "id",
+	"user-technicians":                "id",
+	"vulnerability":                   "id",
 }
 
 // genericIDFieldFallbacks is the runtime safety net for resources that did
@@ -4493,16 +4525,63 @@ func scalarIDString(value any) string {
 	}
 }
 
+// resourceCompositeKeyColumns supplies the secondary discriminator for FLAT,
+// device-scoped /v2/queries/* resources that return MANY rows per device (#136).
+// The storage key is the primary key (deviceId, via resourceIDFieldOverrides)
+// joined with this field. Without it, rows that share a deviceId collapse onto
+// the bare deviceId and only the last survives. The discriminator is whatever
+// makes a row unique WITHIN a device: a per-row id where one exists (patch id
+// for queries-os-patches / queries-software-patches and their *-installs), else
+// a natural attribute (productName, threatId, interfaceIndex, userName,
+// controllerIndex, driveId, name). Field names are the exact camelCase JSON keys
+// (LookupFieldValue also tolerates snake_case). Single-row-per-device query
+// resources (queries-device-health, queries-policy-overrides,
+// queries-operating-systems, queries-computer-systems) need only the deviceId
+// override and are absent here.
+//
+// This is distinct from resourceParentKeyColumns: there the appended field is a
+// genuine PARENT id for a dependent child resource; here both the primary and
+// the discriminator come from the same flat row.
+//
+// DURABLE FIX belongs in cli-printing-press: the id/pagination profiler should
+// detect id-less device-scoped report endpoints and emit a composite key. Until
+// then this hand-fix must survive every reprint (recorded in handfixes.json).
+var resourceCompositeKeyColumns = map[string]string{
+	"queries-antivirus-status":        "productName",     // one row per AV product
+	"queries-antivirus-threats":       "threatId",        // one row per detected threat
+	"queries-network-interfaces":      "interfaceIndex",  // one row per NIC
+	"queries-logged-on-users":         "userName",        // one row per user
+	"queries-os-patches":              "id",              // one row per patch (id is the patch id)
+	"queries-os-patch-installs":       "id",              // one row per patch install
+	"queries-processors":              "name",            // one row per CPU
+	"queries-raid-controllers":        "controllerIndex", // one row per controller
+	"queries-raid-drives":             "driveId",         // one row per drive
+	"queries-software":                "name",            // one row per installed product
+	"queries-software-patches":        "id",              // one row per patch (id is the patch id)
+	"queries-software-patch-installs": "id",              // one row per patch install
+	"queries-volumes":                 "name",            // one row per volume
+	"queries-windows-services":        "name",            // one row per service
+	// operating-systems and computer-systems are one-row-per-device -> keyed on
+	// deviceId alone (no discriminator); they are in resourceIDFieldOverrides only.
+}
+
 func resourceStorageID(resourceType, id string, obj map[string]any) string {
-	parentKey := resourceParentKeyColumns[resourceType]
-	if parentKey == "" {
-		return id
+	// Parent context for dependent (parent-child) resources keeps every
+	// parent association distinct instead of collapsing onto the child id.
+	if parentKey := resourceParentKeyColumns[resourceType]; parentKey != "" {
+		if parentValue := ResourceIDString(lookupFieldValue(obj, parentKey)); parentValue != "" && parentValue != "<nil>" {
+			id = id + string([]byte{0}) + parentValue
+		}
 	}
-	parentValue := ResourceIDString(lookupFieldValue(obj, parentKey))
-	if parentValue == "" || parentValue == "<nil>" {
-		return id
+	// Secondary discriminator for flat, id-less, multi-row-per-device
+	// /v2/queries/* resources (#136): deviceId alone would collide across the
+	// many rows a single device contributes.
+	if discrimKey := resourceCompositeKeyColumns[resourceType]; discrimKey != "" {
+		if discrimValue := ResourceIDString(lookupFieldValue(obj, discrimKey)); discrimValue != "" && discrimValue != "<nil>" {
+			id = id + string([]byte{0}) + discrimValue
+		}
 	}
-	return id + string([]byte{0}) + parentValue
+	return id
 }
 
 // UpsertBatch inserts or replaces multiple records in a single transaction

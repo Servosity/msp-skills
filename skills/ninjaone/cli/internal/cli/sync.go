@@ -1450,6 +1450,42 @@ func findCursorInMap(m map[string]json.RawMessage, cursorKeys []string) string {
 		if err := json.Unmarshal(raw, &s); err == nil && s != "" {
 			return s
 		}
+		// Object-valued cursor (#136): NinjaOne /v2/queries/* paginates via
+		// "cursor":{"name":"<token>","offset":0,"count":"N","expires":...} - an
+		// object, not a string, so the scalar unmarshal above fails and the
+		// next-page token was never found (the loop stopped after 100 rows and
+		// emitted pagination_cursor_missing). Descend and take the first
+		// non-empty string token field. This runs ONLY after the string attempt
+		// fails, so APIs whose cursor is a plain string are unaffected.
+		if c := cursorTokenFromObject(raw); c != "" {
+			return c
+		}
+	}
+	return ""
+}
+
+// cursorTokenFromObject extracts a next-page token from an object-valued cursor
+// (e.g. NinjaOne's {"name":...}). It probes the common token field names in a
+// fixed order and returns the first non-empty string; nested non-string values
+// are ignored. Returns "" when raw is not an object or holds no string token.
+func cursorTokenFromObject(raw json.RawMessage) string {
+	var inner map[string]json.RawMessage
+	if json.Unmarshal(raw, &inner) != nil {
+		return ""
+	}
+	// Probe only genuine next-page-token field names. NinjaOne uses "name";
+	// the rest are standard cursor-token spellings. Deliberately excludes
+	// generic keys like "id"/"after" that commonly name non-paging fields, so
+	// an object cursor carrying an unrelated id is never mistaken for a token.
+	for _, k := range []string{"name", "next_cursor", "nextCursor", "next", "cursor", "token"} {
+		v, ok := inner[k]
+		if !ok {
+			continue
+		}
+		var s string
+		if json.Unmarshal(v, &s) == nil && s != "" {
+			return s
+		}
 	}
 	return ""
 }
