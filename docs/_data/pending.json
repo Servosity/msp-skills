@@ -140,11 +140,11 @@
     "released_hash": "sha256:4ff2c6903bd19c1ef62cb39efa861570ccce90dc20a2cac715974a1db621ff91"
   },
   "halopsa": {
-    "state": "binary-pending",
-    "version": "0.2.1",
-    "latest_tag": "halopsa-v0.2.0",
+    "state": "up-to-date",
+    "version": "0.2.2",
+    "latest_tag": "halopsa-v0.2.2",
     "current_hash": "sha256:2603703caa88261cbab4fe01c70e0320085dc6c18087614c8b28cdbaaf83794f",
-    "released_hash": "sha256:7f32f6aa9fb0c80e2554a1a686885aef265e130a3d50e6fb8f45a998256a9f95"
+    "released_hash": "sha256:2603703caa88261cbab4fe01c70e0320085dc6c18087614c8b28cdbaaf83794f"
   },
   "hubspot": {
     "state": "version-pending",
