@@ -162,6 +162,31 @@
         {"file": "cli/internal/mcp/cobratree/shellout.go", "not_contains": "\"client\":   true"},
         {"file": "cli/internal/mcp/cobratree/shellout_test.go", "contains": "TestCliArgsFromMCP_ForwardsClientFilter", "min_count": 1}
       ]
+    },
+    {
+      "id": "fts-display-name-three-letter-caps",
+      "summary": "FTS index filter must not drop a record's display NAME when it is a 3-letter all-caps host label (WEB/SQL/DNS); search-by-name missed those records",
+      "why": "shouldIndexSearchString (cli/internal/store/store.go) had a value-based, KEY-BLIND branch dropping any 3-letter all-caps string (intended for currency/country codes like USD/GBP). Being key-blind it also discarded a record's name/alias when the name was a 3-letter all-caps NetBIOS/host label (WEB/SQL/DNS/DMZ/APP/VPN/CRM/ERP - ubiquitous in MSP fleets), so the name never entered resources_fts and MCP search returned 0 rows for it while list/get (live API) still found it (issue #148, reported by Barret). Fix: gate the drop on !isDisplayNameKey(key) + added isDisplayNameKey helper; bumped StoreSchemaVersion AND resourcesFTSContentSchemaVersion 4->5 (kept equal) so existing synced DBs rebuild FTS through the fixed filter once on the next sync. TestSearchByThreeLetterUpperName_Issue148 fails without the guard.",
+      "status": "active",
+      "spec_encode_followup": "Belongs in the press content-extraction template: the 3-letter all-caps suppression must be key-aware (exempt display-name keys), and a content-filter change must bump the FTS-content schema version (kept <= StoreSchemaVersion) to re-index existing DBs. Printing-press retro filed alongside #148.",
+      "asserts": [
+        {"file": "cli/internal/store/store.go", "contains": "isDisplayNameKey", "min_count": 2},
+        {"file": "cli/internal/store/store.go", "contains": "!isDisplayNameKey(key)", "min_count": 1},
+        {"file": "cli/internal/store/store.go", "contains": "const resourcesFTSContentSchemaVersion = 5", "min_count": 1},
+        {"file": "cli/internal/store/display_name_index_test.go", "contains": "TestSearchByThreeLetterUpperName_Issue148", "min_count": 1}
+      ]
+    },
+    {
+      "id": "mcp-search-unsynced-guidance",
+      "summary": "MCP search must give actionable 'run sync first' guidance instead of a cryptic SQLite error / bare null on an unsynced or empty local DB",
+      "why": "handleSearch (cli/internal/mcp/tools.go) opens the local DB read-only and queried it directly: on a missing/never-synced DB OpenReadOnly (mode=ro) surfaced SQLite 'out of memory (14)', and a no-match returned a bare 'null' from toolResultJSON(nil) - both read as 'search is broken' to an MCP user, while the CLI search path emits sync hints (issue #148, reported by Barret). Fix: stat dbPath() and return 'run the sync tool first' when absent; return a 'No matches ... run sync' hint on empty results; keep JSON results unchanged on a real match.",
+      "status": "active",
+      "spec_encode_followup": "Belongs in the press MCP local-DB tool template: search/sql handlers should stat the DB and surface a sync hint instead of leaking the raw SQLite open error, and return a structured empty/hint result rather than a bare null. Printing-press retro filed alongside #148.",
+      "asserts": [
+        {"file": "cli/internal/mcp/tools.go", "contains": "run the 'sync' tool first", "min_count": 1},
+        {"file": "cli/internal/mcp/tools.go", "contains": "Hand-fix (issue #148", "min_count": 1},
+        {"file": "cli/internal/mcp/search_guidance_test.go", "contains": "TestHandleSearch_Issue148_Guidance", "min_count": 1}
+      ]
     }
   ]
 }
