@@ -4,6 +4,24 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.7] - unreleased
+
+### Fixed
+- Search now finds records whose name is a 3-letter all-caps label (e.g. `WEB`,
+  `SQL`, `DNS`, `DMZ`, `APP`, `VPN`). The local full-text index dropped any
+  3-letter all-caps string (a rule meant for currency/country codes like `USD`),
+  but it was key-blind, so it also discarded a record's `name`/`alias` when the
+  name was a short host label. Those records were fully present (list/get
+  returned them) but `search` by name returned nothing, which is why it showed up
+  only through the MCP `search` tool. The index filter is now key-aware: it keeps
+  the value for display-name fields and still drops bare codes elsewhere. The
+  FTS-content schema version is bumped so existing local databases re-index
+  through the fixed filter on the next `sync`. (reported by Barret, #148)
+- MCP `search` now gives actionable guidance instead of failing opaquely: when the
+  local database has not been synced it returns "run the `sync` tool first" rather
+  than a cryptic SQLite error, and a no-match returns a clear hint instead of a
+  bare `null`. (reported by Barret, #148)
+
 ## [0.2.6] - unreleased
 
 ### Fixed

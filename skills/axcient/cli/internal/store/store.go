@@ -49,14 +49,18 @@ func IsUUID(s string) bool {
 // StoreSchemaVersion is the on-disk schema version this binary understands.
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
 // checked on every open. Non-learn CLIs advance to v4 for the
-// resources_fts content extraction.
-const StoreSchemaVersion = 4
+// resources_fts content extraction; v5 (issue #148) re-indexes existing DBs
+// after the display-name FTS filter fix so already-synced records become
+// searchable by name on the next sync.
+const StoreSchemaVersion = 5
 
 // resourcesFTSContentSchemaVersion pins the schema bump that rewrote
 // resources_fts content from raw JSON to searchable leaf values. Keep this
 // separate from StoreSchemaVersion so future unrelated migrations do not
-// trigger an expensive full FTS rebuild.
-const resourcesFTSContentSchemaVersion = 4
+// trigger an expensive full FTS rebuild. Bumped to 5 (issue #148) to force a
+// one-time FTS rebuild through the display-name-aware index filter. Must stay
+// <= StoreSchemaVersion so the rebuild fires once and the version stamp settles.
+const resourcesFTSContentSchemaVersion = 5
 
 const resourcesFTSCreateSQL = `CREATE VIRTUAL TABLE IF NOT EXISTS resources_fts USING fts5(
 	id, resource_type, content, tokenize='porter unicode61'
@@ -928,7 +932,13 @@ func shouldIndexSearchString(key, value string) bool {
 		return false
 	case strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://"):
 		return false
-	case upper == s && len(s) == 3 && strings.IndexFunc(s, func(r rune) bool { return r < 'A' || r > 'Z' }) == -1:
+	// Hand-fix (issue #148): gate the 3-letter ALL-CAPS drop on !isDisplayNameKey.
+	// The rule suppresses bare codes (USD/GBP/country codes) in non-name fields, but
+	// being value-based and key-blind it also discarded a record's NAME when it is a
+	// 3-letter all-caps host label (WEB/SQL/DNS/DMZ/APP/VPN/CRM/ERP); those never
+	// entered resources_fts, so MCP search missed the record by name. Keep the key
+	// guard on reprint.
+	case upper == s && len(s) == 3 && !isDisplayNameKey(key) && strings.IndexFunc(s, func(r rune) bool { return r < 'A' || r > 'Z' }) == -1:
 		return false
 	}
 	tokens := ftsQueryTokenRE.FindAllString(s, -1)
@@ -946,6 +956,19 @@ func isIdentifierKey(key string) bool {
 		strings.HasSuffix(lower, "-id") ||
 		strings.HasSuffix(key, "Id") ||
 		strings.HasSuffix(key, "ID")
+}
+
+// isDisplayNameKey reports whether key holds a record's human-readable name.
+// Hand-fix (issue #148): such values must stay in the search index even when
+// they look like a bare 3-letter all-caps code (a NetBIOS/host label like WEB
+// or SQL), so search-by-name finds the record.
+func isDisplayNameKey(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(key)) {
+	case "name", "alias", "full_name", "fullname", "username",
+		"display_name", "displayname", "hostname", "device_name", "client_code":
+		return true
+	}
+	return false
 }
 
 func ftsMatchQuery(query string) string {

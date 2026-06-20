@@ -689,15 +689,28 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 		limit = int(v)
 	}
 
+	// Hand-fix (issue #148): search reads the LOCAL synced DB. When it has not
+	// been populated, OpenReadOnly (mode=ro) surfaces a cryptic SQLite
+	// "out of memory (14)"; give actionable guidance instead.
+	if _, statErr := os.Stat(dbPath()); os.IsNotExist(statErr) {
+		return mcplib.NewToolResultError("local search database not found; run the 'sync' tool first to populate it, then search again"), nil
+	}
+
 	db, err := store.OpenReadOnly(dbPath())
 	if err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("opening database: %v", err)), nil
+		return mcplib.NewToolResultError(fmt.Sprintf("opening search database: %v\nIf you have not synced yet, run the 'sync' tool first.", err)), nil
 	}
 	defer db.Close()
 
 	results, err := db.Search(query, limit)
 	if err != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("search failed: %v", err)), nil
+	}
+
+	// Hand-fix (issue #148): a bare `null` on no matches reads as "search is
+	// broken"; return an actionable hint (stale/unsynced data is the common cause).
+	if len(results) == 0 {
+		return mcplib.NewToolResultText(fmt.Sprintf("No matches for %q. If your local data is stale or unsynced, run the 'sync' tool first, then search again.", query)), nil
 	}
 
 	return toolResultJSON(results)
