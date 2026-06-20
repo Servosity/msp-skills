@@ -62,6 +62,11 @@
       "reason": "servosity (generated). gosec G101 LOW-confidence false-positive on the variable NAME 'resourceParentKeyColumns' (the 'Key' substring); the value is a generated map of resource table -> parent foreign-key COLUMN names (e.g. agent_logs -> agent_sessions_id), not credential material. Same class as the auth.go/client.go G101 'tokenURL' FPs (#109). Repo-relative (scoped to servosity only). Surfaced by servosity #78."
     },
     {
+      "file": "skills/halopsa/cli/internal/cli/sync.go",
+      "rule": "G101",
+      "reason": "halopsa (generated). gosec G101 LOW-confidence false-positive on the generated syncResourcePath map (resource name -> HaloPSA API endpoint PATH). HaloPSA's API genuinely exposes endpoints whose names contain credential-ish substrings, so the map values trip the heuristic: 'license-info-password' -> '/LicenseInfo/password', 'mailbox-credential' -> '/MailboxCredential', 'secure-secret-link' -> '/SecureSecretLink'. These are public URL paths, not credential material. Same class as the servosity generated-map G101 above and the fleet 'tokenURL' G101 FPs. govulncheck reachability = 0 for halopsa. Repo-relative (scoped to halopsa only). Surfaced by halopsa #147."
+    },
+    {
       "file": "cli/internal/cli/deliver.go",
       "rule": "G301",
       "reason": "FLEET (generated). MkdirAll 0o755 on a user-chosen output directory. Same low-risk local rationale + 0700 press follow-up as store.go G301."
