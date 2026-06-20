@@ -63,6 +63,17 @@ func buildURL(baseURL, path string, vars map[string]string) (string, error) {
 	return "", &TemplateVarError{Names: unresolved}
 }
 
+// ResolveTemplateURL substitutes {placeholder} markers in a standalone URL
+// (e.g. the OAuth2 token endpoint) against vars — the same substitution
+// buildURL applies to request URLs. The OAuth mint/refresh paths assemble
+// their token URL outside the normal request flow, so without this they would
+// POST a literal "https://{tenant}.{domain}/auth/token" and fail with
+// `invalid character "{" in host name`. Returns a TemplateVarError naming the
+// env var to export when a placeholder is genuinely unresolved.
+func ResolveTemplateURL(rawURL string, vars map[string]string) (string, error) {
+	return buildURL(rawURL, "", vars)
+}
+
 // TemplateVarError reports unresolved {var} placeholders detected at request
 // time. The message names the env var(s) the user needs to export — not just
 // the placeholder — because the placeholder ("shop") is implementation

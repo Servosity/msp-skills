@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"halopsa-pp-cli/internal/client"
 	"halopsa-pp-cli/internal/cliutil"
 	"halopsa-pp-cli/internal/config"
 )
@@ -85,6 +86,10 @@ Credentials default to HALOPSA_CLIENT_ID (Client ID) and HALOPSA_CLIENT_SECRET (
 			tokenURL := cfg.TokenURL
 			if tokenURL == "" {
 				tokenURL = "https://{tenant}.{domain}/auth/token"
+			}
+			tokenURL, err = client.ResolveTemplateURL(tokenURL, cfg.TemplateVars)
+			if err != nil {
+				return configErr(err)
 			}
 			tok, err := mintClientCredentialsToken(http.DefaultClient, tokenURL, clientID, clientSecret)
 			if err != nil {

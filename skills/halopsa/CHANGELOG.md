@@ -4,7 +4,16 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.2.1] - unreleased
+## [0.2.2] - unreleased
+
+### Fixed
+- OAuth2 authentication now resolves the `{tenant}` and `{domain}` endpoint
+  placeholders in the token URL, so `auth login`, automatic token minting, and
+  refresh no longer fail with `invalid character "{" in host name`, on Windows
+  or any platform. The token-mint paths previously POSTed the literal
+  `https://{tenant}.{domain}/auth/token` because they bypassed the URL
+  substitution used for ordinary requests. Thanks to @Xenith-B for the report
+  (#147).
 
 ### Changed
 - Regenerated on the printing-press 4.24.0 engine: more reliable fleet sync, corrected pagination across large result sets, robust numeric-ID handling, and dependency security updates. Same commands and workflows, sturdier local mirror.

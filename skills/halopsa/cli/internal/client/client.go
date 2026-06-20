@@ -932,6 +932,16 @@ func resolveClientCredentialsScope() string {
 	return "all"
 }
 
+// templateVarsFrom returns the {placeholder} -> value map populated at config
+// Load() time, or nil when there is no config — so the token-URL substitution
+// in the mint/refresh paths is nil-safe.
+func templateVarsFrom(cfg *config.Config) map[string]string {
+	if cfg == nil {
+		return nil
+	}
+	return cfg.TemplateVars
+}
+
 func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecret string) error {
 	tokenURL := ""
 	if c.Config != nil {
@@ -942,6 +952,10 @@ func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecr
 	}
 	if tokenURL == "" {
 		return nil
+	}
+	tokenURL, err := ResolveTemplateURL(tokenURL, templateVarsFrom(c.Config))
+	if err != nil {
+		return fmt.Errorf("building token request: %w", err)
 	}
 	form := url.Values{
 		"grant_type":    {"client_credentials"},
@@ -1003,6 +1017,10 @@ func (c *Client) refreshAccessToken(ctx context.Context) error {
 	tokenURL := c.Config.TokenURL
 	if tokenURL == "" {
 		tokenURL = "https://{tenant}.{domain}/auth/token"
+	}
+	tokenURL, err := ResolveTemplateURL(tokenURL, templateVarsFrom(c.Config))
+	if err != nil {
+		return fmt.Errorf("building refresh request: %w", err)
 	}
 
 	params := url.Values{
