@@ -1,0 +1,35 @@
+{
+  "slug": "halopsa",
+  "doc": "CHANGELOG.md (#147)",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #147 (reporter @Xenith-B), fixed 2026-06-20. The OAuth2 token-mint/refresh paths assembled the token URL ('https://{tenant}.{domain}/auth/token') outside the normal request flow and POSTed it WITHOUT substituting the {tenant}/{domain} placeholders that buildURL resolves for ordinary requests -- so every `auth login`, auto-mint, and refresh failed with `invalid character \"{\" in host name`, even when HALOPSA_TENANT/HALOPSA_DOMAIN were set correctly. Fix routes the token URL through a new exported ResolveTemplateURL helper (wrapping the existing buildURL substitution). This is a GENERATOR-class defect (the press emits token-URL literals it never resolves) tracked for an upstream retro; until the press is fixed, a reprint regenerates the unresolved literals and these markers guard the connector. No new flag/command/output; bug-fix-only.",
+  "handfixes": [
+    {
+      "id": "token-url-template-substitution",
+      "summary": "OAuth2 token URL is run through ResolveTemplateURL so {tenant}/{domain} resolve before the POST (issue #147)",
+      "why": "The mint/refresh/auth-login paths build the token URL outside buildURL and would POST a literal 'https://{tenant}.{domain}/auth/token', which http.NewRequest rejects. A reprint regenerates these paths as unresolved literals; these markers ensure the substitution call survives.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/url.go",
+          "contains": "func ResolveTemplateURL(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "ResolveTemplateURL(tokenURL, templateVarsFrom(c.Config))",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "client.ResolveTemplateURL(tokenURL, cfg.TemplateVars)",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/client/url_token_resolution_test.go",
+          "contains": "TestResolveTemplateURL_TokenEndpoint",
+          "min_count": 1
+        }
+      ]
+    }
+  ]
+}
