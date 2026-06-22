@@ -298,6 +298,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDescription("Full-text search across all synced data. Faster than paginating list endpoints. Requires sync first."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Search query (supports FTS5 syntax: AND, OR, NOT, quotes for phrases)")),
 			mcplib.WithNumber("limit", mcplib.Description("Max results (default 25)")),
+			mcplib.WithBoolean("full", mcplib.Description("Return whole raw records instead of the concise id/name/type/match projection (default false)")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -688,6 +689,7 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 	if v, ok := args["limit"].(float64); ok && v > 0 {
 		limit = int(v)
 	}
+	full, _ := args["full"].(bool)
 
 	// Hand-fix (issue #148): search reads the LOCAL synced DB. When it has not
 	// been populated, OpenReadOnly (mode=ro) surfaces a cryptic SQLite
@@ -702,18 +704,39 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 	}
 	defer db.Close()
 
-	results, err := db.Search(query, limit)
+	// Hand-fix (issue #101 residual #2): default to the concise id/name/type/match
+	// projection so agents aren't handed a wall of nested JSON; full=true restores
+	// whole raw records (parity with the CLI's --full). The MCP path was missed by
+	// the v0.2.4 CLI-only projection fix. See internal/mcp/search_project.go.
+	if full {
+		results, err := db.Search(query, limit)
+		if err != nil {
+			return mcplib.NewToolResultError(fmt.Sprintf("search failed: %v", err)), nil
+		}
+		if len(results) == 0 {
+			return noSearchMatches(query), nil
+		}
+		return toolResultJSON(results)
+	}
+
+	hits, err := db.SearchHits(query, limit)
 	if err != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("search failed: %v", err)), nil
 	}
-
-	// Hand-fix (issue #148): a bare `null` on no matches reads as "search is
-	// broken"; return an actionable hint (stale/unsynced data is the common cause).
-	if len(results) == 0 {
-		return mcplib.NewToolResultText(fmt.Sprintf("No matches for %q. If your local data is stale or unsynced, run the 'sync' tool first, then search again.", query)), nil
+	if len(hits) == 0 {
+		return noSearchMatches(query), nil
 	}
+	rows := make([]searchRow, 0, len(hits))
+	for _, h := range hits {
+		rows = append(rows, projectSearchHit(h, query))
+	}
+	return toolResultJSON(rows)
+}
 
-	return toolResultJSON(results)
+// noSearchMatches is the shared "no matches" hint (issue #148): a bare `null`
+// reads as "search is broken", so point at stale/unsynced data instead.
+func noSearchMatches(query string) *mcplib.CallToolResult {
+	return mcplib.NewToolResultText(fmt.Sprintf("No matches for %q. If your local data is stale or unsynced, run the 'sync' tool first, then search again.", query))
 }
 
 // validateReadOnlyQuery gates the MCP sql tool. The agent contract advertised

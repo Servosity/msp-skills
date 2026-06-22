@@ -105,15 +105,18 @@
     },
     {
       "id": "search-concise-projection",
-      "summary": "`search` defaults to a concise id/name/type/match projection (not whole raw records); --full restores raw. Logic lives in hand-authored files so a reprint can't clobber it.",
-      "why": "Issue #84/#101 residual item: `search` dumped entire raw JSON records, a token sink for agents. The fix adds store.SearchHits (returns resource_type alongside data) and a renderSearchResults projection, both in HAND-AUTHORED files (internal/store/search_hits.go, internal/cli/search_projection.go) that a cli-printing-press reprint of store.go/search.go won't touch. The generated search.go carries only a minimal hook (--full flag + SearchHits calls + renderSearchResults). A reprint must re-apply that hook; the asserts below fail CI if it regressed. Default-dumping-raw is systemic press behavior (a printing-press retro tracks the upstream fix).",
+      "summary": "`search` defaults to a concise id/name/type/match projection (not whole raw records) on BOTH the CLI and MCP surfaces; --full (CLI) / full=true (MCP) restores raw. Logic lives in hand-authored files so a reprint can't clobber it.",
+      "why": "Issue #84/#101 residual item: `search` dumped entire raw JSON records, a token sink for agents. The fix adds store.SearchHits (returns resource_type alongside data) and a renderSearchResults projection, both in HAND-AUTHORED files (internal/store/search_hits.go, internal/cli/search_projection.go) that a cli-printing-press reprint of store.go/search.go won't touch. The generated search.go carries only a minimal hook (--full flag + SearchHits calls + renderSearchResults). A reprint must re-apply that hook; the asserts below fail CI if it regressed. Default-dumping-raw is systemic press behavior (a printing-press retro tracks the upstream fix). Issue #101 follow-up (v0.2.8): the v0.2.4 fix only covered the CLI; the MCP `search` tool (internal/mcp/tools.go handleSearch) is a SEPARATE hand-wired handler that kept dumping raw via db.Search+toolResultJSON, so MCP/agent users still saw whole records through v0.2.7. handleSearch now defaults to db.SearchHits+projectSearchHit (hand-authored internal/mcp/search_project.go) and only db.Search-dumps when the new full=true param is set. A reprint of tools.go must re-apply that hook.",
       "status": "active",
-      "spec_encode_followup": "Belongs in the press: the generated search command should offer a concise projection by default with a --full opt-in. Until a reprint absorbs it, the hand-authored files + this hook guard it.",
+      "spec_encode_followup": "Belongs in the press: the generated search command AND the generated MCP search tool should both offer a concise projection by default with a --full / full opt-in. Until a reprint absorbs it, the hand-authored files + these hooks guard it.",
       "asserts": [
         {"file": "cli/internal/store/search_hits.go", "contains": "func (s *Store) SearchHits", "min_count": 1},
         {"file": "cli/internal/cli/search_projection.go", "contains": "func renderSearchResults", "min_count": 1},
         {"file": "cli/internal/cli/search.go", "contains": "renderSearchResults", "min_count": 1},
-        {"file": "cli/internal/cli/search.go", "contains": "db.SearchHits", "min_count": 2}
+        {"file": "cli/internal/cli/search.go", "contains": "db.SearchHits", "min_count": 2},
+        {"file": "cli/internal/mcp/search_project.go", "contains": "func projectSearchHit", "min_count": 1},
+        {"file": "cli/internal/mcp/tools.go", "contains": "projectSearchHit", "min_count": 1},
+        {"file": "cli/internal/mcp/tools.go", "contains": "db.SearchHits", "min_count": 1}
       ]
     },
     {
