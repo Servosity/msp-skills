@@ -4,6 +4,18 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.8] - unreleased
+
+### Fixed
+- MCP `search` now returns the concise `id/name/type/match` projection by default
+  instead of dumping whole raw records, matching the CLI `search` command and the
+  connector guide. The v0.2.4 projection fix only covered the CLI path; the MCP
+  `search` tool is a separate hand-wired handler that kept marshalling the full
+  records via `db.Search`, so MCP/agent users still saw a wall of nested JSON
+  (e.g. complete client objects with all `devices_counters` blocks) through
+  v0.2.7. A new `full` boolean parameter restores the whole records, mirroring the
+  CLI's `--full`. (reported via #101)
+
 ## [0.2.7] - unreleased
 
 ### Fixed
