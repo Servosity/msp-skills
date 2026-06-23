@@ -14,7 +14,6 @@ import (
 func newRackStorageItemsListCmd(flags *rootFlags) *cobra.Command {
 	var flagRackStorageId string
 	var flagPage string
-	var flagPageSize int
 
 	cmd := &cobra.Command{
 		Use:         "list",
@@ -34,9 +33,6 @@ func newRackStorageItemsListCmd(flags *rootFlags) *cobra.Command {
 			}
 			if flagPage != "" {
 				params["page"] = formatCLIParamValue(flagPage)
-			}
-			if flagPageSize != 0 {
-				params["page_size"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "rack-storage-items", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {
@@ -88,7 +84,6 @@ func newRackStorageItemsListCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&flagRackStorageId, "rack-id", "", "Filter by rack storage id")
 	cmd.Flags().StringVar(&flagPage, "page", "1", "1-based page number")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page")
 
 	return cmd
 }

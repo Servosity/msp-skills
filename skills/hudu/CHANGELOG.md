@@ -4,10 +4,16 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.1] - unreleased
+## [0.1.2] - unreleased
 
-### Changed
-- Regenerated on the printing-press 4.24.0 engine: more reliable fleet sync, corrected pagination across large result sets, robust numeric-ID handling, and dependency security updates. Same commands and workflows, sturdier local mirror.
+### Fixed
+- `sync` and the `list` commands no longer send the unsupported `page_size`
+  parameter to Hudu's IPAM-family endpoints (`ip-addresses`, `networks`, `vlans`,
+  `vlan-zones`, `rack-storage-items`). Hudu rejected it with HTTP 400
+  ("page_size is not a valid filter parameter.") and those resources stored zero
+  rows. They are now paged by `page` alone and drained until an empty page, so
+  they sync fully, without truncation. The non-functional `--page-size` flag is
+  removed from those five commands. Thanks @Xenith-B for the detailed report (#153).
 
 ## [0.1.0]
 

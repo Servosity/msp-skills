@@ -34,6 +34,23 @@
       "asserts": [
         {"file": "README.md", "not_contains": "Inc.."}
       ]
+    },
+    {
+      "id": "ipam-endpoints-reject-page-size",
+      "summary": "Five Hudu IPAM-family list endpoints (ip-addresses, networks, vlans, vlan-zones, rack-storage-items) are paged by `page` alone; the `page_size` param + `--page-size` flag + page-size MCP arg are removed for them, and sync pages them until an empty page",
+      "why": "issue #153: the press emits a single global pagination profile (limitParam=page_size) and registers every list endpoint as page_size-capable. Hudu rejects page_size on these five with HTTP 400 ('page_size is not a valid filter parameter.'; rack-storage-items: '...not a valid parameter.'), so `sync` and each `list` failed on the first request and stored 0 rows. Fix: resourceRejectsPageSize() carves these out of the page_size send (both sync.go and the 5 list cmds), drops the page-size MCP binding in code_orch.go, and the sync loop pages them by `page` until an empty page (pageFingerprint guards the page-ignoring case) so there is neither a 400 nor SILENT truncation. A reprint re-adds page_size everywhere and re-breaks all five. Cross-ref: the n8n-nodes-hudu project independently removed pagination from these same endpoints.",
+      "status": "active",
+      "spec_encode_followup": "Press gap: the profiler must support PER-ENDPOINT pagination params, not one global limitParam for the whole API. Some endpoints accept page+page_size, some accept page only, some are non-paginated. Filed as a printing-press-retro. Sibling of project_ninjaone_after_id_pagination_defect (per-endpoint pagination shape).",
+      "asserts": [
+        {"file": "cli/internal/cli/sync.go", "contains": "func resourceRejectsPageSize", "min_count": 1},
+        {"file": "cli/internal/cli/sync.go", "contains": "\"ip-addresses\", \"networks\", \"vlans\", \"vlan-zones\", \"rack-storage-items\"", "min_count": 1},
+        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_PageSizeRejectingEndpoint_PagesByPageOnly", "min_count": 1},
+        {"file": "cli/internal/cli/ip-addresses_list.go", "not_contains": "page_size"},
+        {"file": "cli/internal/cli/networks_list.go", "not_contains": "page_size"},
+        {"file": "cli/internal/cli/vlans_list.go", "not_contains": "page_size"},
+        {"file": "cli/internal/cli/vlan-zones_list.go", "not_contains": "page_size"},
+        {"file": "cli/internal/cli/rack-storage-items_list.go", "not_contains": "page_size"}
+      ]
     }
   ]
 }
