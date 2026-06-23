@@ -15,7 +15,6 @@ func newVlansListCmd(flags *rootFlags) *cobra.Command {
 	var flagCompanyId string
 	var flagVlanZoneId string
 	var flagPage string
-	var flagPageSize int
 
 	cmd := &cobra.Command{
 		Use:         "list",
@@ -38,9 +37,6 @@ func newVlansListCmd(flags *rootFlags) *cobra.Command {
 			}
 			if flagPage != "" {
 				params["page"] = formatCLIParamValue(flagPage)
-			}
-			if flagPageSize != 0 {
-				params["page_size"] = formatCLIParamValue(flagPageSize)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "vlans", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {
@@ -93,7 +89,6 @@ func newVlansListCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&flagCompanyId, "company-id", "", "Filter by company id")
 	cmd.Flags().StringVar(&flagVlanZoneId, "zone-id", "", "Filter by VLAN zone id")
 	cmd.Flags().StringVar(&flagPage, "page", "1", "1-based page number")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page")
 
 	return cmd
 }
