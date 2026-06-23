@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-22",
+  "generated_at": "2026-06-23",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -288,7 +288,7 @@
       "skill_path": "skills/connectwise-manage",
       "cli_binary": "connectwise-manage-cli",
       "mcp_binary": "connectwise-manage-mcp",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "printing_press_version": "4.24.0",
       "license": "Apache-2.0",
       "vendor": "ConnectWise Manage",
