@@ -78,6 +78,27 @@ func isNetworkError(err error) bool {
 		strings.Contains(msg, "TLS handshake timeout")
 }
 
+// isTimeoutError reports whether err is a request-deadline / client-timeout
+// failure, as distinct from a connection-level network error. On a large tenant
+// the live search/list leg can exceed its deadline without ever surfacing as a
+// net.OpError; auto-mode treats a timeout the same as an unreachable API and
+// falls back to local FTS instead of failing the whole call (issue #146).
+func isTimeoutError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var ne net.Error
+	if As(err, &ne) && ne.Timeout() {
+		return true
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "context deadline exceeded") ||
+		strings.Contains(msg, "Client.Timeout exceeded")
+}
+
 // openStoreForRead opens the local SQLite store for reading.
 // Returns nil, nil if the database file does not exist (no sync has been run).
 func openStoreForRead(ctx context.Context, cliName string) (*store.Store, error) {

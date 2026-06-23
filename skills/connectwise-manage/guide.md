@@ -236,6 +236,23 @@ connectwise-manage-cli condition build --field board/id --op in --value 2,3 --fi
 
 Emits a validated conditions string (correct quoting, AND join) you can paste into any list command.
 
+### Keep sync and reads fast on a tenant with years of history
+
+ConnectWise list endpoints declare no "changed since" parameter, so a plain `sync` re-fetches each resource in full (you'll see `resource_not_incremental` warnings) and `--since` has no effect on the sync itself. Scope the sync with a conditions filter, and keep reads local:
+
+```bash
+# Fetch only a working window instead of the whole history (repeat --param per high-volume resource)
+connectwise-manage-cli sync service-tickets --param "conditions=lastUpdated > [2025-01-01T00:00:00Z]"
+
+# Reads stay on the local mirror; search defaults to auto (live API first), so force local on a big tenant
+connectwise-manage-cli search "vpn outage" --data-source local --type service --limit 3
+
+# Give a cross-entity view more room if it exceeds the default timeout on a large dataset
+connectwise-manage-cli workload --timeout 2m
+```
+
+The MCP `search` tool is already local-only; via MCP, run the other commands through `connectwise-manage_execute` with the same flags.
+
 ## Usage
 
 Run `connectwise-manage-cli --help` for the full command reference and flag list.

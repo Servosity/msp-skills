@@ -205,7 +205,18 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries. 
 
 ### Will this hit my ConnectWise API rate limits?
 
-The local mirror exists so reads stop hitting the API. After the first sync, the cross-entity views (`unbilled`, `account`, `agreement-burn`, `board`, `stale`, `workload`) run against local SQLite with zero API calls. Live calls respect a `--rate-limit` throttle, and sync is incremental - it only fetches what changed since the last checkpoint.
+The local mirror exists so reads stop hitting the API. After the first sync, the cross-entity views (`unbilled`, `account`, `agreement-burn`, `board`, `stale`, `workload`) run against local SQLite with zero API calls. Live calls respect a `--rate-limit` throttle. Note: ConnectWise's list endpoints expose no "changed since" parameter, so a plain `sync` re-fetches each resource in full rather than only what changed (you'll see `resource_not_incremental` warnings) - on a tenant with years of history, scope the sync with a conditions filter as shown below.
+
+### I have years of history - how do I keep sync and reads fast?
+
+ConnectWise list endpoints declare no temporal-filter parameter, so a plain `sync` re-fetches every resource in full and `--since` has no effect on the sync itself. Two levers keep a heavy tenant fast:
+
+- **Scope the sync with a conditions filter.** Build a valid expression with `condition build`, then pass it to `sync` via `--param` (repeat per resource you want to bound):
+  ```bash
+  connectwise-manage-cli sync service-tickets --param "conditions=lastUpdated > [2025-01-01T00:00:00Z]"
+  ```
+  This fetches only the slice you ask for instead of the whole history.
+- **Stay local for reads.** The cross-entity views read the local mirror. `search` defaults to auto mode (it tries the live API first); add `--data-source local` (and optionally `--type <resource>`) to stay fully offline, and give a slow command more room with `--timeout 2m`. The MCP `search` tool is already local-only, so agents on the MCP server never hit the live-search path.
 
 ### Is this for ConnectWise PSA or ConnectWise Manage?
 
