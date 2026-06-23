@@ -57,7 +57,7 @@
       "name": "connectwise-manage",
       "source": "./skills/connectwise-manage",
       "description": "Every ConnectWise PSA workflow from the terminal \u2014 with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "psa",
       "tags": [
         "connectwise-manage",
