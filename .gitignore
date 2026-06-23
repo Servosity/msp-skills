@@ -66,17 +66,14 @@ skills/*/*-mcp
 skills/*/*-cli-*
 skills/*/*-mcp-*
 # Locally-built binaries at a vendored Go module root (skills/<skill>/cli/).
-# The Go source under cli/ (including cmd/<name>-pp-cli/ dirs) IS tracked; only
-# build OUTPUTS are ignored. Paths are anchored to the module root so they never
-# match the cmd/ source directories. The Makefile emits to bin/ (already ignored).
-skills/halopsa/cli/halopsa-pp-cli
-skills/halopsa/cli/halopsa-pp-mcp
-skills/halopsa/cli/halopsa-cli
-skills/halopsa/cli/halopsa-mcp
-skills/servosity/cli/servosity-pp-cli
-skills/servosity/cli/servosity-pp-mcp
-skills/servosity/cli/servosity-cli
-skills/servosity/cli/servosity-mcp
+# A stray `go build -o <slug>-mcp` at the module root drops a 60+ MB binary one
+# level under cli/, which the skills/*/*-mcp rule above does NOT reach. These
+# globs catch every connector (incl. the -pp- internal variants) by convention,
+# so a new skill can't reintroduce the gap. The `*` cannot cross `/`, so they
+# match only cli/<name> and never the tracked cli/cmd/<name>/ source dirs.
+# (The Makefile emits to bin/, already ignored; this covers manual builds.)
+skills/*/cli/*-cli
+skills/*/cli/*-mcp
 *.mcpb
 # Go workspace
 go.work
