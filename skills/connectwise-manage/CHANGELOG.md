@@ -11,7 +11,7 @@ All notable changes to this skill are documented here. Format follows
 - `search` in auto mode no longer hangs on a slow live API for a large tenant: the live-search leg is now bounded and falls back to local FTS on a timeout (not only on a network error). Reported by @Xenith-B (#146).
 
 ### Changed
-- Documented the **large/historical tenant playbook** across SKILL.md, guide.md, README, and the MCP `context` tool's `query_tips`: scope a heavy sync with a conditions filter (`sync --param "conditions=lastUpdated > [<iso>]"`), keep reads local (`--data-source local` / `--type`), and raise `--timeout` on big datasets. Corrected the prior claim that sync is incremental — ConnectWise list endpoints declare no temporal-filter parameter, so a plain sync re-fetches in full and `--since` has no effect on the sync itself (#146).
+- Documented the **large/historical tenant playbook** across SKILL.md, guide.md, README, and the MCP `context` tool's `query_tips`: scope a heavy sync with a conditions filter (`sync --param "conditions=lastUpdated > [<iso>]"`), keep reads local (`--data-source local` / `--type`), and raise `--timeout` on big datasets. Corrected the prior claim that sync is incremental - ConnectWise list endpoints declare no temporal-filter parameter, so a plain sync re-fetches in full and `--since` has no effect on the sync itself (#146).
 - Regenerated on the printing-press 4.24.0 engine: more reliable fleet sync, corrected pagination across large result sets, robust numeric-ID handling, and dependency security updates. Same commands and workflows, sturdier local mirror.
 
 ## [0.1.1] - unreleased
