@@ -642,6 +642,19 @@ connectwise-manage-cli condition build --field board/id --op in --value 2,3 --fi
 
 Emits a validated conditions string (correct quoting, AND join) you can paste into any list command.
 
+### Large / historical tenant: keep sync and reads fast
+
+On a tenant with years of history, a plain `sync` is expensive: ConnectWise list endpoints declare no "changed since" parameter, so every sync re-fetches each resource in full (you'll see `resource_not_incremental` warnings) and `--since` has **no effect on the sync itself**. Use these levers:
+
+- **Scope the sync with a conditions filter** so it fetches only a working window instead of the whole history. Build the expression with `condition build`, then pass it to `sync` via `--param` (repeat per high-volume resource):
+
+  ```bash
+  connectwise-manage-cli sync service-tickets --param "conditions=lastUpdated > [2025-01-01T00:00:00Z]"
+  ```
+
+- **Keep reads local.** The cross-entity views (`unbilled`, `account`, `agreement-burn`, `board`, `stale`, `workload`) read the local mirror. `search` defaults to auto mode (it tries the live API first); add `--data-source local` and/or `--type <resource>` to stay fully offline. If a command exceeds its default timeout on a big tenant, give it more room with `--timeout 2m`.
+- **On the MCP server**, the `search` tool is already local-only and bounded; run the other commands via `connectwise-manage_execute` and add the same `--param` / `--data-source local` / `--timeout` flags when the tenant is large.
+
 ## Auth Setup
 
 ConnectWise Manage uses HTTP Basic auth with a twist: the username is the composite `companyId+publicKey` and the password is the `privateKey`, plus a `clientId` GUID header is required on every call (registered at developer.connectwise.com). Set CW_COMPANY_ID, CW_PUBLIC_KEY, CW_PRIVATE_KEY, and CW_CLIENT_ID; set CW_SITE to your region host (api-na, api-eu, api-au) or your on-prem host. Run `doctor` to validate all four credentials and reachability before anything else.

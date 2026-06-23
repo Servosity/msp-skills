@@ -78,6 +78,36 @@ func cwLoad(ctx context.Context, db *store.Store, resourceType string) ([]map[st
 	return out, rows.Err()
 }
 
+// cwLoadOpenTickets returns only the OPEN service tickets, pushing the
+// closed-ticket filter into SQL so the working set scales with the open-ticket
+// count instead of the full ticket history. On a tenant with years of closed
+// tickets (issue #146), loading every row just to drop the closed ones in Go is
+// what pushed `workload` past its default timeout. A missing or false
+// closedFlag counts as open; callers re-check closedFlag, so this is purely a
+// performance prefilter and does not change results.
+func cwLoadOpenTickets(ctx context.Context, db *store.Store) ([]map[string]any, error) {
+	rows, err := db.DB().QueryContext(ctx,
+		`SELECT data FROM resources WHERE resource_type = ?
+		   AND COALESCE(json_extract(data, '$.closedFlag'), 0) = 0`, cwTickets)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []map[string]any
+	for rows.Next() {
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			return nil, err
+		}
+		obj, derr := store.DecodeJSONObject(json.RawMessage(data))
+		if derr != nil {
+			continue
+		}
+		out = append(out, obj)
+	}
+	return out, rows.Err()
+}
+
 // --- field extraction (json.Number-safe) ---
 
 func cwAsString(v any) string {

@@ -47,7 +47,9 @@ grouped by status; use 'board' instead.`, "\n"),
 				hintIfStale(cmd, db, cwTickets, flags.maxAge)
 			}
 
-			tickets, err := cwLoad(cmd.Context(), db, cwTickets)
+			// Load only open tickets (filtered in SQL) so workload scales with
+			// open-ticket count, not total ticket history (issue #146).
+			tickets, err := cwLoadOpenTickets(cmd.Context(), db)
 			if err != nil {
 				return err
 			}

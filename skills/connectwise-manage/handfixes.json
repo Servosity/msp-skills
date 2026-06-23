@@ -11,6 +11,38 @@
         {"file": "cli/internal/cli/doctor.go", "contains": "Hand-wired: the generator's single-scheme model can't express", "min_count": 1},
         {"file": "cli/internal/cli/doctor.go", "contains": "CW_COMPANY_ID", "min_count": 1}
       ]
+    },
+    {
+      "id": "workload-open-ticket-prefilter",
+      "summary": "workload loads ONLY open tickets via cwLoadOpenTickets (SQL closedFlag prefilter), not the full history",
+      "why": "On a tenant with years of closed tickets (issue #146), cwLoad loaded every service-ticket row just to drop the closed ones in Go, pushing workload past its default timeout. cwLoadOpenTickets pushes the closedFlag filter into SQL so the working set scales with open-ticket count. A reprint reverts workload to cwLoad and drops cwLoadOpenTickets.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/cli/cw_transcend.go", "contains": "func cwLoadOpenTickets", "min_count": 1},
+        {"file": "cli/internal/cli/cw_transcend.go", "contains": "$.closedFlag", "min_count": 1},
+        {"file": "cli/internal/cli/workload.go", "contains": "cwLoadOpenTickets(cmd.Context(), db)", "min_count": 1}
+      ]
+    },
+    {
+      "id": "search-auto-mode-timeout-fallback",
+      "summary": "search auto mode bounds the live-API leg and falls back to local FTS on a timeout, not only on a network error",
+      "why": "On a large tenant (issue #146) the live POST /project/tickets/search leg holds the call open until the caller's deadline; auto mode only fell back to local on a network error, so a slow API hung the whole call. The leg is now capped (autoLiveSearchTimeout) and isTimeoutError joins isNetworkError in the fallback condition. A reprint reverts both.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/cli/data_source.go", "contains": "func isTimeoutError", "min_count": 1},
+        {"file": "cli/internal/cli/search.go", "contains": "autoLiveSearchTimeout", "min_count": 1},
+        {"file": "cli/internal/cli/search.go", "contains": "!isTimeoutError(getErr)", "min_count": 1}
+      ]
+    },
+    {
+      "id": "mcp-context-large-tenant-tips",
+      "summary": "MCP context tool query_tips teach the large-tenant playbook (conditions-scoped sync, local reads, --timeout) and note MCP search is local-only",
+      "why": "The escape hatches for a heavy tenant (--param conditions=, --data-source local, --timeout) existed in the binary but no agent-facing surface advertised them (issue #146). The query_tips block now teaches them. A reprint regenerates query_tips from the spec and drops these.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/mcp/tools.go", "contains": "Large/historical tenant: sync is a FULL re-fetch today", "min_count": 1},
+        {"file": "cli/internal/mcp/tools.go", "contains": "resource_not_incremental", "min_count": 1}
+      ]
     }
   ]
 }

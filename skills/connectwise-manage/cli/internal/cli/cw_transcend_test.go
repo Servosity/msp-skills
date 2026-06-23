@@ -214,6 +214,38 @@ func TestCwLoadIntegration(t *testing.T) {
 	}
 }
 
+// TestCwLoadOpenTicketsIntegration verifies the SQL-level open-ticket prefilter
+// (issue #146): closed tickets must not be loaded, and a missing closedFlag
+// counts as open. This is the prefilter that keeps `workload` scaling with
+// open-ticket count instead of total history.
+func TestCwLoadOpenTicketsIntegration(t *testing.T) {
+	ctx := context.Background()
+	db, err := store.OpenWithContext(ctx, filepath.Join(t.TempDir(), "data.db"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer db.Close()
+
+	open := json.RawMessage(`{"id":201,"summary":"open","closedFlag":false}`)
+	closed := json.RawMessage(`{"id":202,"summary":"closed","closedFlag":true}`)
+	noFlag := json.RawMessage(`{"id":203,"summary":"no flag"}`)
+	if stored, _, err := db.UpsertBatch(cwTickets, []json.RawMessage{open, closed, noFlag}); err != nil || stored != 3 {
+		t.Fatalf("upsert tickets: stored=%d err=%v", stored, err)
+	}
+
+	got, err := cwLoadOpenTickets(ctx, db)
+	if err != nil {
+		t.Fatalf("cwLoadOpenTickets: %v", err)
+	}
+	ids := map[int]bool{}
+	for _, tk := range got {
+		ids[cwTopID(tk)] = true
+	}
+	if len(got) != 2 || !ids[201] || !ids[203] || ids[202] {
+		t.Fatalf("open tickets = %v (n=%d); want {201,203}, closed 202 excluded", ids, len(got))
+	}
+}
+
 func TestComputeAccount(t *testing.T) {
 	companies := []map[string]any{
 		{"id": num("7"), "identifier": "Acme", "name": "Acme Corp", "status": ref("1", "Active")},

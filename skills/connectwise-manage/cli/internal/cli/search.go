@@ -4,13 +4,21 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"connectwise-manage-pp-cli/internal/store"
 	"github.com/spf13/cobra"
 )
+
+// autoLiveSearchTimeout caps the live-API leg of `search` in auto mode so a
+// slow ConnectWise tenant (years of history) can't hold the call open until the
+// caller's deadline (issue #146). On a timeout, auto mode falls back to local
+// FTS. Explicit --data-source live is not capped — the user asked for the API.
+const autoLiveSearchTimeout = 20 * time.Second
 
 // isNilOrEmpty checks whether a JSON object has nil or empty values for
 // common identifier fields (title, name, identifier, id).
@@ -117,7 +125,17 @@ In local mode: searches locally synced data only.`,
 				if err != nil {
 					return err
 				}
-				data, _, getErr := c.Post(cmd.Context(), "/project/tickets/search", map[string]any{
+				// Bound the live-search leg in auto mode (issue #146): a slow
+				// API on a large tenant should fall back to local FTS, not hang
+				// the whole call. Explicit --data-source live keeps the caller's
+				// full deadline and surfaces the error.
+				postCtx := cmd.Context()
+				if flags.dataSource == "auto" {
+					var cancel context.CancelFunc
+					postCtx, cancel = context.WithTimeout(postCtx, autoLiveSearchTimeout)
+					defer cancel()
+				}
+				data, _, getErr := c.Post(postCtx, "/project/tickets/search", map[string]any{
 					"q":                     query,
 					"childconditions":       "",
 					"conditions":            "",
@@ -130,12 +148,13 @@ In local mode: searches locally synced data only.`,
 					prov := DataProvenance{Source: "live"}
 					return outputSearchResults(cmd, flags, results, limit, prov)
 				}
-				// Check if it's a network error for auto-mode fallback
-				if flags.dataSource == "live" || !isNetworkError(getErr) {
+				// auto mode falls back to local FTS on an unreachable OR slow
+				// API (#146); explicit live surfaces the error.
+				if flags.dataSource == "live" || (!isNetworkError(getErr) && !isTimeoutError(getErr)) {
 					return classifyAPIError(getErr, flags)
 				}
-				// auto mode + network error: fall through to local FTS
-				fmt.Fprintf(cmd.ErrOrStderr(), "API unreachable, falling back to local search.\n")
+				// auto mode + network/timeout error: fall through to local FTS
+				fmt.Fprintf(cmd.ErrOrStderr(), "Live search slow or unreachable, falling back to local search.\n")
 			}
 
 			// Local FTS search

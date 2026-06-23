@@ -810,8 +810,10 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			"Pagination uses cursor-based paging. Pass page parameter for subsequent pages.",
 			"Control page size with the pageSize parameter (default 100).",
 			"Use the sql tool for ad-hoc analysis on synced data. Run sync first to populate the local database.",
-			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints.",
+			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints. This MCP search tool is local-only and bounded — it does not hold the call open on the live API.",
 			"Prefer sql/search over repeated API calls when the data is already synced.",
+			"Large/historical tenant: sync is a FULL re-fetch today. ConnectWise list endpoints declare no temporal-filter parameter, so --since / incremental has no effect (you will see resource_not_incremental warnings). To shrink a heavy sync, SCOPE it with a conditions filter: build one via the `condition build` command, then pass it to sync, e.g. connectwise-manage-cli sync service-tickets --param \"conditions=lastUpdated > [2025-01-01T00:00:00Z]\".",
+			"Large dataset: the cross-entity commands (workload, board, stale, account) read the local store and can take longer when a tenant has years of history — pass a higher --timeout (e.g. --timeout 2m) if a command exceeds the default. CLI `search` defaults to auto mode (live API first); use --data-source local and/or --type <resource> to stay fully local on a big tenant.",
 		},
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
