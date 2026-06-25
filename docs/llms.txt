@@ -28,7 +28,7 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/autotask/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/install.sh)
 - Axcient x360Recover (Backup/DR) - ask "Whose backups failed or went stale across every client last night?" - Catch failed and stale Axcient backups, RPO breaches, and unbilled usage across every client by asking.
-  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/axcient/
+  Verification: Live-verified by @Xenith-B (MSP) (2026-06-25). Page: https://msp-skills.compoundingteams.com/skills/axcient/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/axcient/install.sh)
 - Better Stack (Monitoring) - ask "What's down right now and is anyone actually paged?" - Ask what's down, who's paged, where coverage is missing, and your MTTA/MTTR across your Better Stack account
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/betterstack/

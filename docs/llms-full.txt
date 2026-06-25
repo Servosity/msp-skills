@@ -299,7 +299,7 @@ Governance: The skill drives the autotask-cli and autotask-mcp binaries, authent
 ### Axcient x360Recover (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/axcient/
-Verification: Awaiting live verification
+Verification: Live-verified by @Xenith-B (MSP) (2026-06-25)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/axcient/install.sh)
 
 MSPs run Axcient x360Recover across dozens of clients, but the portal answers one entity at a time and the public API famously won't tell you which client a device belongs to. Ask your AI "whose backups failed last night," "who's breaching RPO," or "what do I bill each client this month," and get the fleet-wide answer in one table - computed offline from a local mirror that joins the device, job, restore-point, and client data the raw API leaves unconnected.

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-23",
+  "generated_at": "2026-06-25",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -179,7 +179,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/axcient/install.sh)",
       "install_mcp_doc": "skills/axcient/mcp-install.md",
       "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give \u2014 offline, joined, and agent-ready.",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "Backup/DR",
       "tagline": "Catch failed and stale Axcient backups, RPO breaches, and unbilled usage across every client by asking."
     },
