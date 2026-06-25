@@ -76,9 +76,9 @@
       "display_name": "Axcient x360Recover",
       "tagline": "Catch failed and stale Axcient backups, RPO breaches, and unbilled usage across every client by asking.",
       "category": "Backup/DR",
-      "verification": "awaiting",
-      "verified_by": null,
-      "issue_url": null,
+      "verification": "live-verified",
+      "verified_by": "@Xenith-B (MSP)",
+      "issue_url": "https://github.com/Servosity/msp-skills/issues/101#issuecomment-4781241575",
       "url": "/skills/axcient/"
     },
     {

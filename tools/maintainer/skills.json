@@ -194,12 +194,12 @@
       "cli_hash_at_release": "sha256:ae308248c1b7a6c6515c4afdfaa422f2c602788aa5072f53cb0855115e223157",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null,
-        "verified_by": null,
-        "issue_url": null
+        "status": "live-verified",
+        "date": "2026-06-25",
+        "source": "github",
+        "evidence": "https://github.com/Servosity/msp-skills/issues/101#issuecomment-4781241575",
+        "verified_by": "@Xenith-B (MSP)",
+        "issue_url": "https://github.com/Servosity/msp-skills/issues/101#issuecomment-4781241575"
       }
     },
     "betterstack": {
