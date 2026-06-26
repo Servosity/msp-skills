@@ -273,6 +273,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newNovelDsoCmd(flags))
 	rootCmd.AddCommand(newNovelDupesCmd(flags))
 	rootCmd.AddCommand(newNovelReconcileCmd(flags))
+	rootCmd.AddCommand(newReportCmd(flags))
 	rootCmd.AddCommand(newAPICmd(flags))
 	rootCmd.AddCommand(newChangesPromotedCmd(flags))
 	rootCmd.AddCommand(newQueryPromotedCmd(flags))

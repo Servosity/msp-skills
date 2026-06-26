@@ -56,6 +56,18 @@
       "asserts": [
         {"file": "cli/internal/cli/aging_delta.go", "contains": "CREATE TABLE IF NOT EXISTS aging_snapshots", "min_count": 1}
       ]
+    },
+    {
+      "id": "qbo-report-reports-api",
+      "summary": "report pnl + report balance-sheet pull QBO financial statements (P&L, Balance Sheet) from the Reports API, which the /query-based CLI cannot reach",
+      "why": "QuickBooks financial statements live behind the Reports API (/reports/ProfitAndLoss, /reports/BalanceSheet), not /query, so the generated CLI could not produce them. report.go is a novel hand-authored command group (report pnl, report balance-sheet; read-only) kept whole by regen-merge, but its registration in the generated root.go (rootCmd.AddCommand(newReportCmd(flags))) is a hand-edit a reprint would clobber. This entry records it so the command survives.",
+      "status": "active",
+      "spec_encode_followup": "Press change: encode the report command group in the QBO spec (or a novel-feature manifest) so root.go registers it by construction without a hand-edit.",
+      "asserts": [
+        {"file": "cli/internal/cli/root.go", "contains": "newReportCmd(flags)", "min_count": 1},
+        {"file": "cli/internal/cli/report.go", "contains": "/reports/ProfitAndLoss", "min_count": 1},
+        {"file": "cli/internal/cli/report.go", "contains": "/reports/BalanceSheet", "min_count": 1}
+      ]
     }
   ]
 }
