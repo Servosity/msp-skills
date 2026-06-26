@@ -10,12 +10,12 @@ All notable changes to this skill are documented here. Format follows
 - `sync` now pages through the entire book instead of stopping at 1000 rows per
   entity. QuickBooks Online serves every entity through `/query` and caps a page
   at 1000 (`MAXRESULTS`), and the generic sync loop broke after the first page,
-  so large books were silently truncated (e.g. 1,000 of 17,940 invoices). Because
-  QBO returns rows oldest-first, the missing rows were the *recent* ones, making
-  `ar-aging`, `ap-aging`, `dso`, and `balances` wrong, not merely partial. `sync`
-  now advances QBO's in-query `STARTPOSITION` until a short page. Verified live
-  against a production tenant: all eight resources sync to their exact `count(*)`
-  (44,211 records). Recorded as hand-fix `qbo-query-paging`.
+  so large books were silently truncated (e.g. only the first 1,000 rows of a
+  large book). Because QBO returns rows oldest-first, the missing rows were the
+  *recent* ones, making `ar-aging`, `ap-aging`, `dso`, and `balances` wrong, not
+  merely partial. `sync` now advances QBO's in-query `STARTPOSITION` until a short
+  page. Verified live against a production tenant: all eight resources sync to
+  their exact `count(*)` across the full book. Recorded as hand-fix `qbo-query-paging`.
 - `aging-delta` no longer errors `no such table: aging_snapshots`. The command
   reads and writes an `aging_snapshots` table that no store migration created, so
   it failed on first use. It now creates the table on demand. Recorded as hand-fix

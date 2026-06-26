@@ -1023,7 +1023,7 @@
         "status": "live-verified",
         "date": "2026-06-15",
         "source": "self",
-        "evidence": "Servosity (an MSP) verified end-to-end against its PRODUCTION QuickBooks Online tenant on 2026-06-15: full paginated sync of 44,211 records across 8 resources (invoices 17,940/17,940, payments 16,863/16,863) matching live count(*); ar-aging and balances computed over the complete book. Fixes qbo-query-paging + qbo-db-path-env."
+        "evidence": "Servosity (an MSP) verified end-to-end against its PRODUCTION QuickBooks Online tenant on 2026-06-15: full paginated sync across all 8 resources matching live count(*); ar-aging and balances computed over the complete book. Fixes qbo-query-paging + qbo-db-path-env."
       }
     },
     "rewst": {
