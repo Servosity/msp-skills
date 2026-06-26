@@ -53,6 +53,19 @@ if human_files | xargs grep -nIE '(ghp_[A-Za-z0-9]{20,}|xox[bap]-[A-Za-z0-9-]{10
   fail=1
 fi
 
+echo "==> 5. No real production-tenant transaction counts in human-authored files"
+# A contributor dogfooding against their own QuickBooks/MSP tenant can leak the
+# tenant's real record counts (confidential business scale) into a CHANGELOG or
+# hand-fix note. Build the banned count literals from digit fragments + a runtime
+# comma so this guard never contains the strings it bans (same trick as guards
+# 1-2). Use a generic phrasing ("the full book") instead of real totals.
+cma=$(printf ',')
+counts="44${cma}?211|17${cma}?940|16${cma}?863"
+if human_files | xargs grep -nIE "$counts" 2>/dev/null; then
+  note "real production-tenant transaction count found; replace with generic phrasing (e.g. 'the full book')"
+  fail=1
+fi
+
 if [ "$fail" -eq 0 ]; then
   echo "All CI guards passed."
 else
