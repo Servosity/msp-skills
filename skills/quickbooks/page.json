@@ -61,6 +61,14 @@
     {
       "question": "Who slipped an aging bucket since our last check?",
       "command": "quickbooks-cli aging-delta --agent"
+    },
+    {
+      "question": "What were our recognized revenue, gross margin, and net income last month?",
+      "command": "quickbooks-cli report pnl --agent"
+    },
+    {
+      "question": "What is our deferred revenue balance right now?",
+      "command": "quickbooks-cli report balance-sheet --highlight \"deferred revenue\" --agent"
     }
   ],
   "different_vs_wrappers": "Most QuickBooks integrations and MCP servers proxy each question into a live API call - fine for fetching one invoice, useless for \"who is overdue across the whole book\" because QuickBooks has no single endpoint that returns aging, DSO, or a reconciliation verdict. This skill syncs your company into a local SQLite mirror once, then computes those answers offline with real date math and cross-entity joins (invoices to payments to customers) - instant, no rate-limit pressure, and the agent sees the answer, not raw JSON pages.",
@@ -95,7 +103,7 @@
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "ar-aging, ap-aging, balances, dso, cash-forecast, reconcile, dupes, search, plus every list and get",
+      "examples": "ar-aging, ap-aging, balances, dso, cash-forecast, reconcile, dupes, search, report pnl, report balance-sheet, plus every list and get",
       "policy": "Allow"
     },
     {

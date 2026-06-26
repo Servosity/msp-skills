@@ -4,7 +4,19 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.3] - unreleased
+## [0.1.4] - unreleased
+
+### Added
+- `report pnl` and `report balance-sheet` pull QuickBooks' financial statements
+  straight from the Reports API (`/reports/ProfitAndLoss`, `/reports/BalanceSheet`),
+  which the `/query` endpoint the rest of this skill rides cannot reach. `report
+  pnl` returns recognized revenue, COGS, gross and operating margin, and net
+  income for a period (default: last closed month); `report balance-sheet` returns
+  every account and summary as of a date, with an opt-in repeatable `--highlight
+  <substring>` flag that totals any account or group by name. Both are read-only.
+  Recorded as hand-fix `qbo-report-reports-api`.
+
+## [0.1.3] - 2026-06-16
 
 ### Fixed
 - `sync` now pages through the entire book instead of stopping at 1000 rows per
