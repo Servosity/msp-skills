@@ -13,7 +13,6 @@ import (
 
 func newIpAddressesListCmd(flags *rootFlags) *cobra.Command {
 	var flagCompanyId string
-	var flagPage string
 
 	cmd := &cobra.Command{
 		Use:         "list",
@@ -30,9 +29,6 @@ func newIpAddressesListCmd(flags *rootFlags) *cobra.Command {
 			params := map[string]string{}
 			if flagCompanyId != "" {
 				params["company_id"] = formatCLIParamValue(flagCompanyId)
-			}
-			if flagPage != "" {
-				params["page"] = formatCLIParamValue(flagPage)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "ip-addresses", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {
@@ -83,7 +79,6 @@ func newIpAddressesListCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&flagCompanyId, "company-id", "", "Filter by company id")
-	cmd.Flags().StringVar(&flagPage, "page", "1", "1-based page number")
 
 	return cmd
 }

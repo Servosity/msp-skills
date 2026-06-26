@@ -1,18 +1,24 @@
 // Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
-// Hand-authored regression test for issue #153: several Hudu IPAM-family list
-// endpoints reject the `page_size` filter with HTTP 400 ("page_size is not a
-// valid filter parameter."). The connector must page them by `page` alone and
-// drain every page. Guards resourceRejectsPageSize, pageFingerprint, and the
-// page-until-empty sync path. A reprint that drops this file is caught by
-// skills/hudu/handfixes.json — do not remove without porting the fix.
+// Hand-authored regression tests for the Hudu pagination defects:
+//   - #153: the IPAM-family list endpoints reject the `page_size` filter.
+//   - #158: those same endpoints are in fact NON-paginated — they reject
+//     `page` too — so sync must send neither param and fetch them once; and
+//     every other resource must advance by ?page=N (cursorType "page") instead
+//     of truncating at the first page.
+//   - #159: /matchers requires an integration_id, so flat sync must skip it
+//     unless the caller supplies one.
+// A reprint that drops this file is caught by skills/hudu/handfixes.json — do
+// not remove without porting the fixes.
 
 package cli
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"hudu-pp-cli/internal/store"
@@ -22,36 +28,22 @@ func TestResourceRejectsPageSize(t *testing.T) {
 	rejects := []string{"ip-addresses", "networks", "vlans", "vlan-zones", "rack-storage-items"}
 	for _, r := range rejects {
 		if !resourceRejectsPageSize(r) {
-			t.Errorf("resourceRejectsPageSize(%q) = false, want true (endpoint 400s on page_size)", r)
+			t.Errorf("resourceRejectsPageSize(%q) = false, want true (non-paginated; 400s on page and page_size)", r)
 		}
 	}
 	for _, r := range []string{"companies", "articles", "assets", "websites", "users"} {
 		if resourceRejectsPageSize(r) {
-			t.Errorf("resourceRejectsPageSize(%q) = true, want false (endpoint accepts page_size)", r)
+			t.Errorf("resourceRejectsPageSize(%q) = true, want false (endpoint paginates normally)", r)
 		}
 	}
 }
 
-func TestPageFingerprint(t *testing.T) {
-	empty := []json.RawMessage{}
-	if got := pageFingerprint(empty); got != "" {
-		t.Errorf("pageFingerprint(empty) = %q, want \"\"", got)
-	}
-	a := []json.RawMessage{json.RawMessage(`{"id":1}`), json.RawMessage(`{"id":2}`)}
-	b := []json.RawMessage{json.RawMessage(`{"id":3}`), json.RawMessage(`{"id":4}`)}
-	if pageFingerprint(a) == pageFingerprint(b) {
-		t.Error("pageFingerprint: distinct pages must not collide")
-	}
-	if pageFingerprint(a) != pageFingerprint(a) {
-		t.Error("pageFingerprint: identical pages must match (the page-ignoring dup guard)")
-	}
-}
-
 // recordingClient implements the syncResource client interface, records every
-// params map it is handed, and serves canned array pages indexed by `page`.
+// params map it is handed, and serves canned array pages indexed by `page`
+// (absent `page` => page 1; index past the end => empty page).
 type recordingClient struct {
 	seen  []map[string]string
-	pages [][]byte // pages[i] is the body for page i+1; absent index => empty page
+	pages [][]byte
 }
 
 func (r *recordingClient) RateLimit() float64 { return 0 }
@@ -74,92 +66,192 @@ func (r *recordingClient) Get(_ context.Context, _ string, params map[string]str
 	return json.RawMessage(`[]`), nil
 }
 
-func TestSyncResource_PageSizeRejectingEndpoint_PagesByPageOnly(t *testing.T) {
-	db, err := store.Open(filepath.Join(t.TempDir(), "data.db"))
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
+// TestSyncResource_NonPaginatedEndpoint_FetchesOnceNoPageParam pins the #158
+// fix: the IPAM-family endpoints are non-paginated, so sync sends neither
+// page_size nor page and makes exactly one request even at the unlimited
+// (--max-pages 0) production default. The pre-#158 code sent page=1,2,... and
+// 400'd on every request after the first.
+func TestSyncResource_NonPaginatedEndpoint_FetchesOnceNoPageParam(t *testing.T) {
+	db := openSyncTestDB(t)
 	defer db.Close()
 
 	c := &recordingClient{pages: [][]byte{
-		[]byte(`[{"id":"a1"},{"id":"a2"}]`),
-		[]byte(`[{"id":"a3"},{"id":"a4"}]`),
-		// page 3+ => empty (recordingClient default) => end of data
+		[]byte(`[{"id":"a1"},{"id":"a2"},{"id":"a3"}]`),
 	}}
 
-	res := syncResource(context.Background(), c, db, "ip-addresses", "", true, 10, false, nil, nil)
+	res := syncResource(context.Background(), c, db, "ip-addresses", "", true, 0, false, nil, nil)
 	if res.Err != nil {
 		t.Fatalf("syncResource returned error: %v", res.Err)
 	}
-
-	// (1) page_size must NEVER be sent to a rejecting endpoint — that is the bug.
-	for i, p := range c.seen {
-		if _, bad := p["page_size"]; bad {
-			t.Errorf("request %d carried page_size=%q to a page_size-rejecting endpoint", i, p["page_size"])
-		}
+	// Exactly one request — no page walk (would loop/400 against a real tenant).
+	if len(c.seen) != 1 {
+		t.Fatalf("made %d requests, want exactly 1 (non-paginated endpoint)", len(c.seen))
 	}
-	// (2) the first request must page by `page=1` (not an empty/absent page).
-	if len(c.seen) == 0 || c.seen[0]["page"] != "1" {
-		t.Errorf("first request page = %q, want \"1\"", firstPage(c.seen))
+	// Neither pagination param may be sent — both 400 on these endpoints.
+	if v, bad := c.seen[0]["page"]; bad {
+		t.Errorf("request carried page=%q to a non-paginated endpoint", v)
 	}
-	// (3) every page must be drained — all 4 rows land, no silent truncation.
-	var n int
-	if err := db.DB().QueryRow(
-		`SELECT COUNT(*) FROM resources WHERE resource_type = ?`, "ip-addresses",
-	).Scan(&n); err != nil {
-		t.Fatalf("count rows: %v", err)
+	if v, bad := c.seen[0]["page_size"]; bad {
+		t.Errorf("request carried page_size=%q to a non-paginated endpoint", v)
 	}
-	if n != 4 {
-		t.Errorf("stored %d rows, want 4 (pages 1+2 fully drained)", n)
+	// The single response is the whole collection — all rows must land.
+	if n := countRows(t, db, "ip-addresses"); n != 3 {
+		t.Errorf("stored %d rows, want 3 (single response is the full collection)", n)
 	}
 }
 
-// staticClient ignores the `page` param and returns the same body every call —
-// the pathological "endpoint ignores page" shape the fingerprint guard defends.
+// TestSyncResource_PageType_AdvancesUntilShortPage pins the #158 cursorType
+// fix: cursorType "page" drives the page-int fallback so full pages advance
+// page=2,3,... until a short page ends the walk. Pre-#158 (cursorType "") the
+// fallback was dead and every resource truncated at the first 100 rows.
+func TestSyncResource_PageType_AdvancesUntilShortPage(t *testing.T) {
+	db := openSyncTestDB(t)
+	defer db.Close()
+
+	limit := determinePaginationDefaults().limit // 100
+	c := &recordingClient{pages: [][]byte{
+		makePage(1, limit),       // page 1: full
+		makePage(limit+1, limit), // page 2: full
+		makePage(2*limit+1, 5),   // page 3: short -> stop
+	}}
+
+	res := syncResource(context.Background(), c, db, "companies", "", true, 0, false, nil, nil)
+	if res.Err != nil {
+		t.Fatalf("syncResource returned error: %v", res.Err)
+	}
+	if got := len(c.seen); got != 3 {
+		t.Fatalf("made %d requests, want 3 (page-int walk across two full pages)", got)
+	}
+	// First request omits page (cursor == ""); then page=2, page=3.
+	if v, sent := c.seen[0]["page"]; sent {
+		t.Errorf("first request sent page=%q, want no page param", v)
+	}
+	if c.seen[1]["page"] != "2" || c.seen[2]["page"] != "3" {
+		t.Errorf("page sequence = %q,%q, want 2,3", c.seen[1]["page"], c.seen[2]["page"])
+	}
+	if n := countRows(t, db, "companies"); n != 2*limit+5 {
+		t.Errorf("stored %d rows, want %d (no truncation at page 1)", n, 2*limit+5)
+	}
+}
+
+// staticClient ignores `page` and returns the same full page on every call —
+// the page-ignoring shape the fingerprint guard must terminate.
 type staticClient struct {
 	calls int
 	body  []byte
 }
 
 func (s *staticClient) RateLimit() float64 { return 0 }
+
 func (s *staticClient) Get(_ context.Context, _ string, _ map[string]string) (json.RawMessage, error) {
 	s.calls++
 	return json.RawMessage(s.body), nil
 }
 
-func TestSyncResource_PageIgnoringEndpoint_FingerprintTerminatesAtUnlimitedBudget(t *testing.T) {
+// TestSyncResource_PageIgnoringEndpoint_FingerprintTerminates pins the loop
+// backstop for the now-active page-int walk (#158): an endpoint that returns a
+// full page (>= limit) and ignores `page` must NOT loop forever at the
+// unlimited (--max-pages 0) production default — the fingerprint dup-guard
+// stops it on the first repeated page.
+func TestSyncResource_PageIgnoringEndpoint_FingerprintTerminates(t *testing.T) {
+	db := openSyncTestDB(t)
+	defer db.Close()
+
+	limit := determinePaginationDefaults().limit // 100
+	c := &staticClient{body: makePage(1, limit)} // full page, same every call
+	res := syncResource(context.Background(), c, db, "companies", "", true, 0, false, nil, nil)
+	if res.Err != nil {
+		t.Fatalf("syncResource returned error: %v", res.Err)
+	}
+	// Page 1 advances; page 2 is byte-identical -> fingerprint match -> stop.
+	// If the guard were missing this would loop to the page ceiling (or forever).
+	if c.calls != 2 {
+		t.Errorf("made %d requests, want 2 (fingerprint guard must break on the duplicate page)", c.calls)
+	}
+	if n := countRows(t, db, "companies"); n != limit {
+		t.Errorf("stored %d distinct rows, want %d", n, limit)
+	}
+}
+
+// TestSyncResource_Matchers_SkippedWithoutIntegrationID pins the #159 fix: a
+// flat sync must not call /matchers without an integration_id (Hudu 500s), so
+// the resource is skipped with a warning and zero API requests.
+func TestSyncResource_Matchers_SkippedWithoutIntegrationID(t *testing.T) {
+	db := openSyncTestDB(t)
+	defer db.Close()
+
+	c := &recordingClient{pages: [][]byte{[]byte(`[{"id":"m1"}]`)}}
+	res := syncResource(context.Background(), c, db, "matchers", "", true, 0, false, nil, nil)
+
+	if len(c.seen) != 0 {
+		t.Errorf("matchers made %d API requests, want 0 (must skip without integration_id)", len(c.seen))
+	}
+	if res.Warn == nil {
+		t.Error("expected a skip warning for matchers without integration_id")
+	}
+	if res.Err != nil {
+		t.Errorf("skip must not surface an error: %v", res.Err)
+	}
+}
+
+// TestSyncResource_Matchers_SyncedWithIntegrationID pins the escape hatch: an
+// explicit integration_id (via --resource-param) lets matchers sync, and the
+// param is forwarded to the request.
+func TestSyncResource_Matchers_SyncedWithIntegrationID(t *testing.T) {
+	db := openSyncTestDB(t)
+	defer db.Close()
+
+	up, err := parseSyncUserParams(nil, []string{"matchers:integration_id=42"}, nil)
+	if err != nil {
+		t.Fatalf("parseSyncUserParams: %v", err)
+	}
+	c := &recordingClient{pages: [][]byte{[]byte(`[{"id":"m1"}]`)}}
+	res := syncResource(context.Background(), c, db, "matchers", "", true, 0, false, up, nil)
+	if res.Err != nil {
+		t.Fatalf("syncResource returned error: %v", res.Err)
+	}
+	if len(c.seen) == 0 {
+		t.Fatal("matchers must be fetched when integration_id is supplied")
+	}
+	if got := c.seen[0]["integration_id"]; got != "42" {
+		t.Errorf("integration_id forwarded = %q, want 42 (params: %v)", got, c.seen[0])
+	}
+	if n := countRows(t, db, "matchers"); n != 1 {
+		t.Errorf("stored %d matcher rows, want 1", n)
+	}
+}
+
+func openSyncTestDB(t *testing.T) *store.Store {
+	t.Helper()
 	db, err := store.Open(filepath.Join(t.TempDir(), "data.db"))
 	if err != nil {
 		t.Fatalf("open store: %v", err)
 	}
-	defer db.Close()
+	return db
+}
 
-	c := &staticClient{body: []byte(`[{"id":"n1"},{"id":"n2"},{"id":"n3"}]`)}
-	// maxPages=0 is the PRODUCTION default (unlimited): the fingerprint guard,
-	// not the page cap, must stop the walk. If it doesn't, this test hangs.
-	res := syncResource(context.Background(), c, db, "networks", "", true, 0, false, nil, nil)
-	if res.Err != nil {
-		t.Fatalf("syncResource returned error: %v", res.Err)
-	}
-	// Page 1 stores the set; page 2 returns the identical set → fingerprint
-	// match → break. So exactly 2 requests, and only 3 distinct rows persist.
-	if c.calls != 2 {
-		t.Errorf("made %d requests, want 2 (fingerprint guard must break on the duplicate page)", c.calls)
-	}
+func countRows(t *testing.T, db *store.Store, resource string) int {
+	t.Helper()
 	var n int
 	if err := db.DB().QueryRow(
-		`SELECT COUNT(*) FROM resources WHERE resource_type = ?`, "networks",
+		`SELECT COUNT(*) FROM resources WHERE resource_type = ?`, resource,
 	).Scan(&n); err != nil {
 		t.Fatalf("count rows: %v", err)
 	}
-	if n != 3 {
-		t.Errorf("stored %d distinct rows, want 3", n)
-	}
+	return n
 }
 
-func firstPage(seen []map[string]string) string {
-	if len(seen) == 0 {
-		return "<no requests>"
+// makePage builds a JSON array of n objects with sequential integer ids
+// starting at start — used to synthesize full/short pages for the page walk.
+func makePage(start, n int) []byte {
+	var b strings.Builder
+	b.WriteByte('[')
+	for i := 0; i < n; i++ {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		fmt.Fprintf(&b, `{"id":%d}`, start+i)
 	}
-	return seen[0]["page"]
+	b.WriteByte(']')
+	return []byte(b.String())
 }

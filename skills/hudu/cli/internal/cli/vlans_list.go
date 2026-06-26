@@ -14,7 +14,6 @@ import (
 func newVlansListCmd(flags *rootFlags) *cobra.Command {
 	var flagCompanyId string
 	var flagVlanZoneId string
-	var flagPage string
 
 	cmd := &cobra.Command{
 		Use:         "list",
@@ -34,9 +33,6 @@ func newVlansListCmd(flags *rootFlags) *cobra.Command {
 			}
 			if flagVlanZoneId != "" {
 				params["vlan_zone_id"] = formatCLIParamValue(flagVlanZoneId)
-			}
-			if flagPage != "" {
-				params["page"] = formatCLIParamValue(flagPage)
 			}
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "vlans", true, path, params, nil, cmd.ErrOrStderr())
 			if err != nil {
@@ -88,7 +84,6 @@ func newVlansListCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&flagCompanyId, "company-id", "", "Filter by company id")
 	cmd.Flags().StringVar(&flagVlanZoneId, "zone-id", "", "Filter by VLAN zone id")
-	cmd.Flags().StringVar(&flagPage, "page", "1", "1-based page number")
 
 	return cmd
 }

@@ -397,6 +397,27 @@ func syncResource(ctx context.Context, c interface {
 		}
 	}
 
+	// #159: Hudu's /matchers endpoint requires an integration_id query param
+	// (it returns HTTP 500 — not 400 — without one), and the connector exposes
+	// no integrations-list endpoint to enumerate IDs, so a flat `sync` 500s on
+	// matchers every run and exhausts retries. Skip it unless the user supplied
+	// an integration_id (via `--resource-param matchers:integration_id=<id>` or
+	// `--global-param integration_id=<id>`). Fetch matchers per integration with
+	// `hudu-cli matchers list --integration-id <id>`.
+	if resource == "matchers" && !userParams.hasParam("matchers", "integration_id") {
+		const msg = "matchers requires integration_id, which flat sync cannot supply (Hudu returns HTTP 500 without it); skipped. Fetch per integration with `hudu-cli matchers list --integration-id <id>`, or `sync --resource-param matchers:integration_id=<id>`."
+		if !humanFriendly {
+			fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"matchers","reason":"requires_unsuppliable_param","message":%q}`+"\n", msg)
+		} else {
+			fmt.Fprintf(os.Stderr, "  matchers skipped (requires integration_id; use `hudu-cli matchers list --integration-id <id>`)\n")
+		}
+		return syncResult{
+			Resource: resource,
+			Warn:     fmt.Errorf("skipped matchers: requires integration_id"),
+			Duration: time.Since(started),
+		}
+	}
+
 	var totalCount int
 
 	// Resume cursor from sync_state (unless --full cleared it)
@@ -438,7 +459,7 @@ func syncResource(ctx context.Context, c interface {
 	var progressCount int64
 	pagesFetched := 0
 	lastNextCursor := ""
-	lastPageFingerprint := "" // #153: page-until-empty dup guard for page_size-less endpoints
+	lastPageFingerprint := "" // #158: page-int walk dup guard (page-ignoring endpoint)
 	capExitHit := false
 	capExitCursor := ""
 	// extractFailureTotal accumulates per-item primary-key extraction
@@ -456,20 +477,19 @@ func syncResource(ctx context.Context, c interface {
 	for {
 		params := map[string]string{}
 
-		if resourceSupportsPagination(resource) {
-			// #153: some Hudu IPAM-family endpoints (ip-addresses, networks,
-			// vlans, vlan-zones, rack-storage-items) reject the page_size
-			// filter with HTTP 400 "page_size is not a valid filter
-			// parameter." Page those by `page` alone and advance until an
-			// empty page (see the more-pages block below) so we neither 400
-			// nor silently truncate.
-			if !resourceRejectsPageSize(resource) {
-				params[pageSize.limitParam] = strconv.Itoa(pageSize.limit)
-			}
+		if resourceSupportsPagination(resource) && !resourceRejectsPageSize(resource) {
+			// #158: the IPAM-family endpoints (ip-addresses, networks, vlans,
+			// vlan-zones, rack-storage-items) are non-paginated — they reject
+			// BOTH page_size AND `page` with HTTP 400 ("page is not a valid
+			// filter parameter."; rack-storage-items: "...not a valid
+			// parameter.") and return the whole collection in one response. We
+			// send them no pagination params at all (see the more-pages block,
+			// which stops after that single response). Every other resource
+			// pages by ?page=N (see determinePaginationDefaults, cursorType
+			// "page").
+			params[pageSize.limitParam] = strconv.Itoa(pageSize.limit)
 			if cursor != "" {
 				params[pageSize.cursorParam] = cursor
-			} else if resourceRejectsPageSize(resource) {
-				params[pageSize.cursorParam] = "1"
 			}
 		}
 
@@ -519,13 +539,26 @@ func syncResource(ctx context.Context, c interface {
 		// 1 even though more pages exist (the original symptom in #1296).
 		// Guard on cursorType, not cursorParam name, so all canonical
 		// spellings (page / page_number / pageNumber / page[number]) work.
-		if pageSize.cursorType == "page" && nextCursor == "" && len(items) >= pageSize.limit && pageAllowsPageIntFallback(data) {
+		if !resourceRejectsPageSize(resource) && pageSize.cursorType == "page" && nextCursor == "" && len(items) >= pageSize.limit && pageAllowsPageIntFallback(data) {
+			// #158: this fallback advances ?page=N until a short/empty page.
+			// Guard the page-ignoring endpoint (one that re-returns the same
+			// full collection for every page) and a runaway: stop advancing
+			// when this page is byte-identical to the last (fingerprint match)
+			// or we hit the ceiling. The sticky-cursor detector below can't
+			// catch this because the synthetic page number always changes, and
+			// --max-pages defaults to 0 (unlimited), so without this guard a
+			// page-ignoring endpoint loops forever. Leaving nextCursor "" ends
+			// the walk naturally and emits the missing-cursor truncation warning.
+			fp := pageFingerprint(items)
 			currentPage, _ := strconv.Atoi(cursor)
 			if currentPage < 1 {
 				currentPage = 1
 			}
-			nextCursor = strconv.Itoa(currentPage + 1)
-			hasMore = true
+			if fp != lastPageFingerprint && currentPage < pageIntWalkCeiling {
+				lastPageFingerprint = fp
+				nextCursor = strconv.Itoa(currentPage + 1)
+				hasMore = true
+			}
 		}
 		if pageSize.cursorType == "offset" && nextCursor == "" && len(items) >= pageSize.limit && pageAllowsPageIntFallback(data) {
 			currentOffset, _ := strconv.Atoi(cursor)
@@ -606,7 +639,11 @@ func syncResource(ctx context.Context, c interface {
 
 		totalCount += stored
 		atomic.AddInt64(&progressCount, int64(stored))
-		if resourceSupportsPagination(resource) && nextCursor == "" && pageSize.cursorParam != "offset" && len(items) >= pageSize.limit && pageMayHaveMore(data) {
+		if resourceSupportsPagination(resource) && !resourceRejectsPageSize(resource) && nextCursor == "" && pageSize.cursorParam != "offset" && len(items) >= pageSize.limit && pageMayHaveMore(data) {
+			// #158: skip non-paginated (resourceRejectsPageSize) endpoints —
+			// their single full response IS the whole collection, so the
+			// "data may be truncated" warning would be a false alarm (and it
+			// is the very warning #158 reported).
 			emitSyncMissingPaginationCursorWarning(syncEvents, humanFriendly, resource, "")
 		}
 
@@ -681,40 +718,15 @@ func syncResource(ctx context.Context, c interface {
 			break
 		}
 		if resourceRejectsPageSize(resource) {
-			// #153 page-until-empty: these endpoints don't accept page_size
-			// and don't report has_more, so advance `page` until a page comes
-			// back empty. The fingerprint guard stops the rare endpoint that
-			// ignores `page` and re-returns the full collection every request
-			// (otherwise we'd loop to the --max-pages cap on duplicate data).
-			if len(items) == 0 {
-				break
-			}
-			fp := pageFingerprint(items)
-			if fp == lastPageFingerprint {
-				break
-			}
-			lastPageFingerprint = fp
-			cur, _ := strconv.Atoi(cursor)
-			if cur < 1 {
-				cur = 1
-			}
-			if cur >= rejectsPageSizePageCeiling {
-				// Backstop for a page-ignoring endpoint whose collection churns
-				// between requests (fingerprint never matches, empty page never
-				// arrives). Bound the walk and warn rather than loop forever.
-				if humanFriendly {
-					fmt.Fprintf(os.Stderr, "\n  %s: reached the %d-page safety ceiling for a page_size-less endpoint; data may be truncated.\n", resource, rejectsPageSizePageCeiling)
-				} else {
-					fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"page_ceiling_hit","message":"reached the %d-page safety ceiling for a page_size-less endpoint; data may be truncated (the endpoint may ignore the page parameter)."}`+"\n", resource, rejectsPageSizePageCeiling)
-				}
-				break
-			}
-			nextCursor = strconv.Itoa(cur + 1)
-			if err := db.SaveSyncState(resource, nextCursor, totalCount); err != nil {
-				fmt.Fprintf(os.Stderr, "\nwarning: failed to save sync state for %s: %v\n", resource, err)
-			}
-			cursor = nextCursor
-			continue
+			// #158: these IPAM-family endpoints are non-paginated — they reject
+			// `page` (and page_size) and return the full collection in a single
+			// response (confirmed on a live huducloud tenant and by the
+			// n8n-nodes-hudu project, which likewise removed pagination here).
+			// #156 wrongly assumed they page by `page` and walked page=1,2,...,
+			// which 400s on every request after the first. We sent no
+			// pagination params above, so this one response is the whole
+			// collection: stop.
+			break
 		}
 		if !hasMore || len(items) < pageSize.limit {
 			break
@@ -784,9 +796,16 @@ type paginationDefaults struct {
 func determinePaginationDefaults() paginationDefaults {
 	return paginationDefaults{
 		cursorParam: "page",
-		cursorType:  "",
-		limitParam:  "page_size",
-		limit:       100,
+		// #158: Hudu paginates list endpoints by ?page=N and returns no body
+		// cursor. cursorType "page" (not "") activates the page-int fallback so
+		// sync advances page=1,2,... until a short/empty page; cursorType ""
+		// disabled that fallback and silently truncated every resource at the
+		// first 100 rows (the new 4.24 "data may be truncated" warning is what
+		// surfaced it). The non-paginated IPAM endpoints opt out via
+		// resourceRejectsPageSize at every page-advance site.
+		cursorType: "page",
+		limitParam: "page_size",
+		limit:      100,
 	}
 }
 
@@ -852,39 +871,41 @@ func resourceSupportsPagination(resource string) bool {
 	return false
 }
 
-// rejectsPageSizePageCeiling hard-caps the page-until-empty walk (#153) for a
-// page_size-less endpoint, independent of --max-pages (which defaults to 0 =
-// unlimited). The fingerprint guard already terminates a page-ignoring endpoint
-// that returns a STABLE collection; this ceiling is the backstop for the
-// pathological page-ignoring-AND-churning case so the walk degrades to a loud
-// truncation warning instead of a non-terminating loop. 10000 pages is far
-// beyond any real IPAM collection, so it never caps legitimate pagination.
-const rejectsPageSizePageCeiling = 10000
+// pageIntWalkCeiling hard-caps the ?page=N page-int fallback walk (#158),
+// independent of --max-pages (which defaults to 0 = unlimited). The fingerprint
+// dup-guard already terminates a page-ignoring endpoint that returns a STABLE
+// collection; this ceiling is the backstop for the pathological
+// page-ignoring-AND-churning case (fingerprint never matches, short page never
+// arrives) so the walk degrades to a loud truncation warning instead of a
+// non-terminating loop. 10000 pages × 100/page is far beyond any real Hudu
+// collection, so it never caps legitimate pagination.
+const pageIntWalkCeiling = 10000
 
-// resourceRejectsPageSize lists the Hudu IPAM-family list endpoints that reject
-// the `page_size` query param with HTTP 400 ("page_size is not a valid filter
-// parameter." — rack-storage-items returns "...not a valid parameter."). They are
-// paged by `page` alone (or return the full collection in one response); the sync
-// loop pages them until an empty page so we neither 400 nor silently truncate.
-// Keep this set in sync with the per-command list files, which omit --page-size
-// for these resources, and with code_orch.go, which drops the page-size MCP arg.
-// See issue #153 and handfixes.json.
+// pageFingerprint returns a cheap byte-identity for a page of items so the
+// page-int fallback (#158) can detect an endpoint that ignores the `page` param
+// and re-returns the same collection on every request.
+func pageFingerprint(items []json.RawMessage) string {
+	if len(items) == 0 {
+		return ""
+	}
+	return strconv.Itoa(len(items)) + "|" + string(items[0]) + "|" + string(items[len(items)-1])
+}
+
+// resourceRejectsPageSize lists the Hudu IPAM-family list endpoints that are
+// non-paginated: they reject BOTH `page_size` AND `page` with HTTP 400
+// ("page_size/page is not a valid filter parameter." — rack-storage-items
+// returns "...not a valid parameter.") and return the whole collection in one
+// response. sync sends them no pagination params and stops after that single
+// response (see the param-build and more-pages blocks). Keep this set in sync
+// with the per-command list files, which omit --page-size and --page for these
+// resources, and with code_orch.go, which drops the page-size MCP arg. See
+// issues #153 and #158, and handfixes.json.
 func resourceRejectsPageSize(resource string) bool {
 	switch resource {
 	case "ip-addresses", "networks", "vlans", "vlan-zones", "rack-storage-items":
 		return true
 	}
 	return false
-}
-
-// pageFingerprint returns a cheap identity for a page of items so the
-// page-until-empty paginator (#153) can detect an endpoint that ignores the
-// `page` param and re-returns the same collection on every request.
-func pageFingerprint(items []json.RawMessage) string {
-	if len(items) == 0 {
-		return ""
-	}
-	return strconv.Itoa(len(items)) + "|" + string(items[0]) + "|" + string(items[len(items)-1])
 }
 
 // syncResourceSinceParam returns the query parameter name this resource's
