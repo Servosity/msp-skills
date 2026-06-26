@@ -689,7 +689,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "List IP address records (paginated)",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "company-id", WireName: "company_id"}, {PublicName: "page", WireName: "page"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "company-id", WireName: "company_id"}},
 		keywords:       codeOrchKeywords("ip-addresses", "list", "List IP address records (paginated)", "/ip_addresses"),
 	},
 	{
@@ -839,7 +839,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "List networks (paginated)",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "company-id", WireName: "company_id"}, {PublicName: "page", WireName: "page"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "company-id", WireName: "company_id"}},
 		keywords:       codeOrchKeywords("networks", "list", "List networks (paginated)", "/networks"),
 	},
 	{
@@ -1029,7 +1029,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "List rack storage items (paginated)",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "rack-id", WireName: "rack_storage_id"}, {PublicName: "page", WireName: "page"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "rack-id", WireName: "rack_storage_id"}},
 		keywords:       codeOrchKeywords("rack-storage-items", "list", "List rack storage items (paginated)", "/rack_storage_items"),
 	},
 	{
@@ -1209,7 +1209,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "List VLAN zones (paginated)",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "company-id", WireName: "company_id"}, {PublicName: "page", WireName: "page"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "company-id", WireName: "company_id"}},
 		keywords:       codeOrchKeywords("vlan-zones", "list", "List VLAN zones (paginated)", "/vlan_zones"),
 	},
 	{
@@ -1259,7 +1259,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "List VLANs (paginated)",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "company-id", WireName: "company_id"}, {PublicName: "zone-id", WireName: "vlan_zone_id"}, {PublicName: "page", WireName: "page"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "company-id", WireName: "company_id"}, {PublicName: "zone-id", WireName: "vlan_zone_id"}},
 		keywords:       codeOrchKeywords("vlans", "list", "List VLANs (paginated)", "/vlans"),
 	},
 	{

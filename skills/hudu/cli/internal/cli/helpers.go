@@ -408,6 +408,26 @@ func (p *syncUserParams) applyTo(resource string, params map[string]string, isDe
 	}
 }
 
+// hasParam reports whether the user supplied a value for key that would apply
+// to resource — via --resource-param (perResource), --global-param (trueGlobal),
+// or --param (flatGlobal). #159: lets an explicit integration_id satisfy the
+// /matchers sync instead of the loop skipping it unconditionally. Nil-safe.
+func (p *syncUserParams) hasParam(resource, key string) bool {
+	if p == nil {
+		return false
+	}
+	if _, ok := p.perResource[resource][key]; ok {
+		return true
+	}
+	if _, ok := p.trueGlobal[key]; ok {
+		return true
+	}
+	if _, ok := p.flatGlobal[key]; ok {
+		return true
+	}
+	return false
+}
+
 // validateResourceNames returns a usage-shaped error when any --resource-param
 // key targets a resource not in known. Without this check a typo
 // (e.g. --resource-param chanels:mine=true) is a silent no-op: the param

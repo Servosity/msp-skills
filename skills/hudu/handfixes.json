@@ -37,19 +37,47 @@
     },
     {
       "id": "ipam-endpoints-reject-page-size",
-      "summary": "Five Hudu IPAM-family list endpoints (ip-addresses, networks, vlans, vlan-zones, rack-storage-items) are paged by `page` alone; the `page_size` param + `--page-size` flag + page-size MCP arg are removed for them, and sync pages them until an empty page",
-      "why": "issue #153: the press emits a single global pagination profile (limitParam=page_size) and registers every list endpoint as page_size-capable. Hudu rejects page_size on these five with HTTP 400 ('page_size is not a valid filter parameter.'; rack-storage-items: '...not a valid parameter.'), so `sync` and each `list` failed on the first request and stored 0 rows. Fix: resourceRejectsPageSize() carves these out of the page_size send (both sync.go and the 5 list cmds), drops the page-size MCP binding in code_orch.go, and the sync loop pages them by `page` until an empty page (pageFingerprint guards the page-ignoring case) so there is neither a 400 nor SILENT truncation. A reprint re-adds page_size everywhere and re-breaks all five. Cross-ref: the n8n-nodes-hudu project independently removed pagination from these same endpoints.",
+      "summary": "Five Hudu IPAM-family list endpoints (ip-addresses, networks, vlans, vlan-zones, rack-storage-items) are NON-paginated: sync/list send them neither page_size NOR page (both 400), the --page-size + --page flags and the page-size + page MCP args are removed for them, and sync fetches the full collection in one request",
+      "why": "issues #153 + #158: the press emits a single global pagination profile and registers every list endpoint as paginated. Hudu rejects page_size on these five with HTTP 400 ('page_size is not a valid filter parameter.'; rack-storage-items: '...not a valid parameter.'). #153 carved out page_size but ASSUMED they page by `page` and walked page=1,2,...; #158 proved that assumption wrong - they reject `page` with the same 400 (they are non-paginated and return the whole collection in one response, confirmed on a live huducloud tenant + the n8n-nodes-hudu project, which likewise removed pagination here). Fix: resourceRejectsPageSize() now means 'non-paginated' - sync sends no pagination params and stops after the single response (the page-int fallback and more-pages walk both opt these out), the 5 list cmds drop both --page-size and --page, and code_orch.go drops both the page-size and page MCP args. A reprint re-adds page_size+page everywhere and re-breaks all five.",
       "status": "active",
-      "spec_encode_followup": "Press gap: the profiler must support PER-ENDPOINT pagination params, not one global limitParam for the whole API. Some endpoints accept page+page_size, some accept page only, some are non-paginated. Filed as a printing-press-retro. Sibling of project_ninjaone_after_id_pagination_defect (per-endpoint pagination shape).",
+      "spec_encode_followup": "Press gap: the profiler must support PER-ENDPOINT pagination shape, not one global profile for the whole API. Some endpoints accept page+page_size, some are non-paginated. Filed as a printing-press-retro. Sibling of project_ninjaone_after_id_pagination_defect.",
       "asserts": [
         {"file": "cli/internal/cli/sync.go", "contains": "func resourceRejectsPageSize", "min_count": 1},
         {"file": "cli/internal/cli/sync.go", "contains": "\"ip-addresses\", \"networks\", \"vlans\", \"vlan-zones\", \"rack-storage-items\"", "min_count": 1},
-        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_PageSizeRejectingEndpoint_PagesByPageOnly", "min_count": 1},
+        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_NonPaginatedEndpoint_FetchesOnceNoPageParam", "min_count": 1},
         {"file": "cli/internal/cli/ip-addresses_list.go", "not_contains": "page_size"},
         {"file": "cli/internal/cli/networks_list.go", "not_contains": "page_size"},
         {"file": "cli/internal/cli/vlans_list.go", "not_contains": "page_size"},
         {"file": "cli/internal/cli/vlan-zones_list.go", "not_contains": "page_size"},
-        {"file": "cli/internal/cli/rack-storage-items_list.go", "not_contains": "page_size"}
+        {"file": "cli/internal/cli/rack-storage-items_list.go", "not_contains": "page_size"},
+        {"file": "cli/internal/cli/ip-addresses_list.go", "not_contains": "flagPage"},
+        {"file": "cli/internal/cli/networks_list.go", "not_contains": "flagPage"},
+        {"file": "cli/internal/cli/vlans_list.go", "not_contains": "flagPage"},
+        {"file": "cli/internal/cli/vlan-zones_list.go", "not_contains": "flagPage"},
+        {"file": "cli/internal/cli/rack-storage-items_list.go", "not_contains": "flagPage"}
+      ]
+    },
+    {
+      "id": "pagination-cursor-type-page",
+      "summary": "determinePaginationDefaults() sets cursorType \"page\" so the ?page=N page-int fallback is live; cursorType \"\" disabled it and silently truncated every multi-page resource at the first 100 rows",
+      "why": "issue #158 (Bug 2): the press emitted cursorType \"\" while cursorParam was \"page\". The page-int fallback in sync.go guards on cursorType==\"page\", so with \"\" it was dead code - and Hudu returns no body cursor, so sync could not advance past page 1 for ANY resource. v0.1.0 truncated silently; the 4.24 engine's new 'data may be truncated' warning surfaced it on the high-cardinality resources (expirations/folders/public-photos/relations/procedure-tasks). Fix: cursorType \"page\". Sibling connectors generated correctly (connectwise-manage has cursorType \"page\"); this was a Hudu-specific profiler miss. A reprint re-emits cursorType \"\".",
+      "status": "active",
+      "spec_encode_followup": "Press gap: when cursorParam resolves to a page-integer spelling (page/page_number/...), cursorType must be set to 'page', not left ''. Filed in the same printing-press-retro as the per-endpoint pagination shape.",
+      "asserts": [
+        {"file": "cli/internal/cli/sync.go", "contains": "cursorType: \"page\"", "min_count": 1},
+        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_PageType_AdvancesUntilShortPage", "min_count": 1}
+      ]
+    },
+    {
+      "id": "matchers-requires-integration-id",
+      "summary": "Flat `sync` skips the matchers resource (with a warning) unless integration_id is supplied, because Hudu's /matchers returns HTTP 500 without one and there is no integrations-list endpoint to enumerate IDs",
+      "why": "issue #159: /matchers requires an integration_id query param (Hudu 500s without it). The press registers matchers as a flat-syncable list, so every `sync` 500'd on it and exhausted retries. Fix: syncResource skips matchers when the user did not pass integration_id (via --resource-param matchers:integration_id=<id> / --global-param), via the new syncUserParams.hasParam() accessor; users fetch per-integration with `matchers list --integration-id <id>`. A reprint re-adds matchers to the flat sync set and re-breaks it.",
+      "status": "active",
+      "spec_encode_followup": "Press gap: an endpoint with a REQUIRED query param that flat-list sync cannot supply (and no enumerable parent) should be excluded from the default sync set, not registered as flat-syncable. Sibling of the unresolved-path-key skip already in sync.go.",
+      "asserts": [
+        {"file": "cli/internal/cli/sync.go", "contains": "skipped matchers: requires integration_id", "min_count": 1},
+        {"file": "cli/internal/cli/helpers.go", "contains": "func (p *syncUserParams) hasParam", "min_count": 1},
+        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_Matchers_SkippedWithoutIntegrationID", "min_count": 1}
       ]
     }
   ]
