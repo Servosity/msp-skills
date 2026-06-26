@@ -317,10 +317,32 @@
     {% include build-room-line.html %}
   </footer>
 
-  <!-- GoatCounter: uncomment + set data-goatcounter when the account exists -->
-  <!--
-  <script data-goatcounter="https://YOURCODE.goatcounter.com/count"
+  <!-- GoatCounter: privacy-friendly visit/click tracking -->
+  <script data-goatcounter="https://servosity.goatcounter.com/count"
           async src="//gc.zgo.at/count.js"></script>
-  -->
+
+  <!-- Click events: skill-card clicks + outbound CTAs. Plain internal nav is
+       skipped (already counted as a pageview on the destination).
+       ponytail: tracks /skills/ cards + offsite links only; add selectors here
+       if other internal buttons need CTR. -->
+  <script>
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('a[href]');
+      if (!a || !window.goatcounter || !window.goatcounter.count) return;
+      var path;
+      if (a.hostname && a.hostname !== location.hostname) {
+        path = 'out: ' + a.hostname + a.pathname;        // outbound CTA
+      } else if (a.pathname.indexOf('/skills/') === 0) {
+        path = 'card: ' + a.pathname;                     // skill-card click
+      } else {
+        return;                                           // plain nav, already a pageview
+      }
+      window.goatcounter.count({
+        path: path,
+        title: (a.textContent || a.href).trim().slice(0, 100),
+        event: true
+      });
+    });
+  </script>
 </body>
 </html>
