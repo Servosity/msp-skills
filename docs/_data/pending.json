@@ -154,9 +154,9 @@
     "released_hash": "sha256:11adf0bc84900c54d3f826e68adfbf72ab20640d7110aa5fb23e39c411f3c973"
   },
   "hudu": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "hudu-v0.1.2",
+    "latest_tag": "hudu-v0.1.3",
     "current_hash": "sha256:02788032893bd7ae6f6bea9f68a565d2b5f60518b769076851573eba4277d975",
     "released_hash": "sha256:02788032893bd7ae6f6bea9f68a565d2b5f60518b769076851573eba4277d975"
   },
