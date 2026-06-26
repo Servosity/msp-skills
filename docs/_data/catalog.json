@@ -236,9 +236,9 @@
       "display_name": "Huntress",
       "tagline": "Triage Huntress incidents and coverage gaps across every client org from one queue.",
       "category": "Security",
-      "verification": "awaiting",
-      "verified_by": null,
-      "issue_url": null,
+      "verification": "live-verified",
+      "verified_by": "@Xenith-B (MSP)",
+      "issue_url": "https://github.com/Servosity/msp-skills/issues/144",
       "url": "/skills/huntress/"
     },
     {

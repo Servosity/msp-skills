@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-25",
+  "generated_at": "2026-06-26",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -497,7 +497,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/huntress/install.sh)",
       "install_mcp_doc": "skills/huntress/mcp-install.md",
       "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "Security",
       "tagline": "Triage Huntress incidents and coverage gaps across every client org from one queue."
     },

@@ -882,7 +882,7 @@ Governance: The skill reads everything over a local mirror - audits, search, res
 ### Huntress (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/huntress/
-Verification: Awaiting live verification
+Verification: Live-verified by @Xenith-B (MSP) (2026-06-26)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/huntress/install.sh)
 
 Ask "which Huntress incidents are oldest across all my clients?" and get one age-sorted queue spanning every organization - the cross-tenant view the per-org portal never shows. Triage incidents fleet-wide, find coverage gaps and dark agents, reconcile invoiced seats against deployed agents, and trace an indicator's blast radius across your whole account, in plain English, from one local mirror.

@@ -5,7 +5,7 @@ description: "Every Huntress endpoint, plus fleet-wide incident, coverage, and b
 permalink: /skills/huntress/
 skill_name: "Huntress MCP"
 image: /assets/social/huntress/wide-1200x630.png
-verification: awaiting
+verification: live-verified
 faqs:
   - q: "Is there an MCP server for Huntress?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Huntress, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
@@ -40,7 +40,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Huntress Labs, Inc.
 
-**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+**✓ Live-verified by @Xenith-B (MSP)** against a production tenant · 2026-06-26 · [receipt →](https://github.com/Servosity/msp-skills/issues/144).
 
 Yes - there is an MCP server for Huntress. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Huntress to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
