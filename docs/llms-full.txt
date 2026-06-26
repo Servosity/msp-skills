@@ -1495,6 +1495,8 @@ Outcomes (question -> command your AI agent runs):
 - Which payments came in but were never applied to an invoice? -> quickbooks-cli payments unapplied --agent
 - Which customers are duplicated in our list? -> quickbooks-cli dupes customers --agent
 - Who slipped an aging bucket since our last check? -> quickbooks-cli aging-delta --agent
+- What were our recognized revenue, gross margin, and net income last month? -> quickbooks-cli report pnl --agent
+- What is our deferred revenue balance right now? -> quickbooks-cli report balance-sheet --highlight "deferred revenue" --agent
 
 FAQ:
 Q: Does this work with ChatGPT?
