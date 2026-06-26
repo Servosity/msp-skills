@@ -83,6 +83,8 @@ Ask your books a question and get the answer, not a CSV export. The skill syncs 
 | Which payments came in but were never applied to an invoice? | `quickbooks-cli payments unapplied --agent` |
 | Which customers are duplicated in our list? | `quickbooks-cli dupes customers --agent` |
 | Who slipped an aging bucket since our last check? | `quickbooks-cli aging-delta --agent` |
+| What were our recognized revenue, gross margin, and net income last month? | `quickbooks-cli report pnl --agent` |
+| What is our deferred revenue balance right now? | `quickbooks-cli report balance-sheet --highlight "deferred revenue" --agent` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/quickbooks/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/quickbooks/guide.md).
 
@@ -129,7 +131,7 @@ After install, authenticate once with your QuickBooks Online credentials, then v
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ar-aging, ap-aging, balances, dso, cash-forecast, reconcile, dupes, search, plus every list and get | Allow |
+| Read | ar-aging, ap-aging, balances, dso, cash-forecast, reconcile, dupes, search, report pnl, report balance-sheet, plus every list and get | Allow |
 | Write (routine) | invoices / bills / payments / customers / vendors / accounts / items / journal-entries create and update (16 commands), plus bulk import | Preview with --dry-run, then a reviewed write |
 | Destructive / config | invoices delete, bills delete, payments delete, journal-entries delete (hard deletes) | Human-in-the-loop only |
 
