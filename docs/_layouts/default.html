@@ -321,27 +321,38 @@
   <script data-goatcounter="https://servosity.goatcounter.com/count"
           async src="//gc.zgo.at/count.js"></script>
 
-  <!-- Click events: skill-card clicks + outbound CTAs. Plain internal nav is
-       skipped (already counted as a pageview on the destination).
-       ponytail: tracks /skills/ cards + offsite links only; add selectors here
-       if other internal buttons need CTR. -->
+  <!-- Click + form-submit events (pageviews are automatic, script above).
+       Tracks skill cards, outbound + mailto/tel links, standalone buttons, and
+       form submits (email capture + "it worked" receipt). Plain internal nav is
+       skipped (it's already a pageview). Form submit buttons aren't counted on
+       click; the submit listener counts them, so there's no double count.
+       ponytail: covers every interactive element on the site today; add a
+       branch if a new widget needs its own label. -->
   <script>
+    function gcEvent(path, title) {
+      if (!window.goatcounter || !window.goatcounter.count) return;
+      window.goatcounter.count({ path: path, title: (title || '').trim().slice(0, 100), event: true });
+    }
     document.addEventListener('click', function (e) {
-      var a = e.target.closest && e.target.closest('a[href]');
-      if (!a || !window.goatcounter || !window.goatcounter.count) return;
-      var path;
-      if (a.hostname && a.hostname !== location.hostname) {
-        path = 'out: ' + a.hostname + a.pathname;        // outbound CTA
-      } else if (a.pathname.indexOf('/skills/') === 0) {
-        path = 'card: ' + a.pathname;                     // skill-card click
-      } else {
-        return;                                           // plain nav, already a pageview
+      var t = e.target.closest && e.target.closest('a[href], button, [role="button"]');
+      if (!t) return;
+      if (t.tagName === 'A') {
+        if (t.protocol === 'mailto:' || t.protocol === 'tel:') {
+          gcEvent('out: ' + t.href.replace(/^(mailto:|tel:)/, ''), t.textContent);
+        } else if (t.hostname && t.hostname !== location.hostname) {
+          gcEvent('out: ' + t.hostname + t.pathname, t.textContent);   // outbound CTA
+        } else if (t.pathname.indexOf('/skills/') === 0) {
+          gcEvent('card: ' + t.pathname, t.textContent);               // skill-card click
+        }
+        return;                                                        // other internal links = pageview
       }
-      window.goatcounter.count({
-        path: path,
-        title: (a.textContent || a.href).trim().slice(0, 100),
-        event: true
-      });
+      if (t.closest('form')) return;                                   // submit buttons counted on submit
+      gcEvent('btn: ' + (t.textContent || t.id || 'button'), t.textContent);
+    });
+    document.addEventListener('submit', function (e) {
+      var f = e.target;
+      if (!f || f.tagName !== 'FORM') return;
+      gcEvent('submit: ' + (f.id || f.getAttribute('action') || 'form'), f.id || f.getAttribute('action'));
     });
   </script>
 </body>
