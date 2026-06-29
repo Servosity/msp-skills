@@ -870,12 +870,12 @@
       "cli_hash_at_release": "sha256:bda419018cedb7efd8312c5e16f43245a7ccfb2b4ef034eeaaabf19397c444fb",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null,
-        "verified_by": null,
-        "issue_url": null
+        "status": "live-verified",
+        "date": "2026-06-29",
+        "source": "github",
+        "evidence": "https://github.com/Servosity/msp-skills/issues/145",
+        "verified_by": "@Xenith-B (MSP)",
+        "issue_url": "https://github.com/Servosity/msp-skills/issues/145"
       }
     },
     "pagerduty": {

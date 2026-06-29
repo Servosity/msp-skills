@@ -336,9 +336,9 @@
       "display_name": "NinjaOne",
       "tagline": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.",
       "category": "RMM",
-      "verification": "awaiting",
-      "verified_by": null,
-      "issue_url": null,
+      "verification": "live-verified",
+      "verified_by": "@Xenith-B (MSP)",
+      "issue_url": "https://github.com/Servosity/msp-skills/issues/145",
       "url": "/skills/ninjaone/"
     },
     {
