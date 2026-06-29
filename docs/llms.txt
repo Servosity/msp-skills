@@ -108,7 +108,7 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/nerdio/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/nerdio/install.sh)
 - NinjaOne (RMM) - ask "Which organizations are below 95% patch compliance?" - Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.
-  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/ninjaone/
+  Verification: Live-verified by @Xenith-B (MSP) (2026-06-29). Page: https://msp-skills.compoundingteams.com/skills/ninjaone/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ninjaone/install.sh)
 - PagerDuty (Incident Response) - ask "What's on fire right now, ranked by SLA risk?" - Triage PagerDuty incidents, on-call schedules, and escalation policies from the terminal.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/pagerduty/

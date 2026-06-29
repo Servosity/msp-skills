@@ -1257,7 +1257,7 @@ Governance: The skill reads your whole NMM fleet - accounts, host pools, session
 ### NinjaOne (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/ninjaone/
-Verification: Awaiting live verification
+Verification: Live-verified by @Xenith-B (MSP) (2026-06-29)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ninjaone/install.sh)
 
 NinjaOne is built for real-time, per-device RMM, but its reporting answers one organization at a time. Ask your AI "which clients are below 95% patched," "which endpoints across the fleet have no backup," or "how far did this threat spread" and get fleet-wide rollups computed offline from a local SQLite mirror of your estate - one query instead of a per-org report re-totaled in a spreadsheet or a third-party BI overlay.

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-26",
+  "generated_at": "2026-06-29",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -697,7 +697,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ninjaone/install.sh)",
       "install_mcp_doc": "skills/ninjaone/mcp-install.md",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "RMM",
       "tagline": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query."
     },
