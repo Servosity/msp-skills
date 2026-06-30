@@ -1,0 +1,61 @@
+{
+  "manifest_version": "0.3",
+  "name": "maxio-pp-mcp",
+  "display_name": "Maxio",
+  "version": "0.0.0",
+  "description": "The first open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror that outlives Maxio's deprecated Insights API.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/maxio-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/maxio-pp-mcp",
+      "args": [],
+      "env": {
+        "MAXIO_PASSWORD": "${user_config.maxio_password}",
+        "MAXIO_SITE": "${user_config.maxio_site}",
+        "MAXIO_USERNAME": "${user_config.maxio_username}"
+      }
+    }
+  },
+  "user_config": {
+    "maxio_password": {
+      "type": "string",
+      "title": "MAXIO_PASSWORD",
+      "description": "Sets MAXIO_PASSWORD for the Maxio MCP server. Get a credential from https://app.chargify.com/signup/maxio-billing-sandbox.",
+      "sensitive": true,
+      "required": true
+    },
+    "maxio_site": {
+      "type": "string",
+      "title": "MAXIO_SITE",
+      "description": "Sets MAXIO_SITE for the endpoint template variable {site}.",
+      "default": "subdomain"
+    },
+    "maxio_username": {
+      "type": "string",
+      "title": "MAXIO_USERNAME",
+      "description": "Sets MAXIO_USERNAME for the Maxio MCP server. Get a credential from https://app.chargify.com/signup/maxio-billing-sandbox.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.24.0",
+  "press_provenance": {
+    "printing_press_version": "4.24.0",
+    "generated_at": "2026-06-09T16:04:18.35368Z",
+    "spec_checksum": "sha256:1b7db748cf69f91f6155ab6724c29f3901a1816d2221bb693d5a57935ef629e1",
+    "spec_format": "openapi3"
+  }
+}

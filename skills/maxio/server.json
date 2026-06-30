@@ -1,0 +1,52 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/maxio-mcp",
+  "title": "Maxio MCP",
+  "description": "The first open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls",
+  "version": "0.0.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/maxio/maxio-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/maxio"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/maxio-v0.0.0/maxio-mcp.mcpb",
+      "version": "0.0.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "MAXIO_PASSWORD",
+          "description": "Set the MAXIO_PASSWORD credential for the Maxio MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "MAXIO_SITE",
+          "description": "Set the MAXIO_SITE credential for the Maxio MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "MAXIO_USERNAME",
+          "description": "Set the MAXIO_USERNAME credential for the Maxio MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

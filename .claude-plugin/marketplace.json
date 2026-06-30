@@ -867,6 +867,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "maxio",
+      "source": "./skills/maxio",
+      "description": "The first open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror that outlives Maxio's deprecated Insights API.",
+      "version": "0.0.0",
+      "category": "billing",
+      "tags": [
+        "maxio",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
