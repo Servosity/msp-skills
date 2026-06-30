@@ -145,25 +145,36 @@ MAXIO_PASSWORD=<value> MAXIO_SITE=<value> MAXIO_USERNAME=<value> maxio-cli docto
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `maxio-cli ...` |
-
--->
+| What's our MRR and ARR right now? | `maxio-cli mrr now` |
+| How did MRR move month over month (new, expansion, contraction, churn, reactivation)? | `maxio-cli mrr waterfall --since 2026-01-01 --group-by month` |
+| What's our net and gross revenue retention, and quick ratio? | `maxio-cli retention --since 2026-01-01 --group-by month` |
+| What's recurring revenue for this customer, and how has it trended? | `maxio-cli mrr client --customer "Acme"` |
+| Which accounts need attention this week? | `maxio-cli triage --limit 20` |
+| How much MRR is up for renewal in the next 30 days? | `maxio-cli renewals --within 30` |
+| Which usage components drove expansion versus contraction? | `maxio-cli usage-drivers --since 2026-01-01` |
+| How many new logos did we land this quarter, and how much MRR? | `maxio-cli new-customers --since 3m` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Maxio integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Maxio integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking for the MRR movement waterfall and net revenue retention across your entire customer book at board-prep time - because the live API has no endpoint for historic MRR movement or retention.
 
-This skill syncs Maxio into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs Maxio into a **local SQLite mirror** with full-text search, and snapshots each sync into a time series. Aggregate questions become one local computation: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `maxio-cli mrr waterfall`, `maxio-cli retention`, and `maxio-cli reconcile` join across subscriptions, customers, components, and invoices - work a stateless API wrapper can't do, and the history keeps growing even as Maxio retires its Insights endpoints.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+On Maxio's own [G2 reviews](https://www.g2.com/products/maxio-formerly-saasoptics-and-chargify/reviews), operators name recurring-revenue reporting as the weak spot: MRR, churn, and ARPA are hard to get out cleanly, and teams report having to use third-party applications on imported billing data to answer them. Even a basic ask - the customers who signed up in a given window and the revenue they brought - has no clean portal answer, and the legacy Insights/Analytics endpoints are being sunset.
+
+This skill closes that gap from the terminal or your AI agent:
+
+- `maxio-cli mrr waterfall --since 2026-01-01 --group-by month` - the New/Expansion/Contraction/Churn/Reactivation movement, monthly.
+- `maxio-cli retention --since 2026-01-01 --group-by month` - net and gross revenue retention, plus quick ratio.
+- `maxio-cli new-customers --since 3m` - new logos in the window and the MRR they brought.
+- `maxio-cli triage --limit 20` - the accounts that need attention right now.
+- `maxio-cli reconcile --since 2026-01-01` - where normalized MRR diverges from what was actually invoiced.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +196,17 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Will this hit my Maxio API rate limits?
+
+Rarely. After the first `maxio-cli sync`, the revenue commands read from the local SQLite mirror, not the API, so day-to-day questions make zero API calls. Only `maxio-cli sync` and `maxio-cli tail` talk to Maxio, and sync is incremental - it fetches only what changed since the last run.
+
+### Do I need to be a Maxio partner or customer?
+
+You need your own Maxio Advanced Billing API credentials (a username and password) - that's it. This is an unofficial, community-built skill, not a Maxio product, so there is no partner program or separate signup. It reads only the data your credentials already grant.
+
+### Will this replace my Maxio portal?
+
+No. It complements the portal, which still owns billing operations and configuration. This skill gives your AI agent fast, trended revenue answers and keeps a local copy of the history that the live API can no longer reconstruct.
 
 ### What does it cost?
 
@@ -198,15 +214,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `maxio-cli mrr now`, `maxio-cli retention`, `maxio-cli triage`, `maxio-cli search` | Allow |
+| Write (routine) | `maxio-cli customers update`, `maxio-cli subscriptions-json create-subscription` | Preview with `--dry-run`, then a reviewed write |
+| Destructive / config | `maxio-cli customers delete`, `maxio-cli subscription-groups delete`, `maxio-cli payment-profiles delete-unused` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Maxio credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +230,4 @@ Beta. Validated against the Maxio API surface and being validated with MSPs runn
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-30._

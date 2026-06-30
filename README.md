@@ -164,7 +164,7 @@ Outcomes, not hype - drawn from each of the 56 connectors' skill pages:
 | Who clicked the bait in more than one phishing test? | knowbe4 | `knowbe4-cli repeat-clickers --min-clicks 2 --since 90d` |
 | Which devices are most at risk across alerts, patches, score, and staleness? | levelio | `levelio-cli at-risk --top 20` |
 | What changed across all my clients in the last 24 hours? | liongard | `liongard-cli drift --since 24h` |
-| TODO: question an MSP keeps asking | maxio | `maxio-cli TODO` |
+| What's our current MRR and ARR right now? | maxio | `maxio-cli mrr now` |
 | Which SKUs are we paying for but not fully using, ranked by wasted seats? | microsoft-graph | `microsoft-graph-cli licenses waste --agent` |
 | Is our open-ticket backlog up or down versus last week? | mspbots | `mspbots-cli trend open_tickets --agg count` |
 | What's red right now, grouped by customer and ranked by severity? | n-central | `n-central-cli triage --by customer` |

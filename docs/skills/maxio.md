@@ -19,8 +19,10 @@ faqs:
     a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
-  - q: "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Maxio portal)"
-    a: "TODO"
+  - q: "Will this hit my Maxio API rate limits?"
+    a: "Rarely. After the first 'maxio-cli sync', the revenue commands read from the local SQLite mirror, not the API, so day-to-day questions make zero API calls. Only sync and tail talk to Maxio, and sync is incremental - it fetches only what changed since the last run."
+  - q: "Do I need to be a Maxio partner or customer to use this?"
+    a: "You need your own Maxio Advanced Billing API credentials (a username and password) - that's it. This is an unofficial, community-built skill, not a Maxio product, so there is no partner program or separate signup. It reads only the data your credentials already grant."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/maxio/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/maxio/install.ps1 | iex"
@@ -40,7 +42,7 @@ howto:
 
 Yes - there is an MCP server for Maxio. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Maxio to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-TODO: <=70 words, MSP-owner language, leads with the outcome. What does Maxio + your AI answer in one sentence that the portal cannot?
+Ask 'what's our MRR, and how did it move last quarter?' and get the New / Expansion / Contraction / Churn / Reactivation waterfall, net and gross revenue retention, per-customer revenue history, and a ranked list of accounts that need attention - in one command, computed offline from a local mirror of your Maxio Advanced Billing data. It is the revenue math the dashboard buries and Maxio's deprecated Insights API no longer reconstructs.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -48,17 +50,17 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Maxio + 
 
 ## Instead of clicking through Maxio, just ask
 
-**Instead of** TODO: the painful manual workflow (exporting reports, clicking through the portal)
-**just ask:** *"TODO: the natural-language question the MSP owner asks instead"*
-<sub>Your agent runs: <code>maxio-cli TODO</code></sub>
+**Instead of** Exporting subscription CSVs into a spreadsheet every month to rebuild the MRR movement waterfall by hand
+**just ask:** *"Show me the MRR waterfall by month since January"*
+<sub>Your agent runs: <code>maxio-cli mrr waterfall --since 2026-01-01 --group-by month</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>maxio-cli TODO</code></sub>
+**Instead of** Clicking through the portal account by account to spot who is contracting, churning, or up for a big renewal
+**just ask:** *"Which accounts need my attention this week?"*
+<sub>Your agent runs: <code>maxio-cli triage --limit 20</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>maxio-cli TODO</code></sub>
+**Instead of** Pulling Maxio data into a separate BI tool just to compute net revenue retention
+**just ask:** *"What's our net and gross revenue retention this year?"*
+<sub>Your agent runs: <code>maxio-cli retention --since 2026-01-01 --group-by month</code></sub>
 
 
 ## See it in 30 seconds
@@ -71,20 +73,28 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Maxio + 
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| TODO: question an MSP keeps asking | `maxio-cli TODO` |
+| What's our current MRR and ARR right now? | `maxio-cli mrr now` |
+| How did MRR move month over month (new, expansion, contraction, churn, reactivation)? | `maxio-cli mrr waterfall --since 2026-01-01 --group-by month` |
+| What's our net and gross revenue retention, and quick ratio? | `maxio-cli retention --since 2026-01-01 --group-by month` |
+| What's recurring revenue for this customer, and how has it trended? | `maxio-cli mrr client --customer "Acme"` |
+| Which accounts need attention this week? | `maxio-cli triage --limit 20` |
+| How much MRR is up for renewal in the next 30 days? | `maxio-cli renewals --within 30` |
+| Which usage components drove expansion versus contraction? | `maxio-cli usage-drivers --since 2026-01-01` |
+| Where does normalized MRR diverge from what we actually invoiced? | `maxio-cli reconcile --since 2026-01-01` |
+| How many new logos did we land this quarter, and how much MRR? | `maxio-cli new-customers --since 3m` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/maxio/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/maxio/guide.md).
 
 ## What makes this one different
 
-TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most Maxio integrations proxy each question into a live API call ...
+Most Maxio integrations proxy each question into a live API call - fine for reading one record, useless for trending, because the API has no endpoint for historic MRR movement or retention. This skill syncs Maxio into a local SQLite mirror and snapshots each sync into a time series, so the waterfall, retention curves, and cohort history are computed locally and keep growing even as Maxio retires its Insights endpoints.
 
-TODO: one sentence vs Maxio's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.
+The Maxio dashboard shows point-in-time numbers behind clicks and exports; this skill answers the trended, cross-object revenue questions in one command from the terminal or your AI agent, and keeps the history on your own machine rather than depending on a reporting API Maxio is deprecating. It complements the portal, which still owns billing operations and configuration.
 
 ## The pain this closes
 
-- TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread
-- TODO: pain 2
+- Maxio's recurring-revenue reporting - MRR, churn, ARPA, retention - is thin enough that operators routinely export the data into a separate BI tool to answer board questions (a recurring theme in Maxio's G2 reviews).
+- Simple asks like 'list the customers who signed up this quarter and the revenue they brought' have no one-click answer in the portal, and the legacy Insights/Analytics endpoints are being sunset.
 
 ## Install
 
@@ -118,11 +128,11 @@ After install, authenticate once with your Maxio credentials, then verify with `
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | TODO: read commands | Allow |
-| Write (routine) | TODO | Preview with --dry-run, then a reviewed write |
-| Destructive / config | TODO | Human-in-the-loop only |
+| Read | mrr now, mrr waterfall, retention, cohort, triage, reconcile, renewals, churn, new-customers, search | Allow |
+| Write (routine) | subscriptions-json create-subscription, customers update, components-json | Preview with --dry-run, then a reviewed write |
+| Destructive / config | customers delete, subscription-groups delete, payment-profiles delete-unused, reason-codes delete | Human-in-the-loop only |
 
-TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/maxio/governance.md).
+Read commands - every MRR, retention, cohort, triage, and reconcile rollup plus search - cannot change anything and are safe to run unattended. Routine writes (creating or updating subscriptions, components, or customers) send immediately unless you pass --dry-run first, so the recommended agent policy is preview-then-approve. Credential, destructive (deletes and cancellations), and admin commands should always be human-in-the-loop. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/maxio/governance.md).
 
 ## Frequently asked questions
 
@@ -150,9 +160,13 @@ Your data stays on your machine. The CLI, MCP server, and the local mirror are a
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-### TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Maxio portal)
+### Will this hit my Maxio API rate limits?
 
-TODO
+Rarely. After the first 'maxio-cli sync', the revenue commands read from the local SQLite mirror, not the API, so day-to-day questions make zero API calls. Only sync and tail talk to Maxio, and sync is incremental - it fetches only what changed since the last run.
+
+### Do I need to be a Maxio partner or customer to use this?
+
+You need your own Maxio Advanced Billing API credentials (a username and password) - that's it. This is an unofficial, community-built skill, not a Maxio product, so there is no partner program or separate signup. It reads only the data your credentials already grant.
 
 
 ## More Billing connectors
