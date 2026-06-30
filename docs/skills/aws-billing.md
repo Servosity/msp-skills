@@ -12,15 +12,21 @@ faqs:
   - q: "Is the AWS MCP server safe for client data?"
     a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Amazon Web Services MCP server via a secure bridge. Step-by-step in the install guide."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local AWS MCP server via a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
-    a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
-  - q: "Is my Amazon Web Services data safe?"
-    a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your AWS credentials once."
+  - q: "Is my AWS data safe?"
+    a: "Your data stays on your machine. The CLI, MCP server, and the local SQLite mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
-  - q: "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Amazon Web Services portal)"
-    a: "TODO"
+  - q: "Will this run up my Cost Explorer bill?"
+    a: "No - that is the point of the local cache. 'sync' pulls your cost data once (each Cost Explorer request is about $0.01), then bill, compare, consolidated, waste, and ask answer from the local SQLite mirror for free. Pass --data-source live only when you want a fresh pull."
+  - q: "Do I need the aws CLI installed?"
+    a: "No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, assume-role, or instance metadata. There is nothing to paste and no aws CLI dependency."
+  - q: "Does it work from a member account, or only the payer?"
+    a: "Org-wide cost data (the consolidated rollup) needs a management/payer-account profile; from a member account you see only that account's own costs. Resource-level waste scans work in any account. Run 'aws-billing-cli doctor' to see exactly what your credentials can reach."
+  - q: "Can it change anything in my AWS account?"
+    a: "No. Every command is read-only against AWS. 'waste gp2-gp3' even prints the 'aws ec2 modify-volume' command you would run rather than running it. The only outbound action is 'report --post-slack', which posts a summary to Slack and only when you pass the flag."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/aws-billing/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/aws-billing/install.ps1 | iex"
@@ -34,13 +40,13 @@ howto:
 
 > Independent, open source, inspectable. Every line of code is on GitHub
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
-> Not affiliated with, endorsed by, or sponsored by Amazon.com, Inc..
+> Not affiliated with, endorsed by, or sponsored by Amazon.com, Inc. or its affiliates.
 
 **Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
 
 Yes - there is an MCP server for AWS. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects AWS to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-TODO: <=70 words, MSP-owner language, leads with the outcome. What does Amazon Web Services + your AI answer in one sentence that the portal cannot?
+Ask "why did my AWS bill go up?" and get a plain-English answer: the service that moved, the linked account driving it, and the idle instances and orphaned volumes bleeding dollars - without learning Cost Explorer's dimension grammar. It syncs your bill into a local cache once, so every follow-up question is instant and free instead of $0.01 per Cost Explorer call.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -48,17 +54,17 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Amazon W
 
 ## Instead of clicking through AWS, just ask
 
-**Instead of** TODO: the painful manual workflow (exporting reports, clicking through the portal)
-**just ask:** *"TODO: the natural-language question the MSP owner asks instead"*
-<sub>Your agent runs: <code>aws-billing-cli TODO</code></sub>
+**Instead of** Export Cost Explorer CSVs and pivot them in a spreadsheet to find which service jumped this month
+**just ask:** *"Why did my AWS bill go up since last month?"*
+<sub>Your agent runs: <code>aws-billing-cli compare --from last-month --to this-month</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>aws-billing-cli TODO</code></sub>
+**Instead of** Click through every linked account in the billing console to find the one driving org spend
+**just ask:** *"Which account is driving my AWS spend?"*
+<sub>Your agent runs: <code>aws-billing-cli consolidated --period this-month</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>aws-billing-cli TODO</code></sub>
+**Instead of** Hunt through the EC2, EBS, and Elastic IP consoles by hand for idle and orphaned resources
+**just ask:** *"Where am I wasting money on AWS?"*
+<sub>Your agent runs: <code>aws-billing-cli waste rank</code></sub>
 
 
 ## See it in 30 seconds
@@ -71,20 +77,27 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Amazon W
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| TODO: question an MSP keeps asking | `aws-billing-cli TODO` |
+| Why did my bill change month-over-month? | `aws-billing-cli compare --from last-month --to this-month` |
+| Which linked account is driving org spend? | `aws-billing-cli consolidated --period this-month` |
+| Where am I wasting money right now? | `aws-billing-cli waste rank` |
+| What does this cryptic usage-type line mean? | `aws-billing-cli explain EUC1-DataTransfer-Out-Bytes` |
+| Where is my data-transfer cost leaking? | `aws-billing-cli waste transfer --period last-month` |
+| What will I spend next month? | `aws-billing-cli forecast --profile-aws prod` |
+| How do I give a colleague read-only billing access? | `aws-billing-cli iam-setup --tier core --format cloudformation` |
+| What's a plain answer about my bill? | `aws-billing-cli ask "what are my top services"` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/aws-billing/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/aws-billing/guide.md).
 
 ## What makes this one different
 
-TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most Amazon Web Services integrations proxy each question into a live API call ...
+Most AWS integrations proxy every question into a live Cost Explorer call - fine for one lookup, but each request costs $0.01 and it dies the moment you want a month-over-month trend or a cross-account rollup. This skill syncs your bill and resource inventory into a local SQLite mirror once, so compare, consolidated, and waste rank run instantly and offline, and the agent sees the ranked answer rather than a raw API dump.
 
-TODO: one sentence vs Amazon Web Services's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.
+AWS's console and Cost Explorer can show you the numbers, but they assume you already speak the dimension grammar and they steer you toward buying Reserved Instances. This skill decodes the bill into plain English, ranks real waste by dollars saved, and never tries to sell you a commitment - it complements the console for anyone who isn't a billing specialist.
 
 ## The pain this closes
 
-- TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread
-- TODO: pain 2
+- The AWS bill is a wall of usage-type codes like EUC1-DataTransfer-Out-Bytes that nobody on the team can read, so the monthly cost review keeps getting skipped until the bill is already a surprise.
+- You suspect money is bleeding on idle instances and orphaned volumes, but Cost Explorer points you at buying Reserved Instances instead of naming the actual waste - and every report you pull costs $0.01.
 
 ## Install
 
@@ -118,11 +131,11 @@ After install, authenticate once with your AWS credentials, then verify with `aw
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | TODO: read commands | Allow |
-| Write (routine) | TODO | Preview with --dry-run, then a reviewed write |
-| Destructive / config | TODO | Human-in-the-loop only |
+| Read | bill, consolidated, compare, forecast, waste rank, waste transfer, ask, explain, dimensions, doctor, iam-setup | Allow |
+| Write (local / opt-in) | sync (writes the local cache), report (writes an HTML/PDF file), report --post-slack (posts a summary to Slack) | Allow; never mutates AWS. The Slack post fires only with --post-slack |
+| Destructive / config | none - the CLI never stops, deletes, modifies, or purchases any AWS resource | N/A |
 
-TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/aws-billing/governance.md).
+Every command is read-only against AWS: it pulls cost and inventory data and never stops an instance, deletes a volume, or buys a commitment. The only local writes are the SQLite cache ('sync') and report files ('report'); the only outbound action is 'report --post-slack', which posts to Slack and fires only when you pass the flag. Scope the AWS credentials to read-only - run 'iam-setup' to mint exactly that - and an agent can run the whole surface unattended. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/aws-billing/governance.md).
 
 ## Frequently asked questions
 
@@ -136,23 +149,35 @@ Yes, by design. The CLI, the MCP server, and any local data mirror run on your o
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Amazon Web Services MCP server via a secure bridge. Step-by-step in the install guide.
+Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local AWS MCP server via a secure bridge. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 
-No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your AWS credentials once.
 
-### Is my Amazon Web Services data safe?
+### Is my AWS data safe?
 
-Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Your data stays on your machine. The CLI, MCP server, and the local SQLite mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
 
 ### What does it cost?
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-### TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Amazon Web Services portal)
+### Will this run up my Cost Explorer bill?
 
-TODO
+No - that is the point of the local cache. 'sync' pulls your cost data once (each Cost Explorer request is about $0.01), then bill, compare, consolidated, waste, and ask answer from the local SQLite mirror for free. Pass --data-source live only when you want a fresh pull.
+
+### Do I need the aws CLI installed?
+
+No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, assume-role, or instance metadata. There is nothing to paste and no aws CLI dependency.
+
+### Does it work from a member account, or only the payer?
+
+Org-wide cost data (the consolidated rollup) needs a management/payer-account profile; from a member account you see only that account's own costs. Resource-level waste scans work in any account. Run 'aws-billing-cli doctor' to see exactly what your credentials can reach.
+
+### Can it change anything in my AWS account?
+
+No. Every command is read-only against AWS. 'waste gp2-gp3' even prints the 'aws ec2 modify-volume' command you would run rather than running it. The only outbound action is 'report --post-slack', which posts a summary to Slack and only when you pass the flag.
 
 
 ## More Billing connectors

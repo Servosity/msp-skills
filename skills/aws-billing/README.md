@@ -1,7 +1,7 @@
 # Amazon Web Services + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the Amazon Web Services
-> API. Not affiliated with, endorsed by, or sponsored by Amazon.com, Inc..
+> API. Not affiliated with, endorsed by, or sponsored by Amazon.com, Inc. or its affiliates.
 
 <!-- media:start -->
 <p align="center">
@@ -139,25 +139,36 @@ See [mcp-install.md](./mcp-install.md) for the credentials `aws-billing-cli` nee
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `aws-billing-cli ...` |
-
--->
+| Why did my bill change month-over-month? | `aws-billing-cli compare --from last-month --to this-month` |
+| Which linked account is driving org spend? | `aws-billing-cli consolidated --period this-month` |
+| Where am I wasting money right now? | `aws-billing-cli waste rank` |
+| Where is my data-transfer cost leaking? | `aws-billing-cli waste transfer --period last-month` |
+| What does this cryptic usage-type line mean? | `aws-billing-cli explain EUC1-DataTransfer-Out-Bytes` |
+| What will I spend next month? | `aws-billing-cli forecast --profile-aws prod` |
+| How do I give a colleague read-only billing access? | `aws-billing-cli iam-setup --tier core --format cloudformation` |
+| What's a plain answer about my bill? | `aws-billing-cli ask "what are my top services"` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Amazon Web Services integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Amazon Web Services integrations and MCP servers proxy each question into a live Cost Explorer call. That's fine for one lookup - but each request costs $0.01, and it dies the moment you're asking "which of my linked accounts had the biggest cost jump this quarter, and what service drove it" across every account at once.
 
-This skill syncs Amazon Web Services into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs Amazon Web Services into a **local SQLite mirror** with full-text search. Aggregate questions become one local query: instant, offline, and the AI sees the ranked answer, not the raw data. Compound commands like `consolidated`, `compare`, and `waste rank` join across linked accounts, services, and resource inventory - work a stateless API wrapper can't do without paying per call.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+On r/msp, the recurring AWS thread is some version of "the client's bill jumped and I can't tell them why." The console shows a wall of usage-type codes like `EUC1-DataTransfer-Out-Bytes`, and Cost Explorer answers the question you didn't ask - buy Reserved Instances - instead of the one you did: what moved, and where is money leaking? Corey Quinn's *Last Week in AWS* has built an audience on the premise that AWS billing is opaque by design. For an MSP managing AWS for clients, that opacity is a monthly tax: the cost review gets skipped because nobody can read the bill, and the waste compounds until the number is already a surprise.
+
+This skill closes that with a handful of high-leverage commands:
+
+- `aws-billing-cli compare` - ranks the services that moved month-over-month, so "why did it change?" is a sentence, not a spreadsheet.
+- `aws-billing-cli consolidated` - resolves every linked account by name with an inline delta, so you can name the account driving org spend in one view.
+- `aws-billing-cli waste rank` - one dollar-ranked table of idle EC2, unattached EBS, orphaned snapshots, and unassociated Elastic IPs, with a grand total you could save.
+- `aws-billing-cli waste transfer` - names where cross-AZ, cross-region, and NAT-gateway data-transfer cost is leaking.
+- `aws-billing-cli explain` - decodes an opaque usage-type string into plain English.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -179,12 +190,21 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Will this run up my Cost Explorer bill?
+
+No - that's the point of the local cache. `sync` pulls your cost data once (each Cost Explorer request is about $0.01), then `bill`, `compare`, `consolidated`, `waste`, and `ask` answer from the local SQLite mirror for free. Pass `--data-source live` only when you want a fresh pull.
+
+### Do I need the `aws` CLI installed?
+
+No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared `--profile-aws`, SSO, assume-role, or instance metadata. There's nothing to paste and no `aws` CLI dependency.
+
+### Does it work from a member account, or only the payer?
+
+Org-wide cost data (the `consolidated` rollup) needs a management/payer-account profile; from a member account you see only that account's own costs. Resource-level waste scans work in any account. Run `aws-billing-cli doctor` to see exactly what your credentials can reach.
+
+### Can it change anything in my AWS account?
+
+No. Every command is read-only against AWS. `waste gp2-gp3` even prints the `aws ec2 modify-volume` command you would run rather than running it. The only outbound action is `report --post-slack`, which posts a summary to Slack and only when you pass the flag.
 
 ### What does it cost?
 
@@ -192,15 +212,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `bill`, `consolidated`, `compare`, `forecast`, `waste rank`, `waste transfer`, `ask`, `explain`, `dimensions`, `doctor`, `iam-setup` | Allow |
+| Write (local / opt-in) | `sync` (writes the local cache), `report` (writes an HTML/PDF file), `report --post-slack` (posts a summary to Slack) | Allow; never mutates AWS. The Slack post fires only with `--post-slack` |
+| Destructive / config | none - the CLI never stops, deletes, modifies, or purchases any AWS resource | N/A |
 
 The strongest control is the **scope you grant the Amazon Web Services credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -212,4 +228,4 @@ Beta. Validated against the Amazon Web Services API surface and being validated 
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-30._

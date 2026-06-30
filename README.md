@@ -142,7 +142,7 @@ Outcomes, not hype - drawn from each of the 56 connectors' skill pages:
 | Which payments failed or stalled in the last week, across every company? | appdirect | `appdirect-cli payments unpaid --since 7d --json` |
 | Which agents have gone offline or stopped checking in? | atera | `atera-cli agents stale --days 30` |
 | Which approved time entries haven't been invoiced yet? | autotask | `autotask-cli unbilled` |
-| TODO: question an MSP keeps asking | aws-billing | `aws-billing-cli TODO` |
+| Why did my bill change month-over-month? | aws-billing | `aws-billing-cli compare --from last-month --to this-month` |
 | Whose backups failed or went stale across every client last night? | axcient | `axcient-cli health` |
 | What's down right now and is anyone actually paged? | betterstack | `betterstack-cli down` |
 | What are the worst open findings across all my client accounts right now? | blumira | `blumira-cli triage --status open` |

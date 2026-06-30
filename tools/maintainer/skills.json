@@ -183,7 +183,7 @@
       "cli_binary": "aws-billing-cli",
       "mcp_binary": "aws-billing-mcp",
       "vendor": "Amazon Web Services",
-      "vendor_trademark_owner": "Amazon.com, Inc.",
+      "vendor_trademark_owner": "Amazon.com, Inc. or its affiliates",
       "first_party": false,
       "category": "Billing",
       "display_name": "AWS",

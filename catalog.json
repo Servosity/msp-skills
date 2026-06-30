@@ -174,7 +174,7 @@
       "printing_press_version": "4.19.0",
       "license": "Apache-2.0",
       "vendor": "Amazon Web Services",
-      "vendor_trademark_owner": "Amazon.com, Inc.",
+      "vendor_trademark_owner": "Amazon.com, Inc. or its affiliates",
       "first_party": false,
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/aws-billing/install.sh)",
       "install_mcp_doc": "skills/aws-billing/mcp-install.md",
