@@ -1,6 +1,6 @@
 ---
 name: wordpress
-description: "Printing Press CLI for Wordpress. Publish and manage WordPress pages, posts, media"
+description: "Use when the user asks to publish, update, search, or clean up WordPress pages, posts, or media from the terminal or an AI agent - drives the WordPress REST API and keeps a local SQLite mirror for offline full-text search. Trigger phrases: `publish a wordpress page`, `create a wordpress post`, `list draft pages`, `upload media to wordpress`, `search my wordpress site`, `use wordpress`, `run wordpress`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "WordPress"
@@ -17,7 +17,7 @@ metadata:
         module: github.com/mvanhorn/printing-press-library/library/marketing/wordpress/cmd/wordpress-cli
 ---
 
-# Wordpress  -  Printing Press CLI
+# WordPress CLI and MCP server
 
 ## Prerequisites: Install the CLI
 
@@ -48,8 +48,9 @@ Publish and manage WordPress pages, posts, media, and taxonomies via the REST AP
 - `wordpress-cli categories get`  -  Get one category
 - `wordpress-cli categories list`  -  List categories
 
-**media**  -  List, read, update, and delete media library items (upload is a documented gap  -  multipart)
+**media**  -  Upload, list, read, update, and delete media library items (images, video, audio, PDF)
 
+- `wordpress-cli media upload`  -  Upload an image, video, audio, or document and return its media id
 - `wordpress-cli media delete`  -  Delete a media item
 - `wordpress-cli media get`  -  Get one media item by id
 - `wordpress-cli media list`  -  List media library items
@@ -192,7 +193,7 @@ Unknown schemes are refused with a structured error naming the supported set. We
 
 ## Named Profiles
 
-A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration - HeyGen's "Beacon" pattern.
+A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration - for example a nightly job that always lists draft pages on one client's site.
 
 ```
 wordpress-cli profile save briefing --json

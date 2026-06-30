@@ -2,6 +2,26 @@
   "_comment": "BASE-OWNED suppressions for check_security_gate.py. A finding is suppressed ONLY if its (file, rule) pair is listed here. This is intentionally NOT self-grantable from a PR diff: inline `// #nosec` is no longer honored by the gate, and a change to THIS file is a glaring, reviewed diff line (the security-gate workflow watches it). Add an entry only after a human has vetted that the flagged pattern is safe. The `file` may be repo-relative (skills/<slug>/cli/..., scopes to one connector) OR slug-relative (cli/..., applies fleet-wide to the byte-identical printing-press generated file every connector carries). All scanners (builtin patterns, install scripts, and the external gosec/govulncheck/osv/semgrep set) honor these entries.",
   "suppress": [
     {
+      "file": "cli/internal/cliutil/credentials.go",
+      "rule": "G117",
+      "reason": "FLEET (generated). Press-relocated twin of the config.go G117 entry: newer printing-press templates persist the OAuth/basic access_token to the user's own credentials.toml (written 0600) via cliutil/credentials.go SaveCredentials() instead of config.go. Storing the user's own token on their own machine is the intended auth-persistence behavior, not a leak. Surfaced by wordpress (first skill on the cliutil-split press)."
+    },
+    {
+      "file": "cli/internal/cliutil/credentials.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). Press-relocated twin of the config.go G304 entry: cliutil/credentials.go LoadCredentials() os.ReadFile's the user's own credentials.toml at credentialsPath() (app-determined path under the user's config/data dir), not attacker input. Single-user local CLI. Surfaced by wordpress (first skill on the cliutil-split press)."
+    },
+    {
+      "file": "cli/internal/cliutil/paths.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). Same class as the config.go/cache.go G304 entries: cliutil/paths.go ReadFileWithLegacyFallback os.ReadFile's the CLI's own resolved config/data file (with a legacy-location fallback) at app-determined paths under the user's own dirs. Local, user-owned; no untrusted path. Surfaced by wordpress (first skill on the cliutil-split press)."
+    },
+    {
+      "file": "cli/internal/cli/media_upload.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). Same class as the import.go/export.go/contacts_bulk_update.go G304 entries: media_upload.go os.ReadFile's the local file the user explicitly passes to `media upload <file>`. The user choosing which of their own files to upload is the intended behavior, not path traversal."
+    },
+    {
       "file": "skills/servosity/cli/internal/qbrreport/qbrreport.go",
       "rule": "exec-nonliteral-cmd",
       "reason": "chrome binary path is allowlist-resolved (not user input) before exec; pre-vetted, also annotated // #nosec G204 at the call site. servosity is an internal-only connector."

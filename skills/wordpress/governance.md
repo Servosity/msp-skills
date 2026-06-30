@@ -28,9 +28,9 @@ require a human for anything below the line.
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
 | **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `categories create`, `media update`, `pages create`, `pages update`, `posts create`, `posts update`, `settings`, `settings get`, ... (10 total) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
+| **Write (routine)** | Day-to-day mutations. | `categories create`, `tags create`, `media upload`, `media update`, `pages create`, `pages update`, `posts create`, `posts update` (8 total) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
 | **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
-| **Destructive** | Irreversible data or config loss. | `media delete`, `pages delete`, `posts delete` | Human-in-the-loop only, explicit confirmation |
+| **Destructive / config** | Irreversible data loss or site-wide config change. | `media delete`, `pages delete`, `posts delete`, `settings update` | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
 
 ## How to lock it down

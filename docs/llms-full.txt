@@ -2019,6 +2019,41 @@ A: The full VSPC v3 surface is exposed, including create/delete jobs and agent d
 
 Governance: The skill is read-first: cross-tenant health, stale-backup and at-risk sweeps, alarm triage, license usage, and search are read-only and safe to let an agent run. The write surface is large - creating and deleting backup jobs, policies and rules, installing agents, rebooting and deploying to real customer infrastructure, and credential/certificate operations - and is gated human-in-the-loop. The VSPC token's own permissions are the outer limit on anything the agent can do.
 
+### WordPress (Marketing)
+
+Page: https://msp-skills.compoundingteams.com/skills/wordpress/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/wordpress/install.sh)
+
+Ask your AI to "publish this landing page as a draft" or "find every page still mentioning the old pricing" and it happens from the terminal - no wp-admin clicking, no SSH for WP-CLI. This skill drives the WordPress REST API to create, update, search, and delete pages, posts, and media, and syncs the whole site into a local mirror so cross-content questions become one instant offline query.
+
+Outcomes (question -> command your AI agent runs):
+- Publish a landing page from HTML without opening wp-admin? -> wordpress-cli pages create --title "Spring Promo" --content "<h1>Spring Promo</h1>" --status publish
+- Which pages are still sitting in draft? -> wordpress-cli pages list --status draft
+- Update a live page's content in place? -> wordpress-cli pages update 42 --content "<h1>Updated copy</h1>"
+- Upload a hero image and get its media id for a featured image? -> wordpress-cli media upload ./hero.png --alt-text "Spring promo hero"
+- Find every page or post that mentions an outdated phrase (after a `workflow archive`)? -> wordpress-cli search "summer sale"
+- Mirror the whole site locally for offline search and backup? -> wordpress-cli workflow archive
+- What's mirrored locally and how fresh is it? -> wordpress-cli workflow status
+- Publish a blog post with categories and tags? -> wordpress-cli posts create --title "Patch Tuesday recap" --content "<p>This month...</p>" --status publish
+- Which authors can I assign content to? -> wordpress-cli users list
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local WordPress MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my WordPress data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need to install a plugin on the WordPress site?
+A: No. This drives the built-in WordPress REST API (the /wp-json/wp/v2 routes) that ships with WordPress 4.7 and later. You only need an Application Password for a user with the right role (in wp-admin: Users > Profile > Application Passwords), set as WORDPRESS_BASIC_AUTH.
+Q: Can it manage more than one site?
+A: Yes. Point it at any site by setting that site's WORDPRESS_BASE_URL and its Application Password; named profiles and the per-site local mirror keep each site's state separate. Treat each site's Application Password as a scoped credential.
+
+Governance: The skill reads pages, posts, media, categories, tags, users, and settings, and can create or update that content and upload media. The sharp edges are deletes (pages, posts, media) and site settings changes. The safe default for an autonomous agent is read plus previewed (`--dry-run`) writes, with a human approving anything that deletes content or changes site settings.
+
 ### Xero (Billing)
 
 Page: https://msp-skills.compoundingteams.com/skills/xero/

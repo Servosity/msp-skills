@@ -19,8 +19,10 @@ faqs:
     a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
-  - q: "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the WordPress portal)"
-    a: "TODO"
+  - q: "Do I need to install a plugin on the WordPress site?"
+    a: "No. This drives the built-in WordPress REST API (the /wp-json/wp/v2 routes) that ships with WordPress 4.7 and later. You only need an Application Password for a user with the right role (in wp-admin: Users > Profile > Application Passwords), set as WORDPRESS_BASIC_AUTH."
+  - q: "Can it manage more than one site?"
+    a: "Yes. Point it at any site by setting that site's WORDPRESS_BASE_URL and its Application Password; named profiles and the per-site local mirror keep each site's state separate. Treat each site's Application Password as a scoped credential."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/wordpress/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/wordpress/install.ps1 | iex"
@@ -40,7 +42,7 @@ howto:
 
 Yes - there is an MCP server for WordPress. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects WordPress to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-TODO: <=70 words, MSP-owner language, leads with the outcome. What does WordPress + your AI answer in one sentence that the portal cannot?
+Ask your AI to "publish this landing page as a draft" or "find every page still mentioning the old pricing" and it happens from the terminal - no wp-admin clicking, no SSH for WP-CLI. This skill drives the WordPress REST API to create, update, search, and delete pages, posts, and media, and syncs the whole site into a local mirror so cross-content questions become one instant offline query.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -48,17 +50,17 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does WordPres
 
 ## Instead of clicking through WordPress, just ask
 
-**Instead of** TODO: the painful manual workflow (exporting reports, clicking through the portal)
-**just ask:** *"TODO: the natural-language question the MSP owner asks instead"*
-<sub>Your agent runs: <code>wordpress-cli TODO</code></sub>
+**Instead of** Log into wp-admin, open the block editor, paste the HTML, wrestle the SEO fields, then click Publish - one page at a time
+**just ask:** *"Publish this landing page as a draft and give me its id"*
+<sub>Your agent runs: <code>wordpress-cli pages create --title "Spring Promo" --content "<h1>Spring Promo</h1>" --status draft</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>wordpress-cli TODO</code></sub>
+**Instead of** Hunt through the wp-admin media library to find an uploaded image's id before you can set it as a featured image
+**just ask:** *"Upload this hero image and tell me its media id"*
+<sub>Your agent runs: <code>wordpress-cli media upload ./hero.png --alt-text "Spring promo hero"</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>wordpress-cli TODO</code></sub>
+**Instead of** Open every page in wp-admin one at a time to find the ones still sitting in Draft
+**just ask:** *"Which pages are still drafts?"*
+<sub>Your agent runs: <code>wordpress-cli pages list --status draft</code></sub>
 
 
 ## See it in 30 seconds
@@ -71,20 +73,29 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does WordPres
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| TODO: question an MSP keeps asking | `wordpress-cli TODO` |
+| Publish a landing page from HTML without opening wp-admin? | `wordpress-cli pages create --title "Spring Promo" --content "<h1>Spring Promo</h1>" --status publish` |
+| Which pages are still sitting in draft? | `wordpress-cli pages list --status draft` |
+| Update a live page's content in place? | `wordpress-cli pages update 42 --content "<h1>Updated copy</h1>"` |
+| Upload a hero image and get its media id for a featured image? | `wordpress-cli media upload ./hero.png --alt-text "Spring promo hero"` |
+| Find every page or post that mentions an outdated phrase (after a `workflow archive`)? | `wordpress-cli search "summer sale"` |
+| Mirror the whole site locally for offline search and backup? | `wordpress-cli workflow archive` |
+| What's mirrored locally and how fresh is it? | `wordpress-cli workflow status` |
+| Publish a blog post with categories and tags? | `wordpress-cli posts create --title "Patch Tuesday recap" --content "<p>This month...</p>" --status publish` |
+| Which authors can I assign content to? | `wordpress-cli users list` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/wordpress/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/wordpress/guide.md).
 
 ## What makes this one different
 
-TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most WordPress integrations proxy each question into a live API call ...
+Most WordPress integrations proxy each request straight to the live REST API - fine for editing one page, slow and noisy when you want to grep every page and post across a whole site for an old price or a dead promo link. This skill syncs WordPress into a local SQLite mirror with full-text search (`workflow archive`), so "find every page that still mentions the old pricing" becomes one instant offline query, and `workflow status` shows exactly what is mirrored and how stale it is - your AI sees the matching rows, not a dump of every page's HTML.
 
-TODO: one sentence vs WordPress's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.
+WordPress's own wp-admin is built for one human clicking through one screen at a time, and the official WP-CLI needs SSH access to the server's shell. This skill drives the same REST API your site already exposes over HTTPS - no server login - so an AI agent can publish, update, search, and clean up content remotely. It complements wp-admin; it doesn't replace it.
 
 ## The pain this closes
 
-- TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread
-- TODO: pain 2
+- Routine site edits - swap a promo banner, fix a phone number, push a new landing page - mean logging into wp-admin and clicking through the block editor screen by screen. The Classic Editor plugin still reports over 10 million active installs on the WordPress.org plugin directory: a standing vote against that editor for everyday content work.
+- Managing content across a stack of client sites is unbillable busywork. There is no single command to publish a page, list every draft, or search all content, so it stays manual - MSPs on r/msp regularly trade scripts and gripes about website upkeep eating hours that never reach an invoice.
+- The official WP-CLI is powerful but needs SSH access to the server's shell, which many managed or hosted WordPress sites do not give you - so remote, scriptable content management falls back to the browser.
 
 ## Install
 
@@ -118,11 +129,11 @@ After install, authenticate once with your WordPress credentials, then verify wi
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | TODO: read commands | Allow |
-| Write (routine) | TODO | Preview with --dry-run, then a reviewed write |
-| Destructive / config | TODO | Human-in-the-loop only |
+| Read | pages list, posts list, media list, search, users list, workflow status | Allow |
+| Write (routine) | pages create, pages update, posts create, posts update, media upload, media update, categories create, tags create | Preview with --dry-run, then a reviewed write |
+| Destructive / config | pages delete, posts delete, media delete, settings update | Human-in-the-loop only |
 
-TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/wordpress/governance.md).
+The skill reads pages, posts, media, categories, tags, users, and settings, and can create or update that content and upload media. The sharp edges are deletes (pages, posts, media) and site settings changes. The safe default for an autonomous agent is read plus previewed (`--dry-run`) writes, with a human approving anything that deletes content or changes site settings. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/wordpress/governance.md).
 
 ## Frequently asked questions
 
@@ -150,9 +161,13 @@ Your data stays on your machine. The CLI, MCP server, and the local mirror are a
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-### TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the WordPress portal)
+### Do I need to install a plugin on the WordPress site?
 
-TODO
+No. This drives the built-in WordPress REST API (the /wp-json/wp/v2 routes) that ships with WordPress 4.7 and later. You only need an Application Password for a user with the right role (in wp-admin: Users > Profile > Application Passwords), set as WORDPRESS_BASIC_AUTH.
+
+### Can it manage more than one site?
+
+Yes. Point it at any site by setting that site's WORDPRESS_BASE_URL and its Application Password; named profiles and the per-site local mirror keep each site's state separate. Treat each site's Application Password as a scoped credential.
 
 
 ## Status

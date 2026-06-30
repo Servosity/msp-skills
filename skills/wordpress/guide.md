@@ -1,4 +1,4 @@
-# Wordpress CLI
+# WordPress CLI
 
 Publish and manage WordPress pages, posts, media, and taxonomies via the REST API  -  built for AI agents authoring landing pages with on-page SEO.
 
@@ -213,8 +213,9 @@ List, read, and create post categories
 
 ### media
 
-List, read, update, and delete media library items (upload is a documented gap  -  multipart)
+Upload, list, read, update, and delete media library items (images, video, audio, PDF)
 
+- **`wordpress-cli media upload`** - Upload an image, video, audio, or document and return its media id
 - **`wordpress-cli media delete`** - Delete a media item
 - **`wordpress-cli media get`** - Get one media item by id
 - **`wordpress-cli media list`** - List media library items

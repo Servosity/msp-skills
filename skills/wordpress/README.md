@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/wordpress/">
-    <img src="../../docs/assets/social/wordpress/wide-1200x630.png" alt="WordPress - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/wordpress/animated-og.gif" alt="WordPress demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/wordpress/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/wordpress/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Publish and manage WordPress pages, posts, media Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
@@ -145,25 +145,35 @@ WORDPRESS_BASIC_AUTH=<value> wordpress-cli doctor
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `wordpress-cli ...` |
-
--->
+| Publish a landing page from HTML without opening wp-admin? | `wordpress-cli pages create --title "Spring Promo" --content "<h1>Spring Promo</h1>" --status publish` |
+| Which pages are still sitting in draft? | `wordpress-cli pages list --status draft` |
+| Update a live page's content in place? | `wordpress-cli pages update 42 --content "<h1>Updated copy</h1>"` |
+| Upload a hero image and get its media id? | `wordpress-cli media upload ./hero.png --alt-text "Spring promo hero"` |
+| Mirror the whole site locally for offline search and backup? | `wordpress-cli workflow archive` |
+| Find every page or post that mentions an old phrase (after a `workflow archive`)? | `wordpress-cli search "summer sale"` |
+| Publish a blog post with categories and tags? | `wordpress-cli posts create --title "Patch Tuesday recap" --content "<p>This month...</p>" --status publish` |
+| Which authors can I assign content to? | `wordpress-cli users list` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most WordPress integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most WordPress integrations and MCP servers proxy each question into a live API call. That's fine for editing one record. It gets slow and noisy when you ask "find every page and post across the whole site that still mentions last year's pricing or a dead promo link."
 
-This skill syncs WordPress into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs WordPress into a **local SQLite mirror** with full-text search. That cross-content question becomes one instant offline query, and the AI sees the matching rows, not a dump of every page's HTML. Compound commands like `workflow archive` and `workflow status` mirror and inventory every page, post, media item, category, tag, and user in one pass - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+Routine site edits - swap a promo banner, fix a phone number, push a new landing page - mean logging into wp-admin and clicking through the block editor screen by screen. The Classic Editor plugin still reports over 10 million active installs on the WordPress.org plugin directory: a standing vote against that editor for everyday content work. Across a stack of client sites that browser-clicking is unbillable busywork, and the official WP-CLI - the scriptable alternative - needs SSH access to the server's shell that many managed or hosted sites never give you.
+
+This skill closes that gap from the terminal or your AI agent, over the REST API your site already exposes:
+
+- **Publish and update content remotely** - `wordpress-cli pages create` / `wordpress-cli pages update` / `wordpress-cli posts create`, no wp-admin and no SSH.
+- **Triage what is unfinished** - `wordpress-cli pages list --status draft` surfaces every page still waiting to ship.
+- **Search the whole site at once** - `wordpress-cli workflow archive` mirrors the site, then `wordpress-cli search "old pricing"` finds every page or post that still mentions it.
+- **Manage media by id** - `wordpress-cli media upload ./hero.png --alt-text "Spring promo hero"` returns the media id you wire into a featured image.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +195,17 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Do I need to install a plugin on the WordPress site?
+
+No. This drives the built-in WordPress REST API (the `/wp-json/wp/v2` routes) that ships with WordPress 4.7 and later. You only need an Application Password for a user with the right role - create one in wp-admin under **Users > Profile > Application Passwords** - and set it as `WORDPRESS_BASIC_AUTH`.
+
+### Can it manage more than one site?
+
+Yes. Point it at any site by setting that site's `WORDPRESS_BASE_URL` and its Application Password. Named profiles and the per-site local mirror keep each site's state separate, so one workstation can manage a stack of client sites. Treat each site's Application Password as a scoped credential.
+
+### Will this replace wp-admin or WP-CLI?
+
+No - it complements them. wp-admin stays the place for theme work and plugin configuration; WP-CLI stays the server-side power tool when you have SSH. This skill adds remote, scriptable, AI-driven content management over the same REST API, with a local mirror for instant cross-site search.
 
 ### What does it cost?
 
@@ -198,15 +213,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `pages list`, `posts list`, `media list`, `search`, `users list`, `workflow status` | Allow |
+| Write (routine) | `pages create`, `pages update`, `posts create`, `posts update`, `media upload`, `media update`, `categories create`, `tags create` | Preview with `--dry-run`, then a reviewed write |
+| Destructive / config | `pages delete`, `posts delete`, `media delete`, `settings update` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the WordPress credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +229,4 @@ Beta. Validated against the WordPress API surface and being validated with MSPs 
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-30._

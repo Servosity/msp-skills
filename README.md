@@ -189,7 +189,7 @@ Outcomes, not hype - drawn from each of the 56 connectors' skill pages:
 | What's the overall health of my fleet right now? | tactical-rmm | `tactical-rmm-cli fleet health` |
 | What application approvals are pending across all my clients right now? | threatlocker | `threatlocker-cli approvals triage --all-tenants` |
 | Which backup jobs are failing across all my customers? | veeam | `veeam-cli fleet-health --agent` |
-| TODO: question an MSP keeps asking | wordpress | `wordpress-cli TODO` |
+| Publish a landing page from HTML without opening wp-admin? | wordpress | `wordpress-cli pages create --title "Spring Promo" --content "<h1>Spring Promo</h1>" --status publish` |
 | Who owes us, and how overdue is each invoice? | xero | `xero-cli aging --agent` |
 <!-- agent-can-do:end -->
 
