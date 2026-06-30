@@ -1,5 +1,5 @@
 {
-  "count": 55,
+  "count": 56,
   "connectors": [
     {
       "slug": "abnormal",
@@ -540,6 +540,16 @@
       "verified_by": null,
       "issue_url": null,
       "url": "/skills/veeam/"
+    },
+    {
+      "slug": "wordpress",
+      "display_name": "WordPress",
+      "tagline": "Publish and manage WordPress pages, posts, media",
+      "category": "Other",
+      "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
+      "url": "/skills/wordpress/"
     },
     {
       "slug": "xero",

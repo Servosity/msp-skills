@@ -1375,6 +1375,28 @@
         "issue_url": null
       }
     },
+    "wordpress": {
+      "system": "Publish and manage WordPress pages, posts, and media",
+      "status": "beta",
+      "cli_binary": "wordpress-cli",
+      "mcp_binary": "wordpress-mcp",
+      "vendor": "WordPress",
+      "vendor_trademark_owner": "WordPress Foundation",
+      "first_party": false,
+      "category": "Other",
+      "display_name": "WordPress",
+      "cli_hash": "sha256:d0081cf1a1e1f73bb156e7584a6c8cb5956845ceb1e318e68bd6e267bae3a18e",
+      "template_version": 3,
+      "version": "0.0.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "xero": {
       "system": "the Xero cloud accounting platform",
       "status": "beta",

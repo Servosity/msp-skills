@@ -76,6 +76,7 @@ body:
         - tactical-rmm
         - threatlocker
         - veeam
+        - wordpress
         - xero
         - other / not listed
     validations:

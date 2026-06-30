@@ -1,0 +1,19 @@
+{
+  "name": "wordpress",
+  "version": "0.0.0",
+  "description": "Publish and manage WordPress pages, posts, media",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/wordpress",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "wordpress",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

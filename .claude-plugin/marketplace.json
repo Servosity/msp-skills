@@ -867,6 +867,20 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "wordpress",
+      "source": "./skills/wordpress",
+      "description": "Publish and manage WordPress pages, posts, media",
+      "version": "0.0.0",
+      "category": "msp",
+      "tags": [
+        "wordpress",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
