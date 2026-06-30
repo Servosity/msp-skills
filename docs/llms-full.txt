@@ -1095,6 +1095,41 @@ A: Yes - you use your own Liongard instance and access keys, so the skill only r
 
 Governance: Read commands (drift, health, coverage, the stale/offline/failure rollups, search, and every get/list) cannot change anything and are safe to allow. Writes are explicit and named - creating or updating environments, launchpoints, metrics, users, and agents, plus importing data and triggering inspection runs - and should be previewed before they send. Deletes, minting access keys, and the auth/token commands are human-in-the-loop only. The strongest control is the scope of the Liongard access keys you supply: the CLI can only do what those keys are permitted to do.
 
+### Maxio (Billing)
+
+Page: https://msp-skills.compoundingteams.com/skills/maxio/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/maxio/install.sh)
+
+Ask 'what's our MRR, and how did it move last quarter?' and get the New / Expansion / Contraction / Churn / Reactivation waterfall, net and gross revenue retention, per-customer revenue history, and a ranked list of accounts that need attention - in one command, computed offline from a local mirror of your Maxio Advanced Billing data. It is the revenue math the dashboard buries and the live, point-in-time API can't reconstruct after the fact.
+
+Outcomes (question -> command your AI agent runs):
+- What's our current MRR and ARR right now? -> maxio-cli mrr now
+- How did MRR move month over month (new, expansion, contraction, churn, reactivation)? -> maxio-cli mrr waterfall --since 2026-01-01 --group-by month
+- What's our net and gross revenue retention, and quick ratio? -> maxio-cli retention --since 2026-01-01 --group-by month
+- What's recurring revenue for this customer, and how has it trended? -> maxio-cli mrr client --customer "Acme"
+- Which accounts need attention this week? -> maxio-cli triage --limit 20
+- How much MRR is up for renewal in the next 30 days? -> maxio-cli renewals --within 30
+- Which usage components drove expansion versus contraction? -> maxio-cli usage-drivers --since 2026-01-01
+- Where does normalized MRR diverge from what we actually invoiced? -> maxio-cli reconcile --since 2026-01-01
+- How many new logos did we land this quarter, and how much MRR? -> maxio-cli new-customers --since 3m
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Maxio MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Maxio data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this hit my Maxio API rate limits?
+A: Rarely, for the analytics. After you sync, the revenue-analytics commands (mrr waterfall, retention, cohort, triage, reconcile) read from the local SQLite mirror, so they make zero API calls. Keeping the mirror current is two incremental commands - 'maxio-cli sync' for the full dataset and 'maxio-cli mrr sync' to snapshot MRR-movement history - and both fetch only what changed. The endpoint-mirror commands and tail read live from Maxio, so those count against your limits.
+Q: Do I need to be a Maxio partner or customer to use this?
+A: You need your own Maxio Advanced Billing API credentials (a username and password) - that's it. This is an unofficial, community-built skill, not a Maxio product, so there is no partner program or separate signup. It reads only the data your credentials already grant.
+
+Governance: Read commands - every MRR, retention, cohort, triage, and reconcile rollup plus search - cannot change anything and are safe to run unattended. Routine writes (creating or updating subscriptions, components, or customers) send immediately unless you pass --dry-run first, so the recommended agent policy is preview-then-approve. Credential, destructive (deletes and cancellations), and admin commands should always be human-in-the-loop.
+
 ### Microsoft Graph (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/microsoft-graph/

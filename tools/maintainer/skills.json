@@ -732,7 +732,7 @@
       }
     },
     "maxio": {
-      "system": "Maxio Advanced Billing \u2014 subscription revenue, MRR, and retention intelligence",
+      "system": "Maxio Advanced Billing - subscription revenue, MRR, and retention intelligence",
       "status": "beta",
       "cli_binary": "maxio-cli",
       "mcp_binary": "maxio-mcp",
@@ -981,7 +981,7 @@
       "cli_binary": "pipedrive-cli",
       "mcp_binary": "pipedrive-mcp",
       "vendor": "Pipedrive",
-      "vendor_trademark_owner": "Pipedrive O\u00dc",
+      "vendor_trademark_owner": "Pipedrive OÜ",
       "first_party": false,
       "category": "CRM",
       "display_name": "Pipedrive",

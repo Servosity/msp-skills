@@ -1,8 +1,8 @@
 # Maxio CLI
 
-**The first open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror that outlives Maxio's deprecated Insights API.**
+**Open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures.**
 
-Every Maxio Advanced Billing resource is queryable offline, but the point is the revenue math no other tool computes: the five-bucket MRR movement waterfall, NRR/GRR/quick-ratio, per-client recurring-revenue history, and a 'what needs attention' triage rollup. It snapshots each sync into a local time series, so historic cohort and retention curves survive even as Maxio sunsets its Insights endpoints. Read-only by default.
+Every Maxio Advanced Billing resource is queryable offline, but the point is the revenue math no other tool computes: the five-bucket MRR movement waterfall, NRR/GRR/quick-ratio, per-client recurring-revenue history, and a 'what needs attention' triage rollup. It snapshots each sync into a local time series, so historic cohort and retention curves accrue even though the live API has no endpoint to reconstruct them after the fact. Reads are the safe default; mutating commands execute only when you invoke them.
 
 ## Install
 
@@ -121,7 +121,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 
 ## Authentication
 
-Maxio Advanced Billing uses HTTP Basic auth where the username is your API key and the password is the literal 'x'. Set one secret, MAXIO_API_KEY (your Advanced Billing API key from Config -> Integrations -> API Keys), plus MAXIO_SITE (your subdomain, e.g. acme for acme.chargify.com). The CLI supplies the constant 'x' password for you. It never issues writes by default.
+Maxio Advanced Billing uses HTTP Basic authentication. Set three environment variables: MAXIO_USERNAME, MAXIO_PASSWORD, and MAXIO_SITE (your subdomain, e.g. acme for acme.chargify.com). For Advanced Billing API-key access, MAXIO_USERNAME is your API key (Config -> Integrations -> API Keys) and MAXIO_PASSWORD is the literal value 'x'. Read commands are safe to run by default; mutating commands execute when you invoke them (some prompt for confirmation interactively, which --agent/--yes skips), so preview with --dry-run and approve writes per your agent policy.
 
 ## Quick Start
 
@@ -184,14 +184,14 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Agent-native revenue ops
-- **`triage`**  -  A ranked list of accounts that need attention: trending contraction, stalled expansion, recent churn, large auto-renewals approaching.
+- **`triage`**  -  A ranked list of accounts that need attention: past-due, large upcoming renewals, and high-value concentration.
 
   _Reach for this to answer 'what revenue needs my attention this week' in one call instead of fanning out across endpoints._
 
   ```bash
   maxio-cli triage --limit 20 --agent
   ```
-- **`reconcile`**  -  Per-subscription gaps between normalized MRR and the amounts actually billed, with the deltas flagged.
+- **`reconcile`**  -  Per-customer gaps between normalized MRR and the amounts actually invoiced, with the deltas flagged.
 
   _Use this to catch where normalized recurring revenue and invoiced amounts diverge (discounts, usage spikes, proration)._
 
@@ -231,7 +231,7 @@ Use --agent with --select dotted paths so the agent reads only the fields it nee
 maxio-cli triage --limit 20 --agent
 ```
 
-Ranked accounts with trending contraction, stalled expansion, recent churn, or large approaching renewals.
+Ranked accounts that need attention: past-due, large upcoming renewals, and high-value concentration.
 
 ### Reconcile one client's normalized vs billed
 
@@ -239,7 +239,7 @@ Ranked accounts with trending contraction, stalled expansion, recent churn, or l
 maxio-cli reconcile --customer 1234567 --since 2026-01-01 --agent
 ```
 
-Per-subscription gaps between normalized MRR and what was actually invoiced for that client.
+Per-customer gaps between normalized MRR and what was actually invoiced for that client.
 
 ## Usage
 
@@ -407,7 +407,7 @@ To retrieve a single, exact match by reference, use the [lookup endpoint](https:
 
 Manage endpoints
 
-- **`maxio-cli endpoints <endpoint_id>`** - Updates an Endpoint. You can change the `url` of your endpoint or the list of `webhook_subscriptions` to which you are subscribed. See the [Webhooks Reference](page:introduction/webhooks/webhooks-reference#events) page for available events.
+- **`maxio-cli endpoints <endpoint_id>`** - Updates an Endpoint. You can change the `url` of your endpoint or the list of `webhook_subscriptions` to which you are subscribed. See the Webhooks Reference page for available events.
 
 Always send a complete list of events to which you want to subscribe. Sending a PUT request for an existing endpoint with an empty list of `webhook_subscriptions` will unsubscribe all events.
 
@@ -418,7 +418,7 @@ If you want to unsubscribe from a specific event, send a list of `webhook_subscr
 Manage endpoints json
 
 - **`maxio-cli endpoints-json create-endpoint`** - Creates an endpoint and assigns a list of webhook subscriptions (events) to it.
-See the [Webhooks Reference](page:introduction/webhooks/webhooks-reference#events) page for available events.
+See the Webhooks Reference page for available events.
 - **`maxio-cli endpoints-json list-endpoints`** - Returns created endpoints for a site.
 
 ### event-based-billing
@@ -489,13 +489,13 @@ The following keys are no longer supported.
 + `zferral_revenue_post_success` - (Specific to the deprecated Zferral integration)
 
 ## Event Key
-The event type is identified by the key property. You can check supported keys [here]($m/Event%20Key).
+The event type is identified by the key property. You can check supported keys in the Event Key reference.
 
 ## Event Specific Data
 
 Different event types may include additional data in `event_specific_data` property.
 While some events share the same schema for `event_specific_data`, others may not include it at all.
-For precise mappings from key to event_specific_data, refer to [Event]($m/Event).
+For precise mappings from key to event_specific_data, refer to the Event reference.
 
 ### Example
 Here’s an example event for the `subscription_product_change` event:
@@ -1158,11 +1158,11 @@ Identify an existing customer with `customer_id` or `customer_reference`. Option
 
 Select an option from the **Request Examples** drop-down on the right side of the portal to see examples of common scenarios for creating subscriptions. 
 
-See the [Subscription Signups](page:introduction/basic-concepts/subscription-signup) article for more information on working with subscriptions in Advanced Billing.
+See the Subscription Signups article for more information on working with subscriptions in Advanced Billing.
 
 ## Payment information  
 
-Payment information may be required to create a subscription, depending on the options for the Product being subscribed. See [product options](https://docs.maxio.com/hc/en-us/articles/24261076617869-Edit-Products) for more information. See the [Payments Profile]($e/Payment%20Profiles/createPaymentProfile) endpoint for details on payment parameters. 
+Payment information may be required to create a subscription, depending on the options for the Product being subscribed. See [product options](https://docs.maxio.com/hc/en-us/articles/24261076617869-Edit-Products) for more information. See the Payments Profile endpoint for details on payment parameters. 
 
 Do not use real card information for testing. See the Sites articles that cover [testing your site setup](https://docs.maxio.com/hc/en-us/articles/24250712113165-Testing-Overview#testing-overview-0-0) for more details on testing in your sandbox.
 
@@ -1200,7 +1200,7 @@ Manage webhooks
 
 Manage webhooks json
 
-- **`maxio-cli webhooks-json`** - Retrieves a list of webhooks.  You can pass query parameters if you want to filter webhooks. See the [Webhooks](page:introduction/webhooks/webhooks) documentation for more information.
+- **`maxio-cli webhooks-json`** - Retrieves a list of webhooks.  You can pass query parameters if you want to filter webhooks. See the Webhooks documentation for more information.
 
 
 ## Output Formats
@@ -1283,7 +1283,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 
 ### API-specific
 - **mrr/retention/cohort commands return empty or thin history**  -  Run sync first; historic depth accrues from each sync's snapshot. First sync backfills from the live movement endpoint.
-- **401 Unauthorized**  -  Check MAXIO_API_KEY is your Advanced Billing API key and MAXIO_SITE is the bare subdomain (no .chargify.com).
+- **401 Unauthorized**  -  Check MAXIO_USERNAME is your Advanced Billing API key, MAXIO_PASSWORD is set (the literal 'x' for API-key access), and MAXIO_SITE is the bare subdomain (no .chargify.com).
 - **403 on mrr/mrr_movements/subscriptions_mrr endpoints**  -  The Insights/Analytics add-on is not enabled on the site; the local-compute mrr commands still work off synced data.
 - **rate limited (429)**  -  The client backs off and retries; lower sync concurrency or sync fewer --resources at once if it persists.
 

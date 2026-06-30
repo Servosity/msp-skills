@@ -29,7 +29,7 @@ require a human for anything below the line.
 | --- | --- | --- | --- |
 | **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
 | **Write (routine)** | Day-to-day mutations. | `components price-points archive-component`, `components price-points bulk-create-component`, `components price-points bulk-create-segments`, `components price-points bulk-update-segments`, `components price-points create-segment`, `components price-points unarchive-component`, `components price-points update-component`, `components price-points update-segment`, ... (80 total) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
-| **Credential / security** | Touches tokens, keys, MFA. | `promoted one-time-tokens` | Human-in-the-loop only |
+| **Credential / security** | Touches tokens, keys, MFA. | `one-time-tokens` | Human-in-the-loop only |
 | **Destructive** | Irreversible data or config loss. | `components price-points delete-segment`, `coupons codes delete-coupon-subcode`, `customers delete`, `payment-profiles delete-unused`, `reason-codes delete`, `subscription-groups delete`, `subscription-groups payment-profiles delete-subscription-group`, `subscriptions components delete-prepaid-usage-allocation`, ... (13 total) | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
 

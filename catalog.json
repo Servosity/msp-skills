@@ -603,7 +603,7 @@
     },
     {
       "name": "maxio",
-      "system": "Maxio Advanced Billing \u2014 subscription revenue, MRR, and retention intelligence",
+      "system": "Maxio Advanced Billing - subscription revenue, MRR, and retention intelligence",
       "status": "beta",
       "skill_path": "skills/maxio",
       "cli_binary": "maxio-cli",
@@ -616,7 +616,7 @@
       "first_party": false,
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/maxio/install.sh)",
       "install_mcp_doc": "skills/maxio/mcp-install.md",
-      "description": "The first open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror that outlives Maxio's deprecated Insights API.",
+      "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures.",
       "verification": "awaiting",
       "category": "Billing"
     },

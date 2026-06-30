@@ -10,9 +10,9 @@ subscription business - MRR, churn, ARPA, retention - and describe falling back
 to third-party applications on imported billing data to compute them. Reviewers
 flag simple asks with no clean answer in the portal, like listing the customers
 who signed up in a given window and the revenue they brought. On top of that, the
-legacy Insights/Analytics endpoints are being sunset, so the historic movement and
-retention curves a finance lead needs at board time get harder to reconstruct
-over time, not easier.
+live API returns only point-in-time figures - there is no endpoint that
+reconstructs the historic movement and retention curves a finance lead needs at
+board time, so they only exist if something snapshots them over time.
 
 For an MSP or SaaS operator, that means board-prep and QBR questions turn into a
 manual export-and-spreadsheet loop every month instead of a one-line answer.

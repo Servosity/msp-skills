@@ -1,6 +1,6 @@
 ---
 name: maxio
-description: "The first open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror that outlives Maxio's deprecated Insights API. Trigger phrases: `what's our MRR`, `show the MRR waterfall`, `recurring revenue for this customer`, `net revenue retention this year`, `what revenue needs attention`, `use maxio`, `run maxio`."
+description: "Open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures. Trigger phrases: `what's our MRR`, `show the MRR waterfall`, `recurring revenue for this customer`, `net revenue retention this year`, `what revenue needs attention`, `use maxio`, `run maxio`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Maxio"
@@ -38,7 +38,7 @@ go install github.com/mvanhorn/printing-press-library/library/payments/maxio/cmd
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-Every Maxio Advanced Billing resource is queryable offline, but the point is the revenue math no other tool computes: the five-bucket MRR movement waterfall, NRR/GRR/quick-ratio, per-client recurring-revenue history, and a 'what needs attention' triage rollup. It snapshots each sync into a local time series, so historic cohort and retention curves survive even as Maxio sunsets its Insights endpoints. Read-only by default.
+Every Maxio Advanced Billing resource is queryable offline, but the point is the revenue math no other tool computes: the five-bucket MRR movement waterfall, NRR/GRR/quick-ratio, per-client recurring-revenue history, and a 'what needs attention' triage rollup. It snapshots each sync into a local time series, so historic cohort and retention curves accrue even though the live API has no endpoint to reconstruct them after the fact. Reads are the safe default; mutating commands execute only when you invoke them.
 
 ## When to Use This CLI
 
@@ -48,7 +48,7 @@ Use this CLI when an agent or operator needs Maxio recurring-revenue intelligenc
 
 Do not use this CLI for:
 - Do not use this CLI for GAAP recognized revenue, ASC 606, or deferred-revenue schedules  -  those live in SaaS Optics, a separate Maxio API not covered by this build.
-- Do not use it to create, cancel, refund, or modify subscriptions or invoices against production  -  it is read-only by default and writes are intentionally gated.
+- Do not point an autonomous agent at create, cancel, refund, or modify operations against production without a human in the loop  -  these are real writes that execute when invoked; preview them with --dry-run and require approval (see governance.md).
 - Do not use it for payment processing, collections, or dunning actions.
 
 ## Unique Capabilities
@@ -86,14 +86,14 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Agent-native revenue ops
-- **`triage`**  -  A ranked list of accounts that need attention: trending contraction, stalled expansion, recent churn, large auto-renewals approaching.
+- **`triage`**  -  A ranked list of accounts that need attention: past-due, large upcoming renewals, and high-value concentration.
 
   _Reach for this to answer 'what revenue needs my attention this week' in one call instead of fanning out across endpoints._
 
   ```bash
   maxio-cli triage --limit 20 --agent
   ```
-- **`reconcile`**  -  Per-subscription gaps between normalized MRR and the amounts actually billed, with the deltas flagged.
+- **`reconcile`**  -  Per-customer gaps between normalized MRR and the amounts actually invoiced, with the deltas flagged.
 
   _Use this to catch where normalized recurring revenue and invoiced amounts diverge (discounts, usage spikes, proration)._
 
@@ -238,7 +238,7 @@ These capabilities aren't available in any other tool for this API.
 
 **portal**  -  Manage portal
 
-- `maxio-cli portal enable-billing-for-customer`  -  Full documentation on how the Billing Portal operates within the Advanced Billing UI can be located [here](https
+- `maxio-cli portal enable-billing-for-customer`  -  Full documentation on how the Billing Portal operates within the Advanced Billing UI is available in the Maxio docs.
 - `maxio-cli portal read-billing-link`  -  This method will provide to the API user the exact URL required for a subscriber to access the Billing Portal.
 - `maxio-cli portal resend-billing-invitation`  -  You can resend a customer's Billing Portal invitation.
 - `maxio-cli portal revoke-billing-access`  -  You can revoke a customer's Billing Portal invitation.
@@ -297,7 +297,7 @@ These capabilities aren't available in any other tool for this API.
 
 **site-json**  -  Manage site json
 
-- `maxio-cli site-json`  -  Retrieves site data. Full documentation on Sites in the Advanced Billing UI can be located [here](https://maxio.zendesk.
+- `maxio-cli site-json`  -  Retrieves site data. Full documentation on Sites in the Advanced Billing UI is available in the Maxio docs.
 
 **sites**  -  Manage sites
 
@@ -387,7 +387,7 @@ Use --agent with --select dotted paths so the agent reads only the fields it nee
 maxio-cli triage --limit 20 --agent
 ```
 
-Ranked accounts with trending contraction, stalled expansion, recent churn, or large approaching renewals.
+Ranked accounts that need attention: past-due, large upcoming renewals, and high-value concentration.
 
 ### Reconcile one client's normalized vs billed
 
@@ -395,11 +395,11 @@ Ranked accounts with trending contraction, stalled expansion, recent churn, or l
 maxio-cli reconcile --customer 1234567 --since 2026-01-01 --agent
 ```
 
-Per-subscription gaps between normalized MRR and what was actually invoiced for that client.
+Per-customer gaps between normalized MRR and what was actually invoiced for that client.
 
 ## Auth Setup
 
-Maxio Advanced Billing uses HTTP Basic auth where the username is your API key and the password is the literal 'x'. Set one secret, MAXIO_API_KEY (your Advanced Billing API key from Config -> Integrations -> API Keys), plus MAXIO_SITE (your subdomain, e.g. acme for acme.chargify.com). The CLI supplies the constant 'x' password for you. It never issues writes by default.
+Maxio Advanced Billing uses HTTP Basic authentication. Set three environment variables: MAXIO_USERNAME, MAXIO_PASSWORD, and MAXIO_SITE (your subdomain, e.g. acme for acme.chargify.com). For Advanced Billing API-key access, MAXIO_USERNAME is your API key (Config -> Integrations -> API Keys) and MAXIO_PASSWORD is the literal value 'x'. Read commands are safe to run by default; mutating commands execute when you invoke them (some prompt for confirmation interactively, which --agent/--yes skips), so preview with --dry-run and approve writes per your agent policy.
 
 Run `maxio-cli doctor` to verify setup.
 
@@ -459,7 +459,7 @@ Unknown schemes are refused with a structured error naming the supported set. We
 
 ## Named Profiles
 
-A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration - HeyGen's "Beacon" pattern.
+A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration.
 
 ```
 maxio-cli profile save briefing --json

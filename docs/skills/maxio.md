@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Maxio MCP Server - Free, Open Source, Runs Locally | MSP Skills"
-description: "The first open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror that outlives Maxio's deprecated Insights API."
+description: "Open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures."
 permalink: /skills/maxio/
 skill_name: "Maxio MCP"
 image: /assets/social/maxio/wide-1200x630.png
@@ -20,7 +20,7 @@ faqs:
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
   - q: "Will this hit my Maxio API rate limits?"
-    a: "Rarely. After the first 'maxio-cli sync', the revenue commands read from the local SQLite mirror, not the API, so day-to-day questions make zero API calls. Only sync and tail talk to Maxio, and sync is incremental - it fetches only what changed since the last run."
+    a: "Rarely, for the analytics. After you sync, the revenue-analytics commands (mrr waterfall, retention, cohort, triage, reconcile) read from the local SQLite mirror, so they make zero API calls. Keeping the mirror current is two incremental commands - 'maxio-cli sync' for the full dataset and 'maxio-cli mrr sync' to snapshot MRR-movement history - and both fetch only what changed. The endpoint-mirror commands and tail read live from Maxio, so those count against your limits."
   - q: "Do I need to be a Maxio partner or customer to use this?"
     a: "You need your own Maxio Advanced Billing API credentials (a username and password) - that's it. This is an unofficial, community-built skill, not a Maxio product, so there is no partner program or separate signup. It reads only the data your credentials already grant."
 howto:
@@ -42,7 +42,7 @@ howto:
 
 Yes - there is an MCP server for Maxio. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Maxio to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-Ask 'what's our MRR, and how did it move last quarter?' and get the New / Expansion / Contraction / Churn / Reactivation waterfall, net and gross revenue retention, per-customer revenue history, and a ranked list of accounts that need attention - in one command, computed offline from a local mirror of your Maxio Advanced Billing data. It is the revenue math the dashboard buries and Maxio's deprecated Insights API no longer reconstructs.
+Ask 'what's our MRR, and how did it move last quarter?' and get the New / Expansion / Contraction / Churn / Reactivation waterfall, net and gross revenue retention, per-customer revenue history, and a ranked list of accounts that need attention - in one command, computed offline from a local mirror of your Maxio Advanced Billing data. It is the revenue math the dashboard buries and the live, point-in-time API can't reconstruct after the fact.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -87,14 +87,14 @@ Full command reference at [github.com/servosity/msp-skills/blob/main/skills/maxi
 
 ## What makes this one different
 
-Most Maxio integrations proxy each question into a live API call - fine for reading one record, useless for trending, because the API has no endpoint for historic MRR movement or retention. This skill syncs Maxio into a local SQLite mirror and snapshots each sync into a time series, so the waterfall, retention curves, and cohort history are computed locally and keep growing even as Maxio retires its Insights endpoints.
+Most Maxio integrations proxy each question into a live API call - fine for reading one record, useless for trending, because the live MRR endpoints return only point-in-time figures (and require Maxio's Insights/Analytics add-on). This skill syncs Maxio into a local SQLite mirror and snapshots each sync into a time series, so the waterfall, retention curves, and cohort history are computed locally as a trend the live, point-in-time API can't reconstruct after the fact.
 
-The Maxio dashboard shows point-in-time numbers behind clicks and exports; this skill answers the trended, cross-object revenue questions in one command from the terminal or your AI agent, and keeps the history on your own machine rather than depending on a reporting API Maxio is deprecating. It complements the portal, which still owns billing operations and configuration.
+The Maxio dashboard shows point-in-time numbers behind clicks and exports; this skill answers the trended, cross-object revenue questions in one command from the terminal or your AI agent, and keeps the history on your own machine rather than depending on a live API that returns only point-in-time numbers. It complements the portal, which still owns billing operations and configuration.
 
 ## The pain this closes
 
 - Maxio's recurring-revenue reporting - MRR, churn, ARPA, retention - is thin enough that operators routinely export the data into a separate BI tool to answer board questions (a recurring theme in Maxio's G2 reviews).
-- Simple asks like 'list the customers who signed up this quarter and the revenue they brought' have no one-click answer in the portal, and the legacy Insights/Analytics endpoints are being sunset.
+- Simple asks like 'list the customers who signed up this quarter and the revenue they brought' have no one-click answer in the portal, and the live API returns only point-in-time figures, with no endpoint to reconstruct the historic trend.
 
 ## Install
 
@@ -129,7 +129,7 @@ After install, authenticate once with your Maxio credentials, then verify with `
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | mrr now, mrr waterfall, retention, cohort, triage, reconcile, renewals, churn, new-customers, search | Allow |
-| Write (routine) | subscriptions-json create-subscription, customers update, components-json | Preview with --dry-run, then a reviewed write |
+| Write (routine) | subscriptions-json create-subscription, customers update, components update | Preview with --dry-run, then a reviewed write |
 | Destructive / config | customers delete, subscription-groups delete, payment-profiles delete-unused, reason-codes delete | Human-in-the-loop only |
 
 Read commands - every MRR, retention, cohort, triage, and reconcile rollup plus search - cannot change anything and are safe to run unattended. Routine writes (creating or updating subscriptions, components, or customers) send immediately unless you pass --dry-run first, so the recommended agent policy is preview-then-approve. Credential, destructive (deletes and cancellations), and admin commands should always be human-in-the-loop. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/maxio/governance.md).
@@ -162,7 +162,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 ### Will this hit my Maxio API rate limits?
 
-Rarely. After the first 'maxio-cli sync', the revenue commands read from the local SQLite mirror, not the API, so day-to-day questions make zero API calls. Only sync and tail talk to Maxio, and sync is incremental - it fetches only what changed since the last run.
+Rarely, for the analytics. After you sync, the revenue-analytics commands (mrr waterfall, retention, cohort, triage, reconcile) read from the local SQLite mirror, so they make zero API calls. Keeping the mirror current is two incremental commands - 'maxio-cli sync' for the full dataset and 'maxio-cli mrr sync' to snapshot MRR-movement history - and both fetch only what changed. The endpoint-mirror commands and tail read live from Maxio, so those count against your limits.
 
 ### Do I need to be a Maxio partner or customer to use this?
 

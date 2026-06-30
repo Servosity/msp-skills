@@ -1,5 +1,5 @@
 {
-  "outcome_intro": "Ask 'what's our MRR, and how did it move last quarter?' and get the New / Expansion / Contraction / Churn / Reactivation waterfall, net and gross revenue retention, per-customer revenue history, and a ranked list of accounts that need attention - in one command, computed offline from a local mirror of your Maxio Advanced Billing data. It is the revenue math the dashboard buries and Maxio's deprecated Insights API no longer reconstructs.",
+  "outcome_intro": "Ask 'what's our MRR, and how did it move last quarter?' and get the New / Expansion / Contraction / Churn / Reactivation waterfall, net and gross revenue retention, per-customer revenue history, and a ranked list of accounts that need attention - in one command, computed offline from a local mirror of your Maxio Advanced Billing data. It is the revenue math the dashboard buries and the live, point-in-time API can't reconstruct after the fact.",
   "instead_of_say": [
     {
       "instead": "Exporting subscription CSVs into a spreadsheet every month to rebuild the MRR movement waterfall by hand",
@@ -19,7 +19,7 @@
   ],
   "pain_points": [
     "Maxio's recurring-revenue reporting - MRR, churn, ARPA, retention - is thin enough that operators routinely export the data into a separate BI tool to answer board questions (a recurring theme in Maxio's G2 reviews).",
-    "Simple asks like 'list the customers who signed up this quarter and the revenue they brought' have no one-click answer in the portal, and the legacy Insights/Analytics endpoints are being sunset."
+    "Simple asks like 'list the customers who signed up this quarter and the revenue they brought' have no one-click answer in the portal, and the live API returns only point-in-time figures, with no endpoint to reconstruct the historic trend."
   ],
   "outcomes": [
     {
@@ -59,8 +59,8 @@
       "command": "maxio-cli new-customers --since 3m"
     }
   ],
-  "different_vs_wrappers": "Most Maxio integrations proxy each question into a live API call - fine for reading one record, useless for trending, because the API has no endpoint for historic MRR movement or retention. This skill syncs Maxio into a local SQLite mirror and snapshots each sync into a time series, so the waterfall, retention curves, and cohort history are computed locally and keep growing even as Maxio retires its Insights endpoints.",
-  "different_vs_vendor": "The Maxio dashboard shows point-in-time numbers behind clicks and exports; this skill answers the trended, cross-object revenue questions in one command from the terminal or your AI agent, and keeps the history on your own machine rather than depending on a reporting API Maxio is deprecating. It complements the portal, which still owns billing operations and configuration.",
+  "different_vs_wrappers": "Most Maxio integrations proxy each question into a live API call - fine for reading one record, useless for trending, because the live MRR endpoints return only point-in-time figures (and require Maxio's Insights/Analytics add-on). This skill syncs Maxio into a local SQLite mirror and snapshots each sync into a time series, so the waterfall, retention curves, and cohort history are computed locally as a trend the live, point-in-time API can't reconstruct after the fact.",
+  "different_vs_vendor": "The Maxio dashboard shows point-in-time numbers behind clicks and exports; this skill answers the trended, cross-object revenue questions in one command from the terminal or your AI agent, and keeps the history on your own machine rather than depending on a live API that returns only point-in-time numbers. It complements the portal, which still owns billing operations and configuration.",
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
@@ -80,7 +80,7 @@
     },
     {
       "q": "Will this hit my Maxio API rate limits?",
-      "a": "Rarely. After the first 'maxio-cli sync', the revenue commands read from the local SQLite mirror, not the API, so day-to-day questions make zero API calls. Only sync and tail talk to Maxio, and sync is incremental - it fetches only what changed since the last run."
+      "a": "Rarely, for the analytics. After you sync, the revenue-analytics commands (mrr waterfall, retention, cohort, triage, reconcile) read from the local SQLite mirror, so they make zero API calls. Keeping the mirror current is two incremental commands - 'maxio-cli sync' for the full dataset and 'maxio-cli mrr sync' to snapshot MRR-movement history - and both fetch only what changed. The endpoint-mirror commands and tail read live from Maxio, so those count against your limits."
     },
     {
       "q": "Do I need to be a Maxio partner or customer to use this?",
@@ -96,7 +96,7 @@
     },
     {
       "tier": "Write (routine)",
-      "examples": "subscriptions-json create-subscription, customers update, components-json",
+      "examples": "subscriptions-json create-subscription, customers update, components update",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {

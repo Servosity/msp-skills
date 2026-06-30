@@ -93,6 +93,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Liongard (Documentation) - ask "What changed across all my clients in the last 24 hours?" - See every config change, stale collector, and offline agent across your whole Liongard estate from one command.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/liongard/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/liongard/install.sh)
+- Maxio (Billing) - ask "What's our current MRR and ARR right now?" - 
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/maxio/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/maxio/install.sh)
 - Microsoft Graph (Security) - ask "Which SKUs are we paying for but not fully using, ranked by wasted seats?" - Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/microsoft-graph/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/microsoft-graph/install.sh)

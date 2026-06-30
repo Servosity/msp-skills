@@ -294,7 +294,7 @@
     {
       "slug": "maxio",
       "display_name": "Maxio",
-      "tagline": "The first open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror that outlives Maxio's deprecated Insights API.",
+      "tagline": "Open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures.",
       "category": "Billing",
       "verification": "awaiting",
       "verified_by": null,
