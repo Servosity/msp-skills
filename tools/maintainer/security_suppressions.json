@@ -140,6 +140,21 @@
       "file": "skills/servosity/cli/internal/qbrreport/qbrreport.go",
       "rule": "msp-exec-nonliteral-command",
       "reason": "servosity (internal-only). semgrep twin of the already-suppressed builtin exec-nonliteral-cmd entry for the same call site: exec.Command(chrome, ...) where chrome is allowlist-resolved by findChrome() (LookPath of known binary names / macOS .app stat), never user input; annotated // #nosec G204. Vetted safe."
+    },
+    {
+      "file": "cli/internal/cliutil/paths.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). ReadFileWithLegacyFallback uses os.ReadFile on the CLI's own config/credential files at app-resolved (XDG/--home) paths with a legacy-location fallback; the path is app-determined, not attacker-controlled. Same vetted pattern as the cli/internal/config/config.go and cli/internal/cache/cache.go G304 entries; press 4.27.1 moved path resolution into cliutil/."
+    },
+    {
+      "file": "cli/internal/cliutil/credentials.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). os.ReadFile on credentialsPath() - the user's own credentials.toml under the app-resolved data dir, not user-supplied input. Mirrors the cli/internal/config/config.go G304 entry; press 4.27.1 split the credential store into cliutil/credentials.go."
+    },
+    {
+      "file": "cli/internal/cliutil/credentials.go",
+      "rule": "G117",
+      "reason": "FLEET (generated). The access_token field is persisted to the user's own local credentials.toml via toml.Marshal - it is the credential being stored, not a leak. Same justification as the cli/internal/config/config.go G117 entry; press 4.27.1 moved the credential store into cliutil/."
     }
   ]
 }
