@@ -1026,6 +1026,28 @@
         "evidence": "Servosity (an MSP) verified end-to-end against its PRODUCTION QuickBooks Online tenant on 2026-06-15: full paginated sync across all 8 resources matching live count(*); ar-aging and balances computed over the complete book. Fixes qbo-query-paging + qbo-db-path-env."
       }
     },
+    "resourceguru": {
+      "system": "Resource Guru \u2014 resource scheduling, bookings, and per-day utilization",
+      "status": "beta",
+      "cli_binary": "resourceguru-cli",
+      "mcp_binary": "resourceguru-mcp",
+      "vendor": "Resource Guru",
+      "vendor_trademark_owner": "Resource Guru Limited",
+      "first_party": false,
+      "category": "Other",
+      "display_name": "Resource Guru",
+      "cli_hash": "sha256:e95873f6ddddcc79c66880ae65fccead01d5f45c45ed17b9b8b575bafcbb705d",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "rewst": {
       "system": "Rewst RPA/workflow automation for MSPs: orchestrations, triggers, organizations and integration packs over a GraphQL API",
       "status": "beta",
