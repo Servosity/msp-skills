@@ -1,0 +1,34 @@
+{
+  "manifest_version": "0.3",
+  "name": "aws-billing-pp-mcp",
+  "display_name": "AWS Billing Intelligence",
+  "version": "4.19.0",
+  "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/aws-billing-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/aws-billing-pp-mcp",
+      "args": []
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.19.0",
+  "press_provenance": {
+    "printing_press_version": "4.19.0",
+    "generated_at": "2026-05-29T13:31:43.609978Z",
+    "spec_checksum": "sha256:af1aceb7a81137cfe09c8ee210dd8c119885063f62621544bd7dc82398fffb98",
+    "spec_format": "internal"
+  }
+}

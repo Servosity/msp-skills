@@ -1,5 +1,5 @@
 {
-  "count": 55,
+  "count": 56,
   "connectors": [
     {
       "slug": "abnormal",
@@ -70,6 +70,16 @@
       "verified_by": null,
       "issue_url": null,
       "url": "/skills/autotask/"
+    },
+    {
+      "slug": "aws-billing",
+      "display_name": "AWS",
+      "tagline": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call.",
+      "category": "Billing",
+      "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
+      "url": "/skills/aws-billing/"
     },
     {
       "slug": "axcient",

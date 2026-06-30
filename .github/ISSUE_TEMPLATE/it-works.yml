@@ -29,6 +29,7 @@ body:
         - appdirect
         - atera
         - autotask
+        - aws-billing
         - axcient
         - betterstack
         - blumira
