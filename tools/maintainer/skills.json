@@ -1027,7 +1027,7 @@
       }
     },
     "resourceguru": {
-      "system": "Resource Guru \u2014 resource scheduling, bookings, and per-day utilization",
+      "system": "Resource Guru - resource scheduling, bookings, and per-day utilization",
       "status": "beta",
       "cli_binary": "resourceguru-cli",
       "mcp_binary": "resourceguru-mcp",

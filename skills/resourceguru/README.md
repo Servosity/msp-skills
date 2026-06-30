@@ -134,30 +134,48 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 
 ### Authenticate
 
-See [mcp-install.md](./mcp-install.md) for the credentials `resourceguru-cli` needs.
+Resource Guru uses HTTP Basic auth - your account email and password:
+
+```bash
+RESOURCEGURU_EMAIL=<value> RESOURCEGURU_PASSWORD=<value> resourceguru-cli doctor
+```
+
+`doctor` confirms the credentials work before you run anything that touches data. Full per-agent wiring is in [mcp-install.md](./mcp-install.md).
 
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
-| Question your MSP keeps asking | Command |
+| Question your team keeps asking | Command |
 | --- | --- |
-| ... | `resourceguru-cli ...` |
+| Who is overbooked across the whole fleet this month? | `resourceguru-cli overbooked --start 2026-06-01 --end 2026-06-30 --agent` |
+| What is each person's utilization, day by day? | `resourceguru-cli utilization --start 2026-06-01 --end 2026-06-30 --heatmap --agent` |
+| Who has slack to take on new work next week? | `resourceguru-cli bench --start 2026-06-08 --end 2026-06-14 --threshold 50 --agent` |
+| How much bookable capacity is left next month? | `resourceguru-cli capacity --start 2026-07-01 --end 2026-07-31 --agent` |
+| What changed on the schedule in the last week? | `resourceguru-cli since 7d --agent` |
+| How is workload distributed across the team? | `resourceguru-cli load --json` |
+| Find a booking, client, or project anywhere in the schedule | `resourceguru-cli search "website redesign"` |
 
--->
+Run `resourceguru-cli sync` once to populate the local mirror; the analytics commands above then read it offline.
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Resource Guru integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Resource Guru integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "what was every resource's booked-vs-available utilization, for every day this quarter."
 
-This skill syncs Resource Guru into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs Resource Guru into a **local SQLite mirror** with full-text search. Aggregate questions become one local computation: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `utilization`, `overbooked`, and `capacity` join bookings against each resource's daily availability - per-day math a stateless API wrapper can't do, because the API exposes the per-day booking breakdown but never aggregates it for you.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+Verified Resource Guru reviewers on [Capterra](https://www.capterra.com/p/134429/Resource-Guru/reviews/) say the reporting and advanced analytics "feel limited" and that they have to "download reports as a pivot" to get the breakdowns they want. The booking-clash warning catches one over-allocation at a time on write, but there is no single fleet-wide view of every overcommitted resource-day across a window - so capacity planning turns into a spreadsheet exercise.
+
+This skill closes that gap from the synced mirror:
+
+- `resourceguru-cli utilization --start <date> --end <date> --heatmap --agent` - booked-vs-available for every resource on every day, not a range average.
+- `resourceguru-cli overbooked --start <date> --end <date> --agent` - every resource-day over capacity, across the whole fleet.
+- `resourceguru-cli bench --start <date> --end <date> --threshold 50 --agent` - who is under-used and free for new work.
+- `resourceguru-cli capacity --start <date> --end <date> --agent` - remaining bookable minutes before you commit a project.
+- `resourceguru-cli since 7d --agent` - what moved on the schedule since you last looked.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -179,12 +197,17 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Will this hit my Resource Guru API rate limits?
+
+No. After the first `sync`, `utilization`, `overbooked`, `bench`, `capacity`, and `search` all read the local SQLite mirror with zero API calls. You only touch the API when you sync or run a live read, and the CLI honors a configurable `--rate-limit`.
+
+### Do I need to be a Resource Guru admin?
+
+No. You need an account that can read the schedule, authenticated with your account email and password over HTTP Basic. Read-only analytics never need write or admin scope - scope the credential to what you actually use.
+
+### Will this replace the Resource Guru web app?
+
+No. It reports and analyzes; it is not where you edit the schedule. Writes go through the same API the web app uses, so confirm any mutation in Resource Guru afterward. The unique value is the per-day, fleet-wide utilization the portal does not surface.
 
 ### What does it cost?
 
@@ -192,15 +215,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `utilization`, `overbooked`, `bench`, `capacity`, `since`, `load`, `search`, `accounts list`, any `get` | Allow |
+| Write (routine) | `bookings create`, `bookings update`, `clients create`, `projects update`, `activity-types create` | Preview with `--dry-run`, then a reviewed write |
+| Destructive / config | `bookings delete`, `clients delete`, `resources delete`, `calendars delete`, `webhooks delete` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Resource Guru credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -212,4 +231,4 @@ Beta. Validated against the Resource Guru API surface and being validated with M
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-30._

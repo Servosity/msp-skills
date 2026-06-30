@@ -203,7 +203,7 @@ Resource-days where bookings exceed daily capacity.
 ### Narrow a verbose booking list
 
 ```bash
-resourceguru-cli bookings get example-corp --start-date 2026-06-01 --end-date 2026-06-30 --agent --select id,resource_id,start_date,end_date,durations.date,durations.duration
+resourceguru-cli bookings get <account> --start-date 2026-06-01 --end-date 2026-06-30 --agent --select id,resource_id,start_date,end_date,durations.date,durations.duration
 ```
 
 Bookings carry deep per-day duration arrays; select only the fields you need to keep agent context small. (List bookings is `bookings get <account>`; pass your account URL id.)

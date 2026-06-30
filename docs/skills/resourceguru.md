@@ -19,8 +19,12 @@ faqs:
     a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
-  - q: "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Resource Guru portal)"
-    a: "TODO"
+  - q: "Will this hit my Resource Guru API rate limits?"
+    a: "No. After the first sync, utilization, overbooked, bench, capacity, and search all read the local SQLite mirror with zero API calls. You only touch the API when you sync or run a live read, and the CLI honors a configurable --rate-limit."
+  - q: "Do I need to be a Resource Guru admin?"
+    a: "No. You need an account that can read the schedule, authenticated with your account email and password over HTTP Basic. Read-only analytics never need write or admin scope - scope the credential to what you actually use."
+  - q: "Will this replace the Resource Guru web app?"
+    a: "No. It reports and analyzes; it is not where you edit the schedule. Writes go through the same API the web app uses, so confirm any mutation in Resource Guru afterward. The unique value is the per-day, fleet-wide utilization the portal does not surface."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/resourceguru/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/resourceguru/install.ps1 | iex"
@@ -40,7 +44,7 @@ howto:
 
 Yes - there is an MCP server for Resource Guru. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Resource Guru to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-TODO: <=70 words, MSP-owner language, leads with the outcome. What does Resource Guru + your AI answer in one sentence that the portal cannot?
+Ask your AI 'who is overbooked next week?' or 'who has capacity for this project?' and get an answer Resource Guru's reports never show: booked-vs-available utilization for every resource on every day. The skill syncs your whole schedule into a local mirror, then computes per-day utilization, fleet-wide overbooking, who is on the bench, and remaining capacity offline - no report export, no pivot table.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -48,17 +52,17 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Resource
 
 ## Instead of clicking through Resource Guru, just ask
 
-**Instead of** TODO: the painful manual workflow (exporting reports, clicking through the portal)
-**just ask:** *"TODO: the natural-language question the MSP owner asks instead"*
-<sub>Your agent runs: <code>resourceguru-cli TODO</code></sub>
+**Instead of** Download a booking report and pivot it in a spreadsheet to eyeball who is overcommitted day by day
+**just ask:** *"Who is overbooked between June 1 and June 30?"*
+<sub>Your agent runs: <code>resourceguru-cli overbooked --start 2026-06-01 --end 2026-06-30 --agent</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>resourceguru-cli TODO</code></sub>
+**Instead of** Click through each person's schedule to guess who has room for new work
+**just ask:** *"Who has slack next week to take on a new project?"*
+<sub>Your agent runs: <code>resourceguru-cli bench --start 2026-06-08 --end 2026-06-14 --threshold 50 --agent</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>resourceguru-cli TODO</code></sub>
+**Instead of** Open the calendar and add up free hours by hand before promising a deadline
+**just ask:** *"How much bookable capacity is left in July?"*
+<sub>Your agent runs: <code>resourceguru-cli capacity --start 2026-07-01 --end 2026-07-31 --agent</code></sub>
 
 
 ## See it in 30 seconds
@@ -71,20 +75,26 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Resource
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| TODO: question an MSP keeps asking | `resourceguru-cli TODO` |
+| Who is overbooked across the whole fleet this month? | `resourceguru-cli overbooked --start 2026-06-01 --end 2026-06-30 --agent` |
+| What is each person's utilization, day by day? | `resourceguru-cli utilization --start 2026-06-01 --end 2026-06-30 --heatmap --agent` |
+| Who has slack to take on new work next week? | `resourceguru-cli bench --start 2026-06-08 --end 2026-06-14 --threshold 50 --agent` |
+| How much bookable capacity is left next month? | `resourceguru-cli capacity --start 2026-07-01 --end 2026-07-31 --agent` |
+| What changed on the schedule in the last week? | `resourceguru-cli since 7d --agent` |
+| How is workload distributed across the team? | `resourceguru-cli load --json` |
+| Find a booking, client, or project anywhere in the synced schedule | `resourceguru-cli search "website redesign"` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/resourceguru/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/resourceguru/guide.md).
 
 ## What makes this one different
 
-TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most Resource Guru integrations proxy each question into a live API call ...
+Most Resource Guru integrations proxy each question into a single live API call - fine for one record, useless for 'every resource, every day, this quarter.' This skill syncs your whole schedule into a local SQLite mirror first, so utilization, overbooked, bench, and capacity are computed offline across the entire fleet in one pass, and your agent sees the answer instead of raw bulk data.
 
-TODO: one sentence vs Resource Guru's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.
+Resource Guru's portal answers 'is this person free right now' and its reports give range-level rollups; this skill adds the per-day, fleet-wide utilization math the reports never expose and hands it to your AI agent as a typed command instead of a spreadsheet export.
 
 ## The pain this closes
 
-- TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread
-- TODO: pain 2
+- Resource Guru's reporting gives range-level rollups and has to be downloaded and pivoted in a spreadsheet to answer day-level questions about who is over- or under-booked.
+- The booking-clash warning flags one over-allocation at a time on write, but there is no single view of every overcommitted resource-day across the whole fleet for a window.
 
 ## Install
 
@@ -118,11 +128,11 @@ After install, authenticate once with your Resource Guru credentials, then verif
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | TODO: read commands | Allow |
-| Write (routine) | TODO | Preview with --dry-run, then a reviewed write |
-| Destructive / config | TODO | Human-in-the-loop only |
+| Read | utilization, overbooked, bench, capacity, since, load, search, accounts list, and any get | Allow |
+| Write (routine) | bookings create, bookings update, clients create, projects update, activity-types create | Preview with --dry-run, then a reviewed write |
+| Destructive / config | bookings delete, clients delete, resources delete, calendars delete, webhooks delete | Human-in-the-loop only |
 
-TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/resourceguru/governance.md).
+The skill reads your schedule and computes analytics locally, and it can also create, update, and delete bookings, clients, projects, and other objects through the same API the web app uses. Reads are always safe. Keep autonomous agents to reads plus previewed (--dry-run) writes, and require a human for any delete or configuration change. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/resourceguru/governance.md).
 
 ## Frequently asked questions
 
@@ -150,9 +160,17 @@ Your data stays on your machine. The CLI, MCP server, and the local mirror are a
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-### TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Resource Guru portal)
+### Will this hit my Resource Guru API rate limits?
 
-TODO
+No. After the first sync, utilization, overbooked, bench, capacity, and search all read the local SQLite mirror with zero API calls. You only touch the API when you sync or run a live read, and the CLI honors a configurable --rate-limit.
+
+### Do I need to be a Resource Guru admin?
+
+No. You need an account that can read the schedule, authenticated with your account email and password over HTTP Basic. Read-only analytics never need write or admin scope - scope the credential to what you actually use.
+
+### Will this replace the Resource Guru web app?
+
+No. It reports and analyzes; it is not where you edit the schedule. Writes go through the same API the web app uses, so confirm any mutation in Resource Guru afterward. The unique value is the per-day, fleet-wide utilization the portal does not surface.
 
 
 ## Status

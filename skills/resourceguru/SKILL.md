@@ -1,6 +1,6 @@
 ---
 name: resourceguru
-description: "Every Resource Guru endpoint as a typed command, plus a local database and per-resource per-day utilization no Resource Guru report gives you. Trigger phrases: `resource utilization by day`, `who is overbooked`, `who is on the bench`, `remaining capacity in resource guru`, `use resource guru`, `run resourceguru`."
+description: "Use when the user asks to see who is overbooked in Resource Guru, find who is on the bench, check a resource's day-by-day utilization, work out remaining capacity before booking a project, or report what changed on the schedule. Syncs your whole Resource Guru schedule into a local SQLite mirror so it computes the per-day, fleet-wide utilization the reports never expose. Trigger phrases: `resource utilization by day`, `who is overbooked in resource guru`, `who is on the bench`, `remaining capacity in resource guru`, `use resource guru`, `run resourceguru-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Resource Guru"
@@ -377,7 +377,7 @@ Resource-days where bookings exceed daily capacity.
 ### Narrow a verbose booking list
 
 ```bash
-resourceguru-cli bookings get example-corp --start-date 2026-06-01 --end-date 2026-06-30 --agent --select id,resource_id,start_date,end_date,durations.date,durations.duration
+resourceguru-cli bookings get <account> --start-date 2026-06-01 --end-date 2026-06-30 --agent --select id,resource_id,start_date,end_date,durations.date,durations.duration
 ```
 
 Bookings carry deep per-day duration arrays; select only the fields you need to keep agent context small. (List bookings is `bookings get <account>`; pass your account URL id.)

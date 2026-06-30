@@ -823,7 +823,7 @@
     },
     {
       "name": "resourceguru",
-      "system": "Resource Guru \u2014 resource scheduling, bookings, and per-day utilization",
+      "system": "Resource Guru - resource scheduling, bookings, and per-day utilization",
       "status": "beta",
       "skill_path": "skills/resourceguru",
       "cli_binary": "resourceguru-cli",

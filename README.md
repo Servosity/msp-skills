@@ -66,7 +66,7 @@ Free, open source, runs on your laptop. A local SQLite mirror lets your agent an
 | [pipedrive](./skills/pipedrive) | Pipedrive CRM: deals, pipelines, persons, organizations, activities | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/pipedrive/README.md) |
 | [proofpoint](./skills/proofpoint) | Proofpoint Targeted Attack Protection (TAP) email security and threat intelligence | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/proofpoint/README.md) |
 | [quickbooks](./skills/quickbooks) | QuickBooks Online accounting: invoices, bills, payments, customers, vendors, AR/AP aging, DSO, cash forecast | ![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32) | [Install](./skills/quickbooks/README.md) |
-| [resourceguru](./skills/resourceguru) | Resource Guru — resource scheduling, bookings, and per-day utilization | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/resourceguru/README.md) |
+| [resourceguru](./skills/resourceguru) | Resource Guru - resource scheduling, bookings, and per-day utilization | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/resourceguru/README.md) |
 | [rewst](./skills/rewst) | Rewst RPA/workflow automation for MSPs: orchestrations, triggers, organizations and integration packs over a GraphQL API | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/rewst/README.md) |
 | [rocketcyber](./skills/rocketcyber) | RocketCyber managed SOC: incidents, agents, detection events, Defender and Microsoft 365 posture, and suppression rules | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/rocketcyber/README.md) |
 | [rootly](./skills/rootly) | Rootly incident management, alerting, and on-call response platform | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/rootly/README.md) |
@@ -175,7 +175,7 @@ Outcomes, not hype - drawn from each of the 56 connectors' skill pages:
 | Which open deals has nobody touched in two weeks, worst dollar value first? | pipedrive | `pipedrive-cli stale --quiet-days 14 --agent` |
 | What malicious clicks and messages got through overnight? | proofpoint | `proofpoint-cli backfill --since 12h` |
 | Who owes us money, bucketed 0-30 / 31-60 / 61-90 / 90+? | quickbooks | `quickbooks-cli ar-aging --agent` |
-| TODO: question an MSP keeps asking | resourceguru | `resourceguru-cli TODO` |
+| Who is overbooked across the whole fleet this month? | resourceguru | `resourceguru-cli overbooked --start 2026-06-01 --end 2026-06-30 --agent` |
 | Is automation healthy for this client right now? | rewst | `rewst-cli health --org <orgId> --since 24h --agent` |
 | What broke across all my clients overnight? | rocketcyber | `rocketcyber-cli triage --since 24h` |
 | Who's on call right now across every service and schedule? | rootly | `rootly-cli oncall-now` |
