@@ -62,11 +62,6 @@
       "reason": "servosity (generated). gosec G101 LOW-confidence false-positive on the variable NAME 'resourceParentKeyColumns' (the 'Key' substring); the value is a generated map of resource table -> parent foreign-key COLUMN names (e.g. agent_logs -> agent_sessions_id), not credential material. Same class as the auth.go/client.go G101 'tokenURL' FPs (#109). Repo-relative (scoped to servosity only). Surfaced by servosity #78."
     },
     {
-      "file": "skills/maxio/cli/internal/cli/sync.go",
-      "rule": "G101",
-      "reason": "maxio (generated). gosec G101 LOW-confidence false-positive on the generated syncResourcePath map (resource name -> Maxio Advanced Billing API endpoint PATH). The map key 'chargify-js-keys-json' -> '/chargify_js_keys.json' carries the credential-ish substring 'keys', tripping the heuristic; the flagged block (sync.go:1835-1861) is a map[string]string of resource names to .json endpoint paths, not credential material. Same class as the halopsa/servosity generated-map G101 FPs below. govulncheck reachability = 0 for maxio (this was the only P1 in the connector). Repo-relative (scoped to maxio only)."
-    },
-    {
       "file": "skills/halopsa/cli/internal/cli/sync.go",
       "rule": "G101",
       "reason": "halopsa (generated). gosec G101 LOW-confidence false-positive on the generated syncResourcePath map (resource name -> HaloPSA API endpoint PATH). HaloPSA's API genuinely exposes endpoints whose names contain credential-ish substrings, so the map values trip the heuristic: 'license-info-password' -> '/LicenseInfo/password', 'mailbox-credential' -> '/MailboxCredential', 'secure-secret-link' -> '/SecureSecretLink'. These are public URL paths, not credential material. Same class as the servosity generated-map G101 above and the fleet 'tokenURL' G101 FPs. govulncheck reachability = 0 for halopsa. Repo-relative (scoped to halopsa only). Surfaced by halopsa #147."
