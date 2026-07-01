@@ -18,17 +18,25 @@ written to disk, never logged, never sent anywhere except the AWS API.
 
 - **Read-only against AWS.** Every command inspects cost and inventory data; the
   CLI never stops an instance, deletes a volume, modifies a resource, or buys a
-  commitment. `waste gp2-gp3` even prints the `aws ec2 modify-volume` command you
-  would run rather than running it.
+  commitment against the AWS billing & Cost Explorer API. `waste gp2-gp3` even
+  prints the `aws ec2 modify-volume` command you would run rather than running it.
 - **`--dry-run` previews any live request.** Pass `--dry-run` on a command that
   makes a live Cost Explorer / EC2 call to see the request without sending it.
-- **The only writes are local.** `sync` writes the SQLite cache; `report` writes an
-  HTML/PDF file. Neither leaves your machine.
-- **The only outbound action is opt-in.** `report --post-slack` posts a summary to
-  Slack (delegating to the `slack-pp-cli` binary) and fires only when you pass the
-  flag. Without it, `report` just writes a local file.
+- **The local writes stay local.** `sync` writes the SQLite cache; `report` writes
+  an HTML/PDF file. Neither leaves your machine.
+- **Outbound network actions are opt-in and explicit**, and none of them
+  touches AWS (the generic `import` command issues POSTs but the billing API has
+  no write endpoint, so nothing actually leaves the machine through it):
+  - `report --post-slack` posts a summary to Slack (delegating to the
+    `slack-pp-cli` binary); without the flag, `report` just writes a local file.
+  - `feedback --send` POSTs a feedback note upstream, and only when you set
+    `AWS_BILLING_FEEDBACK_ENDPOINT` (or `AWS_BILLING_FEEDBACK_AUTO_SEND=true`);
+    otherwise feedback is written to a local JSONL file only.
+  - `--deliver webhook:<url>` POSTs a command's output to a URL you name; the
+    default sink is stdout.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting; it does not
-  loosen anything, because there is nothing to mutate. See AGENTS.md.
+  loosen anything and does not enable any of the outbound actions above. See
+  AGENTS.md.
 
 ## Permission tiers
 
@@ -38,9 +46,10 @@ local-write commands**; nothing in this CLI mutates AWS.
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
 | **Read** | Bill breakdowns, rollups, comparisons, forecasts, waste scans, search. No change anywhere. | `bill`, `consolidated`, `compare`, `forecast`, `waste rank`, `waste transfer`, `ask`, `explain`, `dimensions`, `doctor`, `iam-setup` | Allow |
-| **Write (local / opt-in)** | Writes to your machine, or posts to Slack only when asked. Never touches AWS. | `sync` (local cache), `report` (local file), `report --post-slack` (Slack post) | Allow; the Slack post fires only with `--post-slack` |
+| **Write (local)** | Writes to your machine only. Never touches AWS. | `sync` (local cache), `report` (local file) | Allow |
+| **Outbound (opt-in)** | Sends data off your machine only when you ask. Never mutates AWS. | `report --post-slack` (Slack), `feedback --send` (upstream note, only with an endpoint set), `--deliver webhook:<url>` (POST to a URL you name) | Allow; each fires only when you pass the flag |
 | **Credential / security** | Touches tokens, keys, MFA. | (none) | n/a - this CLI never handles secrets beyond reading the AWS credential chain |
-| **Destructive** | Irreversible data or config loss. | (none) | n/a - the CLI never deletes or modifies an AWS resource |
+| **Destructive** | Irreversible data or config loss. | (none) | n/a - the AWS billing & Cost Explorer API exposes no write endpoints, so even the generic `import` framework command has nothing to create or modify |
 | **Admin** | Back-office administration. | (none) | n/a |
 
 ## How to lock it down

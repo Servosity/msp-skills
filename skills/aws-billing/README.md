@@ -204,7 +204,7 @@ Org-wide cost data (the `consolidated` rollup) needs a management/payer-account 
 
 ### Can it change anything in my AWS account?
 
-No. Every command is read-only against AWS. `waste gp2-gp3` even prints the `aws ec2 modify-volume` command you would run rather than running it. The only outbound action is `report --post-slack`, which posts a summary to Slack and only when you pass the flag.
+No. Every command is read-only against the AWS billing & Cost Explorer API - it never stops, deletes, modifies, or buys anything. `waste gp2-gp3` even prints the `aws ec2 modify-volume` command you would run rather than running it. The opt-in outbound network actions are `report --post-slack` (posts a summary to Slack), `feedback --send` (sends a feedback note upstream, and only if you set `AWS_BILLING_FEEDBACK_ENDPOINT`), and `--deliver webhook:<url>` (POSTs a command's output to a URL you name) - none of them changes anything in AWS, and even the generic `import` command can't, because the billing API exposes no write endpoint.
 
 ### What does it cost?
 
@@ -215,7 +215,8 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | `bill`, `consolidated`, `compare`, `forecast`, `waste rank`, `waste transfer`, `ask`, `explain`, `dimensions`, `doctor`, `iam-setup` | Allow |
-| Write (local / opt-in) | `sync` (writes the local cache), `report` (writes an HTML/PDF file), `report --post-slack` (posts a summary to Slack) | Allow; never mutates AWS. The Slack post fires only with `--post-slack` |
+| Write (local) | `sync` (writes the local cache), `report` (writes an HTML/PDF file) | Allow; never mutates AWS |
+| Outbound (opt-in) | `report --post-slack` (Slack post), `feedback --send` (upstream note, only if you set an endpoint), `--deliver webhook:<url>` (POSTs output to a URL you name) | Allow; each fires only when you pass the flag |
 | Destructive / config | none - the CLI never stops, deletes, modifies, or purchases any AWS resource | N/A |
 
 The strongest control is the **scope you grant the Amazon Web Services credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).

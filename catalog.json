@@ -165,7 +165,7 @@
     },
     {
       "name": "aws-billing",
-      "system": "AWS billing & Cost Explorer \u2014 plain-English bill breakdowns and waste flags",
+      "system": "AWS billing & Cost Explorer - plain-English bill breakdowns and waste flags",
       "status": "beta",
       "skill_path": "skills/aws-billing",
       "cli_binary": "aws-billing-cli",

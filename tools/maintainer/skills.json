@@ -178,7 +178,7 @@
       }
     },
     "aws-billing": {
-      "system": "AWS billing & Cost Explorer \u2014 plain-English bill breakdowns and waste flags",
+      "system": "AWS billing & Cost Explorer - plain-English bill breakdowns and waste flags",
       "status": "beta",
       "cli_binary": "aws-billing-cli",
       "mcp_binary": "aws-billing-mcp",

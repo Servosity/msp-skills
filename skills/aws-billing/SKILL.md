@@ -1,6 +1,6 @@
 ---
 name: aws-billing
-description: "Get a non-expert from zero to a Slack-delivered, plain-English Trigger phrases: `what's my aws bill`, `break down my aws costs`, `why did my aws bill go up`, `find aws waste`, `which account is driving my aws spend`, `post my aws bill to slack`, `set up aws billing access`, `use aws-billing`, `run aws-billing-cli`."
+description: "Get a non-expert from zero to a plain-English, waste-flagged AWS bill breakdown - per-account, month-over-month, with dollar-ranked waste - and cache it locally so you don't pay per Cost Explorer call. Trigger phrases: `what's my aws bill`, `break down my aws costs`, `why did my aws bill go up`, `find aws waste`, `which account is driving my aws spend`, `post my aws bill to slack`, `set up aws billing access`, `use aws-billing`, `run aws-billing-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Amazon Web Services"
@@ -173,7 +173,7 @@ Renders the HTML/PDF breakdown, posts it to Slack, with the opt-in Corey-Quinn v
 
 ## Auth Setup
 
-Uses the native AWS credential chain  -  environment variables, a shared `--profile`, SSO, assume-role, or instance metadata  -  and signs requests itself (SigV4), so no access keys to paste and no `aws` CLI required. Org-wide cost data lives in the management/payer account; run `iam-setup` to mint exactly the read-only permissions this tool needs, then `doctor` to confirm what's reachable. Resource-level waste scans work in any member account immediately.
+Uses the native AWS credential chain  -  environment variables, a shared profile via `--profile-aws`, SSO, assume-role, or instance metadata  -  and signs requests itself (SigV4), so no access keys to paste and no `aws` CLI required. Org-wide cost data lives in the management/payer account; run `iam-setup` to mint exactly the read-only permissions this tool needs, then `doctor` to confirm what's reachable. Resource-level waste scans work in any member account immediately.
 
 Run `aws-billing-cli doctor` to verify setup.
 
@@ -233,7 +233,7 @@ Unknown schemes are refused with a structured error naming the supported set. We
 
 ## Named Profiles
 
-A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration - HeyGen's "Beacon" pattern.
+A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration - for example a nightly `consolidated` rollup pinned to the payer-account profile.
 
 ```
 aws-billing-cli profile save briefing --json

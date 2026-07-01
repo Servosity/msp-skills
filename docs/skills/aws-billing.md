@@ -26,7 +26,7 @@ faqs:
   - q: "Does it work from a member account, or only the payer?"
     a: "Org-wide cost data (the consolidated rollup) needs a management/payer-account profile; from a member account you see only that account's own costs. Resource-level waste scans work in any account. Run 'aws-billing-cli doctor' to see exactly what your credentials can reach."
   - q: "Can it change anything in my AWS account?"
-    a: "No. Every command is read-only against AWS. 'waste gp2-gp3' even prints the 'aws ec2 modify-volume' command you would run rather than running it. The only outbound action is 'report --post-slack', which posts a summary to Slack and only when you pass the flag."
+    a: "No. Every command is read-only against the AWS billing & Cost Explorer API - it never stops, deletes, modifies, or buys anything. 'waste gp2-gp3' even prints the 'aws ec2 modify-volume' command you would run rather than running it. The opt-in outbound network actions are 'report --post-slack' (Slack), 'feedback --send' (upstream note, only if you set an endpoint), and '--deliver webhook:<url>' (POSTs output to a URL you name) - none of them changes anything in AWS, and even the generic 'import' command can't, because the billing API exposes no write endpoint."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/aws-billing/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/aws-billing/install.ps1 | iex"
@@ -132,10 +132,11 @@ After install, authenticate once with your AWS credentials, then verify with `aw
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | bill, consolidated, compare, forecast, waste rank, waste transfer, ask, explain, dimensions, doctor, iam-setup | Allow |
-| Write (local / opt-in) | sync (writes the local cache), report (writes an HTML/PDF file), report --post-slack (posts a summary to Slack) | Allow; never mutates AWS. The Slack post fires only with --post-slack |
-| Destructive / config | none - the CLI never stops, deletes, modifies, or purchases any AWS resource | N/A |
+| Write (local) | sync (writes the local cache), report (writes an HTML/PDF file) | Allow; never mutates AWS |
+| Outbound (opt-in) | report --post-slack (Slack post), feedback --send (upstream note, only with an endpoint set), --deliver webhook:<url> (POSTs output to a URL you name) | Allow; each fires only when you pass the flag |
+| Destructive / config | none - the AWS billing & Cost Explorer API exposes no write endpoints, so even the generic import command cannot mutate AWS | N/A |
 
-Every command is read-only against AWS: it pulls cost and inventory data and never stops an instance, deletes a volume, or buys a commitment. The only local writes are the SQLite cache ('sync') and report files ('report'); the only outbound action is 'report --post-slack', which posts to Slack and fires only when you pass the flag. Scope the AWS credentials to read-only - run 'iam-setup' to mint exactly that - and an agent can run the whole surface unattended. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/aws-billing/governance.md).
+Every command is read-only against the AWS billing & Cost Explorer API: it pulls cost and inventory data and never stops an instance, deletes a volume, or buys a commitment. Local writes are the SQLite cache ('sync') and report files ('report'). Outbound actions are opt-in and explicit and none touches AWS: 'report --post-slack' (Slack), 'feedback --send' (upstream note, only if you set an endpoint), and '--deliver webhook:<url>' (POSTs output to a URL you name). Scope the AWS credentials to read-only - run 'iam-setup' to mint exactly that - and an agent can run the read surface unattended. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/aws-billing/governance.md).
 
 ## Frequently asked questions
 
@@ -177,7 +178,7 @@ Org-wide cost data (the consolidated rollup) needs a management/payer-account pr
 
 ### Can it change anything in my AWS account?
 
-No. Every command is read-only against AWS. 'waste gp2-gp3' even prints the 'aws ec2 modify-volume' command you would run rather than running it. The only outbound action is 'report --post-slack', which posts a summary to Slack and only when you pass the flag.
+No. Every command is read-only against the AWS billing & Cost Explorer API - it never stops, deletes, modifies, or buys anything. 'waste gp2-gp3' even prints the 'aws ec2 modify-volume' command you would run rather than running it. The opt-in outbound network actions are 'report --post-slack' (Slack), 'feedback --send' (upstream note, only if you set an endpoint), and '--deliver webhook:<url>' (POSTs output to a URL you name) - none of them changes anything in AWS, and even the generic 'import' command can't, because the billing API exposes no write endpoint.
 
 
 ## More Billing connectors
