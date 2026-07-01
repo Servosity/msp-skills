@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "maxio-pp-mcp",
   "display_name": "Maxio",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures.",
   "author": {
     "name": "Servosity Inc."
