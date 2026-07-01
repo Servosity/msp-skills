@@ -867,6 +867,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "resourceguru",
+      "source": "./skills/resourceguru",
+      "description": "Every Resource Guru endpoint as a typed command, plus a local database and per-resource per-day utilization no Resource Guru report gives you.",
+      "version": "0.1.0",
+      "category": "msp",
+      "tags": [
+        "resourceguru",
+        "resource guru",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

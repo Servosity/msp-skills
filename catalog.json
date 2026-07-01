@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-29",
+  "generated_at": "2026-06-30",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -820,6 +820,25 @@
       "verification": "live-verified",
       "category": "Billing",
       "tagline": "Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking."
+    },
+    {
+      "name": "resourceguru",
+      "system": "Resource Guru - resource scheduling, bookings, and per-day utilization",
+      "status": "beta",
+      "skill_path": "skills/resourceguru",
+      "cli_binary": "resourceguru-cli",
+      "mcp_binary": "resourceguru-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.27.1",
+      "license": "Apache-2.0",
+      "vendor": "Resource Guru",
+      "vendor_trademark_owner": "Resource Guru Limited",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/resourceguru/install.sh)",
+      "install_mcp_doc": "skills/resourceguru/mcp-install.md",
+      "description": "Every Resource Guru endpoint as a typed command, plus a local database and per-resource per-day utilization no Resource Guru report gives you.",
+      "verification": "awaiting",
+      "category": "Other"
     },
     {
       "name": "rewst",
