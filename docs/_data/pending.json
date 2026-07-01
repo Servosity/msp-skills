@@ -405,6 +405,13 @@
     "current_hash": "sha256:bb384b1bf3114c81687737462d69eb496e3a72f27ad51c4d7855248d7f4a3267",
     "released_hash": "sha256:bb384b1bf3114c81687737462d69eb496e3a72f27ad51c4d7855248d7f4a3267"
   },
+  "wordpress": {
+    "state": "never-released",
+    "version": "0.0.0",
+    "latest_tag": null,
+    "current_hash": "sha256:d0081cf1a1e1f73bb156e7584a6c8cb5956845ceb1e318e68bd6e267bae3a18e",
+    "released_hash": null
+  },
   "xero": {
     "state": "version-pending",
     "version": "0.1.1",
