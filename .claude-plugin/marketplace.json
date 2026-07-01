@@ -869,6 +869,21 @@
       ]
     },
     {
+      "name": "resourceguru",
+      "source": "./skills/resourceguru",
+      "description": "Every Resource Guru endpoint as a typed command, plus a local database and per-resource per-day utilization no Resource Guru report gives you.",
+      "version": "0.1.0",
+      "category": "msp",
+      "tags": [
+        "resourceguru",
+        "resource guru",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "maxio",
       "source": "./skills/maxio",
       "description": "The first open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror that outlives Maxio's deprecated Insights API.",

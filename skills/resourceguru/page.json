@@ -1,0 +1,104 @@
+{
+  "outcome_intro": "Ask your AI 'who is overbooked next week?' or 'who has capacity for this project?' and get an answer Resource Guru's reports never show: booked-vs-available utilization for every resource on every day. The skill syncs your whole schedule into a local mirror, then computes per-day utilization, fleet-wide overbooking, who is on the bench, and remaining capacity offline - no report export, no pivot table.",
+  "instead_of_say": [
+    {
+      "instead": "Download a booking report and pivot it in a spreadsheet to eyeball who is overcommitted day by day",
+      "say": "Who is overbooked between June 1 and June 30?",
+      "cli": "resourceguru-cli overbooked --start 2026-06-01 --end 2026-06-30 --agent"
+    },
+    {
+      "instead": "Click through each person's schedule to guess who has room for new work",
+      "say": "Who has slack next week to take on a new project?",
+      "cli": "resourceguru-cli bench --start 2026-06-08 --end 2026-06-14 --threshold 50 --agent"
+    },
+    {
+      "instead": "Open the calendar and add up free hours by hand before promising a deadline",
+      "say": "How much bookable capacity is left in July?",
+      "cli": "resourceguru-cli capacity --start 2026-07-01 --end 2026-07-31 --agent"
+    }
+  ],
+  "pain_points": [
+    "Resource Guru's reporting gives range-level rollups and has to be downloaded and pivoted in a spreadsheet to answer day-level questions about who is over- or under-booked.",
+    "The booking-clash warning flags one over-allocation at a time on write, but there is no single view of every overcommitted resource-day across the whole fleet for a window."
+  ],
+  "outcomes": [
+    {
+      "question": "Who is overbooked across the whole fleet this month?",
+      "command": "resourceguru-cli overbooked --start 2026-06-01 --end 2026-06-30 --agent"
+    },
+    {
+      "question": "What is each person's utilization, day by day?",
+      "command": "resourceguru-cli utilization --start 2026-06-01 --end 2026-06-30 --heatmap --agent"
+    },
+    {
+      "question": "Who has slack to take on new work next week?",
+      "command": "resourceguru-cli bench --start 2026-06-08 --end 2026-06-14 --threshold 50 --agent"
+    },
+    {
+      "question": "How much bookable capacity is left next month?",
+      "command": "resourceguru-cli capacity --start 2026-07-01 --end 2026-07-31 --agent"
+    },
+    {
+      "question": "What changed on the schedule in the last week?",
+      "command": "resourceguru-cli since 7d --agent"
+    },
+    {
+      "question": "How is workload distributed across the team?",
+      "command": "resourceguru-cli load --json"
+    },
+    {
+      "question": "Find a booking, client, or project anywhere in the synced schedule",
+      "command": "resourceguru-cli search \"website redesign\""
+    }
+  ],
+  "different_vs_wrappers": "Most Resource Guru integrations proxy each question into a single live API call - fine for one record, useless for 'every resource, every day, this quarter.' This skill syncs your whole schedule into a local SQLite mirror first, so utilization, overbooked, bench, and capacity are computed offline across the entire fleet in one pass, and your agent sees the answer instead of raw bulk data.",
+  "different_vs_vendor": "Resource Guru's portal answers 'is this person free right now' and its reports give range-level rollups; this skill adds the per-day, fleet-wide utilization math the reports never expose and hands it to your AI agent as a typed command instead of a spreadsheet export.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Resource Guru MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Resource Guru data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Will this hit my Resource Guru API rate limits?",
+      "a": "No. After the first sync, utilization, overbooked, bench, capacity, and search all read the local SQLite mirror with zero API calls. You only touch the API when you sync or run a live read, and the CLI honors a configurable --rate-limit."
+    },
+    {
+      "q": "Do I need to be a Resource Guru admin?",
+      "a": "No. You need an account that can read the schedule, authenticated with your account email and password over HTTP Basic. Read-only analytics never need write or admin scope - scope the credential to what you actually use."
+    },
+    {
+      "q": "Will this replace the Resource Guru web app?",
+      "a": "No. It reports and analyzes; it is not where you edit the schedule. Writes go through the same API the web app uses, so confirm any mutation in Resource Guru afterward. The unique value is the per-day, fleet-wide utilization the portal does not surface."
+    }
+  ],
+  "governance_summary": "The skill reads your schedule and computes analytics locally, and it can also create, update, and delete bookings, clients, projects, and other objects through the same API the web app uses. Reads are always safe. Keep autonomous agents to reads plus previewed (--dry-run) writes, and require a human for any delete or configuration change.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "utilization, overbooked, bench, capacity, since, load, search, accounts list, and any get",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "bookings create, bookings update, clients create, projects update, activity-types create",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "bookings delete, clients delete, resources delete, calendars delete, webhooks delete",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

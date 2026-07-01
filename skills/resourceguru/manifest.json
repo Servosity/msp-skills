@@ -1,0 +1,54 @@
+{
+  "manifest_version": "0.3",
+  "name": "resourceguru-mcp",
+  "display_name": "Resource Guru",
+  "version": "0.1.0",
+  "description": "Every Resource Guru endpoint as a typed command, plus a local database and per-resource per-day utilization no Resource Guru report gives you.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/resourceguru-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/resourceguru-mcp",
+      "args": [],
+      "env": {
+        "RESOURCEGURU_EMAIL": "${user_config.resourceguru_email}",
+        "RESOURCEGURU_PASSWORD": "${user_config.resourceguru_password}"
+      }
+    }
+  },
+  "user_config": {
+    "resourceguru_email": {
+      "type": "string",
+      "title": "RESOURCEGURU_EMAIL",
+      "description": "Your Resource Guru account email, used for HTTP Basic auth to the Resource Guru API.",
+      "sensitive": false,
+      "required": true
+    },
+    "resourceguru_password": {
+      "type": "string",
+      "title": "RESOURCEGURU_PASSWORD",
+      "description": "Your Resource Guru account password, used for HTTP Basic auth to the Resource Guru API.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.27.1",
+  "press_provenance": {
+    "printing_press_version": "4.27.1",
+    "generated_at": "2026-06-30T22:13:52Z",
+    "spec_checksum": null,
+    "spec_format": "openapi3"
+  }
+}
