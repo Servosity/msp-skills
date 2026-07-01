@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-30",
+  "generated_at": "2026-07-01",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -170,7 +170,7 @@
       "skill_path": "skills/aws-billing",
       "cli_binary": "aws-billing-cli",
       "mcp_binary": "aws-billing-mcp",
-      "version": "4.19.0",
+      "version": "0.1.0",
       "printing_press_version": "4.19.0",
       "license": "Apache-2.0",
       "vendor": "Amazon Web Services",
@@ -627,7 +627,7 @@
       "skill_path": "skills/maxio",
       "cli_binary": "maxio-cli",
       "mcp_binary": "maxio-mcp",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "printing_press_version": "4.24.0",
       "license": "Apache-2.0",
       "vendor": "Maxio",
@@ -1163,7 +1163,7 @@
       "skill_path": "skills/wordpress",
       "cli_binary": "wordpress-cli",
       "mcp_binary": "wordpress-mcp",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "printing_press_version": "4.26.1",
       "license": "Apache-2.0",
       "vendor": "WordPress",

@@ -50,7 +50,7 @@
   },
   "aws-billing": {
     "state": "never-released",
-    "version": "4.19.0",
+    "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:9f2681d02b3455ee9e981d0f2399eb52fcaeb976add723e8b9624af2beb14b0a",
     "released_hash": null
@@ -211,7 +211,7 @@
   },
   "maxio": {
     "state": "never-released",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:94076565bd9abbe4eda0c93e3321bde11554ef9d3882e373242bf309b7010273",
     "released_hash": null
@@ -407,7 +407,7 @@
   },
   "wordpress": {
     "state": "never-released",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:d0081cf1a1e1f73bb156e7584a6c8cb5956845ceb1e318e68bd6e267bae3a18e",
     "released_hash": null
