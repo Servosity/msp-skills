@@ -49,11 +49,11 @@
     "released_hash": "sha256:d38c62044a6ebdadc8b90b338e28235c063aefb5d6e267b61d73daed9a5b7f3a"
   },
   "aws-billing": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "aws-billing-v0.1.0",
     "current_hash": "sha256:9f2681d02b3455ee9e981d0f2399eb52fcaeb976add723e8b9624af2beb14b0a",
-    "released_hash": null
+    "released_hash": "sha256:9f2681d02b3455ee9e981d0f2399eb52fcaeb976add723e8b9624af2beb14b0a"
   },
   "axcient": {
     "state": "up-to-date",
@@ -210,11 +210,11 @@
     "released_hash": "sha256:6c229108d0ab0b7e605a41495e4c3accb4e3c6fa79931feb4f64f6654d37d161"
   },
   "maxio": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "maxio-v0.1.0",
     "current_hash": "sha256:94076565bd9abbe4eda0c93e3321bde11554ef9d3882e373242bf309b7010273",
-    "released_hash": null
+    "released_hash": "sha256:94076565bd9abbe4eda0c93e3321bde11554ef9d3882e373242bf309b7010273"
   },
   "microsoft-graph": {
     "state": "version-pending",
@@ -301,11 +301,11 @@
     "released_hash": "sha256:1f01e28ec09243ed687d05443ccc1ab93dd3fdd0d32f5bd76b49e7bb4a1562c0"
   },
   "resourceguru": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "resourceguru-v0.1.0",
     "current_hash": "sha256:e95873f6ddddcc79c66880ae65fccead01d5f45c45ed17b9b8b575bafcbb705d",
-    "released_hash": null
+    "released_hash": "sha256:e95873f6ddddcc79c66880ae65fccead01d5f45c45ed17b9b8b575bafcbb705d"
   },
   "rewst": {
     "state": "up-to-date",
@@ -406,11 +406,11 @@
     "released_hash": "sha256:bb384b1bf3114c81687737462d69eb496e3a72f27ad51c4d7855248d7f4a3267"
   },
   "wordpress": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "wordpress-v0.1.0",
     "current_hash": "sha256:d0081cf1a1e1f73bb156e7584a6c8cb5956845ceb1e318e68bd6e267bae3a18e",
-    "released_hash": null
+    "released_hash": "sha256:d0081cf1a1e1f73bb156e7584a6c8cb5956845ceb1e318e68bd6e267bae3a18e"
   },
   "xero": {
     "state": "version-pending",
