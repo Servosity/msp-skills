@@ -1,5 +1,5 @@
 {
-  "_comment": "Approved Go module dependencies for msp-skills connectors. A module in any skills/*/cli/go.mod (require OR `replace` target) NOT listed here is a P1 in check_security_gate.py — review every addition (anti-typosquat / anti-backdoor / anti-fork-swap). Regenerate with --rebuild-allowlist ONLY after a human has vetted the new dependency.",
+  "_comment": "Approved Go module dependencies for msp-skills connectors. A module in any skills/*/cli/go.mod (require OR `replace` target) NOT listed here is a P1 in check_security_gate.py - review every addition (anti-typosquat / anti-backdoor / anti-fork-swap). Regenerate with --rebuild-allowlist ONLY after a human has vetted the new dependency.",
   "allowed": [
     "github.com/andybalholm/brotli",
     "github.com/aws/aws-sdk-go-v2",
