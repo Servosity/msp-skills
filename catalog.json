@@ -602,6 +602,25 @@
       "tagline": "See every config change, stale collector, and offline agent across your whole Liongard estate from one command."
     },
     {
+      "name": "maxio",
+      "system": "Maxio Advanced Billing - subscription revenue, MRR, and retention intelligence",
+      "status": "beta",
+      "skill_path": "skills/maxio",
+      "cli_binary": "maxio-cli",
+      "mcp_binary": "maxio-mcp",
+      "version": "0.0.0",
+      "printing_press_version": "4.24.0",
+      "license": "Apache-2.0",
+      "vendor": "Maxio",
+      "vendor_trademark_owner": "Maxio LLC",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/maxio/install.sh)",
+      "install_mcp_doc": "skills/maxio/mcp-install.md",
+      "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures.",
+      "verification": "awaiting",
+      "category": "Billing"
+    },
+    {
       "name": "microsoft-graph",
       "system": "Microsoft 365 / Entra tenant administration via Microsoft Graph",
       "status": "beta",

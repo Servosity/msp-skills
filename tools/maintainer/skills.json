@@ -731,6 +731,28 @@
         "issue_url": null
       }
     },
+    "maxio": {
+      "system": "Maxio Advanced Billing - subscription revenue, MRR, and retention intelligence",
+      "status": "beta",
+      "cli_binary": "maxio-cli",
+      "mcp_binary": "maxio-mcp",
+      "vendor": "Maxio",
+      "vendor_trademark_owner": "Maxio LLC",
+      "first_party": false,
+      "category": "Billing",
+      "display_name": "Maxio",
+      "cli_hash": "sha256:9dfdf4a73b00bd7517e63a746ccf0076dfde084266243447b6a9f38cbdb7d201",
+      "template_version": 3,
+      "version": "0.0.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "microsoft-graph": {
       "system": "Microsoft 365 / Entra tenant administration via Microsoft Graph",
       "status": "beta",
@@ -959,7 +981,7 @@
       "cli_binary": "pipedrive-cli",
       "mcp_binary": "pipedrive-mcp",
       "vendor": "Pipedrive",
-      "vendor_trademark_owner": "Pipedrive O\u00dc",
+      "vendor_trademark_owner": "Pipedrive OÜ",
       "first_party": false,
       "category": "CRM",
       "display_name": "Pipedrive",

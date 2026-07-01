@@ -1,5 +1,5 @@
 {
-  "count": 56,
+  "count": 57,
   "connectors": [
     {
       "slug": "abnormal",
@@ -290,6 +290,16 @@
       "verified_by": null,
       "issue_url": null,
       "url": "/skills/liongard/"
+    },
+    {
+      "slug": "maxio",
+      "display_name": "Maxio",
+      "tagline": "Open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures.",
+      "category": "Billing",
+      "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
+      "url": "/skills/maxio/"
     },
     {
       "slug": "microsoft-graph",
