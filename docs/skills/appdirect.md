@@ -172,7 +172,7 @@ It is built to avoid them. The marketplace REST API uses leaky-bucket rate limit
 
 ## More Billing connectors
 
-Run more than one Billing tool, or comparing options? These connectors work the same way: [Gradient MSP](/skills/gradient/) · [Pax8](/skills/pax8/) · [QuickBooks Online](/skills/quickbooks/) · [Sherweb](/skills/sherweb/) · [Xero](/skills/xero/)
+Run more than one Billing tool, or comparing options? These connectors work the same way: [AWS](/skills/aws-billing/) · [Gradient MSP](/skills/gradient/) · [Maxio](/skills/maxio/) · [Pax8](/skills/pax8/) · [QuickBooks Online](/skills/quickbooks/) · [Sherweb](/skills/sherweb/) · [Xero](/skills/xero/)
 
 ## Status
 

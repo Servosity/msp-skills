@@ -869,6 +869,52 @@
       ]
     },
     {
+      "name": "resourceguru",
+      "source": "./skills/resourceguru",
+      "description": "Every Resource Guru endpoint as a typed command, plus a local database and per-resource per-day utilization no Resource Guru report gives you.",
+      "version": "0.1.0",
+      "category": "msp",
+      "tags": [
+        "resourceguru",
+        "resource guru",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "maxio",
+      "source": "./skills/maxio",
+      "description": "The first open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror that outlives Maxio's deprecated Insights API.",
+      "version": "0.0.0",
+      "category": "billing",
+      "tags": [
+        "maxio",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "aws-billing",
+      "source": "./skills/aws-billing",
+      "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call.",
+      "version": "4.19.0",
+      "category": "billing",
+      "tags": [
+        "aws-billing",
+        "amazon web services",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "wordpress",
       "source": "./skills/wordpress",
       "description": "Publish and manage WordPress pages, posts, media",

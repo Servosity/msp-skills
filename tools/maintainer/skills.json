@@ -177,6 +177,28 @@
         "issue_url": null
       }
     },
+    "aws-billing": {
+      "system": "AWS billing & Cost Explorer - plain-English bill breakdowns and waste flags",
+      "status": "beta",
+      "cli_binary": "aws-billing-cli",
+      "mcp_binary": "aws-billing-mcp",
+      "vendor": "Amazon Web Services",
+      "vendor_trademark_owner": "Amazon.com, Inc. or its affiliates",
+      "first_party": false,
+      "category": "Billing",
+      "display_name": "AWS",
+      "cli_hash": "sha256:70cea27c819c70db8d9d09b4beb9a9b281b7b74e2951237ee23c09dfddcceee3",
+      "template_version": 3,
+      "version": "4.19.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "axcient": {
       "system": "Axcient x360Recover BCDR: fleet backup health, restore-point and RPO checks, AutoVerify boot-proof evidence, and per-client usage from a local mirror",
       "status": "beta",
@@ -731,6 +753,28 @@
         "issue_url": null
       }
     },
+    "maxio": {
+      "system": "Maxio Advanced Billing - subscription revenue, MRR, and retention intelligence",
+      "status": "beta",
+      "cli_binary": "maxio-cli",
+      "mcp_binary": "maxio-mcp",
+      "vendor": "Maxio",
+      "vendor_trademark_owner": "Maxio LLC",
+      "first_party": false,
+      "category": "Billing",
+      "display_name": "Maxio",
+      "cli_hash": "sha256:9dfdf4a73b00bd7517e63a746ccf0076dfde084266243447b6a9f38cbdb7d201",
+      "template_version": 3,
+      "version": "0.0.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "microsoft-graph": {
       "system": "Microsoft 365 / Entra tenant administration via Microsoft Graph",
       "status": "beta",
@@ -959,7 +1003,7 @@
       "cli_binary": "pipedrive-cli",
       "mcp_binary": "pipedrive-mcp",
       "vendor": "Pipedrive",
-      "vendor_trademark_owner": "Pipedrive O\u00dc",
+      "vendor_trademark_owner": "Pipedrive OÜ",
       "first_party": false,
       "category": "CRM",
       "display_name": "Pipedrive",
@@ -1024,6 +1068,28 @@
         "date": "2026-06-15",
         "source": "self",
         "evidence": "Servosity (an MSP) verified end-to-end against its PRODUCTION QuickBooks Online tenant on 2026-06-15: full paginated sync across all 8 resources matching live count(*); ar-aging and balances computed over the complete book. Fixes qbo-query-paging + qbo-db-path-env."
+      }
+    },
+    "resourceguru": {
+      "system": "Resource Guru - resource scheduling, bookings, and per-day utilization",
+      "status": "beta",
+      "cli_binary": "resourceguru-cli",
+      "mcp_binary": "resourceguru-mcp",
+      "vendor": "Resource Guru",
+      "vendor_trademark_owner": "Resource Guru Limited",
+      "first_party": false,
+      "category": "Other",
+      "display_name": "Resource Guru",
+      "cli_hash": "sha256:e95873f6ddddcc79c66880ae65fccead01d5f45c45ed17b9b8b575bafcbb705d",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     },
     "rewst": {
