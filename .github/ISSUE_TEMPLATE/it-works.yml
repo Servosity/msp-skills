@@ -52,6 +52,7 @@ body:
         - knowbe4
         - levelio
         - liongard
+        - maxio
         - microsoft-graph
         - mspbots
         - n-central
@@ -63,6 +64,7 @@ body:
         - pipedrive
         - proofpoint
         - quickbooks
+        - resourceguru
         - rewst
         - rocketcyber
         - rootly

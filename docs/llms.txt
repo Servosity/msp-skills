@@ -96,6 +96,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Liongard (Documentation) - ask "What changed across all my clients in the last 24 hours?" - See every config change, stale collector, and offline agent across your whole Liongard estate from one command.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/liongard/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/liongard/install.sh)
+- Maxio (Billing) - ask "What's our current MRR and ARR right now?" - 
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/maxio/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/maxio/install.sh)
 - Microsoft Graph (Security) - ask "Which SKUs are we paying for but not fully using, ranked by wasted seats?" - Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/microsoft-graph/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/microsoft-graph/install.sh)
@@ -131,6 +134,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - QuickBooks Online (Billing) - ask "Who owes us money, bucketed 0-30 / 31-60 / 61-90 / 90+?" - Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking.
   Verification: Live-verified by a real MSP (2026-06-15). Page: https://msp-skills.compoundingteams.com/skills/quickbooks/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/install.sh)
+- Resource Guru (Other) - ask "Who is overbooked across the whole fleet this month?" - 
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/resourceguru/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/resourceguru/install.sh)
 - Rewst (Automation) - ask "Is automation healthy for this client right now?" - 
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/rewst/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rewst/install.sh)

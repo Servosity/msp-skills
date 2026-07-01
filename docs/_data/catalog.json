@@ -1,5 +1,5 @@
 {
-  "count": 56,
+  "count": 58,
   "connectors": [
     {
       "slug": "abnormal",
@@ -302,6 +302,16 @@
       "url": "/skills/liongard/"
     },
     {
+      "slug": "maxio",
+      "display_name": "Maxio",
+      "tagline": "Open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures.",
+      "category": "Billing",
+      "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
+      "url": "/skills/maxio/"
+    },
+    {
       "slug": "microsoft-graph",
       "display_name": "Microsoft Graph",
       "tagline": "Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking.",
@@ -410,6 +420,16 @@
       "verified_by": null,
       "issue_url": null,
       "url": "/skills/quickbooks/"
+    },
+    {
+      "slug": "resourceguru",
+      "display_name": "Resource Guru",
+      "tagline": "Every Resource Guru endpoint as a typed command, plus a local database and per-resource per-day utilization no Resource Guru report gives you.",
+      "category": "Other",
+      "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
+      "url": "/skills/resourceguru/"
     },
     {
       "slug": "rewst",
