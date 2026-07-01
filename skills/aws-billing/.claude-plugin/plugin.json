@@ -1,6 +1,6 @@
 {
   "name": "aws-billing",
-  "version": "4.19.0",
+  "version": "0.1.0",
   "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call.",
   "author": {
     "name": "Servosity",
