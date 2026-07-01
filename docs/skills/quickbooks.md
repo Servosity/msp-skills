@@ -174,7 +174,7 @@ No. You need a QuickBooks Online company and an OAuth access token scoped to com
 
 ## More Billing connectors
 
-Run more than one Billing tool, or comparing options? These connectors work the same way: [AppDirect](/skills/appdirect/) · [Gradient MSP](/skills/gradient/) · [Maxio](/skills/maxio/) · [Pax8](/skills/pax8/) · [Sherweb](/skills/sherweb/) · [Xero](/skills/xero/)
+Run more than one Billing tool, or comparing options? These connectors work the same way: [AppDirect](/skills/appdirect/) · [AWS](/skills/aws-billing/) · [Gradient MSP](/skills/gradient/) · [Maxio](/skills/maxio/) · [Pax8](/skills/pax8/) · [Sherweb](/skills/sherweb/) · [Xero](/skills/xero/)
 
 ## Status
 

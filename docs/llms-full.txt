@@ -296,6 +296,44 @@ A: Same product. Autotask PSA is now branded Datto Autotask PSA under Kaseya; th
 
 Governance: The skill drives the autotask-cli and autotask-mcp binaries, authenticating with an Autotask API user's credentials read from the environment (AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, AUTOTASK_PSA_API_INTEGRATION_CODE) - never logged and never sent anywhere except your own Autotask zone. Read commands (the cross-entity views, search, picklist) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the delete commands and any security-level administration human-only. The strongest control is the security level on the API user you create.
 
+### AWS (Billing)
+
+Page: https://msp-skills.compoundingteams.com/skills/aws-billing/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/aws-billing/install.sh)
+
+Ask "why did my AWS bill go up?" and get a plain-English answer: the service that moved, the linked account driving it, and the idle instances and orphaned volumes bleeding dollars - without learning Cost Explorer's dimension grammar. It syncs your bill into a local cache once, so every follow-up question is instant and free instead of $0.01 per Cost Explorer call.
+
+Outcomes (question -> command your AI agent runs):
+- Why did my bill change month-over-month? -> aws-billing-cli compare --from last-month --to this-month
+- Which linked account is driving org spend? -> aws-billing-cli consolidated --period this-month
+- Where am I wasting money right now? -> aws-billing-cli waste rank
+- What does this cryptic usage-type line mean? -> aws-billing-cli explain EUC1-DataTransfer-Out-Bytes
+- Where is my data-transfer cost leaking? -> aws-billing-cli waste transfer --period last-month
+- What will I spend next month? -> aws-billing-cli forecast --profile-aws prod
+- How do I give a colleague read-only billing access? -> aws-billing-cli iam-setup --tier core --format cloudformation
+- What's a plain answer about my bill? -> aws-billing-cli ask "what are my top services"
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local AWS MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your AWS credentials once.
+Q: Is my AWS data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local SQLite mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this run up my Cost Explorer bill?
+A: No - that is the point of the local cache. 'sync' pulls your cost data once (each Cost Explorer request is about $0.01), then bill, compare, consolidated, waste, and ask answer from the local SQLite mirror for free. Pass --data-source live only when you want a fresh pull.
+Q: Do I need the aws CLI installed?
+A: No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, assume-role, or instance metadata. There is nothing to paste and no aws CLI dependency.
+Q: Does it work from a member account, or only the payer?
+A: Org-wide cost data (the consolidated rollup) needs a management/payer-account profile; from a member account you see only that account's own costs. Resource-level waste scans work in any account. Run 'aws-billing-cli doctor' to see exactly what your credentials can reach.
+Q: Can it change anything in my AWS account?
+A: No. Every command is read-only against the AWS billing & Cost Explorer API - it never stops, deletes, modifies, or buys anything. 'waste gp2-gp3' even prints the 'aws ec2 modify-volume' command you would run rather than running it. The opt-in outbound network actions are 'report --post-slack' (Slack), 'feedback --send' (upstream note, only if you set an endpoint), and '--deliver webhook:<url>' (POSTs output to a URL you name) - none of them changes anything in AWS, and even the generic 'import' command can't, because the billing API exposes no write endpoint.
+
+Governance: Every command is read-only against the AWS billing & Cost Explorer API: it pulls cost and inventory data and never stops an instance, deletes a volume, or buys a commitment. Local writes are the SQLite cache ('sync') and report files ('report'). Outbound actions are opt-in and explicit and none touches AWS: 'report --post-slack' (Slack), 'feedback --send' (upstream note, only if you set an endpoint), and '--deliver webhook:<url>' (POSTs output to a URL you name). Scope the AWS credentials to read-only - run 'iam-setup' to mint exactly that - and an agent can run the read surface unattended.
+
 ### Axcient x360Recover (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/axcient/

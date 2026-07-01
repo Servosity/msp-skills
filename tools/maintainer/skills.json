@@ -177,6 +177,28 @@
         "issue_url": null
       }
     },
+    "aws-billing": {
+      "system": "AWS billing & Cost Explorer - plain-English bill breakdowns and waste flags",
+      "status": "beta",
+      "cli_binary": "aws-billing-cli",
+      "mcp_binary": "aws-billing-mcp",
+      "vendor": "Amazon Web Services",
+      "vendor_trademark_owner": "Amazon.com, Inc. or its affiliates",
+      "first_party": false,
+      "category": "Billing",
+      "display_name": "AWS",
+      "cli_hash": "sha256:70cea27c819c70db8d9d09b4beb9a9b281b7b74e2951237ee23c09dfddcceee3",
+      "template_version": 3,
+      "version": "4.19.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "axcient": {
       "system": "Axcient x360Recover BCDR: fleet backup health, restore-point and RPO checks, AutoVerify boot-proof evidence, and per-client usage from a local mirror",
       "status": "beta",

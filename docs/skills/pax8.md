@@ -177,7 +177,7 @@ No. Provisioning, ordering, and support workflows stay in the portal. This skill
 
 ## More Billing connectors
 
-Run more than one Billing tool, or comparing options? These connectors work the same way: [AppDirect](/skills/appdirect/) · [Gradient MSP](/skills/gradient/) · [Maxio](/skills/maxio/) · [QuickBooks Online](/skills/quickbooks/) · [Sherweb](/skills/sherweb/) · [Xero](/skills/xero/)
+Run more than one Billing tool, or comparing options? These connectors work the same way: [AppDirect](/skills/appdirect/) · [AWS](/skills/aws-billing/) · [Gradient MSP](/skills/gradient/) · [Maxio](/skills/maxio/) · [QuickBooks Online](/skills/quickbooks/) · [Sherweb](/skills/sherweb/) · [Xero](/skills/xero/)
 
 ## Status
 

@@ -1,0 +1,117 @@
+{
+  "outcome_intro": "Ask \"why did my AWS bill go up?\" and get a plain-English answer: the service that moved, the linked account driving it, and the idle instances and orphaned volumes bleeding dollars - without learning Cost Explorer's dimension grammar. It syncs your bill into a local cache once, so every follow-up question is instant and free instead of $0.01 per Cost Explorer call.",
+  "instead_of_say": [
+    {
+      "instead": "Export Cost Explorer CSVs and pivot them in a spreadsheet to find which service jumped this month",
+      "say": "Why did my AWS bill go up since last month?",
+      "cli": "aws-billing-cli compare --from last-month --to this-month"
+    },
+    {
+      "instead": "Click through every linked account in the billing console to find the one driving org spend",
+      "say": "Which account is driving my AWS spend?",
+      "cli": "aws-billing-cli consolidated --period this-month"
+    },
+    {
+      "instead": "Hunt through the EC2, EBS, and Elastic IP consoles by hand for idle and orphaned resources",
+      "say": "Where am I wasting money on AWS?",
+      "cli": "aws-billing-cli waste rank"
+    }
+  ],
+  "pain_points": [
+    "The AWS bill is a wall of usage-type codes like EUC1-DataTransfer-Out-Bytes that nobody on the team can read, so the monthly cost review keeps getting skipped until the bill is already a surprise.",
+    "You suspect money is bleeding on idle instances and orphaned volumes, but Cost Explorer points you at buying Reserved Instances instead of naming the actual waste - and every report you pull costs $0.01."
+  ],
+  "outcomes": [
+    {
+      "question": "Why did my bill change month-over-month?",
+      "command": "aws-billing-cli compare --from last-month --to this-month"
+    },
+    {
+      "question": "Which linked account is driving org spend?",
+      "command": "aws-billing-cli consolidated --period this-month"
+    },
+    {
+      "question": "Where am I wasting money right now?",
+      "command": "aws-billing-cli waste rank"
+    },
+    {
+      "question": "What does this cryptic usage-type line mean?",
+      "command": "aws-billing-cli explain EUC1-DataTransfer-Out-Bytes"
+    },
+    {
+      "question": "Where is my data-transfer cost leaking?",
+      "command": "aws-billing-cli waste transfer --period last-month"
+    },
+    {
+      "question": "What will I spend next month?",
+      "command": "aws-billing-cli forecast --profile-aws prod"
+    },
+    {
+      "question": "How do I give a colleague read-only billing access?",
+      "command": "aws-billing-cli iam-setup --tier core --format cloudformation"
+    },
+    {
+      "question": "What's a plain answer about my bill?",
+      "command": "aws-billing-cli ask \"what are my top services\""
+    }
+  ],
+  "different_vs_wrappers": "Most AWS integrations proxy every question into a live Cost Explorer call - fine for one lookup, but each request costs $0.01 and it dies the moment you want a month-over-month trend or a cross-account rollup. This skill syncs your bill and resource inventory into a local SQLite mirror once, so compare, consolidated, and waste rank run instantly and offline, and the agent sees the ranked answer rather than a raw API dump.",
+  "different_vs_vendor": "AWS's console and Cost Explorer can show you the numbers, but they assume you already speak the dimension grammar and they steer you toward buying Reserved Instances. This skill decodes the bill into plain English, ranks real waste by dollars saved, and never tries to sell you a commitment - it complements the console for anyone who isn't a billing specialist.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local AWS MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your AWS credentials once."
+    },
+    {
+      "q": "Is my AWS data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local SQLite mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Will this run up my Cost Explorer bill?",
+      "a": "No - that is the point of the local cache. 'sync' pulls your cost data once (each Cost Explorer request is about $0.01), then bill, compare, consolidated, waste, and ask answer from the local SQLite mirror for free. Pass --data-source live only when you want a fresh pull."
+    },
+    {
+      "q": "Do I need the aws CLI installed?",
+      "a": "No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, assume-role, or instance metadata. There is nothing to paste and no aws CLI dependency."
+    },
+    {
+      "q": "Does it work from a member account, or only the payer?",
+      "a": "Org-wide cost data (the consolidated rollup) needs a management/payer-account profile; from a member account you see only that account's own costs. Resource-level waste scans work in any account. Run 'aws-billing-cli doctor' to see exactly what your credentials can reach."
+    },
+    {
+      "q": "Can it change anything in my AWS account?",
+      "a": "No. Every command is read-only against the AWS billing & Cost Explorer API - it never stops, deletes, modifies, or buys anything. 'waste gp2-gp3' even prints the 'aws ec2 modify-volume' command you would run rather than running it. The opt-in outbound network actions are 'report --post-slack' (Slack), 'feedback --send' (upstream note, only if you set an endpoint), and '--deliver webhook:<url>' (POSTs output to a URL you name) - none of them changes anything in AWS, and even the generic 'import' command can't, because the billing API exposes no write endpoint."
+    }
+  ],
+  "governance_summary": "Every command is read-only against the AWS billing & Cost Explorer API: it pulls cost and inventory data and never stops an instance, deletes a volume, or buys a commitment. Local writes are the SQLite cache ('sync') and report files ('report'). Outbound actions are opt-in and explicit and none touches AWS: 'report --post-slack' (Slack), 'feedback --send' (upstream note, only if you set an endpoint), and '--deliver webhook:<url>' (POSTs output to a URL you name). Scope the AWS credentials to read-only - run 'iam-setup' to mint exactly that - and an agent can run the read surface unattended.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "bill, consolidated, compare, forecast, waste rank, waste transfer, ask, explain, dimensions, doctor, iam-setup",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (local)",
+      "examples": "sync (writes the local cache), report (writes an HTML/PDF file)",
+      "policy": "Allow; never mutates AWS"
+    },
+    {
+      "tier": "Outbound (opt-in)",
+      "examples": "report --post-slack (Slack post), feedback --send (upstream note, only with an endpoint set), --deliver webhook:<url> (POSTs output to a URL you name)",
+      "policy": "Allow; each fires only when you pass the flag"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "none - the AWS billing & Cost Explorer API exposes no write endpoints, so even the generic import command cannot mutate AWS",
+      "policy": "N/A"
+    }
+  ]
+}

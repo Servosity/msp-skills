@@ -27,6 +27,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Autotask PSA (PSA) - ask "Which approved time entries haven't been invoiced yet?" - Triage tickets, surface unbilled time, and project retainer burn by asking.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/autotask/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/install.sh)
+- AWS (Billing) - ask "Why did my bill change month-over-month?" - 
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/aws-billing/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/aws-billing/install.sh)
 - Axcient x360Recover (Backup/DR) - ask "Whose backups failed or went stale across every client last night?" - Catch failed and stale Axcient backups, RPO breaches, and unbilled usage across every client by asking.
   Verification: Live-verified by @Xenith-B (MSP) (2026-06-25). Page: https://msp-skills.compoundingteams.com/skills/axcient/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/axcient/install.sh)

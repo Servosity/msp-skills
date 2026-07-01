@@ -897,6 +897,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "aws-billing",
+      "source": "./skills/aws-billing",
+      "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call.",
+      "version": "4.19.0",
+      "category": "billing",
+      "tags": [
+        "aws-billing",
+        "amazon web services",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
