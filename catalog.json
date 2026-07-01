@@ -1157,6 +1157,25 @@
       "category": "Backup/DR"
     },
     {
+      "name": "wordpress",
+      "system": "Publish and manage WordPress pages, posts, and media",
+      "status": "beta",
+      "skill_path": "skills/wordpress",
+      "cli_binary": "wordpress-cli",
+      "mcp_binary": "wordpress-mcp",
+      "version": "0.0.0",
+      "printing_press_version": "4.26.1",
+      "license": "Apache-2.0",
+      "vendor": "WordPress",
+      "vendor_trademark_owner": "WordPress Foundation",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/wordpress/install.sh)",
+      "install_mcp_doc": "skills/wordpress/mcp-install.md",
+      "description": "Publish and manage WordPress pages, posts, media",
+      "verification": "awaiting",
+      "category": "Marketing"
+    },
+    {
       "name": "xero",
       "system": "the Xero cloud accounting platform",
       "status": "beta",

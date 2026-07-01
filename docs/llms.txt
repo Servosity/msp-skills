@@ -179,6 +179,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Veeam (Backup/DR) - ask "Which backup jobs are failing across all my customers?" - 
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/veeam/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/veeam/install.sh)
+- WordPress (Marketing) - ask "Publish a landing page from HTML without opening wp-admin?" - 
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/wordpress/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/wordpress/install.sh)
 - Xero (Billing) - ask "Who owes us, and how overdue is each invoice?" - Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal - offline, in one call.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/xero/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/xero/install.sh)

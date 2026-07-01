@@ -1,0 +1,109 @@
+{
+  "outcome_intro": "Ask your AI to \"publish this landing page as a draft\" or \"find every page still mentioning the old pricing\" and it happens from the terminal - no wp-admin clicking, no SSH for WP-CLI. This skill drives the WordPress REST API to create, update, search, and delete pages, posts, and media, and syncs the whole site into a local mirror so cross-content questions become one instant offline query.",
+  "instead_of_say": [
+    {
+      "instead": "Log into wp-admin, open the block editor, paste the HTML, wrestle the SEO fields, then click Publish - one page at a time",
+      "say": "Publish this landing page as a draft and give me its id",
+      "cli": "wordpress-cli pages create --title \"Spring Promo\" --content \"<h1>Spring Promo</h1>\" --status draft"
+    },
+    {
+      "instead": "Hunt through the wp-admin media library to find an uploaded image's id before you can set it as a featured image",
+      "say": "Upload this hero image and tell me its media id",
+      "cli": "wordpress-cli media upload ./hero.png --alt-text \"Spring promo hero\""
+    },
+    {
+      "instead": "Open every page in wp-admin one at a time to find the ones still sitting in Draft",
+      "say": "Which pages are still drafts?",
+      "cli": "wordpress-cli pages list --status draft"
+    }
+  ],
+  "pain_points": [
+    "Routine site edits - swap a promo banner, fix a phone number, push a new landing page - mean logging into wp-admin and clicking through the block editor screen by screen. The Classic Editor plugin still reports over 10 million active installs on the WordPress.org plugin directory: a standing vote against that editor for everyday content work.",
+    "Managing content across a stack of client sites is unbillable busywork. There is no single command to publish a page, list every draft, or search all content, so it stays manual - MSPs on r/msp regularly trade scripts and gripes about website upkeep eating hours that never reach an invoice.",
+    "The official WP-CLI is powerful but needs SSH access to the server's shell, which many managed or hosted WordPress sites do not give you - so remote, scriptable content management falls back to the browser."
+  ],
+  "outcomes": [
+    {
+      "question": "Publish a landing page from HTML without opening wp-admin?",
+      "command": "wordpress-cli pages create --title \"Spring Promo\" --content \"<h1>Spring Promo</h1>\" --status publish"
+    },
+    {
+      "question": "Which pages are still sitting in draft?",
+      "command": "wordpress-cli pages list --status draft"
+    },
+    {
+      "question": "Update a live page's content in place?",
+      "command": "wordpress-cli pages update 42 --content \"<h1>Updated copy</h1>\""
+    },
+    {
+      "question": "Upload a hero image and get its media id for a featured image?",
+      "command": "wordpress-cli media upload ./hero.png --alt-text \"Spring promo hero\""
+    },
+    {
+      "question": "Find every page or post that mentions an outdated phrase (after a `workflow archive`)?",
+      "command": "wordpress-cli search \"summer sale\""
+    },
+    {
+      "question": "Mirror the whole site locally for offline search and backup?",
+      "command": "wordpress-cli workflow archive"
+    },
+    {
+      "question": "What's mirrored locally and how fresh is it?",
+      "command": "wordpress-cli workflow status"
+    },
+    {
+      "question": "Publish a blog post with categories and tags?",
+      "command": "wordpress-cli posts create --title \"Patch Tuesday recap\" --content \"<p>This month...</p>\" --status publish"
+    },
+    {
+      "question": "Which authors can I assign content to?",
+      "command": "wordpress-cli users list"
+    }
+  ],
+  "different_vs_wrappers": "Most WordPress integrations proxy each request straight to the live REST API - fine for editing one page, slow and noisy when you want to grep every page and post across a whole site for an old price or a dead promo link. This skill syncs WordPress into a local SQLite mirror with full-text search (`workflow archive`), so \"find every page that still mentions the old pricing\" becomes one instant offline query, and `workflow status` shows exactly what is mirrored and how stale it is - your AI sees the matching rows, not a dump of every page's HTML.",
+  "different_vs_vendor": "WordPress's own wp-admin is built for one human clicking through one screen at a time, and the official WP-CLI needs SSH access to the server's shell. This skill drives the same REST API your site already exposes over HTTPS - no server login - so an AI agent can publish, update, search, and clean up content remotely. It complements wp-admin; it doesn't replace it.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local WordPress MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my WordPress data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Do I need to install a plugin on the WordPress site?",
+      "a": "No. This drives the built-in WordPress REST API (the /wp-json/wp/v2 routes) that ships with WordPress 4.7 and later. You only need an Application Password for a user with the right role (in wp-admin: Users > Profile > Application Passwords), set as WORDPRESS_BASIC_AUTH."
+    },
+    {
+      "q": "Can it manage more than one site?",
+      "a": "Yes. Point it at any site by setting that site's WORDPRESS_BASE_URL and its Application Password; named profiles and the per-site local mirror keep each site's state separate. Treat each site's Application Password as a scoped credential."
+    }
+  ],
+  "governance_summary": "The skill reads pages, posts, media, categories, tags, users, and settings, and can create or update that content and upload media. The sharp edges are deletes (pages, posts, media) and site settings changes. The safe default for an autonomous agent is read plus previewed (`--dry-run`) writes, with a human approving anything that deletes content or changes site settings.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "pages list, posts list, media list, search, users list, workflow status",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "pages create, pages update, posts create, posts update, media upload, media update, categories create, tags create",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "pages delete, posts delete, media delete, settings update",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

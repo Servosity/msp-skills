@@ -1,0 +1,46 @@
+{
+  "manifest_version": "0.3",
+  "name": "wordpress-pp-mcp",
+  "display_name": "Wordpress",
+  "version": "0.0.0",
+  "description": "Publish and manage WordPress pages, posts, media",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/wordpress-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/wordpress-pp-mcp",
+      "args": [],
+      "env": {
+        "WORDPRESS_BASIC_AUTH": "${user_config.wordpress_basic_auth}"
+      }
+    }
+  },
+  "user_config": {
+    "wordpress_basic_auth": {
+      "type": "string",
+      "title": "WORDPRESS_BASIC_AUTH",
+      "description": "Sets WORDPRESS_BASIC_AUTH for the Wordpress MCP server.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.26.1",
+  "press_provenance": {
+    "printing_press_version": "4.26.1",
+    "generated_at": "2026-06-27T01:18:44.282349Z",
+    "spec_checksum": "sha256:7efd069bd40698a46f760bcbd9d33637634feb6b533843978967547fefab213d",
+    "spec_format": "internal"
+  }
+}
