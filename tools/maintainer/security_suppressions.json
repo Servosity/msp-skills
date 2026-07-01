@@ -155,6 +155,16 @@
       "file": "cli/internal/cliutil/credentials.go",
       "rule": "G117",
       "reason": "FLEET (generated). The access_token field is persisted to the user's own local credentials.toml via toml.Marshal - it is the credential being stored, not a leak. Same justification as the cli/internal/config/config.go G117 entry; press 4.27.1 moved the credential store into cliutil/."
+    },
+    {
+      "file": "skills/runzero/cli/internal/cli/sync.go",
+      "rule": "G101",
+      "reason": "runzero (generated). gosec G101 LOW-confidence false-positive on the generated syncResourcePath map (resource name -> runZero API endpoint PATH). Keys 'account' -> '/account/keys' and 'account-credentials' -> '/account/credentials' carry credential-ish substrings ('keys'/'credentials'), tripping the heuristic; the flagged block is a map[string]string of resource names to .json/REST endpoint paths, not credential material. Same class as the halopsa/servosity generated-map G101 FPs. Repo-relative (scoped to runzero)."
+    },
+    {
+      "file": "skills/sentinelone/cli/internal/cli/sync.go",
+      "rule": "G101",
+      "reason": "sentinelone (generated). gosec G101 LOW-confidence false-positive on the generated syncResourcePath map (resource name -> SentinelOne API endpoint PATH). Key 'agents-passphrases' -> '/agents/passphrases' carries the 'passphrases' substring, tripping the heuristic; the flagged block is a map[string]string of resource names to REST endpoint paths, not credential material. Same class as the halopsa/servosity generated-map G101 FPs. Repo-relative (scoped to sentinelone)."
     }
   ]
 }
