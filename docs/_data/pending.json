@@ -48,6 +48,13 @@
     "current_hash": "sha256:d38c62044a6ebdadc8b90b338e28235c063aefb5d6e267b61d73daed9a5b7f3a",
     "released_hash": "sha256:d38c62044a6ebdadc8b90b338e28235c063aefb5d6e267b61d73daed9a5b7f3a"
   },
+  "aws-billing": {
+    "state": "never-released",
+    "version": "4.19.0",
+    "latest_tag": null,
+    "current_hash": "sha256:9f2681d02b3455ee9e981d0f2399eb52fcaeb976add723e8b9624af2beb14b0a",
+    "released_hash": null
+  },
   "axcient": {
     "state": "up-to-date",
     "version": "0.2.8",
