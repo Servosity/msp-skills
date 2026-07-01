@@ -286,6 +286,13 @@
     "current_hash": "sha256:1f01e28ec09243ed687d05443ccc1ab93dd3fdd0d32f5bd76b49e7bb4a1562c0",
     "released_hash": "sha256:1f01e28ec09243ed687d05443ccc1ab93dd3fdd0d32f5bd76b49e7bb4a1562c0"
   },
+  "resourceguru": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:e95873f6ddddcc79c66880ae65fccead01d5f45c45ed17b9b8b575bafcbb705d",
+    "released_hash": null
+  },
   "rewst": {
     "state": "up-to-date",
     "version": "0.1.0",
