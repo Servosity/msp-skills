@@ -140,46 +140,6 @@
       "file": "skills/servosity/cli/internal/qbrreport/qbrreport.go",
       "rule": "msp-exec-nonliteral-command",
       "reason": "servosity (internal-only). semgrep twin of the already-suppressed builtin exec-nonliteral-cmd entry for the same call site: exec.Command(chrome, ...) where chrome is allowlist-resolved by findChrome() (LookPath of known binary names / macOS .app stat), never user input; annotated // #nosec G204. Vetted safe."
-    },
-    {
-      "file": "skills/aws-billing/cli/internal/cli/report.go",
-      "rule": "exec-nonliteral-cmd",
-      "reason": "aws-billing (generated). `report` shells out to render a PDF and to delegate the Slack post. report.go:296 execs the resolved Chrome binary path (PATH lookup of a known browser, not user input) with literal flags (--headless/--print-to-pdf/file://tmp); report.go:332/344 exec the resolved slack-pp-cli binary path with an explicit argv slice (no shell, no `sh -c`). Same allowlist-resolved-binary + argv pattern as the servosity qbrreport.go and cobratree shellout.go suppressions. Vetted safe."
-    },
-    {
-      "file": "skills/aws-billing/cli/internal/cli/report.go",
-      "rule": "msp-exec-nonliteral-command",
-      "reason": "aws-billing (generated). semgrep twin of the report.go exec-nonliteral-cmd entry above: same chrome/slack-pp-cli call sites (resolved binary path + explicit argv, no shell). Vetted safe for the same reason."
-    },
-    {
-      "file": "skills/aws-billing/cli/internal/cli/report.go",
-      "rule": "G204",
-      "reason": "aws-billing (generated). gosec twin of the report.go exec-nonliteral-cmd/msp-exec entries: exec.Command(chrome, ...) and exec.CommandContext(slack, \"messages\"/\"files\", ...) where chrome and slack are resolved binary paths (not user input) invoked with explicit argv slices - no shell interpretation. G204 flags any variable-arg exec; same vetted-safe pattern as the auth.go OAuth browser-open and cobratree shellout.go G204 suppressions."
-    },
-    {
-      "file": "skills/aws-billing/cli/internal/cli/report.go",
-      "rule": "G306",
-      "reason": "aws-billing (generated). os.WriteFile 0o644 for the HTML bill report the user explicitly asked `report` to write to their own machine. Non-secret cost-report output at a user-chosen path; conventional file perms. Same low-risk local-artifact class as the store.go/deliver.go G301 entries."
-    },
-    {
-      "file": "skills/aws-billing/cli/internal/cache/cache.go",
-      "rule": "G301",
-      "reason": "aws-billing (generated). os.MkdirAll 0o755 on the local per-user response-cache dir. Low risk on a single-user machine; same rationale + 0700 press follow-up as the store.go/deliver.go/transcend.go G301 suppressions."
-    },
-    {
-      "file": "skills/aws-billing/cli/internal/cache/cache.go",
-      "rule": "G306",
-      "reason": "aws-billing (generated). os.WriteFile 0o644 for a local response-cache file (non-secret cost data) under the user's own cache dir. Local, user-owned; same low-risk class as the cache.go G304 fleet suppression."
-    },
-    {
-      "file": "skills/aws-billing/cli/internal/client/client.go",
-      "rule": "G301",
-      "reason": "aws-billing (generated). os.MkdirAll 0o755 on the local per-user HTTP response-cache dir. Same low-risk single-user-machine rationale + 0700 press follow-up as the store.go/deliver.go/transcend.go G301 suppressions."
-    },
-    {
-      "file": "skills/aws-billing/cli/internal/client/client.go",
-      "rule": "G306",
-      "reason": "aws-billing (generated). os.WriteFile 0o644 for a local HTTP response-cache file (non-secret cost data) under the user's own cache dir. Local, user-owned; same class as the client.go G304 fleet suppression."
     }
   ]
 }
