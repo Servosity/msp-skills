@@ -14,7 +14,7 @@ never written to disk, never logged, never sent anywhere except the Microsoft Gr
 ## Default-safe behavior
 
 - **The typed commands are read-only.** Directory, licensing, security, device, and the
-  cross-entity analytics (`licenses waste`, `admins audit`, `security triage`,
+  cross-entity analytics (`licenses waste`, `admins audit`, `apps consent`, `security triage`,
   `managed-devices drift`, `groups risk`, `tenant snapshot`) only read - from the live
   Graph API or the local SQLite mirror. They cannot change anything in your tenant.
 - **There is exactly one write path: `import`.** It issues a POST per JSONL record to
@@ -32,7 +32,7 @@ require a human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, audits, search. No change. | `licenses waste`, `licenses orphans`, `admins audit`, `security triage`, `managed-devices drift`, `groups risk`, `tenant snapshot`, `users list`, `pull`, `search`, `export` | Allow |
+| **Read** | Reports, rollups, audits, search. No change. | `licenses waste`, `licenses orphans`, `admins audit`, `apps consent`, `security triage`, `managed-devices drift`, `groups risk`, `tenant snapshot`, `users list`, `pull`, `search`, `export` | Allow |
 | **Write (import only)** | The sole create path: POST per JSONL record. | `import <resource> --input data.jsonl` | Preview with `--dry-run`, then an approved write |
 | **Credential / security** | Touches tokens, keys, MFA. | (none detected - `auth login` only mints/caches your own token locally) | Human-in-the-loop only |
 | **Destructive** | Irreversible data or config loss. | (none - the CLI exposes no delete or update path) | Human-in-the-loop only, explicit confirmation |

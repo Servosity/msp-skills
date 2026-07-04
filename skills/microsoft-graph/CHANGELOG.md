@@ -4,7 +4,10 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.1] - unreleased
+## [0.2.0] - unreleased
+
+### Added
+- `apps consent`: a read-only third-party app consent inventory. Joins service principals, delegated consent grants (`oauth2PermissionGrants`), and application/app-only permissions (`appRoleAssignments`) into one risk-ranked table, flagging over-privileged, admin-consented, privilege-escalation, and user-consented (shadow IT) apps with least-privilege framing. Microsoft first-party apps are counted but not listed. Needs read scopes `Application.Read.All`, `Directory.Read.All`, and `DelegatedPermissionGrant.Read.All`.
 
 ### Changed
 - Regenerated on the printing-press 4.24.0 engine: more reliable fleet sync, corrected pagination across large result sets, robust numeric-ID handling, and dependency security updates. Same commands and workflows, sturdier local mirror.

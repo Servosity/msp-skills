@@ -154,6 +154,7 @@ MICROSOFT_GRAPH_TOKEN=<value> microsoft-graph-cli doctor
 | What open security alerts are new since yesterday, by severity and source? | `microsoft-graph-cli security triage --since 24h --agent` |
 | Which Intune devices are non-compliant, unencrypted, or stale this month? | `microsoft-graph-cli managed-devices drift --days 30 --agent` |
 | Which groups are ownerless, empty, or guest-heavy across the tenant? | `microsoft-graph-cli groups risk --agent` |
+| Which third-party apps are consented into the tenant, and which are over-privileged or admin-consented? | `microsoft-graph-cli apps consent --agent` |
 | Where does this tenant stand overall - users, license waste, admins, alerts, device drift? | `microsoft-graph-cli tenant snapshot --agent` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
@@ -176,6 +177,7 @@ This skill is the lightweight successor that also closes that gap:
 | "Who can administer this tenant?" means opening every privileged role in Entra one at a time | `microsoft-graph-cli admins audit --agent` |
 | "What's new in Defender since yesterday?" means paging the portal each morning | `microsoft-graph-cli security triage --since 24h --agent` |
 | "Which devices are out of compliance?" means a portal-to-spreadsheet ETL every week | `microsoft-graph-cli managed-devices drift --days 30 --agent` |
+| "Which third-party apps can read our mail and files?" means clicking every enterprise app's permissions blade in Entra | `microsoft-graph-cli apps consent --agent` |
 | "Where does this tenant stand?" has no single screen at all | `microsoft-graph-cli tenant snapshot --agent` |
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
@@ -210,6 +212,10 @@ The local SQLite mirror exists so reads stop hitting Graph. After the first `pul
 
 Either. Run `microsoft-graph-cli auth login --tenant <id> --client-id <id> --client-secret <secret>` to mint and cache an app-only (client-credentials) token for unattended MSP use, or export a pre-minted token as `MICROSOFT_GRAPH_TOKEN`. Read scopes such as `Directory.Read.All`, `RoleManagement.Read.Directory`, `SecurityAlert.Read.All`, and `DeviceManagementManagedDevices.Read.All` must be granted and admin-consented. App-only tokens have no `/me`, so `users me` is delegated-only.
 
+### How do I audit which third-party apps have access to a tenant?
+
+Run `microsoft-graph-cli apps consent --agent`. It inventories every non-Microsoft enterprise application (service principal) consented into the tenant and the access it holds - joining service principals, delegated consent grants (`oauth2PermissionGrants`), and application/app-only permissions (`appRoleAssignments`) into one risk-ranked table. It flags **over-privileged** apps (broad or write-all scopes), **admin-consented** (tenant-wide) apps, **privilege-escalation** permissions, and **user-consented** shadow IT - all read-only. Microsoft's own first-party apps are counted but not listed. Needs read scopes `Application.Read.All`, `Directory.Read.All`, and `DelegatedPermissionGrant.Read.All`.
+
 ### What does it cost?
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, ChatGPT, Codex, etc.), and that's billed by your AI provider, not by us.
@@ -218,7 +224,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `licenses waste`, `admins audit`, `security triage`, `managed-devices drift`, `groups risk`, `tenant snapshot`, `users list`, `pull`, `search`, `export` | Allow |
+| Read | `licenses waste`, `admins audit`, `apps consent`, `security triage`, `managed-devices drift`, `groups risk`, `tenant snapshot`, `users list`, `pull`, `search`, `export` | Allow |
 | Write (import only) | `import <resource> --input data.jsonl` - the sole write path; one POST per JSONL record | Preview with `--dry-run`, then a reviewed write |
 | Destructive / config | None - the CLI exposes no delete or update path | Human-in-the-loop only |
 
@@ -232,4 +238,4 @@ Beta. Validated against the Microsoft Graph API surface and being validated with
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-05._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-07-03._

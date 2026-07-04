@@ -1,6 +1,6 @@
 ---
 name: microsoft-graph
-description: "The maintained single-binary successor to the retiring mgc  -  every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can. Trigger phrases: `find unused microsoft 365 licenses`, `who has global admin in this tenant`, `triage microsoft defender alerts`, `list non-compliant intune devices`, `microsoft graph tenant snapshot`, `use microsoft-graph`, `run microsoft-graph`."
+description: "The maintained single-binary successor to the retiring mgc  -  every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, over-privileged third-party app consents, and stale devices no single API call can. Trigger phrases: `find unused microsoft 365 licenses`, `who has global admin in this tenant`, `audit third-party app consent`, `which apps can read our mail`, `triage microsoft defender alerts`, `list non-compliant intune devices`, `microsoft graph tenant snapshot`, `use microsoft-graph`, `run microsoft-graph`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Microsoft Graph"
