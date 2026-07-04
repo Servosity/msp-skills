@@ -788,8 +788,8 @@
       "tagline": "Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking.",
       "cli_hash": "sha256:e67d67e8f9d8adc320933ae60d3fb14e88e8d1369e73d82bcd431be50570212a",
       "template_version": 3,
-      "version": "0.1.1",
-      "cli_hash_at_release": "sha256:f45e7208618a7d2a838bac94ef4b8efec64fc91a8a77e86a0d002e861d54108f",
+      "version": "0.2.0",
+      "cli_hash_at_release": "sha256:4256b9de006942358a1ed023beaf60294c6973b4604ffca961ca96e119e5a04b",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
