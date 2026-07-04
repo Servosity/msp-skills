@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Runnable check for report.py — the smallest thing that fails if the parser
+"""Runnable check for report.py - the smallest thing that fails if the parser
 or renderer breaks. No framework; just asserts. Run: python3 test_report.py"""
 import subprocess
 import sys

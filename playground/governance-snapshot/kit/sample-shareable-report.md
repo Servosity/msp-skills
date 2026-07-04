@@ -1,6 +1,6 @@
-# Third-Party App Consent Report — Sample MSP Client
+# Third-Party App Consent Report - Sample MSP Client
 
-**DEMO — synthetic sample, not a real tenant.**  _Generated 2026-07-03 · source: `microsoft-graph-cli apps consent` (read-only)_
+**DEMO - synthetic sample, not a real tenant.**  _Generated 2026-07-03 · source: `microsoft-graph-cli apps consent` (read-only)_
 
 ## Executive summary
 
@@ -34,11 +34,11 @@
 
 ## Recommended actions
 
-- **privilege-escalation** — Revoke now or confirm it is a sanctioned admin tool. This permission is a standing path to full tenant control.
-- **application-permissions** — Confirm each app-only permission is still needed; app-only access does not expire with a user and is easy to forget.
-- **high-privilege-delegated** — Right-size the delegated scopes to least privilege; drop any read-all/write-all the vendor does not actually use.
-- **user-consented** — Turn off end-user consent (or restrict it to verified publishers) so new shadow-IT apps require admin review.
-- **disabled-but-consented** — Remove the consent grants for disabled apps - dead service principals should not retain access.
+- **privilege-escalation** - Revoke now or confirm it is a sanctioned admin tool. This permission is a standing path to full tenant control.
+- **application-permissions** - Confirm each app-only permission is still needed; app-only access does not expire with a user and is easy to forget.
+- **high-privilege-delegated** - Right-size the delegated scopes to least privilege; drop any read-all/write-all the vendor does not actually use.
+- **user-consented** - Turn off end-user consent (or restrict it to verified publishers) so new shadow-IT apps require admin review.
+- **disabled-but-consented** - Remove the consent grants for disabled apps - dead service principals should not retain access.
 
 ## What the flags mean
 

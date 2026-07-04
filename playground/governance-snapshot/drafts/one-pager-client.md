@@ -1,9 +1,9 @@
-<!-- DRAFT — client-facing leave-behind one-pager. Not final copy. White-label per MSP. -->
+<!-- DRAFT - client-facing leave-behind one-pager. Not final copy. White-label per MSP. -->
 
 # Do you know which apps can read your company email? (DRAFT)
 
 Every app your team has "Signed in with Microsoft" or connected to Microsoft 365 was
-handed a key to some of your company data — mail, files, calendars, your staff directory.
+handed a key to some of your company data - mail, files, calendars, your staff directory.
 Some were approved for your **whole** organization. Some can **grant themselves more
 access**. That access does not expire, and most businesses have never reviewed it.
 
@@ -13,8 +13,8 @@ access**. That access does not expire, and most businesses have never reviewed i
 changed.** You get one page that answers:
 
 - **Which outside apps can access our data**, and what each one can reach.
-- **Which are the risky ones** — apps with broad, tenant-wide, or self-escalating access.
-- **Which nobody remembers approving** — the shadow IT and the leftovers from apps you no
+- **Which are the risky ones** - apps with broad, tenant-wide, or self-escalating access.
+- **Which nobody remembers approving** - the shadow IT and the leftovers from apps you no
   longer use.
 
 ## What you'll see

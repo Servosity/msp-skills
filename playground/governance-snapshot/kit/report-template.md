@@ -1,5 +1,5 @@
 <!--
-WHITE-LABEL REPORT TEMPLATE — governance-snapshot
+WHITE-LABEL REPORT TEMPLATE - governance-snapshot
 Fill the [BRACKETS], paste the generated findings where marked, deliver as PDF/Markdown.
 Produce the findings block with:
     microsoft-graph-cli apps consent --json > audit.json
@@ -21,7 +21,7 @@ _[DATE] · Prepared by [ANALYST NAME], [TITLE] · Confidential_
 ## Why this review exists
 
 Every SaaS tool, plugin, and integration your team has connected to Microsoft 365 was
-granted **standing access** to your tenant — often to mail, files, and directory data,
+granted **standing access** to your tenant - often to mail, files, and directory data,
 sometimes tenant-wide, sometimes able to grant itself more. That access does not expire
 and rarely gets reviewed. This report inventories every third-party app consented into
 [CLIENT NAME]'s tenant and ranks them by risk, so you can revoke what you do not
@@ -46,7 +46,7 @@ The review is **read-only**. Nothing in your tenant was changed to produce it.
 - [ ] Schedule a 30-minute review of the **admin-consented** apps with the client owner.
 - [ ] Turn on the [YOUR MSP NAME] managed app-consent policy so new shadow-IT apps
       require admin review before they can access the tenant.
-- [ ] Re-run this review [monthly / quarterly] — it is one read-only command.
+- [ ] Re-run this review [monthly / quarterly] - it is one read-only command.
 
 ## About [YOUR MSP NAME]
 

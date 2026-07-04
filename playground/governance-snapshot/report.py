@@ -10,7 +10,7 @@ white-labelable third-party-app-consent governance report (Markdown).
   ./report.py --demo --sanitize               # redact vendor names (shareable)
 
 stdlib only. No network. The input is whatever `apps consent --json` emits, so
-demo-mode and real-mode run the identical renderer — the only difference is the
+demo-mode and real-mode run the identical renderer - the only difference is the
 JSON on the way in. That is the whole point: the report cannot be canned.
 """
 import argparse
@@ -94,10 +94,10 @@ def render(data, org, as_of, is_demo):
     s = data["summary"]
     apps = data["apps"]
     L = []
-    title = f"Third-Party App Consent Report — {org}" if org else "Third-Party App Consent Report"
+    title = f"Third-Party App Consent Report - {org}" if org else "Third-Party App Consent Report"
     L.append(f"# {title}")
     L.append("")
-    banner = "**DEMO — synthetic sample, not a real tenant.**  " if is_demo else ""
+    banner = "**DEMO - synthetic sample, not a real tenant.**  " if is_demo else ""
     L.append(f"{banner}_Generated {as_of} · source: `microsoft-graph-cli apps consent` (read-only)_")
     L.append("")
 
@@ -161,7 +161,7 @@ def render(data, org, as_of, is_demo):
         L.append("## Recommended actions")
         L.append("")
         for f, a in todo:
-            L.append(f"- **{f}** — {a}")
+            L.append(f"- **{f}** - {a}")
         L.append("")
 
     # Glossary of the flags that appeared.
