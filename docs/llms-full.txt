@@ -1184,6 +1184,7 @@ Outcomes (question -> command your AI agent runs):
 - What open security alerts are new since yesterday, by severity and source? -> microsoft-graph-cli security triage --since 24h --agent
 - Which Intune devices are non-compliant, unencrypted, or stale this month? -> microsoft-graph-cli managed-devices drift --days 30 --agent
 - Which groups are ownerless, empty, or guest-heavy across the tenant? -> microsoft-graph-cli groups risk --agent
+- Which third-party apps have been consented into the tenant, and which are over-privileged, admin-consented, or user-consented shadow IT? -> microsoft-graph-cli apps consent --agent
 - Where does this tenant stand overall - users, license waste, admins, alerts, device drift? -> microsoft-graph-cli tenant snapshot --agent
 
 FAQ:
@@ -1199,10 +1200,12 @@ Q: Is this the replacement for the Microsoft Graph CLI (mgc) that's being retire
 A: It is built as the lightweight successor for the MSP read-and-report core - directory, licensing, security, and device surfaces - as one cross-platform Go binary with no .NET or PowerShell runtime. Microsoft's own recommended path is the PowerShell SDK; this is the option for teams who want a scriptable single binary and their AI agent instead. It is not affiliated with or endorsed by Microsoft.
 Q: Does it use a delegated or app-only token?
 A: Either. Run `auth login --tenant <id> --client-id <id> --client-secret <secret>` to mint and cache an app-only (client-credentials) token for unattended MSP use, or export a pre-minted token as MICROSOFT_GRAPH_TOKEN. Read scopes such as Directory.Read.All, RoleManagement.Read.Directory, SecurityAlert.Read.All, and DeviceManagementManagedDevices.Read.All must be granted and admin-consented. App-only tokens have no /me, so `users me` is delegated-only.
+Q: How do I audit which third-party apps have been consented into a tenant?
+A: Run `microsoft-graph-cli apps consent --agent`. It inventories every non-Microsoft enterprise application (service principal) and the access it holds - joining service principals, delegated consent grants (oauth2PermissionGrants), and application/app-only permissions (appRoleAssignments) into one risk-ranked table. It flags over-privileged apps, admin-consented (tenant-wide) apps, privilege-escalation permissions, and user-consented shadow IT, all read-only. Microsoft's own first-party apps are counted but not listed so the report is just the consent you granted or inherited. Needs read scopes Application.Read.All, Directory.Read.All, and DelegatedPermissionGrant.Read.All.
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-Governance: The skill drives the microsoft-graph-cli and microsoft-graph-mcp binaries, authenticating with a MICROSOFT_GRAPH_TOKEN read from the environment - never logged, never written to disk, never sent anywhere except the Microsoft Graph API. Every typed command is read-only: users, groups, directory roles, licenses, devices, managed devices, security alerts and incidents, and the cross-entity analytics change nothing. The single write path is the explicit `import` command (a JSONL-to-POST create path), which previews with `--dry-run`. The strongest control is the scope of the token you mint - grant read-only Graph scopes and the CLI can only read.
+Governance: The skill drives the microsoft-graph-cli and microsoft-graph-mcp binaries, authenticating with a MICROSOFT_GRAPH_TOKEN read from the environment - never logged, never written to disk, never sent anywhere except the Microsoft Graph API. Every typed command is read-only: users, groups, directory roles, licenses, devices, managed devices, security alerts and incidents, third-party app consent (`apps consent`), and the cross-entity analytics change nothing. The single write path is the explicit `import` command (a JSONL-to-POST create path), which previews with `--dry-run`. The strongest control is the scope of the token you mint - grant read-only Graph scopes and the CLI can only read.
 
 ### Concierge (Meta)
 

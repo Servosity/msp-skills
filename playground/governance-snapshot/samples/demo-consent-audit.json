@@ -1,0 +1,190 @@
+{
+  "summary": {
+    "totalServicePrincipals": 10,
+    "microsoftFirstParty": 3,
+    "thirdPartyApps": 7,
+    "externalApps": 6,
+    "internalApps": 1,
+    "adminConsentedApps": 5,
+    "userConsentedApps": 2,
+    "appsWithApplicationPermissions": 3,
+    "appsWithEscalationPermissions": 1,
+    "highRiskApps": 5,
+    "disabledAppsWithConsent": 1
+  },
+  "apps": [
+    {
+      "id": "sp-migrate",
+      "appId": "app-migrate",
+      "displayName": "Contoso Migration Tool",
+      "origin": "external",
+      "accountEnabled": true,
+      "adminConsented": true,
+      "userConsentGrants": 0,
+      "delegatedScopes": [],
+      "applicationPermissions": [
+        {
+          "resource": "Microsoft Graph",
+          "permission": "Application.ReadWrite.All",
+          "appRoleId": "1bfefb4e-e0b5-418b-a88f-73c46d2cc8e9",
+          "escalation": true
+        },
+        {
+          "resource": "Microsoft Graph",
+          "permission": "User.ReadWrite.All",
+          "appRoleId": "741f803b-c850-494e-b5df-cde7c675a1ca"
+        }
+      ],
+      "riskFlags": [
+        "application-permissions",
+        "privilege-escalation",
+        "admin-consented"
+      ],
+      "riskScore": 7
+    },
+    {
+      "id": "sp-acmebackup",
+      "appId": "app-acmebackup",
+      "displayName": "Acme Backup for Microsoft 365",
+      "origin": "external",
+      "accountEnabled": true,
+      "adminConsented": true,
+      "userConsentGrants": 0,
+      "delegatedScopes": [
+        "Files.Read.All",
+        "Mail.Read",
+        "User.Read"
+      ],
+      "highPrivilegeScopes": [
+        "Files.Read.All",
+        "Mail.Read"
+      ],
+      "applicationPermissions": [
+        {
+          "resource": "Microsoft Graph",
+          "permission": "Files.Read.All",
+          "appRoleId": "01d4889c-1287-42c6-ac1f-5d1e02578ef6"
+        },
+        {
+          "resource": "Microsoft Graph",
+          "permission": "Mail.Read",
+          "appRoleId": "810c84a8-4a9e-49e6-bf7d-12d183f40d01"
+        }
+      ],
+      "riskFlags": [
+        "application-permissions",
+        "high-privilege-delegated",
+        "admin-consented"
+      ],
+      "riskScore": 6
+    },
+    {
+      "id": "sp-sig",
+      "appId": "app-sig",
+      "displayName": "Northwind Signature Manager",
+      "origin": "external",
+      "accountEnabled": true,
+      "adminConsented": true,
+      "userConsentGrants": 0,
+      "delegatedScopes": [],
+      "applicationPermissions": [
+        {
+          "resource": "Microsoft Graph",
+          "permission": "Mail.ReadWrite",
+          "appRoleId": "e2a3a72e-5f79-4c64-b1b1-878b674786c9"
+        }
+      ],
+      "riskFlags": [
+        "application-permissions",
+        "admin-consented"
+      ],
+      "riskScore": 4
+    },
+    {
+      "id": "sp-internal",
+      "appId": "app-internal",
+      "displayName": "Old Reporting Dashboard (homegrown)",
+      "origin": "internal",
+      "accountEnabled": false,
+      "adminConsented": false,
+      "userConsentGrants": 1,
+      "delegatedScopes": [
+        "Mail.ReadWrite",
+        "Reports.Read.All"
+      ],
+      "highPrivilegeScopes": [
+        "Mail.ReadWrite"
+      ],
+      "applicationPermissions": [],
+      "riskFlags": [
+        "high-privilege-delegated",
+        "user-consented",
+        "disabled-but-consented"
+      ],
+      "riskScore": 4
+    },
+    {
+      "id": "sp-datadog",
+      "appId": "app-datadog",
+      "displayName": "Fabrikam Log Sync",
+      "origin": "external",
+      "accountEnabled": true,
+      "adminConsented": true,
+      "userConsentGrants": 0,
+      "delegatedScopes": [
+        "Directory.Read.All",
+        "User.Read.All"
+      ],
+      "highPrivilegeScopes": [
+        "Directory.Read.All",
+        "User.Read.All"
+      ],
+      "applicationPermissions": [],
+      "riskFlags": [
+        "high-privilege-delegated",
+        "admin-consented"
+      ],
+      "riskScore": 3
+    },
+    {
+      "id": "sp-timetrack",
+      "appId": "app-timetrack",
+      "displayName": "TimeTracker Plus",
+      "origin": "external",
+      "accountEnabled": true,
+      "adminConsented": false,
+      "userConsentGrants": 3,
+      "delegatedScopes": [
+        "Calendars.Read",
+        "User.Read",
+        "offline_access"
+      ],
+      "applicationPermissions": [],
+      "riskFlags": [
+        "user-consented"
+      ],
+      "riskScore": 1
+    },
+    {
+      "id": "sp-webinar",
+      "appId": "app-webinar",
+      "displayName": "WebinarHub Meetings",
+      "origin": "external",
+      "accountEnabled": true,
+      "adminConsented": true,
+      "userConsentGrants": 0,
+      "delegatedScopes": [
+        "User.Read",
+        "email",
+        "offline_access",
+        "openid",
+        "profile"
+      ],
+      "applicationPermissions": [],
+      "riskFlags": [
+        "admin-consented"
+      ],
+      "riskScore": 1
+    }
+  ]
+}

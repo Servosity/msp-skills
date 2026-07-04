@@ -254,6 +254,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newAnalyticsCmd(flags))
 	rootCmd.AddCommand(newWorkflowCmd(flags))
 	rootCmd.AddCommand(newNovelAdminsCmd(flags))
+	rootCmd.AddCommand(newNovelAppsCmd(flags))
 	rootCmd.AddCommand(newNovelTenantCmd(flags))
 	rootCmd.AddCommand(newPullCmd(flags))
 	rootCmd.AddCommand(newVersionCmd())

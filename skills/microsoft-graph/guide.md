@@ -194,6 +194,13 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   microsoft-graph-cli groups risk --agent
   ```
+- **`apps consent`**  -  Inventories every non-Microsoft enterprise application (service principal) consented into the tenant and the access it holds, joining service principals, delegated consent grants (`oauth2PermissionGrants`), and application/app-only permissions (`appRoleAssignments`) into one risk-ranked table with least-privilege flags (over-privileged, admin-consented, privilege-escalation, user-consented shadow IT).
+
+  _Run this for the third-party-app consent audit  -  it answers 'which outside apps can read our mail and files' that Entra spreads across every enterprise app's permissions blade. Live Graph read; needs `Application.Read.All` + `Directory.Read.All` + `DelegatedPermissionGrant.Read.All`._
+
+  ```bash
+  microsoft-graph-cli apps consent --agent
+  ```
 
 ### Device & tenant posture
 - **`managed-devices drift`**  -  Flags Intune devices that are non-compliant, unencrypted, or have not checked in within a time window, attributed to their assigned user.
