@@ -217,11 +217,11 @@
     "released_hash": "sha256:94076565bd9abbe4eda0c93e3321bde11554ef9d3882e373242bf309b7010273"
   },
   "microsoft-graph": {
-    "state": "binary-pending",
-    "version": "0.1.1",
-    "latest_tag": "microsoft-graph-v0.1.0",
+    "state": "up-to-date",
+    "version": "0.2.0",
+    "latest_tag": "microsoft-graph-v0.2.0",
     "current_hash": "sha256:4256b9de006942358a1ed023beaf60294c6973b4604ffca961ca96e119e5a04b",
-    "released_hash": "sha256:f45e7208618a7d2a838bac94ef4b8efec64fc91a8a77e86a0d002e861d54108f"
+    "released_hash": "sha256:4256b9de006942358a1ed023beaf60294c6973b4604ffca961ca96e119e5a04b"
   },
   "msp-skills-concierge": {
     "state": "markdown-only",

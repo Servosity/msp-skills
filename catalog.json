@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-01",
+  "generated_at": "2026-07-04",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -646,7 +646,7 @@
       "skill_path": "skills/microsoft-graph",
       "cli_binary": "microsoft-graph-cli",
       "mcp_binary": "microsoft-graph-mcp",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "printing_press_version": "4.24.0",
       "license": "Apache-2.0",
       "vendor": "Microsoft Graph",
