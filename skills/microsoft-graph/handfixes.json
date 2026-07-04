@@ -1,0 +1,19 @@
+{
+  "slug": "microsoft-graph",
+  "doc": "docs/reprint-survival.md",
+  "handfixes": [
+    {
+      "id": "apps-consent-novel-command",
+      "summary": "Hand-wired novel `apps consent` read-only third-party app consent audit: 3 hand-authored files plus a registration graft into the generated root.go.",
+      "why": "The apps-consent consent inventory is a connector-only novel feature authored in place (cli/internal/cli/apps.go, apps_consent.go, and insights/consent.go) and registered by a single hand-added rootCmd.AddCommand line in the generated root.go. A reprint regenerates root.go and drops the registration (and may drop the novel files), silently removing the whole `apps consent` command while the base generated set keeps compiling and passing go test.",
+      "status": "active",
+      "spec_encode_followup": "Encode the apps-consent novel command in the microsoft-graph press spec (novel-command block) so a reprint regenerates it instead of relying on this graft surviving.",
+      "asserts": [
+        {"file": "cli/internal/cli/root.go", "contains": "rootCmd.AddCommand(newNovelAppsCmd(flags))", "min_count": 1},
+        {"file": "cli/internal/cli/apps.go", "contains": "func newNovelAppsCmd(flags *rootFlags)", "min_count": 1},
+        {"file": "cli/internal/cli/apps_consent.go", "contains": "func newNovelAppsConsentCmd(flags *rootFlags)", "min_count": 1},
+        {"file": "cli/internal/insights/consent.go", "contains": "func ConsentAudit(", "min_count": 1}
+      ]
+    }
+  ]
+}
