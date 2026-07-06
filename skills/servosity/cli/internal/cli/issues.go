@@ -16,8 +16,9 @@ func newIssuesCmd(flags *rootFlags) *cobra.Command {
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 
-	cmd.AddCommand(newIssuesArchivedCmd(flags))
-	cmd.AddCommand(newIssuesIgnoredCmd(flags))
+	// `issues archived` and `issues ignored` removed: they call /issues/archived/
+	// and /issues/ignored/, which are admin-scoped and 403 for the partner token
+	// this connector ships with. See docs/reprint-survival.md (admin-only-endpoints).
 	cmd.AddCommand(newIssuesListCmd(flags))
 	cmd.AddCommand(newIssuesReadCmd(flags))
 	cmd.AddCommand(newIssuesArchiveCmd(flags))
