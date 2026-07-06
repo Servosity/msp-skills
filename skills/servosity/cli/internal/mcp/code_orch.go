@@ -2082,26 +2082,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		QueryParams:    []codeOrchParamBinding{},
 		keywords:       codeOrchKeywords("issue-comments", "update", "Update", "/issue-comments/{id}/"),
 	},
-	{
-		ID:             "issues.archived",
-		Method:         "GET",
-		Path:           "/issues/archived/",
-		Summary:        "Archived",
-		Positional:     []string{},
-		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "audience", WireName: "audience"}, {PublicName: "backup", WireName: "backup"}, {PublicName: "drbackup", WireName: "drbackup"}, {PublicName: "resticbackup", WireName: "resticbackup"}, {PublicName: "company", WireName: "company"}, {PublicName: "reseller", WireName: "reseller"}, {PublicName: "cursor", WireName: "cursor"}},
-		keywords:       codeOrchKeywords("issues", "archived", "Archived", "/issues/archived/"),
-	},
-	{
-		ID:             "issues.ignored",
-		Method:         "GET",
-		Path:           "/issues/ignored/",
-		Summary:        "Ignored",
-		Positional:     []string{},
-		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "audience", WireName: "audience"}, {PublicName: "backup", WireName: "backup"}, {PublicName: "drbackup", WireName: "drbackup"}, {PublicName: "resticbackup", WireName: "resticbackup"}, {PublicName: "company", WireName: "company"}, {PublicName: "reseller", WireName: "reseller"}, {PublicName: "cursor", WireName: "cursor"}},
-		keywords:       codeOrchKeywords("issues", "ignored", "Ignored", "/issues/ignored/"),
-	},
+	// issues.archived (/issues/archived/) and issues.ignored (/issues/ignored/) removed:
+	// admin-scoped endpoints that 403 for the partner token this connector ships.
+	// See ../../docs/reprint-survival.md (admin-only-endpoints).
 	{
 		ID:             "issues.list",
 		Method:         "GET",

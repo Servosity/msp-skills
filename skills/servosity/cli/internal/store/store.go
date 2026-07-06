@@ -9270,8 +9270,6 @@ var resourceIDFieldOverrides = map[string]string{
 	"credentials":                "id",
 	"dr-backups":                 "id",
 	"issues":                     "id",
-	"issues-archived":            "id",
-	"issues-ignored":             "id",
 	"restic-backups":             "id",
 }
 

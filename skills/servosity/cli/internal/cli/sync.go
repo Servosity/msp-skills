@@ -771,10 +771,6 @@ func resourceSupportsPagination(resource string) bool {
 		return true
 	case "issues":
 		return true
-	case "issues-archived":
-		return true
-	case "issues-ignored":
-		return true
 	case "restic-backups":
 		return true
 	}
@@ -1706,8 +1702,6 @@ func defaultSyncResources() []string {
 		"download",
 		"dr-backups",
 		"issues",
-		"issues-archived",
-		"issues-ignored",
 		"reports",
 		"reports-account",
 		"reports-classic-usage",
@@ -1756,8 +1750,6 @@ func knownSyncResourceNames() []string {
 		"download",
 		"dr-backups",
 		"issues",
-		"issues-archived",
-		"issues-ignored",
 		"reports",
 		"reports-account",
 		"reports-classic-usage",
@@ -1807,8 +1799,6 @@ func syncResourcePath(resource string) (string, error) {
 		"download":                      "/download/servosity-one-windows/",
 		"dr-backups":                    "/dr-backups/",
 		"issues":                        "/issues/",
-		"issues-archived":               "/issues/archived/",
-		"issues-ignored":                "/issues/ignored/",
 		"reports":                       "/reports/usage/",
 		"reports-account":               "/reports/account/",
 		"reports-classic-usage":         "/reports/classic-usage/",
@@ -1855,8 +1845,6 @@ var resourceIDFieldOverrides = map[string]string{
 	"credentials":                "id",
 	"dr-backups":                 "id",
 	"issues":                     "id",
-	"issues-archived":            "id",
-	"issues-ignored":             "id",
 	"restic-backups":             "id",
 }
 

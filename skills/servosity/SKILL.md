@@ -298,8 +298,6 @@ These capabilities aren't available in any other tool for this API.
 
 **issues**  -  Manage issues
 
-- `servosity-cli issues archived`  -  Archived
-- `servosity-cli issues ignored`  -  Ignored
 - `servosity-cli issues list`  -  List
 - `servosity-cli issues read`  -  Read
 
