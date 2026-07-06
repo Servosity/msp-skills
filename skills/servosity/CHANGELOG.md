@@ -4,6 +4,23 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.4.0] - 2026-07-06
+
+### Removed
+- `issues archived` (`GET /issues/archived/`) and `issues ignored`
+  (`GET /issues/ignored/`) are removed from the partner surface. Both endpoints
+  are admin-scoped and return HTTP 403 for the reseller-scoped
+  `SERVOSITY_MSP_TOKEN` this connector ships, so they never worked here. The
+  removal spans every surface: the two CLI subcommands, the MCP code-orchestration
+  endpoint table (the `servosity-msp_search` / `servosity-msp_execute` tools),
+  the `sync` resource map + store primary-key map, and the `guide.md` / `SKILL.md`
+  docs. Admin functionality lives in the dedicated admin CLI
+  (`github.com/Servosity/servosity-admin-cli`, admin `SERVOSITY_API_TOKEN`). The
+  reprint-durability requirement is documented in `docs/reprint-survival.md` and
+  machine-pinned in `handfixes.json`. `issues attention`,
+  `archive`/`ignore`/`reactivate` and the `issues` table's `ignored_until` field
+  are partner-scoped and unaffected (#178).
+
 ## [0.3.1] - 2026-06-16
 
 ### Fixed

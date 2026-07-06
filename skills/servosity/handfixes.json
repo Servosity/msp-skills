@@ -24,6 +24,23 @@
         {"file": "cli/internal/config/config.go", "contains": "\"Token \" + stripAuthScheme", "min_count": 1},
         {"file": "cli/internal/config/config_test.go", "contains": "TestAuthHeader_TokenScheme", "min_count": 1}
       ]
+    },
+    {
+      "id": "admin-only-issues-endpoints-removed",
+      "summary": "issues archived (/issues/archived/) and issues ignored (/issues/ignored/) are stripped from EVERY surface (CLI, MCP code-orch, sync, store) because they are admin-scoped and 403 for the reseller-scoped partner token this connector ships (PR #178)",
+      "why": "These two GET endpoints are generated from the OpenAPI spec and admin-only; the partner SERVOSITY_MSP_TOKEN gets HTTP 403. A naive reprint regenerates them on every surface (the CLI command files, the MCP code-orch endpoint table agents drive via servosity-msp_search/_execute, the sync resource map + store PK map). The de-msp ritual must re-strip all of them; these not_contains asserts fail CI if any surface reintroduced them. Admin functionality lives in github.com/Servosity/servosity-admin-cli instead. See docs/reprint-survival.md.",
+      "status": "active",
+      "pr": 178,
+      "asserts": [
+        {"file": "cli/internal/cli/issues.go", "not_contains": "newIssuesArchivedCmd"},
+        {"file": "cli/internal/cli/issues.go", "not_contains": "newIssuesIgnoredCmd"},
+        {"file": "cli/internal/mcp/code_orch.go", "not_contains": "codeOrchKeywords(\"issues\", \"archived\""},
+        {"file": "cli/internal/mcp/code_orch.go", "not_contains": "codeOrchKeywords(\"issues\", \"ignored\""},
+        {"file": "cli/internal/cli/sync.go", "not_contains": "\"issues-archived\""},
+        {"file": "cli/internal/cli/sync.go", "not_contains": "\"issues-ignored\""},
+        {"file": "cli/internal/store/store.go", "not_contains": "\"issues-archived\""},
+        {"file": "cli/internal/store/store.go", "not_contains": "\"issues-ignored\""}
+      ]
     }
   ]
 }
