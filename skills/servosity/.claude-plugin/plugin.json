@@ -1,6 +1,6 @@
 {
   "name": "servosity",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
   "author": {
     "name": "Servosity",
