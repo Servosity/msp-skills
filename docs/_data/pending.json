@@ -351,10 +351,10 @@
   },
   "servosity": {
     "state": "up-to-date",
-    "version": "0.3.1",
-    "latest_tag": "servosity-v0.3.1",
-    "current_hash": "sha256:e3be1e65170b74e9e763cdac15ea388fdc9db9eab313e1751f36589721652cf1",
-    "released_hash": "sha256:e3be1e65170b74e9e763cdac15ea388fdc9db9eab313e1751f36589721652cf1"
+    "version": "0.4.0",
+    "latest_tag": "servosity-v0.4.0",
+    "current_hash": "sha256:a48664a3ca0130b805cda6deb8215861aa9497e0f289c6809e616e4a3531ce6a",
+    "released_hash": "sha256:a48664a3ca0130b805cda6deb8215861aa9497e0f289c6809e616e4a3531ce6a"
   },
   "sherweb": {
     "state": "version-pending",
