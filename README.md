@@ -9,15 +9,7 @@ Free, open source, runs on your laptop. A local SQLite mirror lets your agent an
 > **New to the term?** What this repo calls an **MCP server** is what ChatGPT calls an *app* or *connector*, Claude on the web calls a *connector*, Microsoft Copilot calls a *connector*, and Claude Code calls a *Skill*. Same standard underneath: the [Model Context Protocol](https://modelcontextprotocol.io). Full plain-language answer: **[What is an MCP server?](https://msp-skills.compoundingteams.com/what-is-an-mcp-server/)**.
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
-<<<<<<< HEAD
 [![Skills](https://img.shields.io/badge/skills-59-green.svg)](./catalog.json)
-=======
-<<<<<<< HEAD
-[![Skills](https://img.shields.io/badge/skills-59-green.svg)](./catalog.json)
-=======
-[![Skills](https://img.shields.io/badge/skills-59-green.svg)](./catalog.json)
->>>>>>> origin/main
->>>>>>> origin/main
 [![MCP](https://img.shields.io/badge/MCP-compatible-1f6feb.svg)](https://modelcontextprotocol.io)
 [![Agent Skills](https://img.shields.io/badge/Agent_Skills-spec-2E7D32.svg)](https://agentskills.io)
 ![Status](https://img.shields.io/badge/status-beta-yellow.svg)
