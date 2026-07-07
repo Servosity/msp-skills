@@ -12,8 +12,8 @@ so they are removed from the partner surface:
 - `issues archived`  → `GET /issues/archived/`  (admin only)
 - `issues ignored`   → `GET /issues/ignored/`   (admin only)
 
-These live in the admin CLI instead: `github.com/Servosity/servosity-admin-cli`
-(uses the admin `SERVOSITY_API_TOKEN`).
+These live in Servosity's separate internal admin CLI instead (admin-token-scoped;
+not part of this partner connector).
 
 **Reprint durability:** these endpoints are generated from the OpenAPI spec, so a naive
 reprint reintroduces them on **every** surface, not just the CLI. The de-msp ritual must
