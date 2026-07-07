@@ -4,6 +4,15 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.5] - unreleased
+
+### Fixed
+- `sync` now continues through NinjaOne `/v2/queries/*` report pages when the API
+  keeps the same `cursor.name` token but advances the cursor object's `offset`.
+  The loop still sends the valid cursor token to the API, but uses the offset as
+  the internal progress key so large report resources no longer stop at 200 rows
+  with `stuck_pagination`. Thanks to @Xenith-B for the live-tenant report (#179).
+
 ## [0.1.4] - unreleased
 
 ### Fixed
