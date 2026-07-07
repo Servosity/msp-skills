@@ -14,8 +14,8 @@ All notable changes to this skill are documented here. Format follows
   removal spans every surface: the two CLI subcommands, the MCP code-orchestration
   endpoint table (the `servosity-msp_search` / `servosity-msp_execute` tools),
   the `sync` resource map + store primary-key map, and the `guide.md` / `SKILL.md`
-  docs. Admin functionality lives in the dedicated admin CLI
-  (`github.com/Servosity/servosity-admin-cli`, admin `SERVOSITY_API_TOKEN`). The
+  docs. Admin functionality lives in Servosity's separate internal admin CLI
+  (admin-token-scoped), not this partner connector. The
   reprint-durability requirement is documented in `docs/reprint-survival.md` and
   machine-pinned in `handfixes.json`. `issues attention`,
   `archive`/`ignore`/`reactivate` and the `issues` table's `ignored_until` field

@@ -28,7 +28,7 @@
     {
       "id": "admin-only-issues-endpoints-removed",
       "summary": "issues archived (/issues/archived/) and issues ignored (/issues/ignored/) are stripped from EVERY surface (CLI, MCP code-orch, sync, store) because they are admin-scoped and 403 for the reseller-scoped partner token this connector ships (PR #178)",
-      "why": "These two GET endpoints are generated from the OpenAPI spec and admin-only; the partner SERVOSITY_MSP_TOKEN gets HTTP 403. A naive reprint regenerates them on every surface (the CLI command files, the MCP code-orch endpoint table agents drive via servosity-msp_search/_execute, the sync resource map + store PK map). The de-msp ritual must re-strip all of them; these not_contains asserts fail CI if any surface reintroduced them. Admin functionality lives in github.com/Servosity/servosity-admin-cli instead. See docs/reprint-survival.md.",
+      "why": "These two GET endpoints are generated from the OpenAPI spec and admin-only; the partner SERVOSITY_MSP_TOKEN gets HTTP 403. A naive reprint regenerates them on every surface (the CLI command files, the MCP code-orch endpoint table agents drive via servosity-msp_search/_execute, the sync resource map + store PK map). The de-msp ritual must re-strip all of them; these not_contains asserts fail CI if any surface reintroduced them. Admin functionality lives in Servosity's separate internal admin CLI (admin-token-scoped) instead. See docs/reprint-survival.md.",
       "status": "active",
       "pr": 178,
       "asserts": [
