@@ -4,6 +4,40 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.4] - unreleased
+
+### Fixed
+- `sync` now pages the `relations` resource at `page_size=25` instead of the
+  global 100. Hudu's `/relations` endpoint returns HTTP 500 when walked at
+  page_size 100 beyond the first page, so every `sync` failed on `relations`
+  and exhausted its retries. (A direct `relations list` at page_size 100/25/1
+  all succeed; only sync's page-2 request at size 100 500s, so `relations` is
+  not non-paginated like the IPAM family - it just needs the smaller page.) 25
+  is Hudu's documented default page size, and the size the mature
+  n8n-nodes-hudu client uses to retrieve every relation, so the `?page=N` walk
+  now fetches the full collection with no truncation. `relations list` also
+  defaults to `--page-size 25` so manual paging does not hit the same 500.
+  Thanks @Xenith-B (#167).
+
+### Added
+- `sync --exclude <a,b,c>` skips the named resources, applied after
+  `--resources` (or the default set). Ideal for a scheduled daily sync that
+  skips slow or rarely-changing resources without having to enumerate every
+  resource to keep, e.g.
+  `sync --exclude public-photos,procedures,procedure-tasks`. Unknown resource
+  names fail loudly. Thanks @Xenith-B (#169).
+
+### Documented
+- `procedures`/`procedure-tasks` are not broken (#168): the multi-minute sync
+  time is the cost of fetching the full collection now that pagination works
+  in v0.1.3 (v0.1.2 silently truncated to the first 100 rows). The
+  `pagination_cursor_missing` warning on `procedure-tasks` is a false alarm on
+  Hudu's `?page=N` endpoints - verify completeness with the local cache row
+  count, which exceeds one page when the data is complete. The SKILL and guide
+  now cover keeping a daily sync fast (`--exclude` / `--since` / `--latest-only`
+  / `--resources`) and the integration-ID discovery method for `matchers`.
+  Thanks @Xenith-B (#168).
+
 ## [0.1.3] - unreleased
 
 ### Fixed

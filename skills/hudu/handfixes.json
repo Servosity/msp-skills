@@ -79,6 +79,32 @@
         {"file": "cli/internal/cli/helpers.go", "contains": "func (p *syncUserParams) hasParam", "min_count": 1},
         {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_Matchers_SkippedWithoutIntegrationID", "min_count": 1}
       ]
+    },
+    {
+      "id": "relations-page-size-25",
+      "summary": "sync pages the relations resource at page_size=25 (per-resource resourcePageSize override), not the global 100; relations list also defaults --page-size to 25",
+      "why": "issue #167: Hudu's /relations endpoint returns HTTP 500 when sync walks it at the global page_size=100 (page-2 request onward), so every sync failed on relations and exhausted retries. A live relations list at page_size 100/25/1 all succeed, so relations is NOT non-paginated like the IPAM family (resourceRejectsPageSize) - it accepts page_size and pages by ?page=N, it just 500s at size 100. Fix: resourcePageSize() returns 25 for relations (Hudu's documented default, and the size n8n-nodes-hudu uses to retrieve all relations), applied to pageSize.limit in syncResource; relations_list.go defaults --page-size to 25 so manual paging does not hit the same 500. A reprint re-emits the global 100 for relations and re-breaks sync.",
+      "status": "active",
+      "spec_encode_followup": "Press gap: PER-ENDPOINT page_size (some endpoints 500 at the API max page size and need a smaller one). Filed in the same printing-press-retro as the per-endpoint pagination shape. Sibling of ipam-endpoints-reject-page-size.",
+      "asserts": [
+        {"file": "cli/internal/cli/sync.go", "contains": "func resourcePageSize", "min_count": 1},
+        {"file": "cli/internal/cli/sync.go", "contains": "if lim := resourcePageSize(resource); lim > 0", "min_count": 1},
+        {"file": "cli/internal/cli/relations_list.go", "contains": "\"page-size\", 25", "min_count": 1},
+        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_Relations_PagesAt25NotGlobal100", "min_count": 1}
+      ]
+    },
+    {
+      "id": "sync-exclude-flag",
+      "summary": "sync has an --exclude flag that drops named resources from the effective set (after --resources or the default), with loud validation of unknown names",
+      "why": "issue #169: sync ran every resource on every run with no way to skip the slow ones (public-photos/procedures/procedure-tasks), making a scheduled daily sync impractical; the only workaround was to enumerate all 20+ resources to keep via --resources. Added --exclude (StringSliceVar) plus validateExcludeNames (rejects unknown names, same contract as --resource-param) and filterExcludedResources (order-preserving set difference). A reprint drops the flag and both helpers.",
+      "status": "active",
+      "spec_encode_followup": "Press gap: sync should offer a native --exclude complement to --resources. Filed in the printing-press-retro.",
+      "asserts": [
+        {"file": "cli/internal/cli/sync.go", "contains": "func filterExcludedResources", "min_count": 1},
+        {"file": "cli/internal/cli/sync.go", "contains": "func validateExcludeNames", "min_count": 1},
+        {"file": "cli/internal/cli/sync.go", "contains": "StringSliceVar(&exclude, \"exclude\"", "min_count": 1},
+        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestExcludeResources", "min_count": 1}
+      ]
     }
   ]
 }
