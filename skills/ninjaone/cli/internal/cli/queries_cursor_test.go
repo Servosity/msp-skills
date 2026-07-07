@@ -75,3 +75,87 @@ func TestCursorTokenFromObject(t *testing.T) {
 		}
 	}
 }
+
+func TestPaginationAdvanceKeyUsesObjectCursorOffset(t *testing.T) {
+	page1 := json.RawMessage(`{
+		"cursor": {"name":"SESSION_TOKEN","offset":100,"count":"100"},
+		"results": [{"deviceId":1001}]
+	}`)
+	page2 := json.RawMessage(`{
+		"cursor": {"name":"SESSION_TOKEN","offset":200,"count":"100"},
+		"results": [{"deviceId":1002}]
+	}`)
+
+	_, next1, hasMore1 := extractPageItems(page1, "cursor")
+	_, next2, hasMore2 := extractPageItems(page2, "cursor")
+	if next1 != "SESSION_TOKEN" || next2 != "SESSION_TOKEN" {
+		t.Fatalf("next cursors = (%q, %q), want same valid API cursor token", next1, next2)
+	}
+	if !hasMore1 || !hasMore2 {
+		t.Fatalf("hasMore = (%v, %v), want both true", hasMore1, hasMore2)
+	}
+
+	key1 := paginationAdvanceKey(page1, "cursor", next1)
+	key2 := paginationAdvanceKey(page2, "cursor", next2)
+	if key1 != "SESSION_TOKEN|offset=100" {
+		t.Fatalf("page1 advance key = %q, want offset-qualified key", key1)
+	}
+	if key2 != "SESSION_TOKEN|offset=200" {
+		t.Fatalf("page2 advance key = %q, want offset-qualified key", key2)
+	}
+	if key1 == key2 {
+		t.Fatalf("same cursor token with advancing offsets looked sticky: %q", key1)
+	}
+}
+
+func TestPaginationAdvanceKeyStableObjectOffsetRemainsSticky(t *testing.T) {
+	page := json.RawMessage(`{
+		"cursor": {"name":"SESSION_TOKEN","offset":100,"count":"100"},
+		"results": [{"deviceId":1001}]
+	}`)
+	_, nextCursor, _ := extractPageItems(page, "cursor")
+
+	first := paginationAdvance(page, "cursor", nextCursor)
+	second := paginationAdvance(page, "cursor", nextCursor)
+	if first.key == "" || first.key != second.key {
+		t.Fatalf("stable object cursor keys = (%q, %q), want same non-empty key", first.key, second.key)
+	}
+	if !second.stuckAfter(first) {
+		t.Fatalf("stable object cursor offset was not treated as stuck")
+	}
+}
+
+func TestPaginationProgressRequiresMonotonicObjectOffset(t *testing.T) {
+	page100 := json.RawMessage(`{
+		"cursor": {"name":"SESSION_TOKEN","offset":100,"count":"100"},
+		"results": [{"deviceId":1001}]
+	}`)
+	page200 := json.RawMessage(`{
+		"cursor": {"name":"SESSION_TOKEN","offset":200,"count":"100"},
+		"results": [{"deviceId":1002}]
+	}`)
+	page50 := json.RawMessage(`{
+		"cursor": {"name":"SESSION_TOKEN","offset":50,"count":"100"},
+		"results": [{"deviceId":1003}]
+	}`)
+
+	_, nextCursor, _ := extractPageItems(page100, "cursor")
+	first := paginationAdvance(page100, "cursor", nextCursor)
+	second := paginationAdvance(page200, "cursor", nextCursor)
+	regressed := paginationAdvance(page50, "cursor", nextCursor)
+
+	if second.stuckAfter(first) {
+		t.Fatalf("advancing object cursor offset was treated as stuck: %q after %q", second.key, first.key)
+	}
+	if !regressed.stuckAfter(second) {
+		t.Fatalf("regressed object cursor offset was not treated as stuck: %q after %q", regressed.key, second.key)
+	}
+}
+
+func TestPaginationAdvanceKeyStringCursorFallsBackToToken(t *testing.T) {
+	data := json.RawMessage(`{"next_cursor":"STRING_TOKEN","results":[{"id":1}]}`)
+	key := paginationAdvanceKey(data, "cursor", "STRING_TOKEN")
+	if key != "STRING_TOKEN" {
+		t.Fatalf("string cursor advance key = %q, want token fallback", key)
+	}
+}

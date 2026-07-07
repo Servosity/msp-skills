@@ -1,7 +1,7 @@
 {
   "slug": "ninjaone",
   "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits to GENERATED (\"DO NOT EDIT\") files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #88 (reporter @AndrewITLive), fixed 2026-06-15 on press 4.24.0; issues #136 queries-* composite-key + object-cursor (reporter @Xenith-B), fixed 2026-06-17.",
+  "_comment": "Connector-specific edits to GENERATED (\"DO NOT EDIT\") files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #88 (reporter @AndrewITLive), fixed 2026-06-15 on press 4.24.0; issues #136 queries-* composite-key + object-cursor (reporter @Xenith-B), fixed 2026-06-17; issue #179 stable object-cursor offset (reporter @Xenith-B), fixed 2026-07-07.",
   "handfixes": [
     {
       "id": "after-id-pagination",
@@ -118,10 +118,10 @@
     },
     {
       "id": "queries-object-cursor-pagination",
-      "summary": "NinjaOne /v2/queries/* endpoints paginate via an OBJECT-valued cursor: \"cursor\":{\"name\":\"<token>\",\"offset\":0,\"count\":\"N\",\"expires\":...}. findCursorInMap only unmarshalled a string cursor, so the next-page token was never found; sync stopped after the first page and capped each queries resource at 100 rows (sync_warning pagination_cursor_missing). Fix adds cursorTokenFromObject, consulted by findCursorInMap only after the string unmarshal fails, which descends into the object and returns the first non-empty string token field (name/next_cursor/...).",
-      "why": "determinePaginationDefaults() emits cursorParam/cursorType \"cursor\" but the press models a string cursor only; it does not model an object cursor whose token is nested under a field. The natural-end (len<limit), sticky-cursor, and empty-page guards already in the loop make object-cursor advance terminate safely. String-cursor APIs are unaffected because the object descent runs only after the scalar unmarshal fails. A plain reprint regenerates the string-only findCursorInMap.",
+      "summary": "NinjaOne /v2/queries/* endpoints paginate via an OBJECT-valued cursor: \"cursor\":{\"name\":\"<token>\",\"offset\":0,\"count\":\"N\",\"expires\":...}. findCursorInMap only unmarshalled a string cursor, so the next-page token was never found; sync stopped after the first page and capped each queries resource at 100 rows (sync_warning pagination_cursor_missing). Fix adds cursorTokenFromObject, consulted by findCursorInMap only after the string unmarshal fails, which descends into the object and returns the first non-empty string token field (name/next_cursor/...). Issue #179 showed live tenants can keep cursor.name stable while cursor.offset advances; paginationProgress now compares an offset-qualified progress key and requires the same token's numeric offset to advance monotonically, so the sticky-cursor guard does not abort a progressing object cursor at 200 rows and still stops repeated or regressed offsets.",
+      "why": "determinePaginationDefaults() emits cursorParam/cursorType \"cursor\" but the press models a string cursor only; it does not model an object cursor whose token is nested under a field. The natural-end (len<limit), sticky-cursor, and empty-page guards already in the loop make object-cursor advance terminate safely. String-cursor APIs are unaffected because the object descent runs only after the scalar unmarshal fails. A plain reprint regenerates the string-only findCursorInMap. The #179 extension keeps sending the API's valid cursor.name token but compares cursor.name plus cursor.offset internally, so a repeated session token with advancing offset is treated as progress while repeated or regressed offsets still trip the loop-safety guard.",
       "status": "active",
-      "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: teach the pagination profiler to detect object-valued cursors (cursor field is an object; token nested under name/next/cursor) and emit the descent natively. File via printing-press-retro. Until then this hand-fix must survive every reprint. Verification residual: multi-page completeness assumes NinjaOne returns a FRESH cursor.name per page; if a live tenant ever shows truncation (~2 pages then the sticky-cursor guard fires) the cursor.name is a stable session token and the fix must ALSO thread the cursor object's `offset`. This is monotonic vs main regardless (worst case == the prior 100-row single-page cap; the sticky-cursor + max-pages guards prevent any hang).",
+      "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: teach the pagination profiler to detect object-valued cursors (cursor field is an object; token nested under name/next/cursor) and emit the descent natively, including object-cursor progress keys that can use offset when the API keeps the token stable. File via printing-press-retro. Until then this hand-fix must survive every reprint. Verification residual: multi-page completeness assumes NinjaOne advances server-side when the same cursor.name token is sent again; if a live tenant ever shows repeated rows with advancing offset, the fix must also send an offset query parameter, but the current OpenAPI surface only declares cursor plus pageSize for these report endpoints. This is monotonic vs main regardless (the sticky-cursor + max-pages guards still prevent any hang).",
       "asserts": [
         {
           "file": "cli/internal/cli/sync.go",
@@ -134,8 +134,33 @@
           "min_count": 1
         },
         {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "func paginationAdvanceKey",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "func (p paginationProgress) stuckAfter",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "func cursorObjectOffsetAdvanceKey",
+          "min_count": 1
+        },
+        {
           "file": "cli/internal/cli/queries_cursor_test.go",
           "contains": "func TestExtractPageItemsFollowsObjectCursor",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/queries_cursor_test.go",
+          "contains": "func TestPaginationAdvanceKeyUsesObjectCursorOffset",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/queries_cursor_test.go",
+          "contains": "func TestPaginationProgressRequiresMonotonicObjectOffset",
           "min_count": 1
         }
       ]

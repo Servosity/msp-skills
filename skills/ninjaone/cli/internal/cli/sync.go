@@ -470,7 +470,7 @@ func syncResource(ctx context.Context, c interface {
 	pageSize := determinePaginationDefaults()
 	var progressCount int64
 	pagesFetched := 0
-	lastNextCursor := ""
+	lastNextCursorProgress := paginationProgress{}
 	capExitHit := false
 	capExitCursor := ""
 	// extractFailureTotal accumulates per-item primary-key extraction
@@ -711,7 +711,8 @@ func syncResource(ctx context.Context, c interface {
 		// guard so cap-hit takes precedence; checked BEFORE the natural-end
 		// check below because the natural-end check would not catch a sticky
 		// non-empty cursor on its own.
-		if nextCursor != "" && nextCursor == lastNextCursor {
+		nextCursorProgress := paginationAdvance(data, pageSize.cursorParam, nextCursor)
+		if nextCursorProgress.stuckAfter(lastNextCursorProgress) {
 			if humanFriendly {
 				fmt.Fprintf(os.Stderr, "\n  %s: API returned the same next cursor across two pages; aborting to prevent budget waste.\n", resource)
 			} else {
@@ -719,7 +720,7 @@ func syncResource(ctx context.Context, c interface {
 			}
 			break
 		}
-		lastNextCursor = nextCursor
+		lastNextCursorProgress = nextCursorProgress
 
 		// Determine if there are more pages.
 		if !resourceSupportsPagination(resource) {
@@ -1255,10 +1256,7 @@ func extractPaginationFromEnvelope(envelope map[string]json.RawMessage, cursorPa
 	nextCursor := nextCursorFromLinks(envelope, cursorParam)
 
 	// Try common cursor field names
-	cursorKeys := []string{
-		"next_cursor", "nextCursor", "next_token", "nextToken", "cursor",
-		"next_page_token", "nextPageToken", "page_token", "after", "end_cursor", "endCursor",
-	}
+	cursorKeys := paginationCursorKeys()
 	if nextCursor == "" {
 		nextCursor = findCursorInMap(envelope, cursorKeys)
 	}
@@ -1271,8 +1269,7 @@ func extractPaginationFromEnvelope(envelope map[string]json.RawMessage, cursorPa
 	// runs when the top-level scan returned empty — and uses the same
 	// cursorKeys set so wrapper contents go through the same name match.
 	if nextCursor == "" {
-		paginationWrapperKeys := []string{"response_metadata", "additional_data", "pagination", "meta", "paging"}
-		for _, wrapperKey := range paginationWrapperKeys {
+		for _, wrapperKey := range paginationWrapperKeys() {
 			rawWrapper, ok := envelope[wrapperKey]
 			if !ok {
 				continue
@@ -1308,6 +1305,147 @@ func extractPaginationFromEnvelope(envelope map[string]json.RawMessage, cursorPa
 	}
 
 	return nextCursor, hasMore
+}
+
+func paginationCursorKeys() []string {
+	return []string{
+		"next_cursor", "nextCursor", "next_token", "nextToken", "cursor",
+		"next_page_token", "nextPageToken", "page_token", "after", "end_cursor", "endCursor",
+	}
+}
+
+func paginationWrapperKeys() []string {
+	return []string{"response_metadata", "additional_data", "pagination", "meta", "paging"}
+}
+
+type paginationProgress struct {
+	key       string
+	token     string
+	offset    int64
+	hasOffset bool
+}
+
+func (p paginationProgress) stuckAfter(prev paginationProgress) bool {
+	if p.key == "" {
+		return false
+	}
+	if p.key == prev.key {
+		return true
+	}
+	return p.hasOffset && prev.hasOffset && p.token == prev.token && p.offset <= prev.offset
+}
+
+func paginationAdvanceKey(data json.RawMessage, cursorParam, nextCursor string) string {
+	return paginationAdvance(data, cursorParam, nextCursor).key
+}
+
+func paginationAdvance(data json.RawMessage, cursorParam, nextCursor string) paginationProgress {
+	if nextCursor == "" {
+		return paginationProgress{}
+	}
+	if progress := objectCursorAdvance(data, cursorParam, nextCursor); progress.key != "" {
+		return progress
+	}
+	return paginationProgress{key: nextCursor}
+}
+
+func objectCursorAdvance(data json.RawMessage, cursorParam, nextCursor string) paginationProgress {
+	var envelope map[string]json.RawMessage
+	if json.Unmarshal(data, &envelope) != nil {
+		return paginationProgress{}
+	}
+	cursorKeys := paginationCursorKeys()
+	if cursorParam != "" {
+		cursorKeys = append([]string{cursorParam}, cursorKeys...)
+	}
+	if progress := objectCursorAdvanceFromMap(envelope, cursorKeys, nextCursor); progress.key != "" {
+		return progress
+	}
+	for _, wrapperKey := range paginationWrapperKeys() {
+		rawWrapper, ok := envelope[wrapperKey]
+		if !ok {
+			continue
+		}
+		var inner map[string]json.RawMessage
+		if json.Unmarshal(rawWrapper, &inner) != nil {
+			continue
+		}
+		if progress := objectCursorAdvanceFromMap(inner, cursorKeys, nextCursor); progress.key != "" {
+			return progress
+		}
+	}
+	for _, dataKey := range dataEnvelopeKeys {
+		rawInner, ok := envelope[dataKey]
+		if !ok {
+			continue
+		}
+		var inner map[string]json.RawMessage
+		if json.Unmarshal(rawInner, &inner) != nil {
+			continue
+		}
+		if progress := objectCursorAdvanceFromMap(inner, cursorKeys, nextCursor); progress.key != "" {
+			return progress
+		}
+	}
+	return paginationProgress{}
+}
+
+func objectCursorAdvanceFromMap(m map[string]json.RawMessage, cursorKeys []string, nextCursor string) paginationProgress {
+	for _, key := range cursorKeys {
+		raw, ok := m[key]
+		if !ok {
+			continue
+		}
+		if progress := cursorObjectOffsetAdvance(raw, nextCursor); progress.key != "" {
+			return progress
+		}
+	}
+	return paginationProgress{}
+}
+
+func cursorObjectOffsetAdvanceKey(raw json.RawMessage, nextCursor string) string {
+	return cursorObjectOffsetAdvance(raw, nextCursor).key
+}
+
+func cursorObjectOffsetAdvance(raw json.RawMessage, nextCursor string) paginationProgress {
+	var inner map[string]json.RawMessage
+	if json.Unmarshal(raw, &inner) != nil {
+		return paginationProgress{}
+	}
+	token := cursorTokenFromObject(raw)
+	if token == "" || token != nextCursor {
+		return paginationProgress{}
+	}
+	offsetText, ok := jsonScalarString(inner["offset"])
+	if !ok {
+		return paginationProgress{}
+	}
+	offset, err := strconv.ParseInt(offsetText, 10, 64)
+	if err != nil || offset < 0 {
+		return paginationProgress{}
+	}
+	return paginationProgress{
+		key:       nextCursor + "|offset=" + offsetText,
+		token:     nextCursor,
+		offset:    offset,
+		hasOffset: true,
+	}
+}
+
+func jsonScalarString(raw json.RawMessage) (string, bool) {
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "" || trimmed == "null" {
+		return "", false
+	}
+	var n json.Number
+	if json.Unmarshal(raw, &n) == nil {
+		return n.String(), true
+	}
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return s, true
+	}
+	return "", false
 }
 
 func pageAllowsPageIntFallback(data json.RawMessage) bool {
@@ -2004,7 +2142,7 @@ func syncDependentResource(ctx context.Context, c interface {
 
 		cursor := ""
 		pagesFetched := 0
-		lastNextCursor := ""
+		lastNextCursorProgress := paginationProgress{}
 		// Reset per parent: set once a bare-array response is seen, then used to
 		// request later pages with ?after=<lastId>. Mirrors syncResource (#88).
 		afterIDMode := false
@@ -2179,7 +2317,8 @@ func syncDependentResource(ctx context.Context, c interface {
 			// Sticky-cursor detector: see syncResource for rationale. Same shape
 			// here so dependent-resource page loops cannot burn the budget on a
 			// non-advancing next cursor.
-			if nextCursor != "" && nextCursor == lastNextCursor {
+			nextCursorProgress := paginationAdvance(data, pageSize.cursorParam, nextCursor)
+			if nextCursorProgress.stuckAfter(lastNextCursorProgress) {
 				if humanFriendly {
 					fmt.Fprintf(os.Stderr, "\n  %s: API returned the same next cursor across two pages for parent %s; aborting to prevent budget waste.\n", dep.Name, parentID)
 				} else {
@@ -2187,7 +2326,7 @@ func syncDependentResource(ctx context.Context, c interface {
 				}
 				break
 			}
-			lastNextCursor = nextCursor
+			lastNextCursorProgress = nextCursorProgress
 			if !resourceSupportsPagination(dep.Name) {
 				break
 			}
