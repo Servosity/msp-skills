@@ -273,6 +273,45 @@ hudu-cli reconcile --integrator cw_manage --agent
 
 Reports which ConnectWise integrator records no longer resolve to a live Hudu asset, both directions.
 
+### Keep a scheduled daily sync fast
+
+A full `sync` fetches every resource's complete collection. A few resources (`public-photos`, `procedures`, `procedure-tasks`) hold the bulk of the data and dominate the runtime. For a scheduled daily job, skip them or sync incrementally:
+
+```bash
+# Skip the heavy resources; everything else still syncs
+hudu-cli sync --exclude public-photos,procedures,procedure-tasks
+
+# Or sync only the resources you name
+hudu-cli sync --resources companies,assets,asset-passwords
+
+# Or refresh incrementally instead of a full re-pull
+hudu-cli sync --since 7d
+hudu-cli sync --latest-only
+```
+
+Run a full `hudu-cli sync` on a slower cadence (e.g. weekly) to backfill the excluded resources. Note: `procedure-tasks` may emit a `pagination_cursor_missing` warning ("data may be truncated"). On Hudu's `?page=N` endpoints this is expected and does not mean data was lost  -  the sync still walks every page. Confirm completeness by checking that the local cache row count exceeds one page.
+
+### Sync matchers for an integration
+
+Hudu's `/matchers` endpoint requires an `integration_id` and returns HTTP 500 without one, so a flat `sync` skips it. There is no integrations-list endpoint; integration IDs live in synced asset `cards` data. After a full sync, list the IDs from the local cache:
+
+```sql
+SELECT DISTINCT
+  json_extract(card.value, '$.integrator_id')   AS integration_id,
+  json_extract(card.value, '$.integrator_name') AS integration_name
+FROM resources, json_each(json_extract(data, '$.cards')) AS card
+WHERE resource_type = 'assets'
+  AND json_extract(card.value, '$.integrator_id') IS NOT NULL
+ORDER BY integration_id;
+```
+
+Then fetch matchers per integration:
+
+```bash
+hudu-cli matchers list --integration-id 2
+hudu-cli sync --resource-param matchers:integration_id=6
+```
+
 ## Usage
 
 Run `hudu-cli --help` for the full command reference and flag list.

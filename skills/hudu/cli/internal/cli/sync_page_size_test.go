@@ -7,6 +7,9 @@
 //     of truncating at the first page.
 //   - #159: /matchers requires an integration_id, so flat sync must skip it
 //     unless the caller supplies one.
+//   - #167: /relations 500s when walked at the global page_size=100, so sync
+//     must page it at 25 (resourcePageSize override), not the global default.
+//   - #169: sync --exclude drops named resources from the effective set.
 // A reprint that drops this file is caught by skills/hudu/handfixes.json — do
 // not remove without porting the fixes.
 
@@ -218,6 +221,77 @@ func TestSyncResource_Matchers_SyncedWithIntegrationID(t *testing.T) {
 	}
 	if n := countRows(t, db, "matchers"); n != 1 {
 		t.Errorf("stored %d matcher rows, want 1", n)
+	}
+}
+
+// TestResourcePageSize_RelationsOverridesGlobalTo25 pins the #167 fix: relations
+// pages at 25 (Hudu's default; the size n8n-nodes-hudu uses to retrieve every
+// relation), while every other resource keeps the global default (0 => 100).
+func TestResourcePageSize_RelationsOverridesGlobalTo25(t *testing.T) {
+	if got := resourcePageSize("relations"); got != 25 {
+		t.Errorf("resourcePageSize(relations) = %d, want 25 (#167: /relations 500s at the global 100)", got)
+	}
+	for _, r := range []string{"companies", "assets", "procedure-tasks", "articles", "users"} {
+		if got := resourcePageSize(r); got != 0 {
+			t.Errorf("resourcePageSize(%q) = %d, want 0 (use the global default)", r, got)
+		}
+	}
+}
+
+// TestSyncResource_Relations_PagesAt25NotGlobal100 pins the #167 behavioral fix:
+// sync must send page_size=25 on every /relations request (never the 100 that
+// 500s beyond page 1) and still walk the full collection via ?page=N.
+func TestSyncResource_Relations_PagesAt25NotGlobal100(t *testing.T) {
+	db := openSyncTestDB(t)
+	defer db.Close()
+
+	rel := resourcePageSize("relations") // 25
+	c := &recordingClient{pages: [][]byte{
+		makePage(1, rel),     // page 1: full at 25
+		makePage(rel+1, rel), // page 2: full at 25
+		makePage(2*rel+1, 4), // page 3: short -> stop
+	}}
+
+	res := syncResource(context.Background(), c, db, "relations", "", true, 0, false, nil, nil)
+	if res.Err != nil {
+		t.Fatalf("syncResource returned error: %v", res.Err)
+	}
+	// Every request must carry page_size=25 — the global 100 is what 500s.
+	for i, p := range c.seen {
+		if p["page_size"] != strconv.Itoa(rel) {
+			t.Errorf("request %d sent page_size=%q, want %q (#167)", i, p["page_size"], strconv.Itoa(rel))
+		}
+	}
+	// The walk advances at the 25-row threshold and fetches the whole collection.
+	if got := len(c.seen); got != 3 {
+		t.Fatalf("made %d requests, want 3 (page-int walk at size 25)", got)
+	}
+	if c.seen[1]["page"] != "2" || c.seen[2]["page"] != "3" {
+		t.Errorf("page sequence = %q,%q, want 2,3", c.seen[1]["page"], c.seen[2]["page"])
+	}
+	if n := countRows(t, db, "relations"); n != 2*rel+4 {
+		t.Errorf("stored %d rows, want %d (full collection, no truncation)", n, 2*rel+4)
+	}
+}
+
+// TestExcludeResources pins the #169 --exclude flag: valid names are removed
+// (order preserved) and an unknown name fails loudly instead of silently
+// excluding nothing.
+func TestExcludeResources(t *testing.T) {
+	got := filterExcludedResources(
+		[]string{"companies", "public-photos", "procedures", "procedure-tasks", "assets"},
+		[]string{"public-photos", "procedures", "procedure-tasks"},
+	)
+	if want := "companies,assets"; strings.Join(got, ",") != want {
+		t.Errorf("filterExcludedResources = %v, want %q", got, want)
+	}
+
+	known := knownSyncResourceNames()
+	if err := validateExcludeNames([]string{"companies", "notathing"}, known); err == nil {
+		t.Error("validateExcludeNames accepted an unknown resource; want an error")
+	}
+	if err := validateExcludeNames([]string{"public-photos", "procedures"}, known); err != nil {
+		t.Errorf("validateExcludeNames rejected known resources: %v", err)
 	}
 }
 

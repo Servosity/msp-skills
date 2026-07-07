@@ -83,7 +83,11 @@ func newRelationsListCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&flagPage, "page", "1", "1-based page number")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page")
+	// #167: Hudu's /relations endpoint 500s when paged at size 100 beyond the
+	// first page; it paginates cleanly at 25 (Hudu's documented default, and the
+	// size sync uses via resourcePageSize). Default this command to 25 too so
+	// manual paging (`relations list --page 2`) doesn't hit the same 500.
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 25, "Results per page")
 
 	return cmd
 }

@@ -43,6 +43,7 @@ type syncResult struct {
 
 func newSyncCmd(flags *rootFlags) *cobra.Command {
 	var resources []string
+	var exclude []string
 	var full bool
 	var since string
 	var concurrency int
@@ -128,6 +129,22 @@ Resource scoping:
 			// If no specific resources, sync top-level resources
 			if len(resources) == 0 {
 				resources = defaultSyncResources()
+			}
+
+			// #169: --exclude drops named resources from the effective set
+			// (whether that set came from --resources or the default), so a
+			// scheduled daily sync can skip slow or rarely-changing resources
+			// without having to enumerate every resource to keep. Validate
+			// names against the known set so a typo fails loudly instead of
+			// silently excluding nothing (same contract as --resource-param).
+			if len(exclude) > 0 {
+				if err := validateExcludeNames(exclude, knownSyncResourceNames()); err != nil {
+					return usageErr(err)
+				}
+				resources = filterExcludedResources(resources, exclude)
+				if len(resources) == 0 {
+					return usageErr(fmt.Errorf("--exclude removed every selected resource; nothing to sync"))
+				}
 			}
 
 			// Reject --resource-param keys that don't match a known resource.
@@ -325,6 +342,7 @@ Resource scoping:
 	}
 
 	cmd.Flags().StringSliceVar(&resources, "resources", nil, "Comma-separated resource types to sync. Naming a parent also runs its parent-keyed dependents (see Long help for scoping).")
+	cmd.Flags().StringSliceVar(&exclude, "exclude", nil, "Comma-separated resource types to skip. Applied after --resources (or the default set), so `sync --exclude a,b` runs everything except a and b — ideal for scheduled daily syncs that skip slow or rarely-changing resources (e.g. --exclude public-photos,procedures,procedure-tasks).")
 	cmd.Flags().BoolVar(&full, "full", false, "Full resync (ignore previous checkpoint)")
 	cmd.Flags().StringVar(&since, "since", "", "Incremental sync duration (e.g. 7d, 24h, 1w, 30m)")
 	cmd.Flags().IntVar(&concurrency, "concurrency", 4, "Number of parallel sync workers")
@@ -456,6 +474,11 @@ func syncResource(ctx context.Context, c interface {
 
 	cursor := existingCursor
 	pageSize := determinePaginationDefaults()
+	// #167: apply any per-resource page-size override (relations must page at 25,
+	// not the global 100 — see resourcePageSize).
+	if lim := resourcePageSize(resource); lim > 0 {
+		pageSize.limit = lim
+	}
 	var progressCount int64
 	pagesFetched := 0
 	lastNextCursor := ""
@@ -906,6 +929,25 @@ func resourceRejectsPageSize(resource string) bool {
 		return true
 	}
 	return false
+}
+
+// resourcePageSize returns a per-resource page-size override, or 0 to use the
+// global default (determinePaginationDefaults, page_size=100). Hudu's
+// /relations endpoint returns HTTP 500 when sync walks it at page_size=100, but
+// paginates cleanly at 25 — Hudu's documented default page size and the size
+// the mature n8n-nodes-hudu client uses to retrieve every relation ("lots of 25
+// until all records retrieved"). Keeping the ?page=N walk (rather than
+// profiling it non-paginated like the IPAM family in resourceRejectsPageSize,
+// which *rejects* page_size with HTTP 400 — relations *accepts* it) fetches the
+// whole collection without truncation. See issue #167. A live `relations list`
+// at page_size 100/25/1 all succeed; only sync's page-2 request at size 100
+// 500s, so this override, not the single-request IPAM profile, is the fix.
+func resourcePageSize(resource string) int {
+	switch resource {
+	case "relations":
+		return 25
+	}
+	return 0
 }
 
 // syncResourceSinceParam returns the query parameter name this resource's
@@ -1654,6 +1696,42 @@ func defaultSyncResources() []string {
 		"vlans",
 		"websites",
 	}
+}
+
+// validateExcludeNames rejects --exclude entries that don't name a known
+// resource, so a misspelling fails loudly instead of silently excluding
+// nothing (the same contract as --resource-param name validation). #169.
+func validateExcludeNames(exclude, known []string) error {
+	knownSet := make(map[string]bool, len(known))
+	for _, k := range known {
+		knownSet[k] = true
+	}
+	var unknown []string
+	for _, e := range exclude {
+		if !knownSet[e] {
+			unknown = append(unknown, e)
+		}
+	}
+	if len(unknown) > 0 {
+		return fmt.Errorf("--exclude names unknown resource(s): %s", strings.Join(unknown, ", "))
+	}
+	return nil
+}
+
+// filterExcludedResources returns resources with every name in exclude
+// removed, preserving order. #169.
+func filterExcludedResources(resources, exclude []string) []string {
+	excludeSet := make(map[string]bool, len(exclude))
+	for _, e := range exclude {
+		excludeSet[e] = true
+	}
+	kept := make([]string, 0, len(resources))
+	for _, r := range resources {
+		if !excludeSet[r] {
+			kept = append(kept, r)
+		}
+	}
+	return kept
 }
 
 // knownSyncResourceNames returns every resource name sync will accept —
