@@ -253,10 +253,10 @@
   },
   "ninjaone": {
     "state": "up-to-date",
-    "version": "0.1.4",
-    "latest_tag": "ninjaone-v0.1.4",
-    "current_hash": "sha256:bda419018cedb7efd8312c5e16f43245a7ccfb2b4ef034eeaaabf19397c444fb",
-    "released_hash": "sha256:bda419018cedb7efd8312c5e16f43245a7ccfb2b4ef034eeaaabf19397c444fb"
+    "version": "0.1.5",
+    "latest_tag": "ninjaone-v0.1.5",
+    "current_hash": "sha256:1fb92afa70a1d200ac116dc10cb923974d413deeada3cc3fdf27c733edd6345e",
+    "released_hash": "sha256:1fb92afa70a1d200ac116dc10cb923974d413deeada3cc3fdf27c733edd6345e"
   },
   "pagerduty": {
     "state": "version-pending",
