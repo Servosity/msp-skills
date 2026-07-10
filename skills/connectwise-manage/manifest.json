@@ -10,16 +10,57 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/connectwise-manage-mcp",
+    "entry_point": "bin/connectwise-manage-mcp-darwin-arm64",
     "mcp_config": {
-      "command": "${__dirname}/bin/connectwise-manage-mcp",
+      "command": "${__dirname}/bin/connectwise-manage-mcp-darwin-arm64",
       "args": [],
       "env": {
+        "CW_COMPANY_ID": "${user_config.cw_company_id}",
+        "CW_PUBLIC_KEY": "${user_config.cw_public_key}",
+        "CW_PRIVATE_KEY": "${user_config.cw_private_key}",
+        "CW_SITE": "${user_config.cw_site}",
         "CW_CLIENT_ID": "${user_config.cw_client_id}"
+      },
+      "platform_overrides": {
+        "darwin": {
+          "command": "${__dirname}/bin/connectwise-manage-mcp-darwin-arm64"
+        },
+        "linux": {
+          "command": "${__dirname}/bin/connectwise-manage-mcp-linux-amd64"
+        },
+        "win32": {
+          "command": "${__dirname}/bin/connectwise-manage-mcp-windows-amd64.exe"
+        }
       }
     }
   },
   "user_config": {
+    "cw_company_id": {
+      "type": "string",
+      "title": "CW_COMPANY_ID",
+      "description": "ConnectWise Manage company ID/codebase used in the composite Basic auth username.",
+      "required": true
+    },
+    "cw_public_key": {
+      "type": "string",
+      "title": "CW_PUBLIC_KEY",
+      "description": "API Member public key used with the company ID in the composite Basic auth username.",
+      "sensitive": true,
+      "required": true
+    },
+    "cw_private_key": {
+      "type": "string",
+      "title": "CW_PRIVATE_KEY",
+      "description": "API Member private key used as the composite Basic auth password.",
+      "sensitive": true,
+      "required": true
+    },
+    "cw_site": {
+      "type": "string",
+      "title": "CW_SITE",
+      "description": "ConnectWise Manage region host such as api-na.myconnectwise.net, api-eu.myconnectwise.net, api-au.myconnectwise.net, or your on-prem host.",
+      "required": true
+    },
     "cw_client_id": {
       "type": "string",
       "title": "CW_CLIENT_ID",
@@ -36,11 +77,12 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
-  "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T04:30:16.959816Z",
-    "spec_checksum": "sha256:1072495121d5e5db066142001ae76f745b41ec21ebdfc6d1f5919d794e6f3b40",
-    "spec_format": "openapi3"
+  "_meta": {
+    "io.github.mvanhorn.cli-printing-press": {
+      "printing_press_version": "4.24.0",
+      "generated_at": "2026-06-13T04:30:16.959816Z",
+      "spec_checksum": "sha256:1072495121d5e5db066142001ae76f745b41ec21ebdfc6d1f5919d794e6f3b40",
+      "spec_format": "openapi3"
+    }
   }
 }
