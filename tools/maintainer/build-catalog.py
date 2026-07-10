@@ -99,7 +99,7 @@ def build_entry(skill_dir: Path) -> dict:
         # Which cli-printing-press version minted this skill (null for
         # markdown-only skills and any binary skill onboarded before the
         # press-provenance field was added to its manifest.json).
-        "printing_press_version": manifest.get("printing_press_version"),
+        "printing_press_version": printing_press_version(manifest),
         "license": manifest.get("license", "Apache-2.0"),
         "vendor": meta["vendor"],
         "vendor_trademark_owner": meta["vendor_trademark_owner"],
@@ -122,6 +122,19 @@ def build_entry(skill_dir: Path) -> dict:
     if markdown_only:
         entry["markdown_only"] = True
     return entry
+
+
+def printing_press_version(manifest: dict) -> str | None:
+    version = manifest.get("printing_press_version")
+    if version:
+        return version
+    meta = manifest.get("_meta")
+    if not isinstance(meta, dict):
+        return None
+    press = meta.get("io.github.mvanhorn.cli-printing-press")
+    if not isinstance(press, dict):
+        return None
+    return press.get("printing_press_version")
 
 
 def _verification_state(meta: dict, markdown_only: bool) -> str:
