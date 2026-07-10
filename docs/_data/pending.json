@@ -1,51 +1,51 @@
 {
   "abnormal": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "abnormal-v0.1.0",
-    "current_hash": "sha256:d12d1eef0628a3105c8b052c73bccf5708ba6cd241ce3c167287cb0b478350f1",
+    "current_hash": "sha256:f299a799816c04cebcb8058921a08dca1f1d53315f3ed38a32c88f7676b29032",
     "released_hash": "sha256:d12d1eef0628a3105c8b052c73bccf5708ba6cd241ce3c167287cb0b478350f1"
   },
   "acronis": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "acronis-v0.1.0",
-    "current_hash": "sha256:b80620cb328b8862f3ec2132c828c54aa61384e7a39d89b0d38e21c596ae7a52",
+    "current_hash": "sha256:7f95a1e89c7e8902efb12d1124edfe5d5d9b7ff82d8665d88ce6b0cd71b9cb8c",
     "released_hash": "sha256:b80620cb328b8862f3ec2132c828c54aa61384e7a39d89b0d38e21c596ae7a52"
   },
   "action1": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "action1-v0.1.0",
-    "current_hash": "sha256:afad777cf57e19f7676fd8edf31036e051f650a63faa222dc2206fc8868fb40a",
+    "current_hash": "sha256:b2795ff905fc2b59ec88295042167056f3017940bebb8243a31a93d7cf829388",
     "released_hash": "sha256:afad777cf57e19f7676fd8edf31036e051f650a63faa222dc2206fc8868fb40a"
   },
   "afi": {
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "afi-v0.1.0",
-    "current_hash": "sha256:311993ef177dbf0feb200aa9af2df5cbd9a8bd2a2ea42dc57d9c09e22e5f6481",
+    "current_hash": "sha256:bafb86816dcb80b3b54f72718e60a715e32c546159f9d06e93e80b1b640024c7",
     "released_hash": "sha256:03150a8b133891e79c555f8f134cc24992ccb10b1490dc6b34f0c0b2d614bc6e"
   },
   "appdirect": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "appdirect-v0.1.0",
-    "current_hash": "sha256:cb47bbdb5bec3281845dfe9fe3ff67a539eddd1911005fe658763fb14049cdf1",
+    "current_hash": "sha256:4d2cd036167b007da02fe91f89ac862dfb78e4e4b7f8c8ce83bf57d912f88fa3",
     "released_hash": "sha256:cb47bbdb5bec3281845dfe9fe3ff67a539eddd1911005fe658763fb14049cdf1"
   },
   "atera": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "atera-v0.1.0",
-    "current_hash": "sha256:529eec12b989e5632777a6ac1ab1c140ab0b8b7fde060c3d49473aff8431f9be",
+    "current_hash": "sha256:a9664c609daaba31be3a912512bd3130cd500c418c5a688b1e6ff8d1164ba8ea",
     "released_hash": "sha256:529eec12b989e5632777a6ac1ab1c140ab0b8b7fde060c3d49473aff8431f9be"
   },
   "autotask": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "autotask-v0.1.0",
-    "current_hash": "sha256:d38c62044a6ebdadc8b90b338e28235c063aefb5d6e267b61d73daed9a5b7f3a",
+    "current_hash": "sha256:5b6ba5c0d36149baa8914cb3dcb1339aa330ec8230caf5a7548ec18070ff4e0d",
     "released_hash": "sha256:d38c62044a6ebdadc8b90b338e28235c063aefb5d6e267b61d73daed9a5b7f3a"
   },
   "aws-billing": {
@@ -56,45 +56,45 @@
     "released_hash": "sha256:9f2681d02b3455ee9e981d0f2399eb52fcaeb976add723e8b9624af2beb14b0a"
   },
   "axcient": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.2.8",
     "latest_tag": "axcient-v0.2.8",
-    "current_hash": "sha256:ae308248c1b7a6c6515c4afdfaa422f2c602788aa5072f53cb0855115e223157",
+    "current_hash": "sha256:9c0a1bad6010b75d3a358ef70347a6caebe653eed13704368cbecb3d432b5c4e",
     "released_hash": "sha256:ae308248c1b7a6c6515c4afdfaa422f2c602788aa5072f53cb0855115e223157"
   },
   "betterstack": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "betterstack-v0.1.0",
-    "current_hash": "sha256:9dd7c4caf50cd395b6af050d3cb9d8e789b26977f43d7ceff340eb605c89bdad",
+    "current_hash": "sha256:c9540bc79b648d0a98ba09f8b985175bb545b268697cf5ccd344fb2dda2a6d0f",
     "released_hash": "sha256:9dd7c4caf50cd395b6af050d3cb9d8e789b26977f43d7ceff340eb605c89bdad"
   },
   "blumira": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "blumira-v0.1.0",
-    "current_hash": "sha256:4489d8227db0a9bb6dd9ea4d6181d5242cf64fa3d024a7195f65d4924f092aed",
+    "current_hash": "sha256:99d4c527d22756487a7a8fbd310b72a2dfcf578d0f0d9ad5758e3d45ed67cdb1",
     "released_hash": "sha256:4489d8227db0a9bb6dd9ea4d6181d5242cf64fa3d024a7195f65d4924f092aed"
   },
   "cipp": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "cipp-v0.1.0",
-    "current_hash": "sha256:aa0dc021cdb156c7c5bd704dc240c05f666bcc65074ff04bc8a5b76852f20f19",
+    "current_hash": "sha256:feab020e2aab72a791cbf76939f641af9db14d46f3867f2f040f733c30f83365",
     "released_hash": "sha256:aa0dc021cdb156c7c5bd704dc240c05f666bcc65074ff04bc8a5b76852f20f19"
   },
   "connectwise-automate": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.0",
     "latest_tag": "connectwise-automate-v0.1.0",
-    "current_hash": "sha256:82c50b5f6439e25b563323766c7797e0e01c1c6beb2f5c37cc77b32f4cd6df4f",
+    "current_hash": "sha256:64b57846df772df9d821910e669c5e88116a9bd97dc826ad9eecb0a92441c6c1",
     "released_hash": "sha256:82c50b5f6439e25b563323766c7797e0e01c1c6beb2f5c37cc77b32f4cd6df4f"
   },
   "connectwise-control": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "connectwise-control-v0.1.1",
-    "current_hash": "sha256:ea7242e1aacda6051c1ae37967e3d5aa0430b6f7af9d8a5d63263e563691d747",
+    "current_hash": "sha256:ad5a5df47a26cb4d21ff8b39e040fb5f526c0930d29f07fba484463f313eae64",
     "released_hash": "sha256:ea7242e1aacda6051c1ae37967e3d5aa0430b6f7af9d8a5d63263e563691d747"
   },
   "connectwise-manage": {
@@ -105,122 +105,122 @@
     "released_hash": "sha256:55e01e4ffc3ee08e48f93b6d283c797b163fe85c76144332deb0247c4961da2c"
   },
   "cove": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.3",
     "latest_tag": "cove-v0.1.3",
-    "current_hash": "sha256:3af6193fda701a481c7cc2479272af2c4a569bf2ef0cd910dfa7dad057236876",
+    "current_hash": "sha256:99fa266a27b9b2915502bd40467bc1502c88bd60e5c79e27528b3f50f885a4cd",
     "released_hash": "sha256:3af6193fda701a481c7cc2479272af2c4a569bf2ef0cd910dfa7dad057236876"
   },
   "crowdstrike": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "crowdstrike-v0.1.0",
-    "current_hash": "sha256:0e629f2563bddfab44bf389a6354e85f760ec38a7bf75eeb38a5524d1d7b7981",
+    "current_hash": "sha256:b11bba4e6ba1fc020f1bc03bfec081f398d98f93416cbb9c423b6f57dba52ac9",
     "released_hash": "sha256:0e629f2563bddfab44bf389a6354e85f760ec38a7bf75eeb38a5524d1d7b7981"
   },
   "datto-bcdr": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "datto-bcdr-v0.1.0",
-    "current_hash": "sha256:ada9bd4b046444be57596603d6cb3d812976797b17a67224b198b4b84e697e9f",
+    "current_hash": "sha256:6984a34a2e35130f3c6ba6f08834e5cb58a711065701e7e9be757ba513b0de26",
     "released_hash": "sha256:ada9bd4b046444be57596603d6cb3d812976797b17a67224b198b4b84e697e9f"
   },
   "datto-rmm": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "datto-rmm-v0.1.0",
-    "current_hash": "sha256:92a5147de7eca212243b233b8cfd9be4cbbcdbc2ae84e454ecf9b0e9ee8f08b0",
+    "current_hash": "sha256:d1524f94604db4c64206101ec224c8cf33092af218e1b90f62bcbbeda9ef5523",
     "released_hash": "sha256:92a5147de7eca212243b233b8cfd9be4cbbcdbc2ae84e454ecf9b0e9ee8f08b0"
   },
   "domotz": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "domotz-v0.1.0",
-    "current_hash": "sha256:a317057799d24c4129736b91a5d224971968f4c79e33c4849ed77363bb2a2680",
+    "current_hash": "sha256:2b284ad41d7e831922aa1e3532ce740e28e47cdad1dfb6b4593ae65c2dd25fa1",
     "released_hash": "sha256:a317057799d24c4129736b91a5d224971968f4c79e33c4849ed77363bb2a2680"
   },
   "gradient": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "gradient-v0.1.0",
-    "current_hash": "sha256:4ff2c6903bd19c1ef62cb39efa861570ccce90dc20a2cac715974a1db621ff91",
+    "current_hash": "sha256:bccb0a6f5e7712dde27e9027ab0017a06d2a43441ed249deabfde250240af026",
     "released_hash": "sha256:4ff2c6903bd19c1ef62cb39efa861570ccce90dc20a2cac715974a1db621ff91"
   },
   "halopsa": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.2.2",
     "latest_tag": "halopsa-v0.2.2",
-    "current_hash": "sha256:2603703caa88261cbab4fe01c70e0320085dc6c18087614c8b28cdbaaf83794f",
+    "current_hash": "sha256:4826d78926330aa737f3d100250f3e4980c3eb25eb04dba2432d4535352b64fa",
     "released_hash": "sha256:2603703caa88261cbab4fe01c70e0320085dc6c18087614c8b28cdbaaf83794f"
   },
   "hubspot": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.2",
     "latest_tag": "hubspot-v0.1.1",
-    "current_hash": "sha256:11adf0bc84900c54d3f826e68adfbf72ab20640d7110aa5fb23e39c411f3c973",
+    "current_hash": "sha256:353ec5cfdbac66f6947d18cc7e0f85dbb01a4790323614294a8a5c34b50e60a0",
     "released_hash": "sha256:11adf0bc84900c54d3f826e68adfbf72ab20640d7110aa5fb23e39c411f3c973"
   },
   "hudu": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.4",
     "latest_tag": "hudu-v0.1.4",
-    "current_hash": "sha256:12e793ffc6b457bb330424aa83d77764720485e941ce391d70c334a4a5cdddb8",
+    "current_hash": "sha256:0cc4408099cadfe394f813710b15a7da694cacb9a62836fbf87337c024086d60",
     "released_hash": "sha256:12e793ffc6b457bb330424aa83d77764720485e941ce391d70c334a4a5cdddb8"
   },
   "huntress": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "huntress-v0.1.0",
-    "current_hash": "sha256:115e5723d9cd6668a414a1abb54cf89b8b6567795fec4dfa7cfd75297a36667a",
+    "current_hash": "sha256:7c641e395c3d356be972ff466d32217a99c5ce6f24013eaa467ccf17fcbb6ee8",
     "released_hash": "sha256:115e5723d9cd6668a414a1abb54cf89b8b6567795fec4dfa7cfd75297a36667a"
   },
   "itglue": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "itglue-v0.1.0",
-    "current_hash": "sha256:44fe705965479fe4768c5a454a586581767cd3ae025cf19fc02236c3ddeb6c5b",
+    "current_hash": "sha256:ec46e2b508353b9d41c4ce6c9f233f1cf0977a4e9f5cfad06c33d07af9685a79",
     "released_hash": "sha256:44fe705965479fe4768c5a454a586581767cd3ae025cf19fc02236c3ddeb6c5b"
   },
   "kaseya-bms": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "kaseya-bms-v0.1.0",
-    "current_hash": "sha256:c3ab8475db49d34c0ab388329b6db0a18e9ffc94953920f7ba836069182a4cf4",
+    "current_hash": "sha256:5157c6f6ead0184cb9076682d689ceb9f4636a4e76a533e4b7058d0fd47fc6ae",
     "released_hash": "sha256:c3ab8475db49d34c0ab388329b6db0a18e9ffc94953920f7ba836069182a4cf4"
   },
   "knowbe4": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "knowbe4-v0.1.0",
-    "current_hash": "sha256:3d053d4ccbd4a54eb21c3a8415e5ec3b201345e80d3783e159edd29bfeb04ed6",
+    "current_hash": "sha256:2e0c7c3f8c4f5a0ff8b959a3efe0997daa180007958d04ac49805007540b1331",
     "released_hash": "sha256:3d053d4ccbd4a54eb21c3a8415e5ec3b201345e80d3783e159edd29bfeb04ed6"
   },
   "levelio": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "levelio-v0.1.0",
-    "current_hash": "sha256:42a4b6f70bf3253c7077f17a25f8a6e8deba0335cd990be6d8f6080ee0b70e43",
+    "current_hash": "sha256:f6f74f277a45ffdfabc6aba651bc0e89b23b8d8ce25304c90467f60edf041513",
     "released_hash": "sha256:42a4b6f70bf3253c7077f17a25f8a6e8deba0335cd990be6d8f6080ee0b70e43"
   },
   "liongard": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "liongard-v0.1.0",
-    "current_hash": "sha256:6c229108d0ab0b7e605a41495e4c3accb4e3c6fa79931feb4f64f6654d37d161",
+    "current_hash": "sha256:9df6344874231b8c64b071af3121ec825299017bac2bc066d42e9cba60954e3b",
     "released_hash": "sha256:6c229108d0ab0b7e605a41495e4c3accb4e3c6fa79931feb4f64f6654d37d161"
   },
   "maxio": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.0",
     "latest_tag": "maxio-v0.1.0",
-    "current_hash": "sha256:94076565bd9abbe4eda0c93e3321bde11554ef9d3882e373242bf309b7010273",
+    "current_hash": "sha256:4f04290d5cbd599e5ff8a28c46a47f3c9536a054225210da2fb8f22bcd2aaa50",
     "released_hash": "sha256:94076565bd9abbe4eda0c93e3321bde11554ef9d3882e373242bf309b7010273"
   },
   "microsoft-graph": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.2.0",
     "latest_tag": "microsoft-graph-v0.2.0",
-    "current_hash": "sha256:4256b9de006942358a1ed023beaf60294c6973b4604ffca961ca96e119e5a04b",
+    "current_hash": "sha256:0bf1223df11108a1e19c3e199407c7443a8290ca62006a685129b81a66dc91b3",
     "released_hash": "sha256:4256b9de006942358a1ed023beaf60294c6973b4604ffca961ca96e119e5a04b"
   },
   "msp-skills-concierge": {
@@ -231,24 +231,24 @@
     "released_hash": null
   },
   "mspbots": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "mspbots-v0.1.0",
-    "current_hash": "sha256:4116cbaee8f3f31b423b010254c825f94523f6b1fc158db7fe0d181b3f6b1142",
+    "current_hash": "sha256:5663db5d07df2e2f18f237f78cf83c22c05d7ce1724e6cd95a119eac491b9a00",
     "released_hash": "sha256:4116cbaee8f3f31b423b010254c825f94523f6b1fc158db7fe0d181b3f6b1142"
   },
   "n-central": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "n-central-v0.1.0",
-    "current_hash": "sha256:8b3dab9c1d76bb6f55256aee205c52acf08380027893bb7e00b6635c93642f87",
+    "current_hash": "sha256:75d056c4c62ab68fea25a2dac1a753f78a0fd3732283073c811fdb3d2b3bcbfb",
     "released_hash": "sha256:8b3dab9c1d76bb6f55256aee205c52acf08380027893bb7e00b6635c93642f87"
   },
   "nerdio": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "nerdio-v0.1.0",
-    "current_hash": "sha256:9ee5ea50f4e76eaf7eb8fb13c6b0ac3df7f3e5a9425e3e1945220fb731c7c9d5",
+    "current_hash": "sha256:11b0e727d182d2a799531c44264cfa797abe75843a058be59a1378748dc23601",
     "released_hash": "sha256:9ee5ea50f4e76eaf7eb8fb13c6b0ac3df7f3e5a9425e3e1945220fb731c7c9d5"
   },
   "ninjaone": {
@@ -259,45 +259,45 @@
     "released_hash": "sha256:1fb92afa70a1d200ac116dc10cb923974d413deeada3cc3fdf27c733edd6345e"
   },
   "pagerduty": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "pagerduty-v0.1.0",
-    "current_hash": "sha256:155f706f5ec0855e76fbda459b4fb89ea11f1d0f24e5997bf6d33fb57c468b8e",
+    "current_hash": "sha256:9cd74c0389e848790e2cd5522340d5046bbaf5546544d58b9120ff8d989a80de",
     "released_hash": "sha256:155f706f5ec0855e76fbda459b4fb89ea11f1d0f24e5997bf6d33fb57c468b8e"
   },
   "pandadoc": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "pandadoc-v0.1.0",
-    "current_hash": "sha256:ec2af776841afff2c7d03eb0ceccfff2b0d7d73f382d045e5ba2660ccf0aebe2",
+    "current_hash": "sha256:961ae9b102ac089da9608669b0ff45b732a845dbadc18e7da11963f958459642",
     "released_hash": "sha256:ec2af776841afff2c7d03eb0ceccfff2b0d7d73f382d045e5ba2660ccf0aebe2"
   },
   "pax8": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "pax8-v0.1.0",
-    "current_hash": "sha256:a44f23d843df61747b14c678831fc97fc907e2b096705990d9ea92d6309e2903",
+    "current_hash": "sha256:1c79d02b0ee0eb12b0d2b0ee0ba1579685f9bc18726c92dfd7c83f4a5bebffca",
     "released_hash": "sha256:a44f23d843df61747b14c678831fc97fc907e2b096705990d9ea92d6309e2903"
   },
   "pipedrive": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "pipedrive-v0.1.0",
-    "current_hash": "sha256:37047bc01bb4d9075d50eb36d06c73ebcab526feb3522a1ee38a1be7d150d388",
+    "current_hash": "sha256:75b7f325831ed71e7d0a05b65ffafb8c97889ecccfaab25327a8724a163862ad",
     "released_hash": "sha256:37047bc01bb4d9075d50eb36d06c73ebcab526feb3522a1ee38a1be7d150d388"
   },
   "proofpoint": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "proofpoint-v0.1.0",
-    "current_hash": "sha256:13222de364fc36dbe3adb771331b0fbbf6f8fc75b6904f7083488adde1e656a9",
+    "current_hash": "sha256:01370a87bdd6cc8b4ee747b7731053994170b8f53214f1627fb2659522c7ac58",
     "released_hash": "sha256:13222de364fc36dbe3adb771331b0fbbf6f8fc75b6904f7083488adde1e656a9"
   },
   "quickbooks": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.4",
     "latest_tag": "quickbooks-v0.1.4",
-    "current_hash": "sha256:1f01e28ec09243ed687d05443ccc1ab93dd3fdd0d32f5bd76b49e7bb4a1562c0",
+    "current_hash": "sha256:d7727734703b2509c11e04eaa46a89c2fcd947bae9c9872d1e5078663f407609",
     "released_hash": "sha256:1f01e28ec09243ed687d05443ccc1ab93dd3fdd0d32f5bd76b49e7bb4a1562c0"
   },
   "resourceguru": {
@@ -308,101 +308,101 @@
     "released_hash": "sha256:e95873f6ddddcc79c66880ae65fccead01d5f45c45ed17b9b8b575bafcbb705d"
   },
   "rewst": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.0",
     "latest_tag": "rewst-v0.1.0",
-    "current_hash": "sha256:47492ac068720a25f5b2ba99c0bd14583ea275d54a4316be01cf74d1ee4a1d56",
+    "current_hash": "sha256:1f28f7ec8d7db019c11c5efcec407e90fad02810582bce3f05cf6db9d65d6ae2",
     "released_hash": "sha256:47492ac068720a25f5b2ba99c0bd14583ea275d54a4316be01cf74d1ee4a1d56"
   },
   "rocketcyber": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "rocketcyber-v0.1.0",
-    "current_hash": "sha256:ebf698002eb3445472d8aa100c365d0663000356236aaec79019e01926e34b52",
+    "current_hash": "sha256:626d2a3376f354e0ed7e6ed8222f977271eee1c8348bee3b27421590ce308179",
     "released_hash": "sha256:ebf698002eb3445472d8aa100c365d0663000356236aaec79019e01926e34b52"
   },
   "rootly": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "rootly-v0.1.0",
-    "current_hash": "sha256:ea10cdb2ab7d1f04345df777c42b291fe0f9bcf1b26022ec8d5d8a6b7b48ba2d",
+    "current_hash": "sha256:af57977996bf8a738f68b21316ac4066e2a3a264daaa85bb973eca363d513af1",
     "released_hash": "sha256:ea10cdb2ab7d1f04345df777c42b291fe0f9bcf1b26022ec8d5d8a6b7b48ba2d"
   },
   "runzero": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "runzero-v0.1.0",
-    "current_hash": "sha256:a7ad62afc53e52d3894843ef71d1403ccab66d9351b66484711fc8ad1d16b08e",
+    "current_hash": "sha256:803b312b50c1e114e5f8c7986be0386e79b0cee3e4e0b817c3a213ab773788b6",
     "released_hash": "sha256:a7ad62afc53e52d3894843ef71d1403ccab66d9351b66484711fc8ad1d16b08e"
   },
   "salesbuildr": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "salesbuildr-v0.1.0",
-    "current_hash": "sha256:478af176d682cf8dbe431e699b161991dcda0411f8fce1be230a54270e422df4",
+    "current_hash": "sha256:9fead4ce3688265ecbfa845961ea60ff4dff5f24481b7d719944d063206d1854",
     "released_hash": "sha256:478af176d682cf8dbe431e699b161991dcda0411f8fce1be230a54270e422df4"
   },
   "sentinelone": {
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "sentinelone-v0.1.0",
-    "current_hash": "sha256:faeb9b917c2297a75f0b480d3bd800411a02edaa532cb9db298e8e99ac81f504",
+    "current_hash": "sha256:fd812772a34256f333b713606202015e3fa7ce4786bbb5f5725d1e8e22bd617a",
     "released_hash": "sha256:9e7615f226f01b36836ce08a6abfae33d9717999cf9cacc43a1ba9314f5e5eb8"
   },
   "servosity": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.4.0",
     "latest_tag": "servosity-v0.4.0",
-    "current_hash": "sha256:a48664a3ca0130b805cda6deb8215861aa9497e0f289c6809e616e4a3531ce6a",
+    "current_hash": "sha256:fdde4b52f0a978971d9e23cb27277cbbefafab5b48eedc830c38820e6a613189",
     "released_hash": "sha256:a48664a3ca0130b805cda6deb8215861aa9497e0f289c6809e616e4a3531ce6a"
   },
   "sherweb": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "sherweb-v0.1.0",
-    "current_hash": "sha256:7863802e3a4396200856a3db1f492c0fd0871731d600250de3646a52ce6fe6c5",
+    "current_hash": "sha256:296a5b9db0ae5e2188610770f02603b09f823e64f76ae3225780e75b7769ee9e",
     "released_hash": "sha256:7863802e3a4396200856a3db1f492c0fd0871731d600250de3646a52ce6fe6c5"
   },
   "skykick": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "skykick-v0.1.0",
-    "current_hash": "sha256:b1770a9f9f1598bab9eb29abb44e137eb45abd5e4801237fc381e3e31e08bf07",
+    "current_hash": "sha256:9ad354f148e608f918ede0a3a3413832fb523f64905de0cfcaa8a68b733e7879",
     "released_hash": "sha256:b1770a9f9f1598bab9eb29abb44e137eb45abd5e4801237fc381e3e31e08bf07"
   },
   "superops": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.3",
     "latest_tag": "superops-v0.1.3",
-    "current_hash": "sha256:9940666a406c2f3b719fe330d147521d0ebfe6c38e700eb9b32ebfbffe32dec2",
+    "current_hash": "sha256:c19e6db3695ed1c95064af06877d8d02909ce112532a408881fa876f4f612af6",
     "released_hash": "sha256:9940666a406c2f3b719fe330d147521d0ebfe6c38e700eb9b32ebfbffe32dec2"
   },
   "syncro": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "syncro-v0.1.0",
-    "current_hash": "sha256:0a035e1600bb8c8bbb7d53c87305839476b3fd158e54f849d8c15a48a7b4a935",
+    "current_hash": "sha256:b67136a1b4d16f6808bb0e41a00b61f715bcc0a1c5adea7e8e8b709554d2d1f9",
     "released_hash": "sha256:0a035e1600bb8c8bbb7d53c87305839476b3fd158e54f849d8c15a48a7b4a935"
   },
   "tactical-rmm": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "tactical-rmm-v0.1.0",
-    "current_hash": "sha256:a8b7f1459ad945320557294177f55723eb7b2e6fd1dde5721b101abff691c9ea",
+    "current_hash": "sha256:6453950fa07e2b4ce4d5998790446c79cd9a0c6b905287e499c646acc95f4915",
     "released_hash": "sha256:a8b7f1459ad945320557294177f55723eb7b2e6fd1dde5721b101abff691c9ea"
   },
   "threatlocker": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "threatlocker-v0.1.0",
-    "current_hash": "sha256:1b845c41fae829b14d8195d9eb1a16613bd2cdf779a6b3d63eb638aba8305fa5",
+    "current_hash": "sha256:e20439f6624e0f3f919b84fedf2786f9360bc21e950f851c35bc3f6ca7ad53e9",
     "released_hash": "sha256:1b845c41fae829b14d8195d9eb1a16613bd2cdf779a6b3d63eb638aba8305fa5"
   },
   "veeam": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.0",
     "latest_tag": "veeam-v0.1.0",
-    "current_hash": "sha256:bb384b1bf3114c81687737462d69eb496e3a72f27ad51c4d7855248d7f4a3267",
+    "current_hash": "sha256:6e1c495dae927b3f54c43507b12f6fc623f15c3d8f8fc078e2b353f08402d1e1",
     "released_hash": "sha256:bb384b1bf3114c81687737462d69eb496e3a72f27ad51c4d7855248d7f4a3267"
   },
   "wordpress": {
@@ -413,10 +413,10 @@
     "released_hash": "sha256:d0081cf1a1e1f73bb156e7584a6c8cb5956845ceb1e318e68bd6e267bae3a18e"
   },
   "xero": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "xero-v0.1.0",
-    "current_hash": "sha256:3dc1c5fd5c74a2ad01c8972b73516ef4e9777c0449f87ec65595f18dd26557fc",
+    "current_hash": "sha256:d2ddabdcf9b42e559baecced978f67d7d3b12b8ce4c432a95dfa427248399ced",
     "released_hash": "sha256:3dc1c5fd5c74a2ad01c8972b73516ef4e9777c0449f87ec65595f18dd26557fc"
   }
 }
