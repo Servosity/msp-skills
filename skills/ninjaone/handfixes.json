@@ -164,6 +164,30 @@
           "min_count": 1
         }
       ]
+    },
+    {
+      "id": "code-orch-string-path-params",
+      "summary": "The MCP code-orchestration executor substitutes string path parameters from the params object, so endpoints such as custom-fields.get-node-attribute-signed-urls and tag.set-for-asset do not send literal {entityType} or {assetType} URL tokens.",
+      "why": "The generated command files call replacePathParam for string path flags, but the MCP code-orchestration path rebuilds requests from endpoint metadata. It only substituted ep.Positional placeholders before routing remaining params into the query string or JSON body. Numeric IDs worked because they were positional (for example entityId or assetId), while string path params such as entityType and assetType were left in params and the URL template stayed unresolved. The fix applies path params from positional metadata, template bindings, and any remaining params whose names still match placeholders before query/body routing.",
+      "status": "active",
+      "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: teach the code-orchestration executor template to consume any params matching unresolved path placeholders before query/body routing, or emit complete path binding metadata for all path params. Until then this hand-fix must survive every reprint.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "func codeOrchApplyPathParams",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "neturl.PathEscape(formatMCPParamValue(v))",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/code_orch_path_test.go",
+          "contains": "func TestCodeOrchExecuteSubstitutesStringPathParams",
+          "min_count": 1
+        }
+      ]
     }
   ]
 }
