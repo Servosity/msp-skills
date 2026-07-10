@@ -2684,13 +2684,7 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
 
-	path := ep.Path
-	for _, p := range ep.Positional {
-		if v, ok := params[p]; ok {
-			path = strings.ReplaceAll(path, "{"+p+"}", formatMCPParamValue(v))
-			delete(params, p)
-		}
-	}
+	path := codeOrchApplyPathParams(ep.Path, params, ep.Positional, ep.TemplateParams)
 
 	// Route params to their runtime slots. GET/DELETE params are query
 	// strings; write methods split spec-declared query params from the
@@ -2764,6 +2758,36 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
 	return mcplib.NewToolResultText(string(data)), nil
+}
+
+func codeOrchApplyPathParams(path string, params map[string]any, positional []string, templateParams []codeOrchParamBinding) string {
+	for _, p := range positional {
+		path = codeOrchReplacePathParam(path, p, p, params)
+	}
+	for _, binding := range templateParams {
+		path = codeOrchReplacePathParam(path, binding.WireName, binding.PublicName, params)
+		if binding.WireName != binding.PublicName {
+			path = codeOrchReplacePathParam(path, binding.WireName, binding.WireName, params)
+		}
+	}
+	for k := range params {
+		path = codeOrchReplacePathParam(path, k, k, params)
+	}
+	return path
+}
+
+func codeOrchReplacePathParam(path, placeholderName, paramName string, params map[string]any) string {
+	if placeholderName == "" || paramName == "" {
+		return path
+	}
+	placeholder := "{" + placeholderName + "}"
+	v, ok := params[paramName]
+	if !ok || !strings.Contains(path, placeholder) {
+		return path
+	}
+	path = strings.ReplaceAll(path, placeholder, neturl.PathEscape(formatMCPParamValue(v)))
+	delete(params, paramName)
+	return path
 }
 
 // codeOrchWriteBody returns the value handed to the client layer as the
