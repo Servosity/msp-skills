@@ -7,7 +7,7 @@ All notable changes to this skill are documented here. Format follows
 ## [0.1.4] - 2026-07-10
 
 ### Fixed
-- The `.mcpb` extension now installs via Claude Desktop → Settings → Extensions. The published manifest previously failed to install for three reasons, all corrected: (1) non-spec top-level keys (`printing_press_version`, `press_provenance`) made Claude Desktop's validator reject the whole manifest — provenance now lives under the spec's `_meta` slot; (2) only one of the required credentials was declared — all five (`CW_COMPANY_ID`, `CW_PUBLIC_KEY`, `CW_PRIVATE_KEY`, `CW_CLIENT_ID`, `CW_SITE`) are now in `user_config` and wired into the MCP server env; (3) the server command pointed at a binary name the release never ships (`ENOENT`) — `platform_overrides` now select the correct per-OS binary. Reported by @jborello (#185).
+- The `.mcpb` extension now installs via Claude Desktop → Settings → Extensions. The published manifest previously failed to install for three reasons, all corrected: (1) non-spec top-level keys (`printing_press_version`, `press_provenance`) made Claude Desktop's validator reject the whole manifest - provenance now lives under the spec's `_meta` slot; (2) only one of the required credentials was declared - all five (`CW_COMPANY_ID`, `CW_PUBLIC_KEY`, `CW_PRIVATE_KEY`, `CW_CLIENT_ID`, `CW_SITE`) are now in `user_config` and wired into the MCP server env; (3) the server command pointed at a binary name the release never ships (`ENOENT`) - `platform_overrides` now select the correct per-OS binary. Reported by @jborello (#185).
 
 ### Changed
 - Bumped the Go toolchain to go1.26.5 (clears the `crypto/tls` standard-library advisory GO-2026-5856).

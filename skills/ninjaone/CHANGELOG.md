@@ -7,7 +7,7 @@ All notable changes to this skill are documented here. Format follows
 ## [0.1.6] - 2026-07-10
 
 ### Fixed
-- Device tagging now works through the MCP server. The code-orchestration executor substituted only numeric path parameters, leaving string-typed ones (e.g. `{assetType}`, `{entityType}`) as literal template tokens in the request URL — which broke `tag.set-for-asset`, `tag.batch-update`, and the `custom-fields` endpoints that carry a string path segment. String path parameters are now resolved and URL-escaped like numeric ones. Reported by @livewire-it (#186).
+- Device tagging now works through the MCP server. The code-orchestration executor substituted only numeric path parameters, leaving string-typed ones (e.g. `{assetType}`, `{entityType}`) as literal template tokens in the request URL - which broke `tag.set-for-asset`, `tag.batch-update`, and the `custom-fields` endpoints that carry a string path segment. String path parameters are now resolved and URL-escaped like numeric ones. Reported by @livewire-it (#186).
 
 ### Changed
 - Bumped the Go toolchain to go1.26.5 (clears the `crypto/tls` standard-library advisory GO-2026-5856).
