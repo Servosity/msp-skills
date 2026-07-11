@@ -190,7 +190,7 @@ Same product. Autotask PSA is now branded Datto Autotask PSA under Kaseya; this 
 
 ## More PSA connectors
 
-Run more than one PSA tool, or comparing options? These connectors work the same way: [ConnectWise PSA (Manage)](/skills/connectwise-manage/) · [HaloPSA](/skills/halopsa/) · [Kaseya BMS](/skills/kaseya-bms/) · [SuperOps](/skills/superops/) · [Syncro](/skills/syncro/)
+Run more than one PSA tool, or comparing options? These connectors work the same way: [ConnectWise PSA (Manage)](/skills/connectwise-manage/) · [HaloPSA](/skills/halopsa/) · [Kaseya BMS](/skills/kaseya-bms/) · [SuperOps](/skills/superops/) · [Syncro](/skills/syncro/) · [Zammad](/skills/zammad/)
 
 ## Status
 

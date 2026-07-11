@@ -178,7 +178,7 @@ No. It's a faster path for the questions you ask every day - queue health, unbil
 
 ## More PSA connectors
 
-Run more than one PSA tool, or comparing options? These connectors work the same way: [Autotask PSA](/skills/autotask/) · [ConnectWise PSA (Manage)](/skills/connectwise-manage/) · [HaloPSA](/skills/halopsa/) · [SuperOps](/skills/superops/) · [Syncro](/skills/syncro/)
+Run more than one PSA tool, or comparing options? These connectors work the same way: [Autotask PSA](/skills/autotask/) · [ConnectWise PSA (Manage)](/skills/connectwise-manage/) · [HaloPSA](/skills/halopsa/) · [SuperOps](/skills/superops/) · [Syncro](/skills/syncro/) · [Zammad](/skills/zammad/)
 
 ## Status
 
