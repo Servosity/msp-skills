@@ -418,5 +418,12 @@
     "latest_tag": "xero-v0.1.0",
     "current_hash": "sha256:d2ddabdcf9b42e559baecced978f67d7d3b12b8ce4c432a95dfa427248399ced",
     "released_hash": "sha256:3dc1c5fd5c74a2ad01c8972b73516ef4e9777c0449f87ec65595f18dd26557fc"
+  },
+  "zammad": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:a7a259356d2c3ab470c09917906dac678f1776aa5ac7104d994cde6dfb80738e",
+    "released_hash": null
   }
 }
