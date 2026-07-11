@@ -1,6 +1,6 @@
 ---
 name: zammad
-description: "Every Zammad ticket, article, and Knowledge Base operation as one agent-native CLI  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call. Trigger phrases: `who is overloaded in support`, `which customers are at risk`, `what tickets are open too long`, `who should we escalate`, `what feedback are we getting`, `search zammad tickets`, `use zammad`, `run zammad`."
+description: "Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call. Trigger phrases: `who is overloaded in support`, `which customers are at risk`, `what tickets are open too long`, `who should we escalate`, `what feedback are we getting`, `search zammad tickets`, `use zammad`, `run zammad`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Zammad"
@@ -114,7 +114,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   zammad-cli kb browse
   ```
-- **`kb search`**  -  Offline text search over KB answer titles and bodies from the init bundle.
+- **`kb search`**  -  Text search over KB answer titles and bodies from the live KB init bundle.
 
   _Reach for this to find the right KB answer by keyword._
 
@@ -257,11 +257,11 @@ Tickets and article snippets bucketed as pricing feedback with source refs.
 zammad-cli kb search "backup restore" --json
 ```
 
-Offline keyword search over Knowledge Base answers.
+Keyword search over Knowledge Base answers (from the live KB init bundle).
 
 ## Auth Setup
 
-Zammad uses a personal access token sent as `Authorization: Token token=<TOKEN>`. Create one in your Zammad instance under Admin → System → API → Access Tokens, then set `ZAMMAD_API_TOKEN`. Point the CLI at your instance with `ZAMMAD_URL` (e.g. https://support.example.com). The token's permissions cap what the CLI can do; a token without write scopes keeps every command read-only regardless of flags.
+Zammad uses a personal access token sent as `Authorization: Token token=<TOKEN>`. Create one in your Zammad instance under Profile → Token Access, then set `ZAMMAD_API_TOKEN`. Point the CLI at your instance with `ZAMMAD_URL` (e.g. https://support.example.com). The token's permissions cap what the CLI can do; a token without write scopes keeps every command read-only regardless of flags.
 
 Run `zammad-cli doctor` to verify setup.
 
@@ -273,7 +273,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  zammad-cli articles get mock-value --agent --select id,name,status
+  zammad-cli articles get 12345 --agent --select id,name,status
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
@@ -544,7 +544,7 @@ A profile is a saved set of flag values, reused across invocations. Use it when 
 
 ```
 zammad-cli profile save briefing --json
-zammad-cli --profile briefing articles get mock-value
+zammad-cli --profile briefing articles get 12345
 zammad-cli profile list --json
 zammad-cli profile show briefing
 zammad-cli profile delete briefing --yes

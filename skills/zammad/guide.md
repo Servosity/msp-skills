@@ -1,6 +1,6 @@
 # Zammad CLI
 
-**Every Zammad ticket, article, and Knowledge Base operation as one agent-native CLI  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.**
+**Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.**
 
 A single Go binary for the whole Zammad REST + Knowledge Base surface with an offline SQLite store, structured `--json`/`--select` output, and `--dry-run` on every write. On top of parity it adds a team-management layer computed from your synced tickets: `agent-load` and `agent-trend` for workload, `customer-health` and `churn-risk` for account risk, `overdue` for aging backlog, `escalate` for sentiment triage, and `feedback` for mining what customers ask for. Works against any Zammad instance  -  set your instance URL and token.
 
@@ -120,7 +120,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 
 ## Authentication
 
-Zammad uses a personal access token sent as `Authorization: Token token=<TOKEN>`. Create one in your Zammad instance under Admin → System → API → Access Tokens, then set `ZAMMAD_API_TOKEN`. Point the CLI at your instance with `ZAMMAD_URL` (e.g. https://support.example.com). The token's permissions cap what the CLI can do; a token without write scopes keeps every command read-only regardless of flags.
+Zammad uses a personal access token sent as `Authorization: Token token=<TOKEN>`. Create one in your Zammad instance under Profile → Token Access, then set `ZAMMAD_API_TOKEN`. Point the CLI at your instance with `ZAMMAD_URL` (e.g. https://support.example.com). The token's permissions cap what the CLI can do; a token without write scopes keeps every command read-only regardless of flags.
 
 ## Quick Start
 
@@ -208,7 +208,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   zammad-cli kb browse
   ```
-- **`kb search`**  -  Offline text search over KB answer titles and bodies from the init bundle.
+- **`kb search`**  -  Text search over KB answer titles and bodies from the live KB init bundle.
 
   _Reach for this to find the right KB answer by keyword._
 
@@ -272,7 +272,7 @@ Tickets and article snippets bucketed as pricing feedback with source refs.
 zammad-cli kb search "backup restore" --json
 ```
 
-Offline keyword search over Knowledge Base answers.
+Keyword search over Knowledge Base answers (from the live KB init bundle).
 
 ## Usage
 
@@ -437,19 +437,19 @@ The local store's schema version stamp is one-way: once this version of `zammad-
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-zammad-cli articles get mock-value
+zammad-cli articles get 12345
 
 # JSON for scripting and agents
-zammad-cli articles get mock-value --json
+zammad-cli articles get 12345 --json
 
 # Filter to specific fields
-zammad-cli articles get mock-value --json --select id,name,status
+zammad-cli articles get 12345 --json --select id,name,status
 
 # Dry run  -  show the request without sending
-zammad-cli articles get mock-value --dry-run
+zammad-cli articles get 12345 --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-zammad-cli articles get mock-value --agent
+zammad-cli articles get 12345 --agent
 ```
 
 ## Agent Usage
@@ -501,7 +501,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Run the `list` command to see available items
 
 ### API-specific
-- **403 Authentication required**  -  Set ZAMMAD_API_TOKEN to a valid Zammad access token (Admin → System → API → Access Tokens).
+- **403 Authentication required**  -  Set ZAMMAD_API_TOKEN to a valid Zammad access token (Profile → Token Access).
 - **Requests hit the wrong host or return HTML**  -  Set ZAMMAD_URL to your instance base (no trailing slash), e.g. https://support.example.com.
 - **tickets search returns ids instead of full objects**  -  The CLI passes expand=true by default; if you disabled it, re-add --expand.
 - **Team-management commands look empty or stale**  -  Run `zammad-cli sync` first; escalate/feedback also read article bodies, so use `sync --articles` for full coverage.

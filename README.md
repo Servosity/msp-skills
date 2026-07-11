@@ -198,7 +198,7 @@ Outcomes, not hype - drawn from each of the 60 connectors' skill pages:
 | Which backup jobs are failing across all my customers? | veeam | `veeam-cli fleet-health --agent` |
 | Publish a landing page from HTML without opening wp-admin? | wordpress | `wordpress-cli pages create --title "Spring Promo" --content "<h1>Spring Promo</h1>" --status publish` |
 | Who owes us, and how overdue is each invoice? | xero | `xero-cli aging --agent` |
-| TODO: question an MSP keeps asking | zammad | `zammad-cli TODO` |
+| Who on the team is overloaded, and who is idle? | zammad | `zammad-cli agent-load --json` |
 <!-- agent-can-do:end -->
 
 Cross-skill questions compose too: find every ticket about backup failures across all clients by combining `halopsa-cli tickets search` with `servosity-cli stale-backups`.

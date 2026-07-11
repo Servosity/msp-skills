@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Zammad MCP Server - Free, Open Source, Runs Locally | MSP Skills"
-description: "Every Zammad ticket, article, and Knowledge Base operation as one agent-native CLI  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call."
+description: "Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call."
 permalink: /skills/zammad/
 skill_name: "Zammad MCP"
 image: /assets/social/zammad/wide-1200x630.png
@@ -19,8 +19,10 @@ faqs:
     a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
-  - q: "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Zammad portal)"
-    a: "TODO"
+  - q: "Does it work with my Zammad instance, self-hosted or hosted?"
+    a: "Both. Point it at any Zammad instance with ZAMMAD_URL (for example https://support.yourcompany.com) and a personal access token in ZAMMAD_API_TOKEN, created under Profile then Token Access. Nothing is hardcoded to a specific instance."
+  - q: "Are the escalation, churn, and feedback signals AI sentiment analysis?"
+    a: "No. They are transparent keyword-and-timing heuristics that surface the tickets and matched text for your AI or a human to judge. They flag candidates and show the evidence \u2014 they never claim a verdict on their own."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/zammad/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/zammad/install.ps1 | iex"
@@ -40,7 +42,7 @@ howto:
 
 Yes - there is an MCP server for Zammad. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Zammad to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-TODO: <=70 words, MSP-owner language, leads with the outcome. What does Zammad + your AI answer in one sentence that the portal cannot?
+Ask your AI who on the support team is overloaded, which customers are aging out, who sounds ready to churn, and what customers keep asking for — and get an answer built from every ticket at once. Zammad's portal shows one ticket at a time; this reads, searches, and changes tickets and the Knowledge Base, then answers the team-management questions the API can't return in a single call.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -48,17 +50,17 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Zammad +
 
 ## Instead of clicking through Zammad, just ask
 
-**Instead of** TODO: the painful manual workflow (exporting reports, clicking through the portal)
-**just ask:** *"TODO: the natural-language question the MSP owner asks instead"*
-<sub>Your agent runs: <code>zammad-cli TODO</code></sub>
+**Instead of** Export the ticket list, pivot it in a spreadsheet, and eyeball who has the biggest queue
+**just ask:** *"Who on support is overloaded right now?"*
+<sub>Your agent runs: <code>zammad-cli agent-load --json</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>zammad-cli TODO</code></sub>
+**Instead of** Click through every open ticket looking for the ones that are aging or where the customer sounds angry
+**just ask:** *"Which tickets are open too long, and which customers sound ready to escalate?"*
+<sub>Your agent runs: <code>zammad-cli escalate --json</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>zammad-cli TODO</code></sub>
+**Instead of** Guess which accounts are at risk from memory and a gut feel
+**just ask:** *"Which customers are trending toward churn?"*
+<sub>Your agent runs: <code>zammad-cli churn-risk --json</code></sub>
 
 
 ## See it in 30 seconds
@@ -71,20 +73,31 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Zammad +
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| TODO: question an MSP keeps asking | `zammad-cli TODO` |
+| Who on the team is overloaded, and who is idle? | `zammad-cli agent-load --json` |
+| Is each agent's queue growing or shrinking week over week? | `zammad-cli agent-trend --weeks 4 --json` |
+| Which customers are struggling and should get attention first? | `zammad-cli customer-health --at-risk --json` |
+| What tickets have been open too long, worst first? | `zammad-cli overdue --days 3 --json` |
+| Which customers sound upset and should be escalated? | `zammad-cli escalate --json` |
+| Which accounts are trending toward churn, and why? | `zammad-cli churn-risk --json` |
+| What are customers asking for around features, pricing, and compliance? | `zammad-cli feedback-scan --bucket pricing --json` |
+| Find open tickets (scope to a customer with organization_id:N) | `zammad-cli tickets search --query "state:open organization_id:123" --json` |
+| Read a ticket's full conversation | `zammad-cli articles by-ticket 12345 --json` |
+| Log an internal note on a ticket without opening the browser | `zammad-cli ticket note 12345 --body "Investigated, awaiting logs" --internal` |
+| Search the Knowledge Base before answering a customer | `zammad-cli kb search "restore" --json` |
+| See the whole Knowledge Base as a tree | `zammad-cli kb browse` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/zammad/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/zammad/guide.md).
 
 ## What makes this one different
 
-TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most Zammad integrations proxy each question into a live API call ...
+Most Zammad integrations proxy each question straight into a live API call, so 'who is overloaded' or 'which customers are at risk' is impossible — the API has no endpoint that aggregates across every ticket. This syncs your tickets, articles, organizations, and users into a local mirror, then answers those cross-ticket questions with local joins that are instant, offline, and cost nothing per query.
 
-TODO: one sentence vs Zammad's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.
+Zammad's own AI features (ticket summary, writing assistant) work inside a single ticket; this works across the whole desk — team load, aging backlog, customer health, churn signals, and feedback themes — and pipes structured JSON straight to the AI agent you already use.
 
 ## The pain this closes
 
-- TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread
-- TODO: pain 2
+- The Zammad dashboard and overviews answer 'what is in this queue' but never 'who is overloaded, which customer is aging out, and who is about to churn' — a support lead ends up exporting tickets and rebuilding those answers by hand every week.
+- Sentiment and 'what are customers asking for' live buried in thousands of ticket articles; there is no report that surfaces the upset threads or buckets feature/pricing/compliance requests, so those signals only surface after a customer has already left.
 
 ## Install
 
@@ -118,11 +131,11 @@ After install, authenticate once with your Zammad credentials, then verify with 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | TODO: read commands | Allow |
-| Write (routine) | TODO | Preview with --dry-run, then a reviewed write |
-| Destructive / config | TODO | Human-in-the-loop only |
+| Read | agent-load, agent-trend, customer-health, overdue, escalate, churn-risk, feedback-scan, tickets search/get, articles by-ticket, kb browse/search/get, search, sync | Allow |
+| Write (routine) | ticket note, tickets create/update, articles create, tags add/remove, organizations create/update, users create/update, kb answer-create/publish/internal, kb category-create | Preview with --dry-run, then a reviewed write |
+| Destructive / config | tickets delete, kb answer-delete | Human-in-the-loop only |
 
-TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/zammad/governance.md).
+Read commands (agent-load, customer-health, escalate, churn-risk, feedback-scan, overdue, ticket and Knowledge Base reads, search, sync) only pull data into a local mirror and are safe to allow. Routine writes (adding a ticket note, creating or updating a ticket, tagging, publishing a Knowledge Base answer) change the desk and should be previewed with --dry-run before a reviewed run. Deleting a ticket or Knowledge Base answer is destructive and should stay human-in-the-loop. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/zammad/governance.md).
 
 ## Frequently asked questions
 
@@ -150,9 +163,13 @@ Your data stays on your machine. The CLI, MCP server, and the local mirror are a
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-### TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Zammad portal)
+### Does it work with my Zammad instance, self-hosted or hosted?
 
-TODO
+Both. Point it at any Zammad instance with ZAMMAD_URL (for example https://support.yourcompany.com) and a personal access token in ZAMMAD_API_TOKEN, created under Profile then Token Access. Nothing is hardcoded to a specific instance.
+
+### Are the escalation, churn, and feedback signals AI sentiment analysis?
+
+No. They are transparent keyword-and-timing heuristics that surface the tickets and matched text for your AI or a human to judge. They flag candidates and show the evidence — they never claim a verdict on their own.
 
 
 ## More PSA connectors

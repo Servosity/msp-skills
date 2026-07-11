@@ -12,7 +12,7 @@
 <p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/zammad/">Full skill page</a> - install, outcomes, safety model.</sub></p>
 <!-- media:end -->
 
-Every Zammad ticket, article, and Knowledge Base operation as one agent-native CLI  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
@@ -145,25 +145,35 @@ ZAMMAD_API_TOKEN=<value> zammad-cli doctor
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
-| Question your MSP keeps asking | Command |
+| Question your team keeps asking | Command |
 | --- | --- |
-| ... | `zammad-cli ...` |
-
--->
+| Who on support is overloaded right now? | `zammad-cli agent-load --json` |
+| Is each agent's queue growing or shrinking? | `zammad-cli agent-trend --weeks 4 --json` |
+| Which customers are struggling and need attention first? | `zammad-cli customer-health --at-risk --json` |
+| What tickets have been open too long? | `zammad-cli overdue --days 3 --json` |
+| Which customers sound upset and should be escalated? | `zammad-cli escalate --json` |
+| Which accounts are trending toward churn, and why? | `zammad-cli churn-risk --json` |
+| What are customers asking for (features, pricing, compliance)? | `zammad-cli feedback-scan --bucket pricing --json` |
+| Find and read open tickets (scope to a customer with organization_id:N) | `zammad-cli tickets search --query "state:open" --json` |
+| Log a note or search the Knowledge Base | `zammad-cli ticket note 12345 --body "..." --internal` · `zammad-cli kb search "restore" --json` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Zammad integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Zammad integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "who on the team is overloaded across every open ticket" or "which of our customers have the most aging, angriest threads this quarter" — questions the Zammad API has no single endpoint for.
 
-This skill syncs Zammad into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs Zammad into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `agent-load`, `churn-risk`, and `feedback-scan` join across tickets, articles, organizations, and users — work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+The recurring complaint about ticketing tools on r/msp is the same: dashboards tell you what's *in* a queue but never roll up *across* tickets — per-agent load, which customers keep reopening, which accounts are quietly heading for the exit. So the weekly ritual is exporting tickets to a spreadsheet and rebuilding those answers by hand, while the two signals that actually predict churn — a customer who sounds fed up, and feature/pricing/compliance asks buried in article threads — never surface until the account is already gone.
+
+- `zammad-cli agent-load` — who's overloaded now, open/pending/backlog per agent.
+- `zammad-cli overdue --days 3` — every ticket open too long, priority-weighted, worst first.
+- `zammad-cli escalate` — active tickets whose inbound customer messages read as upset, with the matched text shown.
+- `zammad-cli churn-risk` — accounts trending toward churn, scored with the reasons listed.
+- `zammad-cli feedback-scan --bucket pricing` — what customers keep asking for, bucketed with source tickets.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +195,17 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Does it work with my Zammad instance, self-hosted or hosted?
+
+Both. Point it at any Zammad instance with `ZAMMAD_URL` (for example `https://support.yourcompany.com`) and a personal access token in `ZAMMAD_API_TOKEN`, created under **Profile → Token Access**. Nothing is hardcoded to a specific instance.
+
+### How is this different from Zammad's built-in AI features?
+
+Zammad's AI (ticket summary, writing assistant) works inside a single ticket. This works across the whole desk — team load, aging backlog, customer health, churn signals, and feedback themes — and hands structured JSON to the AI agent you already use.
+
+### Are the escalation, churn, and feedback signals AI sentiment analysis?
+
+No. They're transparent keyword-and-timing heuristics that surface the tickets and the matched text for your AI or a human to judge. They flag candidates and show the evidence — they never claim a verdict on their own.
 
 ### What does it cost?
 
@@ -198,15 +213,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `agent-load`, `agent-trend`, `customer-health`, `overdue`, `escalate`, `churn-risk`, `feedback-scan`, `tickets search/get`, `articles by-ticket`, `kb browse/search/get`, `search`, `sync` | Allow |
+| Write (routine) | `ticket note`, `tickets create/update`, `articles create`, `tags add/remove`, `organizations create/update`, `users create/update`, `kb answer-create/publish/internal`, `kb category-create` | Preview with `--dry-run`, then a reviewed write |
+| Destructive / config | `tickets delete`, `kb answer-delete` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Zammad credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +229,4 @@ Beta. Validated against the Zammad API surface and being validated with MSPs run
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-07-11._

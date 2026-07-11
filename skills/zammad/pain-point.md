@@ -2,17 +2,27 @@
 
 ## The pain
 
-TODO (calling agent: replace this with the real MSP pain this skill closes,
-citing a concrete community source - r/msp, an X post, a vendor survey). State
-the pain in the language MSP owners actually search for.
+Support leads live in the "who's drowning, what's aging, who's about to leave"
+questions — and their help desk can't answer any of them in one place. On r/msp
+the recurring complaint about ticketing tools is the same: the dashboards tell you
+what's *in* a queue but never roll up *across* tickets — per-agent load, which
+customers keep reopening, which accounts are quietly heading for the exit. So the
+weekly ritual is exporting tickets to a spreadsheet and rebuilding those answers by
+hand, while the two signals that actually predict churn — a customer who sounds fed
+up, and feature/pricing/compliance asks buried in article threads — never surface
+until the account is already gone.
 
 ## What this skill does about it
 
-TODO: 3-5 of the skill's highest-leverage commands mapped to the pain, each with a
-one-line outcome (not a feature description).
+- `zammad-cli agent-load` — who is overloaded right now, open/pending/backlog per agent, in one call.
+- `zammad-cli overdue --days 3` — every ticket open too long, priority-weighted so the worst rise first.
+- `zammad-cli escalate` — active tickets whose inbound customer messages read as upset, with the matched text shown.
+- `zammad-cli churn-risk` — accounts trending toward churn, scored from backlog pressure, overdue work, and negative sentiment, with the reasons listed.
+- `zammad-cli feedback-scan --bucket pricing` — what customers keep asking for, bucketed into feature / pricing / compliance / bug with source tickets.
 
 ## Status
 
-Beta. Validated against the Zammad API surface; the closed-loop receipt (a named
-MSP running it live in their production tenant at a Build Session) is tracked
+Beta. Validated read-only against a live production Zammad tenant (20,000+ tickets)
+and adversarially reviewed for analytics correctness. The closed-loop receipt (a
+named MSP running it live in their production tenant at a Build Session) is tracked
 separately and added here as `video.md` once it exists.
