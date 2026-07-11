@@ -81,6 +81,7 @@ body:
         - veeam
         - wordpress
         - xero
+        - zammad
         - other / not listed
     validations:
       required: true

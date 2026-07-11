@@ -177,7 +177,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 ## More PSA connectors
 
-Run more than one PSA tool, or comparing options? These connectors work the same way: [Autotask PSA](/skills/autotask/) · [ConnectWise PSA (Manage)](/skills/connectwise-manage/) · [HaloPSA](/skills/halopsa/) · [Kaseya BMS](/skills/kaseya-bms/) · [Syncro](/skills/syncro/)
+Run more than one PSA tool, or comparing options? These connectors work the same way: [Autotask PSA](/skills/autotask/) · [ConnectWise PSA (Manage)](/skills/connectwise-manage/) · [HaloPSA](/skills/halopsa/) · [Kaseya BMS](/skills/kaseya-bms/) · [Syncro](/skills/syncro/) · [Zammad](/skills/zammad/)
 
 ## Status
 

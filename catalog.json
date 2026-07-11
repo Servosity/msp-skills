@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-10",
+  "generated_at": "2026-07-11",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -1194,6 +1194,26 @@
       "verification": "awaiting",
       "category": "Billing",
       "tagline": "Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal - offline, in one call."
+    },
+    {
+      "name": "zammad",
+      "system": "Zammad helpdesk and ticketing system (self-hosted or hosted)",
+      "status": "beta",
+      "skill_path": "skills/zammad",
+      "cli_binary": "zammad-cli",
+      "mcp_binary": "zammad-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.28.0",
+      "license": "Apache-2.0",
+      "vendor": "Zammad",
+      "vendor_trademark_owner": "Zammad GmbH",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zammad/install.sh)",
+      "install_mcp_doc": "skills/zammad/mcp-install.md",
+      "description": "Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
+      "verification": "awaiting",
+      "category": "PSA",
+      "tagline": "Read, search, and triage Zammad tickets and Knowledge Base, plus team-management analytics the API can't answer in one call."
     }
   ]
 }

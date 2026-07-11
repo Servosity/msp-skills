@@ -2202,3 +2202,41 @@ Q: Does it cover one organisation or several?
 A: One organisation per XERO_TENANT_ID. The local mirror holds a single tenant; for a multi-entity portfolio, point the tenant id at each organisation in turn and loop.
 
 Governance: Everything analytical reads from a local mirror - aging, exposure, reconcile, bank-recon, tie-out, ledger, snapshot, since, and search are always safe to run and cannot change anything. Writes (creating or updating invoices, contacts, accounts, payments, bank transactions, and items, plus the bulk import) send to your live Xero organisation, so the recommended agent policy is preview-then-approve. Deletes of accounts, items, and payments are destructive and removing stored auth tokens is credential-tier - keep both human-in-the-loop. The strongest control is the scope of the OAuth2 token you grant.
+
+### Zammad (PSA)
+
+Page: https://msp-skills.compoundingteams.com/skills/zammad/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zammad/install.sh)
+
+Ask your AI who on the support team is overloaded, which customers are aging out, who sounds ready to churn, and what customers keep asking for - and get an answer built from every ticket at once. Zammad's portal shows one ticket at a time; this reads, searches, and changes tickets and the Knowledge Base, then answers the team-management questions the API can't return in a single call.
+
+Outcomes (question -> command your AI agent runs):
+- Who on the team is overloaded, and who is idle? -> zammad-cli agent-load --json
+- Is each agent's queue growing or shrinking week over week? -> zammad-cli agent-trend --weeks 4 --json
+- Which customers are struggling and should get attention first? -> zammad-cli customer-health --at-risk --json
+- What tickets have been open too long, worst first? -> zammad-cli overdue --days 3 --json
+- Which customers sound upset and should be escalated? -> zammad-cli escalate --json
+- Which accounts are trending toward churn, and why? -> zammad-cli churn-risk --json
+- What are customers asking for around features, pricing, and compliance? -> zammad-cli feedback-scan --bucket pricing --json
+- Find open tickets (scope to a customer with organization_id:N) -> zammad-cli tickets search --query "state:open organization_id:123" --json
+- Read a ticket's full conversation -> zammad-cli articles by-ticket 12345 --json
+- Log an internal note on a ticket without opening the browser -> zammad-cli ticket note 12345 --body "Investigated, awaiting logs" --internal
+- Search the Knowledge Base before answering a customer -> zammad-cli kb search "restore" --json
+- See the whole Knowledge Base as a tree -> zammad-cli kb browse
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Zammad MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Zammad data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Does it work with my Zammad instance, self-hosted or hosted?
+A: Both. Point it at any Zammad instance with ZAMMAD_URL (for example https://support.yourcompany.com) and a personal access token in ZAMMAD_API_TOKEN, created under Profile then Token Access. Nothing is hardcoded to a specific instance.
+Q: Are the escalation, churn, and feedback signals AI sentiment analysis?
+A: No. They are transparent keyword-and-timing heuristics that surface the tickets and matched text for your AI or a human to judge. They flag candidates and show the evidence - they never claim a verdict on their own.
+
+Governance: Read commands (agent-load, customer-health, escalate, churn-risk, feedback-scan, overdue, ticket and Knowledge Base reads, search, sync) only pull data into a local mirror and are safe to allow. Routine writes (adding a ticket note, creating or updating a ticket, tagging, publishing a Knowledge Base answer) change the desk and should be previewed with --dry-run before a reviewed run. Deleting a ticket or Knowledge Base answer is destructive and should stay human-in-the-loop.

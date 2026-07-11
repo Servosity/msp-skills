@@ -1,0 +1,46 @@
+{
+  "manifest_version": "0.3",
+  "name": "zammad-pp-mcp",
+  "display_name": "Zammad",
+  "version": "0.1.0",
+  "description": "Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/zammad-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/zammad-pp-mcp",
+      "args": [],
+      "env": {
+        "ZAMMAD_API_TOKEN": "${user_config.zammad_api_token}"
+      }
+    }
+  },
+  "user_config": {
+    "zammad_api_token": {
+      "type": "string",
+      "title": "ZAMMAD_API_TOKEN",
+      "description": "Sets ZAMMAD_API_TOKEN for the Zammad MCP server.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.28.0",
+  "press_provenance": {
+    "printing_press_version": "4.28.0",
+    "generated_at": "2026-07-11T16:52:58.361606Z",
+    "spec_checksum": "sha256:e521e79949543778dfddb523bbe85f9e2d838763cb46c9f490826adee6802f77",
+    "spec_format": "internal"
+  }
+}

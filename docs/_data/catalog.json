@@ -1,5 +1,5 @@
 {
-  "count": 59,
+  "count": 60,
   "connectors": [
     {
       "slug": "abnormal",
@@ -590,6 +590,16 @@
       "verified_by": null,
       "issue_url": null,
       "url": "/skills/xero/"
+    },
+    {
+      "slug": "zammad",
+      "display_name": "Zammad",
+      "tagline": "Read, search, and triage Zammad tickets and Knowledge Base, plus team-management analytics the API can't answer in one call.",
+      "category": "PSA",
+      "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
+      "url": "/skills/zammad/"
     }
   ],
   "featured": [

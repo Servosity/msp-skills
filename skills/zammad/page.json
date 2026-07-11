@@ -1,0 +1,120 @@
+{
+  "outcome_intro": "Ask your AI who on the support team is overloaded, which customers are aging out, who sounds ready to churn, and what customers keep asking for - and get an answer built from every ticket at once. Zammad's portal shows one ticket at a time; this reads, searches, and changes tickets and the Knowledge Base, then answers the team-management questions the API can't return in a single call.",
+  "instead_of_say": [
+    {
+      "instead": "Export the ticket list, pivot it in a spreadsheet, and eyeball who has the biggest queue",
+      "say": "Who on support is overloaded right now?",
+      "cli": "zammad-cli agent-load --json"
+    },
+    {
+      "instead": "Click through every open ticket looking for the ones that are aging or where the customer sounds angry",
+      "say": "Which tickets are open too long, and which customers sound ready to escalate?",
+      "cli": "zammad-cli escalate --json"
+    },
+    {
+      "instead": "Guess which accounts are at risk from memory and a gut feel",
+      "say": "Which customers are trending toward churn?",
+      "cli": "zammad-cli churn-risk --json"
+    }
+  ],
+  "pain_points": [
+    "The Zammad dashboard and overviews answer 'what is in this queue' but never 'who is overloaded, which customer is aging out, and who is about to churn' - a support lead ends up exporting tickets and rebuilding those answers by hand every week.",
+    "Sentiment and 'what are customers asking for' live buried in thousands of ticket articles; there is no report that surfaces the upset threads or buckets feature/pricing/compliance requests, so those signals only surface after a customer has already left."
+  ],
+  "outcomes": [
+    {
+      "question": "Who on the team is overloaded, and who is idle?",
+      "command": "zammad-cli agent-load --json"
+    },
+    {
+      "question": "Is each agent's queue growing or shrinking week over week?",
+      "command": "zammad-cli agent-trend --weeks 4 --json"
+    },
+    {
+      "question": "Which customers are struggling and should get attention first?",
+      "command": "zammad-cli customer-health --at-risk --json"
+    },
+    {
+      "question": "What tickets have been open too long, worst first?",
+      "command": "zammad-cli overdue --days 3 --json"
+    },
+    {
+      "question": "Which customers sound upset and should be escalated?",
+      "command": "zammad-cli escalate --json"
+    },
+    {
+      "question": "Which accounts are trending toward churn, and why?",
+      "command": "zammad-cli churn-risk --json"
+    },
+    {
+      "question": "What are customers asking for around features, pricing, and compliance?",
+      "command": "zammad-cli feedback-scan --bucket pricing --json"
+    },
+    {
+      "question": "Find open tickets (scope to a customer with organization_id:N)",
+      "command": "zammad-cli tickets search --query \"state:open organization_id:123\" --json"
+    },
+    {
+      "question": "Read a ticket's full conversation",
+      "command": "zammad-cli articles by-ticket 12345 --json"
+    },
+    {
+      "question": "Log an internal note on a ticket without opening the browser",
+      "command": "zammad-cli ticket note 12345 --body \"Investigated, awaiting logs\" --internal"
+    },
+    {
+      "question": "Search the Knowledge Base before answering a customer",
+      "command": "zammad-cli kb search \"restore\" --json"
+    },
+    {
+      "question": "See the whole Knowledge Base as a tree",
+      "command": "zammad-cli kb browse"
+    }
+  ],
+  "different_vs_wrappers": "Most Zammad integrations proxy each question straight into a live API call, so 'who is overloaded' or 'which customers are at risk' is impossible - the API has no endpoint that aggregates across every ticket. This syncs your tickets, articles, organizations, and users into a local mirror, then answers those cross-ticket questions with local joins that are instant, offline, and cost nothing per query.",
+  "different_vs_vendor": "Zammad's own AI features (ticket summary, writing assistant) work inside a single ticket; this works across the whole desk - team load, aging backlog, customer health, churn signals, and feedback themes - and pipes structured JSON straight to the AI agent you already use.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Zammad MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Zammad data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Does it work with my Zammad instance, self-hosted or hosted?",
+      "a": "Both. Point it at any Zammad instance with ZAMMAD_URL (for example https://support.yourcompany.com) and a personal access token in ZAMMAD_API_TOKEN, created under Profile then Token Access. Nothing is hardcoded to a specific instance."
+    },
+    {
+      "q": "Are the escalation, churn, and feedback signals AI sentiment analysis?",
+      "a": "No. They are transparent keyword-and-timing heuristics that surface the tickets and matched text for your AI or a human to judge. They flag candidates and show the evidence - they never claim a verdict on their own."
+    }
+  ],
+  "governance_summary": "Read commands (agent-load, customer-health, escalate, churn-risk, feedback-scan, overdue, ticket and Knowledge Base reads, search, sync) only pull data into a local mirror and are safe to allow. Routine writes (adding a ticket note, creating or updating a ticket, tagging, publishing a Knowledge Base answer) change the desk and should be previewed with --dry-run before a reviewed run. Deleting a ticket or Knowledge Base answer is destructive and should stay human-in-the-loop.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "agent-load, agent-trend, customer-health, overdue, escalate, churn-risk, feedback-scan, tickets search/get, articles by-ticket, kb browse/search/get, search, sync",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "ticket note, tickets create/update, articles create, tags add/remove, organizations create/update, users create/update, kb answer-create/publish/internal, kb category-create",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "tickets delete, kb answer-delete",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}
