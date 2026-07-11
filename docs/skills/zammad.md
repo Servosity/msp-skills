@@ -22,7 +22,7 @@ faqs:
   - q: "Does it work with my Zammad instance, self-hosted or hosted?"
     a: "Both. Point it at any Zammad instance with ZAMMAD_URL (for example https://support.yourcompany.com) and a personal access token in ZAMMAD_API_TOKEN, created under Profile then Token Access. Nothing is hardcoded to a specific instance."
   - q: "Are the escalation, churn, and feedback signals AI sentiment analysis?"
-    a: "No. They are transparent keyword-and-timing heuristics that surface the tickets and matched text for your AI or a human to judge. They flag candidates and show the evidence \u2014 they never claim a verdict on their own."
+    a: "No. They are transparent keyword-and-timing heuristics that surface the tickets and matched text for your AI or a human to judge. They flag candidates and show the evidence - they never claim a verdict on their own."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/zammad/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/zammad/install.ps1 | iex"
@@ -42,7 +42,7 @@ howto:
 
 Yes - there is an MCP server for Zammad. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Zammad to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-Ask your AI who on the support team is overloaded, which customers are aging out, who sounds ready to churn, and what customers keep asking for — and get an answer built from every ticket at once. Zammad's portal shows one ticket at a time; this reads, searches, and changes tickets and the Knowledge Base, then answers the team-management questions the API can't return in a single call.
+Ask your AI who on the support team is overloaded, which customers are aging out, who sounds ready to churn, and what customers keep asking for - and get an answer built from every ticket at once. Zammad's portal shows one ticket at a time; this reads, searches, and changes tickets and the Knowledge Base, then answers the team-management questions the API can't return in a single call.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -90,13 +90,13 @@ Full command reference at [github.com/servosity/msp-skills/blob/main/skills/zamm
 
 ## What makes this one different
 
-Most Zammad integrations proxy each question straight into a live API call, so 'who is overloaded' or 'which customers are at risk' is impossible — the API has no endpoint that aggregates across every ticket. This syncs your tickets, articles, organizations, and users into a local mirror, then answers those cross-ticket questions with local joins that are instant, offline, and cost nothing per query.
+Most Zammad integrations proxy each question straight into a live API call, so 'who is overloaded' or 'which customers are at risk' is impossible - the API has no endpoint that aggregates across every ticket. This syncs your tickets, articles, organizations, and users into a local mirror, then answers those cross-ticket questions with local joins that are instant, offline, and cost nothing per query.
 
-Zammad's own AI features (ticket summary, writing assistant) work inside a single ticket; this works across the whole desk — team load, aging backlog, customer health, churn signals, and feedback themes — and pipes structured JSON straight to the AI agent you already use.
+Zammad's own AI features (ticket summary, writing assistant) work inside a single ticket; this works across the whole desk - team load, aging backlog, customer health, churn signals, and feedback themes - and pipes structured JSON straight to the AI agent you already use.
 
 ## The pain this closes
 
-- The Zammad dashboard and overviews answer 'what is in this queue' but never 'who is overloaded, which customer is aging out, and who is about to churn' — a support lead ends up exporting tickets and rebuilding those answers by hand every week.
+- The Zammad dashboard and overviews answer 'what is in this queue' but never 'who is overloaded, which customer is aging out, and who is about to churn' - a support lead ends up exporting tickets and rebuilding those answers by hand every week.
 - Sentiment and 'what are customers asking for' live buried in thousands of ticket articles; there is no report that surfaces the upset threads or buckets feature/pricing/compliance requests, so those signals only surface after a customer has already left.
 
 ## Install
@@ -169,7 +169,7 @@ Both. Point it at any Zammad instance with ZAMMAD_URL (for example https://suppo
 
 ### Are the escalation, churn, and feedback signals AI sentiment analysis?
 
-No. They are transparent keyword-and-timing heuristics that surface the tickets and matched text for your AI or a human to judge. They flag candidates and show the evidence — they never claim a verdict on their own.
+No. They are transparent keyword-and-timing heuristics that surface the tickets and matched text for your AI or a human to judge. They flag candidates and show the evidence - they never claim a verdict on their own.
 
 
 ## More PSA connectors

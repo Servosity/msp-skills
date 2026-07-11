@@ -161,19 +161,19 @@ Full command reference: [guide.md](./guide.md). For the AI-agent operating contr
 
 ## What makes this different
 
-Most Zammad integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "who on the team is overloaded across every open ticket" or "which of our customers have the most aging, angriest threads this quarter" — questions the Zammad API has no single endpoint for.
+Most Zammad integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "who on the team is overloaded across every open ticket" or "which of our customers have the most aging, angriest threads this quarter" - questions the Zammad API has no single endpoint for.
 
-This skill syncs Zammad into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `agent-load`, `churn-risk`, and `feedback-scan` join across tickets, articles, organizations, and users — work a stateless API wrapper can't do.
+This skill syncs Zammad into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `agent-load`, `churn-risk`, and `feedback-scan` join across tickets, articles, organizations, and users - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-The recurring complaint about ticketing tools on r/msp is the same: dashboards tell you what's *in* a queue but never roll up *across* tickets — per-agent load, which customers keep reopening, which accounts are quietly heading for the exit. So the weekly ritual is exporting tickets to a spreadsheet and rebuilding those answers by hand, while the two signals that actually predict churn — a customer who sounds fed up, and feature/pricing/compliance asks buried in article threads — never surface until the account is already gone.
+The recurring complaint about ticketing tools on r/msp is the same: dashboards tell you what's *in* a queue but never roll up *across* tickets - per-agent load, which customers keep reopening, which accounts are quietly heading for the exit. So the weekly ritual is exporting tickets to a spreadsheet and rebuilding those answers by hand, while the two signals that actually predict churn - a customer who sounds fed up, and feature/pricing/compliance asks buried in article threads - never surface until the account is already gone.
 
-- `zammad-cli agent-load` — who's overloaded now, open/pending/backlog per agent.
-- `zammad-cli overdue --days 3` — every ticket open too long, priority-weighted, worst first.
-- `zammad-cli escalate` — active tickets whose inbound customer messages read as upset, with the matched text shown.
-- `zammad-cli churn-risk` — accounts trending toward churn, scored with the reasons listed.
-- `zammad-cli feedback-scan --bucket pricing` — what customers keep asking for, bucketed with source tickets.
+- `zammad-cli agent-load` - who's overloaded now, open/pending/backlog per agent.
+- `zammad-cli overdue --days 3` - every ticket open too long, priority-weighted, worst first.
+- `zammad-cli escalate` - active tickets whose inbound customer messages read as upset, with the matched text shown.
+- `zammad-cli churn-risk` - accounts trending toward churn, scored with the reasons listed.
+- `zammad-cli feedback-scan --bucket pricing` - what customers keep asking for, bucketed with source tickets.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -201,11 +201,11 @@ Both. Point it at any Zammad instance with `ZAMMAD_URL` (for example `https://su
 
 ### How is this different from Zammad's built-in AI features?
 
-Zammad's AI (ticket summary, writing assistant) works inside a single ticket. This works across the whole desk — team load, aging backlog, customer health, churn signals, and feedback themes — and hands structured JSON to the AI agent you already use.
+Zammad's AI (ticket summary, writing assistant) works inside a single ticket. This works across the whole desk - team load, aging backlog, customer health, churn signals, and feedback themes - and hands structured JSON to the AI agent you already use.
 
 ### Are the escalation, churn, and feedback signals AI sentiment analysis?
 
-No. They're transparent keyword-and-timing heuristics that surface the tickets and the matched text for your AI or a human to judge. They flag candidates and show the evidence — they never claim a verdict on their own.
+No. They're transparent keyword-and-timing heuristics that surface the tickets and the matched text for your AI or a human to judge. They flag candidates and show the evidence - they never claim a verdict on their own.
 
 ### What does it cost?
 

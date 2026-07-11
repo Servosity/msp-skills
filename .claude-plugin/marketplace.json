@@ -57,7 +57,7 @@
       "name": "connectwise-manage",
       "source": "./skills/connectwise-manage",
       "description": "Every ConnectWise PSA workflow from the terminal \u2014 with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "psa",
       "tags": [
         "connectwise-manage",
@@ -199,7 +199,7 @@
       "name": "ninjaone",
       "source": "./skills/ninjaone",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "rmm",
       "tags": [
         "ninjaone",

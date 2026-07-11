@@ -215,6 +215,36 @@
       "file": "skills/aws-billing/cli/internal/client/client.go",
       "rule": "G306",
       "reason": "aws-billing (generated). os.WriteFile 0o644 for a local HTTP response-cache file (non-secret cost data) under the user's own cache dir. Local, user-owned; same class as the client.go G304 fleet suppression."
+    },
+    {
+      "file": "cli/internal/store/learnings.go",
+      "rule": "G202",
+      "reason": "FLEET (generated, printing-press v4.28 self-learning loop). DELETE query is built from HARDCODED constant clause strings (\"query_pattern = ?\", \"resource_id = ?\", \"action = ?\") joined with AND; every value is bound via a `?` placeholder in args. No user input reaches the SQL text. gosec G202 flags the strings.Join concat pattern; parameterization makes it safe."
+    },
+    {
+      "file": "cli/internal/learn/teach_log.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). os.OpenFile on an app-determined path from teachErrLogPath()/learningsAuditPath() under the user's own config/cache dir; not user-controlled. Same class as the accepted cli/internal/client/client.go G304 entry."
+    },
+    {
+      "file": "cli/internal/learn/playbooks.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). Reads/writes the local learning playbooks file at an app-determined path under the user's own config dir; no untrusted path input."
+    },
+    {
+      "file": "cli/internal/cli/teach_playbook.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). Opens the local playbook JSON at an app-determined config-dir path; no untrusted path input."
+    },
+    {
+      "file": "cli/internal/cli/teach.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). Appends to the local teach.log / learnings audit JSONL at app-determined config-dir paths (teachErrLogPath / learningsAuditPath); not user-controlled."
+    },
+    {
+      "file": "cli/internal/learn/journal.go",
+      "rule": "G117",
+      "reason": "FLEET (generated). The marshaled struct field SessionKey is a local journal SESSION IDENTIFIER (JournalSessionKey()), not a credential; gosec G117 name-matches the field name against a secret pattern. No secret is serialized."
     }
   ]
 }

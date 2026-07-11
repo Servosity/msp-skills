@@ -60,7 +60,11 @@ echo "==> 5. No real production-tenant transaction counts in human-authored file
 # comma so this guard never contains the strings it bans (same trick as guards
 # 1-2). Use a generic phrasing ("the full book") instead of real totals.
 cma=$(printf ',')
-counts="44${cma}?211|17${cma}?940|16${cma}?863"
+# Word-boundary anchored so the counts only match as standalone numbers in
+# prose, not as an incidental digit run inside a longer token (e.g. one of
+# the banned counts surfacing by chance inside the hex of a sha256 hash in a
+# generated data file).
+counts="\\b(44${cma}?211|17${cma}?940|16${cma}?863)\\b"
 if human_files | xargs grep -nIE "$counts" 2>/dev/null; then
   note "real production-tenant transaction count found; replace with generic phrasing (e.g. 'the full book')"
   fail=1

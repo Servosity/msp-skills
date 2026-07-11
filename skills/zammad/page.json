@@ -1,5 +1,5 @@
 {
-  "outcome_intro": "Ask your AI who on the support team is overloaded, which customers are aging out, who sounds ready to churn, and what customers keep asking for — and get an answer built from every ticket at once. Zammad's portal shows one ticket at a time; this reads, searches, and changes tickets and the Knowledge Base, then answers the team-management questions the API can't return in a single call.",
+  "outcome_intro": "Ask your AI who on the support team is overloaded, which customers are aging out, who sounds ready to churn, and what customers keep asking for - and get an answer built from every ticket at once. Zammad's portal shows one ticket at a time; this reads, searches, and changes tickets and the Knowledge Base, then answers the team-management questions the API can't return in a single call.",
   "instead_of_say": [
     {
       "instead": "Export the ticket list, pivot it in a spreadsheet, and eyeball who has the biggest queue",
@@ -18,7 +18,7 @@
     }
   ],
   "pain_points": [
-    "The Zammad dashboard and overviews answer 'what is in this queue' but never 'who is overloaded, which customer is aging out, and who is about to churn' — a support lead ends up exporting tickets and rebuilding those answers by hand every week.",
+    "The Zammad dashboard and overviews answer 'what is in this queue' but never 'who is overloaded, which customer is aging out, and who is about to churn' - a support lead ends up exporting tickets and rebuilding those answers by hand every week.",
     "Sentiment and 'what are customers asking for' live buried in thousands of ticket articles; there is no report that surfaces the upset threads or buckets feature/pricing/compliance requests, so those signals only surface after a customer has already left."
   ],
   "outcomes": [
@@ -71,8 +71,8 @@
       "command": "zammad-cli kb browse"
     }
   ],
-  "different_vs_wrappers": "Most Zammad integrations proxy each question straight into a live API call, so 'who is overloaded' or 'which customers are at risk' is impossible — the API has no endpoint that aggregates across every ticket. This syncs your tickets, articles, organizations, and users into a local mirror, then answers those cross-ticket questions with local joins that are instant, offline, and cost nothing per query.",
-  "different_vs_vendor": "Zammad's own AI features (ticket summary, writing assistant) work inside a single ticket; this works across the whole desk — team load, aging backlog, customer health, churn signals, and feedback themes — and pipes structured JSON straight to the AI agent you already use.",
+  "different_vs_wrappers": "Most Zammad integrations proxy each question straight into a live API call, so 'who is overloaded' or 'which customers are at risk' is impossible - the API has no endpoint that aggregates across every ticket. This syncs your tickets, articles, organizations, and users into a local mirror, then answers those cross-ticket questions with local joins that are instant, offline, and cost nothing per query.",
+  "different_vs_vendor": "Zammad's own AI features (ticket summary, writing assistant) work inside a single ticket; this works across the whole desk - team load, aging backlog, customer health, churn signals, and feedback themes - and pipes structured JSON straight to the AI agent you already use.",
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
@@ -96,7 +96,7 @@
     },
     {
       "q": "Are the escalation, churn, and feedback signals AI sentiment analysis?",
-      "a": "No. They are transparent keyword-and-timing heuristics that surface the tickets and matched text for your AI or a human to judge. They flag candidates and show the evidence — they never claim a verdict on their own."
+      "a": "No. They are transparent keyword-and-timing heuristics that surface the tickets and matched text for your AI or a human to judge. They flag candidates and show the evidence - they never claim a verdict on their own."
     }
   ],
   "governance_summary": "Read commands (agent-load, customer-health, escalate, churn-risk, feedback-scan, overdue, ticket and Knowledge Base reads, search, sync) only pull data into a local mirror and are safe to allow. Routine writes (adding a ticket note, creating or updating a ticket, tagging, publishing a Knowledge Base answer) change the desk and should be previewed with --dry-run before a reviewed run. Deleting a ticket or Knowledge Base answer is destructive and should stay human-in-the-loop.",
