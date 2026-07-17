@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-11",
+  "generated_at": "2026-07-17",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -496,7 +496,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hudu/install.sh)",
       "install_mcp_doc": "skills/hudu/mcp-install.md",
       "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "Documentation",
       "tagline": "Audit Hudu documentation hygiene, find stale passwords and expiring certs, and search every company offline."
     },

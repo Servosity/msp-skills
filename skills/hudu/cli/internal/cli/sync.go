@@ -5,6 +5,7 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -482,7 +484,7 @@ func syncResource(ctx context.Context, c interface {
 	var progressCount int64
 	pagesFetched := 0
 	lastNextCursor := ""
-	lastPageFingerprint := "" // #158: page-int walk dup guard (page-ignoring endpoint)
+	seenPageFingerprints := map[string]struct{}{} // #158: page-int walk dup guard (page-ignoring endpoint)
 	capExitHit := false
 	capExitCursor := ""
 	// extractFailureTotal accumulates per-item primary-key extraction
@@ -572,13 +574,21 @@ func syncResource(ctx context.Context, c interface {
 			// --max-pages defaults to 0 (unlimited), so without this guard a
 			// page-ignoring endpoint loops forever. Leaving nextCursor "" ends
 			// the walk naturally and emits the missing-cursor truncation warning.
-			fp := pageFingerprint(items)
+			fp := pageFingerprint(resource, items)
 			currentPage, _ := strconv.Atoi(cursor)
 			if currentPage < 1 {
 				currentPage = 1
 			}
-			if fp != lastPageFingerprint && currentPage < pageIntWalkCeiling {
-				lastPageFingerprint = fp
+			// #183: a page-ignoring endpoint returns the same complete collection
+			// for page 2. Stop before upserting the repeated page so totals count
+			// distinct stored rows. Keep the first validation fetch instead of
+			// hard-coding the endpoint as non-paginated, which preserves complete
+			// paging if another Hudu deployment honors page/page_size.
+			if _, repeated := seenPageFingerprints[fp]; repeated {
+				break
+			}
+			if currentPage < pageIntWalkCeiling {
+				seenPageFingerprints[fp] = struct{}{}
 				nextCursor = strconv.Itoa(currentPage + 1)
 				hasMore = true
 			}
@@ -776,6 +786,19 @@ func syncResource(ctx context.Context, c interface {
 		cursor = nextCursor
 	}
 
+	// #183: UpsertBatch reports successful writes, including conflict updates.
+	// procedure-tasks can return a complete collection on every page, and real
+	// paginated responses may overlap or update IDs already present in SQLite.
+	// Reconcile this resource's completion metric to the authoritative cache row
+	// count so sync_complete.total and syncResult.Count report distinct stored IDs.
+	if resource == "procedure-tasks" {
+		storedCount, err := db.Count(resource)
+		if err != nil {
+			return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("counting stored %s: %w", resource, err), Duration: time.Since(started)}
+		}
+		totalCount = storedCount
+	}
+
 	// Final sync state: clear cursor on natural completion, but preserve the
 	// resume cursor when an operator intentionally capped the page budget.
 	finalCursor := ""
@@ -904,14 +927,51 @@ func resourceSupportsPagination(resource string) bool {
 // collection, so it never caps legitimate pagination.
 const pageIntWalkCeiling = 10000
 
-// pageFingerprint returns a cheap byte-identity for a page of items so the
-// page-int fallback (#158) can detect an endpoint that ignores the `page` param
-// and re-returns the same collection on every request.
-func pageFingerprint(items []json.RawMessage) string {
+// pageFingerprint returns a stable identity for a page so the page-int fallback
+// (#158) can detect an endpoint that ignores page and re-returns the same IDs.
+// Sorting the extracted primary keys makes the identity independent of item
+// order, field updates, and JSON serialization. If any key cannot be extracted,
+// hash the complete raw page instead; unlike the old first/last shortcut, that
+// fallback cannot silently equate pages whose middle items differ.
+func pageFingerprint(resource string, items []json.RawMessage) string {
 	if len(items) == 0 {
 		return ""
 	}
-	return strconv.Itoa(len(items)) + "|" + string(items[0]) + "|" + string(items[len(items)-1])
+
+	ids := make([]string, 0, len(items))
+	allIDs := true
+	for _, item := range items {
+		obj, err := store.DecodeJSONObject(item)
+		if err != nil {
+			allIDs = false
+			break
+		}
+		id := extractID(resource, obj)
+		if id == "" {
+			allIDs = false
+			break
+		}
+		ids = append(ids, id)
+	}
+
+	var payload []byte
+	prefix := "raw:"
+	if allIDs {
+		sort.Strings(ids)
+		payload, _ = json.Marshal(ids) // []string cannot fail to marshal.
+		prefix = "ids:"
+	} else {
+		var raw strings.Builder
+		for _, item := range items {
+			raw.WriteString(strconv.Itoa(len(item)))
+			raw.WriteByte(':')
+			raw.Write(item)
+		}
+		payload = []byte(raw.String())
+	}
+
+	sum := sha256.Sum256(payload)
+	return prefix + fmt.Sprintf("%x", sum)
 }
 
 // resourceRejectsPageSize lists the Hudu IPAM-family list endpoints that are

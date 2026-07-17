@@ -10,6 +10,8 @@
 //   - #167: /relations 500s when walked at the global page_size=100, so sync
 //     must page it at 25 (resourcePageSize override), not the global default.
 //   - #169: sync --exclude drops named resources from the effective set.
+//   - #183: /procedure_tasks ignores page and page_size, so sync discards the
+//     repeated page before upsert and reports the distinct stored-row count.
 // A reprint that drops this file is caught by skills/hudu/handfixes.json — do
 // not remove without porting the fixes.
 
@@ -38,6 +40,112 @@ func TestResourceRejectsPageSize(t *testing.T) {
 		if resourceRejectsPageSize(r) {
 			t.Errorf("resourceRejectsPageSize(%q) = true, want false (endpoint paginates normally)", r)
 		}
+	}
+}
+
+// TestSyncResource_ProcedureTasks_IgnoredPaginationSkipsDuplicateUpsert pins #183.
+// Hudu ignores page and page_size on /procedure_tasks and returns the complete
+// collection each time. The second response deliberately changes ordering and
+// fields to prove duplicate detection uses primary keys rather than raw bytes.
+func TestSyncResource_ProcedureTasks_IgnoredPaginationSkipsDuplicateUpsert(t *testing.T) {
+	db := openSyncTestDB(t)
+	defer db.Close()
+
+	want := determinePaginationDefaults().limit + 21
+	c := &recordingClient{pages: [][]byte{
+		makeNamedPage(1, want, false, "first"),
+		makeNamedPage(1, want, true, "updated"),
+	}}
+	res := syncResource(context.Background(), c, db, "procedure-tasks", "", true, 0, false, nil, nil)
+	if res.Err != nil {
+		t.Fatalf("syncResource returned error: %v", res.Err)
+	}
+	if len(c.seen) != 2 {
+		t.Fatalf("made %d requests, want 2 (page 2 validates that pagination is ignored)", len(c.seen))
+	}
+	if res.Count != want {
+		t.Errorf("sync result count = %d, want %d distinct rows", res.Count, want)
+	}
+	if n := countRows(t, db, "procedure-tasks"); n != want {
+		t.Errorf("stored %d rows, want %d", n, want)
+	}
+	if name := storedName(t, db, "procedure-tasks", "1"); name != "first-1" {
+		t.Errorf("stored name = %q, want first-1 (repeated page must be skipped before upsert)", name)
+	}
+}
+
+// TestPageFingerprintIncludesEveryPrimaryKey guards against truncating a real
+// page whose first and last items match a prior page while middle IDs differ.
+func TestPageFingerprintIncludesEveryPrimaryKey(t *testing.T) {
+	first := []json.RawMessage{
+		json.RawMessage(`{"id":"shared-first"}`),
+		json.RawMessage(`{"id":"middle-a"}`),
+		json.RawMessage(`{"id":"shared-last"}`),
+	}
+	second := []json.RawMessage{
+		json.RawMessage(`{"id":"shared-first"}`),
+		json.RawMessage(`{"id":"middle-b"}`),
+		json.RawMessage(`{"id":"shared-last"}`),
+	}
+	if pageFingerprint("procedure-tasks", first) == pageFingerprint("procedure-tasks", second) {
+		t.Fatal("pages with different middle primary keys produced the same fingerprint")
+	}
+}
+
+// TestSyncResource_ProcedureTasks_TotalIncludesExistingRows proves the reported
+// completion total is the SQLite row count, not the number of upsert attempts.
+func TestSyncResource_ProcedureTasks_TotalIncludesExistingRows(t *testing.T) {
+	db := openSyncTestDB(t)
+	defer db.Close()
+
+	seed := []json.RawMessage{
+		json.RawMessage(`{"id":"existing-fetched","name":"old"}`),
+		json.RawMessage(`{"id":"existing-unfetched"}`),
+	}
+	if _, _, err := db.UpsertBatch("procedure-tasks", seed); err != nil {
+		t.Fatalf("seed procedure-tasks: %v", err)
+	}
+
+	c := &recordingClient{pages: [][]byte{
+		[]byte(`[{"id":"existing-fetched","name":"new"},{"id":"new"}]`),
+	}}
+	res := syncResource(context.Background(), c, db, "procedure-tasks", "", true, 0, false, nil, nil)
+	if res.Err != nil {
+		t.Fatalf("syncResource returned error: %v", res.Err)
+	}
+	if res.Count != 3 {
+		t.Errorf("sync result count = %d, want 3 distinct cached rows", res.Count)
+	}
+	if n := countRows(t, db, "procedure-tasks"); n != res.Count {
+		t.Errorf("stored %d rows, reported %d", n, res.Count)
+	}
+}
+
+// TestSyncResource_ProcedureTasks_PaginatedDeploymentStillDrainsPages guards
+// the compatibility side of #183. A Hudu deployment that honors page/page_size
+// must still walk distinct pages rather than being hard-coded to one response.
+func TestSyncResource_ProcedureTasks_PaginatedDeploymentStillDrainsPages(t *testing.T) {
+	db := openSyncTestDB(t)
+	defer db.Close()
+
+	limit := determinePaginationDefaults().limit
+	c := &recordingClient{pages: [][]byte{
+		makePage(1, limit),
+		makePage(limit+1, 21),
+	}}
+	res := syncResource(context.Background(), c, db, "procedure-tasks", "", true, 0, false, nil, nil)
+	if res.Err != nil {
+		t.Fatalf("syncResource returned error: %v", res.Err)
+	}
+	if len(c.seen) != 2 {
+		t.Fatalf("made %d requests, want 2 distinct pages", len(c.seen))
+	}
+	want := limit + 21
+	if res.Count != want {
+		t.Errorf("sync result count = %d, want %d", res.Count, want)
+	}
+	if n := countRows(t, db, "procedure-tasks"); n != want {
+		t.Errorf("stored %d rows, want %d", n, want)
 	}
 }
 
@@ -173,6 +281,35 @@ func TestSyncResource_PageIgnoringEndpoint_FingerprintTerminates(t *testing.T) {
 	}
 	if n := countRows(t, db, "companies"); n != limit {
 		t.Errorf("stored %d distinct rows, want %d", n, limit)
+	}
+}
+
+// TestSyncResource_PageFingerprintTerminatesMultiPageCycle verifies that the
+// guard remembers every page in the current walk, not only the immediately
+// previous page. The repeated A page changes ordering and non-key fields, and
+// must be rejected before it can overwrite the first A page's cached values.
+func TestSyncResource_PageFingerprintTerminatesMultiPageCycle(t *testing.T) {
+	db := openSyncTestDB(t)
+	defer db.Close()
+
+	limit := determinePaginationDefaults().limit
+	c := &recordingClient{pages: [][]byte{
+		makeNamedPage(1, limit, false, "first"),
+		makeNamedPage(limit+1, limit, false, "second"),
+		makeNamedPage(1, limit, true, "repeat"),
+	}}
+	res := syncResource(context.Background(), c, db, "companies", "", true, 0, false, nil, nil)
+	if res.Err != nil {
+		t.Fatalf("syncResource returned error: %v", res.Err)
+	}
+	if len(c.seen) != 3 {
+		t.Fatalf("made %d requests, want 3 for A-B-A cycle", len(c.seen))
+	}
+	if n := countRows(t, db, "companies"); n != 2*limit {
+		t.Errorf("stored %d rows, want %d", n, 2*limit)
+	}
+	if name := storedName(t, db, "companies", "1"); name != "first-1" {
+		t.Errorf("stored name = %q, want first-1 (repeated A page must be skipped before upsert)", name)
 	}
 }
 
@@ -315,6 +452,23 @@ func countRows(t *testing.T, db *store.Store, resource string) int {
 	return n
 }
 
+func storedName(t *testing.T, db *store.Store, resource, id string) string {
+	t.Helper()
+	var data string
+	if err := db.DB().QueryRow(
+		`SELECT data FROM resources WHERE resource_type = ? AND id = ?`, resource, id,
+	).Scan(&data); err != nil {
+		t.Fatalf("read stored %s/%s: %v", resource, id, err)
+	}
+	var item struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal([]byte(data), &item); err != nil {
+		t.Fatalf("decode stored %s/%s: %v", resource, id, err)
+	}
+	return item.Name
+}
+
 // makePage builds a JSON array of n objects with sequential integer ids
 // starting at start — used to synthesize full/short pages for the page walk.
 func makePage(start, n int) []byte {
@@ -325,6 +479,26 @@ func makePage(start, n int) []byte {
 			b.WriteByte(',')
 		}
 		fmt.Fprintf(&b, `{"id":%d}`, start+i)
+	}
+	b.WriteByte(']')
+	return []byte(b.String())
+}
+
+// makeNamedPage builds the same primary-key set in forward or reverse order.
+// The label changes non-key fields so semantic duplicate tests do not depend on
+// byte-identical responses.
+func makeNamedPage(start, n int, reverse bool, label string) []byte {
+	var b strings.Builder
+	b.WriteByte('[')
+	for i := 0; i < n; i++ {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		id := start + i
+		if reverse {
+			id = start + n - i - 1
+		}
+		fmt.Fprintf(&b, `{"id":%d,"name":"%s-%d"}`, id, label, id)
 	}
 	b.WriteByte(']')
 	return []byte(b.String())

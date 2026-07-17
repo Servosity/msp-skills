@@ -5,7 +5,7 @@ description: "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity aud
 permalink: /skills/hudu/
 skill_name: "Hudu MCP"
 image: /assets/social/hudu/wide-1200x630.png
-verification: awaiting
+verification: live-verified
 faqs:
   - q: "Is there an MCP server for Hudu?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Hudu, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
@@ -36,7 +36,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Hudu Technologies, Inc..
 
-**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+**✓ Live-verified by @Xenith-B (MSP)** against a production tenant · 2026-07-17 · [receipt →](https://github.com/Servosity/msp-skills/issues/183).
 
 Yes - there is an MCP server for Hudu. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Hudu to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
