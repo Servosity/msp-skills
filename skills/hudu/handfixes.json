@@ -79,7 +79,8 @@
         {"file": "cli/internal/cli/sync.go", "contains": "if resource == \"procedure-tasks\"", "min_count": 1},
         {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_ProcedureTasks_IgnoredPaginationSkipsDuplicateUpsert", "min_count": 1},
         {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_ProcedureTasks_PaginatedDeploymentStillDrainsPages", "min_count": 1},
-        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_ProcedureTasks_TotalIncludesExistingRows", "min_count": 1}
+        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_ProcedureTasks_TotalIncludesExistingRows", "min_count": 1},
+        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_PageFingerprintTerminatesMultiPageCycle", "min_count": 1}
       ]
     },
     {

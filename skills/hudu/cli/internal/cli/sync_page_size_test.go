@@ -69,6 +69,9 @@ func TestSyncResource_ProcedureTasks_IgnoredPaginationSkipsDuplicateUpsert(t *te
 	if n := countRows(t, db, "procedure-tasks"); n != want {
 		t.Errorf("stored %d rows, want %d", n, want)
 	}
+	if name := storedName(t, db, "procedure-tasks", "1"); name != "first-1" {
+		t.Errorf("stored name = %q, want first-1 (repeated page must be skipped before upsert)", name)
+	}
 }
 
 // TestPageFingerprintIncludesEveryPrimaryKey guards against truncating a real
@@ -281,6 +284,35 @@ func TestSyncResource_PageIgnoringEndpoint_FingerprintTerminates(t *testing.T) {
 	}
 }
 
+// TestSyncResource_PageFingerprintTerminatesMultiPageCycle verifies that the
+// guard remembers every page in the current walk, not only the immediately
+// previous page. The repeated A page changes ordering and non-key fields, and
+// must be rejected before it can overwrite the first A page's cached values.
+func TestSyncResource_PageFingerprintTerminatesMultiPageCycle(t *testing.T) {
+	db := openSyncTestDB(t)
+	defer db.Close()
+
+	limit := determinePaginationDefaults().limit
+	c := &recordingClient{pages: [][]byte{
+		makeNamedPage(1, limit, false, "first"),
+		makeNamedPage(limit+1, limit, false, "second"),
+		makeNamedPage(1, limit, true, "repeat"),
+	}}
+	res := syncResource(context.Background(), c, db, "companies", "", true, 0, false, nil, nil)
+	if res.Err != nil {
+		t.Fatalf("syncResource returned error: %v", res.Err)
+	}
+	if len(c.seen) != 3 {
+		t.Fatalf("made %d requests, want 3 for A-B-A cycle", len(c.seen))
+	}
+	if n := countRows(t, db, "companies"); n != 2*limit {
+		t.Errorf("stored %d rows, want %d", n, 2*limit)
+	}
+	if name := storedName(t, db, "companies", "1"); name != "first-1" {
+		t.Errorf("stored name = %q, want first-1 (repeated A page must be skipped before upsert)", name)
+	}
+}
+
 // TestSyncResource_Matchers_SkippedWithoutIntegrationID pins the #159 fix: a
 // flat sync must not call /matchers without an integration_id (Hudu 500s), so
 // the resource is skipped with a warning and zero API requests.
@@ -418,6 +450,23 @@ func countRows(t *testing.T, db *store.Store, resource string) int {
 		t.Fatalf("count rows: %v", err)
 	}
 	return n
+}
+
+func storedName(t *testing.T, db *store.Store, resource, id string) string {
+	t.Helper()
+	var data string
+	if err := db.DB().QueryRow(
+		`SELECT data FROM resources WHERE resource_type = ? AND id = ?`, resource, id,
+	).Scan(&data); err != nil {
+		t.Fatalf("read stored %s/%s: %v", resource, id, err)
+	}
+	var item struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal([]byte(data), &item); err != nil {
+		t.Fatalf("decode stored %s/%s: %v", resource, id, err)
+	}
+	return item.Name
 }
 
 // makePage builds a JSON array of n objects with sequential integer ids
