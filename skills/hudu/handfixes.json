@@ -69,6 +69,20 @@
       ]
     },
     {
+      "id": "procedure-tasks-duplicate-page-before-upsert",
+      "summary": "procedure-tasks sync detects a repeated primary-key set before upsert and reconciles sync_complete.total to distinct stored rows",
+      "why": "Issue #183 confirmed on a live Hudu tenant that /procedure_tasks ignores page and page_size. The generated page-int walk fetched the complete collection, requested page 2, received the collection again, and upserted every row before the duplicate fingerprint stopped the loop. sync_complete.total therefore counted successful conflict updates while the unique-ID cache correctly contained one set of rows. The duplicate guard now compares the complete sorted primary-key set before upsert, preserving the validation request for deployments that honor pagination and handling response reordering or field updates. The completion metric is reconciled to SQLite so overlapping pages and pre-existing rows cannot inflate or understate the stored-row count. A reprint restores the duplicate upsert and misleading metric.",
+      "status": "active",
+      "spec_encode_followup": "Press gap: the profiler must support per-endpoint pagination shape, including endpoints that accept but ignore pagination parameters and return the complete collection. Track with upstream issue #3481.",
+      "asserts": [
+        {"file": "cli/internal/cli/sync.go", "contains": "seenPageFingerprints[fp]", "min_count": 2},
+        {"file": "cli/internal/cli/sync.go", "contains": "if resource == \"procedure-tasks\"", "min_count": 1},
+        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_ProcedureTasks_IgnoredPaginationSkipsDuplicateUpsert", "min_count": 1},
+        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_ProcedureTasks_PaginatedDeploymentStillDrainsPages", "min_count": 1},
+        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_ProcedureTasks_TotalIncludesExistingRows", "min_count": 1}
+      ]
+    },
+    {
       "id": "matchers-requires-integration-id",
       "summary": "Flat `sync` skips the matchers resource (with a warning) unless integration_id is supplied, because Hudu's /matchers returns HTTP 500 without one and there is no integrations-list endpoint to enumerate IDs",
       "why": "issue #159: /matchers requires an integration_id query param (Hudu 500s without it). The press registers matchers as a flat-syncable list, so every `sync` 500'd on it and exhausted retries. Fix: syncResource skips matchers when the user did not pass integration_id (via --resource-param matchers:integration_id=<id> / --global-param), via the new syncUserParams.hasParam() accessor; users fetch per-integration with `matchers list --integration-id <id>`. A reprint re-adds matchers to the flat sync set and re-breaks it.",

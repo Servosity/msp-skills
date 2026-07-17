@@ -289,7 +289,7 @@ hudu-cli sync --since 7d
 hudu-cli sync --latest-only
 ```
 
-Run a full `hudu-cli sync` on a slower cadence (e.g. weekly) to backfill the excluded resources. Note: `procedure-tasks` may emit a `pagination_cursor_missing` warning ("data may be truncated"). On Hudu's `?page=N` endpoints this is expected and does not mean data was lost  -  the sync still walks every page. Confirm completeness by checking that the local cache row count exceeds one page.
+Run a full `hudu-cli sync` on a slower cadence (e.g. weekly) to backfill the excluded resources. Some Hudu deployments return the complete `procedure-tasks` collection while ignoring pagination parameters. Sync detects a repeated primary-key set before upsert and reconciles `sync_complete.total` to the local cache row count without truncating deployments that honor pagination.
 
 ### Sync matchers for an integration
 

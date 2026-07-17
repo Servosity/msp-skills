@@ -236,9 +236,9 @@
       "display_name": "Hudu",
       "tagline": "Audit Hudu documentation hygiene, find stale passwords and expiring certs, and search every company offline.",
       "category": "Documentation",
-      "verification": "awaiting",
-      "verified_by": null,
-      "issue_url": null,
+      "verification": "live-verified",
+      "verified_by": "@Xenith-B (MSP)",
+      "issue_url": "https://github.com/Servosity/msp-skills/issues/183",
       "url": "/skills/hudu/"
     },
     {

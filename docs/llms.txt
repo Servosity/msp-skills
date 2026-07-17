@@ -76,7 +76,7 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
   Verification: Live-verified by Servosity (maintainer) (2026-06-05). Page: https://msp-skills.compoundingteams.com/skills/hubspot/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)
 - Hudu (Documentation) - ask "Which clients have the worst documentation completeness?" - Audit Hudu documentation hygiene, find stale passwords and expiring certs, and search every company offline.
-  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/hudu/
+  Verification: Live-verified by @Xenith-B (MSP) (2026-07-17). Page: https://msp-skills.compoundingteams.com/skills/hudu/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hudu/install.sh)
 - Huntress (Security) - ask "Which incidents are oldest across every client org?" - Triage Huntress incidents and coverage gaps across every client org from one queue.
   Verification: Live-verified by @Xenith-B (MSP) (2026-06-26). Page: https://msp-skills.compoundingteams.com/skills/huntress/

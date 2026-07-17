@@ -886,7 +886,7 @@ Governance: The skill drives the hubspot-cli and hubspot-mcp binaries, authentic
 ### Hudu (Documentation)
 
 Page: https://msp-skills.compoundingteams.com/skills/hudu/
-Verification: Awaiting live verification
+Verification: Live-verified by @Xenith-B (MSP) (2026-07-17)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hudu/install.sh)
 
 Ask in plain English which clients have the worst documentation, which vault passwords are overdue for rotation, and what SSL certs, domains, or warranties expire next - across every company at once. Hudu plus your AI agent reads a local mirror of your whole instance, so the hygiene questions the portal makes you click through company by company become one instant, reproducible answer.

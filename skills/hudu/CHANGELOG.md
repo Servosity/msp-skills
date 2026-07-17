@@ -4,6 +4,18 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.5] - unreleased
+
+### Fixed
+- `sync` now detects a repeated `procedure-tasks` primary-key set before
+  upserting it, even if Hudu changes item order or non-key fields. Hudu can
+  return the complete collection while ignoring both `page` and `page_size`;
+  previously, the duplicate-page guard ran only after the same collection had
+  been upserted twice. That doubled `sync_complete.total` even though the cache
+  contained one distinct-ID set. The reported total is now reconciled to the
+  stored row count while paginated Hudu deployments remain fully supported.
+  Thanks @Xenith-B (#183).
+
 ## [0.1.4] - unreleased
 
 ### Fixed
