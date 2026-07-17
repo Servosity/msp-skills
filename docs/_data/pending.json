@@ -164,7 +164,7 @@
     "state": "binary-pending",
     "version": "0.1.4",
     "latest_tag": "hudu-v0.1.4",
-    "current_hash": "sha256:0cc4408099cadfe394f813710b15a7da694cacb9a62836fbf87337c024086d60",
+    "current_hash": "sha256:f0804ed83856f0cc2e5255d3103302d5b0b818ce71d4b56b92befac114ccb032",
     "released_hash": "sha256:12e793ffc6b457bb330424aa83d77764720485e941ce391d70c334a4a5cdddb8"
   },
   "huntress": {
