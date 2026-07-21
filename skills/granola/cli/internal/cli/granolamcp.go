@@ -1,0 +1,409 @@
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+
+package cli
+
+// Granola's OFFICIAL MCP server (https://mcp.granola.ai) — the connector CONSUMES
+// it as an OAuth client to fetch the one thing the public REST API omits: the
+// user's raw private/human notes. This is NOT this connector's own MCP surface
+// (that is granola-mcp, the agent-native mirror of the CLI). Two different MCPs.
+//
+// Auth is OAuth 2.1 authorization-code + PKCE (S256) with a loopback redirect;
+// tokens live in the macOS Keychain (service granola-cli-mcp), never on disk
+// and never in output. macOS-only: /usr/bin/security is the token store.
+
+import (
+	"bytes"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os/exec"
+	"strconv"
+	"strings"
+	"time"
+)
+
+const (
+	mcpAuthBase  = "https://mcp-auth.granola.ai"
+	mcpURL       = "https://mcp.granola.ai/mcp"
+	mcpKCService = "granola-cli-mcp"
+	// 127.0.0.1 literal (RFC 8252), NOT "localhost": the listener binds IPv4,
+	// and "localhost" could resolve to ::1 in the browser and miss the callback.
+	mcpRedirect   = "http://127.0.0.1:8799/callback"
+	mcpLoopback   = "127.0.0.1:8799"
+	mcpProtoVer   = "2025-06-18"
+	mcpClientName = "granola-cli"
+)
+
+// Keychain accounts under service granola-cli-mcp.
+const (
+	kcAccessToken  = "MCP_ACCESS_TOKEN"
+	kcRefreshToken = "MCP_REFRESH_TOKEN"
+	kcClientID     = "MCP_CLIENT_ID"
+	kcExpiry       = "MCP_TOKEN_EXPIRY" // unix seconds
+)
+
+// maxMCPBody caps every response we read so a hostile/broken server can't OOM
+// us. get_meetings digests run a few KB; 16MB is generous headroom.
+const maxMCPBody = 16 << 20
+
+// mcpHTTPClient refuses to follow redirects: a 307/308 from the token endpoint
+// would otherwise replay the form body (refresh token / PKCE verifier) to a
+// server-chosen Location. Callers treat any 3xx as an error.
+var mcpHTTPClient = &http.Client{
+	Timeout: 45 * time.Second,
+	CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
+}
+
+// --- Keychain (macOS) ---------------------------------------------------------
+
+// kcSet stores a secret via /usr/bin/security. The value rides on argv, briefly
+// visible to a same-user `ps` watcher — an accepted residual on a single-user
+// Mac (the Security.framework alternative needs cgo, which a `go install`-ed
+// printed CLI can't take). ponytail: argv-passed secret; upgrade path is a cgo
+// Keychain lib if a multi-user threat model ever applies. The value never
+// touches disk or CLI output.
+func kcSet(account, value string) error {
+	return exec.Command("/usr/bin/security", "add-generic-password",
+		"-U", "-a", account, "-s", mcpKCService, "-w", value).Run()
+}
+
+func kcGet(account string) (string, error) {
+	out, err := exec.Command("/usr/bin/security", "find-generic-password",
+		"-a", account, "-s", mcpKCService, "-w").Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+func kcDelete(account string) error {
+	return exec.Command("/usr/bin/security", "delete-generic-password",
+		"-a", account, "-s", mcpKCService).Run()
+}
+
+// kcNotFound reports whether a security(1) call failed only because the item
+// was absent (exit 44 = errSecItemNotFound) — an expected no-op, not a failure.
+func kcNotFound(err error) bool {
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		return ee.ExitCode() == 44
+	}
+	return false
+}
+
+// --- OAuth --------------------------------------------------------------------
+
+func mcpJSON(method, u string, payload any, headers map[string]string) (int, http.Header, []byte, error) {
+	var body io.Reader
+	h := map[string]string{"Accept": "application/json"}
+	if payload != nil {
+		b, err := json.Marshal(payload)
+		if err != nil {
+			return 0, nil, nil, err
+		}
+		body = bytes.NewReader(b)
+		h["Content-Type"] = "application/json"
+	}
+	for k, v := range headers {
+		h[k] = v
+	}
+	req, err := http.NewRequest(method, u, body)
+	if err != nil {
+		return 0, nil, nil, err
+	}
+	for k, v := range h {
+		req.Header.Set(k, v)
+	}
+	resp, err := mcpHTTPClient.Do(req)
+	if err != nil {
+		return 0, nil, nil, err
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(io.LimitReader(resp.Body, maxMCPBody))
+	return resp.StatusCode, resp.Header, data, nil
+}
+
+func mcpForm(u string, form url.Values) (int, []byte, error) {
+	req, err := http.NewRequest("POST", u, strings.NewReader(form.Encode()))
+	if err != nil {
+		return 0, nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	resp, err := mcpHTTPClient.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(io.LimitReader(resp.Body, maxMCPBody))
+	return resp.StatusCode, data, nil
+}
+
+// mcpRegister does dynamic client registration and returns a client_id. The
+// authorization server only permits the authorization_code + refresh_token
+// grants and requires redirect_uris (device_code is advertised but not
+// registerable), so we register a native public client.
+func mcpRegister() (string, error) {
+	st, _, b, err := mcpJSON("POST", mcpAuthBase+"/oauth2/register", map[string]any{
+		"client_name":                mcpClientName,
+		"grant_types":                []string{"authorization_code", "refresh_token"},
+		"redirect_uris":              []string{mcpRedirect},
+		"token_endpoint_auth_method": "none",
+		"application_type":           "native",
+		"scope":                      "mcp",
+	}, nil)
+	if err != nil {
+		return "", err
+	}
+	// Never echo the response body: OAuth error/registration payloads can carry
+	// tokens or secrets. Status code only.
+	if st/100 != 2 {
+		return "", fmt.Errorf("client registration failed (HTTP %d)", st)
+	}
+	var reg struct {
+		ClientID string `json:"client_id"`
+	}
+	if err := json.Unmarshal(b, &reg); err != nil || reg.ClientID == "" {
+		return "", fmt.Errorf("client registration returned no client_id")
+	}
+	return reg.ClientID, nil
+}
+
+// pkcePair and randToken fail hard on CSPRNG error rather than silently using
+// low-entropy material (which would weaken PKCE/state).
+func pkcePair() (verifier, challenge string, err error) {
+	raw := make([]byte, 40)
+	if _, err = io.ReadFull(rand.Reader, raw); err != nil {
+		return "", "", fmt.Errorf("generating PKCE verifier: %w", err)
+	}
+	verifier = base64.RawURLEncoding.EncodeToString(raw)
+	sum := sha256.Sum256([]byte(verifier))
+	challenge = base64.RawURLEncoding.EncodeToString(sum[:])
+	return verifier, challenge, nil
+}
+
+func randToken(n int) (string, error) {
+	raw := make([]byte, n)
+	if _, err := io.ReadFull(rand.Reader, raw); err != nil {
+		return "", fmt.Errorf("generating random token: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
+func mcpAuthorizeURL(clientID, challenge, state string) string {
+	q := url.Values{
+		"response_type":         {"code"},
+		"client_id":             {clientID},
+		"redirect_uri":          {mcpRedirect},
+		"scope":                 {"mcp"},
+		"code_challenge":        {challenge},
+		"code_challenge_method": {"S256"},
+		"state":                 {state},
+	}
+	return mcpAuthBase + "/oauth2/authorize?" + q.Encode()
+}
+
+type mcpToken struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int    `json:"expires_in"`
+	Scope        string `json:"scope"`
+	TokenType    string `json:"token_type"`
+}
+
+func mcpExchange(clientID, code, verifier string) (*mcpToken, error) {
+	st, b, err := mcpForm(mcpAuthBase+"/oauth2/token", url.Values{
+		"grant_type":    {"authorization_code"},
+		"code":          {code},
+		"redirect_uri":  {mcpRedirect},
+		"client_id":     {clientID},
+		"code_verifier": {verifier},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if st/100 != 2 {
+		return nil, fmt.Errorf("token exchange failed (HTTP %d)", st)
+	}
+	var t mcpToken
+	if err := json.Unmarshal(b, &t); err != nil || t.AccessToken == "" {
+		return nil, fmt.Errorf("token exchange returned no access_token")
+	}
+	return &t, nil
+}
+
+func mcpRefresh(clientID, refresh string) (*mcpToken, error) {
+	st, b, err := mcpForm(mcpAuthBase+"/oauth2/token", url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {refresh},
+		"client_id":     {clientID},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if st/100 != 2 {
+		return nil, fmt.Errorf("token refresh failed (HTTP %d)", st)
+	}
+	var t mcpToken
+	if err := json.Unmarshal(b, &t); err != nil || t.AccessToken == "" {
+		return nil, fmt.Errorf("token refresh returned no access_token")
+	}
+	return &t, nil
+}
+
+// storeMCPToken persists a token bundle in the Keychain. A refresh response may
+// omit refresh_token (reuse the prior one), so only overwrite when present.
+func storeMCPToken(clientID string, t *mcpToken) error {
+	if err := kcSet(kcAccessToken, t.AccessToken); err != nil {
+		return err
+	}
+	if t.RefreshToken != "" {
+		if err := kcSet(kcRefreshToken, t.RefreshToken); err != nil {
+			return err
+		}
+	}
+	if clientID != "" {
+		if err := kcSet(kcClientID, clientID); err != nil {
+			return err
+		}
+	}
+	exp := time.Now().Add(time.Duration(t.ExpiresIn) * time.Second)
+	return kcSet(kcExpiry, strconv.FormatInt(exp.Unix(), 10))
+}
+
+// mcpAccessToken returns a usable access token, refreshing via the stored
+// refresh_token when the current one is within 60s of expiry. Returns
+// errMCPNotConnected (checked with mcpNotConnected) when no tokens are stored,
+// and a distinct error when the token is expired and cannot be refreshed —
+// callers must not treat an expired/unrefreshable token as connected.
+func mcpAccessToken() (string, error) {
+	access, err := kcGet(kcAccessToken)
+	if err != nil || access == "" {
+		return "", errMCPNotConnected
+	}
+	expStr, expErr := kcGet(kcExpiry)
+	if expErr != nil {
+		return access, nil // unknown expiry: try as-is; a 401 prompts re-login
+	}
+	unix, perr := strconv.ParseInt(expStr, 10, 64)
+	if perr != nil {
+		return access, nil
+	}
+	if time.Now().Before(time.Unix(unix, 0).Add(-60 * time.Second)) {
+		return access, nil // still valid
+	}
+	// Expired — a refresh is required; surface failure rather than hand back a
+	// known-dead token.
+	refresh, _ := kcGet(kcRefreshToken)
+	clientID, _ := kcGet(kcClientID)
+	if refresh == "" || clientID == "" {
+		return "", fmt.Errorf("granola mcp token expired and cannot refresh — re-run 'granola-cli mcp-auth login'")
+	}
+	t, rerr := mcpRefresh(clientID, refresh)
+	if rerr != nil {
+		return "", fmt.Errorf("granola mcp token refresh failed — re-run 'granola-cli mcp-auth login'")
+	}
+	if serr := storeMCPToken(clientID, t); serr != nil {
+		// Refresh succeeded but persisting to the Keychain failed. The new
+		// token works this session; warn so the user knows it wasn't saved —
+		// single-use refresh-token rotation could otherwise lose the session
+		// next run when the stale token is reloaded.
+		stderr("warning: refreshed Granola MCP token could not be saved to the Keychain: %v", serr)
+	}
+	return t.AccessToken, nil
+}
+
+var errMCPNotConnected = fmt.Errorf("granola mcp not connected: run 'granola-cli mcp-auth login'")
+
+func mcpNotConnected(err error) bool { return err == errMCPNotConnected }
+
+// --- MCP JSON-RPC -------------------------------------------------------------
+
+// mcpCall issues one JSON-RPC request. Granola's MCP replies with SSE
+// (text/event-stream) for some methods, so parse the last data: frame when the
+// content type says so. Returns the parsed envelope and the session id.
+func mcpCall(access, method string, params any, sessionID string) (map[string]any, string, error) {
+	h := map[string]string{
+		"Authorization": "Bearer " + access,
+		"Accept":        "application/json, text/event-stream",
+	}
+	if sessionID != "" {
+		h["Mcp-Session-Id"] = sessionID
+	}
+	st, hdr, b, err := mcpJSON("POST", mcpURL, map[string]any{
+		"jsonrpc": "2.0", "id": 1, "method": method, "params": params,
+	}, h)
+	if err != nil {
+		return nil, sessionID, err
+	}
+	if st == http.StatusUnauthorized {
+		return nil, sessionID, fmt.Errorf("mcp %s: unauthorized (token expired — re-run mcp-auth login)", method)
+	}
+	sid := hdr.Get("Mcp-Session-Id")
+	if sid == "" {
+		sid = sessionID
+	}
+	obj, perr := parseMCPResult(method, st, hdr.Get("Content-Type"), b)
+	if perr != nil {
+		return nil, sid, perr
+	}
+	return obj, sid, nil
+}
+
+// parseMCPResult validates an MCP HTTP response and returns the JSON-RPC
+// envelope. It rejects any non-2xx status BEFORE trusting the body (so a 3xx
+// whose body happens to parse can't masquerade as success), fails on an
+// unparseable 2xx body, and surfaces a top-level JSON-RPC error by NUMERIC code
+// only — never the raw message/body, which can carry tokens or note content.
+func parseMCPResult(method string, st int, contentType string, b []byte) (map[string]any, error) {
+	if st/100 != 2 {
+		return nil, fmt.Errorf("mcp %s failed (HTTP %d)", method, st)
+	}
+	var obj map[string]any
+	if strings.Contains(contentType, "text/event-stream") {
+		for _, ln := range strings.Split(string(b), "\n") {
+			ln = strings.TrimSpace(ln)
+			if after, ok := strings.CutPrefix(ln, "data:"); ok {
+				var m map[string]any
+				if json.Unmarshal([]byte(strings.TrimSpace(after)), &m) == nil {
+					obj = m
+				}
+			}
+		}
+	} else {
+		_ = json.Unmarshal(b, &obj)
+	}
+	if obj == nil {
+		return nil, fmt.Errorf("mcp %s: unparseable response", method)
+	}
+	if em, ok := obj["error"].(map[string]any); ok {
+		if code, ok := em["code"].(float64); ok {
+			return nil, fmt.Errorf("mcp %s protocol error (code %d)", method, int(code))
+		}
+		return nil, fmt.Errorf("mcp %s protocol error", method)
+	}
+	return obj, nil
+}
+
+// mcpSession runs initialize + notifications/initialized and returns a live
+// session id ready for tools/list or tools/call.
+func mcpSession(access string) (string, error) {
+	_, sid, err := mcpCall(access, "initialize", map[string]any{
+		"protocolVersion": mcpProtoVer,
+		"capabilities":    map[string]any{},
+		"clientInfo":      map[string]any{"name": mcpClientName, "version": version},
+	}, "")
+	if err != nil {
+		return "", err
+	}
+	_, _, _ = mcpCall(access, "notifications/initialized", map[string]any{}, sid)
+	return sid, nil
+}

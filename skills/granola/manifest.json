@@ -1,0 +1,46 @@
+{
+  "manifest_version": "0.3",
+  "name": "granola-pp-mcp",
+  "display_name": "Granola",
+  "version": "1.0.0",
+  "description": "Every Granola feature \u2014 plus offline SQLite cross-meeting search, attendee timelines, and a MEMO pipeline runner no other Granola tool has.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/granola-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/granola-pp-mcp",
+      "args": [],
+      "env": {
+        "GRANOLA_API_KEY": "${user_config.granola_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "granola_api_key": {
+      "type": "string",
+      "title": "Granola API key",
+      "description": "Granola public API key (Personal or Enterprise). Powers sync, meetings, transcripts, summaries, folders, attendees, talk-time, search, and MEMO.",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.29.0",
+  "press_provenance": {
+    "printing_press_version": "4.29.0",
+    "generated_at": "2026-07-20T21:34:35.973827Z",
+    "spec_checksum": "sha256:36161dcacb09ce0d24cf874157ebfad5ac53f2c90170a5b61460e97097da96a7",
+    "spec_format": "openapi3"
+  }
+}

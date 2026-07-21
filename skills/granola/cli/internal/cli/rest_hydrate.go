@@ -1,0 +1,310 @@
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+
+package cli
+
+// REST-backed hydrator for the rich SQLite schema (meetings / attendees /
+// transcript_segments / folder_memberships). On Granola v7.4x+ the encrypted
+// desktop store and internal API are sealed, so the rich tables can no longer
+// be filled from the cache. This fills them from the PUBLIC REST API detail
+// endpoint (/v1/notes/{id}?include=transcript), keyed by the REST not_ id.
+//
+// Human notes are NOT sourced here — the public API omits them; the official
+// MCP path (get_meetings) supplies those separately.
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/spf13/cobra"
+	"granola-pp-cli/internal/client"
+	"granola-pp-cli/internal/granola"
+)
+
+// restNoteDetail is the /v1/notes/{id}?include=transcript response shape
+// (verified live 2026-07-18).
+type restNoteDetail struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+	SummaryText string `json:"summary_text"`
+	SummaryMD   string `json:"summary_markdown"`
+	Attendees   []struct {
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	} `json:"attendees"`
+	Transcript []struct {
+		Text      string `json:"text"`
+		StartTime string `json:"start_time"`
+		EndTime   string `json:"end_time"`
+		Speaker   struct {
+			Source string `json:"source"`
+		} `json:"speaker"`
+	} `json:"transcript"`
+	CalendarEvent json.RawMessage `json:"calendar_event"`
+}
+
+// recentNoteIDs returns up to limit note ids from the REST-fed notes table,
+// newest first. limit <= 0 returns all of them.
+func recentNoteIDs(ctx context.Context, db *sql.DB, limit int) ([]string, error) {
+	q := `SELECT id FROM notes WHERE id LIKE 'not_%' ORDER BY updated_at DESC`
+	if limit > 0 {
+		q += fmt.Sprintf(" LIMIT %d", limit)
+	}
+	rows, err := db.QueryContext(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// hydrateRichFromREST fetches detail for each id and upserts the rich tables,
+// all keyed by the REST not_ id, then best-effort enriches human/private notes
+// via the official MCP (when connected). Returns (meetings written, notes set).
+func hydrateRichFromREST(ctx context.Context, db *sql.DB, c *client.Client, ids []string) (int, int, error) {
+	if err := granola.EnsureSchema(ctx, db); err != nil {
+		return 0, 0, err
+	}
+	written := 0
+	var targets []restTarget
+	for _, id := range ids {
+		raw, err := c.Get(ctx, "/v1/notes/"+id, map[string]string{"include": "transcript"})
+		if err != nil {
+			return written, 0, fmt.Errorf("fetch note %s: %w", id, err)
+		}
+		var d restNoteDetail
+		if err := json.Unmarshal(raw, &d); err != nil {
+			return written, 0, fmt.Errorf("parse note %s: %w", id, err)
+		}
+		if d.ID == "" {
+			d.ID = id
+		}
+		if err := upsertRichMeeting(ctx, db, &d); err != nil {
+			return written, 0, err
+		}
+		written++
+		targets = append(targets, restTarget{ID: d.ID, Title: d.Title, Created: rfcToTime(d.CreatedAt)})
+	}
+	// Rebuild FTS so search reflects the fresh rows.
+	_, _ = db.ExecContext(ctx, `INSERT INTO meetings_fts(meetings_fts) VALUES ('rebuild')`)
+	_, _ = db.ExecContext(ctx, `INSERT INTO transcript_fts(transcript_fts) VALUES ('rebuild')`)
+	// Best-effort human/private notes via MCP. Not connected/expired → notes
+	// stay empty (commands hint); never fails the sync.
+	notesSet, nerr := enrichHumanNotes(ctx, db, targets)
+	if nerr != nil && len(targets) > 0 {
+		// MCP is optional/additive, so this never fails the sync — but surface
+		// it so the user knows private/human notes were skipped (rows are
+		// otherwise silently notes-less in notes-show/export/MEMO).
+		stderr("note: private/human notes not enriched (Granola MCP unavailable): %v — run 'granola-cli mcp-auth login'", nerr)
+	}
+	return written, notesSet, nil
+}
+
+// rfcToTime parses an RFC3339 timestamp, returning the zero time on failure.
+func rfcToTime(s string) time.Time {
+	for _, l := range []string{time.RFC3339Nano, time.RFC3339} {
+		if t, err := time.Parse(l, s); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
+}
+
+// upsertRichMeeting writes one REST note detail into meetings + attendees +
+// transcript_segments in a single transaction. Attendees and segments are
+// cleared-then-inserted so a re-sync never leaves stale tails.
+func upsertRichMeeting(ctx context.Context, db *sql.DB, d *restNoteDetail) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	started := d.CreatedAt // public API exposes no meeting start; created_at anchors it
+	transcriptAvail := 0
+	if len(d.Transcript) > 0 {
+		transcriptAvail = 1
+	}
+	// ON CONFLICT DO UPDATE (NOT INSERT OR REPLACE): re-enriching a meeting must
+	// PRESERVE notes_markdown/notes_plain, which the MCP path fills. REPLACE
+	// would blank them on every sync, erasing human notes whenever MCP is
+	// disconnected or a match isn't found. New rows insert empty notes; the MCP
+	// enrichment fills them only on a confirmed identity match.
+	if _, err := tx.ExecContext(ctx, `INSERT INTO meetings(
+		id, title, created_at, updated_at, started_at, ended_at, workspace_id,
+		calendar_event_id, deleted_at, notes_markdown, notes_plain,
+		transcript_available, recipes_applied, creation_source, valid_meeting
+	) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+	ON CONFLICT(id) DO UPDATE SET
+		title=excluded.title, created_at=excluded.created_at, updated_at=excluded.updated_at,
+		started_at=excluded.started_at, ended_at=excluded.ended_at, workspace_id=excluded.workspace_id,
+		calendar_event_id=excluded.calendar_event_id, deleted_at=excluded.deleted_at,
+		transcript_available=excluded.transcript_available, recipes_applied=excluded.recipes_applied,
+		creation_source=excluded.creation_source, valid_meeting=excluded.valid_meeting`,
+		d.ID, d.Title, d.CreatedAt, d.UpdatedAt, started, d.UpdatedAt, "",
+		"", "", "", "", transcriptAvail, "[]", "api", 1,
+	); err != nil {
+		return fmt.Errorf("upsert meeting %s: %w", d.ID, err)
+	}
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM attendees WHERE meeting_id = ?`, d.ID); err != nil {
+		return err
+	}
+	seen := map[string]bool{}
+	for _, a := range d.Attendees {
+		if a.Email == "" {
+			continue
+		}
+		em := strings.ToLower(a.Email)
+		if seen[em] {
+			continue
+		}
+		seen[em] = true
+		if _, err := tx.ExecContext(ctx, `INSERT OR REPLACE INTO attendees(meeting_id,email,name,response_status) VALUES (?,?,?,?)`,
+			d.ID, em, a.Name, ""); err != nil {
+			return fmt.Errorf("upsert attendee %s/%s: %w", d.ID, em, err)
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM transcript_segments WHERE meeting_id = ?`, d.ID); err != nil {
+		return err
+	}
+	for i, seg := range d.Transcript {
+		startMs := rfcToMillis(seg.StartTime)
+		endMs := rfcToMillis(seg.EndTime)
+		if _, err := tx.ExecContext(ctx, `INSERT INTO transcript_segments(meeting_id,idx,source,text,start_ts_ms,end_ts_ms,confidence) VALUES (?,?,?,?,?,?,?)`,
+			d.ID, i, seg.Speaker.Source, seg.Text, startMs, endMs, 0.0); err != nil {
+			return fmt.Errorf("upsert segment %s/%d: %w", d.ID, i, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	committed = true
+	return nil
+}
+
+// rfcToMillis parses an RFC3339 timestamp (with or without sub-second) to Unix
+// milliseconds, returning 0 on failure.
+func rfcToMillis(s string) int64 {
+	if s == "" {
+		return 0
+	}
+	for _, layout := range []string{time.RFC3339Nano, time.RFC3339} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t.UnixMilli()
+		}
+	}
+	return 0
+}
+
+// runRESTFallbackSync is the v7.4x sync path: the desktop cache is sealed, so
+// populate the store from the public REST API (notes/folders via the generated
+// sync command) and then enrich the rich tables from the detail endpoint.
+// enrichLimit bounds the per-note detail fetch (0 = all).
+// enrichRecent hydrates the rich tables (meetings/attendees/transcript_segments)
+// for the most-recent notes from the REST detail endpoint, plus best-effort
+// human/private notes via the official MCP. enrichLimit 0 = the whole library.
+// Returns (meetings enriched, human-notes set, notes requested, error). Assumes
+// the thin notes/folders sync already ran (the caller drives the framework sync).
+func enrichRecent(ctx context.Context, flags *rootFlags, enrichLimit int) (int, int, int, error) {
+	s, err := openGranolaStore(ctx)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	defer s.Close()
+	ids, err := recentNoteIDs(ctx, s.DB(), enrichLimit)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	c, err := flags.newClient()
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	n, notes, err := hydrateRichFromREST(ctx, s.DB(), c, ids)
+	return n, notes, len(ids), err
+}
+
+// newEnrichCmd fills the rich tables from the REST detail endpoint. Bounded by
+// --limit (default 50 most-recent) unless --full.
+func newEnrichCmd(flags *rootFlags) *cobra.Command {
+	var limit int
+	var full bool
+	cmd := &cobra.Command{
+		Use:   "enrich",
+		Short: "Populate meetings/transcripts/attendees from the REST detail endpoint",
+		Long: `Fetches /v1/notes/{id}?include=transcript for recent notes and fills the
+local meetings, attendees, and transcript_segments tables. Needed on Granola
+v7.4x+ where the desktop cache is sealed. Run after 'sync'; use --full for the
+whole library.
+
+Note: a pre-v7.4x cache sync may have left older UUID-keyed meetings in the
+store, which can appear alongside the REST-keyed ones. For a clean REST-only
+store, delete the local database and re-sync:
+  rm ~/.local/share/granola-cli/data.db && granola-cli sync --full`,
+		Example: strings.Trim(`
+  granola-cli enrich
+  granola-cli enrich --limit 100
+  granola-cli enrich --full`, "\n"),
+		Annotations: map[string]string{"mcp:read-only": "false"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if dryRunOK(flags) {
+				return nil
+			}
+			c, err := flags.newClient()
+			if err != nil {
+				return err
+			}
+			ctx := cmd.Context()
+			s, err := openGranolaStore(ctx)
+			if err != nil {
+				return err
+			}
+			defer s.Close()
+			lim := limit
+			if full {
+				lim = 0
+			}
+			if isDogfoodEnv() {
+				lim = 2 // bound per-note detail fetches to fit the dogfood timeout
+			}
+			ids, err := recentNoteIDs(ctx, s.DB(), lim)
+			if err != nil {
+				return err
+			}
+			if len(ids) == 0 {
+				return fmt.Errorf("no synced notes to enrich — run 'granola-cli sync' first")
+			}
+			n, notes, err := hydrateRichFromREST(ctx, s.DB(), c, ids)
+			if err != nil {
+				return apiErr(fmt.Errorf("enriched %d/%d before error: %w", n, len(ids), err))
+			}
+			return emitJSON(cmd, flags, map[string]any{
+				"event": "enrich_summary", "enriched": n, "requested": len(ids),
+				"human_notes": notes,
+			})
+		},
+	}
+	cmd.Flags().IntVar(&limit, "limit", 50, "Enrich the N most-recent notes (0 = all)")
+	cmd.Flags().BoolVar(&full, "full", false, "Enrich the entire library (overrides --limit)")
+	return cmd
+}
