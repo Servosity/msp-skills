@@ -18,6 +18,33 @@ Free, open source, runs on your laptop. A local SQLite mirror lets your agent an
 
 <p align="center"><a href="https://msp-skills.compoundingteams.com/">▶ Watch the full demo</a> - every skill page has its own 30-second walkthrough (<a href="https://msp-skills.compoundingteams.com/skills/hubspot/">example</a>). Demo data is simulated; every command shown exists in the real CLI.</p>
 
+## First time here? Paste this into Claude Code
+
+You do not need to know which command does what. Open Claude Code and paste:
+
+> Set up msp-skills for me from https://github.com/servosity/msp-skills. Read the repo's
+> README, install the connectors that fit my stack, and walk me through anything only I can
+> do (like approving a browser extension or signing in to a vendor portal).
+
+Two notes that save the most time, on Windows and macOS alike:
+
+- Adding the marketplace by its **full HTTPS URL** avoids an SSH key a fresh machine does not have:
+  ```text
+  /plugin marketplace add https://github.com/servosity/msp-skills.git
+  /plugin install connect-tool@msp-skills
+  ```
+  The `.git` suffix matters.
+- **Windows works.** Claude Code runs natively on Windows, and Git for Windows is optional.
+  If you do not have Git, [connect-tool](./skills/connect-tool) installs without it:
+  ```powershell
+  irm https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connect-tool/bootstrap.ps1 | iex
+  ```
+
+**Stuck on credentials?** That is what [connect-tool](./skills/connect-tool) is for: it drives
+the Chrome you are already logged into, puts the API key straight into Windows Credential
+Manager or the macOS Keychain, and refuses to say "connected" until a real authenticated call
+returns your live data.
+
 ## What's in the box
 
 <!-- catalog:start -->
@@ -38,7 +65,7 @@ Free, open source, runs on your laptop. A local SQLite mirror lets your agent an
 | [betterstack](./skills/betterstack) | Better Stack Uptime monitoring, incident management, on-call scheduling, and status pages | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/betterstack/README.md) |
 | [blumira](./skills/blumira) | cloud SIEM and automated detection and response platform | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/blumira/README.md) |
 | [cipp](./skills/cipp) | the CyberDrain Improved Partner Portal (CIPP), the open-source Microsoft 365 multi-tenant management platform for MSPs | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/cipp/README.md) |
-| ⭐ [connect-tool](./skills/connect-tool) | Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome | ![Meta](https://img.shields.io/badge/Meta-skill-6B7280) | [Marketplace](./skills/connect-tool/README.md) |
+| ⭐ [connect-tool](./skills/connect-tool) | Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome. Windows and macOS | ![Meta](https://img.shields.io/badge/Meta-skill-6B7280) | [Marketplace](./skills/connect-tool/README.md) |
 | [connectwise-automate](./skills/connectwise-automate) | ConnectWise Automate (LabTech) RMM: device management, patching, scripting, monitors and alerts for MSPs | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/connectwise-automate/README.md) |
 | [connectwise-control](./skills/connectwise-control) | ConnectWise Control (ScreenConnect): remote support and access session management for MSPs | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/connectwise-control/README.md) |
 | [connectwise-manage](./skills/connectwise-manage) | ConnectWise PSA (Manage) | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/connectwise-manage/README.md) |

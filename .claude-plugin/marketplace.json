@@ -946,8 +946,8 @@
     {
       "name": "connect-tool",
       "source": "./skills/connect-tool",
-      "description": "Set up and prove authentication for any CLI, MCP server, or Skill by driving the Chrome you are already logged into. Stores secrets in the macOS Keychain without the value entering the agent's context, wires the consumer, and does not finish until a real authenticated call returns live data. No compiled CLI or MCP binary; ships Markdown plus stdlib shell and Python helpers.",
-      "version": "0.1.0",
+      "description": "Set up and prove authentication for any CLI, MCP server, or Skill by driving the Chrome you are already logged into. Reconciles to a desired auth state (setup, refresh, broaden scopes, re-auth, repair), stores secrets in the macOS Keychain or Windows Credential Manager without the complete value entering the agent's context, and finishes only when a real authenticated call returns live data. Runs on Windows and macOS. No compiled CLI or MCP binary; ships Markdown plus stdlib Python helpers.",
+      "version": "0.2.0",
       "category": "meta",
       "tags": [
         "msp-skills",
@@ -955,7 +955,8 @@
         "oauth",
         "api-keys",
         "keychain",
-        "browser",
+        "credential-manager",
+        "windows",
         "msp",
         "mcp",
         "claude-code",

@@ -17,5 +17,5 @@ trim_trailing_whitespace = false
 [Makefile]
 indent_style = tab
 
-[*.{ps1,psm1,psd1}]
+[*.{ps1,psm1,psd1,cmd,bat}]
 end_of_line = crlf

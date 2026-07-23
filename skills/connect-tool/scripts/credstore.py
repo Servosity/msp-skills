@@ -19,6 +19,10 @@ option: the secret is passed as a memory buffer, so unlike the macOS
 `security -w <value>` call it never appears in any process command line, and so
 never in a Sysmon Event 1 or a 4688 audit record.
 
+Lane C (the user pastes it themselves) is a mode of this module, so it works the
+same on both platforms:
+
+  uv run credstore.py --store --service SVC --account ACCT   # hidden prompt
   uv run credstore.py --selfcheck
 """
 from __future__ import annotations
@@ -215,8 +219,36 @@ def _selfcheck() -> None:
     print(f"credstore.py selfcheck OK (backend={backend()}, round-trip + no leak)")
 
 
+def _interactive_store(service: str, account: str) -> int:
+    """Lane C. The user types the secret at a hidden prompt in THEIR OWN terminal:
+    the value never enters argv, a file, or the agent's context. The agent's only
+    confirmation is the redacted receipt, then the Lane-5 verification call."""
+    import getpass
+    value = getpass.getpass(f"Paste the secret for {account}/{service} (input hidden): ")
+    if not value:
+        print("FAIL: nothing entered", file=sys.stderr)
+        return 2
+    try:
+        print(store(service, account, value))
+    except CredError as e:
+        print(f"FAIL: {e}", file=sys.stderr)
+        return 5
+    finally:
+        del value
+    return 0
+
+
 if __name__ == "__main__":
-    if "--selfcheck" in sys.argv:
+    args = sys.argv[1:]
+    if "--selfcheck" in args:
         _selfcheck()
+    elif "--store" in args:
+        import argparse
+        ap = argparse.ArgumentParser()
+        ap.add_argument("--store", action="store_true")
+        ap.add_argument("--service", required=True)
+        ap.add_argument("--account", required=True)
+        a = ap.parse_args(args)
+        raise SystemExit(_interactive_store(a.service, a.account))
     else:
         print(__doc__)

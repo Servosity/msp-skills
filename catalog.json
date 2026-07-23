@@ -264,12 +264,12 @@
     },
     {
       "name": "connect-tool",
-      "system": "Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome",
+      "system": "Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome. Windows and macOS",
       "status": "beta",
       "skill_path": "skills/connect-tool",
       "cli_binary": null,
       "mcp_binary": null,
-      "version": "0.1.0",
+      "version": "0.2.0",
       "printing_press_version": null,
       "license": "Apache-2.0",
       "vendor": "Servosity",
@@ -277,10 +277,10 @@
       "first_party": true,
       "install_skill_one_liner": "",
       "install_mcp_doc": "",
-      "description": "Connect any tool to your agent through your own logged-in Chrome, and prove it works.",
+      "description": "Connect any tool to your agent through your own logged-in Chrome, and prove it works. Windows and macOS.",
       "verification": "n/a",
       "category": "Meta",
-      "tagline": "Connect any tool to your agent through your own logged-in Chrome, and prove it works.",
+      "tagline": "Connect any tool to your agent through your own logged-in Chrome, and prove it works. Windows and macOS.",
       "markdown_only": true
     },
     {

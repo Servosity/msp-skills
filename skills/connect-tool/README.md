@@ -4,12 +4,14 @@
 
 Every connector you install has the same last mile: get a credential out of a vendor portal, put it somewhere safe, wire it into the tool, and prove the tool actually works. That last mile is where most setups die, usually with an agent cheerfully reporting "connected" when nothing was ever authenticated.
 
-connect-tool does that last mile for **any** CLI, **MCP server**, or Skill, by driving the Chrome you are already logged into. You watch it happen. The secret goes to the macOS Keychain without ever passing through the model's context. And it will not say "done" until a real authenticated read returns real data from the vendor.
+connect-tool does that last mile for **any** CLI, **MCP server**, or Skill, by driving the Chrome you are already logged into. You watch it happen. The secret goes to your operating system's credential store without the complete value ever passing through the agent's context. And it will not say "done" until a real authenticated read returns real data from the vendor.
+
+**Runs on Windows and macOS.**
 
 ## What makes it different
 
 - **Your browser, your session.** It binds the Chrome tab you already have open and logged in, through the OpenCLI browser bridge. It never spawns a fresh or headless browser, because a spawned browser carries none of your logins and every vendor portal will just show it a login wall.
-- **The secret never enters the model's context.** A shell helper reads exactly one DOM node and pipes it straight into the Keychain. The model authors the CSS selector and the destination; it never sees the value. All you get back is a receipt: `len`, `sha256[:8]`, `last4`.
+- **The complete secret never enters the agent's context.** One helper process reads exactly one DOM node and writes it straight to the credential store. The agent authors the CSS selector and the destination; it never sees the value. All you get back is a receipt: `len`, `sha256[:8]`, `last4`.
 - **It reconciles, it does not just install.** Already connected? It works out whether the right answer is nothing, a token refresh, a scope broadening, a re-auth, or a repair, and does only that.
 - **It holds the irreversible.** Any click whose label matches post / publish / save / pay / delete / revoke is refused and surfaced to you, unless that exact verb was pre-approved for that step.
 - **It proves the result.** A run is only finished when a read-only authenticated call returns live data. No receipt, no claim.
@@ -17,102 +19,105 @@ connect-tool does that last mile for **any** CLI, **MCP server**, or Skill, by d
 
 ## Requirements
 
-connect-tool is **macOS-only**: it stores every secret in the macOS Keychain via `security`.
+| Dependency | Why | Windows | macOS |
+|---|---|---|---|
+| Windows 10+ or macOS | credential storage | Credential Manager | Keychain |
+| Google Chrome | the logged-in browser it drives | <https://www.google.com/chrome/> | same |
+| Node.js 20+ | to install OpenCLI | `winget install OpenJS.NodeJS.LTS` | `brew install node` |
+| OpenCLI | the browser bridge | `npm install -g @jackwener/opencli` | same |
+| OpenCLI Chrome extension | the other half of the bridge | one click, Chrome Web Store | same |
+| `uv` | runs the helpers, and supplies its own Python | `irm https://astral.sh/uv/install.ps1 \| iex` | `brew install uv` |
 
-| Dependency | Why | Install |
-|---|---|---|
-| macOS | Keychain storage (`security`) | - |
-| Homebrew | installs the three tools below | <https://brew.sh> (one paste command) |
-| Google Chrome | the logged-in browser it drives | <https://www.google.com/chrome/> |
-| Node.js + npm | to install OpenCLI | `brew install node` |
-| OpenCLI | the browser bridge (`opencli browser bind`) | `npm install -g @jackwener/opencli` |
-| OpenCLI Chrome extension | the other half of the bridge | <https://github.com/jackwener/opencli/releases> |
-| `uv` **or** Python 3.12+ | runs the Python helpers | `brew install uv` (Python 3.12+ alone also works) |
-| `jq` | asserts the JSON receipt in the verify step | `brew install jq` |
+Nothing else. The helpers are stdlib-only Python, so there is no `jq`, no `openssl`, no bash, and no separate Python install to manage: `uv` downloads the interpreter it needs on first run.
 
-`openssl`, `shasum`, and `security` ship with macOS. Nothing else is needed: the Python helpers are stdlib-only and the shell helpers are plain bash.
-
-Check every one of them in one shot. The easy way is to ask your agent, since it already knows where the Skill was installed:
+Check every dependency in one shot. The easy way is to ask your agent, since it already knows where the Skill landed:
 
 > run the connect-tool dependency check
 
-It prints one `OK` or `MISS` line per dependency, with the install command for anything missing, and it checks all of them rather than stopping at the first failure. To run it yourself, resolve the Skill directory first (it differs by install method, so do not hardcode it):
-
-```bash
-CT=$(find -L ~/.claude -maxdepth 6 -name SKILL.md -path '*connect-tool*' 2>/dev/null | head -1 | xargs dirname)
-bash "$CT/scripts/preflight.sh" --deps
-```
+It prints one `OK` or `MISS` line per dependency with the install command for anything missing, and checks all of them rather than stopping at the first failure.
 
 ## Install
 
-Install the Skill:
+### Windows
+
+```powershell
+# 1. Dependencies
+winget install OpenJS.NodeJS.LTS
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+npm install -g @jackwener/opencli
+
+# 2. The OpenCLI Chrome extension (one click, no developer mode)
+start https://chromewebstore.google.com/detail/opencli/ildkmabpimmkaediidaifkhjpohdnifk
+
+# 3. The Skill itself (no Git required)
+irm https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connect-tool/bootstrap.ps1 | iex
+```
+
+Or, if you prefer the plugin marketplace and have Git installed, in Claude Code:
 
 ```text
-/plugin marketplace add Servosity/msp-skills
+/plugin marketplace add https://github.com/servosity/msp-skills.git
 /plugin install connect-tool@msp-skills
 ```
 
-Then install the runtime pieces:
+The `.git` suffix matters: it makes Claude Code clone over HTTPS rather than SSH, which a fresh machine has no key for.
+
+### macOS
 
 ```bash
-brew install node uv jq          # Homebrew itself: https://brew.sh
+brew install node uv
 npm install -g @jackwener/opencli
+open https://chromewebstore.google.com/detail/opencli/ildkmabpimmkaediidaifkhjpohdnifk
+curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connect-tool/bootstrap.sh | bash
 ```
 
-Then load the OpenCLI Chrome extension, which does NOT come from the Chrome Web Store:
+Then restart Claude Code so it picks up the new Skill, and ask it to run the dependency check.
 
-1. Download `opencli-extension-v<version>.zip` from <https://github.com/jackwener/opencli/releases/latest>.
-2. Unzip it. The unzipped folder has `manifest.json` at its top level.
-3. In Chrome, open `chrome://extensions/`, turn on **Developer mode** (top right), click **Load unpacked**, and select that folder.
-4. Confirm the bridge is up: `opencli doctor` should show `[OK] Daemon` and `[OK] Extension: connected`.
-
-Then run the dependency check above. If the extension shows as missing later in a session, click the reload arrow on the OpenCLI card in `chrome://extensions/`: the extension's background worker goes dormant when idle, and restarting the daemon alone does not wake it.
+If the extension shows as missing later in a session, click the reload arrow on the OpenCLI card in `chrome://extensions/`. Its background worker goes dormant when idle, and restarting the daemon alone does not wake it.
 
 ## Using it
 
 1. Open Chrome and log in to the vendor portal you want to connect. Leave that tab focused.
-2. In your agent, say what you want, for example: *connect the halopsa CLI*, or *my NinjaOne token expired, fix it*, or *add the tickets:write scope*.
-3. Answer the scope question it asks up front (target, exact scopes, Keychain names, what it is never allowed to click).
+2. In your agent, say what you want: *connect the halopsa CLI*, or *my NinjaOne token expired, fix it*, or *add the tickets:write scope*.
+3. Answer the scope question it asks up front (target, exact scopes, credential names, what it is never allowed to click).
 4. Watch it drive your own browser. Approve any hold it surfaces.
 5. It ends with a receipt: a real authenticated call and the live data that came back.
 
-Nothing is written to this repo at runtime. State, run logs, and screenshots go to `~/.config/connect-tool/`, and secrets go to the Keychain.
+Nothing is written to this repo at runtime. State, run logs, and screenshots go to `%LOCALAPPDATA%\Servosity\connect-tool\` on Windows or `~/.config/connect-tool/` on macOS, in a directory only you can read. Secrets go to the OS credential store.
 
 ## Verify the helpers on your machine
 
-Every helper ships its own self-check, so you can confirm the security properties rather than trust them:
+Every helper ships its own self-check, so you can confirm the security properties rather than trust them. Ask your agent to *run every connect-tool self-check*, or from the skill directory:
 
-```bash
-cd "$(find -L ~/.claude -maxdepth 6 -name SKILL.md -path '*connect-tool*' 2>/dev/null | head -1 | xargs dirname)"
-for s in scripts/*.sh; do bash "$s" --selfcheck; done
-for p in scripts/*.py; do uv run "$p" --selfcheck; done
+```
+uv run scripts/grab_secret.py --selfcheck
+uv run scripts/oauth_login.py --selfcheck
+uv run scripts/credstore.py --selfcheck
 ```
 
-The important ones: `grab_secret.sh` asserts that a captured secret never reaches stdout and that an ambiguous selector fails loudly; `oauth_login.sh` asserts that a token-bearing URL is never echoed; `audit_log.sh` and `state.py` assert that no secret-shaped field can be written to disk.
+The important ones: `grab_secret` asserts a captured secret never reaches stdout, that an ambiguous selector fails loudly, and that the value really did land in the credential store; `oauth_login` asserts a token-bearing URL is never surfaced and that no raw output is written to disk; `audit_log` and `state` assert no secret-shaped field can be written anywhere.
 
 ## How the secret is handled
 
-Three lanes, tried in this order (full detail in `references/security-model.md`):
+Three lanes, tried in this order (full detail, including what this does **not** claim, in `references/security-model.md`):
 
-- **Lane A, OAuth.** The consuming CLI runs its own loopback login and stores its own token. connect-tool only surfaces the non-secret consent URL and drives the click. The token is never rendered and never read.
-- **Lane B, displayed key.** One shell process reads exactly one DOM node, pipes it into the Keychain, and prints only a redacted receipt. Any match count other than exactly one is a loud failure, never a guess.
-- **Lane C, you paste it.** For one-time-shown or clipboard-only secrets, it hands you the `security add-generic-password` line to run in your own terminal, with a hidden prompt. The value never enters argv or the agent's context.
+- **Lane A, OAuth.** The consuming CLI runs its own loopback login and stores its own token. connect-tool navigates your browser to the consent page and drives the click. The token is never rendered, never read, and never written to disk.
+- **Lane B, displayed key.** One process reads exactly one DOM node and writes it into the credential store, printing only a redacted receipt. Any match count other than exactly one is a loud failure, never a guess.
+- **Lane C, you paste it.** For one-time-shown or clipboard-only secrets, it hands you a command to run in your own terminal with a hidden prompt. The value never enters a command line or the agent's context.
 
-Consumers are wired through a Keychain-reading wrapper, so the value never lands in a config file, including MCP server configs.
+On Windows the credential goes to Credential Manager through a direct `CredWriteW` call, so the secret is passed as a memory buffer and never appears in any process command line. Consumers are wired through a launcher that reads the credential at start-up, so the value never lands in a config file, including MCP server configs.
 
 ## Files
 
 - `SKILL.md` - the contract the agent follows.
-- `references/security-model.md` - the three lanes, residual surfaces, mitigations.
-- `references/browser-and-keychain.md` - the OpenCLI command crib and Keychain conventions.
+- `references/security-model.md` - the three lanes, what is claimed and what is not.
+- `references/windows.md` - what differs on Windows, and what is not yet verified there.
+- `references/browser-and-keychain.md` - the OpenCLI command crib and credential conventions.
 - `references/opencli-bootstrap.md` - installing and un-wedging the browser bridge.
-- `references/state-recipes-audit.md` - state, learned recipes, reconcile table, audit-event schema.
-- `scripts/` - the shell and Python helpers, each with a `--selfcheck`.
+- `references/state-recipes-audit.md` - state, learned recipes, reconcile table, audit events.
+- `scripts/` - the helpers, each with a `--selfcheck`.
+- `bootstrap.ps1` / `bootstrap.sh` - install the Skill and check dependencies, no Git required.
 
 ## No compiled binary
 
-connect-tool ships Markdown plus shell and Python helpers (stdlib only, no third-party packages). There is no compiled CLI and no MCP server of its own to install, because it has no vendor API of its own: it connects the tools that do. Its `install.sh` / `install.ps1` / `mcp-install.md` are intentionally absent for that reason, and the catalog lists it as markdown-only on the same basis.
-
-## What it does not claim
-
-The security model is a process boundary, not a sandbox. Specifically: the secret value never passes through the agent's context, but the Keychain write does put it in the local process table for an instant (documented in `references/security-model.md`), and a `len` / `sha256[:8]` / `last4` receipt is printed so you can tell one key from another. If you want zero receipt at all, use Lane C and type the secret yourself.
+connect-tool ships Markdown plus stdlib Python helpers. There is no compiled CLI and no MCP server of its own to install, because it has no vendor API of its own: it connects the tools that do. Its `install.sh` / `install.ps1` / `mcp-install.md` are intentionally absent for that reason, and the catalog lists it as markdown-only on the same basis.

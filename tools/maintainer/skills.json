@@ -300,7 +300,7 @@
       }
     },
     "connect-tool": {
-      "system": "Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome",
+      "system": "Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome. Windows and macOS",
       "status": "beta",
       "vendor": "Servosity",
       "vendor_trademark_owner": "Servosity Inc.",
@@ -308,7 +308,7 @@
       "markdown_only": true,
       "category": "Meta",
       "display_name": "connect-tool",
-      "tagline": "Connect any tool to your agent through your own logged-in Chrome, and prove it works.",
+      "tagline": "Connect any tool to your agent through your own logged-in Chrome, and prove it works. Windows and macOS.",
       "template_version": 2,
       "has_video": false,
       "live_verified": {

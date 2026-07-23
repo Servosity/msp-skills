@@ -5,14 +5,15 @@ description: >
   ALREADY-OPEN, logged-in Chrome via the OpenCLI browser bridge (opencli browser bind):
   your real session, supervised live, never a fresh or headless Chromium. Reconciles to a
   desired auth state, so it works even when a tool is already connected: first-time setup,
-  token refresh, broadening scopes, key rotation, and repair. Stores every secret in the
-  macOS Keychain without the value entering the model context, wires the consumer, and does
-  not stop until a real authenticated call returns live data. Idempotent and self-learning.
+  token refresh, broadening scopes, key rotation, and repair. Runs on macOS and Windows,
+  storing every secret in the macOS Keychain or Windows Credential Manager without the
+  complete value entering the model context, wires the consumer, and does not stop until a
+  real authenticated call returns live data. Idempotent and self-learning.
   Use when the user says connect a vendor, set up auth, get me an API key or token, add or
   broaden a scope, refresh a token, log me into a CLI, wire up credentials, or do the auth
   setup. Drives your real Chrome through OpenCLI bind only. It does NOT and MUST NOT use any
   other browser-driving tool or skill, because a spawned browser does not carry your login.
-allowed-tools: "Read, Write, Bash, AskUserQuestion"
+allowed-tools: "Read, Write, Bash, PowerShell, AskUserQuestion"
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Servosity"
@@ -23,25 +24,33 @@ metadata:
 # connect-tool - browser-driven auth lifecycle manager
 
 Drives your real, logged-in Chrome (via OpenCLI) to set up / refresh / broaden / repair
-auth for any CLI, MCP server, or Skill; stores secrets in the macOS Keychain **without the
-value ever entering this context**; and does not stop until a real authenticated call
-returns live data.
+auth for any CLI, MCP server, or Skill; stores secrets in the OS credential store
+**without the complete value ever entering this context**; and does not stop until a real
+authenticated call returns live data. **Runs on macOS and Windows.**
 
-`SKILL_DIR` is the directory this SKILL.md lives in. Resolve it once at the start of a
-run and use it for every helper call; do NOT hardcode a path, because it differs by
-install method:
+## 0. Running the helpers (read before your first command)
 
-```bash
-SKILL_DIR="${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/skills/connect-tool}"   # plugin install, else manual install
-# -L matters: a manual install is often a symlink, and plain find will not follow it.
-[ -f "$SKILL_DIR/SKILL.md" ] || SKILL_DIR=$(dirname "$(find -L "$HOME/.claude" -maxdepth 6 -name SKILL.md -path '*connect-tool*' 2>/dev/null | head -1)")
+Every helper is a Python script next to this file, run the same way on both platforms:
+
+```
+uv run <this-skill-dir>/scripts/<helper>.py [args]
 ```
 
-Run Python helpers with `uv run` (or `python3` 3.12+), shell helpers with `bash`.
+`<this-skill-dir>` is the directory containing this SKILL.md, which you already know
+because you just read it. Use that path directly. Do NOT search the filesystem for it and
+do NOT hardcode `~/.claude/skills/connect-tool`: a plugin install lands somewhere else,
+and any shell-search snippet breaks under the PowerShell tool on Windows.
 
-**Requirements: macOS, Google Chrome, Node.js + npm, OpenCLI + its Chrome extension, `uv`
-or Python 3.12+, and `jq`.** Check them all in one shot with
-`bash "$SKILL_DIR/scripts/preflight.sh" --deps`. Setup detail is in `README.md`.
+`uv` supplies its own Python, so nothing else needs installing to run these. If `uv` is
+absent but Python 3.12+ is present, `python3 <script>` (`python` on Windows) also works.
+
+There is no bash in these instructions on purpose. On native Windows without Git for
+Windows, Claude Code has no Bash tool at all and uses PowerShell; a `uv run` line is
+identical in both shells.
+
+**Requirements: macOS or Windows, Google Chrome, Node.js 20+ and npm, OpenCLI plus its
+Chrome extension, and `uv` (or Python 3.12+).** Check every one in a single command:
+`uv run <this-skill-dir>/scripts/preflight.py --deps`. Setup detail is in `README.md`.
 
 ## 1. HARD GUARDRAIL - browser pinning (read first)
 
@@ -50,23 +59,28 @@ cookie-import helper, no other browser-driving skill.** They open a *separate* b
 **no login**, which is the "a browser I did not ask for just started" bug. This skill uses
 **only** `opencli browser <session> bind` against the tab you already have focused. If you
 catch yourself about to launch a browser any other way, **STOP, wrong tool.** The only
-browser entry point in this skill is `scripts/preflight.sh` (which binds your real Chrome).
+browser entry point in this skill is `scripts/preflight.py` (which binds your real Chrome).
+
+If the separate **`opencli-browser`** skill is also installed, **this skill's rules win**
+for anything in a connect-tool run. That skill teaches free use of `eval`, `network`,
+`console`, and `extract`, which is exactly what section 2 forbids around a secret.
 
 ## 2. Core principles
 
-- **Secrets never enter context.** Never run `opencli browser … eval` on a secret node
-  yourself, never `pbpaste`, never screenshot/`extract`/`state`/`network` a page showing a
-  secret. All secret capture goes through `grab_secret.sh` / `oauth_login.sh`, which print
-  only a redacted receipt (`len`/`sha8`/`last4`). See `references/security-model.md`.
+- **The complete secret never enters context.** Never run `opencli browser … eval` on a
+  secret node yourself, never read the clipboard, never screenshot/`extract`/`state`/
+  `network` a page showing a secret. All secret capture goes through `grab_secret.py` /
+  `oauth_login.py`, which print only a redacted receipt (`len`/`sha8`/`last4`). See
+  `references/security-model.md`, including what this does NOT claim.
 - **Idempotent + lifecycle.** Reconcile to the desired state; re-runs do the minimal delta.
 - **Hold the irreversible.** Agree scope up front; never click post/publish/save/pay/delete.
-  Surface it instead. Drive consent clicks through `guard_click.sh`.
+  Surface it instead. Drive consent clicks through `guard_click.py`.
 - **Never "done" without a live receipt.** A real authenticated read must return real data.
-- **Log structured events as you go** (`audit_log.sh`), with no secret values, ever.
+- **Log structured events as you go** (`audit_log.py`), with no secret values, ever.
 
 ## 3. The reconcile loop (desired vs current, to one operation)
 
-`uv run "$SKILL_DIR/scripts/reconcile.py" --target T --scopes a,b` reads per-target state and emits:
+`uv run scripts/reconcile.py --target T --scopes a,b` reads per-target state and emits:
 
 | Result | Operation | Browser? |
 |---|---|---|
@@ -85,28 +99,34 @@ Run a target through these phases; loop 3-5 until the verify receipt passes.
 
 0. **Agree** (AskUserQuestion): target, exact scopes, destination (Keychain default),
    keychain account/service names, and the hold-list. Open a run dir
-   `RUN="$HOME/.config/connect-tool/runs/<target>-$(date -u +%Y-%m-%d-%H%M)"`; write `STATE.md`.
-1. **Read learnings + load state:** `uv run "$SKILL_DIR/scripts/learning.py" guidance --target T`,
+   under the platform runs dir (`uv run scripts/ctplatform.py` documents it); write `STATE.md`.
+1. **Read learnings + load state:** `uv run scripts/learning.py guidance --target T`,
    then `reconcile.py` for the operation. If `noop`, report and stop.
-2. **Pre-flight + bind:** `bash "$SKILL_DIR/scripts/preflight.sh" <target-slug>` (binds your
-   focused Chrome). If OpenCLI is missing or disconnected it refuses and prints the setup
-   steps; walk the user through `references/opencli-bootstrap.md` rather than installing
-   anything unasked. Never fall through to another browser tool.
+2. **Pre-flight + bind:** `uv run scripts/preflight.py <target-slug>` (binds your focused
+   Chrome). If OpenCLI is missing or disconnected it refuses and prints the setup steps;
+   walk the user through `references/opencli-bootstrap.md` rather than installing anything
+   unasked. Never fall through to another browser tool.
 3. **Drive** the operation. Navigate with `opencli browser <slug> open|state|find|click|fill|
    upload|wait` (crib: `references/browser-and-keychain.md`). If a recipe exists use its nav;
    else discover live from `state`/`find`/`extract`. Route every click that could be
-   irreversible through `bash scripts/guard_click.sh <slug> "<selector>"`.
+   irreversible through `uv run scripts/guard_click.py <slug> "<selector>"`.
 4. **Capture the secret out-of-context** by lane (decision order in `security-model.md`):
-   - **Lane A (preferred), OAuth:** `RUN_DIR=$RUN bash scripts/oauth_login.sh --start -- <cli auth login …>`
-     then drive consent with `ALLOW=authorize guard_click.sh`, then `oauth_login.sh --finish`.
-   - **Lane B, displayed key:** `bash scripts/grab_secret.sh --session <slug> --selector '<css>'
-     --service <SVC> --account <acct>`.
-   - **Lane C, user paste:** print the bare `security add-generic-password -U -a <acct> -s <SVC> -w`
-     for the user to run in their own terminal (in Claude Code, prefix it with `!`).
-   Then **wire** the consumer: `bash scripts/mint_wrapper.sh …` for a CLI, or
-   `claude mcp add … --` pointing at a keychain-backed wrapper command (never put the value
-   in the MCP config file).
-5. **Verify (the receipt):** `bash scripts/verify_use.sh <non-secret-jq-field> -- <read-only authed cmd>`.
+   - **Lane A (preferred), OAuth:** `uv run scripts/oauth_login.py --start --session <slug>
+     -- <cli auth login ...>`. It navigates your bound tab to the consent page (it never
+     prints the URL, which carries an OAuth `state`); drive the consent click with
+     `ALLOW=authorize`, and it reports `OAUTH_OK` without ever reading the token.
+   - **Lane B, displayed key:** `uv run scripts/grab_secret.py --session <slug>
+     --selector '<css>' --service <SVC> --account <acct>`.
+   - **Lane C, user paste:** print the one-line store command for the user to run in their
+     OWN terminal (in Claude Code, prefix it with `!`), with a hidden prompt so the value
+     never enters argv or this context. macOS:
+     `security add-generic-password -U -a <acct> -s <SVC> -w`. Windows: have them paste it
+     into `uv run scripts/credstore.py` interactively, or use Lane B.
+   Then **wire** the consumer: `uv run scripts/mint_wrapper.py <name> <ENV_VAR> <acct> <SVC>
+   <absolute-binary>` for a CLI, or `claude mcp add ... --` pointing at that launcher (never
+   put the value in the MCP config file).
+5. **Verify (the receipt):** `uv run scripts/verify_use.py <non-secret-field-path> --
+   <read-only authed cmd>` (a strict dotted path such as `.data.id`, not a jq filter).
    Must return live data. On 401/403, re-drive / re-scope (back to 3). **Never report
    working without this.**
 6. **Persist + report:** append target state (`uv run scripts/state.py append '<json>'`,
@@ -137,3 +157,4 @@ done).
 - `references/browser-and-keychain.md` - OpenCLI command crib + Keychain no-echo conventions.
 - `references/state-recipes-audit.md` - targets.jsonl + recipe + reconcile + audit-event schema.
 - `references/opencli-bootstrap.md` - install + configure OpenCLI when missing/disconnected.
+- `references/windows.md` - what differs on Windows, and what is unverified there.

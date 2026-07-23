@@ -1,4 +1,4 @@
-# OpenCLI browser crib + Keychain conventions
+# OpenCLI browser crib + credential-store conventions
 
 ## Binding the user's real Chrome
 
@@ -10,7 +10,7 @@ opencli browser <slug> unbind           # detach WITHOUT closing the tab (end of
 ```
 
 Use a per-target session `<slug>` (e.g. `halopsa`, `ninjaone`). Drive `--window foreground`
-so the user watches live. `scripts/preflight.sh` does doctor+bind+state and refuses to run
+so the user watches live. `scripts/preflight.py` does doctor+bind+state and refuses to run
 if the bridge is down (it never falls back to a spawned browser).
 
 ## Navigation / interaction (non-secret values only)
@@ -19,7 +19,7 @@ if the bridge is down (it never falls back to a spawned browser).
 opencli browser <slug> open  "<url>"
 opencli browser <slug> state                         # re-read indexed elements after each change
 opencli browser <slug> find  --selector "<css|text>" # {matches_n, entries[]}
-opencli browser <slug> click "<selector|N>"          # prefer guard_click.sh for risky clicks
+opencli browser <slug> click "<selector|N>"          # prefer guard_click.py for risky clicks
 opencli browser <slug> fill  "<selector>" "<value>"  # verifies the value landed
 opencli browser <slug> select "<selector>" "<option>"
 opencli browser <slug> check "<selector>"            # checkbox/radio
@@ -29,40 +29,44 @@ opencli browser <slug> screenshot "$RUN/NN-step.png" # NON-secret pages only
 opencli browser <slug> extract                       # page text as markdown (nav discovery)
 ```
 
-**Never** for secrets: `eval` a secret node yourself, `network`, `console`, `get url`,
-`pbpaste`, or a screenshot of a revealed value. Capture via `grab_secret.sh`/`oauth_login.sh`.
+**Never** for secrets: `eval` a secret node yourself, `network`, `console`, `get url`, a
+clipboard read, or a screenshot of a revealed value. Capture via
+`grab_secret.py`/`oauth_login.py`.
 
-### The pbpaste gotcha (verified)
+### The clipboard gotcha (verified)
 
-OpenCLI's page **"Copy to clipboard" button does not reliably reach the macOS pasteboard**;
-`pbpaste` returns stale/unrelated content (once captured an unrelated voice memo and nearly
-stored it as a credential). Always read the DOM `innerText`/`value` via the helper - never
-click-Copy + `pbpaste`.
+OpenCLI's page **"Copy to clipboard" button does not reliably reach the system clipboard**;
+a clipboard read returns stale or unrelated content (this once captured an unrelated note
+and nearly stored it as a credential). Always read the DOM `innerText`/`value` via the
+helper, never click-Copy and then read the clipboard.
 
-## Keychain - no-echo write/read
+## Credential store - no-echo write/read
 
-Write (value set inside the shell, never printed). `-U` updates if present:
-```bash
-security add-generic-password -U -a "<account>" -s "<SERVICE>" -w "$value"
+Never call the platform store by hand. `scripts/credstore.py` is the one interface, and it
+picks the right backend (macOS Keychain, Windows Credential Manager) and prints only a
+redacted receipt:
+
 ```
-Read straight into a variable (never to a bare terminal):
-```bash
-export VAR="$(security find-generic-password -a <account> -s <SERVICE> -w 2>/dev/null)"
+uv run scripts/grab_secret.py --session <slug> --selector '<css>' --service <SVC> --account <acct>
+uv run scripts/credstore.py --store --service <SVC> --account <acct>   # Lane C, hidden prompt
 ```
-Interactive (Lane C - hidden prompt, no value in argv):
-```bash
-security add-generic-password -U -a <account> -s <SERVICE> -w
-```
-Confirm only with `len` / `sha256[:8]` / `last4` - never the value.
+
+Reading a credential back is the launcher's job, not yours:
+`scripts/mint_wrapper.py` stamps a launcher that fetches it in-process at exec time.
+
+Confirm only with `len` / `sha256[:8]` / `last4`, never the value.
 
 **Naming:** `account = <vendor slug>` (e.g. `halopsa`), `service = <VENDOR>_<ARTIFACT>` (e.g.
-`HALOPSA_API_KEY`, `NINJAONE_REFRESH_TOKEN`).
+`HALOPSA_API_KEY`, `NINJAONE_REFRESH_TOKEN`). On Windows these become the Credential Manager
+target `Servosity/connect-tool/<service>/<account>`.
 
 ## Wiring the consumer
 
-- **CLI:** `scripts/mint_wrapper.sh <name> <ENV_VAR> <account> <SERVICE> <real-binary>` stamps
-  `~/.local/bin/<name>` that reads the secret from the Keychain at launch (value never in a file).
-- **MCP:** `claude mcp add <name> -- "/path/to/keychain-wrapper"` - point the command at a
-  wrapper that reads the Keychain, so the value never lands in the MCP config. (Avoid
-  `--env KEY="$(security …)"`, which writes the resolved value into the config file.) Restart
-  Claude Code after `mcp add`.
+- **CLI:** `uv run scripts/mint_wrapper.py <name> <ENV_VAR> <account> <SERVICE> <absolute-binary>`
+  stamps a launcher (`~/.local/bin/<name>` on macOS, `<app-dir>\bin\<name>.cmd` on Windows)
+  that reads the secret from the credential store at launch. The launcher itself holds no
+  credential logic; it calls back into Python, which fetches in-process.
+- **MCP:** point the MCP command at that launcher, so the value never lands in the MCP
+  config. Avoid `--env KEY="$(...)"`, which writes the resolved value into the config file.
+  On Windows, prefer an absolute `uv.exe` plus the script path over a `.cmd` or `.ps1`,
+  which are not reliably spawnable without a shell. Restart Claude Code after `mcp add`.

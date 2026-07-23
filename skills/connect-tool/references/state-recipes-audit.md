@@ -1,7 +1,8 @@
 # State, recipes, reconcile, and the audit-event schema
 
-All runtime data lives **outside the repo** under `~/.config/connect-tool/`
-(`$CONNECT_TOOL_STATE_DIR` overrides `state/`). It holds **no secret values** - only
+All runtime data lives **outside the repo**, under `~/.config/connect-tool/` on macOS and
+`%LOCALAPPDATA%\Servosity\connect-tool\` on Windows (`$CONNECT_TOOL_HOME` overrides the
+root, `$CONNECT_TOOL_STATE_DIR` just the state dir). It holds **no secret values**, only
 references, scopes, expiry, app ids. Generic lessons live in the shared feedback substrate
 (`~/.claude/learning/feedback.jsonl`), not here.
 
@@ -55,14 +56,14 @@ are **hints, not coordinates** - if a selector misses (`matches_n: 0`), re-deriv
 target: halopsa
 kind: dom_api_key          # dom_api_key (Lane B) | oauth2_pkce_cli (Lane A) | user_paste (Lane C)
 scopes: ["tickets read", "assets read"]
-destination: {store: keychain, account: halopsa, service: HALOPSA_API_KEY, wrapper: ~/.local/bin/halopsa-cli}
+destination: {store: credential-store, account: halopsa, service: HALOPSA_API_KEY, wrapper: halopsa-cli}
 consumer: {install_check: "command -v halopsa-cli", login_cmd: null, verify_cmd: "halopsa-cli account get", verify_field: ".email"}
 nav:
   - {action: open,  url: "https://<your-tenant>.halopsa.com/config/integrations/api"}
   - {action: wait,  type: selector, value: "table"}
   - {action: click, target: "Generate a new API key"}
 secret_source: {method: dom_eval, selector: "input#api-key-value[readonly]", attr: value}
-holds: ["Delete key", "Revoke"]      # extra labels to ADD to guard_click's deny list this run
+holds: ["Delete key", "Revoke"]      # pass to guard_click.py as HOLD_EXTRA for this run
 ```
 
 Only the three implemented lanes are valid `kind` values. Cookie capture and downloaded
@@ -71,12 +72,13 @@ for them: fall back to Lane C (the user handles the file or the paste themselves
 
 ## Audit events - `runs/<target>-<ts>/events.jsonl` (structured for three jobs)
 
-`scripts/audit_log.sh` appends one JSON event per line; refuses secret-shaped fields.
+`scripts/audit_log.py` appends one JSON event per line; refuses secret-shaped field names
+AND values, and locks the file so concurrent writers cannot interleave.
 Serves **troubleshooting** (phase/operation/status/error_class/detail), **review** (ordered
 stream of what did/didn't happen, holds + resolutions), **improvement** (`patterns.py` mines
 `error_class` across runs → proposed global lessons).
 ```bash
-RUN_DIR=$RUN bash scripts/audit_log.sh event=consent_shown status=ok target=ninjaone \
+RUN_DIR=<run-dir> uv run scripts/audit_log.py event=consent_shown status=ok target=ninjaone \
    scheme=oauth2 phase=capture operation=broaden selector_id=authorize-btn
 ```
 Suggested keys: `ts run_id target scheme phase operation event status error_class detail
