@@ -1,0 +1,24 @@
+{
+  "name": "connect-tool",
+  "version": "0.1.0",
+  "description": "Set up and prove authentication for any CLI, MCP server, or Skill by driving the Chrome you are already logged into. Reconciles to a desired auth state (setup, refresh, broaden scopes, re-auth, repair), stores secrets in the macOS Keychain without the value entering the agent's context, and finishes only when a real authenticated call returns live data. macOS only. Markdown-only, no binary.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/connect-tool",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "msp-skills",
+    "auth",
+    "oauth",
+    "api-keys",
+    "keychain",
+    "browser",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

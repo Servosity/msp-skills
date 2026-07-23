@@ -177,8 +177,11 @@ def render_first_party_callout(skills: list[dict]) -> str:
         for s in fp
         if not s.get("markdown_only")
     ]
+    # Markdown-only first-party skills are named by their own tagline-ish label,
+    # not all lumped under "concierge" (there is more than one now).
+    meta_labels = {"msp-skills-concierge": "guided concierge"}
     metas = [
-        f"the guided [concierge](./{s['skill_path']})"
+        f"the [{meta_labels.get(s['name'], s['name'])}](./{s['skill_path']})"
         for s in fp
         if s.get("markdown_only")
     ]

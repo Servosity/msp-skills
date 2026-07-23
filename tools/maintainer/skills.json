@@ -299,6 +299,27 @@
         "issue_url": null
       }
     },
+    "connect-tool": {
+      "system": "Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome",
+      "status": "beta",
+      "vendor": "Servosity",
+      "vendor_trademark_owner": "Servosity Inc.",
+      "first_party": true,
+      "markdown_only": true,
+      "category": "Meta",
+      "display_name": "connect-tool",
+      "tagline": "Connect any tool to your agent through your own logged-in Chrome, and prove it works.",
+      "template_version": 2,
+      "has_video": false,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
+      }
+    },
     "connectwise-automate": {
       "system": "ConnectWise Automate (LabTech) RMM: device management, patching, scripting, monitors and alerts for MSPs",
       "status": "beta",

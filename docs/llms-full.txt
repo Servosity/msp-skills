@@ -487,6 +487,11 @@ A: No. CIPP stays your portal for deep single-tenant work. This skill adds the c
 
 Governance: The skill drives the cipp-cli and cipp-mcp binaries, authenticating to your self-hosted CIPP instance with a bearer token from CIPP_API_KEY (obtained via OAuth2 client credentials - 'auth login' performs and caches the exchange) read from the environment, never logged or sent anywhere except the CIPP API. CIPP is a read-write management API: read and rollup commands change nothing; bulk prints its plan and only writes with --execute; everything else (create/edit/offboard/delete, MFA and token actions) sends on run unless you pass --dry-run first. The real permission boundary is the scope you grant the API client in CIPP, so keep autonomous agents to reads plus previewed writes.
 
+### connect-tool (Meta)
+
+Page: https://msp-skills.compoundingteams.com/skills/connect-tool/
+Verification: Awaiting live verification
+
 ### ConnectWise Automate (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/connectwise-automate/

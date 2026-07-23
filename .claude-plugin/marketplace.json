@@ -942,6 +942,25 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "connect-tool",
+      "source": "./skills/connect-tool",
+      "description": "Set up and prove authentication for any CLI, MCP server, or Skill by driving the Chrome you are already logged into. Stores secrets in the macOS Keychain without the value entering the agent's context, wires the consumer, and does not finish until a real authenticated call returns live data. Markdown-only, no binary.",
+      "version": "0.1.0",
+      "category": "meta",
+      "tags": [
+        "msp-skills",
+        "auth",
+        "oauth",
+        "api-keys",
+        "keychain",
+        "browser",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

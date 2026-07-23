@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-17",
+  "generated_at": "2026-07-23",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -261,6 +261,27 @@
       "verification": "awaiting",
       "category": "Security",
       "tagline": "Every client tenant's M365 posture, license waste, and stale accounts in one cross-tenant rollup."
+    },
+    {
+      "name": "connect-tool",
+      "system": "Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome",
+      "status": "beta",
+      "skill_path": "skills/connect-tool",
+      "cli_binary": null,
+      "mcp_binary": null,
+      "version": "0.1.0",
+      "printing_press_version": null,
+      "license": "Apache-2.0",
+      "vendor": "Servosity",
+      "vendor_trademark_owner": "Servosity Inc.",
+      "first_party": true,
+      "install_skill_one_liner": "",
+      "install_mcp_doc": "",
+      "description": "Connect any tool to your agent through your own logged-in Chrome, and prove it works.",
+      "verification": "n/a",
+      "category": "Meta",
+      "tagline": "Connect any tool to your agent through your own logged-in Chrome, and prove it works.",
+      "markdown_only": true
     },
     {
       "name": "connectwise-automate",
