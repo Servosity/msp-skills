@@ -33,7 +33,8 @@ install method:
 
 ```bash
 SKILL_DIR="${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/skills/connect-tool}"   # plugin install, else manual install
-[ -f "$SKILL_DIR/SKILL.md" ] || SKILL_DIR=$(dirname "$(find "$HOME/.claude" -name SKILL.md -path '*connect-tool*' 2>/dev/null | head -1)")
+# -L matters: a manual install is often a symlink, and plain find will not follow it.
+[ -f "$SKILL_DIR/SKILL.md" ] || SKILL_DIR=$(dirname "$(find -L "$HOME/.claude" -maxdepth 6 -name SKILL.md -path '*connect-tool*' 2>/dev/null | head -1)")
 ```
 
 Run Python helpers with `uv run` (or `python3` 3.12+), shell helpers with `bash`.

@@ -39,7 +39,7 @@ Check every one of them in one shot. The easy way is to ask your agent, since it
 It prints one `OK` or `MISS` line per dependency, with the install command for anything missing, and it checks all of them rather than stopping at the first failure. To run it yourself, resolve the Skill directory first (it differs by install method, so do not hardcode it):
 
 ```bash
-CT=$(find ~/.claude -name SKILL.md -path '*connect-tool*' 2>/dev/null | head -1 | xargs dirname)
+CT=$(find -L ~/.claude -maxdepth 6 -name SKILL.md -path '*connect-tool*' 2>/dev/null | head -1 | xargs dirname)
 bash "$CT/scripts/preflight.sh" --deps
 ```
 
@@ -83,7 +83,7 @@ Nothing is written to this repo at runtime. State, run logs, and screenshots go 
 Every helper ships its own self-check, so you can confirm the security properties rather than trust them:
 
 ```bash
-cd "$(find ~/.claude -name SKILL.md -path '*connect-tool*' | head -1 | xargs dirname)"
+cd "$(find -L ~/.claude -maxdepth 6 -name SKILL.md -path '*connect-tool*' 2>/dev/null | head -1 | xargs dirname)"
 for s in scripts/*.sh; do bash "$s" --selfcheck; done
 for p in scripts/*.py; do uv run "$p" --selfcheck; done
 ```
