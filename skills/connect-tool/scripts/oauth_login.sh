@@ -10,8 +10,9 @@
 #   RUN_DIR=<dir> oauth_login.sh --finish                        # prints OAUTH_OK | FAIL
 #   oauth_login.sh --selfcheck
 #
-# The CLI's own output (which may contain the token) goes ONLY to $RUN_DIR/.oauth_cli.log,
-# which the model must NEVER cat. This script prints only AUTH_URL / OAUTH_OK.
+# The CLI's own output (which may contain the token) goes ONLY to $RUN_DIR/.oauth_cli.log
+# (created under umask 077), which the model must NEVER cat and which --finish deletes.
+# This script prints only AUTH_URL / OAUTH_OK.
 set -uo pipefail
 
 phase_start() {
@@ -49,10 +50,16 @@ phase_finish() {
     kill "$p" 2>/dev/null; echo "FAIL: login timed out" >&2; return 4
   fi
   # Confirm from the CLI's OWN words - never echo the log (it may hold the token).
-  if grep -qiE 'login (ok|success|stored)|token stored|authenticated|^success' "$log"; then
-    echo "OAUTH_OK"; return 0
+  # Negations first: "not authenticated" / "login failed" must never read as success.
+  local ok=1
+  if ! grep -qiE '(not|failed|failure|error|denied|unable to) *(to )?(log ?in|authenticat)' "$log" \
+     && grep -qiE 'login (ok|success(ful)?|stored)|token stored|^ *authenticated|^ *success' "$log"; then
+    ok=0
   fi
-  echo "FAIL: login did not confirm (log is local-only, not shown)" >&2; return 6
+  # The log can hold the token itself, so it does not survive the run.
+  rm -f "$log" "$pidf"
+  if [ "$ok" -eq 0 ]; then echo "OAUTH_OK"; return 0; fi
+  echo "FAIL: login did not confirm (log was local-only and has been deleted)" >&2; return 6
 }
 
 selfcheck() {
@@ -77,7 +84,16 @@ selfcheck() {
   grep -q '^AUTH_URL=https://accounts.google.com/o/oauth2/auth' <<<"$out2" \
     || { echo "selfcheck FAIL: clean URL not surfaced alongside tokened one ($out2)"; exit 1; }
   rm -rf "$tmp2"
-  echo "oauth_login.sh selfcheck OK (clean+tokened URLs handled, token never echoed, OK confirmed)"
+  # a negated success line must NOT read as success, and the log must not survive
+  local tmp3; tmp3=$(mktemp -d)
+  RUN_DIR="$tmp3" OAUTH_URL_WAIT=20 bash "$0" --start -- \
+    bash -c 'echo "https://accounts.google.com/o/oauth2/auth?client_id=ok"; sleep 0.2; echo "user is not authenticated"' >/dev/null
+  sleep 0.5
+  if RUN_DIR="$tmp3" OAUTH_FINISH_WAIT=10 bash "$0" --finish 2>/dev/null | grep -q OAUTH_OK; then
+    echo "selfcheck FAIL: 'not authenticated' read as success"; exit 1; fi
+  [ -f "$tmp3/.oauth_cli.log" ] && { echo "selfcheck FAIL: CLI log survived --finish"; exit 1; }
+  rm -rf "$tmp3"
+  echo "oauth_login.sh selfcheck OK (clean+tokened URLs handled, token never echoed, negation rejected, log shredded)"
 }
 
 case "${1:-}" in

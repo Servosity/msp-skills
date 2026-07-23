@@ -28,8 +28,9 @@ value never appears in stdout).
    `security add-generic-password -w`, prints only the receipt. `set +x` so a trace can't leak.
 3. **Lane C - user paste (fallback).** One-time-shown / reveal-only / clipboard-only secrets,
    or any case where the Lane-B selector is unreliable. Print the bare-`-w` line for the user
-   to run in their own terminal (cmux `!` prefix): `! security add-generic-password -U -a <acct>
-   -s <SVC> -w` - a hidden prompt; the value never enters argv or context. Your only
+   to run in their OWN terminal (in Claude Code, prefix it with `!`):
+   `security add-generic-password -U -a <acct> -s <SVC> -w` - a hidden prompt; the value
+   never enters argv or context. Your only
    confirmation is the Lane-5 verification call.
 
 **Escalate down on any doubt.** A truncated Lane-B token is worse than asking (Lane C).

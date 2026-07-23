@@ -1,7 +1,7 @@
 {
   "name": "connect-tool",
   "version": "0.1.0",
-  "description": "Set up and prove authentication for any CLI, MCP server, or Skill by driving the Chrome you are already logged into. Reconciles to a desired auth state (setup, refresh, broaden scopes, re-auth, repair), stores secrets in the macOS Keychain without the value entering the agent's context, and finishes only when a real authenticated call returns live data. macOS only. Markdown-only, no binary.",
+  "description": "Set up and prove authentication for any CLI, MCP server, or Skill by driving the Chrome you are already logged into. Reconciles to a desired auth state (setup, refresh, broaden scopes, re-auth, repair), stores secrets in the macOS Keychain without the value entering the agent's context, and finishes only when a real authenticated call returns live data. macOS only. No compiled CLI or MCP binary; ships Markdown plus stdlib shell and Python helpers.",
   "author": {
     "name": "Servosity",
     "url": "https://www.servosity.com"

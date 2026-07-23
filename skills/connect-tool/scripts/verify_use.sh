@@ -12,9 +12,13 @@ set -uo pipefail
 run() {
   local field=$1; shift
   [ "${1:-}" = "--" ] && shift
-  case "$field" in
-    *token*|*secret*|*key*|*bearer*|*password*)
+  # Case-insensitive: .AccessToken and .access_token are the same refusal.
+  local lc; lc=$(printf '%s' "$field" | tr '[:upper:]' '[:lower:]')
+  case "$lc" in
+    *token*|*secret*|*key*|*bearer*|*password*|*passwd*|*credential*|*cookie*|*session*|*auth*)
       echo "REFUSING to assert on a secret-shaped field ($field)" >&2; return 2;;
+    .|"")
+      echo "REFUSING to assert on the whole response (use a specific non-secret field)" >&2; return 2;;
   esac
   local backoff=${VERIFY_BACKOFF:-2} out code val
   code=1
@@ -38,6 +42,12 @@ selfcheck() {
   fi
   if run .access_token -- printf '%s' '{"access_token":"x"}' 2>/dev/null; then
     echo "selfcheck FAIL: secret-shaped field not refused"; exit 1
+  fi
+  if run .AccessToken -- printf '%s' '{"AccessToken":"x"}' 2>/dev/null; then
+    echo "selfcheck FAIL: mixed-case secret-shaped field not refused"; exit 1
+  fi
+  if run . -- printf '%s' '{"access_token":"x"}' 2>/dev/null; then
+    echo "selfcheck FAIL: whole-response assertion not refused"; exit 1
   fi
   echo "verify_use.sh selfcheck OK"
 }

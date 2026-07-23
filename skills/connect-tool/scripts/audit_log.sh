@@ -27,6 +27,7 @@ emit_event() {
       echo "REFUSING to log value with an embedded secret in field '$k'" >&2; return 9   # defense in depth
     fi
     v=${v//\\/\\\\}; v=${v//\"/\\\"}; v=${v//$'\n'/ }   # json-escape + strip newlines
+    k=${k//\\/\\\\}; k=${k//\"/\\\"}; k=${k//$'\n'/ }   # keys too, so the line stays valid JSON
     json="$json,\"$k\":\"$v\""
   done
   json="$json}"

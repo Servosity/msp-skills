@@ -71,7 +71,14 @@ def reconcile(desired_scopes: list[str], current: dict | None,
         return {"operation": "reauth", "reason": "token expired and no refresh token",
                 "browser": True, "missing_scopes": []}
 
-    return {"operation": "noop", "reason": "scopes satisfied and token valid",
+    # noop ONLY for a target that actually reached `authenticated`. A half-finished
+    # setup (app_ready, auth_error, ...) has satisfied scopes trivially and must not
+    # short-circuit into "nothing to do".
+    if status != "authenticated":
+        return {"operation": "setup", "reason": f"prior state is {status or 'incomplete'}, not authenticated",
+                "browser": True, "missing_scopes": sorted(desired)}
+
+    return {"operation": "noop", "reason": "authenticated, scopes satisfied and token valid",
             "browser": False, "missing_scopes": []}
 
 
@@ -89,11 +96,14 @@ def _selfcheck() -> None:
         ("reauth", ["read"], {"status": "token_expired", "scopes_granted": ["read"], "token_expiry_ts": soon}),
         ("repair", ["read"], {"status": "authenticated", "scopes_granted": ["read"],
                               "token_expiry_ts": far, "error_count_7d": 4}),
+        # a half-finished setup must NOT read as noop just because nothing is missing
+        ("setup", [], {"status": "app_ready", "scopes_granted": [], "token_expiry_ts": None}),
+        ("setup", ["read"], {"status": "auth_error", "scopes_granted": ["read"], "token_expiry_ts": far}),
     ]
     for want, scopes, cur in cases:
         got = reconcile(scopes, cur, now)["operation"]
         assert got == want, f"expected {want}, got {got} for {cur}"
-    print("reconcile.py selfcheck OK (setup/noop/broaden/refresh/reauth/repair)")
+    print("reconcile.py selfcheck OK (setup/noop/broaden/refresh/reauth/repair, incomplete-state guard)")
 
 
 def main(argv: list[str]) -> int:

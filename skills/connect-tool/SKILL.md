@@ -27,11 +27,19 @@ auth for any CLI, MCP server, or Skill; stores secrets in the macOS Keychain **w
 value ever entering this context**; and does not stop until a real authenticated call
 returns live data.
 
-`SKILL_DIR` is this skill's directory (`$HOME/.claude/skills/connect-tool` for a standard
-install). Run Python helpers with `uv run`, shell helpers with `bash`.
+`SKILL_DIR` is the directory this SKILL.md lives in. Resolve it once at the start of a
+run and use it for every helper call; do NOT hardcode a path, because it differs by
+install method:
 
-**Requirements: macOS, Google Chrome, Node.js, OpenCLI + its Chrome extension, `uv` (or
-Python 3.12+), and `jq`.** Check them all in one shot with
+```bash
+SKILL_DIR="${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/skills/connect-tool}"   # plugin install, else manual install
+[ -f "$SKILL_DIR/SKILL.md" ] || SKILL_DIR=$(dirname "$(find "$HOME/.claude" -name SKILL.md -path '*connect-tool*' 2>/dev/null | head -1)")
+```
+
+Run Python helpers with `uv run` (or `python3` 3.12+), shell helpers with `bash`.
+
+**Requirements: macOS, Google Chrome, Node.js + npm, OpenCLI + its Chrome extension, `uv`
+or Python 3.12+, and `jq`.** Check them all in one shot with
 `bash "$SKILL_DIR/scripts/preflight.sh" --deps`. Setup detail is in `README.md`.
 
 ## 1. HARD GUARDRAIL - browser pinning (read first)
@@ -80,8 +88,9 @@ Run a target through these phases; loop 3-5 until the verify receipt passes.
 1. **Read learnings + load state:** `uv run "$SKILL_DIR/scripts/learning.py" guidance --target T`,
    then `reconcile.py` for the operation. If `noop`, report and stop.
 2. **Pre-flight + bind:** `bash "$SKILL_DIR/scripts/preflight.sh" <target-slug>` (binds your
-   focused Chrome; bootstraps OpenCLI if missing, see `references/opencli-bootstrap.md`).
-   Never fall through to another browser tool.
+   focused Chrome). If OpenCLI is missing or disconnected it refuses and prints the setup
+   steps; walk the user through `references/opencli-bootstrap.md` rather than installing
+   anything unasked. Never fall through to another browser tool.
 3. **Drive** the operation. Navigate with `opencli browser <slug> open|state|find|click|fill|
    upload|wait` (crib: `references/browser-and-keychain.md`). If a recipe exists use its nav;
    else discover live from `state`/`find`/`extract`. Route every click that could be

@@ -53,7 +53,7 @@ are **hints, not coordinates** - if a selector misses (`matches_n: 0`), re-deriv
 `state`/`find`/`extract` and propose a recipe update.
 ```yaml
 target: halopsa
-kind: dom_api_key          # dom_api_key | oauth2_pkce_cli | oauth2_manual | cookie_capture | service_account_json
+kind: dom_api_key          # dom_api_key (Lane B) | oauth2_pkce_cli (Lane A) | user_paste (Lane C)
 scopes: ["tickets read", "assets read"]
 destination: {store: keychain, account: halopsa, service: HALOPSA_API_KEY, wrapper: ~/.local/bin/halopsa-cli}
 consumer: {install_check: "command -v halopsa-cli", login_cmd: null, verify_cmd: "halopsa-cli account get", verify_field: ".email"}
@@ -62,8 +62,12 @@ nav:
   - {action: wait,  type: selector, value: "table"}
   - {action: click, target: "Generate a new API key"}
 secret_source: {method: dom_eval, selector: "input#api-key-value[readonly]", attr: value}
-holds: ["Delete key", "Revoke"]
+holds: ["Delete key", "Revoke"]      # extra labels to ADD to guard_click's deny list this run
 ```
+
+Only the three implemented lanes are valid `kind` values. Cookie capture and downloaded
+service-account JSON files have no audited no-context lane yet, so do not invent a recipe
+for them: fall back to Lane C (the user handles the file or the paste themselves).
 
 ## Audit events - `runs/<target>-<ts>/events.jsonl` (structured for three jobs)
 

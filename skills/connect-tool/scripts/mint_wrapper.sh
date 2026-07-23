@@ -11,6 +11,11 @@ set -uo pipefail
 mint() {
   local name=$1 envvar=$2 acct=$3 svc=$4 real=$5
   local bindir="$HOME/.local/bin" dest
+  # These land inside a generated executable, so they are validated, not trusted.
+  case "$name" in *[!A-Za-z0-9._-]*|""|.*) echo "FAIL: bad wrapper name '$name'" >&2; return 2;; esac
+  case "$envvar" in [!A-Za-z_]*|*[!A-Za-z0-9_]*|"") echo "FAIL: bad env var '$envvar'" >&2; return 2;; esac
+  case "$acct$svc" in *[!A-Za-z0-9._@-]*|"") echo "FAIL: bad keychain account/service" >&2; return 2;; esac
+  case "$real" in /*) : ;; *) echo "FAIL: real binary must be an absolute path" >&2; return 2;; esac
   mkdir -p "$bindir"
   dest="$bindir/$name"
   cat > "$dest" <<EOF
@@ -34,8 +39,16 @@ selfcheck() {
   grep -q 'security find-generic-password -a halopsa -s HALOPSA_API_KEY -w' "$w" \
     || { echo "selfcheck FAIL: keychain read line missing"; exit 1; }
   grep -q 'exec "/usr/bin/true"' "$w" || { echo "selfcheck FAIL: exec line missing"; exit 1; }
+  for bad in "../evil" "a b" ""; do
+    if HOME="$tmp" mint "$bad" X a s /usr/bin/true >/dev/null 2>&1; then
+      echo "selfcheck FAIL: bad wrapper name '$bad' accepted"; exit 1; fi
+  done
+  if HOME="$tmp" mint ok "BAD VAR" a s /usr/bin/true >/dev/null 2>&1; then
+    echo "selfcheck FAIL: bad env var accepted"; exit 1; fi
+  if HOME="$tmp" mint ok OK a s relative/path >/dev/null 2>&1; then
+    echo "selfcheck FAIL: relative binary path accepted"; exit 1; fi
   rm -rf "$tmp"
-  echo "mint_wrapper.sh selfcheck OK"
+  echo "mint_wrapper.sh selfcheck OK (keychain read + arg validation)"
 }
 
 if [ "${1:-}" = "--selfcheck" ]; then selfcheck; exit 0; fi

@@ -14,11 +14,18 @@
 set -uo pipefail
 set +x
 OPENCLI=${OPENCLI:-opencli}
-SECURITY=${SECURITY:-security}
+# The keychain writer is the one process that touches the plaintext value, so it is
+# pinned to /usr/bin/security unless the self-check is explicitly running.
+if [ -n "${CONNECT_TOOL_SELFCHECK:-}" ]; then SECURITY=${SECURITY:-security}; else SECURITY=/usr/bin/security; fi
 
 grab() {
   local session=$1 selector=$2 service=$3 account=$4 attr=${5:-auto}
   local sel_b64 js raw line n b64 value len sha8 last4
+  # attr is interpolated into the injected JS, so it is enum-checked, never free text.
+  case "$attr" in
+    auto|value|textContent) : ;;
+    *) echo "FAIL: --attr must be auto|value|textContent (got: $attr)" >&2; return 2;;
+  esac
   sel_b64=$(printf '%s' "$selector" | openssl base64 -A)
   js=$(cat <<JS
 (() => {
@@ -60,6 +67,7 @@ JS
 }
 
 selfcheck() {
+  export CONNECT_TOOL_SELFCHECK=1
   command -v openssl >/dev/null || { echo "selfcheck SKIP: openssl missing"; exit 0; }
   local tmp secret; tmp=$(mktemp -d); secret='sk_test_ABC123'
   # fake opencli: eval returns a 1-node envelope carrying the secret
@@ -85,8 +93,11 @@ STUB
   chmod +x "$tmp/opencli"
   if OPENCLI="$tmp/opencli" SECURITY="$tmp/security" grab sess "input#k" SVC acct auto 2>/dev/null; then
     echo "selfcheck FAIL: 0-node selector did not fail"; exit 1; fi
+  # a bogus --attr must never reach the injected JS
+  if OPENCLI="$tmp/opencli" SECURITY="$tmp/security" grab sess "input#k" SVC acct 'value"];alert(1);//' 2>/dev/null; then
+    echo "selfcheck FAIL: invalid --attr accepted"; exit 1; fi
   rm -rf "$tmp"
-  echo "grab_secret.sh selfcheck OK (len/last4 right, no leak, 0-node fails)"
+  echo "grab_secret.sh selfcheck OK (len/last4 right, no leak, 0-node + bad --attr fail)"
 }
 
 if [ "${1:-}" = "--selfcheck" ]; then selfcheck; exit 0; fi

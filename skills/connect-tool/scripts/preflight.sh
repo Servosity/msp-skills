@@ -46,8 +46,17 @@ deps() {
     printf '  MISS %-9s -> install Google Chrome from https://www.google.com/chrome/\n' chrome; missing=1
   fi
   check node      node      "brew install node   (needed to install opencli)"
+  check npm       npm       "ships with node; reinstall node if missing"
   check opencli   "$OPENCLI" "npm install -g @jackwener/opencli"
-  check uv        uv        "brew install uv     (or use python3 3.12+ directly)"
+  # Either uv or a new-enough python3 runs the helpers; only one is required.
+  if command -v uv >/dev/null 2>&1; then
+    printf '  OK   %-9s (%s)\n' python "uv: $(command -v uv)"
+  elif command -v python3 >/dev/null 2>&1 \
+       && python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3,12) else 1)' 2>/dev/null; then
+    printf '  OK   %-9s (%s, no uv needed)\n' python "$(python3 -V 2>&1)"
+  else
+    printf '  MISS %-9s -> brew install uv   (or install Python 3.12+)\n' python; missing=1
+  fi
   check jq        jq        "brew install jq     (verify_use.sh asserts on JSON receipts)"
   check openssl   openssl   "macOS built-in"
   check shasum    shasum    "macOS built-in"
@@ -85,7 +94,9 @@ preflight() {
   if [ -z "$url" ] || grep -qi 'about:blank' <<<"$state"; then
     echo "FAIL: bound tab has no real URL (got: ${url:-none}). Focus a real page." >&2; return 6
   fi
-  echo "OK bound session=$session url=$url"
+  # Print scheme+host+path only. An OAuth callback URL carries ?code= in its query,
+  # and that belongs to the consuming CLI, never to this output.
+  echo "OK bound session=$session url=${url%%[?#]*}"
 }
 
 make_stub() {  # $1=dir $2=extension-status(connected|missing)

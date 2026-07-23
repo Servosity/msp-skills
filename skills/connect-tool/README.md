@@ -22,22 +22,26 @@ connect-tool is **macOS-only**: it stores every secret in the macOS Keychain via
 | Dependency | Why | Install |
 |---|---|---|
 | macOS | Keychain storage (`security`) | - |
+| Homebrew | installs the three tools below | <https://brew.sh> (one paste command) |
 | Google Chrome | the logged-in browser it drives | <https://www.google.com/chrome/> |
-| Node.js | to install OpenCLI | `brew install node` |
+| Node.js + npm | to install OpenCLI | `brew install node` |
 | OpenCLI | the browser bridge (`opencli browser bind`) | `npm install -g @jackwener/opencli` |
 | OpenCLI Chrome extension | the other half of the bridge | <https://github.com/jackwener/opencli/releases> |
-| `uv` | runs the Python helpers | `brew install uv` (or use Python 3.12+ directly) |
+| `uv` **or** Python 3.12+ | runs the Python helpers | `brew install uv` (Python 3.12+ alone also works) |
 | `jq` | asserts the JSON receipt in the verify step | `brew install jq` |
 
 `openssl`, `shasum`, and `security` ship with macOS. Nothing else is needed: the Python helpers are stdlib-only and the shell helpers are plain bash.
 
-Check every one of them in a single command:
+Check every one of them in one shot. The easy way is to ask your agent, since it already knows where the Skill was installed:
+
+> run the connect-tool dependency check
+
+It prints one `OK` or `MISS` line per dependency, with the install command for anything missing, and it checks all of them rather than stopping at the first failure. To run it yourself, resolve the Skill directory first (it differs by install method, so do not hardcode it):
 
 ```bash
-bash ~/.claude/skills/connect-tool/scripts/preflight.sh --deps
+CT=$(find ~/.claude -name SKILL.md -path '*connect-tool*' 2>/dev/null | head -1 | xargs dirname)
+bash "$CT/scripts/preflight.sh" --deps
 ```
-
-It prints one `OK` or `MISS` line per dependency, with the install command for anything missing, and it checks all of them rather than stopping at the first failure.
 
 ## Install
 
@@ -48,15 +52,21 @@ Install the Skill:
 /plugin install connect-tool@msp-skills
 ```
 
-Then install the two runtime pieces and reload the extension:
+Then install the runtime pieces:
 
 ```bash
-brew install node uv jq
+brew install node uv jq          # Homebrew itself: https://brew.sh
 npm install -g @jackwener/opencli
-# download the extension from the OpenCLI releases page, then in Chrome:
-#   Extensions > Developer mode > Load unpacked
-bash ~/.claude/skills/connect-tool/scripts/preflight.sh --deps
 ```
+
+Then load the OpenCLI Chrome extension, which does NOT come from the Chrome Web Store:
+
+1. Download `opencli-extension-v<version>.zip` from <https://github.com/jackwener/opencli/releases/latest>.
+2. Unzip it. The unzipped folder has `manifest.json` at its top level.
+3. In Chrome, open `chrome://extensions/`, turn on **Developer mode** (top right), click **Load unpacked**, and select that folder.
+4. Confirm the bridge is up: `opencli doctor` should show `[OK] Daemon` and `[OK] Extension: connected`.
+
+Then run the dependency check above. If the extension shows as missing later in a session, click the reload arrow on the OpenCLI card in `chrome://extensions/`: the extension's background worker goes dormant when idle, and restarting the daemon alone does not wake it.
 
 ## Using it
 
@@ -73,7 +83,7 @@ Nothing is written to this repo at runtime. State, run logs, and screenshots go 
 Every helper ships its own self-check, so you can confirm the security properties rather than trust them:
 
 ```bash
-cd ~/.claude/skills/connect-tool
+cd "$(find ~/.claude -name SKILL.md -path '*connect-tool*' | head -1 | xargs dirname)"
 for s in scripts/*.sh; do bash "$s" --selfcheck; done
 for p in scripts/*.py; do uv run "$p" --selfcheck; done
 ```
@@ -99,6 +109,10 @@ Consumers are wired through a Keychain-reading wrapper, so the value never lands
 - `references/state-recipes-audit.md` - state, learned recipes, reconcile table, audit-event schema.
 - `scripts/` - the shell and Python helpers, each with a `--selfcheck`.
 
-## Markdown-only (no binary)
+## No compiled binary
 
-connect-tool ships Markdown plus stdlib shell and Python helpers. There is no compiled CLI and no MCP server of its own to install, because it has no vendor API of its own: it connects the tools that do. Its `install.sh` / `install.ps1` / `mcp-install.md` are intentionally absent for that reason.
+connect-tool ships Markdown plus shell and Python helpers (stdlib only, no third-party packages). There is no compiled CLI and no MCP server of its own to install, because it has no vendor API of its own: it connects the tools that do. Its `install.sh` / `install.ps1` / `mcp-install.md` are intentionally absent for that reason, and the catalog lists it as markdown-only on the same basis.
+
+## What it does not claim
+
+The security model is a process boundary, not a sandbox. Specifically: the secret value never passes through the agent's context, but the Keychain write does put it in the local process table for an instant (documented in `references/security-model.md`), and a `len` / `sha256[:8]` / `last4` receipt is printed so you can tell one key from another. If you want zero receipt at all, use Lane C and type the secret yourself.

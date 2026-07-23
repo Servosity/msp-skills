@@ -12,12 +12,14 @@ OPENCLI=${OPENCLI:-opencli}
 DENY='post|publish|tweet|send|save|pay|charge|subscribe|delete|remove|revoke|deploy|merge|confirm|transfer|authorize'
 
 guard() {
-  local session=$1 target=$2 run_dir=${RUN_DIR:-/tmp} label
+  # Never /tmp: a HOLD screenshot can show a page mid-flow. Default to a 0700 run dir.
+  local session=$1 target=$2 run_dir=${RUN_DIR:-$HOME/.config/connect-tool/runs/_holds} label
   label=$("$OPENCLI" browser "$session" find --selector "$target" 2>/dev/null \
             | grep -oiE "$DENY" | head -1 || true)
   label=$(printf '%s' "$label" | tr '[:upper:]' '[:lower:]')
   if [ -n "$label" ] && [ "$(printf '%s' "${ALLOW:-}" | tr '[:upper:]' '[:lower:]')" != "$label" ]; then
-    local shot; shot="$run_dir/HOLD-$(date -u +%Y%m%d-%H%M%S).png"
+    local shot; mkdir -p "$run_dir"; chmod 700 "$run_dir" 2>/dev/null
+    shot="$run_dir/HOLD-$(date -u +%Y%m%d-%H%M%S).png"
     "$OPENCLI" browser "$session" screenshot "$shot" >/dev/null 2>&1 || true
     echo "HOLD: '$target' matches irreversible verb '$label'. $shot saved. NOT clicking; surfaced for the user." >&2
     return 10
