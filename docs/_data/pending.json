@@ -83,6 +83,13 @@
     "current_hash": "sha256:feab020e2aab72a791cbf76939f641af9db14d46f3867f2f040f733c30f83365",
     "released_hash": "sha256:aa0dc021cdb156c7c5bd704dc240c05f666bcc65074ff04bc8a5b76852f20f19"
   },
+  "connect-tool": {
+    "state": "markdown-only",
+    "version": "0.2.0",
+    "latest_tag": null,
+    "current_hash": null,
+    "released_hash": null
+  },
   "connectwise-automate": {
     "state": "binary-pending",
     "version": "0.1.0",
