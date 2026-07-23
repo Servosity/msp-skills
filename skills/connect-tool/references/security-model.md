@@ -27,8 +27,9 @@ Being precise here matters more than sounding strong.
 - **"The complete secret never enters the agent's context."** That is the claim. The
   redacted receipt (`len`, `sha256[:8]`, `last4`) is deliberate: `last4` is how an operator
   matches a stored key against the masked value a vendor portal displays, and `sha256[:8]`
-  lets two captures be compared without either being shown. If you want no receipt at all,
-  use Lane C and type the secret yourself.
+  lets two captures be compared without either being shown. Below 12 characters the last
+  four would be a meaningful fraction of the whole, so `last4` is withheld entirely. If you
+  want no receipt at all, use Lane C and type the secret yourself.
 - **The consumer is a separate trust boundary.** Once the launcher hands the credential to
   the consuming CLI as an environment variable, the value lives in that process. If that CLI
   prints it on `--debug`, dumps it in a crash, or ships telemetry, that is outside what
@@ -51,8 +52,10 @@ Being precise here matters more than sounding strong.
    output stream continuously **without keeping it**, and **navigates your bound tab to the
    authorization URL rather than printing it** (an authorize URL carries an unguessable
    `state`, plus tenant and client identifiers, none of which belong in model context). You
-   drive the consent click with `ALLOW=authorize`; success is read from the CLI's own words,
-   with negations ("not authenticated") rejected first. **After consent, do NOT inspect the
+   drive the consent click with `ALLOW=authorize`, then call `--finish`; success is read
+   from the CLI's own words, with negations ("not authenticated") rejected first. `--start`
+   and `--finish` are separate invocations with a detached broker in between, precisely so
+   the consent click can happen while the login is still waiting on its callback. **After consent, do NOT inspect the
    page:** the `?code=` in the callback URL belongs to the CLI, not to you.
 2. **Lane B - displayed value (`scripts/grab_secret.py`).** A key is rendered on a settings
    page and there is no CLI auth subcommand. One process reads exactly one DOM node (the
@@ -116,6 +119,11 @@ survives it.
   Windows), never to a world-readable temp dir.
 - **The `opencli-browser` skill**, if installed, teaches free use of `eval`, `network`, and
   `console`. Inside a connect-tool run, this skill's rules win.
+- **Batch shims on Windows.** Launching a `.cmd` or `.bat` goes through `cmd.exe`, which
+  re-parses arguments even when Python is told not to use a shell: an `&` inside an OAuth
+  URL could split the command. So when npm has installed `opencli.cmd`, the helpers resolve
+  its JavaScript entry point and run it through `node.exe` directly, which takes a real
+  argv. `mint_wrapper.py` likewise refuses to target a `.cmd`/`.bat` binary.
 
 ## Verify by use, never by printing
 
@@ -123,6 +131,9 @@ A credential is unverified until a real, read-only authed call returns real data
 (`scripts/verify_use.py`). That helper takes a **strict dotted path** (`.data.id`), not
 filter code: there is no way to select the whole response, construct a secret-shaped key
 dynamically, or return a container. Secret-shaped path segments are refused
-case-insensitively, and the asserted value must be a bounded, printable scalar. The log
+case-insensitively, the asserted value must be a bounded, printable scalar, and the VALUE
+is checked as well as the field name, so `{"value": "sk_live_..."}` is refused rather than
+printed. The same value-shape check guards the audit log and the state file, so a token
+written into an innocently-named field is refused rather than persisted. The log
 records `verified via <call> -> <handle/email/id>`, never the token. To confirm two captures
 match, compare `sha256[:8]`, never values.

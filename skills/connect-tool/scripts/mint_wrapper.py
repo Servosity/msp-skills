@@ -47,6 +47,11 @@ def mint(name: str, envvar: str, account: str, service: str, real: str) -> int:
     if not ct.is_absolute(real):
         print("FAIL: real binary must be an absolute path", file=sys.stderr)
         return 2
+    if ct.WINDOWS and real.lower().endswith((".cmd", ".bat")):
+        # Launching a batch file goes through cmd.exe, which re-parses the
+        # arguments AFTER the credential is already in the child environment.
+        print("FAIL: point at a real executable (.exe), not a .cmd/.bat shim", file=sys.stderr)
+        return 2
 
     bindir = ct.wrapper_dir()
     if ct.WINDOWS:
@@ -109,6 +114,8 @@ def _selfcheck() -> None:
                 assert mint(bad, "X", "a", "s", real) == 2, f"bad name {bad!r} accepted"
             assert mint("ok", "BAD VAR", "a", "s", real) == 2, "bad env var accepted"
             assert mint("ok", "OK", "a", "s", "relative/path") == 2, "relative binary accepted"
+            if ct.WINDOWS:
+                assert mint("ok", "OK", "a", "s", "C:\\tools\\x.cmd") == 2, "batch target accepted"
 
         # launch() feeds the real credential to the child through the environment
         svc, acct = "CONNECT_TOOL_SELFCHECK", "mint"

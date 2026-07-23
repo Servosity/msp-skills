@@ -63,14 +63,14 @@ def grab(session: str, selector: str, service: str, account: str, attr: str = "a
     if attr not in ATTRS:
         print(f"FAIL: --attr must be one of {'|'.join(ATTRS)}", file=sys.stderr)
         return 2
-    exe = ct.which_opencli()
-    if not exe:
+    oc = ct.opencli_cmd()
+    if not oc:
         print("FAIL: opencli not installed", file=sys.stderr)
         return 3
     try:
-        # Captured, NEVER printed. shell=False, so the selector cannot be parsed
-        # as a command by cmd.exe or bash.
-        raw = ct.run([exe, "browser", session, "eval", _js(selector, attr)], timeout=90).stdout or ""
+        # Captured, NEVER printed. shell=False AND a real argv (never a .cmd
+        # shim), so the selector cannot be re-parsed as a command.
+        raw = ct.run([*oc, "browser", session, "eval", _js(selector, attr)], timeout=90).stdout or ""
     except Exception:
         print("FAIL: browser eval failed", file=sys.stderr)   # fixed message, no detail
         return 3

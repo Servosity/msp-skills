@@ -12,6 +12,10 @@
 #   INSTALL_DIR                                           override the destination
 #   DRY_RUN=1                                             print the plan and exit
 
+# Everything runs inside a function on purpose: `irm ... | iex` evaluates in the
+# CALLER'S scope, where a bare `exit` would terminate the user's PowerShell
+# session rather than just this script. `return` inside a function does not.
+function Invoke-ConnectToolBootstrap {
 $ErrorActionPreference = "Stop"
 
 $Owner = if ($env:MSP_SKILLS_OWNER) { $env:MSP_SKILLS_OWNER } else { "servosity" }
@@ -28,7 +32,7 @@ Write-Host "  destination: $InstallDir"
 
 if ($env:DRY_RUN -eq "1") {
   Write-Host "DRY_RUN=1 set; not downloading."
-  exit 0
+  return 0
 }
 
 # --- 1. Fetch the Skill ------------------------------------------------------
@@ -53,19 +57,36 @@ try {
   if (-not $src) { throw "skills/connect-tool not found in the downloaded archive" }
   if (-not (Test-Path (Join-Path $src "SKILL.md"))) { throw "downloaded copy has no SKILL.md" }
 
-  # Replace atomically enough: stage beside the destination, then swap.
+  # Stage beside the destination, then swap. A Windows directory rename can fail
+  # if any descendant has an open handle (an editor, an indexer), so the old copy
+  # is restored rather than left with nothing at the install path.
   $parent = Split-Path -Parent $InstallDir
   New-Item -ItemType Directory -Force -Path $parent | Out-Null
   $staging = "$InstallDir.new"
   if (Test-Path $staging) { Remove-Item -Recurse -Force $staging }
   Copy-Item -Recurse -Force $src $staging
+
+  $backup = "$InstallDir.old"
+  $movedAside = $false
   if (Test-Path $InstallDir) {
-    $backup = "$InstallDir.old"
     if (Test-Path $backup) { Remove-Item -Recurse -Force $backup }
-    Move-Item $InstallDir $backup
+    for ($i = 1; $i -le 3 -and -not $movedAside; $i++) {
+      try { Move-Item $InstallDir $backup -ErrorAction Stop; $movedAside = $true }
+      catch { Start-Sleep -Milliseconds (200 * $i) }
+    }
+    if (-not $movedAside) {
+      Remove-Item -Recurse -Force $staging -ErrorAction SilentlyContinue
+      throw "could not replace $InstallDir (a file in it is open). Close anything using it and re-run."
+    }
   }
-  Move-Item $staging $InstallDir
-  if (Test-Path "$InstallDir.old") { Remove-Item -Recurse -Force "$InstallDir.old" }
+  try {
+    Move-Item $staging $InstallDir -ErrorAction Stop
+  } catch {
+    if ($movedAside) { Move-Item $backup $InstallDir -ErrorAction SilentlyContinue }
+    Remove-Item -Recurse -Force $staging -ErrorAction SilentlyContinue
+    throw "install failed; the previous copy was restored. $_"
+  }
+  if (Test-Path $backup) { Remove-Item -Recurse -Force $backup -ErrorAction SilentlyContinue }
   Write-Host "  installed the Skill to $InstallDir"
 } finally {
   Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
@@ -103,5 +124,8 @@ Write-Host "  3. Ask it: run the connect-tool dependency check"
 Write-Host ""
 Start-Process $ExtensionUrl -ErrorAction SilentlyContinue
 
-if ($missing.Count -gt 0) { exit 1 }
-exit 0
+if ($missing.Count -gt 0) { return 1 }
+return 0
+}
+
+Invoke-ConnectToolBootstrap

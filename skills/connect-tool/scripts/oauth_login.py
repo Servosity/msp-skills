@@ -9,14 +9,21 @@ The consuming CLI's own `auth ... login` runs a 127.0.0.1 callback, catches the
 code, and exchanges + stores the token ITSELF. The token never renders in the DOM
 and never reaches this process's stdout.
 
-This broker never writes the child's raw output to disk. It consumes the stream
-continuously, keeps only a sanitized status, and NAVIGATES the bound browser to
-the authorization URL rather than printing it: an authorize URL carries an
-unguessable `state` (and tenant/client identifiers) that has no business in model
-context. You then drive the consent click with guard_click.py.
+Three processes, on purpose:
 
-  RUN_DIR=<dir> uv run oauth_login.py --start -- <cli login cmd...>   # AUTH_NAVIGATED
-  RUN_DIR=<dir> uv run oauth_login.py --finish                        # OAUTH_OK | FAIL
+  --start   spawns a detached BROKER, waits only until a safe consent URL is
+            known, navigates the bound tab to it, and RETURNS. You then drive
+            the consent click while the broker keeps running.
+  broker    holds the login child, consumes its output continuously, keeps NO
+            raw output anywhere, and records only a sanitized verdict.
+  --finish  reads that verdict.
+
+The authorization URL is navigated, never printed: it carries an unguessable
+`state` plus tenant and client identifiers that have no business in model
+context.
+
+  RUN_DIR=<dir> uv run oauth_login.py --start --session <slug> -- <cli login cmd...>
+  RUN_DIR=<dir> uv run oauth_login.py --finish
   uv run oauth_login.py --selfcheck
 """
 from __future__ import annotations
@@ -27,128 +34,174 @@ import pathlib
 import re
 import subprocess
 import sys
-import threading
 import time
+import urllib.parse
 
 import ctplatform as ct
 
-# A consent URL. Anything carrying a credential-bearing parameter is NOT one.
-AUTH_URL = re.compile(r"https://[^\s\"']*(?:authorize|oauth|consent|/o/)[^\s\"']*", re.I)
-SECRET_PARAM = re.compile(r"[?&](?:access_token|id_token|refresh_token|client_secret|code)=", re.I)
+AUTH_URL = re.compile(r"https://[^\s\"'<>]*(?:authorize|oauth|consent|/o/)[^\s\"'<>]*", re.I)
+# Any parameter whose NAME looks credential-bearing, in the query or the fragment.
+SECRET_PARAM = re.compile(r"^(?:access_?token|id_?token|refresh_?token|client_?secret|code|"
+                          r"token|api_?key|assertion|session|password|credential)$", re.I)
 # Negations first: "not authenticated" must never read as success.
-FAILED = re.compile(r"(?:not|failed|failure|error|denied|unable to)\s*(?:to\s+)?(?:log ?in|authenticat)", re.I)
+FAILED = re.compile(r"(?:not|failed|failure|error|denied|unable to)\s*(?:to\s+)?(?:log ?in|authenticat)",
+                    re.I)
 SUCCEEDED = re.compile(r"login (?:ok|success(?:ful)?|stored)|token stored|^\s*authenticated|^\s*success",
                        re.I | re.M)
 
-
-def _statefile(run_dir: str) -> pathlib.Path:
-    return pathlib.Path(run_dir) / ".oauth_state.json"
+STATUS = ".oauth_status.json"
 
 
-def _consume(proc: subprocess.Popen, found: dict, done: threading.Event) -> None:
-    """Read the child's output continuously and KEEP NOTHING but a verdict.
+def url_is_safe(url: str) -> bool:
+    """A consent URL carries no credential. One that does is a leak, not a URL.
 
-    The raw lines are dropped as they are read, so a token printed by the CLI
-    never lands in a file, a variable that outlives the loop, or this process's
-    output.
+    Parameter names are compared after percent-decoding and case-folding, and the
+    fragment is checked as well as the query: an implicit-flow response puts the
+    token after the `#`, where a query-only check never looks.
     """
+    try:
+        u = urllib.parse.urlsplit(url)
+    except ValueError:
+        return False
+    for blob in (u.query, u.fragment):
+        if not blob:
+            continue
+        for name, _ in urllib.parse.parse_qsl(blob, keep_blank_values=True):
+            if SECRET_PARAM.match(name.strip()):
+                return False
+    return True
+
+
+def _status_path(run_dir: str) -> pathlib.Path:
+    return pathlib.Path(run_dir) / STATUS
+
+
+def _write_status(run_dir: str, **fields) -> None:
+    p = _status_path(run_dir)
+    cur = {}
+    if p.exists():
+        try:
+            cur = json.loads(p.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            cur = {}
+    cur.update(fields)
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps(cur), encoding="utf-8")
+    tmp.replace(p)
+
+
+def _read_status(run_dir: str) -> dict:
+    p = _status_path(run_dir)
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+
+
+# -- the broker ------------------------------------------------------------
+
+def broker(run_dir: str, argv: list[str]) -> int:
+    """Hold the login child and consume its output, keeping only a verdict.
+
+    Raw lines are dropped as they are read: a token the CLI prints never lands in
+    a file, never survives the loop, and never reaches any stdout the model sees.
+    """
+    ct.secure_mkdir(pathlib.Path(run_dir))
+    ok = failed = False
+    try:
+        proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, shell=False, text=True,
+                                bufsize=1, errors="replace")
+    except OSError:
+        _write_status(run_dir, done=True, ok=False, reason="login command could not be started")
+        return 4
     assert proc.stdout is not None
     for line in proc.stdout:
-        if not found.get("url"):
+        if not _read_status(run_dir).get("url_seen"):
             for cand in AUTH_URL.findall(line):
-                if not SECRET_PARAM.search(cand):
-                    found["url"] = cand
+                if url_is_safe(cand):
+                    _write_status(run_dir, url=cand, url_seen=True)
                     break
         if FAILED.search(line):
-            found["failed"] = True
+            failed = True
         elif SUCCEEDED.search(line):
-            found["ok"] = True
-    done.set()
+            ok = True
+    code = proc.wait()
+    _write_status(run_dir, done=True, ok=bool(ok and not failed and code == 0),
+                  reason="" if ok and not failed and code == 0 else "the CLI did not confirm a login")
+    return 0
 
 
-def start(run_dir: str, argv: list[str], session: str, wait: float = 20.0) -> int:
+# -- start / finish --------------------------------------------------------
+
+def start(run_dir: str, argv: list[str], session: str, wait: float = 30.0) -> int:
     if not argv:
         print("FAIL: no login command given", file=sys.stderr)
         return 2
     ct.secure_mkdir(pathlib.Path(run_dir))
-    proc = ct.detached(argv, stdout=subprocess.PIPE)
-    found: dict = {}
-    done = threading.Event()
-    threading.Thread(target=_consume, args=(proc, found, done), daemon=True).start()
+    _status_path(run_dir).unlink(missing_ok=True)
+
+    # The broker outlives this invocation, so --finish can be a separate call and
+    # you can drive the consent click in between.
+    ct.detached([sys.executable, str(pathlib.Path(__file__).resolve()),
+                 "--broker", run_dir, "--", *argv], stdout=subprocess.DEVNULL)
 
     deadline = time.monotonic() + wait
-    while time.monotonic() < deadline and not found.get("url") and not done.is_set():
+    st: dict = {}
+    while time.monotonic() < deadline:
+        st = _read_status(run_dir)
+        if st.get("url") or st.get("done"):
+            break
         time.sleep(0.25)
 
-    if not found.get("url"):
-        proc.terminate()
+    url = st.get("url")
+    if not url:
         print("FAIL: no safe authorization URL surfaced", file=sys.stderr)
         return 3
 
-    _statefile(run_dir).write_text(json.dumps({
-        "pid": proc.pid,
-        # Identity, so a timeout kill cannot hit an unrelated process that reused the pid.
-        "argv0": argv[0],
-        "started": time.time(),
-    }), encoding="utf-8")
-    _PROCS[run_dir] = (proc, found, done)
-
-    exe = ct.which_opencli()
-    if exe:
-        # Navigate the bound tab to the consent page. The URL goes browser-ward,
-        # not model-ward.
-        ct.run([exe, "browser", session, "open", found["url"]], timeout=90)
-        print("AUTH_NAVIGATED session=" + session)
-    else:
+    oc = ct.opencli_cmd()
+    if not oc:
         print("FAIL: opencli not installed; cannot navigate to consent", file=sys.stderr)
         return 3
+    try:
+        nav = ct.run([*oc, "browser", session, "open", url], timeout=90)
+    except Exception:
+        # A raised subprocess error carries argv, and argv carries the URL.
+        print("FAIL: could not navigate to the consent page", file=sys.stderr)
+        return 3
+    finally:
+        # The URL has served its purpose; do not leave it sitting in the run dir.
+        _write_status(run_dir, url="")
+    if nav.returncode != 0:
+        print("FAIL: could not navigate to the consent page", file=sys.stderr)
+        return 3
+    print(f"AUTH_NAVIGATED session={session}", flush=True)
     return 0
 
 
-# In-process handles when --start and --finish run in one interpreter (selfcheck).
-_PROCS: dict[str, tuple] = {}
-
-
 def finish(run_dir: str, wait: float = 300.0) -> int:
-    entry = _PROCS.get(run_dir)
-    sf = _statefile(run_dir)
-    if entry is None and not sf.exists():
+    if not _status_path(run_dir).exists():
         print("FAIL: no login in progress for this run dir", file=sys.stderr)
         return 4
-    if entry is None:
-        # Separate invocation: we cannot read the (already consumed) stream, so
-        # the only honest verdict comes from the consuming CLI's own auth state.
-        print("FAIL: --finish must run in the same invocation as --start; "
-              "verify with verify_use.py instead", file=sys.stderr)
-        sf.unlink(missing_ok=True)
-        return 4
-
-    proc, found, done = entry
     deadline = time.monotonic() + wait
-    while time.monotonic() < deadline and proc.poll() is None:
+    st: dict = {}
+    while time.monotonic() < deadline:
+        st = _read_status(run_dir)
+        if st.get("done"):
+            break
         time.sleep(0.5)
-    if proc.poll() is None:
-        proc.terminate()
-        try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-        _cleanup(run_dir)
+    _status_path(run_dir).unlink(missing_ok=True)
+    if not st.get("done"):
         print("FAIL: login timed out", file=sys.stderr)
         return 4
-    done.wait(timeout=10)
-    ok = bool(found.get("ok")) and not found.get("failed") and proc.returncode == 0
-    _cleanup(run_dir)
-    if ok:
-        print("OAUTH_OK")
+    if st.get("ok"):
+        print("OAUTH_OK", flush=True)
         return 0
-    print("FAIL: login did not confirm (the CLI's output was consumed, not stored)", file=sys.stderr)
+    reason = st.get("reason") or "the CLI did not confirm a login"
+    print(f"FAIL: {reason} (its output was consumed, not stored)", file=sys.stderr)
     return 6
-
-
-def _cleanup(run_dir: str) -> None:
-    _statefile(run_dir).unlink(missing_ok=True)
-    _PROCS.pop(run_dir, None)
 
 
 def _selfcheck() -> None:
@@ -157,8 +210,17 @@ def _selfcheck() -> None:
     import tempfile
     import textwrap
 
+    # URL safety, including the fragment and encoded parameter names.
+    assert url_is_safe("https://accounts.google.com/o/oauth2/auth?client_id=x&scope=openid&state=abc")
+    for bad in ("https://e.example/oauth/authorize?access_token=LEAK",
+                "https://e.example/oauth/authorize#access_token=LEAK",
+                "https://e.example/oauth/authorize?ACCESS_TOKEN=LEAK",
+                "https://e.example/oauth/authorize?access%5Ftoken=LEAK",
+                "https://e.example/oauth/authorize?code=LEAK",
+                "https://e.example/oauth/authorize?api_key=LEAK"):
+        assert not url_is_safe(bad), f"accepted a credential-bearing URL: {bad}"
+
     with tempfile.TemporaryDirectory() as td:
-        # Fake opencli so `browser <s> open <url>` is a no-op we can observe.
         opened = os.path.join(td, "opened.txt")
         stub = os.path.join(td, "opencli.py")
         with open(stub, "w") as fh:
@@ -176,57 +238,65 @@ def _selfcheck() -> None:
         def login(script: str) -> list[str]:
             return [sys.executable, "-c", script]
 
-        # 1. Happy path: consent URL surfaced to the BROWSER, token never printed.
+        # 1. start RETURNS while the broker keeps running, so consent can be driven.
         run1 = os.path.join(td, "r1")
         buf = io.StringIO()
+        t0 = time.monotonic()
         with contextlib.redirect_stdout(buf):
             rc = start(run1, login(
+                'import time,sys;'
                 'print("open https://accounts.google.com/o/oauth2/auth?client_id=x", flush=True);'
-                'import time; time.sleep(0.2);'
+                'time.sleep(1.5);'
                 'print("SECRET bearer abc123", flush=True); print("token stored", flush=True)'),
                 "sess")
+        elapsed = time.monotonic() - t0
         out = buf.getvalue()
         assert rc == 0 and out.startswith("AUTH_NAVIGATED"), (rc, out)
-        assert "abc123" not in out, "token leaked from --start"
-        assert "accounts.google.com" not in out, "authorization URL leaked to stdout"
+        assert elapsed < 1.4, f"--start blocked for {elapsed:.1f}s; consent could not be driven"
+        assert "abc123" not in out and "accounts.google.com" not in out, out
         assert "accounts.google.com" in open(opened).read(), "consent URL was not navigated to"
+
+        # 2. finish is a SEPARATE call and reads the broker's verdict.
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            rc = finish(run1, wait=20)
+            rc = finish(run1, wait=30)
         out = buf.getvalue()
         assert rc == 0 and "OAUTH_OK" in out, (rc, out)
         assert "abc123" not in out, "token leaked from --finish"
-        assert not _statefile(run1).exists(), "state file survived --finish"
+        assert not _status_path(run1).exists(), "status file survived --finish"
 
-        # 2. A token-bearing authorize URL must never be chosen.
+        # 3. A token-bearing authorize URL is never navigated to.
         os.truncate(opened, 0)
         run2 = os.path.join(td, "r2")
         with contextlib.redirect_stdout(io.StringIO()):
             start(run2, login(
+                'import time;'
                 'print("https://evil.example/oauth/authorize?access_token=LEAK999", flush=True);'
                 'print("https://accounts.google.com/o/oauth2/auth?client_id=ok", flush=True);'
-                'import time; time.sleep(0.2); print("token stored", flush=True)'), "sess")
-            finish(run2, wait=20)
+                'time.sleep(0.3); print("token stored", flush=True)'), "sess")
+            finish(run2, wait=30)
         nav = open(opened).read()
         assert "LEAK999" not in nav, "tokened authorize URL was navigated to"
         assert "accounts.google.com" in nav, "clean URL not chosen alongside a tokened one"
 
-        # 3. "not authenticated" must not read as success.
+        # 4. "not authenticated" must not read as success.
         run3 = os.path.join(td, "r3")
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             start(run3, login(
+                'import time;'
                 'print("https://accounts.google.com/o/oauth2/auth?client_id=x", flush=True);'
-                'import time; time.sleep(0.2); print("user is not authenticated", flush=True)'),
-                "sess")
-            rc = finish(run3, wait=20)
+                'time.sleep(0.3); print("user is not authenticated", flush=True)'), "sess")
+            rc = finish(run3, wait=30)
         assert rc != 0, "'not authenticated' was read as success"
 
-        # 4. No raw CLI output is ever written to the run dir.
+        # 5. Nothing raw, and no URL, is left behind in any run dir.
         for d in (run1, run2, run3):
             for f in pathlib.Path(d).glob("*"):
-                assert "abc123" not in f.read_text(errors="ignore"), f"raw output persisted in {f}"
-    print("oauth_login.py selfcheck OK (URL navigated not printed, token never echoed, "
-          "negation rejected, no raw log on disk)")
+                body = f.read_text(errors="ignore")
+                assert "abc123" not in body, f"raw output persisted in {f}"
+                assert "LEAK999" not in body, f"a tokened URL persisted in {f}"
+    print("oauth_login.py selfcheck OK (start returns for consent, finish is separate, "
+          "URL navigated not printed, fragment+encoded params rejected, nothing raw on disk)")
 
 
 if __name__ == "__main__":
@@ -234,6 +304,12 @@ if __name__ == "__main__":
     if "--selfcheck" in args:
         _selfcheck()
         raise SystemExit(0)
+    if args and args[0] == "--broker":
+        rest = args[2:]
+        if rest and rest[0] == "--":
+            rest = rest[1:]
+        raise SystemExit(broker(args[1], rest))
+
     rd = os.environ.get("RUN_DIR")
     if not rd:
         print("usage: RUN_DIR=<dir> oauth_login.py --start [--session S] -- <cli login cmd> | --finish",
@@ -248,10 +324,7 @@ if __name__ == "__main__":
         rest = args[1:]
         if rest and rest[0] == "--":
             rest = rest[1:]
-        rc = start(rd, rest, sess)
-        if rc == 0:
-            rc = finish(rd)          # same invocation: the stream stays consumable
-        raise SystemExit(rc)
+        raise SystemExit(start(rd, rest, sess))
     if args and args[0] == "--finish":
         raise SystemExit(finish(rd))
     print("usage: RUN_DIR=<dir> oauth_login.py --start -- <cli login cmd>", file=sys.stderr)

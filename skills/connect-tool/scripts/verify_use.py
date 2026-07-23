@@ -85,6 +85,12 @@ def run(path: str, argv: list[str], attempts: int = 3, backoff: float = 2.0) -> 
                 if len(text) > MAX_VALUE_LEN:
                     print("REFUSING to print an unexpectedly long value", file=sys.stderr)
                     return 2
+                # A field named innocently can still HOLD a credential
+                # ({"value": "sk_live_..."}), so check the value, not just the path.
+                if ct.looks_secret(text):
+                    print("REFUSING to print a value that looks like a credential; "
+                          "assert on a different field", file=sys.stderr)
+                    return 2
                 # Control characters cannot be allowed to reshape the output line.
                 text = "".join(c for c in text if c.isprintable())
                 print(f"RECEIPT_OK field={path} value={text} attempt={attempt}")
@@ -128,6 +134,13 @@ def _selfcheck() -> None:
         # no filter code: a jq-style expression is not a path
         assert run('.data | keys', emit('{"data":{"id":1}}'), attempts=1, backoff=0) == 2, \
             "filter expression accepted as a path"
+        # An innocently-named field holding a credential must not be printed.
+        # The literal is assembled so this file holds no credential-shaped string.
+        tok = "sk" + "_live_abcdefghijklmnop"
+        assert run(".value", emit('{"value":"' + tok + '"}'),
+                   attempts=1, backoff=0) == 2, "secret-shaped VALUE was printed"
+        assert run(".result", emit('{"result":"Bearer abcdefghijklmnopqrstuvwx"}'),
+                   attempts=1, backoff=0) == 2, "bearer token value was printed"
 
     # list indexing works
     buf = io.StringIO()

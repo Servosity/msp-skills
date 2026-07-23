@@ -28,6 +28,7 @@ same on both platforms:
 from __future__ import annotations
 
 import hashlib
+import re
 import subprocess
 import sys
 
@@ -48,15 +49,21 @@ def target_name(service: str, account: str) -> str:
     return f"Servosity/connect-tool/{service}/{account}"
 
 
+# Below this length, the last 4 characters are a meaningful FRACTION of the
+# secret (at 4 they are the whole thing), so the receipt omits them.
+MIN_LEN_FOR_LAST4 = 12
+
+
 def receipt(value: str, service: str, account: str) -> str:
     """The ONLY thing a caller may print. Not the value.
 
     last4 plus length is what lets an operator match a stored key against the
     masked value the vendor portal displays; sha256[:8] lets two captures be
-    compared without either being shown.
+    compared without either being shown. A short secret gets no last4 at all.
     """
+    tail = f" last4={value[-4:]}" if len(value) >= MIN_LEN_FOR_LAST4 else " last4=(withheld, short secret)"
     return (f"STORED service={service} account={account} len={len(value)} "
-            f"sha256_8={hashlib.sha256(value.encode()).hexdigest()[:8]} last4={value[-4:]}")
+            f"sha256_8={hashlib.sha256(value.encode()).hexdigest()[:8]}{tail}")
 
 
 # -- macOS -----------------------------------------------------------------
@@ -71,11 +78,38 @@ def _mac_store(service: str, account: str, value: str) -> None:
         raise CredError("keychain write failed")
 
 
+_MAC_HEX = re.compile(rb"password: 0x([0-9A-Fa-f]+)")
+
+
 def _mac_fetch(service: str, account: str) -> str | None:
+    """Read a Keychain item, correctly, including non-ASCII values.
+
+    `security ... -w` prints the password as HEX (with no 0x prefix and no
+    warning) whenever the data is not printable ASCII, so a UTF-8 secret read
+    back through -w alone is silently the wrong string. `-g` disambiguates: it
+    emits `password: 0x<HEX>  "..."` exactly in that case, and a plain quoted
+    value otherwise. So: ask -g whether this is the hex case, and only then
+    decode. Both outputs are captured and neither is ever printed.
+    """
+    g = subprocess.run(["/usr/bin/security", "find-generic-password",
+                        "-a", account, "-s", service, "-g"],
+                       capture_output=True, shell=False)
+    if g.returncode != 0:
+        return None
+    if m := _MAC_HEX.search(g.stderr):
+        try:
+            return bytes.fromhex(m.group(1).decode()).decode("utf-8")
+        except (ValueError, UnicodeDecodeError):
+            raise CredError("stored credential is not valid UTF-8")
     r = subprocess.run(["/usr/bin/security", "find-generic-password",
                         "-a", account, "-s", service, "-w"],
                        capture_output=True, text=True, shell=False)
-    return r.stdout.rstrip("\n") if r.returncode == 0 else None
+    if r.returncode != 0:
+        return None
+    # `security` appends exactly one newline of its own. Strip that one only:
+    # trailing whitespace inside the secret is significant.
+    out = r.stdout
+    return out[:-1] if out.endswith("\n") else out
 
 
 def _mac_delete(service: str, account: str) -> bool:
@@ -124,6 +158,7 @@ def _win_structs():
     advapi.CredDeleteW.argtypes = [wt.LPCWSTR, wt.DWORD, wt.DWORD]
     advapi.CredDeleteW.restype = wt.BOOL
     advapi.CredFree.argtypes = [ctypes.c_void_p]
+    advapi.CredFree.restype = None
     return ctypes, CREDENTIAL, advapi
 
 
@@ -155,7 +190,10 @@ def _win_fetch(service: str, account: str) -> str | None:
         return None
     try:
         c = ptr.contents
-        return decode_blob(bytes(bytearray(c.CredentialBlob[:c.CredentialBlobSize])))
+        # string_at, NOT slicing a c_byte array: c_byte is SIGNED, so any byte
+        # >= 0x80 comes back negative and bytearray() raises. That would make
+        # every non-ASCII secret unreadable after a successful write.
+        return decode_blob(ctypes.string_at(c.CredentialBlob, c.CredentialBlobSize))
     finally:
         advapi.CredFree(ptr)
 
@@ -197,6 +235,9 @@ def _selfcheck() -> None:
     r = receipt(secret, "SVC", "acct")
     assert secret not in r, "SECRET LEAKED into the receipt"
     assert "len=14" in r and "last4=C123" in r, r
+    # a short secret must not have its whole value published as "last4"
+    short = receipt("abcd", "SVC", "acct")
+    assert "abcd" not in short and "withheld" in short, short
     assert decode_blob(encode_blob("hello é 世")) == "hello é 世"
     try:
         encode_blob("x" * (WIN_MAX_BLOB // 2 + 1))
@@ -212,6 +253,11 @@ def _selfcheck() -> None:
         out = store(svc, acct, secret)
         assert secret not in out, "SECRET LEAKED from store()"
         assert fetch(svc, acct) == secret, "round-trip mismatch"
+        # non-ASCII and significant trailing whitespace must survive the store
+        for tricky in ("clé-de-passe-é世", "trailing-space ", "trailing-newline\n"):
+            store(svc, acct, tricky)
+            assert fetch(svc, acct) == tricky, f"round-trip mangled {tricky!r}"
+        store(svc, acct, secret)
         assert fetch(svc, "no-such-account") is None, "fetch invented a credential"
         assert delete(svc, acct) and fetch(svc, acct) is None, "delete did not remove it"
     finally:

@@ -34,18 +34,18 @@ NOTE: this skill drives your REAL Chrome via OpenCLI bind. It will NOT spawn a b
 
 
 def opencli_argv(session: str, *args: str) -> list[str]:
-    exe = ct.which_opencli()
-    if not exe:
+    oc = ct.opencli_cmd()
+    if not oc:
         raise SystemExit(3)
-    return [exe, "browser", session, *args]
+    return [*oc, "browser", session, *args]
 
 
 def doctor_text() -> str:
-    exe = ct.which_opencli()
-    if not exe:
+    oc = ct.opencli_cmd()
+    if not oc:
         return ""
     try:
-        r = ct.run([exe, "doctor"], timeout=60)
+        r = ct.run([*oc, "doctor"], timeout=60)
         return (r.stdout or "") + (r.stderr or "")
     except Exception:
         return ""

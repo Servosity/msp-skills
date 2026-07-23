@@ -87,7 +87,12 @@ def secure_mkdir(path: pathlib.Path) -> pathlib.Path:
         return path
     user = os.environ.get("USERNAME", "")
     icacls = shutil.which("icacls")
-    if icacls and user:
+    if not (icacls and user):
+        # Say so rather than silently leaving an inherited, possibly readable ACL.
+        print(f"WARN: cannot restrict permissions on {path} (icacls or USERNAME unavailable); "
+              "treat its contents as readable by other local accounts", file=sys.stderr)
+        return path
+    if True:
         # /inheritance:r drops inherited (often Users-readable) ACEs first.
         rc = subprocess.run([icacls, str(path), "/inheritance:r",
                              "/grant:r", f"{user}:(OI)(CI)F", "/grant:r", "SYSTEM:(OI)(CI)F"],
@@ -114,6 +119,34 @@ def valid_env_var(name: str) -> bool:
     return bool(_ENV_VAR.match(name or ""))
 
 
+# A value that LOOKS like a credential, regardless of what field it arrived in.
+# Field-name denylists only catch a secret that announces itself; this catches
+# `detail=Authorization: Bearer sk_live_...` and friends.
+_SECRET_VALUE = re.compile(
+    r"(?:sk|pk|rk|ghp|gho|ghu|ghs|ghr|xox[abprs]|AKIA|ASIA|glpat|shpat)[-_][A-Za-z0-9_-]{12,}"
+    r"|Bearer\s+[A-Za-z0-9._~+/-]{16,}"
+    r"|eyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}"          # a JWT
+    r"|-----BEGIN [A-Z ]*PRIVATE KEY-----"
+    r"|(?:access_token|refresh_token|client_secret|api_?key|password|passwd)[\"\s]*[:=]",
+    re.I)
+# A long unbroken high-entropy run: the shape of an opaque token.
+_OPAQUE = re.compile(r"(?<![A-Za-z0-9._~+/-])[A-Za-z0-9._~+/-]{40,}(?![A-Za-z0-9._~+/-])")
+
+
+def looks_secret(value: str) -> bool:
+    """True if this string plausibly IS a credential. Used to refuse writing or
+    printing it, in addition to the field-name checks."""
+    if not value:
+        return False
+    if _SECRET_VALUE.search(value):
+        return True
+    for run in _OPAQUE.findall(value):
+        # Mixed case plus digits over 40+ characters is a token, not prose or a path.
+        if any(c.isdigit() for c in run) and any(c.islower() for c in run) and any(c.isupper() for c in run):
+            return True
+    return False
+
+
 def is_absolute(p: str) -> bool:
     """True for /usr/bin/x, C:\\tools\\x.exe, and \\\\server\\share\\x.exe."""
     if not p:
@@ -125,9 +158,36 @@ def is_absolute(p: str) -> bool:
 
 # -- processes -------------------------------------------------------------
 
+def opencli_cmd() -> list[str] | None:
+    """Resolve the opencli entry point as a full argv prefix.
+
+    On Windows npm installs `opencli.cmd`, and launching a .cmd goes through
+    cmd.exe even with shell=False, which re-parses arguments: a `&` inside an
+    OAuth URL could then split the command. So when the resolved entry is a
+    batch shim we run its JavaScript entry point through node.exe directly,
+    which takes a real argv and cannot be re-parsed.
+    """
+    exe = shutil.which(os.environ.get("OPENCLI", "opencli"))
+    if not exe:
+        return None
+    if not exe.lower().endswith((".cmd", ".bat")):
+        return [exe]
+    node = shutil.which("node")
+    if node:
+        # npm puts the shim in <prefix>/ and the package under <prefix>/node_modules/.
+        here = pathlib.Path(exe).parent
+        for base in (here, here.parent):
+            entry = base / "node_modules" / "@jackwener" / "opencli" / "dist" / "src" / "main.js"
+            if entry.is_file():
+                return [node, str(entry)]
+    # Fall back to the shim. Callers must not pass attacker-controlled arguments.
+    return [exe]
+
+
 def which_opencli() -> str | None:
-    """Resolve the opencli entry point (opencli.cmd on Windows via npm)."""
-    return shutil.which(os.environ.get("OPENCLI", "opencli"))
+    """Back-compat: the entry point as a single string, or None."""
+    cmd = opencli_cmd()
+    return cmd[0] if cmd else None
 
 
 def run(argv: list[str], *, timeout: int = 120, check: bool = False) -> subprocess.CompletedProcess:
@@ -183,6 +243,20 @@ def _selfcheck() -> None:
     # run() must never involve a shell: a metacharacter stays literal data.
     out = run([sys.executable, "-c", "import sys; print(sys.argv[1])", "a&b|c;d"])
     assert out.stdout.strip() == "a&b|c;d", out.stdout
+    # Value-level secret detection (field names are not enough). The fixtures are
+    # assembled at runtime so this file never CONTAINS a credential-shaped literal
+    # for the repo's own secret scanner to find. Same trick as tools/ci_guards.sh.
+    pat, dash = "0123456789abcdefghij", "-" * 5
+    for s in ("sk" + "_live_abcdefghijklmnop",
+              "Authorization: Bearer abcdefghijklmnopqrstuvwx",
+              "ghp" + "_" + pat, "eyJhbGciOiJI.eyJzdWIiOiIx",
+              'detail={"access' + '_token":"x"}',
+              dash + "BEGIN RSA PRIVATE KEY" + dash,
+              "aB3" + "x9Y2z" * 10):
+        assert looks_secret(s), f"missed a secret-shaped value: {s[:12]}"
+    for s in ("token refresh scheduled", "acct_00000000", "user@example.com", "",
+              "C:" + chr(92) + "temp" + chr(92) + "notes.txt", "consent_shown"):
+        assert not looks_secret(s), f"false positive on: {s}"
     print("ctplatform.py selfcheck OK")
 
 

@@ -44,20 +44,35 @@ def hold_dir() -> pathlib.Path:
 
 
 def guard(session: str, target: str) -> int:
-    exe = ct.which_opencli()
-    if not exe:
+    oc = ct.opencli_cmd()
+    if not oc:
         print("FAIL: opencli not installed", file=sys.stderr)
         return 3
-    label = (ct.run([exe, "browser", session, "find", "--selector", target], timeout=90).stdout or "")
+    found = ct.run([*oc, "browser", session, "find", "--selector", target], timeout=90)
+    label = found.stdout or ""
+    # FAIL CLOSED. A gate that cannot see what it is about to click must refuse,
+    # not shrug and click: an unreadable or ambiguous target is exactly the case
+    # where an irreversible label would go unnoticed.
+    if found.returncode != 0 or not label.strip():
+        print(f"HOLD: could not inspect '{target}' (find failed). NOT clicking.", file=sys.stderr)
+        return 11
+    m = re.search(r'"matches_n"\s*:\s*(\d+)', label)
+    if m and int(m.group(1)) != 1:
+        print(f"HOLD: '{target}' matched {m.group(1)} elements (need exactly 1). NOT clicking.",
+              file=sys.stderr)
+        return 11
+    if not m:
+        print(f"HOLD: could not read a match count for '{target}'. NOT clicking.", file=sys.stderr)
+        return 11
     hit = next((w for w in deny_words() if re.search(rf"\b{re.escape(w)}", label, re.I)), None)
     allow = os.environ.get("ALLOW", "").strip().lower()
     if hit and allow != hit:
         shot = hold_dir() / f"HOLD-{dt.datetime.now(dt.UTC).strftime('%Y%m%d-%H%M%S')}.png"
-        ct.run([exe, "browser", session, "screenshot", str(shot)], timeout=90)
+        ct.run([*oc, "browser", session, "screenshot", str(shot)], timeout=90)
         print(f"HOLD: '{target}' matches irreversible verb '{hit}'. {shot} saved. "
               "NOT clicking; surfaced for the user.", file=sys.stderr)
         return 10
-    r = ct.run([exe, "browser", session, "click", target], timeout=90)
+    r = ct.run([*oc, "browser", session, "click", target], timeout=90)
     sys.stdout.write(r.stdout or "")
     return r.returncode
 
@@ -73,8 +88,12 @@ def _selfcheck() -> None:
             fh.write(textwrap.dedent("""
                 import sys
                 cmd = sys.argv[3]
+                import os
                 if cmd == "find":
-                    print('{"matches_n":1,"entries":[{"label":"Save changes"}]}')
+                    n = os.environ.get("MATCH_N", "1")
+                    if n == "error":
+                        sys.exit(1)
+                    print('{"matches_n":' + n + ',"entries":[{"label":"Save changes"}]}')
                 elif cmd == "click":
                     print("CLICKED " + sys.argv[4])
             """))
@@ -97,8 +116,18 @@ def _selfcheck() -> None:
         os.environ["HOLD_EXTRA"] = "changes"
         with contextlib.redirect_stderr(io.StringIO()):
             assert guard("sess", "Save changes") == 10
-        del os.environ["HOLD_EXTRA"], os.environ["RUN_DIR"]
-    print("guard_click.py selfcheck OK (hold, ALLOW override, HOLD_EXTRA)")
+        del os.environ["HOLD_EXTRA"]
+        # FAIL CLOSED: an unreadable target or an ambiguous match must not click.
+        os.environ["ALLOW"] = "save"
+        for n in ("0", "3", "error"):
+            os.environ["MATCH_N"] = n
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+                rc = guard("sess", "Save changes")
+            assert rc == 11, f"MATCH_N={n} did not fail closed (got {rc})"
+            assert "CLICKED" not in buf.getvalue(), f"MATCH_N={n} clicked anyway"
+        del os.environ["MATCH_N"], os.environ["ALLOW"], os.environ["RUN_DIR"]
+    print("guard_click.py selfcheck OK (hold, ALLOW override, HOLD_EXTRA, fails closed)")
 
 
 if __name__ == "__main__":

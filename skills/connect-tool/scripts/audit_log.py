@@ -17,6 +17,7 @@ Windows gives no atomic-append guarantee for concurrent writers.
 """
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import json
 import os
@@ -33,19 +34,39 @@ EMBEDDED = re.compile(r'(access_token|refresh_token|client_secret|api_?key|passw
                       re.I)
 
 
-def _lock(path: pathlib.Path):
-    """Serialize appends. flock on POSIX, msvcrt on Windows."""
-    fh = path.open("a", encoding="utf-8")
+@contextlib.contextmanager
+def _locked(path: pathlib.Path):
+    """Serialize appends across processes.
+
+    Windows `msvcrt.locking` locks bytes at the CURRENT position, so locking a
+    file opened in append mode locks a different offset per writer (at each
+    writer's own EOF) and serializes nothing. A separate zero-length lock file,
+    always locked at byte 0, is the same for every writer.
+    """
+    lock = path.with_suffix(path.suffix + ".lock")
+    lf = lock.open("a+b")
     try:
-        if ct.WINDOWS:
-            import msvcrt  # type: ignore[import-not-found]
-            msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
-        else:
-            import fcntl
-            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
-    except OSError:
-        pass          # a lock we cannot take is not a reason to lose the event
-    return fh
+        lf.seek(0)
+        try:
+            if ct.WINDOWS:
+                import msvcrt  # type: ignore[import-not-found]
+                msvcrt.locking(lf.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+        except OSError:
+            pass      # a lock we cannot take is not a reason to lose the event
+        with path.open("a", encoding="utf-8") as fh:
+            yield fh
+    finally:
+        try:
+            if ct.WINDOWS:
+                import msvcrt  # type: ignore[import-not-found]
+                lf.seek(0)
+                msvcrt.locking(lf.fileno(), msvcrt.LK_UNLCK, 1)
+        except OSError:
+            pass
+        lf.close()
 
 
 def emit(run_dir: str, pairs: list[str]) -> int:
@@ -58,13 +79,13 @@ def emit(run_dir: str, pairs: list[str]) -> int:
         if k.lower() in FORBIDDEN:
             print(f"REFUSING to log forbidden field '{k}'", file=sys.stderr)
             return 9
-        if EMBEDDED.search(v):
+        if EMBEDDED.search(v) or ct.looks_secret(v):
             print(f"REFUSING to log value with an embedded secret in field '{k}'", file=sys.stderr)
             return 9
         rec[k] = v.replace("\n", " ")
     d = ct.secure_mkdir(pathlib.Path(run_dir))
     line = json.dumps(rec, sort_keys=True)     # json.dumps escapes keys AND values
-    with _lock(d / "events.jsonl") as fh:
+    with _locked(d / "events.jsonl") as fh:
         fh.write(line + "\n")
     print(f"logged: {line[:90]}")
     return 0
@@ -86,13 +107,20 @@ def _selfcheck() -> None:
             assert emit(td, ["access_token=leak"]) == 9, "forbidden field accepted"
             assert emit(td, ["ACCESS_TOKEN=leak2"]) == 9, "uppercase forbidden field accepted"
             assert emit(td, ['detail={"access_token":"leak3"}']) == 9, "embedded secret accepted"
+            # A raw credential in an innocently-named field must also be refused.
+            # Built at runtime so this file holds no credential-shaped literal.
+            bearer = "Authorization: Bearer " + "sk" + "_live_abcdefghijklmnop"
+            pat = "ghp" + "_" + "0123456789abcdefghij"
+            assert emit(td, [f"detail={bearer}"]) == 9, "raw bearer token accepted"
+            assert emit(td, [f"note={pat}"]) == 9, "raw PAT accepted"
             assert emit(td, ["noequals"]) == 9, "malformed field accepted"
         with contextlib.redirect_stdout(io.StringIO()):
             assert emit(td, ["detail=token refresh scheduled"]) == 0, "benign detail rejected"
             # a key containing a quote must not be able to break the JSON line
             assert emit(td, ['we"ird=va"lue']) == 0
         body = ev.read_text()
-        assert "leak" not in body, "a secret reached the log"
+        assert "leak" not in body and "_live_" not in body and "ghp" not in body, \
+            "a secret reached the log"
         for line in body.strip().splitlines():
             json.loads(line)       # every line is still valid JSON
     print("audit_log.py selfcheck OK (refuses secret-shaped fields and values, valid JSON)")

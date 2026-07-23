@@ -111,10 +111,14 @@ Run a target through these phases; loop 3-5 until the verify receipt passes.
    else discover live from `state`/`find`/`extract`. Route every click that could be
    irreversible through `uv run scripts/guard_click.py <slug> "<selector>"`.
 4. **Capture the secret out-of-context** by lane (decision order in `security-model.md`):
-   - **Lane A (preferred), OAuth:** `uv run scripts/oauth_login.py --start --session <slug>
-     -- <cli auth login ...>`. It navigates your bound tab to the consent page (it never
-     prints the URL, which carries an OAuth `state`); drive the consent click with
-     `ALLOW=authorize`, and it reports `OAUTH_OK` without ever reading the token.
+   - **Lane A (preferred), OAuth:** three calls, because the consent click happens
+     between them:
+     1. `RUN_DIR=$RUN uv run scripts/oauth_login.py --start --session <slug> -- <cli auth login ...>`
+        spawns a background broker, navigates your bound tab to the consent page, and
+        RETURNS `AUTH_NAVIGATED`. It never prints the URL, which carries an OAuth `state`.
+     2. Drive the consent click: `ALLOW=authorize uv run scripts/guard_click.py <slug> "<selector>"`.
+     3. `RUN_DIR=$RUN uv run scripts/oauth_login.py --finish` reports `OAUTH_OK` or fails.
+        The token is never read, and the CLI's raw output is never written to disk.
    - **Lane B, displayed key:** `uv run scripts/grab_secret.py --session <slug>
      --selector '<css>' --service <SVC> --account <acct>`.
    - **Lane C, user paste:** print the one-line store command for the user to run in their

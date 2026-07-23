@@ -49,9 +49,15 @@ def _reject_secret_keys(rec: dict) -> None:
 
 
 def _reject_secret_values(rec: dict) -> None:
+    """Refuse a secret by its SHAPE, not only by the field it arrived in.
+
+    A token mistakenly written into an allowed field (say a *_credential_ref that
+    holds the token instead of a reference to it) is exactly the mistake this
+    catches; a field-name denylist alone would let it through.
+    """
     for k, v in rec.items():
         blob = v if isinstance(v, str) else (json.dumps(v) if isinstance(v, (list, dict)) else "")
-        if blob and _EMBEDDED.search(blob):
+        if blob and (_EMBEDDED.search(blob) or ct.looks_secret(blob)):
             raise SystemExit(f"refusing to persist value with an embedded secret in field '{k}'")
 
 
@@ -160,6 +166,13 @@ def _selfcheck() -> None:
             pass
         # benign value mentioning "token" must NOT trip (no false positive)
         append_target({"target": "z", "note": "token refresh scheduled"})
+        # a real token in an ALLOWED field is still refused
+        try:
+            append_target({"target": "w",
+                           "access_token_credential_ref": "sk" + "_live_abcdefghijklmnop"})
+            raise AssertionError("a raw token in an allowed field was persisted")
+        except SystemExit:
+            pass
         # a legacy *_keychain_ref entry still reads, under the new name
         append_target({"target": "legacy", "status": "authenticated",
                        "refresh_token_keychain_ref": "old-style-ref"})
