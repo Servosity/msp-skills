@@ -59,7 +59,7 @@ def reconcile(desired_scopes: list[str], current: dict | None,
 
     expiry = _parse_ts(current.get("token_expiry_ts"))
     refresh_capable = bool(current.get("refresh_capable"))
-    has_refresh = bool(current.get("refresh_token_keychain_ref"))
+    has_refresh = bool(current.get("refresh_token_credential_ref"))
     status = current.get("status", "")
 
     expired_or_soon = expiry is not None and now >= (expiry - _dt.timedelta(days=window_days))
@@ -92,7 +92,7 @@ def _selfcheck() -> None:
         ("noop", ["read"], {"status": "authenticated", "scopes_granted": ["read"], "token_expiry_ts": None}),
         ("broaden", ["read", "write"], {"status": "authenticated", "scopes_granted": ["read"], "token_expiry_ts": far}),
         ("refresh", ["read"], {"status": "authenticated", "scopes_granted": ["read"], "token_expiry_ts": soon,
-                               "refresh_capable": True, "refresh_token_keychain_ref": "connect-tool-x-refresh"}),
+                               "refresh_capable": True, "refresh_token_credential_ref": "connect-tool-x-refresh"}),
         ("reauth", ["read"], {"status": "token_expired", "scopes_granted": ["read"], "token_expiry_ts": soon}),
         ("repair", ["read"], {"status": "authenticated", "scopes_granted": ["read"],
                               "token_expiry_ts": far, "error_count_7d": 4}),

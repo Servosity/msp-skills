@@ -5,8 +5,8 @@
 """Per-target auth state for connect-tool (idempotency substrate).
 
 Append-only JSONL, read newest-per-target. Holds NO secret
-values, only references (keychain service/account, granted scopes, expiry, app
-ids). Two logs under ~/.config/connect-tool/state/ (override $CONNECT_TOOL_STATE_DIR):
+values, only references (credential-store service/account, granted scopes, expiry,
+app ids). Two logs in the platform state dir (see ctplatform.state_dir):
   targets.jsonl       - one line per auth-state change; current = last per target
   setup-journal.jsonl - multi-step progress so a partial failure resumes mid-flow
 
@@ -21,10 +21,10 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
-import os
-import pathlib
 import re
 import sys
+
+import ctplatform as ct
 
 # Fields that must NEVER appear in state (defense in depth - state holds refs, not values).
 _FORBIDDEN = {"value", "secret", "token", "access_token", "refresh_token",
@@ -33,11 +33,9 @@ _FORBIDDEN = {"value", "secret", "token", "access_token", "refresh_token",
 _EMBEDDED = re.compile(r'(access_token|refresh_token|client_secret|api_?key|password|passwd)["\s]*[:=]', re.I)
 
 
-def state_dir() -> pathlib.Path:
-    d = pathlib.Path(os.environ.get("CONNECT_TOOL_STATE_DIR",
-                                    pathlib.Path.home() / ".config/connect-tool/state"))
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+def state_dir():
+    """Platform-correct, private state dir (ctplatform owns the seam)."""
+    return ct.state_dir()
 
 
 def now_iso() -> str:
@@ -84,13 +82,30 @@ def append_target(rec: dict) -> dict:
     return _append("targets.jsonl", rec)
 
 
+# Older entries used macOS-specific names before Windows support existed.
+_LEGACY_REFS = {
+    "access_token_keychain_ref": "access_token_credential_ref",
+    "refresh_token_keychain_ref": "refresh_token_credential_ref",
+    "client_secret_keychain_ref": "client_secret_credential_ref",
+}
+
+
+def migrate(rec: dict) -> dict:
+    """Read-time rename of the *_keychain_ref fields. Nothing is rewritten on
+    disk: the log is append-only, and old lines stay readable forever."""
+    for old, new in _LEGACY_REFS.items():
+        if old in rec and new not in rec:
+            rec[new] = rec.pop(old)
+    return rec
+
+
 def latest() -> dict[str, dict]:
     """Newest entry per target (last line wins)."""
     out: dict[str, dict] = {}
     for rec in _read("targets.jsonl"):
         t = rec.get("target")
         if t:
-            out[t] = rec
+            out[t] = migrate(rec)
     return out
 
 
@@ -115,12 +130,14 @@ def journal(target: str) -> dict | None:
 
 
 def _selfcheck() -> None:
+    import os
     import tempfile
     with tempfile.TemporaryDirectory() as td:
         os.environ["CONNECT_TOOL_STATE_DIR"] = td
         append_target({"target": "demo", "status": "app_ready", "scopes_granted": []})
         append_target({"target": "demo", "status": "authenticated",
-                       "scopes_granted": ["read"], "access_token_keychain_ref": "connect-tool-demo-token"})
+                       "scopes_granted": ["read"],
+                       "access_token_credential_ref": "connect-tool-demo-token"})
         cur = current("demo")
         assert cur is not None and cur["status"] == "authenticated", cur
         assert cur["scopes_granted"] == ["read"], cur
@@ -143,6 +160,12 @@ def _selfcheck() -> None:
             pass
         # benign value mentioning "token" must NOT trip (no false positive)
         append_target({"target": "z", "note": "token refresh scheduled"})
+        # a legacy *_keychain_ref entry still reads, under the new name
+        append_target({"target": "legacy", "status": "authenticated",
+                       "refresh_token_keychain_ref": "old-style-ref"})
+        leg = current("legacy")
+        assert leg["refresh_token_credential_ref"] == "old-style-ref", leg
+        assert "refresh_token_keychain_ref" not in leg, leg
     print("state.py selfcheck OK")
 
 

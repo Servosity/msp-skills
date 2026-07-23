@@ -5,7 +5,8 @@
 """Mine the structured audit log for recurring failures → propose generic lessons.
 
 The third job of the audit trail (improvement). Reads events.jsonl across all
-runs under ~/.config/connect-tool/runs/, finds error_class values that recur for
+runs under the platform runs dir (see ctplatform.runs_dir), finds error_class
+values that recur for
 the same target/scheme, and proposes them as connect-tool lessons. Proposals are
 human-ratified: --record writes them via learning.py (scope=global), else they
 just print.
@@ -19,9 +20,10 @@ from __future__ import annotations
 import argparse
 import collections
 import json
-import os
 import pathlib
 import sys
+
+import ctplatform as ct
 
 try:
     import learning as _learning  # type: ignore[reportMissingImports]  # sibling, on sys.path at runtime
@@ -30,8 +32,7 @@ except ImportError:  # pragma: no cover
 
 
 def runs_dir() -> pathlib.Path:
-    return pathlib.Path(os.environ.get(
-        "CONNECT_TOOL_RUNS_DIR", pathlib.Path.home() / ".config/connect-tool/runs"))
+    return ct.runs_dir()
 
 
 def _iter_events(root: pathlib.Path):
