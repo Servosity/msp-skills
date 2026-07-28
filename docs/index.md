@@ -103,6 +103,8 @@ Already have msp-skills installed? Let the concierge recommend the right connect
 
 More in the [concierge README →](https://github.com/servosity/msp-skills/tree/main/skills/_meta).
 
+Stuck getting a vendor's API key connected in the first place? **[connect-tool →](/skills/connect-tool/)** does the last-mile credential step: it drives the Chrome you are already logged into, puts the key straight into your OS credential store, and will not say connected until a real authenticated read returns your data.
+
 ## What makes this different
 
 ### Local mirror, not live calls

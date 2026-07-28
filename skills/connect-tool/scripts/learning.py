@@ -32,6 +32,8 @@ import sys
 from datetime import datetime, timezone
 from typing import Any
 
+import ctplatform as ct
+
 SKILL = "connect-tool"
 SCHEMA_VERSION = 1
 KINDS = ("rule", "correction", "preference", "anti-pattern", "voice-pattern")
@@ -85,6 +87,11 @@ def record_lesson(lesson: str, *, kind: str = "correction", scope: str = "skill"
     """Capture one auth-setup lesson. Idempotent on (skill, kind, lesson)."""
     if kind not in KINDS:
         raise SystemExit(f"unknown kind {kind!r}; expected one of {KINDS}")
+    # A lesson is free text the agent wrote, and it gets injected into future
+    # runs' context. So it gets the same value-shape check as the state and audit
+    # logs: a lesson that carries a credential is refused, not persisted.
+    if ct.looks_secret(lesson) or ct.looks_secret(" ".join(tags or [])):
+        raise SystemExit("refusing to record a lesson that looks like it contains a secret")
     fid = _feedback_id(SKILL, kind, lesson)
     rec: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -159,9 +166,24 @@ def _selfcheck() -> None:
                                  "skill": "some-other-skill", "scope": "skill",
                                  "kind": "rule", "lesson": "Not mine.", "tags": []}) + "\n")
         assert "Not mine." not in gather_guidance()
+        # a lesson (or a tag) that carries a credential is refused, not stored.
+        # Built at runtime so this file holds no credential-shaped literal.
+        tok = "sk" + "_live_abcdefghijklmnop"
+        before = len(_read_latest())
+        cases: list[tuple[str, list[str]]] = [
+            (f"the key was {tok}", ["halopsa"]),   # secret in the lesson text
+            ("the key is over here", [tok]),        # secret hidden in a tag
+        ]
+        for lesson_text, lesson_tags in cases:
+            try:
+                record_lesson(lesson_text, kind="correction", tags=lesson_tags)
+                raise AssertionError("a secret-bearing lesson was recorded")
+            except SystemExit:
+                pass
+        assert len(_read_latest()) == before, "a refused lesson still got written"
     finally:
         os.unlink(path)
-    print("learning.py selfcheck OK")
+    print("learning.py selfcheck OK (refuses a secret-bearing lesson)")
 
 
 def main(argv: list[str]) -> int:

@@ -4,18 +4,33 @@
 
 Every connector you install has the same last mile: get a credential out of a vendor portal, put it somewhere safe, wire it into the tool, and prove the tool actually works. That last mile is where most setups die, usually with an agent cheerfully reporting "connected" when nothing was ever authenticated.
 
-connect-tool does that last mile for **any** CLI, **MCP server**, or Skill, by driving the Chrome you are already logged into. You watch it happen. The secret goes to your operating system's credential store without the complete value ever passing through the agent's context. And it will not say "done" until a real authenticated read returns real data from the vendor.
+connect-tool does that last mile for CLIs, MCP servers, and Skills that are not already built-in Claude connectors, by driving the Chrome you are already logged into. You watch it happen. A displayed key or a pasted secret goes to your operating system's credential store without the complete value ever passing through the agent's context. And for a new or changed connection it will not report success until a real authenticated read returns real data from the vendor.
 
 **Runs on Windows and macOS.**
 
-## What makes it different
+## Why this over just asking your agent to "connect X for me"
 
-- **Your browser, your session.** It binds the Chrome tab you already have open and logged in, through the OpenCLI browser bridge. It never spawns a fresh or headless browser, because a spawned browser carries none of your logins and every vendor portal will just show it a login wall.
-- **The complete secret never enters the agent's context.** One helper process reads exactly one DOM node and writes it straight to the credential store. The agent authors the CSS selector and the destination; it never sees the value. All you get back is a receipt: `len`, `sha256[:8]`, `last4`.
-- **It reconciles, it does not just install.** Already connected? It works out whether the right answer is nothing, a token refresh, a scope broadening, a re-auth, or a repair, and does only that.
-- **It holds the irreversible.** Any click whose label matches post / publish / save / pay / delete / revoke is refused and surfaced to you, unless that exact verb was pre-approved for that step.
-- **It proves the result.** A run is only finished when a read-only authenticated call returns live data. No receipt, no claim.
-- **It learns.** Lessons ("this vendor hides the key under Configuration > Integrations") are written to a shared feedback log and injected into the next run, for every target.
+Ask an agent to connect a vendor with no defined auth workflow, and the failure modes are familiar: it reports "connected" when nothing authenticated, or your API key ends up in a config file. connect-tool is that defined workflow. For a new or changed connection it will not report success until a real authenticated call returns your data, it stores a displayed or pasted key in the OS credential store, and it uses the browser you are already signed into.
+
+| | Just ask your agent to "connect X" | connect-tool |
+|---|---|---|
+| **Proof it worked** | It says "connected." | For a new or changed connection it will not report success until a real authenticated read returns your live data. |
+| **Where your key goes** | Through the agent's context, often into a config file or MCP JSON. | A displayed key or pasted secret goes straight into Keychain / Credential Manager; the agent sees only a length and a hash prefix (plus the last four for longer secrets). |
+| **Whose session** | A spawned browser opens with none of your logins and hits a wall. | It drives the Chrome tab you are already signed into. |
+| **Running it again** | Re-auths blindly or makes duplicates. | It reads what it already did and picks the smallest next step: nothing, refresh, broaden scopes, re-auth, or flag a repair. |
+| **What it will click** | Anything. | The workflow routes irreversible clicks (save / pay / delete / revoke) through a hold you approve per step. A discipline, not a sandbox. |
+| **Next time** | Nothing carries over. | Lessons the agent records ("this vendor hides the key under Configuration > Integrations") come back on later runs. |
+
+**Where it does not earn its keep:** when a tool is already a built-in first-party Claude connector, you just click connect and OAuth handles the rest. connect-tool is for the vendor tools that are not built in, whether they use a displayed API key, a pasted secret, or their own OAuth CLI login (HaloPSA, NinjaOne, Jamf, Servosity, and the like).
+
+## Being honest about the edges
+
+This audience checks claims rather than trusting them, which is the whole point, so:
+
+- It needs OpenCLI and its Chrome extension: a third-party npm package and a Chrome Web Store extension sit in your credential path. Pin the versions you review.
+- The browser bridge has a documented, recoverable failure where its background worker goes to sleep (you reload the extension's card in `chrome://extensions/`). Test the reliability in your own environment before you lean on it.
+- Apache-2.0 and inspectable, with a `--selfcheck` on every helper, so you can verify these properties instead of taking them on faith. Real assurance is the whole helper chain plus OpenCLI and the consuming CLI, not one file. `references/security-model.md` states plainly what the model does and does not claim.
+- Windows support is new and still being verified on real Windows hardware (`references/windows.md` lists exactly what is unproven). On macOS, every helper's `--selfcheck` passes, including a live credential-store round-trip.
 
 ## Requirements
 

@@ -10,6 +10,8 @@ faqs:
     a: "Most MCP servers proxy each question into a live API call, so a 90-day, 10-client question becomes hundreds of paginated calls and rate-limit headaches. msp-skills keeps a private, searchable copy of your data on your machine, so that question is one instant local lookup."
   - q: "Is msp-skills really free?"
     a: "Yes. The Skills, CLI binaries, and MCP servers are Apache-2.0 licensed - free to use commercially, free to fork. You pay only for whichever AI agent you already use. There is no per-tech fee and no SaaS subscription."
+  - q: "How do I actually get my vendor's API key connected?"
+    a: "Use connect-tool. It drives the Chrome you are already logged into, reads the displayed API key (or takes a hidden paste), and writes it straight into the macOS Keychain or Windows Credential Manager without the complete value passing through the agent, so it never lands in a config file. For a new or changed connection it will not report success until a real authenticated read returns your live data. Details at /skills/connect-tool/."
 ---
 
 # Why msp-skills?
