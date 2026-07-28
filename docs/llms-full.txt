@@ -492,6 +492,20 @@ Governance: The skill drives the cipp-cli and cipp-mcp binaries, authenticating 
 Page: https://msp-skills.compoundingteams.com/skills/connect-tool/
 Verification: Awaiting live verification
 
+Get any vendor's API key connected to your AI, and prove it actually worked.
+
+FAQ:
+Q: How do I actually get my vendor's API key into an MCP server or CLI?
+A: connect-tool does it. It drives the Chrome tab you are already logged into, reads the displayed key (or takes a hidden paste), and writes it straight into the macOS Keychain or Windows Credential Manager. The agent never sees the full value, and the key never lands in a config file or MCP JSON. It then runs a real authenticated read and only reports success once your live data comes back.
+Q: Why not just ask Claude to connect the tool for me?
+A: Ask an agent to connect a vendor and it usually spawns a fresh browser with none of your logins, hits a login wall, or reports connected when nothing authenticated, with your API key sitting in a config file. connect-tool uses your already-signed-in browser, keeps the complete secret out of the agent's context, and will not claim success on a new connection until a real authenticated call returns your data.
+Q: Where does connect-tool store my credential?
+A: In your operating system's credential store: the macOS Keychain, or Windows Credential Manager via a direct CredWriteW call so the secret is never a command-line argument. A displayed or pasted key goes there, not into a config file. OAuth logins are handled by the consuming CLI's own login, which stores its own token.
+Q: Is connect-tool safe to run against my real vendor portals?
+A: It is Apache-2.0 and inspectable, and every helper ships a --selfcheck you can run to verify the security properties rather than trust them. The complete secret never enters the agent's context, irreversible clicks are routed through a hold you approve per step, and it stores nothing in this repo at runtime. It does depend on OpenCLI and its Chrome extension, which sit in your credential path and are worth pinning and reviewing.
+Q: Does connect-tool work on Windows?
+A: It runs on Windows and macOS from one codebase, with the credential going to Windows Credential Manager. On macOS every helper's self-check passes, including a live credential-store round-trip; the Windows-specific paths are new and still being verified on real hardware. The skill's references/windows.md lists exactly what is proven and what is not.
+
 ### ConnectWise Automate (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/connectwise-automate/
