@@ -27,11 +27,15 @@ require a human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | (none detected) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
-| **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
-| **Destructive** | Irreversible data or config loss. | (none detected) | Human-in-the-loop only, explicit confirmation |
+| **Read** | Reports, rollups, search, export. No change. | `search`, `meetings list/get`, `transcript get`, `attendee timeline/brief`, `talktime`, `stats`, `calendar overlay`, `export` / `export-all`, `doctor` | Allow |
+| **Write (routine)** | Reversible mutations on your Granola account. | `meetings delete` (soft-delete, sets `deleted_at`), `meetings restore` | Preview with `--dry-run`, then an approved write |
+| **Credential / security** | Touches tokens and stored credentials. | `auth set-token`, `auth logout`, `mcp-auth login` | Human-in-the-loop only |
+| **Destructive** | Irreversible data or config loss. | (none - `meetings delete` is a reversible soft-delete, restored via `meetings restore`) | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
+
+Note: the local learning and profile commands (`teach*`, `playbook`, `learnings`,
+`profile`) write only to the local store/config on your own machine - they never
+change your Granola account.
 
 ## How to lock it down
 

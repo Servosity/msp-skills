@@ -1,6 +1,6 @@
 ---
 name: granola
-description: "Every Granola feature  -  plus offline SQLite cross-meeting search, attendee timelines, and a MEMO pipeline runner... Trigger phrases: `memo run for today's meetings`, `what's in granola but not yet memo'd`, `every meeting we had with trevin`, `did i run the discovery recipe`, `talk time in last week's meetings`, `calendar overlay missed meetings`, `find duplicates in meeting transcripts`, `extract granola meeting`, `use granola`, `run granola`."
+description: "Use when the user asks to search, export, or analyze their Granola meetings across calls - attendee timelines, talk-time roll-ups, topic search, and bulk transcript export from an offline SQLite mirror no per-meeting view offers. Trigger phrases: `every meeting with this client`, `talk time across last month's meetings`, `export last week's calls`, `search my granola meetings`, `which calls didn't get recorded`, `attendee timeline for a contact`, `use granola`, `run granola`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Granola"
@@ -46,7 +46,7 @@ If `--version` reports "command not found" after install, the runtime cannot see
 
 ## When to Use This CLI
 
-Reach for granola-cli when you need to answer cross-meeting questions Granola.ai’s web app and the GUI cannot  -  attendee timelines, MEMO pipeline state, recipes coverage gaps, calendar overlay, talk-time aggregation. It is the right tool for an agent processing transcripts in a loop, a CSM doing pre-call prep, or a consultant running a weekly retro. Pair the --json default with --select dotted paths to keep agent context lean.
+Reach for granola-cli when you need to answer cross-meeting questions Granola.ai’s web app and the GUI cannot  -  attendee timelines, meeting-extraction state, recipes coverage gaps, calendar overlay, talk-time aggregation. It is the right tool for an agent processing transcripts in a loop, a CSM doing pre-call prep, or a consultant running a weekly retro. Pair the --json default with --select dotted paths to keep agent context lean.
 
 ## When Not to Use This CLI
 
@@ -66,7 +66,7 @@ These capabilities aren't available in any other tool for this API.
   _Replaces the per-meeting shell loop that drives the MEMO pipeline  -  one call, one ndjson stream, agent-readable._
 
   ```bash
-  granola-cli memo run --since 24h --to ~/Documents/Dev/meeting-transcripts --json
+  granola-cli memo run --since 24h --to ~/Documents/meeting-transcripts --json
   ```
 - **`memo queue`**  -  List every meeting whose transcript is in the cache but whose MEMO triple is not yet on disk.
 
@@ -98,14 +98,14 @@ These capabilities aren't available in any other tool for this API.
   _Replaces the weekly retro workflow of opening a folder and copy-pasting each meeting’s summary into a spreadsheet._
 
   ```bash
-  granola-cli folder stream client-foo --panel summary --json
+  granola-cli folder stream "Customer Calls" --panel summary --json
   ```
 - **`recipes coverage`**  -  Surface meetings that did NOT have a named panel template/recipe applied within a date range.
 
   _Friday retro question “did I run the Discovery recipe on every new-prospect call?” answered in one row per gap._
 
   ```bash
-  granola-cli recipes coverage discovery --since 14d --json
+  granola-cli recipes coverage "discovery" --since 14d --json
   ```
 
 ### Transcript analytics
@@ -134,7 +134,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 - **`calendar overlay`**  -  Left-anti-join meetingsMetadata calendar events with documents.google_calendar_event to find calendared-but-not-recorded meetings.
 
-  _Sarah’s Friday retro and Damien’s “what did I miss” sweep both reduce to this row-level diff._
+  _An account lead's Friday retro and a "what did I miss this week" sweep both reduce to this row-level diff._
 
   ```bash
   granola-cli calendar overlay --week 2026-05-11 --missed-only --json
@@ -146,7 +146,7 @@ These capabilities aren't available in any other tool for this API.
   _Repos accumulate near-duplicate files when meetings are re-extracted; this returns the dupe groups for cleanup._
 
   ```bash
-  granola-cli duplicates scan --root ~/Documents/Dev/meeting-transcripts --json
+  granola-cli duplicates scan --root ~/Documents/meeting-transcripts --json
   ```
 - **`tiptap extract`**  -  Render documents[id].notes (TipTap JSON: headings, bullet_list, list_item, bold marks, paragraph_break) to canonical markdown instead of falling back to notes_plain.
 
@@ -160,6 +160,7 @@ These capabilities aren't available in any other tool for this API.
 
 This CLI exposes 35+ commands. The full tree is too long to inline; ask the CLI for the canonical list:
 
+<!-- cli-claims:ignore -->
 ```bash
 granola-cli --help                              # top-level commands
 granola-cli <command> --help                    # subcommands + flags
@@ -176,8 +177,8 @@ Quick orientation by group:
 | **Export** | `export`, `export-all` | Combined three-stream markdown export, single or bulk |
 | **Cross-meeting analytics** | `attendee timeline`, `attendee brief`, `folder stream`, `recipes coverage`, `talktime`, `calendar overlay`, `stats frequency`, `stats duration`, `stats attendees`, `stats calendar`, `collect`, `duplicates scan`, `chat list`, `chat get` | Queries no per-meeting tool can answer |
 | **Folders / recipes / workspaces** | `folders` (public-API), `folder list`, `folder stream`, `recipes list`, `recipes describe`, `recipes coverage`, `workspaces list` | Granola organizational entities |
-| **Public-API mirrors** | `notes list`, `notes get`, `folders` | Typed Bearer-key endpoints |
-| **Sync / system** | `sync`, `enrich`, `sync-api`, `mcp-auth login / status / verify / logout`, `doctor`, `auth login`, `auth status`, `auth set-token`, `auth logout`, `which`, `agent-context`, `version`, `import` | REST-driven store hydration + enrichment, Granola-MCP connection, auth, capability discovery, batch import |
+| **Public-API mirrors** | `sync-api`, `notes-show`, `folders` | Typed Bearer-key endpoints |
+| **Sync / system** | `sync`, `enrich`, `sync-api`, `mcp-auth login / status / verify / logout`, `doctor`, `auth setup`, `auth status`, `auth set-token`, `auth logout`, `which`, `agent-context`, `version` | REST-driven store hydration + enrichment, Granola-MCP connection, auth, capability discovery |
 | **GUI bridge** | `warm` (macOS only) | Drives Granola desktop app via AppleScript |
 
 Three commands anchor the REST + MCP model:
@@ -202,7 +203,7 @@ granola-cli which "<capability in your own words>"
 ### Daily MEMO loop
 
 ```bash
-granola-cli memo run --since 24h --to ~/Documents/Dev/meeting-transcripts --json
+granola-cli memo run --since 24h --to ~/Documents/meeting-transcripts --json
 ```
 
 Process every new meeting since yesterday into the MEMO triple format and yield only the new artifacts.
@@ -213,12 +214,12 @@ Process every new meeting since yesterday into the MEMO triple format and yield 
 granola-cli attendee brief alice@example.com --last 3 --panel action-items --json --select meetings.title,meetings.started_at,panels.action_items
 ```
 
-Pull the last three meetings with Trevin and only the title, date, and action-items panel content per meeting.
+Pull the last three meetings with Alice and only the title, date, and action-items panel content per meeting.
 
 ### Friday retro  -  missing recipes
 
 ```bash
-granola-cli recipes coverage discovery --since 14d --json
+granola-cli recipes coverage "discovery" --since 14d --json
 ```
 
 Surface every new-prospect call in the last fortnight that did not have the Discovery panel applied. Omit the slug to list coverage gaps across every panel template.
@@ -226,7 +227,7 @@ Surface every new-prospect call in the last fortnight that did not have the Disc
 ### Repo-wide duplicate scrub
 
 ```bash
-granola-cli duplicates scan --root ~/Documents/Dev/meeting-transcripts --json
+granola-cli duplicates scan --root ~/Documents/meeting-transcripts --json
 ```
 
 Find duplicate-meeting clusters across the MEMO output repo for cleanup.
@@ -294,7 +295,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  `sync` and the `meetings list --query <text>` FTS path use the local SQLite store
 - **Non-interactive**  -  never prompts, every input is a flag
-- **Mostly read-only**  -  `meetings delete`, `meetings restore`, `import`, and `warm --launch` are the only commands that mutate state; every other command inspects, exports, syncs, or analyzes
+- **Mostly read-only**  -  `meetings delete`, `meetings restore`, and `warm --launch` are the only commands that mutate state; every other command inspects, exports, syncs, or analyzes
 
 ### Response envelope
 
@@ -339,7 +340,7 @@ granola-cli meetings list --no-refresh
 export GRANOLA_NO_AUTO_REFRESH=1
 
 # Saved per-profile via the existing profile mechanism:
-granola-cli profile save fast --no-refresh
+granola-cli profile save "fast" --no-refresh
 granola-cli --profile fast meetings list
 ```
 

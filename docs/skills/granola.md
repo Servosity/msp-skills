@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Granola MCP Server - Free, Open Source, Runs Locally | MSP Skills"
-description: "Every Granola feature \u2014 plus offline SQLite cross-meeting search, attendee timelines, and a MEMO pipeline runner no other Granola tool has."
+description: "Search, export, and analyze every Granola meeting across all your calls - attendee timelines, talk-time roll-ups, and full-text transcript search from an offline local mirror."
 permalink: /skills/granola/
 skill_name: "Granola MCP"
 image: /assets/social/granola/wide-1200x630.png
@@ -19,8 +19,10 @@ faqs:
     a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
-  - q: "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Granola portal)"
-    a: "TODO"
+  - q: "Do I need a Granola API key?"
+    a: "You need a Granola account. Cross-meeting sync pulls from the Granola public REST API using a personal or enterprise API key (GRANOLA_API_KEY); recent Granola desktop versions seal the local cache, so the API key is the supported path. Run granola-cli doctor to confirm auth is working."
+  - q: "Will this replace the Granola app?"
+    a: "No. Keep recording and reviewing meetings in Granola as usual. This skill sits alongside it for the cross-meeting questions the app answers one meeting at a time - attendee timelines, bulk export, talk-time, and topic search across everything you've recorded."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/granola/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/granola/install.ps1 | iex"
@@ -40,7 +42,7 @@ howto:
 
 Yes - there is an MCP server for Granola. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Granola to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-TODO: <=70 words, MSP-owner language, leads with the outcome. What does Granola + your AI answer in one sentence that the portal cannot?
+Ask your AI "every meeting we've had with Northwind IT" or "talk-time across last month's QBRs" and get the answer across all your calls at once - not one meeting at a time. Granola records and summarizes each meeting; this skill syncs them into a local, searchable mirror so your agent queries transcripts, summaries, and attendee history across every client conversation.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -48,17 +50,17 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Granola 
 
 ## Instead of clicking through Granola, just ask
 
-**Instead of** TODO: the painful manual workflow (exporting reports, clicking through the portal)
-**just ask:** *"TODO: the natural-language question the MSP owner asks instead"*
-<sub>Your agent runs: <code>granola-cli TODO</code></sub>
+**Instead of** Scrolling back through weeks of recorded calls to reconstruct what you told a client before a QBR
+**just ask:** *"Show me every meeting we've had with sarah@northwind.com"*
+<sub>Your agent runs: <code>granola-cli attendee timeline sarah@northwind.com</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>granola-cli TODO</code></sub>
+**Instead of** Opening each recorded call one by one to copy notes and transcript into your PSA or a follow-up doc
+**just ask:** *"Export last week's client calls to markdown files"*
+<sub>Your agent runs: <code>granola-cli export-all --out ./client-calls --last 7d</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>granola-cli TODO</code></sub>
+**Instead of** Guessing which scheduled client calls this week never actually got recorded
+**just ask:** *"Which calendar events this week didn't get recorded?"*
+<sub>Your agent runs: <code>granola-cli calendar overlay --missed-only</code></sub>
 
 
 ## See it in 30 seconds
@@ -71,20 +73,28 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Granola 
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| TODO: question an MSP keeps asking | `granola-cli TODO` |
+| Every meeting with a client contact, oldest to newest? | `granola-cli attendee timeline sarah@northwind.com` |
+| The last few calls with a contact, notes and AI summary inlined? | `granola-cli attendee brief sarah@northwind.com --last 5` |
+| Every mention of a topic across all synced meetings? | `granola-cli search "backup migration"` |
+| One meeting as notes + summary + transcript in a single file? | `granola-cli export not_06Yq6JtogRihEr --out ./meeting.md` |
+| Bulk-export the last 7 days of calls to a folder? | `granola-cli export-all --out ./calls --last 7d` |
+| Who talked the most across last month's meetings? | `granola-cli talktime --by participant --since 30d` |
+| Which scheduled calls this week never got recorded? | `granola-cli calendar overlay --missed-only` |
+| Top attendees by meeting count? | `granola-cli stats attendees --top 10` |
+| Is auth working and is my local mirror fresh? | `granola-cli doctor` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/granola/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/granola/guide.md).
 
 ## What makes this one different
 
-TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most Granola integrations proxy each question into a live API call ...
+Most meeting-notes integrations answer one question by making one live API call - fine for a single meeting, useless when you need to reason across a quarter of calls. This skill syncs your meetings into a local SQLite mirror with full-text search, so cross-meeting questions - an attendee's whole timeline, talk-time rolled up across dozens of calls, every mention of a topic - resolve as one instant local query your agent can actually read.
 
-TODO: one sentence vs Granola's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.
+Granola's own AI answers questions inside a single meeting; this complements it by making every meeting queryable at once - attendee history, cross-call search, talk-time aggregation, and missed-recording detection the per-meeting view can't give you.
 
 ## The pain this closes
 
-- TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread
-- TODO: pain 2
+- Client context lives in dozens of separate meeting recordings - before a QBR you're scrubbing back through weeks of calls to remember what you promised whom.
+- The notes all exist, but nobody can answer "what did we tell this client last quarter" without opening every meeting by hand.
 
 ## Install
 
@@ -118,11 +128,11 @@ After install, authenticate once with your Granola credentials, then verify with
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | TODO: read commands | Allow |
-| Write (routine) | TODO | Preview with --dry-run, then a reviewed write |
-| Destructive / config | TODO | Human-in-the-loop only |
+| Read | search, meetings list/get, transcript get, attendee timeline/brief, talktime, stats, calendar overlay, export, doctor | Allow |
+| Write (routine) | meetings delete (reversible soft-delete), meetings restore | Preview with --dry-run, then a reviewed write |
+| Destructive / config | auth set-token / logout, mcp-auth login (credential handling) | Human-in-the-loop only |
 
-TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/granola/governance.md).
+The skill reads your Granola meetings - notes, AI summaries, transcripts, folders, and attendees - into a local mirror and answers questions against it; the commands you use day to day are all read-only. The only account-changing commands are an explicit meetings delete (a reversible soft-delete) and meetings restore, both of which support --dry-run. Keep autonomous agents to read plus previewed writes, and require a human for delete/restore and any credential command. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/granola/governance.md).
 
 ## Frequently asked questions
 
@@ -150,9 +160,13 @@ Your data stays on your machine. The CLI, MCP server, and the local mirror are a
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-### TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Granola portal)
+### Do I need a Granola API key?
 
-TODO
+You need a Granola account. Cross-meeting sync pulls from the Granola public REST API using a personal or enterprise API key (GRANOLA_API_KEY); recent Granola desktop versions seal the local cache, so the API key is the supported path. Run granola-cli doctor to confirm auth is working.
+
+### Will this replace the Granola app?
+
+No. Keep recording and reviewing meetings in Granola as usual. This skill sits alongside it for the cross-meeting questions the app answers one meeting at a time - attendee timelines, bulk export, talk-time, and topic search across everything you've recorded.
 
 
 ## More Documentation connectors

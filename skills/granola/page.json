@@ -1,34 +1,66 @@
 {
-  "outcome_intro": "TODO: <=70 words, MSP-owner language, leads with the outcome. What does Granola + your AI answer in one sentence that the portal cannot?",
+  "outcome_intro": "Ask your AI \"every meeting we've had with Northwind IT\" or \"talk-time across last month's QBRs\" and get the answer across all your calls at once - not one meeting at a time. Granola records and summarizes each meeting; this skill syncs them into a local, searchable mirror so your agent queries transcripts, summaries, and attendee history across every client conversation.",
   "instead_of_say": [
     {
-      "instead": "TODO: the painful manual workflow (exporting reports, clicking through the portal)",
-      "say": "TODO: the natural-language question the MSP owner asks instead",
-      "cli": "granola-cli TODO"
+      "instead": "Scrolling back through weeks of recorded calls to reconstruct what you told a client before a QBR",
+      "say": "Show me every meeting we've had with sarah@northwind.com",
+      "cli": "granola-cli attendee timeline sarah@northwind.com"
     },
     {
-      "instead": "TODO",
-      "say": "TODO",
-      "cli": "granola-cli TODO"
+      "instead": "Opening each recorded call one by one to copy notes and transcript into your PSA or a follow-up doc",
+      "say": "Export last week's client calls to markdown files",
+      "cli": "granola-cli export-all --out ./client-calls --last 7d"
     },
     {
-      "instead": "TODO",
-      "say": "TODO",
-      "cli": "granola-cli TODO"
+      "instead": "Guessing which scheduled client calls this week never actually got recorded",
+      "say": "Which calendar events this week didn't get recorded?",
+      "cli": "granola-cli calendar overlay --missed-only"
     }
   ],
   "pain_points": [
-    "TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread",
-    "TODO: pain 2"
+    "Client context lives in dozens of separate meeting recordings - before a QBR you're scrubbing back through weeks of calls to remember what you promised whom.",
+    "The notes all exist, but nobody can answer \"what did we tell this client last quarter\" without opening every meeting by hand."
   ],
   "outcomes": [
     {
-      "question": "TODO: question an MSP keeps asking",
-      "command": "granola-cli TODO"
+      "question": "Every meeting with a client contact, oldest to newest?",
+      "command": "granola-cli attendee timeline sarah@northwind.com"
+    },
+    {
+      "question": "The last few calls with a contact, notes and AI summary inlined?",
+      "command": "granola-cli attendee brief sarah@northwind.com --last 5"
+    },
+    {
+      "question": "Every mention of a topic across all synced meetings?",
+      "command": "granola-cli search \"backup migration\""
+    },
+    {
+      "question": "One meeting as notes + summary + transcript in a single file?",
+      "command": "granola-cli export not_06Yq6JtogRihEr --out ./meeting.md"
+    },
+    {
+      "question": "Bulk-export the last 7 days of calls to a folder?",
+      "command": "granola-cli export-all --out ./calls --last 7d"
+    },
+    {
+      "question": "Who talked the most across last month's meetings?",
+      "command": "granola-cli talktime --by participant --since 30d"
+    },
+    {
+      "question": "Which scheduled calls this week never got recorded?",
+      "command": "granola-cli calendar overlay --missed-only"
+    },
+    {
+      "question": "Top attendees by meeting count?",
+      "command": "granola-cli stats attendees --top 10"
+    },
+    {
+      "question": "Is auth working and is my local mirror fresh?",
+      "command": "granola-cli doctor"
     }
   ],
-  "different_vs_wrappers": "TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most Granola integrations proxy each question into a live API call ...",
-  "different_vs_vendor": "TODO: one sentence vs Granola's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.",
+  "different_vs_wrappers": "Most meeting-notes integrations answer one question by making one live API call - fine for a single meeting, useless when you need to reason across a quarter of calls. This skill syncs your meetings into a local SQLite mirror with full-text search, so cross-meeting questions - an attendee's whole timeline, talk-time rolled up across dozens of calls, every mention of a topic - resolve as one instant local query your agent can actually read.",
+  "different_vs_vendor": "Granola's own AI answers questions inside a single meeting; this complements it by making every meeting queryable at once - attendee history, cross-call search, talk-time aggregation, and missed-recording detection the per-meeting view can't give you.",
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
@@ -47,25 +79,29 @@
       "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
     },
     {
-      "q": "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Granola portal)",
-      "a": "TODO"
+      "q": "Do I need a Granola API key?",
+      "a": "You need a Granola account. Cross-meeting sync pulls from the Granola public REST API using a personal or enterprise API key (GRANOLA_API_KEY); recent Granola desktop versions seal the local cache, so the API key is the supported path. Run granola-cli doctor to confirm auth is working."
+    },
+    {
+      "q": "Will this replace the Granola app?",
+      "a": "No. Keep recording and reviewing meetings in Granola as usual. This skill sits alongside it for the cross-meeting questions the app answers one meeting at a time - attendee timelines, bulk export, talk-time, and topic search across everything you've recorded."
     }
   ],
-  "governance_summary": "TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier.",
+  "governance_summary": "The skill reads your Granola meetings - notes, AI summaries, transcripts, folders, and attendees - into a local mirror and answers questions against it; the commands you use day to day are all read-only. The only account-changing commands are an explicit meetings delete (a reversible soft-delete) and meetings restore, both of which support --dry-run. Keep autonomous agents to read plus previewed writes, and require a human for delete/restore and any credential command.",
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "TODO: read commands",
+      "examples": "search, meetings list/get, transcript get, attendee timeline/brief, talktime, stats, calendar overlay, export, doctor",
       "policy": "Allow"
     },
     {
       "tier": "Write (routine)",
-      "examples": "TODO",
+      "examples": "meetings delete (reversible soft-delete), meetings restore",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {
       "tier": "Destructive / config",
-      "examples": "TODO",
+      "examples": "auth set-token / logout, mcp-auth login (credential handling)",
       "policy": "Human-in-the-loop only"
     }
   ]

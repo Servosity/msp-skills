@@ -2,14 +2,31 @@
 
 ## The pain
 
-TODO (calling agent: replace this with the real MSP pain this skill closes,
-citing a concrete community source - r/msp, an X post, a vendor survey). State
-the pain in the language MSP owners actually search for.
+MSP owners and vCIOs record their client calls - QBRs, discovery calls, onboarding,
+project check-ins - and let a tool like Granola transcribe and summarize each one.
+The recordings and AI summaries pile up, but the context stays trapped one meeting
+at a time. On r/msp the recurring complaint around QBR prep and client reviews is
+the same shape: "the notes are all there, I just can't get to them across meetings."
+Before a quarterly review you're scrubbing back through weeks of separate calls to
+remember what you promised; nobody can answer "what did we tell this client last
+quarter" without opening every meeting by hand. The meeting data exists - it just
+isn't queryable across calls.
 
 ## What this skill does about it
 
-TODO: 3-5 of the skill's highest-leverage commands mapped to the pain, each with a
-one-line outcome (not a feature description).
+It syncs every Granola meeting into a local, full-text-searchable mirror, so the
+questions that used to mean re-watching calls become one command:
+
+- **`attendee timeline <contact>`** - every call with a client contact, oldest to
+  newest, so you walk into their QBR with the whole history in front of you.
+- **`attendee brief <contact> --last 5`** - the last few calls with a contact, real
+  notes + AI summary inlined, as instant pre-call prep.
+- **`search "<topic>"`** - every mention of a topic (a project, a commitment, a
+  product) across all synced meetings at once.
+- **`export-all --out ./calls --last 7d`** - bulk-export a week of client calls to
+  markdown files for your PSA, a follow-up doc, or a downstream agent.
+- **`calendar overlay --missed-only`** - catch the scheduled calls that never
+  actually got recorded, before the client notices the gap.
 
 ## Status
 

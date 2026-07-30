@@ -1097,7 +1097,7 @@
       "name": "granola",
       "source": "./skills/granola",
       "description": "Every Granola feature \u2014 plus offline SQLite cross-meeting search, attendee timelines, and a MEMO pipeline runner no other Granola tool has.",
-      "version": "1.0.0",
+      "version": "0.1.0",
       "category": "documentation",
       "tags": [
         "granola",

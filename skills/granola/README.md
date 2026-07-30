@@ -6,13 +6,13 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/granola/">
-    <img src="../../docs/assets/social/granola/wide-1200x630.png" alt="Granola - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/granola/animated-og.gif" alt="Granola demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/granola/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/granola/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Every Granola feature — plus offline SQLite cross-meeting search, attendee timelines, and a MEMO pipeline runner no other Granola tool has. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Search, export, and analyze every Granola meeting across all your calls - attendee timelines, talk-time roll-ups, and full-text transcript search from an offline local mirror. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Granola MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/granola-v1.0.0/granola-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Granola release on the [releases page](https://github.com/servosity/msp-skills/releases?q=granola).)
+[**Download Granola MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/granola-v0.1.0/granola-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Granola release on the [releases page](https://github.com/servosity/msp-skills/releases?q=granola).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -145,25 +145,36 @@ GRANOLA_API_KEY=<value> granola-cli doctor
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `granola-cli ...` |
-
--->
+| Every meeting with a client contact, oldest to newest? | `granola-cli attendee timeline sarah@northwind.com` |
+| The last few calls with a contact, notes + AI summary inlined? | `granola-cli attendee brief sarah@northwind.com --last 5` |
+| Every mention of a topic across all synced meetings? | `granola-cli search "backup migration"` |
+| Bulk-export the last 7 days of calls to a folder? | `granola-cli export-all --out ./calls --last 7d` |
+| Who talked the most across last month's meetings? | `granola-cli talktime --by participant --since 30d` |
+| Which scheduled calls this week never got recorded? | `granola-cli calendar overlay --missed-only` |
+| Top attendees by meeting count? | `granola-cli stats attendees --top 10` |
+| Is auth working and is my local mirror fresh? | `granola-cli doctor` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Granola integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Granola integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "what did we tell this client across every call last quarter" and the answer is spread over thirty separate recordings.
 
-This skill syncs Granola into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs Granola into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `attendee timeline`, `talktime --by participant`, and `stats attendees` join across meetings, transcripts, and attendees - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+MSP owners on r/msp keep hitting the same wall around client meetings: the recordings and AI summaries all exist, but the context is trapped one meeting at a time. Before a QBR you're scrubbing back through weeks of calls to remember what you promised; nobody can answer "what did we tell this client last quarter" without opening every meeting by hand.
+
+This skill closes that gap by making every meeting queryable at once:
+
+- **`attendee timeline <contact>`** - every call with a client contact, oldest to newest, before you walk into their QBR.
+- **`attendee brief <contact> --last 5`** - the last few calls with a contact, real notes + AI summary inlined, as pre-call prep.
+- **`search "<topic>"`** - every mention of a topic across all synced meetings.
+- **`export-all --out ./calls --last 7d`** - bulk-export a week of calls to markdown for your PSA or a follow-up doc.
+- **`calendar overlay --missed-only`** - which scheduled calls never actually got recorded.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +196,17 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Do I need a Granola API key?
+
+You need a Granola account. Cross-meeting sync pulls from the Granola public REST API using a personal or enterprise API key (`GRANOLA_API_KEY`). Recent Granola desktop versions seal the local cache app-private, so the API key is the supported path. Run `granola-cli doctor` to confirm auth is working before anything touches data.
+
+### Will this replace the Granola app?
+
+No. Keep recording and reviewing meetings in Granola as usual. This skill sits alongside it for the cross-meeting questions the app answers one meeting at a time - attendee timelines, bulk export, talk-time, and topic search across everything you've recorded.
+
+### How is this different from Granola's own AI?
+
+Granola's AI answers questions inside a single meeting. This complements it by making every meeting queryable at once - an attendee's whole history, talk-time rolled up across dozens of calls, and search over every transcript - the cross-call view the per-meeting summary can't give you.
 
 ### What does it cost?
 
@@ -198,15 +214,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `search`, `meetings list/get`, `transcript get`, `attendee timeline/brief`, `talktime`, `stats`, `calendar overlay`, `export`, `doctor` | Allow |
+| Write (routine) | `meetings delete` (reversible soft-delete), `meetings restore` | Preview with `--dry-run`, then a reviewed write |
+| Destructive / config | `auth set-token` / `logout`, `mcp-auth login` (credential handling) | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Granola credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +230,4 @@ Beta. Validated against the Granola API surface and being validated with MSPs ru
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-07-20._

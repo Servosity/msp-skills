@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "granola-pp-mcp",
   "display_name": "Granola",
-  "version": "1.0.0",
-  "description": "Every Granola feature \u2014 plus offline SQLite cross-meeting search, attendee timelines, and a MEMO pipeline runner no other Granola tool has.",
+  "version": "0.1.0",
+  "description": "Search, export, and analyze every Granola meeting across all your calls - attendee timelines, talk-time roll-ups, and full-text transcript search from an offline local mirror.",
   "author": {
     "name": "Servosity Inc."
   },
