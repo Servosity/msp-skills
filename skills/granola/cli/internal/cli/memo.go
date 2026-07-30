@@ -4,6 +4,7 @@ package cli
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,7 +33,19 @@ func newMemoRunCmd(flags *rootFlags) *cobra.Command {
 		Long: `Without an id, iterates every meeting in --since/--last/--until and runs
 the pipeline for those whose full_<id>.md does not yet exist in --to.
 
-Emits ndjson one line per meeting: {id, status: new|skipped|duplicate|error|missing_transcript, files, error}.`,
+Emits ndjson one line per meeting: {id, status, files, unknown_sources, error}.
+
+status values:
+  new                   memo written
+  duplicate             full_<id>.md already exists
+  missing_transcript    no transcript, OR fewer than 5 microphone / 10 classified
+                        segments (absent and too-thin are not distinguished here;
+                        run preflight for the exit code that tells them apart)
+  unknown_source_label  the upstream transcript grammar changed so the channels
+                        could not be classified -- NOT the same as a missing
+                        transcript; the text may well be there
+  skipped               meeting deliberately passed over
+  error                 anything else, with error set`,
 		Example: strings.Trim(`
   granola-cli memo run not_06Yq6JtogRihEr --out ./memos
   granola-cli memo run --out ./memos --since 7d
@@ -88,11 +101,16 @@ Emits ndjson one line per meeting: {id, status: new|skipped|duplicate|error|miss
 }
 
 type memoRecord struct {
-	ID          string   `json:"id"`
-	Status      string   `json:"status"`
-	Files       []string `json:"files,omitempty"`
-	DuplicateOf string   `json:"duplicate_of,omitempty"`
-	Error       string   `json:"error,omitempty"`
+	ID     string   `json:"id"`
+	Status string   `json:"status"`
+	Files  []string `json:"files,omitempty"`
+	// UnknownSources carries unrecognized transcript source labels even when
+	// the memo succeeded -- drift on a passing transcript still means upstream
+	// changed its grammar, and a stderr warning alone is invisible to anything
+	// consuming this JSON.
+	UnknownSources []string `json:"unknown_sources,omitempty"`
+	DuplicateOf    string   `json:"duplicate_of,omitempty"`
+	Error          string   `json:"error,omitempty"`
 }
 
 func runOneMemo(id, outDir, root string, allowLive bool) memoRecord {
@@ -110,9 +128,20 @@ func runOneMemo(id, outDir, root string, allowLive bool) memoRecord {
 		return rec
 	}
 	segs := c.TranscriptByID(id)
-	mic, sys := countSources(segs)
-	if mic < 5 || sys < 5 {
-		rec.Status = "missing_transcript"
+	mic, far, unknownSegs, unknown := countSources(segs)
+	// Report drift regardless of outcome -- a passing transcript with a
+	// relabelled channel is still a signal the caller needs.
+	rec.UnknownSources = unknown
+	if !transcriptUsable(mic, mic+far) || unknownIsMaterial(unknownSegs) {
+		// Distinguish "upstream relabelled the channel" from "no transcript":
+		// collapsing both into missing_transcript is what let this hide.
+		if len(unknown) > 0 {
+			rec.Status = "unknown_source_label"
+			rec.Error = fmt.Sprintf("unrecognized transcript source label(s) on %d/%d segments: %s",
+				unknownSegs, len(segs), strings.Join(unknown, ", "))
+		} else {
+			rec.Status = "missing_transcript"
+		}
 		return rec
 	}
 	if dup := findDuplicateFile(root, id, d.Title); dup != "" {
@@ -150,6 +179,19 @@ func newMemoQueueCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "queue",
 		Short: "List meetings whose transcript is cached but whose full_<id>.md is missing",
+		Long: `Emits ndjson, one line per meeting that is READY to memo:
+{id, title, started_at, mic_count, system_count, total_count, one_sided}.
+
+The stream is a union: it ALSO emits diagnostic rows for meetings skipped
+because their transcript source labels could not be classified. Those rows
+carry status:"skipped" plus reason, and never carry a title. Consumers building
+a work list must filter them out:
+
+  granola-cli memo queue --last 7d | jq 'select(.status != "skipped")'
+
+They exist so a fleet-wide upstream relabel cannot present as an empty queue --
+which is exactly how a dead source-label grammar went unnoticed. Exit stays 0:
+a partial-drift run should still hand back the meetings that ARE ready.`,
 		Example: strings.Trim(`
   granola-cli memo queue --last 7d
   granola-cli memo queue --since 2026-07-01 --limit 20`, "\n"),
@@ -177,9 +219,31 @@ func newMemoQueueCmd(flags *rootFlags) *cobra.Command {
 			emitted := 0
 			for _, id := range ids {
 				segs := c.TranscriptByID(id)
-				mic, sys := countSources(segs)
-				if mic < 5 || sys < 5 {
+				mic, far, unknownSegs, unknown := countSources(segs)
+				if !transcriptUsable(mic, mic+far) || unknownIsMaterial(unknownSegs) {
+					// A bare `continue` here is what made a fleet-wide label
+					// drift look like "you have no meetings". A stderr warning
+					// alone repeats that mistake for anything reading the
+					// ndjson, so emit a machine-visible skip row too. Rows with
+					// status:"skipped" are diagnostics, not queue entries --
+					// consumers building a work list filter them out.
+					if len(unknown) > 0 {
+						stderr("warning: %s: skipped, unrecognized transcript source label(s) on %d/%d segments: %s", id, unknownSegs, len(segs), strings.Join(unknown, ", "))
+						_ = emitNDJSONLine(w, map[string]any{
+							"id":              id,
+							"status":          "skipped",
+							"reason":          "unknown_source_label",
+							"unknown_sources": unknown,
+							"unknown_count":   unknownSegs,
+							"mic_count":       mic,
+							"system_count":    far,
+							"total_count":     len(segs),
+						})
+					}
 					continue
+				}
+				if len(unknown) > 0 {
+					stderr("warning: %s: unrecognized transcript source label(s) on %d/%d segments: %s", id, unknownSegs, len(segs), strings.Join(unknown, ", "))
 				}
 				d := c.DocumentByID(id)
 				if d == nil {
@@ -188,13 +252,22 @@ func newMemoQueueCmd(flags *rootFlags) *cobra.Command {
 				if dup := findDuplicateFile(root, id, d.Title); dup != "" {
 					continue
 				}
-				_ = emitNDJSONLine(w, map[string]any{
+				row := map[string]any{
 					"id":           id,
 					"title":        d.Title,
 					"started_at":   d.CreatedAt,
 					"mic_count":    mic,
-					"system_count": sys,
-				})
+					"system_count": far,
+					"total_count":  len(segs),
+				}
+				if len(unknown) > 0 {
+					row["unknown_sources"] = unknown
+					row["unknown_count"] = unknownSegs
+				} else {
+					// Only assertable when every label classified; see preflight.
+					row["one_sided"] = far == 0
+				}
+				_ = emitNDJSONLine(w, row)
 				emitted++
 				if limit > 0 && emitted >= limit {
 					break

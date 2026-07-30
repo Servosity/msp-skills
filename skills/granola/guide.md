@@ -191,6 +191,54 @@ These capabilities aren't available in any other tool for this API.
   granola-cli memo queue --since 7d --json
   ```
 
+### Transcript source labels, exit codes, and drift
+
+Granola's public REST API labels each transcript segment `speaker.source`:
+**`microphone`** (you, the near end) and **`speaker`** (the far end). The sealed
+pre-7.4x desktop cache used `system`/`mixed`; that store is app-private on
+Granola v7.4x+ and unreadable by any third-party tool, so those labels are
+treated as **unrecognized** rather than silently counted.
+
+`preflight` exit codes:
+
+| Exit | Meaning |
+| --- | --- |
+| `0` | ready to extract |
+| `2` | no transcript, or below the threshold (needs >= 5 `microphone` segments AND >= 10 CLASSIFIED segments) |
+| `3` | a `full_<id>.md` or fuzzy title match already covers this meeting |
+| `4` | transcript source labels are unrecognized, so the gate cannot classify the transcript -- upstream changed its grammar. **Not the same as exit 2:** the text is probably there, the channels just can't be read. |
+
+Unclassified segments never count toward the threshold, so an upstream relabel
+cannot manufacture a passing verdict.
+
+**`one_sided`** is reported, never gated. A solo voice memo legitimately has zero
+far-end segments and passes. The key is **omitted** when any label failed to
+classify, because a relabelled far end and a genuine solo memo are then
+indistinguishable -- absence means "cannot tell", not `false`.
+
+`memo run` status values: `new`, `duplicate`, `missing_transcript` (absent OR
+below threshold), `unknown_source_label` (grammar drift, distinct from missing),
+`skipped`, `error`. Drift is reported in `unknown_sources` even on a memo that
+succeeded.
+
+`memo queue` emits a **union**: ready-to-memo rows, plus diagnostic rows carrying
+`status:"skipped"` and `reason` for meetings whose labels could not be
+classified. Filter diagnostics out when building a work list:
+
+```bash
+granola-cli memo queue --last 7d | jq 'select(.status != "skipped")'
+```
+
+They exist so a fleet-wide relabel cannot present as an empty queue.
+
+### Credentials
+
+Pass the token via the **`GRANOLA_API_KEY` environment variable**. `auth set-token
+<token>` takes the secret as a command-line argument, which leaks it into shell
+history and into `ps` output for the life of the process; prefer the environment
+variable, and treat `set-token` as unsupported for real credentials until it
+accepts stdin.
+
 ### Attendee intelligence
 - **`attendee timeline`**  -  Every meeting with a given attendee, ordered oldest→newest, with title, date, folder, and recipe-applied flag per row.
 

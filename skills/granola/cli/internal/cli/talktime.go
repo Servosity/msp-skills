@@ -58,9 +58,13 @@ to source for 2-attendee meetings and rolling up otherwise.`,
 				type row struct {
 					micSec float64
 					sysSec float64
+					unkSec float64
 				}
 				out := map[string]*row{}
-				bump := func(key string, mic, sys float64) {
+				// unk is tracked separately from sys: folding unclassified time
+				// into system_seconds would let a consumer summing that field
+				// count dead vocabulary as far-end talk time.
+				bump := func(key string, mic, sys, unk float64) {
 					r, ok := out[key]
 					if !ok {
 						r = &row{}
@@ -68,6 +72,7 @@ to source for 2-attendee meetings and rolling up otherwise.`,
 					}
 					r.micSec += mic
 					r.sysSec += sys
+					r.unkSec += unk
 				}
 				for _, id := range ids {
 					segs := c.TranscriptByID(id)
@@ -88,31 +93,38 @@ to source for 2-attendee meetings and rolling up otherwise.`,
 							}
 						}
 					}
-					micSec, sysSec := sourceSeconds(segs)
+					micSec, sysSec, unkSec := sourceSeconds(segs)
 					switch {
 					case micOwner != "" && len(others) == 1:
-						bump(micOwner, micSec, 0)
-						bump(others[0], 0, sysSec)
+						bump(micOwner, micSec, 0, 0)
+						bump(others[0], 0, sysSec, 0)
 					case micOwner != "" && len(others) > 1:
-						bump(micOwner, micSec, 0)
+						bump(micOwner, micSec, 0, 0)
 						share := sysSec / float64(len(others))
 						for _, e := range others {
-							bump("rollup:"+e, 0, share)
+							bump("rollup:"+e, 0, share, 0)
 						}
 					default:
-						bump("rollup:source:microphone", micSec, 0)
-						bump("rollup:source:system", 0, sysSec)
+						bump("rollup:source:microphone", micSec, 0, 0)
+						bump("rollup:source:system", 0, sysSec, 0)
+					}
+					// Time we couldn't attribute to a channel can't be
+					// attributed to a person either -- bucket it visibly
+					// rather than dropping it out of the totals.
+					if unkSec > 0 {
+						bump("rollup:source:unknown", 0, 0, unkSec)
 					}
 				}
 				resp := []map[string]any{}
 				for k, r := range out {
-					total := r.micSec + r.sysSec
+					total := r.micSec + r.sysSec + r.unkSec
 					resp = append(resp, map[string]any{
-						"key":            k,
-						"mic_seconds":    r.micSec,
-						"system_seconds": r.sysSec,
-						"total_seconds":  total,
-						"total_minutes":  total / 60.0,
+						"key":             k,
+						"mic_seconds":     r.micSec,
+						"system_seconds":  r.sysSec,
+						"unknown_seconds": r.unkSec,
+						"total_seconds":   total,
+						"total_minutes":   total / 60.0,
 					})
 				}
 				return emitJSON(cmd, flags, resp)
@@ -129,7 +141,7 @@ to source for 2-attendee meetings and rolling up otherwise.`,
 
 // aggregateBySources returns per-source totals for one transcript.
 func aggregateBySources(segs []granola.TranscriptSegment) map[string]any {
-	micSec, sysSec := sourceSeconds(segs)
+	micSec, sysSec, unknownSec := sourceSeconds(segs)
 	avgConf := 0.0
 	if len(segs) > 0 {
 		sum := 0.0
@@ -141,7 +153,11 @@ func aggregateBySources(segs []granola.TranscriptSegment) map[string]any {
 	return map[string]any{
 		"microphone_seconds": micSec,
 		"system_seconds":     sysSec,
-		"total_seconds":      micSec + sysSec,
+		// Time from segments whose source label didn't classify. Non-zero
+		// means upstream changed its grammar -- without this it vanished out
+		// of total_seconds silently.
+		"unknown_seconds":    unknownSec,
+		"total_seconds":      micSec + sysSec + unknownSec,
 		"microphone_minutes": micSec / 60.0,
 		"system_minutes":     sysSec / 60.0,
 		"segment_count":      len(segs),
@@ -149,19 +165,24 @@ func aggregateBySources(segs []granola.TranscriptSegment) map[string]any {
 	}
 }
 
-// sourceSeconds totals seconds per source. Returns (micSec, sysSec).
-func sourceSeconds(segs []granola.TranscriptSegment) (float64, float64) {
-	var mic, sys float64
+// sourceSeconds totals seconds per channel. Returns (micSec, farSec, unknownSec).
+// Shares classifySource with preflight so talktime can never disagree with the
+// gate about what a label means -- the duplicated switch here is what made
+// talktime report system_seconds: 0 for every meeting.
+func sourceSeconds(segs []granola.TranscriptSegment) (float64, float64, float64) {
+	var mic, far, unknown float64
 	for _, s := range segs {
 		dur := segSeconds(s)
-		switch strings.ToLower(s.Source) {
-		case "microphone", "mic":
+		switch classifySource(s.Source) {
+		case "near":
 			mic += dur
-		case "system", "speakers":
-			sys += dur
+		case "far":
+			far += dur
+		default:
+			unknown += dur
 		}
 	}
-	return mic, sys
+	return mic, far, unknown
 }
 
 func segSeconds(s granola.TranscriptSegment) float64 {

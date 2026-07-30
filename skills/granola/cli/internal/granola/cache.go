@@ -117,9 +117,16 @@ type DocPerson struct {
 
 // TranscriptSegment matches the cache shape under state.transcripts[doc_id][].
 type TranscriptSegment struct {
-	ID                string  `json:"id,omitempty"`
-	DocumentID        string  `json:"document_id,omitempty"`
-	Source            string  `json:"source,omitempty"` // microphone | system | mixed
+	ID         string `json:"id,omitempty"`
+	DocumentID string `json:"document_id,omitempty"`
+	// Source is the capture channel. LIVE grammar (public REST API
+	// speaker.source, and what the local store holds): "microphone" (near
+	// end) | "speaker" (far end). The older "system"/"mixed" values came from
+	// the pre-7.4x desktop cache, which Granola made app-private -- a
+	// third-party binary can no longer read it, so those values should not
+	// appear. See classifySource in internal/cli/preflight.go: an
+	// unrecognized label is surfaced, never silently counted as zero.
+	Source            string  `json:"source,omitempty"`
 	Text              string  `json:"text,omitempty"`
 	StartTimestamp    string  `json:"start_timestamp,omitempty"` // ISO-8601
 	EndTimestamp      string  `json:"end_timestamp,omitempty"`

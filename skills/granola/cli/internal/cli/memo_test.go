@@ -35,8 +35,10 @@ func TestMemoQueue_FilterByDuplicate(t *testing.T) {
 	emitted := []string{}
 	for _, id := range c.SortedDocumentIDs() {
 		segs := c.TranscriptByID(id)
-		mic, sys := countSources(segs)
-		if mic < 5 || sys < 5 {
+		// mic+far, never len(segs): unclassified segments must not count toward
+		// the threshold, or this harness reproduces the bypass it should catch.
+		mic, far, _, _ := countSources(segs)
+		if !transcriptUsable(mic, mic+far) {
 			continue
 		}
 		d := c.DocumentByID(id)
@@ -57,7 +59,11 @@ type docFixture struct {
 }
 
 // buildSyntheticCache assembles a v6-shaped cache with the named docs.
-// Transcripts are 5 mic + 5 system segments when HasTranscript is true.
+// Transcripts are 5 microphone + 5 speaker segments when HasTranscript is
+// true. The labels MUST match what production emits (the public REST API's
+// speaker.source) -- this fixture previously used "system", a value the live
+// store never contains, and so certified a gate that rejected every real
+// meeting.
 func buildSyntheticCache(docs map[string]docFixture) map[string]any {
 	state := map[string]any{
 		"documents":   map[string]any{},
@@ -82,7 +88,7 @@ func buildSyntheticCache(docs map[string]docFixture) map[string]any {
 			}
 			for i := 0; i < 5; i++ {
 				segs = append(segs, map[string]any{
-					"source":          "system",
+					"source":          "speaker",
 					"text":            "s",
 					"start_timestamp": "2026-05-01T10:00:05Z",
 					"end_timestamp":   "2026-05-01T10:00:10Z",
