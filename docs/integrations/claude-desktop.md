@@ -56,7 +56,8 @@ Open Claude Desktop → **Settings → Developer → Edit Config**. (This opens 
       "env": {
         "HALOPSA_TENANT": "<your-tenant>",
         "HALOPSA_CLIENT_ID": "<your-client-id>",
-        "HALOPSA_CLIENT_SECRET": "<your-client-secret>"
+        "HALOPSA_CLIENT_SECRET": "<your-client-secret>",
+		"HALOPSA_DOMAIN": "<your-custom-domain>"
       }
     },
     "servosity": {
@@ -70,6 +71,8 @@ Open Claude Desktop → **Settings → Developer → Edit Config**. (This opens 
 ```
 
 Save the file.
+
+Note: The default domain assigned to your HaloPSA instance is tenant.halopsa.com. If you are using that URL, omit defining HALOPSA_DOMAIN. If you are using a custom domain (e.g. psa.company.com), "psa" is your HALOPSA_TENANT and "company.com" is your HALOPSA_DOMAIN. 
 
 ## Step 3 - Restart Claude Desktop
 
