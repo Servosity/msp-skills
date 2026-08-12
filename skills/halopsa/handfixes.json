@@ -30,6 +30,88 @@
           "min_count": 1
         }
       ]
+    },
+    {
+      "id": "halo-pageinate-page-no-pagination",
+      "summary": "sync sends pageinate=true and advances the 1-based page_no cursor, instead of the profiler's page/offset defaults that truncated every sync to one page",
+      "why": "Halo only honours paging when pageinate=true AND page_no are BOTH present; otherwise it ignores page_size, returns the acting agent's configured default page size (50 for an API agent), and reports record_count as that same short count, so the page looks like a complete result set and the walk stops after one request. The profiler emitted cursorParam 'page', cursorType 'offset' and no enable parameter, so sync stored the first 50 of 1254 tickets and still reported sync_complete with a success exit, leaving every local view (triage, stale, sql) quietly reading a truncated table. Three further mismatches ride along: Halo's cursor parameter is page_no rather than page; page_no is a 1-based page NUMBER, so cursorType must be 'page' (advance 1,2,3) rather than 'offset' (advance 0,100,200) or Halo reads the row offset as a page index and skips whole pages; and page_no must be seeded on the FIRST request (startCursor) because Halo does not default it, which is the subtlest half of the bug since pageinate and page_size alone still silently truncate. Verified live against a self-hosted Halo instance: pageinate=true&page_size=100 with page_no 1/2/3 returns three disjoint 100-row pages and reports record_count as the 1254-row total, while the same call without page_no returns 50 rows with record_count 50; after the fix a full ticket sync stores 1254 rows with 1254 distinct ids spanning the whole history. A fourth mismatch is independent of the parameters: some endpoints ignore page_size and always answer with a fixed page (/Asset returns 50 rows however large page_size is), so the generated 'len(items) >= limit means more pages' heuristic sees 50 < 100 and stops after one page, storing 50 of 144 assets. The walk therefore prefers the record_count total (envelopeReportedTotal / moreByReportedTotal) over page length, falling back to the length heuristic only when no total is reported. Verified live: /Asset syncs 144 rather than 50. A reprint regenerates the profiler defaults and the length-only heuristic and silently reintroduces both truncations, which is why these markers are asserted.",
+      "status": "active",
+      "spec_encode_followup": "Press should support an enable-pagination parameter (x-pp-pagination-enable-param, plus page-number vs offset cursor semantics) so this is generated rather than hand-wired.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "enableParam: \"pageinate\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "cursorParam: \"page_no\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "cursorType:  \"page\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "params[pageSize.enableParam] = \"true\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "startCursor: \"1\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "effectiveCursor = pageSize.startCursor",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "func envelopeReportedTotal(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "moreByReportedTotal",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "cursorParam: \"page\","
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "if !hasMore || len(items) < pageSize.limit {"
+        },
+        {
+          "file": "cli/internal/cli/sync_pagination_test.go",
+          "contains": "TestSyncPagination_WalksEveryPage",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync_pagination_test.go",
+          "contains": "TestSyncPagination_DefaultsMatchLiveContract",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync_pagination_test.go",
+          "contains": "TestSyncPagination_FirstRequestCarriesCursor",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync_pagination_test.go",
+          "contains": "TestSyncPagination_EndpointIgnoringPageSize",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync_pagination_test.go",
+          "contains": "TestSyncPagination_StopsAtReportedTotal",
+          "min_count": 1
+        }
+      ]
     }
   ]
 }
