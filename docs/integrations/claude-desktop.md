@@ -57,7 +57,7 @@ Open Claude Desktop → **Settings → Developer → Edit Config**. (This opens 
         "HALOPSA_TENANT": "<your-tenant>",
         "HALOPSA_CLIENT_ID": "<your-client-id>",
         "HALOPSA_CLIENT_SECRET": "<your-client-secret>",
-		"HALOPSA_DOMAIN": "<your-custom-domain>"
+		"HALOPSA_DOMAIN": "halopsa.com"
       }
     },
     "servosity": {
