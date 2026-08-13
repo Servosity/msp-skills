@@ -291,12 +291,12 @@
       "cli_hash_at_release": "sha256:aa0dc021cdb156c7c5bd704dc240c05f666bcc65074ff04bc8a5b76852f20f19",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null,
-        "verified_by": null,
-        "issue_url": null
+        "status": "live-verified",
+        "date": "2026-08-13",
+        "source": "circle",
+        "evidence": "Reported in the Compounding Teams Community Discussion (https://compoundingteams.com/): Abhi Saini (Bearium Networks) ran cipp-cli against a live CIPP tenant on 2026-08-13 - tenant enumeration returned the fleet and posture fan-out ('fanout --endpoint <x> --all-tenants --save') pulled good data.",
+        "verified_by": "Abhi Saini, Bearium Networks (MSP)",
+        "issue_url": "https://compoundingteams.com/"
       }
     },
     "connect-tool": {
