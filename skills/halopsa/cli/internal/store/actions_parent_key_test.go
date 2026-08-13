@@ -37,7 +37,7 @@ func TestActionsKeyOnTicketAndID(t *testing.T) {
 	db := openTestStore(t)
 
 	// Three tickets that each have an action 1 and an action 2.
-	for _, ticketID := range []int{13, 14, 2123} {
+	for _, ticketID := range []int{13, 14, 15} {
 		for _, localID := range []int{1, 2} {
 			if err := db.UpsertActions(actionPayload(ticketID, localID)); err != nil {
 				t.Fatalf("upsert action %d/%d: %v", ticketID, localID, err)
@@ -54,7 +54,7 @@ func TestActionsKeyOnTicketAndID(t *testing.T) {
 	}
 
 	// Every ticket must keep both of its actions.
-	for _, ticketID := range []int{13, 14, 2123} {
+	for _, ticketID := range []int{13, 14, 15} {
 		var perTicket int
 		if err := db.DB().QueryRow(
 			`SELECT COUNT(*) FROM actions WHERE json_extract(data, '$.ticket_id') = ?`,
