@@ -26,7 +26,7 @@ func seedTriageFixture(t *testing.T) *store.Store {
 	}
 	t.Cleanup(func() { db.Close() })
 
-	agents := map[int]string{1: "Unassigned", 3: "Abhi Saini", 13: "Aaron Gould"}
+	agents := map[int]string{1: "Unassigned", 3: "Dana Reyes", 13: "Sam Okafor"}
 	for id, name := range agents {
 		payload := fmt.Sprintf(`{"id":%d,"name":%q}`, id, name)
 		if _, err := db.DB().Exec(
@@ -116,8 +116,8 @@ func TestTriage_ResolvesAgentNamesFromAgentRecords(t *testing.T) {
 		name string
 		open int
 	}{
-		{"Aaron Gould", 2},
-		{"Abhi Saini", 1},
+		{"Sam Okafor", 2},
+		{"Dana Reyes", 1},
 		{"Unassigned", 1},
 	} {
 		r, ok := byName[want.name]
@@ -171,8 +171,8 @@ func TestTriage_OldestDaysUsesDateoccurred(t *testing.T) {
 		}
 	}
 	for _, r := range got {
-		if r.who == "Abhi Saini" && r.oldestDays < 160 {
-			t.Errorf("Abhi Saini oldest_days = %d, want ~167", r.oldestDays)
+		if r.who == "Dana Reyes" && r.oldestDays < 160 {
+			t.Errorf("Dana Reyes oldest_days = %d, want ~167", r.oldestDays)
 		}
 	}
 }
@@ -183,15 +183,15 @@ func TestTriage_OldestDaysUsesDateoccurred(t *testing.T) {
 func TestTriage_FiltersBindInStatementOrder(t *testing.T) {
 	db := seedTriageFixture(t)
 
-	if got := runTriageQuery(t, db, "", "Abhi Saini"); len(got) != 1 || got[0].who != "Abhi Saini" {
-		t.Fatalf("agent filter returned %+v, want a single Abhi Saini row", got)
+	if got := runTriageQuery(t, db, "", "Dana Reyes"); len(got) != 1 || got[0].who != "Dana Reyes" {
+		t.Fatalf("agent filter returned %+v, want a single Dana Reyes row", got)
 	}
-	if got := runTriageQuery(t, db, "", "abhi saini"); len(got) != 1 || got[0].who != "Abhi Saini" {
+	if got := runTriageQuery(t, db, "", "dana reyes"); len(got) != 1 || got[0].who != "Dana Reyes" {
 		t.Fatalf("agent filter is not case-insensitive: %+v", got)
 	}
 	// Team and agent together exercise both placeholder groups at once.
-	got := runTriageQuery(t, db, "Service Desk", "Aaron Gould")
-	if len(got) != 1 || got[0].who != "Aaron Gould" || got[0].open != 2 {
-		t.Fatalf("team+agent filter returned %+v, want one Aaron Gould row with open=2", got)
+	got := runTriageQuery(t, db, "Service Desk", "Sam Okafor")
+	if len(got) != 1 || got[0].who != "Sam Okafor" || got[0].open != 2 {
+		t.Fatalf("team+agent filter returned %+v, want one Sam Okafor row with open=2", got)
 	}
 }
