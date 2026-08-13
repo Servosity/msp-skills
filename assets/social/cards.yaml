@@ -1,0 +1,355 @@
+# Per-vendor social-card content (2026-06-04 conversion spec).
+# Read by social-preview-generator's generate.py and make_background.py.
+# Schema per slug:
+#   accent_hex:       vendor-evoking accent (glow + terminal accent). Color only,
+#                     never the vendor's logo - trademark posture.
+#   example_command:  the terminal magic-moment prompt (vendor-specific, real)
+#   response_lines:   1-3 payoff lines rendered with a green check
+#   outcome_line:     the promise replacing "Claude Code skill + MCP server"
+# ASCII hyphens only (repo ci.yml bans em-dashes in committed files).
+
+abnormal:
+  vendor: "Abnormal Security"
+  example_command: "What threats are unremediated?"
+
+acronis:
+  vendor: "Acronis"
+  example_command: "Whose backups failed last night?"
+
+action1:
+  vendor: "Action1"
+  example_command: "Which client is most behind on patches?"
+
+afi:
+  vendor: "Afi"
+  example_command: "Which mailboxes aren't backed up across my clients?"
+
+appdirect:
+  vendor: "AppDirect"
+  example_command: "Reconcile billing across every company?"
+
+atera:
+  vendor: "Atera"
+  example_command: "Which customers am I managing but not billing?"
+
+autotask:
+  vendor: "Autotask"
+  example_command: "Which approved time hasn't been invoiced?"
+
+aws-billing:
+  vendor: "Amazon Web Services"
+  example_command: "Why did my AWS bill go up?"
+
+axcient:
+  vendor: "Axcient"
+  example_command: "Which backups went stale overnight?"
+
+betterstack:
+  vendor: "Better Stack"
+  example_command: "Which monitors would page nobody if they failed?"
+
+blumira:
+  vendor: "Blumira"
+  example_command: "Triage findings across every account"
+
+cipp:
+  vendor: "CIPP"
+  example_command: "Which tenants lack MFA?"
+
+connect-tool:
+  vendor: "connect-tool"  # matches docs/skills/connect-tool.md
+  example_command: "Connect my Pax8 account and prove it works"
+
+connectwise-automate:
+  vendor: "ConnectWise"
+  example_command: "Which clients are behind on patches?"
+
+connectwise-control:
+  vendor: "ConnectWise"
+  example_command: "Which machines have an open session?"
+
+connectwise-manage:
+  vendor: "ConnectWise Manage"
+  example_command: "Which closed tickets have no time logged?"
+
+cove:
+  vendor: "Cove Data Protection"
+  example_command: "Which Cove backups failed last night?"
+
+crowdstrike:
+  vendor: "CrowdStrike"
+  example_command: "Which detections are still open?"
+
+datto-bcdr:
+  vendor: "Datto BCDR"
+  example_command: "Which backups failed screenshot verification, fleet-wide?"
+
+datto-rmm:
+  vendor: "Datto RMM"
+  example_command: "Which endpoints across all my clients have gone dark?"
+
+domotz:
+  vendor: "Domotz"
+  example_command: "Which client sites have devices down?"
+
+gradient:
+  vendor: "Gradient MSP"
+  example_command: "Which accounts' usage changed since my last push?"
+
+abnormal:
+  vendor: "Abnormal Security"
+  example_command: "What threats are unremediated?"
+
+acronis:
+  vendor: "Acronis"
+  example_command: "Whose backups failed last night?"
+
+action1:
+  vendor: "Action1"
+  example_command: "Which client is most behind on patches?"
+
+afi:
+  vendor: "Afi"
+  example_command: "Which mailboxes aren't backed up across my clients?"
+
+appdirect:
+  vendor: "AppDirect"
+  example_command: "Reconcile billing across every company?"
+
+atera:
+  vendor: "Atera"
+  example_command: "Which customers am I managing but not billing?"
+
+autotask:
+  vendor: "Autotask"
+  example_command: "Which approved time hasn't been invoiced?"
+
+aws-billing:
+  vendor: "Amazon Web Services"
+  example_command: "Why did my AWS bill go up?"
+
+axcient:
+  vendor: "Axcient"
+  example_command: "Which backups went stale overnight?"
+
+betterstack:
+  vendor: "Better Stack"
+  example_command: "Which monitors would page nobody if they failed?"
+
+blumira:
+  vendor: "Blumira"
+  example_command: "Triage findings across every account"
+
+cipp:
+  vendor: "CIPP"
+  example_command: "Which tenants lack MFA?"
+
+connect-tool:
+  vendor: "connect-tool"  # matches docs/skills/connect-tool.md
+  example_command: "Connect my Pax8 account and prove it works"
+
+connectwise-automate:
+  vendor: "ConnectWise"
+  example_command: "Which clients are behind on patches?"
+
+connectwise-control:
+  vendor: "ConnectWise"
+  example_command: "Which machines have an open session?"
+
+connectwise-manage:
+  vendor: "ConnectWise Manage"
+  example_command: "Which closed tickets have no time logged?"
+
+cove:
+  vendor: "Cove Data Protection"
+  example_command: "Which Cove backups failed last night?"
+
+crowdstrike:
+  vendor: "CrowdStrike"
+  example_command: "Which detections are still open?"
+
+datto-bcdr:
+  vendor: "Datto BCDR"
+  example_command: "Which backups failed screenshot verification, fleet-wide?"
+
+datto-rmm:
+  vendor: "Datto RMM"
+  example_command: "Which endpoints across all my clients have gone dark?"
+
+domotz:
+  vendor: "Domotz"
+  example_command: "Which client sites have devices down?"
+
+gradient:
+  vendor: "Gradient MSP"
+  example_command: "Which accounts' usage changed since my last push?"
+
+halopsa:
+  vendor: "HaloPSA"
+  accent_hex: "#D87757"
+  example_command: "Which HaloPSA tickets breach SLA today?"
+  response_lines:
+    - "3 at risk - worst is #4812"
+    - "Triage notes drafted"
+  outcome_line: "Ask your PSA anything in plain English."
+
+hubspot:
+  vendor: "HubSpot"
+  example_command: "Which of my open deals have gone cold?"
+
+hudu:
+  vendor: "Hudu"
+  example_command: "Which clients have the worst docs?"
+
+huntress:
+  vendor: "Huntress"
+  example_command: "Which client orgs have active incidents?"
+
+itglue:
+  vendor: "IT Glue"
+  example_command: "Which clients are under-documented?"
+
+kaseya-bms:
+  vendor: "Kaseya BMS"
+  example_command: "What's ready to bill, by account?"
+
+knowbe4:
+  vendor: "KnowBe4"
+  example_command: "Who keeps clicking phishing?"
+
+levelio:
+  vendor: "Level"
+  example_command: "Which Level endpoints are most at risk?"
+
+liongard:
+  vendor: "Liongard"
+  example_command: "What changed across all my clients?"
+
+maxio:
+  vendor: "Maxio"
+  example_command: "Show me the MRR waterfall since January"
+
+microsoft-graph:
+  vendor: "Microsoft Graph"
+  example_command: "Which M365 licenses are we wasting?"
+
+msp-skills-concierge:
+  vendor: "MSP Skills Concierge"
+  example_command: "Which connectors fit my MSP stack?"
+
+mspbots:
+  vendor: "MSPbots"
+  example_command: "Is our backlog up or down vs last week?"
+
+n-central:
+  vendor: "N-able N-central"
+  example_command: "Where is EXCHANGE01?"
+
+nerdio:
+  vendor: "Nerdio Manager"
+  example_command: "Which customer has autoscale turned off?"
+
+ninjaone:
+  vendor: "NinjaOne"
+  example_command: "Which clients are below 95% patched?"
+
+pagerduty:
+  vendor: "PagerDuty"
+  example_command: "What's our MTTR by service?"
+
+pandadoc:
+  vendor: "PandaDoc"
+  example_command: "Which proposals are stalled and who do I follow up with?"
+
+pax8:
+  vendor: "Pax8"
+  example_command: "Where is my Pax8 billing leaking?"
+
+pipedrive:
+  vendor: "Pipedrive"
+  example_command: "Which open deals has nobody touched in two weeks?"
+
+proofpoint:
+  vendor: "Proofpoint"
+  example_command: "Who's both attacked and clicking?"
+
+quickbooks:
+  vendor: "QuickBooks Online"
+  example_command: "Which overdue invoices should I chase first?"
+
+resourceguru:
+  vendor: "Resource Guru"
+  example_command: "Who's overbooked next week, across the team?"
+
+rewst:
+  vendor: "Rewst"
+  example_command: "Which workflows failed for this client?"
+
+rocketcyber:
+  vendor: "RocketCyber"
+  example_command: "What broke across all my clients overnight?"
+
+rootly:
+  vendor: "Rootly"
+  example_command: "What fixed this service last time?"
+
+runzero:
+  vendor: "runZero"
+  example_command: "Which of our assets are most exposed?"
+
+salesbuildr:
+  vendor: "Salesbuildr"
+  example_command: "Which sent quotes are aging, and how much is at risk?"
+
+sentinelone:
+  vendor: "SentinelOne"
+  example_command: "Which threats are still unresolved?"
+
+servosity:
+  vendor: "Servosity"
+  accent_hex: "#2F6FED"
+  example_command: "Any backups silently failing this week?"
+  response_lines:
+    - "2 of 47 stale since Tue"
+    - "Other 45 restore-verified"
+  outcome_line: "Know the fleet is safe before the client asks."
+
+sherweb:
+  vendor: "Sherweb"
+  example_command: "What's my net margin per customer?"
+
+skykick:
+  vendor: "SkyKick"
+  example_command: "Which customers have a backup gap?"
+
+superops:
+  vendor: "SuperOps"
+  example_command: "Who's about to breach SLA, by tech?"
+
+syncro:
+  vendor: "Syncro"
+  example_command: "Which customers have logged time we never invoiced?"
+
+tactical-rmm:
+  vendor: "Tactical RMM"
+  example_command: "Where do patches and reboots stand across every client?"
+
+threatlocker:
+  vendor: "ThreatLocker"
+  example_command: "What approvals are pending everywhere?"
+
+veeam:
+  vendor: "Veeam"
+  example_command: "Which customers have failing backups?"
+
+wordpress:
+  vendor: "WordPress"
+  example_command: "Which pages still mention last year's pricing?"
+
+xero:
+  vendor: "Xero"
+  example_command: "Which clients owe us the most, and how overdue?"
+
+zammad:
+  vendor: "Zammad"
+  example_command: "Which customers might churn?"
