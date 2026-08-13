@@ -182,5 +182,12 @@ skills-lock.json
 *.iso
 *.dmg
 .history/
-assets/social/
+# Glob the children rather than the directory: git cannot re-include a file
+# whose parent directory is excluded, and cards.yaml below needs re-including.
+assets/social/*
+# ...except the per-skill card content. It is the source the social-card
+# generator reads for each skill's terminal prompt, so it has to be reviewable
+# and reproducible, not a local scratch file. Everything else under
+# assets/social/ (AI backgrounds, _variants showcases, ab-log) stays ignored.
+!assets/social/cards.yaml
 .gstack/
