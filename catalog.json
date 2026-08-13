@@ -397,7 +397,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-bcdr/install.sh)",
       "install_mcp_doc": "skills/datto-bcdr/mcp-install.md",
       "description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk.",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "Backup/DR",
       "tagline": "Fleet-wide Datto BCDR answers - failed screenshots, stale backups, at-risk clients - from a local mirror in one ask."
     },

@@ -692,7 +692,7 @@ Governance: The skill drives the crowdstrike-cli and crowdstrike-mcp binaries, a
 ### Datto BCDR (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/datto-bcdr/
-Verification: Awaiting live verification
+Verification: Live-verified by Abhi Saini, Bearium Networks (MSP) (2026-08-13)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-bcdr/install.sh)
 
 Ask in plain English which Datto backups failed their last screenshot verification, which clients are most at risk, and which appliance fills up first - and get the answer across your whole fleet in seconds. The Datto BCDR API answers one appliance at a time; this skill mirrors every device, agent, and alert locally, so the fleet-wide question the Partner Portal can't answer becomes one instant command.

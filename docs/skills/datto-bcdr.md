@@ -5,7 +5,7 @@ description: "Sync your whole Datto BCDR fleet into local SQLite and answer the 
 permalink: /skills/datto-bcdr/
 skill_name: "Datto BCDR MCP"
 image: /assets/social/datto-bcdr/wide-1200x630.png
-verification: awaiting
+verification: live-verified
 faqs:
   - q: "Is there an MCP server for Datto BCDR?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Datto BCDR, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
@@ -42,7 +42,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Datto, Inc..
 
-**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+**✓ Live-verified by Abhi Saini, Bearium Networks (MSP)** against a production tenant · 2026-08-13 · [receipt →](https://compoundingteams.com/).
 
 Yes - there is an MCP server for Datto BCDR. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Datto BCDR to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 

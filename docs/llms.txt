@@ -60,7 +60,7 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/crowdstrike/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/crowdstrike/install.sh)
 - Datto BCDR (Backup/DR) - ask "Which protected machines failed their last backup screenshot verification?" - Fleet-wide Datto BCDR answers - failed screenshots, stale backups, at-risk clients - from a local mirror in one ask.
-  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/datto-bcdr/
+  Verification: Live-verified by Abhi Saini, Bearium Networks (MSP) (2026-08-13). Page: https://msp-skills.compoundingteams.com/skills/datto-bcdr/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-bcdr/install.sh)
 - Datto RMM (RMM) - ask "Which devices haven't checked in for 30 days, across every client?" - Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/datto-rmm/
