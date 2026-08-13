@@ -50,7 +50,7 @@ func IsUUID(s string) bool {
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
 // checked on every open. Non-learn CLIs advance to v4 for the
 // resources_fts content extraction.
-const StoreSchemaVersion = 4
+const StoreSchemaVersion = 5
 
 // resourcesFTSContentSchemaVersion pins the schema bump that rewrote
 // resources_fts content from raw JSON to searchable leaf values. Keep this
@@ -13582,6 +13582,14 @@ func (s *Store) migrate(ctx context.Context) error {
 		if err := s.migrateExtras(ctx, conn); err != nil {
 			return fmt.Errorf("running extra migrations: %w", err)
 		}
+		// Gated on the version read before any of the rewrites above, but run
+		// after them so the tables and columns it touches are already at the
+		// current shape (a legacy sync_state predates its resource_type column).
+		if current < 5 {
+			if err := s.migratePurgeLegacyActionKeys(ctx, conn); err != nil {
+				return fmt.Errorf("purging legacy action keys: %w", err)
+			}
+		}
 		if current < resourcesFTSContentSchemaVersion {
 			if err := s.migrateResourcesFTSContent(ctx, conn); err != nil {
 				return fmt.Errorf("migrating resources FTS content: %w", err)
@@ -13598,6 +13606,93 @@ func (s *Store) migrate(ctx context.Context) error {
 		}
 		return nil
 	})
+}
+
+// migratePurgeLegacyActionKeys clears cached ticket actions written before
+// actions gained a ticket-qualified storage key (#203).
+//
+// Until schema 5 an action was stored under its bare Halo id. Halo numbers
+// actions within their ticket, so those ids are not unique and each ticket's
+// action 1 overwrote the previous one's. The fix qualifies the key with
+// ticket_id, but that only governs NEW writes: rows already in the cache keep
+// their bare-id keys, a resync adds the qualified rows alongside them, and
+// every reader then sees one stale unqualified duplicate per action number on
+// top of the correct set. Deleting the cached actions lets the next sync
+// repopulate them under the corrected keys.
+//
+// The purge is version-gated so it runs exactly once per database. It
+// deliberately does NOT skip user_version == 0: a cache written by a binary old
+// enough never to have stamped a version still holds bare-id action rows, and
+// that is precisely the database that needs purging. On a genuinely fresh
+// database every statement is a no-op. The sync cursor is cleared too, so the
+// next run refetches from the start rather than resuming mid-walk into a
+// now-empty table.
+// Every table it touches is still existence-checked, because a database can
+// reach this point without one (a store opened purely to read schema state).
+func (s *Store) migratePurgeLegacyActionKeys(ctx context.Context, conn *sql.Conn) error {
+	// requiredColumn guards the two tables whose purge is column-qualified.
+	// "sync_state" is both this store's cursor bookkeeping AND a HaloPSA
+	// resource name, so a cache can carry a sync_state table shaped as a
+	// resource mirror (id/data/synced_at) with no resource_type column at all.
+	// Deleting by resource_type there would error, and deleting unqualified
+	// would destroy a user's synced rows.
+	type purgeStep struct {
+		table          string
+		requiredColumn string
+		stmt           string
+	}
+	for _, step := range []purgeStep{
+		{"actions", "", `DELETE FROM "actions"`},
+		{"resources", "resource_type", `DELETE FROM resources WHERE resource_type = 'actions'`},
+		{"sync_state", "resource_type", `DELETE FROM sync_state WHERE resource_type = 'actions'`},
+	} {
+		exists, err := tableExists(ctx, conn, step.table)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			continue
+		}
+		if step.requiredColumn != "" {
+			ok, err := tableHasColumn(ctx, conn, step.table, step.requiredColumn)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				continue
+			}
+		}
+		if _, err := conn.ExecContext(ctx, step.stmt); err != nil {
+			return fmt.Errorf("purging %s: %w", step.table, err)
+		}
+	}
+	return nil
+}
+
+// tableHasColumn reports whether the named column exists on the table.
+func tableHasColumn(ctx context.Context, conn *sql.Conn, table, column string) (bool, error) {
+	rows, err := conn.QueryContext(ctx, fmt.Sprintf(`PRAGMA table_info(%q)`, table))
+	if err != nil {
+		return false, fmt.Errorf("table_info(%s): %w", table, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			cid        int
+			name       string
+			ctype      sql.NullString
+			notNull    sql.NullInt64
+			dflt       sql.NullString
+			primaryKey sql.NullInt64
+		)
+		if err := rows.Scan(&cid, &name, &ctype, &notNull, &dflt, &primaryKey); err != nil {
+			return false, fmt.Errorf("scan table_info(%s): %w", table, err)
+		}
+		if name == column {
+			return true, rows.Err()
+		}
+	}
+	return false, rows.Err()
 }
 
 func (s *Store) migrateResourcesCompositeKey(ctx context.Context, conn *sql.Conn) error {
@@ -21610,6 +21705,17 @@ var genericIDFieldFallbacks = []string{"id", "ID", "gid", "sid", "uid", "uuid", 
 var resourceParentKeyColumns = map[string]string{
 	"void":             "invoice_id",
 	"outlook_contacts": "mailbox_id",
+	// Hand-wired: Halo numbers ticket actions per ticket, so every ticket has
+	// an action 1, an action 2, and so on. Keying on the bare id made action 1
+	// of each ticket overwrite action 1 of the previous, collapsing 8185
+	// synced actions into 149 stored rows (149 being the largest action count
+	// on any single ticket), last writer winning. sync still reported the full
+	// fetched total because that counts rows fetched and upserted rather than
+	// distinct rows stored, so the loss was invisible from the sync output.
+	// The generator cannot derive this: /Actions is a flat top-level resource,
+	// not a dependent one, and nothing in the OpenAPI spec says its ids are
+	// only unique within a parent. Reported in #203.
+	"actions": "ticket_id",
 }
 
 // ExtractResourceID resolves the bare resource id field that UpsertBatch
