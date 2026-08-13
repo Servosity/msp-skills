@@ -80,7 +80,7 @@
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "cipp-v0.1.0",
-    "current_hash": "sha256:feab020e2aab72a791cbf76939f641af9db14d46f3867f2f040f733c30f83365",
+    "current_hash": "sha256:7b6eb4017d36aeb7aecbe149d01fb30aa249296f28165e371028eee0cc44a9c8",
     "released_hash": "sha256:aa0dc021cdb156c7c5bd704dc240c05f666bcc65074ff04bc8a5b76852f20f19"
   },
   "connect-tool": {
