@@ -520,6 +520,27 @@
         "issue_url": null
       }
     },
+    "grab-cookie": {
+      "system": "Session-credential capture for sites with no API key or OAuth path: httpOnly cookies and opaque bearer tokens. Windows verified, macOS untested",
+      "status": "beta",
+      "vendor": "BomberJacket Networks",
+      "vendor_trademark_owner": "BomberJacket Networks, Inc.",
+      "first_party": false,
+      "markdown_only": true,
+      "category": "Meta",
+      "display_name": "grab-cookie",
+      "tagline": "Re-auth the tools that never issue an API key. One paste, stored in the OS credential store, verified live.",
+      "template_version": 2,
+      "has_video": false,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": null
+      }
+    },
     "gradient": {
       "system": "the Gradient MSP Synthesize billing-reconciliation vendor API",
       "status": "beta",
@@ -1024,7 +1045,7 @@
       "cli_binary": "pipedrive-cli",
       "mcp_binary": "pipedrive-mcp",
       "vendor": "Pipedrive",
-      "vendor_trademark_owner": "Pipedrive O\u00dc",
+      "vendor_trademark_owner": "Pipedrive OÜ",
       "first_party": false,
       "category": "CRM",
       "display_name": "Pipedrive",

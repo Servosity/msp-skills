@@ -1,0 +1,29 @@
+grab-cookie
+===========
+
+`scripts/credstore.py` is a copy of the credential-store backend from the
+sibling `connect-tool` Skill in this repository:
+
+    skills/connect-tool/scripts/credstore.py
+    Copyright (c) Servosity, Inc.  Author: Damien Stevens.
+    Licensed under the Apache License, Version 2.0.
+
+The only change from that file is the credential-store namespace in
+`target_name()`: `grab-cookie/<service>/<account>` instead of
+`Servosity/connect-tool/<service>/<account>`, so the two Skills do not write
+over each other's entries in the OS credential store.
+
+`scripts/ctplatform.py` is a minimal shim providing the single `WINDOWS` flag
+that `credstore.py` imports. The `connect-tool` module of the same name also
+carries browser and process helpers that this Skill does not use, so only the
+flag is shipped here.
+
+Maintainers: if you would rather these two Skills share one copy of
+`credstore.py` than carry near-duplicates, say so on the pull request and it
+will be reworked. The duplicate is here only so the Skill stays self-contained
+for a plugin install.
+
+A copy of the Apache 2.0 license is at https://www.apache.org/licenses/LICENSE-2.0
+
+All other files in this directory are original work contributed under the same
+Apache 2.0 license.
