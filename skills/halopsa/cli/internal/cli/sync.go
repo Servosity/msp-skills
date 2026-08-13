@@ -501,6 +501,10 @@ func syncResource(ctx context.Context, c interface {
 	// failed extraction.
 	var extractFailureTotal int
 	var consumedTotal int
+	// rowsSeen counts extracted rows across pages so the walk can compare
+	// progress against the result-set total the API reports (Halo's
+	// record_count). See the Hand-wired note at its use site.
+	var rowsSeen int
 	anomalyEmitted := false
 
 	for {
@@ -508,8 +512,22 @@ func syncResource(ctx context.Context, c interface {
 
 		if resourceSupportsPagination(resource) {
 			params[pageSize.limitParam] = strconv.Itoa(pageSize.limit)
-			if cursor != "" {
-				params[pageSize.cursorParam] = cursor
+			// Hand-wired: Halo ignores page_size/page_no unless pagination is
+			// explicitly switched on, and answers with the acting agent's
+			// default page size instead. Set before the cursor so a user
+			// --param override can still turn it back off.
+			if pageSize.enableParam != "" {
+				params[pageSize.enableParam] = "true"
+			}
+			// Hand-wired: seed the first request with startCursor. Halo does
+			// not default page_no, and omitting it yields a short page that
+			// reports itself as complete, ending the walk after one request.
+			effectiveCursor := cursor
+			if effectiveCursor == "" {
+				effectiveCursor = pageSize.startCursor
+			}
+			if effectiveCursor != "" {
+				params[pageSize.cursorParam] = effectiveCursor
 			}
 		}
 
@@ -553,13 +571,27 @@ func syncResource(ctx context.Context, c interface {
 		// Strategy: try array first, then common wrapper keys.
 		items, nextCursor, hasMore := extractPageItems(data, pageSize.cursorParam)
 
+		// Hand-wired: prefer Halo's reported result-set total over the
+		// "a full page means more pages" heuristic. Halo sets record_count to
+		// the whole result-set size while paginating, and several endpoints
+		// (notably /Asset) ignore page_size entirely and always answer with a
+		// fixed 50-row page. Inferring more-pages from len(items) >= limit
+		// therefore stops those walks after one page: /Asset returned 50 of
+		// 144 rows and looked complete. The reported total is authoritative
+		// and endpoint-independent, so trust it when present and fall back to
+		// the length heuristic when it is absent.
+		rowsSeen += len(items)
+		reportedTotal, hasReportedTotal := envelopeReportedTotal(data)
+		moreByReportedTotal := hasReportedTotal && len(items) > 0 && rowsSeen < reportedTotal
+		pageLooksFull := len(items) >= pageSize.limit || moreByReportedTotal
+
 		// Page-int paginator fallback: when the API paginates by integer
 		// ?page=N and emits no body cursor, treat a full page as a signal
 		// to advance numerically. Without this the loop breaks after page
 		// 1 even though more pages exist (the original symptom in #1296).
 		// Guard on cursorType, not cursorParam name, so all canonical
 		// spellings (page / page_number / pageNumber / page[number]) work.
-		if pageSize.cursorType == "page" && nextCursor == "" && len(items) >= pageSize.limit && pageAllowsPageIntFallback(data) {
+		if pageSize.cursorType == "page" && nextCursor == "" && pageLooksFull && pageAllowsPageIntFallback(data) {
 			currentPage, _ := strconv.Atoi(cursor)
 			if currentPage < 1 {
 				currentPage = 1
@@ -567,7 +599,7 @@ func syncResource(ctx context.Context, c interface {
 			nextCursor = strconv.Itoa(currentPage + 1)
 			hasMore = true
 		}
-		if pageSize.cursorType == "offset" && nextCursor == "" && len(items) >= pageSize.limit && pageAllowsPageIntFallback(data) {
+		if pageSize.cursorType == "offset" && nextCursor == "" && pageLooksFull && pageAllowsPageIntFallback(data) {
 			currentOffset, _ := strconv.Atoi(cursor)
 			nextCursor = strconv.Itoa(currentOffset + pageSize.limit)
 			hasMore = true
@@ -720,7 +752,7 @@ func syncResource(ctx context.Context, c interface {
 		if !resourceSupportsPagination(resource) {
 			break
 		}
-		if !hasMore || len(items) < pageSize.limit {
+		if !hasMore || !pageLooksFull {
 			break
 		}
 		if nextCursor == "" {
@@ -743,6 +775,27 @@ func syncResource(ctx context.Context, c interface {
 		}
 
 		cursor = nextCursor
+	}
+
+	// Hand-wired, mirroring the #183 / #194 reconciliation in the hudu
+	// connector. UpsertBatch counts successful writes, including conflict
+	// updates, so a resource whose API ids are not unique on their own reports
+	// far more rows than it actually stored: the halopsa actions collision
+	// logged total 8185 while the table held 149, and nothing in the output
+	// said so. Reconcile the completion metric to the authoritative cache row
+	// count so sync_complete.total means distinct stored rows, and surface the
+	// gap as an anomaly so the next key collision is visible instead of
+	// silent. Only a shrink is reported: on an incremental run the stored
+	// count legitimately exceeds the rows fetched this pass.
+	if storedCount, err := db.Count(resource); err == nil {
+		if totalCount > storedCount {
+			if humanFriendly {
+				fmt.Fprintf(os.Stderr, "\nwarning: %s upserted %d rows but the cache holds %d; ids are likely not unique for this resource.\n", resource, totalCount, storedCount)
+			} else {
+				fmt.Fprintf(syncEvents, `{"event":"sync_anomaly","resource":"%s","upserted":%d,"stored":%d,"reason":"upserted_exceeds_stored_rows"}`+"\n", resource, totalCount, storedCount)
+			}
+		}
+		totalCount = storedCount
 	}
 
 	// Final sync state: clear cursor on natural completion, but preserve the
@@ -781,16 +834,53 @@ type paginationDefaults struct {
 	cursorType  string // paginator class: "", "cursor", "page_token", "offset", "page"
 	limitParam  string
 	limit       int
+	// enableParam is a boolean query parameter the API requires before it
+	// honours any paging parameters at all. Empty when the API paginates
+	// unconditionally. Halo needs "pageinate=true"; see the Hand-wired note
+	// on determinePaginationDefaults.
+	enableParam string
+	// startCursor is the cursor value sent for the very first page when no
+	// resume cursor is stored. Only meaningful for numeric paginators
+	// ("page" / "offset"), where the first index is knowable; leave empty for
+	// opaque cursor/page_token APIs, whose first cursor cannot be fabricated.
+	// Halo needs an explicit page_no=1, so this must not be empty.
+	startCursor string
 }
 
 // determinePaginationDefaults returns the pagination parameter names to use.
 // Values are detected from the API spec by the profiler at generation time.
+//
+// Hand-wired: the profiler's defaults (cursorParam "page", cursorType
+// "offset", no enableParam) do not match Halo's live paging contract and
+// silently truncated every sync to a single page. Halo requires three things
+// together:
+//
+//   - pageinate=true, without which Halo ignores page_size/page_no entirely
+//     and returns the acting agent's configured default page size (50 for an
+//     API agent), so a sync of 1254 tickets stored 50 and reported success;
+//   - page_no, not page, as the cursor parameter name;
+//   - page_no is a 1-based page *number*, not a row offset, so cursorType
+//     must be "page" to make the page-int fallback advance 1,2,3 rather than
+//     the offset fallback's 0,100,200. With "offset" Halo reads the row
+//     offset as a page number and pages 100..200 are silently skipped;
+//   - page_no must be sent explicitly on the FIRST request too. Halo does not
+//     default it: pageinate=true&page_size=100 with no page_no returns the
+//     agent default of 50 rows AND reports record_count as 50, so the page
+//     looks complete and the walk stops after one request. Hence startCursor.
+//
+// Verified live against a self-hosted Halo instance: pageinate=true&page_size=100 with
+// page_no 1/2/3 returns three disjoint 100-row pages and reports
+// record_count as the full result-set total rather than the returned-row
+// count. The same call without page_no returns the agent default page size
+// with record_count equal to that short count.
 func determinePaginationDefaults() paginationDefaults {
 	return paginationDefaults{
-		cursorParam: "page",
-		cursorType:  "offset",
+		cursorParam: "page_no",
+		cursorType:  "page",
 		limitParam:  "page_size",
 		limit:       100,
+		enableParam: "pageinate",
+		startCursor: "1",
 	}
 }
 
@@ -1355,6 +1445,54 @@ func extractPaginationFromEnvelope(envelope map[string]json.RawMessage, cursorPa
 
 func pageAllowsPageIntFallback(data json.RawMessage) bool {
 	return pageMayHaveMore(data)
+}
+
+// envelopeReportedTotal returns the size of the whole result set as reported
+// by the response envelope, and whether such a count was present.
+//
+// Hand-wired: Halo answers list endpoints with record_count. While paginating
+// that is the full result-set total (1254 for /Tickets), which makes it a
+// reliable more-pages signal for endpoints that ignore page_size and return a
+// fixed-size page regardless (/Asset always answers 50, so a page-length
+// heuristic sees 50 < 100 and stops at 50 of 144 rows). When pagination is not
+// active Halo sets record_count to the returned-row count instead, which
+// simply makes the comparison a no-op rather than a wrong answer.
+func envelopeReportedTotal(data json.RawMessage) (int, bool) {
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(data, &envelope); err != nil {
+		return 0, false
+	}
+	if total, ok := envelopeTotalField(envelope); ok {
+		return total, true
+	}
+	for _, key := range dataEnvelopeKeys {
+		raw, ok := envelope[key]
+		if !ok {
+			continue
+		}
+		var inner map[string]json.RawMessage
+		if json.Unmarshal(raw, &inner) != nil {
+			continue
+		}
+		if total, ok := envelopeTotalField(inner); ok {
+			return total, true
+		}
+	}
+	return 0, false
+}
+
+func envelopeTotalField(envelope map[string]json.RawMessage) (int, bool) {
+	for _, key := range []string{"record_count", "total_count", "totalCount", "total"} {
+		raw, ok := envelope[key]
+		if !ok {
+			continue
+		}
+		var total int
+		if json.Unmarshal(raw, &total) == nil && total >= 0 {
+			return total, true
+		}
+	}
+	return 0, false
 }
 
 func pageMayHaveMore(data json.RawMessage) bool {

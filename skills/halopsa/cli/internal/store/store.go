@@ -21610,6 +21610,14 @@ var genericIDFieldFallbacks = []string{"id", "ID", "gid", "sid", "uid", "uuid", 
 var resourceParentKeyColumns = map[string]string{
 	"void":             "invoice_id",
 	"outlook_contacts": "mailbox_id",
+	// Hand-wired: Halo numbers ticket actions per ticket, so every ticket has
+	// an action 1, an action 2, and so on. Keying on the bare id made action 1
+	// of each ticket overwrite action 1 of the previous, collapsing 8099
+	// synced actions into 149 stored rows (149 being the largest action count
+	// on any single ticket), last writer winning. sync still reported
+	// total 8099 because that counts rows fetched and upserted rather than
+	// distinct rows stored, so the loss was invisible from the sync output.
+	"actions": "ticket_id",
 }
 
 // ExtractResourceID resolves the bare resource id field that UpsertBatch
