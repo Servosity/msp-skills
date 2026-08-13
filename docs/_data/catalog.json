@@ -176,9 +176,9 @@
       "display_name": "Datto BCDR",
       "tagline": "Fleet-wide Datto BCDR answers - failed screenshots, stale backups, at-risk clients - from a local mirror in one ask.",
       "category": "Backup/DR",
-      "verification": "awaiting",
-      "verified_by": null,
-      "issue_url": null,
+      "verification": "live-verified",
+      "verified_by": "Abhi Saini, Bearium Networks (MSP)",
+      "issue_url": "https://compoundingteams.com/",
       "url": "/skills/datto-bcdr/"
     },
     {

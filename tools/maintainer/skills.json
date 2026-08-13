@@ -462,12 +462,12 @@
       "cli_hash_at_release": "sha256:ada9bd4b046444be57596603d6cb3d812976797b17a67224b198b4b84e697e9f",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null,
-        "verified_by": null,
-        "issue_url": null
+        "status": "live-verified",
+        "date": "2026-08-13",
+        "source": "circle",
+        "evidence": "Reported in the Compounding Teams Community Discussion (https://compoundingteams.com/): Abhi Saini (Bearium Networks) connected datto-bcdr-cli to a live Datto BCDR tenant successfully on 2026-08-13.",
+        "verified_by": "Abhi Saini, Bearium Networks (MSP)",
+        "issue_url": "https://compoundingteams.com/"
       }
     },
     "datto-rmm": {
