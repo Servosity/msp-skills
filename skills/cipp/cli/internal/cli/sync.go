@@ -132,14 +132,21 @@ Resource scoping:
 			// Empty-sync hint: this spec exposed no default sync resources, so
 			// `sync` cannot populate the store on its own. Emit a one-line note
 			// so users and agents understand the runtime no-op instead of
-			// seeing only `total_records: 0`. The store can still be populated
-			// by explicit --resources calls or single-fetch commands when the
-			// spec defines them.
+			// seeing only `total_records: 0`.
+			//
+			// HAND-FIX (handfixes.json: sync-empty-hint-points-at-fanout).
+			// The generated wording points at `--resources`, which is a dead end
+			// for CIPP: syncResourcePath()'s map is empty, so EVERY --resources
+			// value errors "unknown sync resource". CIPP's API is tenant-scoped
+			// end to end and exposes no bulk-list endpoints to iterate, so the
+			// real mechanism is per-endpoint fan-out across tenants. Reported by
+			// Abhi Saini (Bearium Networks) in the Compounding Teams Community
+			// Discussion, 2026-08-13.
 			if len(resources) == 0 {
 				if humanFriendly {
-					fmt.Fprintln(os.Stderr, "cipp-cli sync: no default sync resources in spec; use --resources for explicit sync targets or populate the store via single-fetch commands.")
+					fmt.Fprintln(os.Stderr, "cipp-cli sync: CIPP's API is tenant-scoped and exposes no bulk-list endpoints, so sync is a no-op here. Populate the store with: cipp-cli fanout --endpoint <endpoint> --all-tenants --save")
 				} else {
-					fmt.Fprintln(syncEventWriter, `{"event":"sync_warning","reason":"no_bulk_list_endpoints","detail":"no default sync resources in spec; use --resources for explicit sync targets or populate the store via single-fetch commands"}`)
+					fmt.Fprintln(syncEventWriter, `{"event":"sync_warning","reason":"no_bulk_list_endpoints","detail":"CIPP's API is tenant-scoped and exposes no bulk-list endpoints, so sync is a no-op here; populate the store with: cipp-cli fanout --endpoint <endpoint> --all-tenants --save"}`)
 				}
 			}
 

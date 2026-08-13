@@ -46,6 +46,37 @@ func tenantFieldLookup(obj map[string]any, candidates ...string) string {
 	return ""
 }
 
+// tenantEnvelopeKeys are the wrapper keys a CIPP deployment may nest the
+// tenant array under. Matching is case-insensitive, so one entry covers both
+// the REST-convention and .NET renderings ("results" also matches "Results").
+// Current CIPP returns {"Results": [...]}; older builds return a bare array.
+var tenantEnvelopeKeys = []string{"results", "data", "value", "items"}
+
+// tenantEnvelopeArray pulls the tenant array out of a wrapper object. Returns
+// false when no candidate key holds an array, which is the signal to fall back
+// to treating the payload as a lone tenant object.
+func tenantEnvelopeArray(obj map[string]any) ([]map[string]any, bool) {
+	for _, want := range tenantEnvelopeKeys {
+		for k, v := range obj {
+			if !strings.EqualFold(k, want) {
+				continue
+			}
+			items, ok := v.([]any)
+			if !ok {
+				continue
+			}
+			out := make([]map[string]any, 0, len(items))
+			for _, it := range items {
+				if m, ok := it.(map[string]any); ok {
+					out = append(out, m)
+				}
+			}
+			return out, true
+		}
+	}
+	return nil, false
+}
+
 // parseTenantArray maps a raw JSON array of CIPP tenant objects into
 // tenantRefs, reading fields case-insensitively. Objects with no resolvable
 // defaultDomainName are dropped — a tenant we cannot scope a request to is not
@@ -55,10 +86,17 @@ func parseTenantArray(data json.RawMessage) ([]tenantRef, error) {
 	if err := json.Unmarshal(data, &raw); err != nil {
 		// Some CIPP deployments wrap the array; try a single object too.
 		var single map[string]any
-		if jerr := json.Unmarshal(data, &single); jerr == nil {
-			raw = []map[string]any{single}
-		} else {
+		if jerr := json.Unmarshal(data, &single); jerr != nil {
 			return nil, fmt.Errorf("parsing tenant list: %w", err)
+		}
+		// A wrapper must be unwrapped BEFORE the lone-tenant fallback: a
+		// {"Results": [...]} payload treated as one tenant resolves no
+		// defaultDomainName, so it is dropped and every --all-tenants fan-out
+		// silently reports zero tenants against a healthy CIPP.
+		if inner, ok := tenantEnvelopeArray(single); ok {
+			raw = inner
+		} else {
+			raw = []map[string]any{single}
 		}
 	}
 	out := make([]tenantRef, 0, len(raw))
