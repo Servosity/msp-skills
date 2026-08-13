@@ -1,0 +1,28 @@
+{
+  "slug": "cipp",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: live-verification report from Abhi Saini (Bearium Networks) in the Compounding Teams Community Discussion, 2026-08-13 (badge flip PR #199).",
+  "handfixes": [
+    {
+      "id": "sync-empty-hint-points-at-fanout",
+      "summary": "The empty-sync hint tells the user to run `fanout --endpoint <x> --all-tenants --save`, not the press's generic `--resources` suggestion",
+      "why": "CIPP's API is tenant-scoped end to end and exposes no bulk-list endpoints, so `syncResourcePath()`'s path map is generated EMPTY and `knownSyncResourceNames()` returns nothing. The press's generic empty-sync hint tells the user to 'use --resources for explicit sync targets' - a dead end here, because every --resources value errors 'unknown sync resource'. The hint pointed at the one remedy that cannot work while the real mechanism (per-endpoint fan-out across tenants) went unmentioned. Abhi Saini hit exactly this and had to derive fanout from scratch with an agent. A reprint re-emits the generic wording.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: a connector whose generated sync path-map is empty should emit a connector-aware remedy (or, per upstream cli-printing-press #3659 'gate zero-sync data surfaces', not advertise the sync surface at all) instead of pointing at --resources. Re-check on the next reprint - cipp is on the 4.24.0 engine and #3659 landed after it.",
+      "asserts": [
+        {"file": "cli/internal/cli/sync.go", "contains": "--all-tenants --save", "min_count": 2},
+        {"file": "cli/internal/cli/sync.go", "not_contains": "use --resources for explicit sync targets"}
+      ]
+    },
+    {
+      "id": "tenant-list-envelope-unwrap",
+      "summary": "parseTenantArray unwraps a {\"Results\": [...]} envelope before falling back to the lone-tenant path, so --all-tenants fan-out enumerates the fleet",
+      "why": "Current CIPP returns /ListTenants as {\"Results\":[...]}; the novel cross-tenant code only handled a bare array and fell back to 'treat the whole payload as one tenant object'. That object resolves no defaultDomainName, gets dropped, and every --all-tenants fan-out reports ZERO tenants against a healthy CIPP with a 6.6 KB response on the wire. The rest of the tree already knew the key - promoted_list-tenants.go writes the store from \"Results\" and sync.go's pageItemKeys lists results/Results - only the novel path missed it. cipp_tenants.go is a NOVEL (non-generated) file, so this survives a reprint as a carried novel; the assert guards against a novel-rewrite dropping it.",
+      "status": "active",
+      "asserts": [
+        {"file": "cli/internal/cli/cipp_tenants.go", "contains": "tenantEnvelopeArray", "min_count": 2},
+        {"file": "cli/internal/cli/cipp_tenants_test.go", "contains": "Results envelope", "min_count": 1}
+      ]
+    }
+  ]
+}
