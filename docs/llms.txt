@@ -40,7 +40,7 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/blumira/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blumira/install.sh)
 - CIPP (Security) - ask "Which tenants still have users without MFA registered?" - Every client tenant's M365 posture, license waste, and stale accounts in one cross-tenant rollup.
-  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/cipp/
+  Verification: Live-verified by Abhi Saini, Bearium Networks (MSP) (2026-08-13). Page: https://msp-skills.compoundingteams.com/skills/cipp/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cipp/install.sh)
 - connect-tool (Meta) - Connect any tool to your agent through your own logged-in Chrome, and prove it works. Windows and macOS.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/connect-tool/

@@ -452,7 +452,7 @@ Governance: The skill reads findings, detections, agents, and evidence through y
 ### CIPP (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/cipp/
-Verification: Awaiting live verification
+Verification: Live-verified by Abhi Saini, Bearium Networks (MSP) (2026-08-13)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cipp/install.sh)
 
 CIPP manages Microsoft 365 across all your client tenants, but its portal and API work one tenant at a time. Ask your AI "which tenants are off our security baseline" or "where are we paying for unused licenses" and get the cross-tenant answer the UI never renders: one fan-out pulls every tenant into a local store, then posture, license-waste, stale-account, and standards-drift rollups run instantly - offline, across the whole fleet.
