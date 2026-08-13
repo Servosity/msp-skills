@@ -56,7 +56,8 @@ Open Claude Desktop → **Settings → Developer → Edit Config**. (This opens 
       "env": {
         "HALOPSA_TENANT": "<your-tenant>",
         "HALOPSA_CLIENT_ID": "<your-client-id>",
-        "HALOPSA_CLIENT_SECRET": "<your-client-secret>"
+        "HALOPSA_CLIENT_SECRET": "<your-client-secret>",
+        "HALOPSA_DOMAIN": "halopsa.com"
       }
     },
     "servosity": {
@@ -70,6 +71,13 @@ Open Claude Desktop → **Settings → Developer → Edit Config**. (This opens 
 ```
 
 Save the file.
+
+Note: HaloPSA instances default to `tenant.halopsa.com`. If that is your URL,
+leave `HALOPSA_DOMAIN` out entirely. If you are on a custom domain such as
+`psa.company.com`, split it: `psa` is your `HALOPSA_TENANT` and `company.com` is
+your `HALOPSA_DOMAIN`. Setting the whole URL as the domain produces a TLS
+certificate mismatch whose visible symptom is a mass sync failure rather than an
+authentication error.
 
 ## Step 3 - Restart Claude Desktop
 

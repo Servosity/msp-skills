@@ -12,6 +12,76 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// buildTriageQuery returns the per-agent triage aggregate and its bind
+// arguments. Split out from the command so the SQL can be exercised directly;
+// see triage_agent_join_test.go.
+//
+// Two Halo realities shape this query, both reported live in #203:
+//
+//   - Halo's ticket payload carries agent_id but no agent name, so the
+//     generated tickets.agent_name column is blank on every row. The name is
+//     resolved from the synced agent records instead. A populated agent_name
+//     still wins, so a future Halo version (or an includeagent sync) needs no
+//     change here. tickets.datecreated is blank for the same reason; Halo's
+//     creation timestamp is dateoccurred, and reading the wrong one reported
+//     every agent's oldest ticket as 0 days.
+//   - The grouping alias must not be "who". tickets has a real who TEXT column
+//     that is NULL on every row, and SQLite resolves GROUP BY names against
+//     source columns before output aliases, so grouping on that alias used the
+//     NULL column and collapsed every agent into a single row no matter what
+//     the SELECT computed. Aggregating over a CTE that exposes only
+//     agent_label keeps the grouping key unambiguous.
+//
+// Bind order follows statement order: scope filters (inside the CTE) bind
+// first, then the aggregate's stale/breach thresholds, then the agent filter,
+// then the limit.
+func buildTriageQuery(team, agent string, staleDays, breachHrs, limit int) (string, []any) {
+	where := []string{"COALESCE(json_extract(t.data, '$.status_id'), 0) NOT IN (8, 9)"}
+	scopeArgs := []any{}
+	if team != "" {
+		where = append(where, "(t.team = ? OR json_extract(t.data, '$.team') = ?)")
+		scopeArgs = append(scopeArgs, team, team)
+	}
+	// The agent filter matches the resolved label, so it runs outside the CTE
+	// where that label exists.
+	agentFilter := ""
+	agentArgs := []any{}
+	if agent != "" {
+		agentFilter = "WHERE (agent_label = ? OR LOWER(agent_label) = LOWER(?))"
+		agentArgs = append(agentArgs, agent, agent)
+	}
+	q := `WITH scoped AS (
+                SELECT
+                    COALESCE(NULLIF(t.agent_name, ''), a.agent_label, '(unassigned)') AS agent_label,
+                    COALESCE(NULLIF(t.datecreated, ''), json_extract(t.data, '$.dateoccurred')) AS created_at,
+                    t.data AS data
+                FROM tickets t
+                LEFT JOIN (
+                    SELECT CAST(id AS INTEGER) AS agent_ref_id,
+                           json_extract(data, '$.name') AS agent_label
+                    FROM resources
+                    WHERE resource_type = 'agent'
+                ) a ON a.agent_ref_id = t.agent_id
+                WHERE ` + strings.Join(where, " AND ") + `
+            )
+            SELECT
+                agent_label AS who,
+                COUNT(*) AS open_count,
+                SUM(CASE WHEN (julianday('now') - julianday(COALESCE(NULLIF(json_extract(data, '$.lastactiondate'),''), created_at))) > ? THEN 1 ELSE 0 END) AS stale_count,
+                SUM(CASE WHEN datetime(COALESCE(json_extract(data, '$.targetdate'), '')) BETWEEN datetime('now') AND datetime('now', '+' || ? || ' hours') THEN 1 ELSE 0 END) AS breach_count,
+                CAST(MAX(julianday('now') - julianday(created_at)) AS INTEGER) AS oldest_days
+            FROM scoped
+            ` + agentFilter + `
+            GROUP BY agent_label
+            ORDER BY open_count DESC, breach_count DESC
+            LIMIT ?`
+	finalArgs := append([]any{}, scopeArgs...)
+	finalArgs = append(finalArgs, staleDays, breachHrs)
+	finalArgs = append(finalArgs, agentArgs...)
+	finalArgs = append(finalArgs, limit)
+	return q, finalArgs
+}
+
 // pp:data-source local
 func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 	var (
@@ -54,29 +124,7 @@ Run 'halopsa-cli sync' first to populate the local database.`,
 			}
 			defer db.Close()
 
-			where := []string{"COALESCE(json_extract(data, '$.status_id'), 0) NOT IN (8, 9)"}
-			argsSQL := []any{}
-			if team != "" {
-				where = append(where, "(team = ? OR json_extract(data, '$.team') = ?)")
-				argsSQL = append(argsSQL, team, team)
-			}
-			if agent != "" {
-				where = append(where, "(agent_name = ? OR LOWER(agent_name) = LOWER(?))")
-				argsSQL = append(argsSQL, agent, agent)
-			}
-			q := `SELECT
-                COALESCE(NULLIF(agent_name,''), '(unassigned)') AS who,
-                COUNT(*) AS open_count,
-                SUM(CASE WHEN (julianday('now') - julianday(COALESCE(NULLIF(json_extract(data, '$.lastactiondate'),''), datecreated))) > ? THEN 1 ELSE 0 END) AS stale_count,
-                SUM(CASE WHEN datetime(COALESCE(json_extract(data, '$.targetdate'), '')) BETWEEN datetime('now') AND datetime('now', '+' || ? || ' hours') THEN 1 ELSE 0 END) AS breach_count,
-                CAST(MAX(julianday('now') - julianday(datecreated)) AS INTEGER) AS oldest_days
-            FROM tickets
-            WHERE ` + strings.Join(where, " AND ") + `
-            GROUP BY who
-            ORDER BY open_count DESC, breach_count DESC
-            LIMIT ?`
-			finalArgs := append([]any{staleDays, breachHrs}, argsSQL...)
-			finalArgs = append(finalArgs, limit)
+			q, finalArgs := buildTriageQuery(team, agent, staleDays, breachHrs, limit)
 			rows, err := db.DB().QueryContext(cmd.Context(), q, finalArgs...)
 			if err != nil {
 				return fmt.Errorf("query: %w", err)

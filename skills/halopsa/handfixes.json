@@ -1,6 +1,6 @@
 {
   "slug": "halopsa",
-  "doc": "CHANGELOG.md (#147)",
+  "doc": "CHANGELOG.md (#147, #203)",
   "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #147 (reporter @Xenith-B), fixed 2026-06-20. The OAuth2 token-mint/refresh paths assembled the token URL ('https://{tenant}.{domain}/auth/token') outside the normal request flow and POSTed it WITHOUT substituting the {tenant}/{domain} placeholders that buildURL resolves for ordinary requests -- so every `auth login`, auto-mint, and refresh failed with `invalid character \"{\" in host name`, even when HALOPSA_TENANT/HALOPSA_DOMAIN were set correctly. Fix routes the token URL through a new exported ResolveTemplateURL helper (wrapping the existing buildURL substitution). This is a GENERATOR-class defect (the press emits token-URL literals it never resolves) tracked for an upstream retro; until the press is fixed, a reprint regenerates the unresolved literals and these markers guard the connector. No new flag/command/output; bug-fix-only.",
   "handfixes": [
     {
@@ -27,6 +27,120 @@
         {
           "file": "cli/internal/client/url_token_resolution_test.go",
           "contains": "TestResolveTemplateURL_TokenEndpoint",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "halo-pagination-contract",
+      "summary": "sync sends pageinate=true with a 1-based page_no seeded on the first request, and prefers the API's reported record_count over the page-length heuristic (issue #203)",
+      "why": "Halo only honours paging when pageinate=true AND page_no are BOTH present; otherwise it ignores page_size, returns the acting agent's configured default page size (50 for an API agent), and reports record_count as that same short count, so the page looks like a complete result set and the walk stops after one request. The profiler emitted cursorParam 'page', cursorType 'offset' and no enable parameter, so a sync of a 1254-ticket instance stored the first 50 and still reported sync_complete with a success exit, leaving every local view (triage, stale, sql) quietly reading a truncated table. Three further mismatches ride along: Halo's cursor parameter is page_no rather than page; page_no is a 1-based page NUMBER, so cursorType must be 'page' (advance 1,2,3) rather than 'offset' (advance 0,100,200) or Halo reads the row offset as a page index and skips whole pages; and page_no must be seeded on the FIRST request (startCursor) because Halo does not default it. A fourth mismatch is independent of the parameters: some endpoints ignore page_size and always answer with a fixed page (/Asset returns 50 rows however large page_size is), so the generated 'len(items) >= limit means more pages' heuristic sees 50 < 100 and stops after one page, storing 50 of 144 assets. The walk therefore prefers the record_count total (envelopeReportedTotal / moreByReportedTotal) over page length, falling back to the length heuristic only when no total is reported. The press cannot derive any of this from the OpenAPI spec, and a reprint regenerates the profiler defaults and the length-only heuristic, silently reintroducing both truncations, which is why these markers are asserted.",
+      "status": "active",
+      "spec_encode_followup": "Teach the cli-printing-press pagination profiler an enable-pagination parameter (a boolean query param an API requires before it honours any paging at all) and a startCursor for numeric paginators, so pageinate=true and page_no=1 become generated rather than hand-maintained.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "enableParam: \"pageinate\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "cursorParam: \"page_no\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "startCursor: \"1\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "func envelopeReportedTotal",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync_pagination_test.go",
+          "contains": "TestPaginationDefaultsMatchHaloContract",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "func cursorPinnedByUser",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "max-pages-cap-uses-reported-total",
+      "summary": "the --max-pages cap decides truncation with pageLooksFull, so a capped walk over a fixed-short-page endpoint preserves its resume cursor (issue #203 follow-up)",
+      "why": "The cap block computed truncatedByCap from the bare 'len(items) >= pageSize.limit' heuristic, the same heuristic the pagination fix replaced everywhere else. An endpoint that ignores page_size and always answers with a fixed short page (/Asset returns 50 however large page_size is) fails that test on every page, so a --max-pages exit computed truncatedByCap=false, capExitHit stayed false, and the resume cursor was cleared as if the walk had finished naturally. The next sync then restarted at page 1 and truncated identically, so --max-pages could never advance through such a resource and the cache stayed silently incomplete. Gating on pageLooksFull consults the API's reported total, so a genuinely-truncated walk is recognised as truncated and its cursor is preserved. Surfaced by CodeRabbit on PR #204 as a bounded data-loss risk and fixed rather than accepted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "truncatedByCap = truncatedByCap && pageLooksFull",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync_pagination_test.go",
+          "contains": "TestPageLooksFullUsesReportedTotalForFixedShortPages",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "triage-agent-name-join",
+      "summary": "triage resolves agent names from the synced agent records, falls datecreated through to dateoccurred, and aggregates over a CTE so the grouping key cannot collide with tickets.who (issue #203)",
+      "why": "The triage view labelled every ticket '(unassigned)' and reported oldest_days as 0 for every agent, from two independent causes. First, it read tickets.agent_name and tickets.datecreated, generated columns Halo never fills: the ticket payload carries agent_id and dateoccurred instead, so both were blank on every row of a real sync (all 1254 on the reporting instance). The name is now resolved by joining agent_id against the synced agent records in the resources table, with any populated agent_name still preferred so a future Halo version needs no further change; datecreated falls through to dateoccurred, which is what zeroed oldest_days. Second, and subtler, the aggregate aliased its grouping expression AS who and then grouped on that name, but the generated tickets table has a real who TEXT column that is NULL on every row, and SQLite resolves GROUP BY names against source columns before output aliases. The query therefore grouped by that NULL column and collapsed every agent into a single output row no matter what the SELECT computed, which is why the symptom was one '(unassigned)' line rather than several; it would have survived a fix to the name lookup alone. The aggregate now runs over a CTE exposing only agent_label. triage.go is a hand-written novel command rather than generated, so regen-merge should preserve it, but these markers are a cheap backstop and pin the live-API truth the SQL encodes.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/triage.go",
+          "contains": "func buildTriageQuery",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/triage.go",
+          "contains": "GROUP BY agent_label",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/triage.go",
+          "contains": "json_extract(t.data, '$.dateoccurred')",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/triage_agent_join_test.go",
+          "contains": "TestTriageReportsOneRowPerAgent",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "actions-parent-key-ticket-id",
+      "summary": "actions rows are keyed by ticket_id + action id, legacy bare-id rows are purged on upgrade, and sync_complete.total is reconciled to the stored row count (issue #203)",
+      "why": "Halo numbers ticket actions within their ticket, so every ticket has an action 1, an action 2, and so on. resourceStorageID only qualifies a resource with its parent when the resource appears in resourceParentKeyColumns, and actions was absent, so action 1 of each ticket overwrote action 1 of the previous. On a live instance 8185 fetched actions collapsed into 149 stored rows, 149 being the largest action count on any single ticket, last writer winning. The failure was invisible from the sync output because sync_complete reports rows fetched and upserted rather than distinct rows stored, so it logged total 8185 while the table held 149; it was only visible by counting the table afterwards. That is also why it first looked like a resource ordering race: re-running the resource reported the full count again and appeared to fix it while the stored rows never changed. The generator cannot derive this key: /Actions is a flat top-level resource rather than a dependent one, and nothing in the OpenAPI spec says its ids are unique only within a parent. Every downstream consumer (contracts, time leaks, standup, agent workload, time gaps) joins via json_extract(data,'$.ticket_id') rather than the action id, so the key change is transparent to them and they simply see the full action set for the first time. Alongside the key fix, sync_complete.total is reconciled to the authoritative cache row count and a sync_anomaly is emitted when the upserted count exceeds the stored count, mirroring the #183 / #194 reconciliation in the hudu connector, so the next resource with non-unique ids is visible instead of silent.",
+      "status": "active",
+      "spec_encode_followup": "Teach cli-printing-press to derive parent-qualified storage keys for flat resources whose ids are only unique within a parent, or to detect the collision at sync time rather than relying on a hand-maintained map.",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"actions\": \"ticket_id\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "upserted_exceeds_stored_rows",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/actions_parent_key_test.go",
+          "contains": "TestActionsStorageKeyIsQualifiedByTicket",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "func (s *Store) migratePurgeLegacyActionKeys",
           "min_count": 1
         }
       ]

@@ -4,7 +4,56 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.2.2] - unreleased
+## [0.2.3] - unreleased
+
+### Fixed
+- `sync` now stores every page of every paginated resource. HaloPSA honours
+  paging only when `pageinate=true` and an explicit 1-based `page_no` are both
+  sent, and it numbers pages rather than row offsets; the connector sent
+  neither the enable flag nor a first-page cursor and advanced by row offset,
+  so a full sync of a 1254-ticket instance stored 50 tickets and still reported
+  success. Endpoints that ignore `page_size` and always return a fixed page
+  (`/Asset` serves 50 rows however large the page size) are now walked using
+  the total the API reports rather than the page length, so they no longer stop
+  after one page. On the reporting instance tickets went from 50 to 1254,
+  assets from 50 to 144, and users from 50 to 122. Thanks to @geekbrownbear for
+  the live-tenant report and the diagnosis (#203).
+- `sync` no longer discards ticket actions. HaloPSA numbers actions within
+  their ticket, so every ticket has an action 1; the local mirror keyed rows on
+  the bare action id, so each ticket's action 1 overwrote the previous one's and
+  8185 fetched actions collapsed into 149 stored rows. Actions are now keyed by
+  ticket as well as action id. `contracts burn`, `time leaks`, `standup`,
+  `agent workload`, and `time gaps` all read this table and had been computing
+  against a fraction of it (#203).
+- `sync` completion counts now report distinct rows actually stored rather than
+  rows fetched and upserted, and emit a `sync_anomaly` event when the two
+  disagree, so a future key collision is visible instead of silent (#203).
+- `triage` now reports a row per agent instead of a single `(unassigned)` line
+  with `oldest_days: 0`. Agent names are resolved from the synced agent records
+  because HaloPSA's ticket payload carries `agent_id` rather than a name, ticket
+  age falls through to `dateoccurred` because `datecreated` is never populated,
+  and the aggregate runs over a subquery so its grouping key can no longer
+  collide with the ticket table's own `who` column (#203).
+- `sync --max-pages` no longer discards its resume cursor when it caps a walk
+  over an endpoint that returns a fixed short page. The cap classified such a
+  walk as naturally complete, cleared the cursor, and the next sync restarted at
+  page one, so a capped sync could never advance through those resources.
+- Supplying the paging cursor by hand (`sync --param page_no=1`) no longer makes
+  an unlimited sync re-fetch that one page forever. The override pinned every
+  request to the same page while the walk advanced its own cursor, so nothing
+  detected the loop. Sync now recognises a pinned cursor as a request for that
+  single page, fetches it, and says so.
+- Ticket actions cached by an earlier version are cleared automatically on first
+  open. Those rows were written under the old un-qualified key, so without the
+  purge a resync would leave one stale duplicate per action number sitting
+  alongside the corrected rows.
+
+### Changed
+- The Go toolchain moves to go1.26.6, picking up the standard-library fix for
+  GO-2026-6218 (quadratic complexity in `net/url`), which is reachable from the
+  connector's HTTP path.
+
+## [0.2.2] - 2026-06-20
 
 ### Fixed
 - OAuth2 authentication now resolves the `{tenant}` and `{domain}` endpoint
@@ -18,7 +67,7 @@ All notable changes to this skill are documented here. Format follows
 ### Changed
 - Regenerated on the printing-press 4.24.0 engine: more reliable fleet sync, corrected pagination across large result sets, robust numeric-ID handling, and dependency security updates. Same commands and workflows, sturdier local mirror.
 
-## [0.2.0] - unreleased
+## [0.2.0] - 2026-06-06
 
 ### Changed
 - Maintenance and packaging updates.
