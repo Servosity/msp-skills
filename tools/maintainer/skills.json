@@ -1438,6 +1438,29 @@
       },
       "install_auth_hint": "Then set `THREATLOCKER_API_KEY` (Portal > Administrators > API Users > Generate API Token) and run `threatlocker-cli doctor`"
     },
+    "unifi-network": {
+      "system": "self-hosted UniFi Network controller managing devices, clients, firewall policies, ACLs, VLANs, VPN, and switching on a local gateway",
+      "status": "beta",
+      "cli_binary": "unifi-network-cli",
+      "mcp_binary": "unifi-network-mcp",
+      "vendor": "UniFi",
+      "vendor_trademark_owner": "Ubiquiti Inc.",
+      "first_party": false,
+      "category": "Network Monitoring",
+      "display_name": "UniFi Network",
+      "tagline": "Audit UniFi devices, firewall policy, and overnight config drift on a self-hosted gateway from your terminal.",
+      "cli_hash": "sha256:1dca17afc49994c44597dbefce28d55482eaa997dde9926a11a7f4c5da7c0281",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "veeam": {
       "system": "Veeam Service Provider Console (VSPC): multi-tenant backup monitoring, alarms, licensing and reseller management for MSPs",
       "status": "beta",

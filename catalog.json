@@ -1159,6 +1159,26 @@
       "tagline": "Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking."
     },
     {
+      "name": "unifi-network",
+      "system": "self-hosted UniFi Network controller managing devices, clients, firewall policies, ACLs, VLANs, VPN, and switching on a local gateway",
+      "status": "beta",
+      "skill_path": "skills/unifi-network",
+      "cli_binary": "unifi-network-cli",
+      "mcp_binary": "unifi-network-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.30.1",
+      "license": "Apache-2.0",
+      "vendor": "UniFi",
+      "vendor_trademark_owner": "Ubiquiti Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/unifi-network/install.sh)",
+      "install_mcp_doc": "skills/unifi-network/mcp-install.md",
+      "description": "Every UniFi Network API operation, plus drift detection, topology, and rule prediction no other UniFi tool has.",
+      "verification": "awaiting",
+      "category": "Network Monitoring",
+      "tagline": "Audit UniFi devices, firewall policy, and overnight config drift on a self-hosted gateway from your terminal."
+    },
+    {
       "name": "veeam",
       "system": "Veeam Service Provider Console (VSPC): multi-tenant backup monitoring, alarms, licensing and reseller management for MSPs",
       "status": "beta",

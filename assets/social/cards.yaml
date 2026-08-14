@@ -250,6 +250,10 @@ threatlocker:
   vendor: "ThreatLocker"
   example_command: "What approvals are pending everywhere?"
 
+unifi-network:
+  vendor: "UniFi Network"
+  example_command: "What changed on this UniFi site?"
+
 veeam:
   vendor: "Veeam"
   example_command: "Which customers have failing backups?"
