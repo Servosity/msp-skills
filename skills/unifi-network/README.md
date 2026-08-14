@@ -224,12 +224,13 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `drift`, `newcomer`, `topology`, `port-audit`, `guest report`, `rule-predict`, `search`, and every non-mutating `sites ...` endpoint | Allow |
+| Read | `drift`, `newcomer`, `topology`, `port-audit`, `guest report`, `rule-predict`, `search`, and non-mutating `sites ...` endpoints **except the secret-returning reads below** | Allow |
+| Credential (incl. secret-returning **reads**) | `auth set-token`, `auth logout`, and the reads whose response body carries a live secret: `sites wifi get-broadcast-details` / `get-broadcast-page` (cleartext WiFi passphrase) and `sites hotspot get-voucher` / `get-vouchers` (usable guest codes) | Human-in-the-loop only - never in a blanket "allow all reads" policy |
 | Write (routine) - 18 commands | `sites firewall create-policy`, `sites acl-rules update`, `sites networks create`, `sites wifi update-broadcast`, `sites dns create-policy`, `sites hotspot create-vouchers` | Preview with `--dry-run`, then a reviewed write |
 | Device / port control - 4 commands | `sites devices adopt`, `sites devices execute-adopted-action`, `sites devices execute-port-action`, `sites clients execute-connected-action` | Human-in-the-loop only - a port action can power-cycle PoE and drop whatever is plugged into it |
 | Destructive - 10 commands | `sites devices remove` (**factory-resets the device if it's online**), `sites firewall delete-zone`, `sites networks delete`, `sites acl-rules delete`, `sites wifi delete-broadcast` | Human-in-the-loop only, explicit confirmation |
 
-One caveat worth knowing up front: the UniFi integration API key **is not scopeable to read-only**, so the same credential that runs `drift` can run `sites devices remove`. The gate has to live in your agent's policy, not in the key. Full details, including how to lock it down, are in [governance.md](./governance.md).
+Two caveats worth knowing up front. This CLI applies no privilege separation of its own, so whatever your API key is permitted to do, any command can do - the same credential that runs `drift` may also run `sites devices remove`, and the gate has to live in your agent's policy. And **"allow all reads" is not a safe policy here**: the CLI does not redact response bodies, so one `sites wifi get-broadcast-details` call returns every WiFi pre-shared key on the site in cleartext. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 

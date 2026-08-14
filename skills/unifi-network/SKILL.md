@@ -81,7 +81,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Agent-native plumbing
-- **`port-audit`**  -  Review port utilization and PoE status across every switch on a site in one table.
+- **`port-audit`**  -  Review port utilization and PoE status across every switch on a site. Pass `--json` for per-port detail; the plain terminal path prints one `N up / M down, PoE active on K port(s)` line per device. It reads the device list from the local mirror but fetches interfaces live, one call per switching or gateway device.
 
   _Use before adding new PoE devices to check headroom, or to find unused ports across a stack._
 
@@ -171,7 +171,7 @@ Two environment variables are required:
 - `UNIFI_API_KEY` - generate a local API key from the gateway's own UI (Settings -> Control Plane -> Integrations -> Create API Key).
 - `UNIFI_GATEWAY_HOST` - the gateway's hostname or IP on your network, e.g. `10.0.0.1`. The CLI builds the base URL from it (`https://<host>/proxy/network`); the integration spec declares no absolute server, so there is no default to fall back on. Set `UNIFI_BASE_URL` instead to point at a non-standard endpoint directly.
 
-The gateway's self-signed certificate is handled automatically for private/loopback/link-local hosts; no --insecure flag needed for the common case.
+The gateway's self-signed certificate is handled automatically for private, loopback, and link-local hosts, so the common case needs no extra configuration. There is no `--insecure` flag; if you reach the gateway over a public hostname or a NAT'd public IP the auto-detection does not apply, and you must set `UNIFI_INSECURE_SKIP_VERIFY=1` deliberately (it also accepts 0/false to force verification back on).
 
 Run `unifi-network-cli doctor` to verify setup.
 
@@ -187,7 +187,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
-- **Non-interactive**  -  never prompts, every input is a flag
+- **Non-interactive**  -  never prompts. Note that most `sites ...` commands take required POSITIONAL arguments rather than flags (`sites firewall get-policies <siteId>`, `sites devices execute-port-action <siteId> <deviceId> <portIdx>`); there is no `--site-id` flag
 - **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success, and use `--ignore-missing` only when a missing delete target should count as success
 
 ### Response envelope
@@ -363,6 +363,7 @@ You do not need to decide whether a session "deserves" a playbook: a teach on a 
 # Common case: record both the resource learning AND the playbook in one call.
 unifi-network-cli teach \
   --query "<user's question>" \
+  --resource-type <type> \
   --resource <id> \
   --playbook-file ~/playbooks/<shape>.json \
   --playbook-notes-file ~/playbooks/<shape>-notes.md
@@ -471,6 +472,7 @@ Explicit flags always win over profile values; profile values win over defaults.
 | 3 | Resource not found |
 | 4 | Authentication required |
 | 5 | API error (upstream issue) |
+| 6 | Partial failure (2xx with a partial-failure body; pass `--allow-partial-failure` to downgrade to a warning) |
 | 7 | Rate limited (wait and retry) |
 | 10 | Config error |
 
