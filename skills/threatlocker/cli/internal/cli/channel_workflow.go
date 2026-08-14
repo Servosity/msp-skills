@@ -57,11 +57,10 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			// One source of truth with `sync`. The generated literal here went
-			// stale: it carried a duplicate organizations entry (double-counting
-			// cached rows), the computer-groups dropdown twin, and
-			// scheduled-actions, which always answers HTTP 417. See #208.
-			resources := defaultSyncResources()
+			// One source of truth with `sync`. The generated literal here goes
+			// stale and carried a duplicate entry, the computer-groups dropdown
+			// twin and scheduled-actions.
+			resources := orderDependentsLast(defaultSyncResources())
 			archiveMaxPages := 100
 			if cliutil.IsDogfoodEnv() {
 				archiveMaxPages = 1
@@ -70,6 +69,10 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 				}
 			}
 			totalSynced := 0
+			// Outcomes are counted, not just printed: an archive that logged an
+			// error for every resource and then reported them all as synced is
+			// the same false success #208 was about, one command over.
+			archivedOK, archivedWarned, archivedErrored := 0, 0, 0
 			syncEventWriter := cmd.OutOrStdout()
 			if flags.asJSON {
 				syncEventWriter = cmd.ErrOrStderr()
@@ -86,11 +89,6 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 				}
 			}
 
-			// Outcomes are counted, not just printed: an archive that logged an
-			// error or a warning for every resource and then reported
-			// "resources_synced: <all of them>" and exit 0 is the same false
-			// success #208 was about, one command over.
-			archivedOK, archivedWarned, archivedErrored := 0, 0, 0
 			for _, resource := range resources {
 				res := syncResource(cmd.Context(), c, s, resource, "", full, archiveMaxPages, false, false, nil, syncEventWriter)
 				if res.Err != nil {
@@ -103,10 +101,9 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 				}
 				if res.Warn != nil {
 					archivedWarned++
-					// Rows that DID land still count: several warnings (page cap,
-					// typed-projection) carry a positive Count, and dropping it
-					// would let the summary claim nothing was archived after rows
-					// were committed.
+					// Rows that DID land still count: page-cap and typed-projection
+					// warnings carry a positive Count, and dropping it would let the
+					// summary claim nothing was archived after rows were committed.
 					totalSynced += res.Count
 					fmt.Fprintf(cmd.ErrOrStderr(), "  %s: warning: %v (%d archived)\n", resource, res.Warn, res.Count)
 					continue
@@ -219,16 +216,27 @@ func newWorkflowStatusCmd(flags *rootFlags) *cobra.Command {
 
 // defaultDBPath is defined in helpers.go
 
+// orderDependentsLast puts parent-keyed resources after the flat ones. `sync`
+// gets this from its two-wave scheduler; `workflow archive` walks the list
+// sequentially, so it needs the ordering baked into the slice.
+func orderDependentsLast(resources []string) []string {
+	flat := make([]string, 0, len(resources))
+	dependent := make([]string, 0, len(resources))
+	for _, r := range resources {
+		if _, ok := dependentSyncSpecs[r]; ok {
+			dependent = append(dependent, r)
+			continue
+		}
+		flat = append(flat, r)
+	}
+	return append(flat, dependent...)
+}
+
 // archiveOutcomeError converts per-resource outcomes into the command's exit
-// status. Nothing archived cleanly is a failure; a partial run is reported so a
-// caller can tell it apart from a clean one. Hand-added: the generated body
-// returned nil unconditionally. See skills/threatlocker/handfixes.json
-// (sync-typed-table-honesty).
+// status; the generated body returned nil unconditionally. Dogfood deliberately
+// caps the walk at one page, so paginated resources legitimately warn there and
+// gating on that would turn an intentional smoke-test shortcut into a red run.
 func archiveOutcomeError(ok, warned, errored int) error {
-	// Dogfood deliberately caps the walk at one page and truncates the resource
-	// list, so paginated resources legitimately warn with max_pages_cap. Failing
-	// the command on that would turn an intentional smoke-test shortcut into a
-	// red run; genuine failures still surface through the per-resource output.
 	if cliutil.IsDogfoodEnv() {
 		return nil
 	}

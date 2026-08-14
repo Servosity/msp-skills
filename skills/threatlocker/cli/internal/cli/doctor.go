@@ -338,7 +338,15 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					} else if reachErr != nil && !errors.As(reachErr, &reachAPIErr) {
 						report["credentials"] = "skipped (API unreachable)"
 					} else {
-						suggestion := suggestReadCommand(cmd.Root())
+						// threatlockerVerifyCommand first: the generated
+						// suggestReadCommand returns `applications get`, which
+						// requires --application-id and exits 0 printing help
+						// without touching the API (#217). See
+						// doctor_verify_command.go.
+						suggestion := threatlockerVerifyCommand(cmd.Root())
+						if suggestion == "" {
+							suggestion = suggestReadCommand(cmd.Root())
+						}
 						if suggestion != "" {
 							report["credentials"] = fmt.Sprintf("present, not verified. Run `%s %s` to confirm the token works end-to-end.", "threatlocker-cli", suggestion)
 						} else {

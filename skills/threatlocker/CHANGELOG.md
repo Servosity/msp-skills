@@ -4,7 +4,36 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.2.0] - unreleased
+## [0.3.0] - unreleased
+
+### Added
+- `sync` now covers `application-files` and `maintenance`. Both are keyed by a parent
+  (an application, a computer) that the API requires as a query parameter, so a flat
+  sync could never fetch them and both tables stayed empty. Sync now walks each parent
+  already in the local store and fetches its children, running after the parent
+  resources so their ids are available. `applications hunt`'s trusted-file matching
+  reads `application-files`, so it works from a plain `sync` for the first time.
+
+### Fixed
+- `doctor` told you to run `threatlocker-cli applications get` to confirm your token
+  worked. That command needs `--application-id`, so a bare run printed help and exited
+  0 without ever contacting the API, and a broken token looked fine. `doctor` now names
+  a command that actually makes a call, and a test drives every suggestion against a
+  fixture so a suggestion that cannot run fails the build. Reported by @geekbrownbear
+  in #217.
+- `reports` stored nothing. The endpoint returns report *categories* rather than
+  individual reports, and no row key was configured for that shape, so every row was
+  discarded.
+- `scheduled-actions` stored nothing and reported `HTTP 417 Invalid Scheduled Agent
+  Action Type provided` on every sync. Sync was calling a route that requires an action
+  type it cannot know; it now uses the paginated search endpoint, which needs no such
+  parameter.
+
+### Changed
+- `computers list`, `organizations list`, `applications search` and `approvals list`
+  cover the whole managed tree by default (carried forward from 0.2.0).
+
+## [0.2.0]
 
 ### Fixed
 - `sync` stored zero rows for every resource while still reporting success and exiting 0,
