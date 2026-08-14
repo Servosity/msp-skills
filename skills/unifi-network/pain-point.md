@@ -40,8 +40,8 @@ every time, because the state you would compare against was never kept.
 - **`unifi-network-cli rule-predict --src 10.0.3.50 --dst 10.0.0.1`** - walks the
   synced firewall policies in the gateway's own ascending-index, first-match-wins
   order and reports which one would match, flagging zone-wide and unresolvable
-  policies as uncertain rather than guessing. Pass host IPs - a CIDR is tested as its
-  first address only.
+  policies as uncertain rather than guessing. Pass host IPs - a CIDR's mask is ignored and
+  only the address you typed is tested, so it says nothing about the rest of the range.
 - **`unifi-network-cli topology --site default`** - groups every synced client under
   the device it is attached to, so "which clients are behind this AP?" is one
   command against local data. Device-to-device uplink chaining is not exposed by the

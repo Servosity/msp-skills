@@ -85,10 +85,10 @@
     },
     {
       "q": "Can I trust rule-predict before making a firewall change?",
-      "a": "Treat it as a local simulation, not a live trace. It walks the last synced firewall policies in the same ascending-index, first-match-wins order the gateway uses, and matches on source and destination IP only - `--port` is echoed for reference and is not used for matching. Pass host IPs rather than CIDRs: a CIDR is collapsed to the network's first address, so `--src 10.0.3.0/24` predicts only for `10.0.3.0` and would miss a policy matching `10.0.3.50`. Zone-wide policies and traffic-matching-list references it cannot resolve are flagged as uncertain rather than silently assumed. Sync first, and confirm the real change in the console."
+      "a": "Treat it as a local simulation, not a live trace. It walks the last synced firewall policies in the same ascending-index, first-match-wins order the gateway uses, and matches on source and destination IP only - `--port` is echoed for reference and is not used for matching. Pass host IPs rather than CIDRs: a CIDR's mask is ignored and only the address you typed is tested, so `--src 10.0.3.0/24` predicts for the single address `10.0.3.0` and tells you nothing about `10.0.3.50`. It does not evaluate the range. Zone-wide policies and traffic-matching-list references it cannot resolve are flagged as uncertain rather than silently assumed. Sync first, and confirm the real change in the console."
     }
   ],
-  "governance_summary": "Most read commands - the local-mirror views, reports, and the non-mutating site endpoints - change nothing on the gateway and are safe to let an agent run. Two exceptions matter. Several reads return live secrets (the WiFi detail read includes that SSID's cleartext passphrase; guest report, search, and the hotspot reads return usable voucher codes) and the CLI does not redact output, so those belong in the credential tier rather than a blanket allow-all-reads policy. Writes are grouped by blast radius: routine config writes should be previewed with --dry-run and approved. Two tiers should never run unattended: device and port control, where one command can power-cycle a PoE port or kick a client off the network, and destructive commands, where `sites devices remove` factory-resets an online device.",
+  "governance_summary": "Most read commands - the local-mirror views, reports, and the non-mutating site endpoints - change nothing on the gateway and are safe to let an agent run. Two exceptions matter. Several reads return live secrets (the WiFi detail read includes that SSID's cleartext passphrase; guest report, search, and the hotspot reads return usable voucher codes) and the CLI does not redact output, so those belong in the credential tier rather than a blanket allow-all-reads policy. Three writes also return secrets in their response body (the voucher-creation and WiFi-broadcast writes), so their output is credential-grade too. Writes are grouped by blast radius: routine config writes should be previewed with --dry-run and approved. Two tiers should never run unattended: device and port control, where one command can power-cycle a PoE port or kick a client off the network, and destructive commands, where `sites devices remove` factory-resets an online device.",
   "safety_tiers": [
     {
       "tier": "Read",
@@ -98,7 +98,7 @@
     {
       "tier": "Credential (incl. secret-returning reads)",
       "examples": "auth set-token, auth logout, sites wifi get-broadcast-details (that SSID's cleartext passphrase), sites hotspot get-voucher, sites hotspot get-vouchers, guest report, search (usable guest voucher codes)",
-      "policy": "Human-in-the-loop only - never in a blanket allow-all-reads policy"
+      "policy": "Human-in-the-loop only - never in a blanket allow-all-reads policy. Three writes (sites hotspot create-vouchers, sites wifi create-broadcast / update-broadcast) also return secrets in their response body; treat their output the same way"
     },
     {
       "tier": "Write (routine)",

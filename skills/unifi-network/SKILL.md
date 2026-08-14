@@ -95,7 +95,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   unifi-network-cli guest report --site default --json
   ```
-- **`rule-predict`**  -  Predict which firewall policy would match a hypothetical packet before making a live change. Matches on source and destination IP only: `--port` is echoed for reference and is not used for matching. **Pass host IPs, not CIDRs**  -  a CIDR is collapsed to the network's FIRST address, so `--src 10.0.3.0/24` predicts only for `10.0.3.0` and will miss a policy that matches `10.0.3.50`.
+- **`rule-predict`**  -  Predict which firewall policy would match a hypothetical packet before making a live change. Matches on source and destination IP only: `--port` is echoed for reference and is not used for matching. **Pass host IPs, not CIDRs**  -  a CIDR's mask is ignored and only the address you typed is tested, so `--src 10.0.3.0/24` predicts for the single address `10.0.3.0` and tells you nothing about `10.0.3.50`. It does not evaluate the range.
 
   _Use to check the effect of a proposed firewall change before applying it live._
 
@@ -113,11 +113,24 @@ detail. On a fresh install the mirror is empty:
 unifi-network-cli sync
 ```
 
-Without it, `topology` / `port-audit` / `guest report` / `drift` exit **3** with
-`site "default" not found in local mirror`. **`newcomer` is the trap**: it exits **0** and
-prints `[]` on stdout, with `run 'unifi-network-cli sync' first` only on stderr  -  so an
-agent reading stdout sees "no new devices" on a gateway full of hardware. Always sync
-first, and treat an empty `newcomer` result as suspect if you have not.
+**An unsynced mirror looks like an empty network, not like an error.** Only the explicit
+`--site <name>` form fails loudly (exit **3**, `site "..." not found in local mirror`).
+Without `--site`  -  the natural call on a single-site gateway, since the flag defaults to
+"the only synced site"  -  every one of these exits **0** with an empty payload and puts
+the `run 'unifi-network-cli sync' first` hint on **stderr only**:
+
+| Command (no `--site`, empty mirror) | Exit | stdout |
+| --- | --- | --- |
+| `newcomer --json` | 0 | `[]` |
+| `port-audit --json` | 0 | `[]` |
+| `topology --json` | 0 | `{"site":"","devices":[],"unattached_clients":[]}` |
+| `guest report --json` | 0 | empty vouchers + guests |
+| `drift --json` | 0 | `{"site":"","first_run":false,"changes":[]}` |
+| `rule-predict --json` | 0 | `"matched":false` |
+
+`drift` is the sharpest edge: it positively asserts `first_run:false, changes:[]`  -  "not a
+first run, nothing changed"  -  for a gateway that was never synced. **Always run `sync`
+first, and read stderr**; never report "nothing found" from stdout alone.
 
 ## Command Reference
 
@@ -187,7 +200,7 @@ Two environment variables are required:
 - `UNIFI_API_KEY` - generate a local API key from the gateway's own UI (Settings -> Control Plane -> Integrations -> Create API Key).
 - `UNIFI_GATEWAY_HOST` - the gateway's hostname or IP on your network, e.g. `10.0.0.1`. The CLI builds the base URL from it (`https://<host>/proxy/network`); the integration spec declares no absolute server, so there is no default to fall back on. Set `UNIFI_BASE_URL` instead to point at a non-standard endpoint directly.
 
-The gateway's self-signed certificate is handled automatically for private, loopback, and link-local hosts, so the common case needs no extra configuration. There is no `--insecure` flag; if you reach the gateway over a public hostname or a NAT'd public IP the auto-detection does not apply, and you must set `UNIFI_INSECURE_SKIP_VERIFY=1` deliberately (it also accepts 0/false to force verification back on).
+The gateway's self-signed certificate is handled automatically for private, loopback, and link-local hosts, so the common case needs no extra configuration. There is no `--insecure` flag; the auto-detection matches only a literal RFC1918 / loopback / link-local IP or the exact string `localhost`  -  any DNS name (`unifi.lan` included) is treated as not-private, so a hostname or public IP will fail certificate verification and needs `UNIFI_INSECURE_SKIP_VERIFY=1` set deliberately. It also accepts 0/false to force verification back on when you have installed a real certificate.
 
 Run `unifi-network-cli doctor` to verify setup.
 
@@ -355,7 +368,7 @@ Graceful degradation: if `learnings confirm` is an unknown command, you are driv
 - `resource_not_in_store`: the local store doesn't have the resource the learning points at. The match validator couldn't classify entities  -  direct-fetch and re-evaluate.
 - `cross_alias_match` (per-result): the row was taught under a different alias and matched the live query's canonical via `entity_lookups` (e.g., a "USA" teach satisfying a "United States" recall). Trust the resource_id.
 - `similar_shape_different_entity:<canonical>` (top-level): a structurally matching row exists but its canonical entity differs from the live query's. Treated as cold start; the warning carries the conflicting canonical as a hint, but the row is NOT promoted into Results.
-- `ambiguous_alias` (top-level): a single query entity resolved to multiple canonicals (e.g., "Cards" → Arizona Cardinals + St. Louis Cardinals). Surface the ambiguity from context before committing to a resource.
+- `ambiguous_alias` (top-level): a single query entity resolved to multiple canonicals (e.g., a device name that exists on two sites). Surface the ambiguity from context before committing to a resource.
 - `candidates_present` (top-level): the envelope carries a `candidates` section. Handle it via the candidates branch in Step 2 before anything else.
 - `lookup_refresh_available` (top-level): an entity in the query has no lookup row yet, but synced data could provide one. Run `unifi-network-cli sync` to refresh entity lookups.
 - Top-level `no_learnings_for_query_family`: the table had no rows above the Jaccard floor. Pure cold start.
@@ -369,7 +382,7 @@ unifi-network-cli teach --query "<user's question>" --resource-type <type> --res
 # (append shell `&` to background it)
 ```
 
-Silent on success. Errors only land in `teach.log` under the resolved state dir. Teach the **most specific** resource - if the user asked a broad question and you walked through parent records to find the specific answer, teach the leaf id, not the parent. The CLI uses seeded `entity_lookups` for cross-alias resolution at recall time, so a teach under one alias (e.g., "Niners") satisfies future queries under another alias (e.g., "49ers", "San Francisco") automatically.
+Silent on success. Errors only land in `teach.log` under the resolved state dir. Teach the **most specific** resource - if the user asked a broad question and you walked through parent records to find the specific answer, teach the leaf id, not the parent. Cross-alias resolution uses the `entity_lookups` table. This CLI ships **no seed data** for it (the generated `initLearn` is a no-op), so it starts empty and fills only from `sync` and from explicit `teach-lookup` rows  -  a teach under one alias does not resolve another alias until a lookup row exists. Use `teach-lookup` when a device or site is known by more than one name.
 
 PII rule: teach the structural question with identifiers stripped - never include names, emails, phone numbers, account ids, or other personal identifiers in taught queries or notes. The CLI scans teach queries for obvious email/phone shapes and warns, but does not block; strip before teaching rather than relying on the warning.
 
@@ -506,14 +519,20 @@ Parse `$ARGUMENTS`:
 
 ## Safety model (read before running anything that mutates)
 
-Full tiers and rationale: [governance.md](./governance.md) and [AGENTS.md](./AGENTS.md).
+Full tiers and rationale: [governance.md](./governance.md). ([AGENTS.md](./AGENTS.md) is the
+maintainer/operating contract, not a permission model.)
 The short version an agent must honor:
 
 - **Reads are fine to run**  -  except the ones that return secrets. `sites wifi
-  get-broadcast-details` returns the network's cleartext WiFi passphrase, and
-  `sites hotspot get-voucher` / `get-vouchers` / `guest report` return usable guest
-  voucher codes. The CLI does not redact response bodies. Do not run these
+  get-broadcast-details` returns that SSID's cleartext WiFi passphrase, and
+  `sites hotspot get-voucher` / `get-vouchers`, **`guest report`**, and **`search`**
+  return usable guest voucher codes (`search` reads them straight out of the local
+  mirror, no gateway call). The CLI does not redact output. Do not run these
   unattended and do not spill their raw output into context.
+- **Three writes also RETURN secrets in their response body**, so treat their output
+  the same way: `sites hotspot create-vouchers` returns the new voucher `code`s, and
+  `sites wifi create-broadcast` / `update-broadcast` return the SSID's
+  `securityConfiguration` including the cleartext passphrase.
 - **Never auto-run these  -  ask a human first.** `sites devices remove` (unadopts AND
   **factory-resets** an online device), `sites devices execute-port-action` (can
   power-cycle PoE and drop whatever is plugged in), `sites clients
