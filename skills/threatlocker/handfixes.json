@@ -1,0 +1,69 @@
+{
+  "slug": "threatlocker",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #208 (reporter @geekbrownbear). ThreatLocker's real list endpoints are POST-with-body while the generated sync loop is GET-only, so the profiler wired sync to the portal's GET dropdown helpers; those return id-less {label, value} picker rows, so every resource logged all_items_failed_id_extraction and sync stored zero rows while exiting 0.",
+  "handfixes": [
+    {
+      "id": "sync-post-list-endpoints",
+      "summary": "sync reaches ThreatLocker's real POST list endpoints for computers and organizations instead of the GET dropdown helpers the profiler selected",
+      "why": "ThreatLocker exposes its real list endpoints as POST-with-body (/Computer/ComputerGetByAllParameters, /Organization/OrganizationGetChildOrganizationsByParameters). The generated sync loop only issues GET with query params, so the profiler fell back to the only GET-able list-ish paths in the spec: the portal's dropdown helpers (/Computer/ComputerGetForNewComputer, /Organization/OrganizationGetForMoveComputers, .../GetForDropdownList). Those answer with UI picker payloads - a few {label, value} rows carrying no primary key - so the store rejected every row with all_items_failed_id_extraction and a full sync wrote nothing while still reporting sync_complete and exiting 0. On a live tenant that meant 0 rows across all 9 resources, which left every offline-backed feature (devices health, search, analytics, --data-source local) empty. The dispatch hook in the generated sync.go routes those two resources to a hand-authored POST path; the client already exposes PostWithHeaders, so only the syncResource client interface needed widening. Tenancy note: these endpoints are scoped by the ManagedOrganizationId header, but a request carrying childOrganizations=true already returns the authenticating organization's whole tree, so the path deliberately does not fan out per organization - verified live, where the top-level request returns 58 computers (that organization's own 5 plus 1, 29 and 23 from its three populated children) and a per-organization fanout returns the same 58 rows for six extra API calls. Verified live: computers 0 -> 58, organizations 0 -> 7, and devices health --all-tenants went from empty to a per-organization online/stale/offline breakdown of all 58 devices.",
+      "status": "active",
+      "spec_encode_followup": "Press should support POST-with-body list endpoints for sync (method + body template on the path-item) so tenant APIs that expose no GET list route are generated correctly rather than falling back to dropdown helpers.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync_post_list.go",
+          "contains": "var tenantSyncSpecs = map[string]tenantSyncSpec{",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync_post_list.go",
+          "contains": "/Computer/ComputerGetByAllParameters",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync_post_list.go",
+          "contains": "func syncTenantPostResource(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if spec, ok := tenantSyncSpecs[resource]; ok {",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "PostWithHeaders(context.Context, string, any, map[string]string) (json.RawMessage, int, error)",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync_post_list_test.go",
+          "contains": "TestTenantSyncSpecsUseRealListEndpoints",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "resource-id-field-overrides",
+      "summary": "store keys ThreatLocker rows on their per-entity id fields (computerId, organizationId) and the dropdown payloads' value field",
+      "why": "ThreatLocker names primary keys per entity rather than using a bare id, and its dropdown-shaped payloads carry the GUID under 'value'. genericIDFieldFallbacks (id, ID, gid, sid, uid, uuid, guid, name, slug, key, code) matches none of those, and resourceIDFieldOverrides was emitted empty because the spec carries no x-resource-id annotations. Every row therefore failed primary-key extraction and was dropped before insert, which is the second half of why a full sync stored nothing: repointing the endpoints alone still yields zero rows, because the real records key on computerId and organizationId. Verified live: with the overrides in place versions goes 0 -> 112 and tags 0 -> 1 on the unchanged GET path, and computers/organizations store their rows on the POST path.",
+      "status": "active",
+      "spec_encode_followup": "Annotate the spec with x-resource-id per path-item (computerId, organizationId, value) so these are generated rather than hand-maintained.",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"computers\":       \"computerId\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"organizations\":   \"organizationId\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "not_contains": "var resourceIDFieldOverrides = map[string]string{}"
+        }
+      ]
+    }
+  ]
+}

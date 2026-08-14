@@ -345,9 +345,22 @@ Resource scoping:
 // keep both call sites in sync if this signature changes.
 func syncResource(ctx context.Context, c interface {
 	Get(context.Context, string, map[string]string) (json.RawMessage, error)
+	PostWithHeaders(context.Context, string, any, map[string]string) (json.RawMessage, int, error)
 	RateLimit() float64
 }, db *store.Store, resource, sinceTS string, full bool, maxPages int, latestOnly bool, userParams *syncUserParams, syncEvents io.Writer) syncResult {
 	started := time.Now()
+
+	// Hand-wired dispatch: ThreatLocker's real list endpoints are POST-only and
+	// tenant-scoped, so the generated GET walk below cannot reach them and the
+	// profiler fell back to id-less dropdown helpers. See
+	// sync_post_list.go and handfixes.json
+	// (sync-post-list-endpoints).
+	if spec, ok := tenantSyncSpecs[resource]; ok {
+		if !humanFriendly {
+			fmt.Fprintf(syncEvents, `{"event":"sync_start","resource":"%s"}`+"\n", resource)
+		}
+		return syncTenantPostResource(ctx, c, db, resource, spec, maxPages, syncEvents, started)
+	}
 	if syncEvents == nil {
 		syncEvents = io.Discard
 	}

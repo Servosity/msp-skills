@@ -2398,7 +2398,20 @@ func (s *Store) UpsertVersions(data json.RawMessage) error {
 // Includes both flat resources and dependent (parent-child) resources so a
 // child path-item annotated with x-resource-id resolves the same as a flat
 // path-item.
-var resourceIDFieldOverrides = map[string]string{}
+// Hand-wired: ThreatLocker names its primary keys per entity (computerId,
+// organizationId) and its dropdown-shaped payloads carry the GUID under
+// "value", none of which the generic fallback chain matches. Without these the
+// store rejects every row with all_items_failed_id_extraction and a sync
+// completes having written nothing. See skills/threatlocker/handfixes.json
+// (sync-tenant-fanout-post-endpoints).
+var resourceIDFieldOverrides = map[string]string{
+	"computers":       "computerId",
+	"organizations":   "organizationId",
+	"computer-groups": "value",
+	"computer-groups-computer-group-get-dropdown-by-organization-id": "value",
+	"versions": "value",
+	"tags":     "value",
+}
 
 // genericIDFieldFallbacks is the runtime safety net for resources that did
 // NOT receive a templated IDField. API-specific names belong in spec
