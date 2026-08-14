@@ -289,7 +289,7 @@
       "name": "threatlocker",
       "source": "./skills/threatlocker",
       "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "category": "security",
       "tags": [
         "threatlocker",

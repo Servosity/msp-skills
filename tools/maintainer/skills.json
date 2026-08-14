@@ -1425,8 +1425,8 @@
       "tagline": "Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking.",
       "cli_hash": "sha256:5d8c9d496a52e240cb9c6a1659015333f907d11d4b5bf24114fcd27ce9b68b04",
       "template_version": 3,
-      "version": "0.2.0",
-      "cli_hash_at_release": "sha256:5d8c9d496a52e240cb9c6a1659015333f907d11d4b5bf24114fcd27ce9b68b04",
+      "version": "0.3.0",
+      "cli_hash_at_release": "sha256:394600865fed0f5e33bff9c662ba55027205e38e5d734f2d16a88d7cddfd51dc",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",

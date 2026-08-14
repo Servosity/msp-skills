@@ -1,33 +1,43 @@
 {
   "slug": "threatlocker",
   "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #208 (diagnosis and live-tenant measurements by @geekbrownbear, superseding PR #215), plus an adversarial Codex review of the reprint diff. This ledger was created during the 4.24.0 -> 4.30.2 reprint, and its absence is exactly why that reprint silently dropped the multi-tenant header wiring, the ThreatLocker doctor diagnosis, the novel-command registrations AND six implemented novel commands (replaced by TODO scaffolds that still answered --help). Every entry below was verified to fail check_handfixes.py when reverted.",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #208 (diagnosis and live-tenant measurements by @geekbrownbear, superseding PR #215), plus an adversarial Codex review of the reprint diff. This ledger was created during the 4.24.0 -> 4.30.2 reprint, and its absence is exactly why that reprint silently dropped the multi-tenant header wiring, the ThreatLocker doctor diagnosis, the novel-command registrations AND six implemented novel commands (replaced by TODO scaffolds that still answered --help). Every entry below was verified to fail check_handfixes.py when reverted. A reprint recipe lives at skills/threatlocker/reprint-patches.py: run it after `printing-press generate --spec <spec> --research-dir <dir>` and the -pp- strip to replay every patch below without rediscovering them by hand.",
   "handfixes": [
     {
       "id": "sync-canonical-post-list-endpoints",
       "summary": "sync's canonical resources map to ThreatLocker's real list endpoints, and resources that cannot enumerate are kept out of the default sync set",
-      "why": "The 4.30.2 engine generates the whole POST sync path correctly from the spec (method, paged body, id_field). Two profiler behaviours still need correcting. FIRST, applySyncCandidates picks which candidate owns the CANONICAL resource name by SHORTEST PATH, so the portal's picker endpoints win: /Computer/ComputerGetForNewComputer is 3 characters shorter than /Computer/ComputerGetByAllParameters, and /Organization/OrganizationGetForMoveComputers is shorter than the child-organizations route. The real list is then parked under a sibling name, so rows land in a sibling table while devices health, search, analytics and every --data-source local read keep reading the empty canonical tables. (computers install-info only becomes a candidate at all because profiler.containsAny does SUBSTRING matching and \"inst-ALL-info\" contains the list term \"all\".) SECOND, the generated default set shipped resources that cannot enumerate: the computer-groups dropdown twin duplicated computer-groups into a second table, scheduled-actions always answers HTTP 417, and audit resolved to a by-file-path detail route. Verified against a local fixture: a full default sync stores 225 rows across all eight resources in their canonical TYPED tables (computers 58, organizations 7, applications 23, approvals 11, computer-groups 4, online-devices 9, tags 1, versions 112), and a 250-row fixture walks pages 1-3 without truncation. Before the fix the shipped 0.1.1 stored 0 rows for all 9 resources while exiting 0.",
+      "why": "The 4.30.2 engine generates the whole POST sync path correctly from the spec (method, paged body, id_field). Two profiler behaviours still need correcting. FIRST, applySyncCandidates picks which candidate owns the CANONICAL resource name by SHORTEST PATH, so the portal's picker endpoints win: /Computer/ComputerGetForNewComputer is 3 characters shorter than /Computer/ComputerGetByAllParameters, and /Organization/OrganizationGetForMoveComputers is shorter than the child-organizations route. The real list is then parked under a sibling name, so rows land in a sibling table while devices health, search, analytics and every --data-source local read keep reading the empty canonical tables. (computers install-info only becomes a candidate at all because profiler.containsAny does SUBSTRING matching and \"inst-ALL-info\" contains the list term \"all\".) SECOND, the generated default set shipped resources that cannot enumerate: the computer-groups dropdown twin duplicated computer-groups into a second table, scheduled-actions always answers HTTP 417, and audit resolved to a by-file-path detail route. Verified against a local fixture: a full default sync stores 225 rows across all eight resources in their canonical TYPED tables (computers 58, organizations 7, applications 23, approvals 11, computer-groups 4, online-devices 9, tags 1, versions 112), and a 250-row fixture walks pages 1-3 without truncation. Before the fix the shipped 0.1.1 stored 0 rows for all 9 resources while exiting 0. Two more resources were recovered the same way in #223. scheduled-actions resolved to GET /ScheduledAgentAction/List, which answers HTTP 417 'Invalid Scheduled Agent Action Type provided' unless a scheduledType flat sync cannot know is supplied; the real collection is the paginated POST /ScheduledAgentAction/GetByParameters, which lost the canonical name on path length. reports returns CATEGORIES ({categoryName, reports}) rather than individual reports, so the row key is the category name; without it every row failed id extraction.",
       "status": "active",
       "spec_encode_followup": "Press should not choose the canonical sync resource by shortest path: prefer the endpoint the spec names `list`, or let a spec key nominate the sync source explicitly. profiler.containsAny should match on word/segment boundaries so \"install-info\" stops being classified as a list endpoint via the substring \"all\". Filed upstream as part of the #208 retro.",
       "asserts": [
         {
           "file": "cli/internal/cli/sync.go",
-          "contains": "\"computers\":       \"/Computer/ComputerGetByAllParameters\"",
+          "contains": "\"computers\":         \"/Computer/ComputerGetByAllParameters\"",
           "min_count": 1
         },
         {
           "file": "cli/internal/cli/sync.go",
-          "contains": "\"organizations\":   \"/Organization/OrganizationGetChildOrganizationsByParameters\"",
+          "contains": "\"organizations\":     \"/Organization/OrganizationGetChildOrganizationsByParameters\"",
           "min_count": 1
         },
         {
           "file": "cli/internal/cli/sync.go",
-          "contains": "\"computers\":       \"computerId\"",
+          "contains": "\"computers\":         \"computerId\"",
           "min_count": 1
         },
         {
           "file": "cli/internal/store/store.go",
-          "contains": "\"computers\":       \"computerId\"",
+          "contains": "\"computers\":         \"computerId\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\"scheduled-actions\": \"/ScheduledAgentAction/GetByParameters\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\"reports\":           \"categoryName\"",
           "min_count": 1
         }
       ]
@@ -110,7 +120,7 @@
         },
         {
           "file": "cli/internal/cli/channel_workflow.go",
-          "contains": "resources := defaultSyncResources()",
+          "contains": "resources := orderDependentsLast(defaultSyncResources())",
           "min_count": 1
         },
         {
@@ -178,6 +188,84 @@
         {
           "file": "cli/internal/cli/threatlocker_novel.go",
           "contains": "func isTLTokenWellFormed(",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "sync-dependent-fanout",
+      "summary": "application-files and maintenance sync by fanning out over their parent tables, because their collection endpoints are keyed by a required QUERY parameter the generated flat walk never sends",
+      "why": "The press detects parent-child relationships from paths carrying a {placeholder}. /ApplicationFile/ApplicationFileGetByApplicationId and /MaintenanceMode/MaintenanceModeGetByComputerIdV2 take their parent key as an ordinary query param, so detectDependentResources never sees them and the profiler registers both as FLAT syncable resources. A flat walk sends only pagination, the API rejects every call, and both tables stay empty - two of the four resources #223 tracked. sync_dependents.go reads the parent ids already in the store and walks each child collection with its key supplied. maintenance has no unique id of its own, so it keys on the window start and store.RegisterDependentKey declares computerId as the parent column, which resourceStorageID appends to make the pair unique. The worker pool consumes one unordered channel, so the scheduler was split into two waves: every flat resource drains before any dependent starts, otherwise a dependent could run first and find an empty parent table. Verified against a fixture that rejects a request missing the parent key: 46 file rules across 23 applications and 58 maintenance windows across 58 computers, all with unique composite keys. An adversarial review then closed five more holes in the fan-out itself: a {\"success\":false} envelope unmarshalled cleanly into an empty slice and read as a legitimately empty child collection; `workflow archive` walks the resource list sequentially and the default list now begins with the dependents, so orderDependentsLast keeps them behind their parents there too; a parent that errored or warned left a partial table the dependent then reported clean success over, so parentOutcomes propagates the degradation; SaveSyncState claimed a completion watermark after a partial walk and discarded its error; and keying maintenance on startDateTime alone collapsed two windows sharing a start, so identityFields synthesizes a deterministic hash over every distinguishing field instead.",
+      "status": "active",
+      "spec_encode_followup": "Press should treat a required query param that names a parent resource's key as a dependent-resource relationship, so this fan-out is generated rather than hand-authored. Filed as item 8 of mvanhorn/cli-printing-press#4165.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync_dependents.go",
+          "contains": "var dependentSyncSpecs = map[string]dependentSyncSpec{",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync_dependents.go",
+          "contains": "func syncDependentResource(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if spec, ok := dependentSyncSpecs[resource]; ok {",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "dependentBarrier.Wait()",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "func RegisterDependentKey(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync_dependents.go",
+          "contains": "if responseReportsFailure(raw) {",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync_dependents.go",
+          "contains": "func synthesizeIdentity(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "func orderDependentsLast(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "parentOutcomes.Store(resource, true)",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "doctor-verify-command-runnable",
+      "summary": "doctor suggests a credential-verification command that actually reaches the API",
+      "why": "The generated suggestReadCommand returns the FIRST leaf that looks like a read, which for ThreatLocker is `applications get`. That command requires --application-id, and the generator deliberately prints help rather than pflag's terse error on a bare invocation, so it exits 0 without ever touching the API. An operator follows doctor's own instruction, sees a clean exit, and concludes their credentials are fine. That is not hypothetical: it cost the reporter of #208 a diagnostic cycle and they filed it as #217. isSuggestableReadLeaf cannot tell the difference because the requirement is enforced inside RunE - no annotation, no MarkFlagRequired, no positional in Use. threatlockerVerifyCommand names a command that runs, falling back to the generic 'run any read command' message rather than naming a broken one. TestDoctorVerifyCandidatesAreRunnable drives each candidate against a fixture and fails if it makes no HTTP request, so asserting mere existence (which the broken suggestion also satisfied) cannot pass.",
+      "status": "active",
+      "spec_encode_followup": "Press should annotate required-flag commands so isSuggestableReadLeaf can see them, and rank candidates instead of taking the first alphabetically. Filed as item 7 of mvanhorn/cli-printing-press#4165; affects 38 connectors' generated doctor.go.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor_verify_command.go",
+          "contains": "var doctorVerifyCandidates = []string{",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "suggestion := threatlockerVerifyCommand(cmd.Root())",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/doctor_verify_command_test.go",
+          "contains": "func TestDoctorVerifyCandidatesAreRunnable(",
           "min_count": 1
         }
       ]
