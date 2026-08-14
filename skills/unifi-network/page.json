@@ -97,7 +97,7 @@
     },
     {
       "tier": "Credential (incl. secret-returning reads)",
-      "examples": "auth set-token, auth logout, and every command whose output can carry a live secret (the CLI redacts nothing): sites wifi get-broadcast-details, sites hotspot get-voucher / get-vouchers, guest report, search, analytics --group-by code, export <resource>",
+      "examples": "auth set-token, auth logout, and every command whose output can carry a live secret (the CLI redacts nothing): sites wifi get-broadcast-details, sites hotspot get-voucher / get-vouchers, guest report, search, analytics --group-by code",
       "policy": "Human-in-the-loop only - never in a blanket allow-all-reads policy. Three writes (sites hotspot create-vouchers, sites wifi create-broadcast / update-broadcast) also return secrets in their response body; treat their output the same way"
     },
     {

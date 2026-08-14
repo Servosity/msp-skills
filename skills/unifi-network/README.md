@@ -158,8 +158,9 @@ UNIFI_API_KEY=<value> UNIFI_GATEWAY_HOST=<value> unifi-network-cli doctor
 
 Run `unifi-network-cli sync` first - `drift`, `newcomer`, `topology`, `guest report`, and
 `rule-predict` all compute from the local mirror, and `port-audit` needs the synced
-device list before it can fetch port detail. On paginated `sites ...` reads, pass `--all`:
-they default to `--limit 25` and emit no truncation warning.
+device list before it can fetch port detail. On paginated reads pass `--all`: they default to
+`--limit 25` (vouchers 100) and emit no truncation warning. This affects `countries`,
+`pending-devices`, and `dpi ...` too, not just the `sites ...` subtree.
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
@@ -226,7 +227,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | `drift`, `newcomer`, `topology`, `port-audit`, `rule-predict`, and non-mutating `sites ...` endpoints **except the secret-bearing commands below**. Note `drift` and `newcomer` advance their own local baseline on every run. | Allow |
-| Credential (incl. secret-returning **reads**) | `auth set-token`, `auth logout`, and every command whose output can carry a live secret - the CLI redacts nothing: `sites wifi get-broadcast-details` (that SSID's cleartext passphrase), `sites hotspot get-voucher` / `get-vouchers`, `guest report`, `search`, `analytics --type hotspot --group-by code`, and `export <resource>` (usable guest voucher codes) | Human-in-the-loop only - never in a blanket "allow all reads" policy. Three **writes** return secrets too (`sites hotspot create-vouchers`, `sites wifi create-broadcast` / `update-broadcast`) - same handling for their output. |
+| Credential (incl. secret-returning **reads**) | `auth set-token`, `auth logout`, and every command whose output can carry a live secret - the CLI redacts nothing: `sites wifi get-broadcast-details` (that SSID's cleartext passphrase), `sites hotspot get-voucher` / `get-vouchers`, `guest report`, `search` and `analytics --type hotspot --group-by code` (usable guest voucher codes) | Human-in-the-loop only - never in a blanket "allow all reads" policy. Three **writes** return secrets too (`sites hotspot create-vouchers`, `sites wifi create-broadcast` / `update-broadcast`) - same handling for their output. |
 | Write (routine) - 18 commands | `sites firewall create-policy`, `sites acl-rules update`, `sites networks create`, `sites wifi update-broadcast`, `sites dns create-policy`, `sites hotspot create-vouchers` | Preview with `--dry-run`, then a reviewed write |
 | Device / port control - 4 commands | `sites devices adopt`, `sites devices execute-adopted-action`, `sites devices execute-port-action`, `sites clients execute-connected-action` | Human-in-the-loop only - a port action can power-cycle PoE and drop whatever is plugged into it |
 | Destructive - 10 commands | `sites devices remove` (**factory-resets the device if it's online**), `sites firewall delete-zone`, `sites networks delete`, `sites acl-rules delete`, `sites wifi delete-broadcast` | Human-in-the-loop only, explicit confirmation |

@@ -54,7 +54,7 @@ local state (`sync`, `teach*`, `learnings`, `playbook amend`, `profile`, `feedba
 | **Write (routine)** | Day-to-day config mutations. 18 commands. | `sites acl-rules create`, `sites acl-rules update`, `sites acl-rules update-ordering`, `sites dns create-policy`, `sites dns update-policy`, `sites firewall create-policy`, `sites firewall create-zone`, `sites firewall patch-policy`, `sites firewall update-policy`, `sites firewall update-policy-ordering`, `sites firewall update-zone`, `sites hotspot create-vouchers`, `sites networks create`, `sites networks update`, `sites traffic-matching-lists create`, `sites traffic-matching-lists update`, `sites wifi create-broadcast`, `sites wifi update-broadcast` | Preview with `--dry-run`, then an approved write |
 | **Device / port control** | Takes physical effect on the network right now. 4 commands. | `sites devices adopt`, `sites devices execute-adopted-action`, `sites devices execute-port-action`, `sites clients execute-connected-action` | Human-in-the-loop only. A port action can power-cycle PoE and drop whatever is plugged into it; a client action can force a device off the network |
 | **Destructive** | Irreversible config or hardware loss. 10 commands. | `sites devices remove` (**unadopts the device, and factory-resets it if it is online**), `sites acl-rules delete`, `sites dns delete-policy`, `sites firewall delete-policy`, `sites firewall delete-zone`, `sites hotspot delete-voucher`, `sites hotspot delete-vouchers`, `sites networks delete`, `sites traffic-matching-lists delete`, `sites wifi delete-broadcast` | Human-in-the-loop only, explicit confirmation |
-| **Credential / security** | Handles or RETURNS secrets. | Local credential storage: `auth set-token`, `auth logout`. **Secret-returning reads** (they are `GET`s or local-mirror reads, but the output carries a live secret and the CLI does not redact response bodies): `sites wifi get-broadcast-details` returns that SSID's `securityConfiguration`, which for WPA2/WPA3-Personal contains the cleartext `passphrase` (the list endpoint `get-broadcast-page` returns a security-type discriminator and preshared-key network ids, but no passphrase). `sites hotspot get-voucher`, `sites hotspot get-vouchers`, **`guest report`**, **`search`**, **`analytics`** (`--type hotspot --group-by code` prints every code as a group label), and **`export <resource>`** (writes the whole resource to a file) all surface usable guest voucher `code` values, most of them from the local mirror rather than the API | Human-in-the-loop only. Do not put these in an agent's Allow list, and do not pipe their raw output into a model's context |
+| **Credential / security** | Handles or RETURNS secrets. | Local credential storage: `auth set-token`, `auth logout`. **Secret-returning reads** (they are `GET`s or local-mirror reads, but the output carries a live secret and the CLI does not redact response bodies): `sites wifi get-broadcast-details` returns that SSID's `securityConfiguration`, which for WPA2/WPA3-Personal contains the cleartext `passphrase` (the list endpoint `get-broadcast-page` returns a security-type discriminator and preshared-key network ids, but no passphrase). `sites hotspot get-voucher`, `sites hotspot get-vouchers`, **`guest report`**, **`search`**, and **`analytics`** (`--type hotspot --group-by code` prints every code as a group label) all surface usable guest voucher `code` values, most of them from the local mirror rather than the API | Human-in-the-loop only. Do not put these in an agent's Allow list, and do not pipe their raw output into a model's context |
 
 ## How to lock it down
 
@@ -82,11 +82,14 @@ local state (`sync`, `teach*`, `learnings`, `playbook amend`, `profile`, `feedba
   usable guest voucher codes land in `data.db` in cleartext and stay readable offline.
   Treat the mirror as credential-bearing: it lives under your user account, and deleting a
   voucher on the gateway does not scrub the synced copy until you re-sync.
-- **TLS verification is OFF by default for private gateways.** For any RFC1918, loopback,
-  or link-local host the CLI skips certificate verification (that is what makes the
-  gateway's self-signed cert work with no flags). It is the right default on a LAN, but it
-  means the connection is not authenticated - set `UNIFI_INSECURE_SKIP_VERIFY=0` to force
-  verification back on if you have installed a real certificate.
+- **TLS verification is OFF by default for private gateways.** The CLI skips certificate
+  verification when `UNIFI_GATEWAY_HOST` is a **literal** RFC1918 / loopback / link-local
+  IP, or the exact string `localhost` - that is what makes the gateway's self-signed cert
+  work with no flags. A DNS name is NOT treated as private (the CLI will not resolve it to
+  find out), so `unifi.lan` pointing at 10.0.0.1 still fails certificate verification; set
+  `UNIFI_INSECURE_SKIP_VERIFY=1` for that case. On a literal private IP the connection is
+  unauthenticated by design - set `UNIFI_INSECURE_SKIP_VERIFY=0` to force verification back
+  on if you have installed a real certificate.
 - **Never let an agent run Device/port control or Destructive commands unattended.**
   `execute-port-action` and `sites devices remove` have immediate physical
   consequences on a live network - treat them like a production database drop:

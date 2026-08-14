@@ -105,9 +105,12 @@ These capabilities aren't available in any other tool for this API.
 
 ## Paginated reads default to 25 rows
 
-Every `sites ...` list command takes `--limit` (**default 25**) and `--all`. Offset
-pagination emits **no truncation warning**, so page 1 comes back looking like the whole
-answer. Any question phrased as "every" or "all" needs `--all`:
+Nearly every paginated read takes `--limit` (**default 25**, except
+`sites hotspot get-vouchers` which defaults to 100) and `--all`. This is not limited to
+the `sites ...` subtree: `countries`, `pending-devices`, `dpi get-application-categories`,
+and `dpi get-applications` behave the same way. Offset pagination emits **no truncation
+warning**, so page 1 comes back looking like the whole answer. Any question phrased as
+"every" or "all" needs `--all`:
 
 ```bash
 unifi-network-cli sites devices get-adopted-overview-page <siteId> --all
@@ -550,8 +553,7 @@ The short version an agent must honor:
   - direct reads: `sites wifi get-broadcast-details` (passphrase),
     `sites hotspot get-voucher` / `get-vouchers` (codes);
   - mirror-derived, no gateway call: `guest report`, `search`, `analytics`
-    (`--group-by code` on the `hotspot` type dumps every code), `export <resource>`
-    (writes the whole resource to a file);
+    (`--group-by code` on the `hotspot` type dumps every code);
   - writes that echo the secret back: `sites hotspot create-vouchers`,
     `sites wifi create-broadcast` / `update-broadcast`;
   - and `sync` itself, which persists voucher codes into `data.db` in cleartext.
