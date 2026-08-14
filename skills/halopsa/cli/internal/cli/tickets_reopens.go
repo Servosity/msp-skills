@@ -86,11 +86,11 @@ Reads the local sync store. Run 'halopsa-cli sync' first.`,
 			rows, err := db.DB().QueryContext(ctx, `SELECT id,
 				COALESCE(NULLIF(json_extract(data,'$.summary'),''),'(no summary)'),
 				COALESCE(NULLIF(client_name,''),'(no client)'),
-				COALESCE(NULLIF(agent_name,''),'(unassigned)'),
+				` + haloAgentLabelExpr("", "(unassigned)") + `,
 				CAST(COALESCE(json_extract(data,'$.reopened'),0) AS INTEGER) AS reopens
 			FROM tickets
 			WHERE CAST(COALESCE(json_extract(data,'$.reopened'),0) AS INTEGER) > 0
-			  AND datetime(COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), datecreated)) >= datetime(?)
+			  AND datetime(` + haloTicketActivityExpr("") + `) >= datetime(?)
 			ORDER BY reopens DESC, id DESC`, t.Format(time.RFC3339))
 			if err != nil {
 				return fmt.Errorf("reopens query: %w", err)

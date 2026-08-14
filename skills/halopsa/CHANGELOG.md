@@ -4,7 +4,21 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.2.3] - unreleased
+## [0.2.4] - 2026-08-13
+
+### Fixed
+- Eight more local views reported `(unassigned)` agents and zero-day ticket ages
+  for the same reason `triage` did in 0.2.3: they read `agent_name` and
+  `datecreated`, columns HaloPSA never populates. `standup`, `agent workload`,
+  `sla breaching`, `sla scorecard`, `tickets age-out`, `tickets reopens`,
+  `asset history`, and `client card` now resolve agent names from the synced
+  agent records and fall ticket age through to `dateoccurred` (#211).
+- `standup` and `agent workload` additionally collapsed every agent into a
+  single row. Both grouped on a name that collides with a real column on the
+  ticket table, which SQLite resolves ahead of the output alias. This is the
+  same defect `triage` had, and it survived the agent-name fix on its own.
+
+## [0.2.3] - 2026-08-13
 
 ### Fixed
 - `sync` now stores every page of every paginated resource. HaloPSA honours

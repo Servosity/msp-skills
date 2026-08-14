@@ -63,15 +63,15 @@ Then lists tickets matched on asset_id, including agent + first action date.`,
 				}
 			}
 			// Find tickets that reference this asset_id. Halo stores it under tickets.assets[*].id sometimes.
-			q := `SELECT t.id, COALESCE(t.agent_name,'?'), COALESCE(json_extract(t.data,'$.status_name'),'?'),
-                COALESCE(NULLIF(json_extract(t.data,'$.lastactiondate'),''), t.datecreated),
+			q := `SELECT t.id, ` + haloAgentLabelExpr("t", "?") + `, COALESCE(json_extract(t.data,'$.status_name'),'?'),
+                ` + haloTicketActivityExpr("t") + `,
                 COALESCE(t.summary,'')
                 FROM tickets t
                 WHERE EXISTS (
                     SELECT 1 FROM json_each(COALESCE(json_extract(t.data,'$.assets'),'[]'))
                     WHERE json_extract(json_each.value,'$.id') = ?
                 ) OR json_extract(t.data,'$.asset_id') = ?
-                ORDER BY COALESCE(NULLIF(json_extract(t.data,'$.lastactiondate'),''), t.datecreated) DESC
+                ORDER BY ` + haloTicketActivityExpr("t") + ` DESC
                 LIMIT ?`
 			rows, err := db.DB().QueryContext(cmd.Context(), q, assetID, assetID, limit)
 			if err != nil {
