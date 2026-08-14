@@ -240,8 +240,8 @@ func TestHaloAgentLabelExprEscapesLabelQuotes(t *testing.T) {
 	}
 }
 
-// Two agent rows whose ids differ as text but not as integers must not make the
-// lookup non-deterministic.
+// Two agent rows whose ids differ as text but not as integers must resolve to a
+// STABLE label, not merely a single row: a bare LIMIT 1 returns either name.
 func TestHaloAgentLabelExprIsDeterministicOnAmbiguousIDs(t *testing.T) {
 	db := haloFixture(t)
 	if _, err := db.Exec(
@@ -249,10 +249,92 @@ func TestHaloAgentLabelExprIsDeterministicOnAmbiguousIDs(t *testing.T) {
 	); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
-	for i := 0; i < 5; i++ {
+	first := queryStrings(t, db, `SELECT `+haloAgentLabelExpr("", "?")+` FROM tickets WHERE id = 1`)
+	if len(first) != 1 {
+		t.Fatalf("expected exactly one row, got %v", first)
+	}
+	for i := 0; i < 8; i++ {
 		got := queryStrings(t, db, `SELECT `+haloAgentLabelExpr("", "?")+` FROM tickets WHERE id = 1`)
-		if len(got) != 1 {
-			t.Fatalf("expected exactly one row, got %v", got)
+		if len(got) != 1 || got[0] != first[0] {
+			t.Fatalf("ambiguous agent ids resolved to %v then %v; the lookup must be stable", first, got)
 		}
+	}
+}
+
+// An agent record with a blank name must fall through to the caller's label
+// rather than printing an empty one.
+func TestHaloAgentLabelExprIgnoresBlankAgentName(t *testing.T) {
+	db := haloFixture(t)
+	if _, err := db.Exec(`UPDATE resources SET data = '{"id":11,"name":""}' WHERE id = '11'`); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	got := queryStrings(t, db, `SELECT `+haloAgentLabelExpr("", "(unassigned)")+` FROM tickets WHERE id = 1`)
+	if len(got) != 1 || got[0] != "(unassigned)" {
+		t.Fatalf("got %v, want [(unassigned)]: a blank agent name must not become a blank label", got)
+	}
+}
+
+// standup's top_client claims to be the agent's busiest client. It was an
+// ungrouped bare column, so SQLite returned whichever client sat on the row it
+// happened to keep. Ada closes 3 for Globex and 1 for Acme; top_client must be
+// Globex every time.
+func TestStandupTopClientIsTheBusiestClient(t *testing.T) {
+	db := haloFixture(t)
+	if _, err := db.Exec(`DELETE FROM tickets`); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	for i, client := range []string{"Globex", "Globex", "Globex", "Acme"} {
+		if _, err := db.Exec(
+			`INSERT INTO tickets (id, data, agent_id, agent_name, datecreated, client_name, who)
+			 VALUES (?, '{"status_id":8,"dateoccurred":"2021-01-01T00:00:00Z"}', 11, '', '', ?, NULL)`,
+			i+1, client,
+		); err != nil {
+			t.Fatalf("insert: %v", err)
+		}
+	}
+
+	q := `WITH scoped AS (
+                SELECT
+                    ` + haloAgentLabelExpr("", "(unassigned)") + ` AS agent_label,
+                    COALESCE(client_name, '?') AS client_label
+                FROM tickets
+                WHERE json_extract(data, '$.status_id') IN (8,9)
+                  AND datetime(` + haloTicketActivityExpr("") + `) >= datetime(?)
+            ),
+            per_client AS (
+                SELECT agent_label, client_label, COUNT(*) AS n
+                FROM scoped
+                GROUP BY agent_label, client_label
+            )
+            SELECT
+                agent_label AS who,
+                SUM(n) AS closed,
+                (SELECT pc.client_label FROM per_client pc
+                   WHERE pc.agent_label = per_client.agent_label
+                   ORDER BY pc.n DESC, pc.client_label
+                   LIMIT 1) AS top_client
+            FROM per_client
+            GROUP BY agent_label
+            ORDER BY closed DESC LIMIT ?`
+
+	rows, err := db.Query(q, "2000-01-01T00:00:00Z", 10)
+	if err != nil {
+		t.Fatalf("standup query: %v\nSQL:\n%s", err, q)
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		t.Fatal("no rows")
+	}
+	var who, top string
+	var closed int
+	if err := rows.Scan(&who, &closed, &top); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if who != "Ada" || closed != 4 {
+		t.Fatalf("got who=%q closed=%d, want Ada/4", who, closed)
+	}
+	if top != "Globex" {
+		t.Fatalf("top_client = %q, want Globex (3 of 4 closed); an arbitrary bare column can "+
+			"return Acme here", top)
 	}
 }

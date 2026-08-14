@@ -64,6 +64,12 @@ Run 'halopsa-cli sync' first.`,
 			// column, because SQLite resolves GROUP BY names against source
 			// columns before output aliases, collapsing every agent into one
 			// row. Same defect as triage in #203.
+			// top_client is picked by count rather than taken from an arbitrary
+			// row. The column claims to be the agent's busiest client, but it
+			// was previously an ungrouped bare column, so SQLite returned
+			// whichever client happened to be on the row it kept: for an agent
+			// who closed tickets for several clients the answer was arbitrary.
+			// Ties break on client name so the output is stable run to run.
 			closedSQL := `WITH scoped AS (
                 SELECT
                     ` + haloAgentLabelExpr("", "(unassigned)") + ` AS agent_label,
@@ -72,12 +78,20 @@ Run 'halopsa-cli sync' first.`,
                 WHERE json_extract(data, '$.status_id') IN (8,9)
                   AND datetime(` + haloTicketActivityExpr("") + `) >= datetime(?)
                   ` + whereTeam + `
+            ),
+            per_client AS (
+                SELECT agent_label, client_label, COUNT(*) AS n
+                FROM scoped
+                GROUP BY agent_label, client_label
             )
             SELECT
                 agent_label AS who,
-                COUNT(*) AS closed,
-                client_label AS top_client
-            FROM scoped
+                SUM(n) AS closed,
+                (SELECT pc.client_label FROM per_client pc
+                   WHERE pc.agent_label = per_client.agent_label
+                   ORDER BY pc.n DESC, pc.client_label
+                   LIMIT 1) AS top_client
+            FROM per_client
             GROUP BY agent_label
             ORDER BY closed DESC LIMIT ?`
 			argsSQL = append(argsSQL, limit)

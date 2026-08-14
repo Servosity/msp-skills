@@ -24,16 +24,21 @@ import "strings"
 // The agent name is looked up from the synced agent records with a correlated
 // subquery rather than a join, so it can be dropped into an existing SELECT list
 // without touching the rest of the statement.
-// LIMIT 1 keeps the subquery deterministic: resources.id is TEXT, so ids that
-// differ as text but not as integers ("1" and "01") would both match the CAST
-// comparison, and SQLite would silently pick one. The CAST is kept rather than
-// comparing as text because ids arrive from JSON and their text formatting is
-// not guaranteed stable.
+// ORDER BY r.id LIMIT 1 keeps the subquery deterministic: resources.id is TEXT,
+// so ids that differ as text but not as integers ("11" and "011") both match the
+// CAST comparison, and a bare LIMIT 1 would let SQLite return either name. The
+// CAST is kept rather than comparing as text because ids arrive from JSON and
+// their text formatting is not guaranteed stable.
+//
+// The inner NULLIF matters too: an agent record with a blank name would
+// otherwise resolve to an empty label rather than falling through to the
+// caller's unassigned text, printing a nameless row.
 func haloAgentLabelExpr(alias, unassigned string) string {
 	p := qualify(alias)
-	return "COALESCE(NULLIF(" + p + "agent_name, ''), (SELECT json_extract(r.data, '$.name') FROM resources r " +
-		"WHERE r.resource_type = 'agent' AND CAST(r.id AS INTEGER) = " + p + "agent_id LIMIT 1), " +
-		sqlStringLiteral(unassigned) + ")"
+	return "COALESCE(NULLIF(" + p + "agent_name, ''), " +
+		"(SELECT NULLIF(json_extract(r.data, '$.name'), '') FROM resources r " +
+		"WHERE r.resource_type = 'agent' AND CAST(r.id AS INTEGER) = " + p + "agent_id " +
+		"ORDER BY r.id LIMIT 1), " + sqlStringLiteral(unassigned) + ")"
 }
 
 // sqlStringLiteral quotes a value for inline use in generated SQL. Every current
