@@ -97,7 +97,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add catalog.json README.md docs/_data/catalog.json docs/skills/ docs/llms.txt docs/llms-full.txt docs/_data/pending.json
-          git commit -m "chore: regenerate derived files (catalog/llms/pending) [bot]"
+          git commit -s -m "chore: regenerate derived files (catalog/llms/pending) [bot]"
           # Push with a self-heal loop: the concurrency group serializes the
           # common case, but a peer commit can still land between our checkout
           # and our push (e.g. a release_batch push). Derived files are
@@ -123,7 +123,7 @@ jobs:
               exit 0
             fi
             git add catalog.json README.md docs/_data/catalog.json docs/skills/ docs/llms.txt docs/llms-full.txt docs/_data/pending.json
-            git commit -m "chore: regenerate derived files (catalog/llms/pending) [bot]"
+            git commit -s -m "chore: regenerate derived files (catalog/llms/pending) [bot]"
           done
           echo "::error::could not push derived files after 5 attempts"
           exit 1
