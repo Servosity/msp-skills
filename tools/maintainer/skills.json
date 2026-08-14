@@ -1423,10 +1423,10 @@
       "category": "Security",
       "display_name": "ThreatLocker",
       "tagline": "Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking.",
-      "cli_hash": "sha256:1d1bdc4ef4c98c1958db7085d8acd2b6d1900070b6fa9c1ac24a0e5e79b36f20",
+      "cli_hash": "sha256:5d8c9d496a52e240cb9c6a1659015333f907d11d4b5bf24114fcd27ce9b68b04",
       "template_version": 3,
       "version": "0.2.0",
-      "cli_hash_at_release": "sha256:cdd0d7312f2e45d8db1eac76164afeb2b0af3734db590d24ba004a6419e0b408",
+      "cli_hash_at_release": "sha256:5d8c9d496a52e240cb9c6a1659015333f907d11d4b5bf24114fcd27ce9b68b04",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",

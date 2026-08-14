@@ -307,7 +307,7 @@ Sync first: threatlocker-cli sync --resources approvals,applications`,
 				// `application-files list --application-id <id>` (live reads write
 				// through to the store). Say so rather than implying a sync would
 				// have filled it. See #208.
-				view.Note = "no matches in the local store; sync first with 'threatlocker-cli sync --resources approvals,applications' or widen the query. Trusted-file (application_files) matches additionally require 'threatlocker-cli application-files list --application-id <id>' for the applications you care about, which sync cannot enumerate on its own."
+				view.Note = "no matches in the local store; sync first with 'threatlocker-cli sync --resources approvals,applications' or widen the query. Trusted-file (application_files) matches additionally require 'threatlocker-cli application-files --application-id <id>' for the applications you care about, which sync cannot enumerate on its own."
 			case certOnlyUnresolved:
 				view.Note = "cert-only hunt: no hashes resolved from matching application file rules, so the approval queue was not searched; add --hash or --path to search it"
 			case totalRollupRows > len(view.Approvals):
