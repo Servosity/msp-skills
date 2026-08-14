@@ -179,7 +179,7 @@ traffic-matching-lists), including every write and destructive command.
 **Enumerate it with `--help`, recursively:**
 
 ```bash
-unifi-network-cli sites --help                 # the 15 resource groups
+unifi-network-cli sites --help                 # the 14 resource groups
 unifi-network-cli sites firewall --help        # that group's commands
 ```
 

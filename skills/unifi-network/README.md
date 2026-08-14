@@ -140,7 +140,7 @@ Set the credentials the CLI needs (from your UniFi portal):
 UNIFI_API_KEY=<value> UNIFI_GATEWAY_HOST=<value> unifi-network-cli doctor
 ```
 
-`doctor` confirms the credentials work before you run anything that touches data.
+`doctor` checks config, paths, and gateway reachability, and reports whether credentials are loaded. It does **not** validate them - it reports `present, not verified` and exits 0 even for a wrong key. Run a read command such as `unifi-network-cli sites` to confirm the key actually works.
 
 
 ## What this skill does
