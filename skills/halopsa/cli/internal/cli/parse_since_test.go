@@ -89,8 +89,14 @@ func TestParseSinceDurationsStayCaseInsensitive(t *testing.T) {
 			t.Errorf("parseSince(%q) = error %v", in, err)
 			continue
 		}
-		if days := int(time.Since(got).Hours() / 24); days != 7 {
-			t.Errorf("parseSince(%q) is %d days ago, want 7", in, days)
+		// Compared as a calendar date, not elapsed hours: parseSince uses
+		// AddDate, so a seven-day interval spanning a spring DST transition is
+		// 167 hours, and an hours/24 assertion would report six days and fail
+		// once a year in any DST-observing zone.
+		want := time.Now().AddDate(0, 0, -7)
+		if got.Year() != want.Year() || got.Month() != want.Month() || got.Day() != want.Day() {
+			t.Errorf("parseSince(%q) = %s, want the calendar date %s",
+				in, got.Format("2006-01-02"), want.Format("2006-01-02"))
 		}
 	}
 }
