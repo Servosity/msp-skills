@@ -12,7 +12,7 @@ surfaces days later as "these numbers look wrong" rather than as an error.
 
 Then the recovery is archaeology. Which of the several files held that token?
 Was it an environment variable or a config file? Did the last person paste it
-with the `Bearer ` prefix or without? The capture itself takes thirty seconds.
+with or without the `Bearer` prefix? The capture itself takes thirty seconds.
 Everything around it takes the afternoon.
 
 ## Why the obvious fixes do not work

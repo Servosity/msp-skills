@@ -25,7 +25,10 @@ Commands:
   verify --profile NAME                 run the profile's live health check
   doctor [--all | --profile NAME]       health-check; exit != 0 if any expired/expiring
   list                                  show profiles + last-seed + status
-  --selfcheck                           credstore + curlparse + render tests (no live creds)
+  --selfcheck [--live]                  curlparse + credstore + render tests. Offline by
+                                        default; --live adds a real credential-store
+                                        round trip (creates and deletes one entry, and
+                                        can raise a Keychain prompt on macOS).
 
 Profiles live in profiles/<name>.json (see README.md for the schema).
 """
@@ -44,9 +47,12 @@ import credstore
 import curlparse
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent.parent
-PROFILES_DIR = SCRIPT_DIR / "profiles"
-STATE_PATH = SCRIPT_DIR / "state.json"
+# Everything anchors on the SKILL directory, never on a repo root: a Skill is
+# installed wherever the host puts it, so `../..` is not a meaningful location.
+# profiles/ and captures/ are siblings of scripts/, as SKILL.md describes them.
+SKILL_DIR = SCRIPT_DIR.parent
+PROFILES_DIR = SKILL_DIR / "profiles"
+STATE_PATH = SKILL_DIR / "state.json"
 VERIFY_TIMEOUT = 90
 
 # doctor / verify exit codes. A profile's verify command signals a dead
@@ -73,8 +79,19 @@ def all_profiles() -> list[str]:
     return sorted(p.stem for p in PROFILES_DIR.glob("*.json"))
 
 
+_HOME_VAR = re.compile(r"\$\{HOME\}|\$HOME(?![A-Za-z0-9_])")
+
+
 def resolve_path(p: str, base: Path) -> Path:
-    """Expand ${VARS}; resolve a relative path against `base` (absolute stays)."""
+    """Expand ${VARS}; resolve a relative path against `base` (absolute stays).
+
+    $HOME is not set on Windows outside a POSIX-style shell, and expandvars
+    leaves an unknown variable in place verbatim -- so `${HOME}/.config/x` would
+    silently resolve to `<base>/${HOME}/.config/x` and write the consumer file
+    into the repo. Substitute the platform home first. The negative lookahead
+    keeps $HOMEDRIVE and $HOMEPATH intact for expandvars to handle.
+    """
+    p = _HOME_VAR.sub(lambda _: str(Path.home()), p) if "HOME" not in os.environ else p
     expanded = os.path.expandvars(p)
     q = Path(expanded)
     return q if q.is_absolute() else (base / q)
@@ -83,7 +100,7 @@ def resolve_path(p: str, base: Path) -> Path:
 def capture_path(prof: dict, override: str | None) -> Path:
     if override:
         return resolve_path(override, Path.cwd())
-    return resolve_path(prof["capture_file"], SCRIPT_DIR)
+    return resolve_path(prof["capture_file"], SKILL_DIR)
 
 
 # --------------------------------------------------------------------------- #
@@ -186,9 +203,18 @@ def _placeholders(template: str) -> list[str]:
 
 
 def atomic_write(path: Path, content: str, mode: int) -> None:
+    """Write `content` to `path` atomically, never world-readable in between.
+
+    The temp file carries the credential, so it is CREATED with `mode` rather
+    than created at the process umask and chmod'd afterwards -- that ordering
+    leaves the secret readable by other local users for the length of the write.
+    O_CREAT's mode is still masked by the umask, so the chmod stays as the
+    enforcing step.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
-    with open(tmp, "w", encoding="utf-8", newline="") as fh:
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
+    with open(fd, "w", encoding="utf-8", newline="") as fh:
         fh.write(content)
     try:
         os.chmod(tmp, mode)
@@ -225,7 +251,7 @@ def do_wire(prof: dict, values: dict[str, str] | None = None) -> Path:
             f"with the required guard. Stored value is likely malformed; re-seed."
         )
 
-    dest = resolve_path(wire["path"], REPO_ROOT)
+    dest = resolve_path(wire["path"], SKILL_DIR)
     mode = int(wire.get("mode", "0600"), 8) if isinstance(wire.get("mode"), str) else wire.get("mode", 0o600)
     atomic_write(dest, content, mode)
     return dest
@@ -241,8 +267,16 @@ def run_verify(prof: dict) -> tuple[int, str]:
     if not vr:
         return ERROR, "no verify command configured for this profile"
     cmd = list(vr["cmd"])
-    cmd[0] = str(resolve_path(cmd[0], REPO_ROOT))
-    cwd = str(resolve_path(vr["cwd"], REPO_ROOT)) if vr.get("cwd") else str(REPO_ROOT)
+    # A bare executable name is a PATH lookup and must stay untouched: sending
+    # it through resolve_path would join it onto SKILL_DIR, so `example-cli`
+    # becomes `<SKILL_DIR>/example-cli`, which does not exist, and every verify
+    # fails with "binary not found". Only resolve values that are actually
+    # path-like -- containing a separator, or naming a variable to expand.
+    head = cmd[0]
+    if any(sep in head for sep in (os.sep, "/", "\\")) or "$" in head:
+        head = str(resolve_path(head, SKILL_DIR))
+    cmd[0] = head
+    cwd = str(resolve_path(vr["cwd"], SKILL_DIR)) if vr.get("cwd") else str(SKILL_DIR)
     try:
         r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=VERIFY_TIMEOUT)
     except FileNotFoundError:
@@ -365,9 +399,9 @@ def cmd_list(args) -> int:
     return OK
 
 
-def cmd_selfcheck() -> int:
+def cmd_selfcheck(live: bool = False) -> int:
     curlparse._selfcheck()
-    credstore._selfcheck()
+    credstore._selfcheck(live=live)
     # render + guard, with no live creds
     wire_tmpl = {
         "type": "template-file",
@@ -403,7 +437,8 @@ def cmd_selfcheck() -> int:
         except SystemExit:
             pass
         assert not os.path.exists(bad["path"]), "guard-blocked write still created the file"
-    print("credgrab.py selfcheck OK (curlparse + credstore + render/guard)")
+    scope = "live credstore round-trip" if live else "no live creds"
+    print(f"credgrab.py selfcheck OK (curlparse + credstore + render/guard, {scope})")
     return OK
 
 
@@ -413,7 +448,7 @@ def cmd_selfcheck() -> int:
 
 def main() -> int:
     if "--selfcheck" in sys.argv:
-        return cmd_selfcheck()
+        return cmd_selfcheck(live="--live" in sys.argv)
     ap = argparse.ArgumentParser(prog="credgrab", description="refresh browser-session credentials")
     sub = ap.add_subparsers(dest="cmd", required=True)
 

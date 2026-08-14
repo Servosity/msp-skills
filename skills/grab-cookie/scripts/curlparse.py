@@ -4,19 +4,25 @@
 # ///
 """Robust Copy-as-cURL header/cookie parser.
 
-A naive parser handles only bash-style `-H '...'` and breaks on the others.
-Chrome on Windows offers three "Copy as cURL" flavours and they differ in
-quoting and line continuation, so which one a user pastes depends on their
-platform and on which DevTools build they are in:
+A naive parser handles only bash-style `-H '...'` and breaks on the rest.
+Chrome's "Copy as cURL" has two flavours that differ in quoting and line
+continuation, and which one a user gets depends on their platform:
 
   - Copy as cURL (bash) : -H 'name: value'   , backslash line continuation
   - Copy as cURL (cmd)  : -H "name: value"   , caret (^) line continuation
-  - PowerShell          : backtick line continuation, backtick-quote escaping
 
-We also see bash ANSI-C quoting `-H $'name: value'` when a value carries bytes
-that need escaping. This module handles all of them and returns a lowercased
-header map (with the cookie merged under `cookie`). Values are never printed;
-this module only parses text.
+A backtick line continuation is also accepted, since a curl command reflowed in
+a PowerShell buffer uses one. We also see bash ANSI-C quoting `-H $'name: value'`
+when a value carries bytes that need escaping. This module handles all of that
+and returns a lowercased header map (with the cookie merged under `cookie`).
+Values are never printed; this module only parses text.
+
+NOT SUPPORTED -- Chrome's "Copy as PowerShell" MENU ITEM. That is a different
+thing from a curl command with backticks in it: it emits `Invoke-WebRequest`
+with the headers in a PowerShell hashtable (`-Headers @{...}`), so there is no
+`-H` or `--header` token anywhere to find. Pasting it parses to an empty header
+map, and the failure surfaces later as the misleading "required credential not
+found". Choose "Copy as cURL (bash)".
 
   parse_headers_from_file(path) -> dict[str, str]
   parse_headers(text)          -> dict[str, str]
@@ -166,11 +172,19 @@ def _selfcheck() -> None:
     h = parse_headers("curl 'https://x' --header 'authorization: Bearer a:b:c'")
     assert h["authorization"] == "Bearer a:b:c", h
 
-    # 8. PowerShell backtick continuation
-    h = parse_headers('curl "https://x" `\n  -H "x-realm: pwsh"')
-    assert h["x-realm"] == "pwsh", h
+    # 8. backtick continuation (a curl command reflowed in a PowerShell buffer;
+    #    NOT Chrome's "Copy as PowerShell", which emits Invoke-WebRequest)
+    h = parse_headers('curl "https://x" `\n  -H "x-realm: backtick"')
+    assert h["x-realm"] == "backtick", h
 
-    print("curlparse.py selfcheck OK (bash/cmd/pwsh quoting, ANSI-C, -b + cookie header)")
+    # 9. Chrome's "Copy as PowerShell" carries no -H tokens at all, so it must
+    #    parse to nothing rather than appearing to half-work.
+    pwsh = ('$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession\n'
+            'Invoke-WebRequest -UseBasicParsing -Uri "https://x" `\n'
+            '  -Headers @{"x-realm"="nope"; "authorization"="Bearer zzz"}')
+    assert parse_headers(pwsh) == {}, "Invoke-WebRequest must not parse as curl"
+
+    print("curlparse.py selfcheck OK (bash/cmd/backtick quoting, ANSI-C, -b + cookie header)")
 
 
 if __name__ == "__main__":

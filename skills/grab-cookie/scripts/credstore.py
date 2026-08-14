@@ -7,7 +7,7 @@
 # (https://github.com/Servosity/msp-skills), Apache-2.0, author Damien Stevens.
 # Only change from upstream: the credential-store namespace in target_name() is
 # `credgrab/<service>/<account>` instead of `Servosity/connect-tool/...`.
-# See tools/credgrab/README.md (Attribution) and tools/credgrab/NOTICE.
+# See README.md (Attribution) and NOTICE in this skill directory.
 #
 """The credential backend: macOS Keychain or Windows Credential Manager.
 
@@ -177,7 +177,7 @@ def _win_store(service: str, account: str, value: str) -> None:
     cred.Flags = 0
     cred.Type = CRED_TYPE_GENERIC
     cred.TargetName = target_name(service, account)
-    cred.Comment = "connect-tool"
+    cred.Comment = "credgrab"
     cred.CredentialBlobSize = len(blob)
     cred.CredentialBlob = ctypes.cast(buf, ctypes.POINTER(ctypes.c_byte))
     cred.Persist = CRED_PERSIST_LOCAL_MACHINE
@@ -216,27 +216,53 @@ class CredError(RuntimeError):
     """Raised with a FIXED message. Never interpolate a captured value into it."""
 
 
+def _mac_only(fn):
+    """Return `fn` on macOS; raise a clear CredError anywhere that is not macOS.
+
+    ctplatform.WINDOWS is `os.name == "nt"`, so treating "not Windows" as macOS
+    routes Linux at `/usr/bin/security` and surfaces a bare FileNotFoundError
+    traceback instead of a CredError. credgrab supports two credential stores;
+    everywhere else must say so.
+    """
+    if not ctplatform.MACOS:
+        raise CredError(
+            "unsupported platform: credgrab needs Windows Credential Manager or macOS Keychain"
+        )
+    return fn
+
+
 def store(service: str, account: str, value: str) -> str:
     """Write a secret and return only its redacted receipt."""
     if not value:
         raise CredError("refusing to store an empty value")
-    (_win_store if ctplatform.WINDOWS else _mac_store)(service, account, value)
+    (_win_store if ctplatform.WINDOWS else _mac_only(_mac_store))(service, account, value)
     return receipt(value, service, account)
 
 
 def fetch(service: str, account: str) -> str | None:
-    return (_win_fetch if ctplatform.WINDOWS else _mac_fetch)(service, account)
+    return (_win_fetch if ctplatform.WINDOWS else _mac_only(_mac_fetch))(service, account)
 
 
 def delete(service: str, account: str) -> bool:
-    return (_win_delete if ctplatform.WINDOWS else _mac_delete)(service, account)
+    return (_win_delete if ctplatform.WINDOWS else _mac_only(_mac_delete))(service, account)
 
 
 def backend() -> str:
-    return "windows-credential-manager" if ctplatform.WINDOWS else "macos-keychain"
+    if ctplatform.WINDOWS:
+        return "windows-credential-manager"
+    if ctplatform.MACOS:
+        return "macos-keychain"
+    return "unsupported"
 
 
-def _selfcheck() -> None:
+def _selfcheck(live: bool = False) -> None:
+    """Offline checks by default; `live=True` adds a real credential-store round trip.
+
+    The live half creates and deletes a real entry in Credential Manager or the
+    Keychain, and on macOS it can raise an access prompt. That must never happen
+    behind a self-check documented as touching no live credentials, so it is
+    opt-in via `--live` rather than the default.
+    """
     # Platform-independent: the receipt is redacted and the blob round-trips.
     secret = "sk_test_ABC123"
     r = receipt(secret, "SVC", "acct")
@@ -254,8 +280,12 @@ def _selfcheck() -> None:
     assert target_name("HALOPSA_API_KEY", "halopsa") == \
         "credgrab/HALOPSA_API_KEY/halopsa"
 
+    if not live:
+        print("credstore.py selfcheck OK (offline: redaction + blob round-trip, no live creds)")
+        return
+
     # Live round-trip against the real backend for this platform.
-    svc, acct = "CONNECT_TOOL_SELFCHECK", "selfcheck"
+    svc, acct = "CREDGRAB_SELFCHECK", "selfcheck"
     try:
         out = store(svc, acct, secret)
         assert secret not in out, "SECRET LEAKED from store()"
@@ -294,7 +324,7 @@ def _interactive_store(service: str, account: str) -> int:
 if __name__ == "__main__":
     args = sys.argv[1:]
     if "--selfcheck" in args:
-        _selfcheck()
+        _selfcheck(live="--live" in args)
     elif "--store" in args:
         import argparse
         ap = argparse.ArgumentParser()

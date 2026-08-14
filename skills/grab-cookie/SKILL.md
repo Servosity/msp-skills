@@ -52,9 +52,9 @@ the opposite tradeoff explicitly.
 Every helper is a stdlib Python script next to this file. Python 3.12 or newer,
 no third-party packages, no compiled binary, no MCP server:
 
-```
+```bash
 python <this-skill-dir>/scripts/credgrab.py <command> [args]
-```
+```bash
 
 `<this-skill-dir>` is the directory containing this SKILL.md, which you already
 know because you just read it. Use that path directly rather than searching the
@@ -87,16 +87,19 @@ Tell the user, in these words or close to them:
 
 Copy as cURL is the right capture surface because DevTools shows the real request
 the browser sent, including the httpOnly cookie that no script can read. The
-parser accepts the bash, cmd, and PowerShell variants, since which one a user gets
-depends on their platform and on which DevTools they are in.
+parser accepts both the bash and cmd variants, since which one a user gets depends
+on their platform. Choose **Copy as cURL (bash)** when it is offered: "Copy as
+PowerShell" is a different menu item that emits `Invoke-WebRequest` rather than a
+curl command, carries no `-H` flags, and parses to nothing.
 
 The capture file is disposable. Delete it after seeding.
 
 ## 3. Seed
 
-```
-python scripts/credgrab.py seed --profile <name> --curl captures/<name>.curl.txt
-```
+```bash
+# macOS: use python3
+python <this-skill-dir>/scripts/credgrab.py seed --profile <name> --curl captures/<name>.curl.txt
+```bash
 
 This parses the request, extracts each configured value, writes it to the OS
 credential store, regenerates the consumer file from what was stored, and then
@@ -109,9 +112,9 @@ somewhere else.
 
 ## 4. Re-wire without re-capturing
 
-```
-python scripts/credgrab.py wire --profile <name>
-```
+```bash
+python <this-skill-dir>/scripts/credgrab.py wire --profile <name>
+```bash
 
 The credential store is the source of truth, so a consumer config file can be
 deleted, corrupted, or excluded from a backup and rebuilt with no browser step.
@@ -120,10 +123,10 @@ session itself has not expired.
 
 ## 5. Verify and monitor
 
-```
-python scripts/credgrab.py verify --profile <name>
-python scripts/credgrab.py doctor --all
-```
+```bash
+python <this-skill-dir>/scripts/credgrab.py verify --profile <name>
+python <this-skill-dir>/scripts/credgrab.py doctor --all
+```bash
 
 `doctor --all` is what you schedule. It probes every stored credential and reports
 those that are dead or close to a known expiry, which converts a silent thirty-day
@@ -134,9 +137,9 @@ thirty-day session.
 
 ## 6. Self-check
 
-```
-python scripts/credgrab.py --selfcheck
-```
+```bash
+python <this-skill-dir>/scripts/credgrab.py --selfcheck
+```bash
 
 Round-trips a synthetic value through the real credential store on this machine
 and deletes it. Run this first on a new machine, before assuming a failure is the
