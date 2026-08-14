@@ -215,6 +215,11 @@
           "file": "cli/internal/cli/sla_target_sql_test.go",
           "contains": "TestSLAResolutionTargetPrefersFixbydate",
           "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sla_target_sql_test.go",
+          "contains": "TestSLAPreFixTargetdateQueryFindsNothing",
+          "min_count": 1
         }
       ]
     }
