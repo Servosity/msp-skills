@@ -2126,11 +2126,11 @@ Outcomes (question -> command your AI agent runs):
 - What changed in this site's config since my last check? -> unifi-network-cli drift --site default --json
 - What devices and clients joined the network this week? -> unifi-network-cli newcomer --since 7d --json
 - Do I have switch port and PoE headroom before adding hardware? -> unifi-network-cli port-audit --site default --json
-- Which firewall policy would match traffic from this subnet? -> unifi-network-cli rule-predict --src 10.0.3.0/24 --dst 10.0.0.1
+- Which firewall policy would match traffic from this host? -> unifi-network-cli rule-predict --src 10.0.3.50 --dst 10.0.0.1
 - Which clients are sitting behind which device? -> unifi-network-cli topology --site default
-- What firewall policies are configured on this site? -> unifi-network-cli sites firewall get-policies <siteId>
+- What firewall policies are configured on this site? -> unifi-network-cli sites firewall get-policies <siteId> --all
 - Who is on the guest network, and which vouchers are live? -> unifi-network-cli guest report --site default
-- List every adopted device on the site -> unifi-network-cli sites devices get-adopted-overview-page <siteId>
+- List every adopted device on the site -> unifi-network-cli sites devices get-adopted-overview-page <siteId> --all
 
 FAQ:
 Q: Does this work with ChatGPT?
@@ -2146,9 +2146,9 @@ A: No. This skill talks to the local Network integration API on a self-hosted Un
 Q: Why do the drift and newcomer commands report nothing on the first run?
 A: Both maintain their own baseline because the API offers no history to read. The first run for a site captures the current state as the baseline and reports no changes - that is expected, not an error. From the second run on, they report what moved since the previous run. Run `unifi-network-cli sync` before each check so the mirror is current.
 Q: Can I trust rule-predict before making a firewall change?
-A: Treat it as a local simulation, not a live trace. It walks the last synced firewall policies in the same ascending-index, first-match-wins order the gateway uses, and matches on source and destination IP only - `--port` is echoed for reference and is not used for matching. Zone-wide policies and traffic-matching-list references it cannot resolve are flagged as uncertain rather than silently assumed. Sync first, and confirm the real change in the console.
+A: Treat it as a local simulation, not a live trace. It walks the last synced firewall policies in the same ascending-index, first-match-wins order the gateway uses, and matches on source and destination IP only - `--port` is echoed for reference and is not used for matching. Pass host IPs rather than CIDRs: a CIDR's mask is ignored and only the address you typed is tested, so `--src 10.0.3.0/24` predicts for the single address `10.0.3.0` and tells you nothing about `10.0.3.50`. It does not evaluate the range. Zone-wide policies and traffic-matching-list references it cannot resolve are flagged as uncertain rather than silently assumed. Sync first, and confirm the real change in the console.
 
-Governance: Most read commands - the local-mirror views, reports, search, and the non-mutating site endpoints - change nothing on the gateway and are safe to let an agent run. Two exceptions matter. A few reads return live secrets (the WiFi broadcast reads include the cleartext passphrase, the hotspot reads return usable voucher codes) and the CLI does not redact response bodies, so those belong in the credential tier rather than a blanket allow-all-reads policy. Writes are grouped by blast radius: routine config writes should be previewed with --dry-run and approved. Two tiers should never run unattended: device and port control, where one command can power-cycle a PoE port or kick a client off the network, and destructive commands, where `sites devices remove` factory-resets an online device.
+Governance: Most read commands - the local-mirror views, reports, and the non-mutating site endpoints - change nothing on the gateway and are safe to let an agent run. Two exceptions matter. Several reads return live secrets (the WiFi detail read includes that SSID's cleartext passphrase; guest report, search, and the hotspot reads return usable voucher codes) and the CLI does not redact output, so those belong in the credential tier rather than a blanket allow-all-reads policy. Three writes also return secrets in their response body (the voucher-creation and WiFi-broadcast writes), so their output is credential-grade too. Writes are grouped by blast radius: routine config writes should be previewed with --dry-run and approved. Two tiers should never run unattended: device and port control, where one command can power-cycle a PoE port or kick a client off the network, and destructive commands, where `sites devices remove` factory-resets an online device.
 
 ### Veeam (Backup/DR)
 
