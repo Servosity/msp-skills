@@ -59,15 +59,21 @@ Run 'halopsa-cli sync' first.`,
 				argsSQL = append(argsSQL, team)
 			}
 			// Tickets closed in window
-			closedSQL := `SELECT
-                COALESCE(NULLIF(agent_name,''), '(unassigned)') AS who,
+			// Resolves the agent from the synced agent records and groups on a
+			// key that cannot collide with tickets.who; see ticket_agent_sql.go
+			// and issue #211. Without both, every closure bucketed to
+			// "(unassigned)" while the actions-based hours below attributed
+			// correctly, which is the split symptom the issue describes.
+			closedSQL := ticketAgentScopedCTE + `
+            SELECT
+                agent_label AS who,
                 COUNT(*) AS closed,
                 COALESCE(client_name, '?') AS top_client
-            FROM tickets
+            FROM scoped
             WHERE json_extract(data, '$.status_id') IN (8,9)
-              AND datetime(COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), datecreated)) >= datetime(?)
+              AND datetime(COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), created_at)) >= datetime(?)
               ` + whereTeam + `
-            GROUP BY who
+            GROUP BY agent_label
             ORDER BY closed DESC LIMIT ?`
 			argsSQL = append(argsSQL, limit)
 			rows, err := db.DB().QueryContext(cmd.Context(), closedSQL, argsSQL...)

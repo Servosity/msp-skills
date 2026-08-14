@@ -82,10 +82,11 @@ client. Resolves by numeric ID or by name (case-insensitive substring match).`,
 			card["sites"] = sites
 
 			// Active tickets
-			tRows, _ := db.DB().QueryContext(cmd.Context(), `SELECT id, COALESCE(summary,''), COALESCE(agent_name,'?'),
+			tRows, _ := db.DB().QueryContext(cmd.Context(), ticketAgentScopedCTE+`
+                SELECT id, COALESCE(summary,''), COALESCE(agent_label,'?'),
                 COALESCE(json_extract(data,'$.status_name'),'?'),
                 COALESCE(json_extract(data,'$.targetdate'),'')
-                FROM tickets
+                FROM scoped
                 WHERE client_id = ? AND COALESCE(json_extract(data,'$.status_id'),0) NOT IN (8,9)
                 ORDER BY COALESCE(json_extract(data,'$.targetdate'),'') ASC
                 LIMIT ?`, clientID, limitT)
@@ -221,9 +222,13 @@ func newNovelClientOverlayCmd(flags *rootFlags) *cobra.Command {
                     WHERE COALESCE(json_extract(data,'$.status_id'),0) NOT IN (8,9)
                     GROUP BY client ORDER BY metric DESC LIMIT ?`
 			case "stale":
-				q = `SELECT COALESCE(client_name,'?') AS client,
-                    SUM(CASE WHEN (julianday('now') - julianday(COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), datecreated))) > 7 THEN 1 ELSE 0 END) AS metric
-                    FROM tickets
+				// Uses the scoped CTE for created_at: tickets.datecreated is
+				// blank on every synced row, so the staleness window silently
+				// measured against nothing. See ticket_agent_sql.go.
+				q = ticketAgentScopedCTE + `
+                    SELECT COALESCE(client_name,'?') AS client,
+                    SUM(CASE WHEN (julianday('now') - julianday(COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), created_at))) > 7 THEN 1 ELSE 0 END) AS metric
+                    FROM scoped
                     WHERE COALESCE(json_extract(data,'$.status_id'),0) NOT IN (8,9)
                     GROUP BY client ORDER BY metric DESC LIMIT ?`
 			case "sla_at_risk":

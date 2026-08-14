@@ -55,13 +55,17 @@ func newNovelAgentWorkloadCmd(flags *rootFlags) *cobra.Command {
 				argsSQL = append(argsSQL, team, team)
 			}
 			// Open counts + oldest age
-			openSQL := `SELECT
-                COALESCE(NULLIF(agent_name,''),'(unassigned)') AS agent,
+			// Agent and age both come from the shared scoped CTE; agent_name and
+			// datecreated are blank on every synced row. See
+			// ticket_agent_sql.go and issue #211.
+			openSQL := ticketAgentScopedCTE + `
+                SELECT
+                agent_label AS agent,
                 COUNT(*) AS open_count,
-                CAST(MAX(julianday('now') - julianday(datecreated)) AS INTEGER) AS oldest_days
-                FROM tickets
+                CAST(MAX(julianday('now') - julianday(created_at)) AS INTEGER) AS oldest_days
+                FROM scoped
                 WHERE COALESCE(json_extract(data,'$.status_id'),0) NOT IN (8,9) ` + whereTeam + `
-                GROUP BY agent`
+                GROUP BY agent_label`
 			rows, err := db.DB().QueryContext(cmd.Context(), openSQL, argsSQL...)
 			if err != nil {
 				return fmt.Errorf("workload open: %w", err)
@@ -85,9 +89,10 @@ func newNovelAgentWorkloadCmd(flags *rootFlags) *cobra.Command {
 				byAgent[e.Agent] = &e
 			}
 			// Touched in window: tickets whose lastactiondate falls within
-			touchedSQL := `SELECT COALESCE(NULLIF(agent_name,''),'(unassigned)'), COUNT(*) FROM tickets
-                WHERE datetime(COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), datecreated)) >= datetime(?) ` + whereTeam + `
-                GROUP BY agent_name`
+			touchedSQL := ticketAgentScopedCTE + `
+                SELECT agent_label, COUNT(*) FROM scoped
+                WHERE datetime(COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), created_at)) >= datetime(?) ` + whereTeam + `
+                GROUP BY agent_label`
 			tArgs := append([]any{t.Format(time.RFC3339)}, argsSQL...)
 			if tRows, terr := db.DB().QueryContext(cmd.Context(), touchedSQL, tArgs...); terr == nil {
 				defer tRows.Close()

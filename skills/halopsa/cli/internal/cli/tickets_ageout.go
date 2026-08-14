@@ -54,13 +54,14 @@ through the API per ticket.`,
 				where = append(where, "(LOWER(COALESCE(json_extract(data,'$.status_name'),''))=LOWER(?) OR LOWER(COALESCE(json_extract(data,'$.status'),''))=LOWER(?))")
 				argsSQL = append(argsSQL, status, status)
 			}
-			where = append(where, "(julianday('now') - julianday(COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), datecreated))) >= ?")
+			where = append(where, "(julianday('now') - julianday(COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), created_at))) >= ?")
 			argsSQL = append(argsSQL, staleDays)
-			q := `SELECT id, COALESCE(client_name,'?'), COALESCE(agent_name,'?'),
+			q := ticketAgentScopedCTE + `
+                SELECT id, COALESCE(client_name,'?'), COALESCE(agent_label,'?'),
                 COALESCE(json_extract(data,'$.status_name'), json_extract(data,'$.status'), '?'),
-                COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), datecreated),
+                COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), created_at),
                 COALESCE(summary,'')
-                FROM tickets WHERE ` + strings.Join(where, " AND ") + ` ORDER BY id LIMIT ?`
+                FROM scoped WHERE ` + strings.Join(where, " AND ") + ` ORDER BY id LIMIT ?`
 			argsSQL = append(argsSQL, limit)
 			rows, err := db.DB().QueryContext(cmd.Context(), q, argsSQL...)
 			if err != nil {
@@ -190,17 +191,18 @@ Backed by incremental sync; replaces brittle 'tickets updated since' ETLs.`,
 				return fmt.Errorf("opening local database: %w\nRun 'halopsa-cli sync' first.", err)
 			}
 			defer db.Close()
-			where := []string{"datetime(COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), datecreated)) >= datetime(?)"}
+			where := []string{"datetime(COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), created_at)) >= datetime(?)"}
 			argsSQL := []any{t.Format(time.RFC3339)}
 			if mine {
 				where = append(where, "json_extract(data,'$.is_mine') = 1")
 			}
-			q := `SELECT id, COALESCE(client_name,'?') AS client,
-                COALESCE(agent_name,'?') AS agent,
+			q := ticketAgentScopedCTE + `
+                SELECT id, COALESCE(client_name,'?') AS client,
+                COALESCE(agent_label,'?') AS agent,
                 COALESCE(json_extract(data,'$.status_name'),'?') AS status,
                 COALESCE(summary,'') AS summary,
-                COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), datecreated) AS last_action
-                FROM tickets WHERE ` + strings.Join(where, " AND ") + `
+                COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), created_at) AS last_action
+                FROM scoped WHERE ` + strings.Join(where, " AND ") + `
                 ORDER BY last_action DESC LIMIT ?`
 			argsSQL = append(argsSQL, limit)
 			rows, err := db.DB().QueryContext(cmd.Context(), q, argsSQL...)

@@ -144,6 +144,60 @@
           "min_count": 1
         }
       ]
+    },
+    {
+      "id": "novel-commands-share-ticket-agent-sql",
+      "summary": "standup, agent workload, tickets age-out and client card read agents and ticket ages through the shared ticketAgentScopedCTE instead of the blank agent_name/datecreated columns (issue #211)",
+      "why": "The two defects fixed for triage in #209 were present verbatim in the other novel ticket commands, which #211 filed after triage was verified but the rest could not be without a live tenant. Confirmed against one: standup bucketed all 15 closures onto '(unassigned)' while its actions-backed hours column attributed correctly (the FROM tickets half collides, the FROM actions half does not, exactly as #211 predicted); agent workload put all 8 open tickets and all 59 touches under '(unassigned)' and reported oldest_days 0 for every agent; tickets age-out and client card printed agent '?' on every row. Both causes must be fixed together, because the grouping-key collision hides the agent join: resolving the name per row still yields a single bucket while GROUP BY binds tickets.who, a real column that is NULL on every row, ahead of the output alias. ticket_agent_sql.go is a novel file holding one CTE that exposes agent_label (resolved from the synced agent records via agent_id, with a populated agent_name still preferred) and created_at (datecreated falling through to dateoccurred). Neither alias exists as a real tickets column, so neither can collide the way who does. Commands reading FROM actions are deliberately untouched: actions has no who column, their grouping already binds the alias, and they already attribute correctly. Verified live after the change: standup splits 15 closures 9/3/3 across real agents, agent workload reports 3/3/2 open with oldest_days 7/168/6 matching triage on the same cache, and age-out plus client card name every agent.",
+      "status": "active",
+      "spec_encode_followup": "None available: these are hand-written novel commands, not generated, so the press cannot derive the fallbacks. The ledger entry is the backstop against a reprint or a new command reintroducing the pattern.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/ticket_agent_sql.go",
+          "contains": "const ticketAgentScopedCTE",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/ticket_agent_sql.go",
+          "contains": "AS agent_label",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/ticket_agent_sql.go",
+          "contains": "AS created_at",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/standup.go",
+          "contains": "ticketAgentScopedCTE",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/agent_workload.go",
+          "contains": "ticketAgentScopedCTE",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/tickets_ageout.go",
+          "contains": "ticketAgentScopedCTE",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/client_card.go",
+          "contains": "ticketAgentScopedCTE",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/ticket_agent_sql_test.go",
+          "contains": "TestScopedCTEResolvesAgentsAndDoesNotCollapse",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/ticket_agent_sql_test.go",
+          "contains": "TestNovelTicketCommandsUseSharedFragment",
+          "min_count": 1
+        }
+      ]
     }
   ]
 }
