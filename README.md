@@ -224,7 +224,7 @@ Outcomes, not hype - drawn from each of the 61 connectors' skill pages:
 | Which customers have logged time we never invoiced? | syncro | `syncro-cli billing uninvoiced` |
 | What's the overall health of my fleet right now? | tactical-rmm | `tactical-rmm-cli fleet health` |
 | What application approvals are pending across all my clients right now? | threatlocker | `threatlocker-cli approvals triage --all-tenants` |
-| TODO: question an MSP keeps asking | unifi-network | `unifi-network-cli TODO` |
+| What changed in this site's config since my last check? | unifi-network | `unifi-network-cli drift --site default --json` |
 | Which backup jobs are failing across all my customers? | veeam | `veeam-cli fleet-health --agent` |
 | Publish a landing page from HTML without opening wp-admin? | wordpress | `wordpress-cli pages create --title "Spring Promo" --content "<h1>Spring Promo</h1>" --status publish` |
 | Who owes us, and how overdue is each invoice? | xero | `xero-cli aging --agent` |

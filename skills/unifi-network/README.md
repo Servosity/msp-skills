@@ -1,7 +1,7 @@
 # UniFi + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the UniFi
-> API. Not affiliated with, endorsed by, or sponsored by Ubiquiti Inc..
+> API. Not affiliated with, endorsed by, or sponsored by Ubiquiti Inc.
 
 <!-- media:start -->
 <p align="center">
@@ -145,25 +145,40 @@ UNIFI_API_KEY=<value> UNIFI_GATEWAY_HOST=<value> unifi-network-cli doctor
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `unifi-network-cli ...` |
+| What changed in this site's config since my last check? | `unifi-network-cli drift --site default --json` |
+| What devices and clients joined the network this week? | `unifi-network-cli newcomer --since 7d --json` |
+| Do I have switch port and PoE headroom before adding hardware? | `unifi-network-cli port-audit --site default` |
+| Which firewall policy would match traffic from this subnet? | `unifi-network-cli rule-predict --src 10.0.3.0/24 --dst 10.0.0.1` |
+| Which clients are sitting behind which device? | `unifi-network-cli topology --site default` |
+| What firewall policies are configured on this site? | `unifi-network-cli sites firewall get-policies <siteId>` |
+| Who is on the guest network, and which vouchers are live? | `unifi-network-cli guest report --site default` |
+| List every adopted device on the site | `unifi-network-cli sites devices get-adopted-overview-page <siteId>` |
 
--->
+Run `unifi-network-cli sync` first - `drift`, `newcomer`, `topology`, `guest report`, and
+`rule-predict` all compute from the local mirror, and `port-audit` needs the synced
+device list before it can fetch port detail.
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most UniFi integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most UniFi integrations and MCP servers proxy each question into a live API call. That's fine for one record. It has nothing to say the moment you ask anything historical - "what changed on this site since Friday?", "is that access point new?" - because the UniFi Network integration API exposes no config-versioning and no audit-trail endpoint. There is no history to proxy to.
 
-This skill syncs UniFi into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs UniFi into a **local SQLite mirror** with full-text search, and keeps its own snapshots on top of it. That is what makes the historical questions answerable at all: `drift` diffs the site's networks, firewall, WiFi, and DNS config against the state it captured on its last run, and `newcomer` holds a first-seen record per device and client so new hardware surfaces against a real baseline. `topology` and `guest report` bring together data the API only returns separately - `topology` nests each synced client under the device it's attached to, and `guest report` puts the site's active hotspot vouchers and its currently connected guest clients in one output instead of three console screens. Work a stateless API wrapper can't do, because the state was never kept anywhere else.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+UniFi gear is everywhere in small-business networks, and the thing operators keep asking it for is the one thing it won't give them: history. The Network integration API exposes no config-versioning and no audit-trail endpoint, so "what changed on this site, and when?" has nothing to query. The Ubiquiti Community has carried standing feature requests on exactly this for years - threads titled [UniFi Change Logs or Change Control options?](https://community.ui.com/questions/UniFi-Change-Logs-or-Change-Control-options/7c9f7b06-9c3b-4cad-92a7-5920b06e9f9c), [UniFi audit/change logs supported?](https://community.ui.com/questions/UniFi-audit-change-logs-supported/64ced74e-114d-4c2e-9e8d-469388b9eccc), and [Audit log of recent changes](https://community.ui.com/questions/Audit-log-of-recent-changes/710d01da-2191-4acf-84f0-ec4ca830eed7).
+
+The same missing-baseline problem shows up twice more. There's no first-seen record for a device or client, so nothing on the screen distinguishes hardware that appeared this morning from hardware that's been there a year. And per-port interface data never appears in any list response - only in a per-device detail fetch - so "which ports are free, and which are already energizing PoE?" means opening every switch on the site one at a time.
+
+- **`unifi-network-cli drift --site default --json`** - diffs the site's config against the snapshot this command captured last run, then advances it. It keeps its own history precisely because the API has none.
+- **`unifi-network-cli newcomer --since 7d --json`** - first-seen record per device and client, so new hardware surfaces against a baseline instead of a flat list.
+- **`unifi-network-cli port-audit --site default --json`** - per-port link state and PoE status for every switching or gateway device. Without `--json` the terminal path prints a one-line `N up / M down, PoE active on K port(s)` summary per device.
+- **`unifi-network-cli rule-predict --src 10.0.3.0/24 --dst 10.0.0.1`** - walks the synced policies in the gateway's own first-match-wins order and reports which one would match, flagging what it can't resolve as uncertain rather than guessing.
+- **`unifi-network-cli topology --site default`** - groups every synced client under the device it's attached to. Device-to-device uplink chaining isn't in the list endpoints, so every device sits at the top level - a switch behind a switch isn't nested.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +200,21 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Does this use the UniFi Site Manager cloud API?
+
+No. This skill talks to the **local Network integration API** on a self-hosted UniFi OS gateway, reached at `https://<gateway>/proxy/network` with an API key you mint in the gateway's own UI. It's a single-gateway tool: one CLI instance sees one controller, not a multi-tenant view across every deployment. UniFi Protect (cameras) and UniFi Access (doors) are separate APIs and are not covered.
+
+### Why do `drift` and `newcomer` report nothing on the first run?
+
+Both maintain their own baseline, because the API offers no history to read. The first run for a site captures current state as the baseline and reports no changes - that's expected, not an error. From the second run on they report what moved since the previous run. Run `unifi-network-cli sync` before each check so the mirror is current.
+
+### Can I trust `rule-predict` before making a firewall change?
+
+Treat it as a local simulation, not a live trace. It walks the last synced firewall policies in the same ascending-index, first-match-wins order the gateway uses, and matches on **source and destination IP only** - `--port` is echoed for reference and is not used for matching. Zone-wide policies and traffic-matching-list references it can't resolve are flagged uncertain rather than silently assumed. Sync first, and confirm the real change in the console.
+
+### Will this replace the UniFi console?
+
+No, and it isn't meant to. The console stays the system of record and the place you make changes. This adds the surface the console doesn't have: config drift, first-seen hardware, port and PoE headroom, and firewall-match prediction as single commands that return JSON an agent can act on.
 
 ### What does it cost?
 
@@ -198,24 +222,23 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
+| Read | `drift`, `newcomer`, `topology`, `port-audit`, `guest report`, `rule-predict`, `search`, and every non-mutating `sites ...` endpoint | Allow |
+| Write (routine) - 18 commands | `sites firewall create-policy`, `sites acl-rules update`, `sites networks create`, `sites wifi update-broadcast`, `sites dns create-policy`, `sites hotspot create-vouchers` | Preview with `--dry-run`, then a reviewed write |
+| Device / port control - 4 commands | `sites devices adopt`, `sites devices execute-adopted-action`, `sites devices execute-port-action`, `sites clients execute-connected-action` | Human-in-the-loop only - a port action can power-cycle PoE and drop whatever is plugged into it |
+| Destructive - 10 commands | `sites devices remove` (**factory-resets the device if it's online**), `sites firewall delete-zone`, `sites networks delete`, `sites acl-rules delete`, `sites wifi delete-broadcast` | Human-in-the-loop only, explicit confirmation |
 
--->
-
-The strongest control is the **scope you grant the UniFi credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
+One caveat worth knowing up front: the UniFi integration API key **is not scopeable to read-only**, so the same credential that runs `drift` can run `sites devices remove`. The gate has to live in your agent's policy, not in the key. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 
-Beta. Validated against the UniFi API surface and being validated with MSPs running it live against their own production tenant in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Beta, awaiting live verification. The command surface is validated against the UniFi Network integration API and the CLI's own mock verification suite; no closed-loop receipt from an MSP running it against a production gateway exists yet. We validate skills with MSPs in our weekly Build Sessions - RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+**Attribution.** The underlying CLI was generated and contributed by Ricardo Cabral ([@phoenix-server](https://github.com/phoenix-server)) and is redistributed here under Apache-2.0 with the original `NOTICE` preserved in [`cli/NOTICE`](./cli/NOTICE).
+
+Packaged and maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-08-14._
