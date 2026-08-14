@@ -21,13 +21,14 @@ import (
 	"threatlocker-pp-cli/internal/client"
 	"threatlocker-pp-cli/internal/cliutil"
 	"threatlocker-pp-cli/internal/config"
+	"threatlocker-pp-cli/internal/learn"
+	"threatlocker-pp-cli/internal/mcp/bound"
 	"threatlocker-pp-cli/internal/mcp/cobratree"
+	"threatlocker-pp-cli/internal/platform"
 	"threatlocker-pp-cli/internal/store"
 )
 
 const (
-	mcpToolResultMaxBytes = 60000
-	mcpToolResultMaxItems = 50
 	// MCP hosts can fan out tool calls faster than a human CLI session.
 	// Keep them on the same polite-client limiter path instead of disabling
 	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
@@ -36,8 +37,9 @@ const (
 
 // RegisterTools registers all API operations as MCP tools.
 func RegisterTools(s *server.MCPServer) {
-	// Code-orchestration mode — the full surface is covered by two tools
-	// (<api>_search + <api>_execute). Endpoint-mirror tools are suppressed.
+	installFreshTenantGate(s)
+	// Code-orchestration mode — the full surface is covered by registry tools
+	// (<api>_search, <api>_get, and <api>_execute). Endpoint-mirror tools are suppressed.
 	RegisterCodeOrchestrationTools(s)
 	// Search tool — faster than iterating list endpoints for finding specific items
 	s.AddTool(
@@ -54,7 +56,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='application-files'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -84,6 +86,11 @@ type mcpParamBinding struct {
 	Default    string
 }
 
+type mcpPageConfig struct {
+	CursorParam    string
+	NextCursorPath string
+}
+
 func formatMCPParamValue(v any) string {
 	switch tv := v.(type) {
 	case string:
@@ -108,22 +115,40 @@ func formatMCPParamValue(v any) string {
 		}
 		return strconv.FormatFloat(f, 'f', -1, 32)
 	default:
+		// Composite values (a native []any / map[string]any from an array or
+		// object param) reach this path when bound to a query or path slot;
+		// JSON-encode them so the wire value is valid JSON rather than Go's
+		// "[a b c]" / "map[...]" rendering. Body params never come through
+		// here — they are stored natively in bodyArgs and marshalled there.
+		if b, err := json.Marshal(v); err == nil {
+			return string(b)
+		}
 		return fmt.Sprintf("%v", v)
 	}
 }
 
+func mcpPathValue(v any) string {
+	return cliutil.EscapePathParam(formatMCPParamValue(v))
+}
+
 // makeAPIHandler creates a generic MCP tool handler for an API endpoint.
-func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse bool, headerOverrides map[string]string, bindings []mcpParamBinding, positionalParams []string) server.ToolHandlerFunc {
+func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse bool, headerOverrides map[string]string, pageConfig mcpPageConfig, bindings []mcpParamBinding, positionalParams []string) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
-		c, err := newMCPClient()
+		c, platformSession, err := newMCPClient(ctx)
 		if err != nil {
-			return mcplib.NewToolResultError(err.Error()), nil
+			return mcpToolError(err.Error()), nil
+		}
+		if platformSession != nil {
+			defer platformSession.ZeroCredentials()
 		}
 
 		// mcp-go v0.47+ made CallToolParams.Arguments an `any` to support
 		// non-map payloads; GetArguments() returns the map[string]any shape
 		// we rely on here (or an empty map when the payload is something else).
 		args := req.GetArguments()
+		if err := cli.AdoptMCPOutputSemantics(platformSession, args); err != nil {
+			return mcpToolError(err.Error()), nil
+		}
 
 		// positionalParams mixes real URL path params with CLI positional
 		// args that map to query params (e.g. `search <query>` -> ?query=);
@@ -133,6 +158,24 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 		pathParams := make(map[string]bool, len(positionalParams))
 		params := make(map[string]string)
 		bodyArgs := make(map[string]any)
+		mcpCursor := ""
+		if pageConfig.CursorParam != "" {
+			knownArgs["cursor"] = true
+			if v, ok := args["cursor"]; ok {
+				s, ok := v.(string)
+				if !ok {
+					return mcpToolError("cursor must be an opaque string returned by a previous MCP response"), nil
+				}
+				mcpCursor = s
+				upstreamCursor, err := bound.UpstreamCursor(s)
+				if err != nil {
+					return mcpToolError(err.Error()), nil
+				}
+				if upstreamCursor != "" {
+					params[pageConfig.CursorParam] = upstreamCursor
+				}
+			}
+		}
 		var headers map[string]string
 		if len(headerOverrides) > 0 {
 			headers = make(map[string]string, len(headerOverrides)+1)
@@ -160,7 +203,12 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
+				path = strings.Replace(path, placeholder, mcpPathValue(v), 1)
+			case "header":
+				if headers == nil {
+					headers = map[string]string{}
+				}
+				headers[binding.WireName] = formatMCPParamValue(v)
 			case "body":
 				bodyArgs[binding.WireName] = v
 			default:
@@ -174,7 +222,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
+				path = strings.Replace(path, placeholder, mcpPathValue(v), 1)
 			}
 		}
 
@@ -194,10 +242,18 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 		switch method {
 		case "GET":
 			if len(headers) > 0 {
-				data, err = c.GetWithHeaders(ctx, path, params, headers)
+				if readOnly {
+					data, err = c.GetWithHeaders(ctx, path, params, headers)
+				} else {
+					data, err = c.GetMutatingWithHeaders(ctx, path, params, headers)
+				}
 				break
 			}
-			data, err = c.Get(ctx, path, params)
+			if readOnly {
+				data, err = c.Get(ctx, path, params)
+			} else {
+				data, err = c.GetMutating(ctx, path, params)
+			}
 		case "POST":
 			if len(headers) > 0 {
 				if readOnly {
@@ -214,16 +270,32 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		case "PUT":
 			if len(headers) > 0 {
-				data, _, err = c.PutWithParamsAndHeaders(ctx, path, params, bodyArgs, headers)
+				if readOnly {
+					data, _, err = c.PutQueryWithParamsAndHeaders(ctx, path, params, bodyArgs, headers)
+				} else {
+					data, _, err = c.PutWithParamsAndHeaders(ctx, path, params, bodyArgs, headers)
+				}
 				break
 			}
-			data, _, err = c.PutWithParams(ctx, path, params, bodyArgs)
+			if readOnly {
+				data, _, err = c.PutQueryWithParams(ctx, path, params, bodyArgs)
+			} else {
+				data, _, err = c.PutWithParams(ctx, path, params, bodyArgs)
+			}
 		case "PATCH":
 			if len(headers) > 0 {
-				data, _, err = c.PatchWithParamsAndHeaders(ctx, path, params, bodyArgs, headers)
+				if readOnly {
+					data, _, err = c.PatchQueryWithParamsAndHeaders(ctx, path, params, bodyArgs, headers)
+				} else {
+					data, _, err = c.PatchWithParamsAndHeaders(ctx, path, params, bodyArgs, headers)
+				}
 				break
 			}
-			data, _, err = c.PatchWithParams(ctx, path, params, bodyArgs)
+			if readOnly {
+				data, _, err = c.PatchQueryWithParams(ctx, path, params, bodyArgs)
+			} else {
+				data, _, err = c.PatchWithParams(ctx, path, params, bodyArgs)
+			}
 		case "DELETE":
 			if len(headers) > 0 {
 				data, _, err = c.DeleteWithParamsAndHeaders(ctx, path, params, headers)
@@ -231,181 +303,132 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			data, _, err = c.DeleteWithParams(ctx, path, params)
 		default:
-			return mcplib.NewToolResultError("unsupported method: " + method), nil
+			return mcpToolError("unsupported method: " + method), nil
 		}
 
 		if err != nil {
 			msg := err.Error()
 			switch {
 			case strings.Contains(msg, "HTTP 409"):
-				return mcplib.NewToolResultText("already exists (no-op)"), nil
+				return mcpToolTextWithPlatform("already exists (no-op)", platformSession), nil
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
-				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
+				return mcpToolError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
 					"\n      Set your API key with: export THREATLOCKER_API_KEY=\"your-token-here\"" +
 					"\n      Run 'threatlocker-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
-				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
+				return mcpToolError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your API key." +
 					"\n      Set your API key with: export THREATLOCKER_API_KEY=\"your-token-here\"" +
 					"\n      Run 'threatlocker-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
-				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
+				return mcpToolError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
 					"\n      Set your API key with: export THREATLOCKER_API_KEY=\"your-token-here\"" +
 					"\n      Run 'threatlocker-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
 				if method == "DELETE" {
-					return mcplib.NewToolResultText("already deleted (no-op)"), nil
+					return mcpToolTextWithPlatform("already deleted (no-op)", platformSession), nil
 				}
-				return mcplib.NewToolResultError("not found: " + msg), nil
+				return mcpToolError("not found: " + msg), nil
 			case strings.Contains(msg, "HTTP 429"):
-				return mcplib.NewToolResultError("rate limited: " + msg), nil
+				return mcpToolError("rate limited: " + msg), nil
 			default:
-				return mcplib.NewToolResultError(msg), nil
+				return mcpToolError(msg), nil
 			}
 		}
 
 		if binaryResponse {
-			out, _ := json.Marshal(map[string]any{
+			encoded := base64.StdEncoding.EncodeToString(data)
+			out, err := json.Marshal(map[string]any{
 				"content_encoding": "base64",
-				"data_base64":      base64.StdEncoding.EncodeToString(data),
+				"data_base64":      encoded,
 				"byte_count":       len(data),
 			})
-			return mcplib.NewToolResultText(string(out)), nil
+			if err != nil {
+				return mcpToolError(fmt.Sprintf("encoding binary result: %v", err)), nil
+			}
+			if len(out) > bound.MaxBytes {
+				return mcpToolError(fmt.Sprintf("binary response is too large for MCP text output: %d response bytes encode to %d base64 bytes and %d MCP result bytes, exceeding the %d byte budget. Use the companion CLI command with --output <file> to save the payload locally.", len(data), len(encoded), len(out), bound.MaxBytes)), nil
+			}
+			result := string(out)
+			if platformSession != nil {
+				result = bound.WithMetadata(result, platformSession.OutputMetadata())
+			}
+			return mcplib.NewToolResultText(result), nil
 		}
-		return mcpToolResultText(method, data), nil
+		if pageConfig.CursorParam != "" {
+			return mcpToolPageResultTextWithPlatform(method, data, pageConfig, mcpCursor, platformSession), nil
+		}
+		return mcpToolResultTextWithPlatform(method, data, platformSession), nil
 	}
 }
 
 func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
-	trimmed := strings.TrimSpace(string(data))
-	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
-		var items []json.RawMessage
-		if json.Unmarshal(data, &items) == nil {
-			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
-		}
-	}
-	if len(data) <= mcpToolResultMaxBytes {
-		return mcplib.NewToolResultText(string(data))
-	}
-	if strings.EqualFold(method, "GET") {
-		if out, ok := mcpBoundedSingleArrayObject(data); ok {
-			return mcplib.NewToolResultText(string(out))
-		}
-	}
-	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+	return mcpToolResultTextWithPlatform(method, data, nil)
 }
 
-func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
-	var obj map[string]json.RawMessage
-	if json.Unmarshal(data, &obj) != nil {
-		return nil, false
+func mcpToolTextWithPlatform(result string, platformSession *platform.Session) *mcplib.CallToolResult {
+	if platformSession != nil {
+		result = bound.WithMetadata(result, platformSession.OutputMetadata())
 	}
-	arrayField := ""
-	var items []json.RawMessage
-	for key, raw := range obj {
-		trimmed := strings.TrimSpace(string(raw))
-		if len(trimmed) == 0 || trimmed[0] != '[' {
-			continue
-		}
-		var candidate []json.RawMessage
-		if json.Unmarshal(raw, &candidate) != nil {
-			continue
-		}
-		if arrayField != "" {
-			return nil, false
-		}
-		arrayField = key
-		items = candidate
-	}
-	if arrayField == "" {
-		return nil, false
-	}
-	build := func(subset []json.RawMessage) any {
-		out := make(map[string]any, len(obj)+6)
-		for key, raw := range obj {
-			if key == arrayField {
-				out[key] = subset
-				continue
-			}
-			out[key] = raw
-		}
-		if len(subset) < len(items) {
-			out["_pp_truncated"] = true
-			out["_pp_total_count"] = len(items)
-			out["_pp_returned_count"] = len(subset)
-			out["_pp_original_bytes"] = len(data)
-			out["_pp_max_bytes"] = mcpToolResultMaxBytes
-			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
-		}
-		return out
-	}
-	out := mcpFitJSONItems(items, build)
-	if len(out) > mcpToolResultMaxBytes {
-		return nil, false
-	}
-	return out, true
+	return mcplib.NewToolResultText(result)
 }
 
-func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
-	build := func(subset []json.RawMessage) any {
-		out := map[string]any{
-			"count": len(items),
-			field:   subset,
-		}
-		if len(subset) < len(items) {
-			out["truncated"] = true
-			out["returned_count"] = len(subset)
-			out["original_bytes"] = originalBytes
-			out["max_bytes"] = mcpToolResultMaxBytes
-			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
-		}
-		return out
-	}
-	return mcpFitJSONItems(items, build)
+func mcpToolResultTextWithPlatform(method string, data json.RawMessage, platformSession *platform.Session) *mcplib.CallToolResult {
+	result := bound.EndpointResponse(method, data)
+	return mcpToolTextWithPlatform(result, platformSession)
 }
 
-func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
-	limit := len(items)
-	if limit > mcpToolResultMaxItems {
-		limit = mcpToolResultMaxItems
-	}
-	for n := limit; n >= 0; n-- {
-		out, err := json.Marshal(build(items[:n]))
-		if err != nil {
-			continue
-		}
-		if len(out) <= mcpToolResultMaxBytes || n == 0 {
-			return out
-		}
-	}
-	out, _ := json.Marshal(build(items[:0]))
-	return out
+// mcpToolError keeps provider-controlled typed endpoint errors within the MCP
+// text-result budget just like successful endpoint results.
+func mcpToolError(message string) *mcplib.CallToolResult {
+	return mcplib.NewToolResultError(bound.Text(message))
 }
 
-func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
-	previewBytes := data
-	if len(previewBytes) > 4000 {
-		previewBytes = previewBytes[:4000]
-	}
-	out, _ := json.Marshal(map[string]any{
-		"truncated":      true,
-		"original_bytes": len(data),
-		"max_bytes":      mcpToolResultMaxBytes,
-		"preview":        string(previewBytes),
-		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+func mcpToolPageResultText(method string, data json.RawMessage, pageConfig mcpPageConfig, cursor string) *mcplib.CallToolResult {
+	return mcpToolPageResultTextWithPlatform(method, data, pageConfig, cursor, nil)
+}
+
+func mcpToolPageResultTextWithPlatform(method string, data json.RawMessage, pageConfig mcpPageConfig, cursor string, platformSession *platform.Session) *mcplib.CallToolResult {
+	result := bound.EndpointPageResponse(method, data, bound.PageOptions{
+		Cursor:         cursor,
+		CursorParam:    pageConfig.CursorParam,
+		NextCursorPath: pageConfig.NextCursorPath,
 	})
-	return out
+	if platformSession != nil {
+		result = bound.WithMetadata(result, platformSession.OutputMetadata())
+	}
+	return mcplib.NewToolResultText(result)
 }
 
-func newMCPClient() (*client.Client, error) {
-	home, _ := os.UserHomeDir()
-	cfgPath := filepath.Join(home, ".config", "threatlocker-cli", "config.toml")
-	cfg, err := config.Load(cfgPath)
+func newMCPClient(ctx context.Context) (*client.Client, *platform.Session, error) {
+	cfg, err := newMCPConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+	c := newMCPClientFromConfig(cfg)
+	session, err := cli.BindMCPClient(ctx, c)
+	if err != nil {
+		return nil, nil, err
+	}
+	return c, session, nil
+}
+
+func newMCPConfig() (*config.Config, error) {
+	cfg, err := config.Load("")
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
+	return cfg, nil
+}
+
+func newMCPClientFromConfig(cfg *config.Config) *client.Client {
+	// Tenant scoping: the MCP server has no --org flag, so it resolves the
+	// managed organization from THREATLOCKER_ORG_ID. Without this the MCP
+	// surface issued every live Portal API call unscoped while the CLI scoped
+	// correctly. Shared helper so the two surfaces cannot drift.
+	cli.ApplyTenantScopeHeaders(cfg, cli.ResolveTenantOrg(""))
 	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
@@ -413,16 +436,56 @@ func newMCPClient() (*client.Client, error) {
 	// pre-mutation snapshot for up to the cache TTL. The interactive CLI
 	// constructs its own client and is unaffected.
 	c.NoCache = true
-	return c, nil
+	return c
 }
 
-func dbPath() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".local", "share", "threatlocker-cli", "data.db")
+func mcpDBPath() (string, error) {
+	dir, err := cliutil.DataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "data.db"), nil
 }
 
-// Note: MCP tools use their own dbPath() because they are in a separate package (main, not cli).
-// The CLI's defaultDBPath() in the cli package uses the same canonical path.
+type mcpStoreStatusKind string
+
+const (
+	mcpStoreStatusEmpty mcpStoreStatusKind = "empty"
+	mcpStoreStatusReady mcpStoreStatusKind = "ready"
+)
+
+func openMCPReadOnlyStore(path string) (*store.Store, *mcplib.CallToolResult) {
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return nil, mcplib.NewToolResultError(mcpMissingStoreMessage(path))
+		}
+		return nil, mcplib.NewToolResultError(fmt.Sprintf("checking local data store %s: %v", path, err))
+	}
+	db, err := store.OpenReadOnly(path)
+	if err != nil {
+		return nil, mcplib.NewToolResultError(fmt.Sprintf("opening local data store %s: %v. Run threatlocker-cli sync to refresh the store, or use live endpoint MCP tools for unsynced data.", path, err))
+	}
+	return db, nil
+}
+
+func mcpMissingStoreMessage(path string) string {
+	return fmt.Sprintf("No local data store found at %s. Run threatlocker-cli sync before using MCP search/sql, or use live endpoint MCP tools for unsynced data.", path)
+}
+
+func mcpStoreStatus(db *store.Store) (mcpStoreStatusKind, error) {
+	status, err := db.Status()
+	if err != nil {
+		return "", err
+	}
+	if len(status) == 0 {
+		return mcpStoreStatusEmpty, nil
+	}
+	return mcpStoreStatusReady, nil
+}
+
+func mcpEmptyStoreNextStep() string {
+	return "Run threatlocker-cli sync to populate the local SQLite store before using MCP search/sql."
+}
 
 func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
@@ -436,9 +499,13 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 		limit = int(v)
 	}
 
-	db, err := store.OpenReadOnly(dbPath())
+	path, err := mcpDBPath()
 	if err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("opening database: %v", err)), nil
+		return mcplib.NewToolResultError(fmt.Sprintf("resolving database: %v", err)), nil
+	}
+	db, toolErr := openMCPReadOnlyStore(path)
+	if toolErr != nil {
+		return toolErr, nil
 	}
 	defer db.Close()
 
@@ -446,8 +513,32 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 	if err != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("search failed: %v", err)), nil
 	}
+	storeStatus, err := mcpStoreStatus(db)
+	if err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("reading store status: %v", err)), nil
+	}
 
-	return toolResultJSON(results)
+	return toolResultJSON(mcpSearchEnvelope(results, storeStatus))
+}
+
+func mcpSearchEnvelope(results []json.RawMessage, storeStatus mcpStoreStatusKind) map[string]any {
+	if results == nil {
+		results = []json.RawMessage{}
+	}
+	out := map[string]any{
+		"count":        len(results),
+		"results":      results,
+		"store_status": storeStatus,
+		"resumable":    false,
+	}
+	if len(results) == 0 {
+		if storeStatus == mcpStoreStatusEmpty {
+			out["next_step"] = mcpEmptyStoreNextStep()
+		} else {
+			out["next_step"] = "No local search matches. Try a broader query, a lower-specificity FTS expression, or sync again if data may be stale."
+		}
+	}
+	return out
 }
 
 // validateReadOnlyQuery gates the MCP sql tool. The agent contract advertised
@@ -611,15 +702,19 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
 
-	db, err := store.OpenReadOnly(dbPath())
+	path, err := mcpDBPath()
 	if err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("opening database: %v", err)), nil
+		return mcplib.NewToolResultError(fmt.Sprintf("resolving database: %v", err)), nil
+	}
+	db, toolErr := openMCPReadOnlyStore(path)
+	if toolErr != nil {
+		return toolErr, nil
 	}
 	defer db.Close()
 
-	rows, err := db.Query(query)
+	rows, err := db.DB().QueryContext(ctx, query)
 	if err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("query failed: %v", err)), nil
+		return mcplib.NewToolResultError(mcpSQLQueryError(err)), nil
 	}
 	defer rows.Close()
 
@@ -648,28 +743,80 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 	if err := rows.Err(); err != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("reading rows: %v", err)), nil
 	}
+	storeStatus, err := mcpStoreStatus(db)
+	if err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("reading store status: %v", err)), nil
+	}
 
-	return toolResultJSON(results)
+	return toolResultJSON(mcpSQLEnvelope(results, cols, storeStatus))
+}
+
+func mcpSQLEnvelope(rows []map[string]any, columns []string, storeStatus mcpStoreStatusKind) map[string]any {
+	if rows == nil {
+		rows = []map[string]any{}
+	}
+	out := map[string]any{
+		"count":        len(rows),
+		"columns":      columns,
+		"rows":         rows,
+		"store_status": storeStatus,
+		"resumable":    false,
+	}
+	if len(rows) == 0 {
+		if storeStatus == mcpStoreStatusEmpty {
+			out["next_step"] = mcpEmptyStoreNextStep()
+		} else {
+			out["next_step"] = "The read-only SQL query returned no rows. Check resource_type filters, json_extract paths, or run sync again if data may be stale."
+		}
+	}
+	return out
+}
+
+func mcpSQLQueryError(err error) string {
+	msg := err.Error()
+	if strings.Contains(strings.ToLower(msg), "no such table") {
+		return fmt.Sprintf("query failed: %v. Synced records live in resources(resource_type, id, data), not one SQL table per resource. Filter by resource_type, for example resource_type='application-files', and read JSON fields with json_extract(data,'$.field').", err)
+	}
+	return fmt.Sprintf("query failed: %v", err)
 }
 
 // toolResultJSON renders v as the indented JSON body of an MCP text result,
 // surfacing a marshal failure as a tool error instead of empty content.
 func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
-	data, err := json.MarshalIndent(v, "", "  ")
+	text, err := bound.JSON(v)
 	if err != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("encoding result: %v", err)), nil
 	}
-	return mcplib.NewToolResultText(string(data)), nil
+	return mcplib.NewToolResultText(text), nil
 }
 
 func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	paths := map[string]string{}
+	if dir, err := cliutil.ConfigDir(); err == nil {
+		paths["config_dir"] = dir
+	}
+	if dir, err := cliutil.DataDir(); err == nil {
+		paths["data_dir"] = dir
+	}
+	if dir, err := cliutil.StateDir(); err == nil {
+		paths["state_dir"] = dir
+	}
+	if dir, err := cliutil.CacheDir(); err == nil {
+		paths["cache_dir"] = dir
+	}
 	ctx := map[string]any{
 		"api":         "threatlocker",
 		"description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
 		"archetype":   "infrastructure",
 		"tool_count":  54,
+		"paths":       paths,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion threatlocker-cli binary.",
+		// learn_protocol is generated from the single shared source of
+		// truth (the exported constant internal/learn.RecallFirstProtocol)
+		// also consumed by the CLI agent-context command, so the MCP and
+		// CLI agent surfaces cannot drift.
+		"learn_protocol": learn.RecallFirstProtocol,
 		"auth": map[string]any{
 			"type": "api_key",
 			"env_vars": []map[string]any{
@@ -687,24 +834,29 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"name":        "application-files",
 				"description": "File rules belonging to an application",
 				"endpoints":   []string{"list"},
+				"syncable":    true,
 				"searchable":  true,
 			},
 			{
 				"name":        "applications",
 				"description": "Application definitions (custom + built-in) and policies' targets",
 				"endpoints":   []string{"create", "get", "match", "research", "search", "update"},
+				"syncable":    true,
 				"searchable":  true,
+				"writable":    true,
 			},
 			{
 				"name":        "approvals",
 				"description": "Application-control approval requests (list, inspect, approve)",
 				"endpoints":   []string{"approve", "count", "get", "list", "permit-options", "storage"},
 				"searchable":  true,
+				"writable":    true,
 			},
 			{
 				"name":        "audit",
 				"description": "Unified Audit (ActionLog) — permit/deny events. Default retention 31 days.",
 				"endpoints":   []string{"file-history", "get", "search"},
+				"syncable":    true,
 				"searchable":  true,
 			},
 			{
@@ -719,11 +871,13 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"endpoints":   []string{"baseline-rescan", "checkins", "delete", "enable-protection", "get", "install-info", "list", "maintenance", "maintenance-update", "move-org", "restart-service"},
 				"syncable":    true,
 				"searchable":  true,
+				"writable":    true,
 			},
 			{
 				"name":        "maintenance",
 				"description": "Maintenance-mode history",
 				"endpoints":   []string{"history"},
+				"syncable":    true,
 				"searchable":  true,
 			},
 			{
@@ -750,6 +904,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"description": "Application Control / Storage / Network policies",
 				"endpoints":   []string{"copy", "create", "delete", "deploy", "get", "list-by-app"},
 				"searchable":  true,
+				"writable":    true,
 			},
 			{
 				"name":        "reports",
@@ -757,6 +912,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"endpoints":   []string{"data", "list"},
 				"syncable":    true,
 				"searchable":  true,
+				"writable":    true,
 			},
 			{
 				"name":        "scheduled-actions",
@@ -776,6 +932,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"description": "Portal system audit (admin actions) + Health Center",
 				"endpoints":   []string{"health-center", "search"},
 				"searchable":  true,
+				"writable":    true,
 			},
 			{
 				"name":        "tags",
@@ -792,7 +949,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			},
 		},
 		"query_tips": []string{
-			"Pagination uses cursor-based paging. Pass after parameter for subsequent pages.",
+			"Pagination uses cursor-based paging. Pass pageNumber parameter for subsequent pages.",
 			"Control page size with the pageSize parameter (default 100).",
 			"Use the sql tool for ad-hoc analysis on synced data. Run sync first to populate the local database.",
 			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints.",
@@ -801,13 +958,13 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "Cross-tenant approval triage", "command": "approvals triage", "description": "One ranked queue of every pending application approval across all your managed customer tenants, grouped by file hash so duplicate requests collapse into one row.", "rationale": "ThreatLocker's API scopes each call to a single tenant via the ManagedOrganizationId header; only a local SQLite mirror can join pending requests across every org and group them by hash and age in one view.", "via": "mcp-command-mirror"},
-			{"name": "Batch-approve by hash", "command": "approvals approve-batch", "description": "Approve the same file (by SHA256) across every tenant where it is pending, in one command, with a dry-run plan first.", "rationale": "Approving requests is a write the read-only incumbent MCP server cannot do at all; doing it by hash across tenants needs the cross-tenant store to resolve which requests match.", "via": "mcp-command-mirror"},
-			{"name": "Audit retention rescue", "command": "audit export", "description": "Export the Unified Audit log per-tenant or across all tenants to JSONL/CSV and persist it locally, keeping evidence past ThreatLocker's 31-day retention cliff.", "rationale": "ThreatLocker discards ActionLog after 31 days; the offline store becomes the long-term archive the live API throws away.", "via": "mcp-command-mirror"},
-			{"name": "Retention-cliff doctor", "command": "audit retention-check", "description": "Reports, per tenant, the oldest audit row you have versus the 31-day cliff and how stale your last export is — flagging tenants about to lose evidence.", "rationale": "A pure local-data query over synced audit timestamps; no incumbent guards against the silent data-loss loop when an export quietly breaks.", "via": "mcp-command-mirror"},
-			{"name": "Cross-tenant audit drift", "command": "audit drift", "description": "One ranked table of security-relevant changes — protection disabled, policy changed, maintenance toggled — across every tenant in a time window.", "rationale": "Correlating ActionLog and system-audit events across all tenants is a local join over synced rows; no single ThreatLocker API call answers 'who changed what across my customers this week'.", "via": "mcp-command-mirror"},
-			{"name": "Device-health rollup", "command": "devices health", "description": "Joins computers, online-devices, and last-checkin data to classify every endpoint healthy / offline / stale / isolated, rolled up per tenant.", "rationale": "ThreatLocker has no aggregation endpoint; the health classification is a SQLite join across three synced entity types the live API only exposes separately and per-tenant.", "via": "mcp-command-mirror"},
-			{"name": "Auth / 401 doctor", "command": "doctor", "description": "Diagnoses the #1 ThreatLocker integration pain: validates the raw 64-hex token format, the no-Bearer Authorization header, the ManagedOrganizationId header, New-vs-Old API mode, pings an authenticated endpoint, and maps a 401 to its exact likely cause.", "rationale": "ThreatLocker tokens renew-on-use and silently expire when idle; combined with the Old-vs-New API trap this produces cryptic 401s no incumbent tool explains.", "via": "mcp-command-mirror"},
+			{"name": "Cross-tenant approval triage", "command": "approvals triage", "description": "One ranked queue of every pending application approval across all your managed customer tenants", "rationale": "ThreatLocker's API scopes each call to a single tenant via the ManagedOrganizationId header", "via": "mcp-command-mirror"},
+			{"name": "Batch-approve by hash", "command": "approvals approve-batch", "description": "Approve the same file (by SHA256) across every tenant where it is pending, in one command, with a dry-run plan first.", "rationale": "Approving requests is a write the read-only incumbent MCP server cannot do at all", "via": "mcp-command-mirror"},
+			{"name": "Audit retention rescue", "command": "audit export", "description": "Export the Unified Audit log per-tenant or across all tenants to JSONL/CSV and persist it locally", "rationale": "ThreatLocker discards ActionLog after 31 days; the offline store becomes the long-term archive the live API throws away.", "via": "mcp-command-mirror"},
+			{"name": "Retention-cliff doctor", "command": "audit retention-check", "description": "Reports, per tenant", "rationale": "A pure local-data query over synced audit timestamps", "via": "mcp-command-mirror"},
+			{"name": "Cross-tenant audit drift", "command": "audit drift", "description": "One ranked table of security-relevant changes — protection disabled, policy changed", "rationale": "Correlating ActionLog and system-audit events across all tenants is a local join over synced rows", "via": "mcp-command-mirror"},
+			{"name": "Device-health rollup", "command": "devices health", "description": "Joins computers, online-devices, and last-checkin data to classify every endpoint healthy / offline / stale / isolated", "rationale": "ThreatLocker has no aggregation endpoint", "via": "mcp-command-mirror"},
+			{"name": "Auth / 401 doctor", "command": "doctor", "description": "Diagnoses the #1 ThreatLocker integration pain: validates the raw 64-hex token format", "rationale": "ThreatLocker tokens renew-on-use and silently expire when idle", "via": "mcp-command-mirror"},
 			{"name": "Cross-tenant application hunt", "command": "applications hunt", "description": "Locate a specific file (by hash, certificate, or path) across every tenant and endpoint in one offline query — present, approved, or pending.", "rationale": "The per-tenant API forces N separate searches; only the local SQLite mirror can FTS across every synced tenant's applications joined to computers in a single query.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{

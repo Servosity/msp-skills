@@ -4,6 +4,9 @@
 
 A single CLI for MSPs running ThreatLocker across many customer tenants. It matches the full read surface of the incumbent MCP server, adds the writes nobody shipped (approve requests, toggle maintenance, push policy), and mirrors every entity into a local SQLite database so you can triage approvals, audit drift, and device health across ALL tenants at once  -  something the per-tenant API forces you to do one header-swap at a time.
 
+Created by [@dstevens](https://github.com/dstevens) (Damien Stevens).
+Contributors: [@DamienStevens](https://github.com/DamienStevens) (Damien Stevens).
+
 ## Install
 
 The recommended path installs both the `threatlocker-cli` binary and the `pp-threatlocker` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
@@ -33,7 +36,7 @@ npx -y @mvanhorn/printing-press-library install threatlocker --agent claude-code
 
 ### Without Node (Go fallback)
 
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.4 or newer):
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.5 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/monitoring/threatlocker/cmd/threatlocker-cli@latest
@@ -128,14 +131,18 @@ Auth is a raw API token in the Authorization header (NO 'Bearer' prefix)  -  a 6
 # verify your token, org header, and API mode before anything else
 threatlocker-cli doctor
 
+
 # list your managed customer tenants and their GUIDs
 threatlocker-cli organizations list --agent
+
 
 # see pending approval requests across all tenants
 threatlocker-cli approvals list --child-orgs --agent
 
+
 # mirror entities into the local store so cross-tenant commands work offline
 threatlocker-cli sync
+
 
 # the ranked, hash-grouped cross-tenant approval queue
 threatlocker-cli approvals triage --all-tenants --agent
@@ -147,6 +154,7 @@ threatlocker-cli approvals triage --all-tenants --agent
 These capabilities aren't available in any other tool for this API.
 
 ### Cross-tenant intelligence
+
 - **`approvals triage`**  -  One ranked queue of every pending application approval across all your managed customer tenants, grouped by file hash so duplicate requests collapse into one row.
 
   _Reach for this to clear the morning approval backlog across an entire MSP book without swapping tenant context request-by-request._
@@ -168,15 +176,9 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   threatlocker-cli devices health --all-tenants --agent
   ```
-- **`applications hunt`**  -  Locate a specific file (by hash, certificate, or path) across every tenant and endpoint in one offline query  -  present, approved, or pending.
-
-  _Reach for this during incident response to answer 'where does this binary live across my whole book' without swapping tenant context per search._
-
-  ```bash
-  threatlocker-cli applications hunt --hash 3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b --agent
-  ```
 
 ### MSP write operations
+
 - **`approvals approve-batch`**  -  Approve the same file (by SHA256) across every tenant where it is pending, in one command, with a dry-run plan first.
 
   _Use this when one trusted updater is blocked everywhere  -  approve it once instead of clicking through 30 portals._
@@ -186,6 +188,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Audit & compliance
+
 - **`audit export`**  -  Export the Unified Audit log per-tenant or across all tenants to JSONL/CSV and persist it locally, keeping evidence past ThreatLocker's 31-day retention cliff.
 
   _Run this on a schedule so compliance evidence and incident timelines survive the retention window._
@@ -202,6 +205,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Auth resilience
+
 - **`doctor`**  -  Diagnoses the #1 ThreatLocker integration pain: validates the raw 64-hex token format, the no-Bearer Authorization header, the ManagedOrganizationId header, New-vs-Old API mode, pings an authenticated endpoint, and maps a 401 to its exact likely cause.
 
   _Run this first whenever a script starts returning 401  -  it tells you whether the token expired, the org header is missing, or you're on the deprecated API mode._
@@ -219,7 +223,7 @@ These capabilities aren't available in any other tool for this API.
 threatlocker-cli approvals triage --all-tenants --agent --select organizationName,fileName,hash,ageHours,duplicateCount
 ```
 
-Drain the overnight backlog ranked by age with duplicate hashes collapsed, then batch-approve the trusted ones. Requires a recent sync --resources approvals.
+Drain the overnight backlog ranked by age with duplicate hashes collapsed, then batch-approve the trusted ones.
 
 ### Nightly audit archive before the 31-day cliff
 
@@ -227,7 +231,7 @@ Drain the overnight backlog ranked by age with duplicate hashes collapsed, then 
 threatlocker-cli audit export --all-tenants --since 2026-04-01 --csv > audit-archive.csv
 ```
 
-Persist Unified Audit beyond ThreatLocker's retention window for SIEM and compliance. Requires a recent sync --resources audit  -  the export materializes from the local archive.
+Persist Unified Audit beyond ThreatLocker's retention window for SIEM and compliance.
 
 ### Who disabled protection this week
 
@@ -235,7 +239,7 @@ Persist Unified Audit beyond ThreatLocker's retention window for SIEM and compli
 threatlocker-cli audit drift --since 7d --all-tenants --agent
 ```
 
-One ranked table of protection-off / policy-change / maintenance events across every customer. Requires a recent sync --resources audit,system-audit.
+One ranked table of protection-off / policy-change / maintenance events across every customer.
 
 ### Dark-agent health sweep
 
@@ -243,7 +247,7 @@ One ranked table of protection-off / policy-change / maintenance events across e
 threatlocker-cli devices health --all-tenants --agent --select organizationName,computerName,healthClass,lastCheckin
 ```
 
-Classify every endpoint healthy/offline/stale/isolated across all tenants in one pass. Requires a recent sync --resources computers,online-devices.
+Classify every endpoint healthy/offline/stale/isolated across all tenants in one pass.
 
 ### Diagnose a broken automation
 
@@ -256,6 +260,55 @@ Pinpoint whether a 401 is an expired token, a missing org header, or Old-API mod
 ## Usage
 
 Run `threatlocker-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `THREATLOCKER_CONFIG_DIR`, `THREATLOCKER_DATA_DIR`, `THREATLOCKER_STATE_DIR`, or `THREATLOCKER_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `THREATLOCKER_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export THREATLOCKER_HOME=/srv/threatlocker
+threatlocker-cli doctor
+```
+
+Under `THREATLOCKER_HOME=/srv/threatlocker`, the four dirs resolve to `/srv/threatlocker/config`, `/srv/threatlocker/data`, `/srv/threatlocker/state`, and `/srv/threatlocker/cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "threatlocker": {
+      "command": "threatlocker-mcp",
+      "env": {
+        "THREATLOCKER_HOME": "/srv/threatlocker"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `THREATLOCKER_DATA_DIR` overrides an explicit `--home` for that kind. Use `THREATLOCKER_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `THREATLOCKER_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `threatlocker-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
 
 ## Commands
 
@@ -399,6 +452,23 @@ ThreatLocker agent versions
 - **`threatlocker-cli versions`** - List available agent versions (label/value/isEnabled/isDefault/osType)
 
 
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`threatlocker-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`threatlocker-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`threatlocker-cli learnings list`** - Inspect taught rows
+- **`threatlocker-cli learnings forget <query>`** - Undo a teach
+- **`threatlocker-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`threatlocker-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`threatlocker-cli teach-pattern`** - Install a query/resource template up front
+- **`threatlocker-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `THREATLOCKER_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `threatlocker-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -407,9 +477,8 @@ threatlocker-cli application-files --application-id 550e8400-e29b-41d4-a716-4466
 
 # JSON for scripting and agents
 threatlocker-cli application-files --application-id 550e8400-e29b-41d4-a716-446655440000 --json
-
 # Filter to specific fields
-threatlocker-cli application-files --application-id 550e8400-e29b-41d4-a716-446655440000 --json --select id,name,status
+threatlocker-cli application-files --application-id 550e8400-e29b-41d4-a716-446655440000 --json --select applicationFileId,applicationId,fullPath
 
 # Dry run  -  show the request without sending
 threatlocker-cli application-files --application-id 550e8400-e29b-41d4-a716-446655440000 --dry-run
@@ -424,7 +493,7 @@ This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
 - **Explicit retries** - add `--idempotent` to create retries when a no-op success is acceptable
 - **Confirmable** - `--yes` for explicit confirmation of destructive actions
@@ -444,7 +513,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/threatlocker-cli/config.toml`
+Run `threatlocker-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/threatlocker-cli/config.toml`; `--home`, `THREATLOCKER_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
@@ -467,10 +536,13 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Run the `list` command to see available items
 
 ### API-specific
+
 - **401 Unauthorized from every call**  -  Run `threatlocker-cli doctor`; most often the sliding-expiry token died from inactivity or the ManagedOrganizationId header is missing.
 - **Empty results but no error**  -  Confirm the ManagedOrganizationId / --org GUID is the tenant you mean; data calls are tenant-scoped.
 - **Audit rows older than ~31 days are gone**  -  ThreatLocker retains ActionLog 31 days; run `audit export` on a schedule and query the local store for older data.
 - **Endpoint deprecated / unexpected shape**  -  Ensure you are on the New API version; the Old API is deprecated and requires the ManagedOrganizationId header on the New one.
+
+---
 
 ## Sources & Inspiration
 

@@ -13,7 +13,7 @@ import (
 )
 
 func newApprovalsListCmd(flags *rootFlags) *cobra.Command {
-	var bodyStatusId string
+	var bodyStatusId int
 	var bodySearchText string
 	var bodyOrderBy string
 	var bodyIsAscending bool
@@ -30,14 +30,13 @@ func newApprovalsListCmd(flags *rootFlags) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {
 			}
+			path := "/ApprovalRequest/ApprovalRequestGetByParameters"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/ApprovalRequest/ApprovalRequestGetByParameters"
 			params := map[string]string{}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -49,27 +48,30 @@ func newApprovalsListCmd(flags *rootFlags) *cobra.Command {
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
-				if bodyStatusId != "" {
-					body["statusId"] = bodyStatusId
+				bodyMap := map[string]any{}
+				body = bodyMap
+				if cmd.Flags().Changed("status") || bodyStatusId != 0 {
+					bodyMap["statusId"] = bodyStatusId
 				}
-				if bodySearchText != "" {
-					body["searchText"] = bodySearchText
+				if cmd.Flags().Changed("search-text") || bodySearchText != "" {
+					bodyMap["searchText"] = bodySearchText
 				}
-				if bodyOrderBy != "" {
-					body["orderBy"] = bodyOrderBy
+				if cmd.Flags().Changed("order-by") || bodyOrderBy != "" {
+					bodyMap["orderBy"] = bodyOrderBy
 				}
 				if cmd.Flags().Changed("ascending") {
-					body["isAscending"] = bodyIsAscending
+					bodyMap["isAscending"] = bodyIsAscending
 				}
-				if cmd.Flags().Changed("child-orgs") {
-					body["showChildOrganizations"] = bodyShowChildOrganizations
+				// Always sent: --help advertises a default for --child-orgs, so the
+				// value must reach the API even when the user did not type the
+				// flag. Without this a bare call returns one organization
+				// instead of the whole managed tree (#208).
+				bodyMap["showChildOrganizations"] = bodyShowChildOrganizations
+				if cmd.Flags().Changed("page-number") || bodyPageNumber != 0 {
+					bodyMap["pageNumber"] = bodyPageNumber
 				}
-				if bodyPageNumber != 0 {
-					body["pageNumber"] = bodyPageNumber
-				}
-				if bodyPageSize != 0 {
-					body["pageSize"] = bodyPageSize
+				if cmd.Flags().Changed("page-size") || bodyPageSize != 0 {
+					bodyMap["pageSize"] = bodyPageSize
 				}
 			}
 			data, statusCode, err := c.PostQueryWithParams(cmd.Context(), path, params, body)
@@ -136,6 +138,9 @@ func newApprovalsListCmd(flags *rootFlags) *cobra.Command {
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -174,14 +179,26 @@ func newApprovalsListCmd(flags *rootFlags) *cobra.Command {
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {
@@ -205,11 +222,11 @@ func newApprovalsListCmd(flags *rootFlags) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&bodyStatusId, "status", "1", "Status filter (1=Pending)")
+	cmd.Flags().IntVar(&bodyStatusId, "status", 1, "Status filter (1=Pending)")
 	cmd.Flags().StringVar(&bodySearchText, "search-text", "", "Free-text search")
 	cmd.Flags().StringVar(&bodyOrderBy, "order-by", "datetime", "Sort field")
 	cmd.Flags().BoolVar(&bodyIsAscending, "ascending", true, "Sort ascending")
-	cmd.Flags().BoolVar(&bodyShowChildOrganizations, "child-orgs", false, "Span all managed organizations")
+	cmd.Flags().BoolVar(&bodyShowChildOrganizations, "child-orgs", true, "Span all managed organizations")
 	cmd.Flags().IntVar(&bodyPageNumber, "page-number", 1, "1-based page number")
 	cmd.Flags().IntVar(&bodyPageSize, "page-size", 100, "Results per page")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")

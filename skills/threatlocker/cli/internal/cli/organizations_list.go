@@ -29,14 +29,13 @@ func newOrganizationsListCmd(flags *rootFlags) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {
 			}
+			path := "/Organization/OrganizationGetChildOrganizationsByParameters"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/Organization/OrganizationGetChildOrganizationsByParameters"
 			params := map[string]string{}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -48,24 +47,27 @@ func newOrganizationsListCmd(flags *rootFlags) *cobra.Command {
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
-				if bodySearchText != "" {
-					body["searchText"] = bodySearchText
+				bodyMap := map[string]any{}
+				body = bodyMap
+				if cmd.Flags().Changed("search-text") || bodySearchText != "" {
+					bodyMap["searchText"] = bodySearchText
 				}
-				if cmd.Flags().Changed("all-children") {
-					body["includeAllChildren"] = bodyIncludeAllChildren
-				}
-				if bodyOrderBy != "" {
-					body["orderBy"] = bodyOrderBy
+				// Always sent: --help advertises a default for --all-children, so the
+				// value must reach the API even when the user did not type the
+				// flag. Without this a bare call returns one organization
+				// instead of the whole managed tree (#208).
+				bodyMap["includeAllChildren"] = bodyIncludeAllChildren
+				if cmd.Flags().Changed("order-by") || bodyOrderBy != "" {
+					bodyMap["orderBy"] = bodyOrderBy
 				}
 				if cmd.Flags().Changed("ascending") {
-					body["isAscending"] = bodyIsAscending
+					bodyMap["isAscending"] = bodyIsAscending
 				}
-				if bodyPageNumber != 0 {
-					body["pageNumber"] = bodyPageNumber
+				if cmd.Flags().Changed("page-number") || bodyPageNumber != 0 {
+					bodyMap["pageNumber"] = bodyPageNumber
 				}
-				if bodyPageSize != 0 {
-					body["pageSize"] = bodyPageSize
+				if cmd.Flags().Changed("page-size") || bodyPageSize != 0 {
+					bodyMap["pageSize"] = bodyPageSize
 				}
 			}
 			data, statusCode, err := c.PostQueryWithParams(cmd.Context(), path, params, body)
@@ -132,6 +134,9 @@ func newOrganizationsListCmd(flags *rootFlags) *cobra.Command {
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -170,14 +175,26 @@ func newOrganizationsListCmd(flags *rootFlags) *cobra.Command {
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {
@@ -202,7 +219,7 @@ func newOrganizationsListCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&bodySearchText, "search-text", "", "Free-text search")
-	cmd.Flags().BoolVar(&bodyIncludeAllChildren, "all-children", false, "Recurse all descendants")
+	cmd.Flags().BoolVar(&bodyIncludeAllChildren, "all-children", true, "Recurse all descendants")
 	cmd.Flags().StringVar(&bodyOrderBy, "order-by", "name", "Sort field")
 	cmd.Flags().BoolVar(&bodyIsAscending, "ascending", true, "Sort ascending")
 	cmd.Flags().IntVar(&bodyPageNumber, "page-number", 1, "1-based page number")

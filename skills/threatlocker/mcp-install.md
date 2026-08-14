@@ -37,7 +37,7 @@ Add (or merge with your existing `mcpServers` block):
     "threatlocker": {
       "command": "threatlocker-mcp",
       "env": {
-        "THREATLOCKER_API_KEY": "<your-threatlocker_api_key>"
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
       }
     }
   }
@@ -62,7 +62,7 @@ Configuration**) and add:
       "type": "stdio",
       "command": "threatlocker-mcp",
       "env": {
-        "THREATLOCKER_API_KEY": "<your-threatlocker_api_key>"
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
       }
     }
   }
@@ -83,7 +83,7 @@ Claude Desktop:
     "threatlocker": {
       "command": "threatlocker-mcp",
       "env": {
-        "THREATLOCKER_API_KEY": "<your-threatlocker_api_key>"
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
       }
     }
   }
@@ -101,7 +101,7 @@ All remote agents need `threatlocker-mcp` reachable as a public **HTTPS** endpoi
 in HTTP mode with your credentials in the environment:
 
 ```bash
-THREATLOCKER_API_KEY=<value> threatlocker-mcp --transport http --addr :7777
+PRINTING_PRESS_CLIENT_PROFILE=<value> threatlocker-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

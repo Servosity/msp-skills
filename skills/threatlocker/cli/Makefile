@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/threatlocker-cli ./cmd/threatlocker-cli
+	go build -o bin/threatlocker-cli$(BIN_EXT) ./cmd/threatlocker-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/threatlocker-mcp ./cmd/threatlocker-mcp
+	go build -o bin/threatlocker-mcp$(BIN_EXT) ./cmd/threatlocker-mcp
 
 install-mcp:
 	go install ./cmd/threatlocker-mcp

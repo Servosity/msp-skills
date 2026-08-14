@@ -176,7 +176,7 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/tactical-rmm/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/install.sh)
 - ThreatLocker (Security) - ask "What application approvals are pending across all my clients right now?" - Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking.
-  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/threatlocker/
+  Verification: Live-verified by @geekbrownbear (MSP) (2026-08-14). Page: https://msp-skills.compoundingteams.com/skills/threatlocker/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/install.sh)
 - Veeam (Backup/DR) - ask "Which backup jobs are failing across all my customers?" - 
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/veeam/

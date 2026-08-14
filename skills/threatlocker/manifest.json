@@ -1,8 +1,8 @@
 {
   "manifest_version": "0.3",
-  "name": "threatlocker-mcp",
+  "name": "threatlocker-pp-mcp",
   "display_name": "ThreatLocker",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
   "author": {
     "name": "Servosity Inc."
@@ -10,21 +10,20 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/threatlocker-mcp",
+    "entry_point": "bin/threatlocker-pp-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/threatlocker-mcp",
+      "command": "${__dirname}/bin/threatlocker-pp-mcp",
       "args": [],
       "env": {
-        "THREATLOCKER_API_KEY": "${user_config.threatlocker_api_key}"
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
   "user_config": {
-    "threatlocker_api_key": {
+    "printing_press_client_profile": {
       "type": "string",
-      "title": "THREATLOCKER_API_KEY",
-      "description": "Sets THREATLOCKER_API_KEY for the ThreatLocker MCP server.",
-      "sensitive": true,
+      "title": "Client profile",
+      "description": "Binds the MCP server to an existing tenant-gated Printing Press client profile.",
       "required": true
     }
   },
@@ -36,11 +35,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.30.2",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T04:10:15.113445Z",
-    "spec_checksum": null,
-    "spec_format": null
+    "printing_press_version": "4.30.2",
+    "generated_at": "2026-08-14T12:10:59.797419Z",
+    "spec_checksum": "sha256:19913f157eae9479574851f0882e8dce587353811c9e013ba7584573ab433087",
+    "spec_format": "internal"
   }
 }

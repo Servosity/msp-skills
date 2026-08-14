@@ -28,14 +28,13 @@ func newSystemAuditHealthCenterCmd(flags *rootFlags) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {
 			}
+			path := "/SystemAudit/SystemAuditGetForHealthCenter"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/SystemAudit/SystemAuditGetForHealthCenter"
 			params := map[string]string{}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -47,21 +46,22 @@ func newSystemAuditHealthCenterCmd(flags *rootFlags) *cobra.Command {
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
-				if bodyDays != 0 {
-					body["days"] = bodyDays
+				bodyMap := map[string]any{}
+				body = bodyMap
+				if cmd.Flags().Changed("days") || bodyDays != 0 {
+					bodyMap["days"] = bodyDays
 				}
 				if cmd.Flags().Changed("logged-in") {
-					body["isLoggedIn"] = bodyIsLoggedIn
+					bodyMap["isLoggedIn"] = bodyIsLoggedIn
 				}
-				if bodyPageNumber != 0 {
-					body["pageNumber"] = bodyPageNumber
+				if cmd.Flags().Changed("page-number") || bodyPageNumber != 0 {
+					bodyMap["pageNumber"] = bodyPageNumber
 				}
-				if bodyPageSize != 0 {
-					body["pageSize"] = bodyPageSize
+				if cmd.Flags().Changed("page-size") || bodyPageSize != 0 {
+					bodyMap["pageSize"] = bodyPageSize
 				}
-				if bodySearchText != "" {
-					body["searchText"] = bodySearchText
+				if cmd.Flags().Changed("search-text") || bodySearchText != "" {
+					bodyMap["searchText"] = bodySearchText
 				}
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
@@ -131,6 +131,9 @@ func newSystemAuditHealthCenterCmd(flags *rootFlags) *cobra.Command {
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -169,14 +172,26 @@ func newSystemAuditHealthCenterCmd(flags *rootFlags) *cobra.Command {
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {

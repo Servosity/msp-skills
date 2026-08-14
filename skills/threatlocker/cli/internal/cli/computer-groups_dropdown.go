@@ -21,12 +21,11 @@ func newComputerGroupsDropdownCmd(flags *rootFlags) *cobra.Command {
 		Example:     "  threatlocker-cli computer-groups dropdown",
 		Annotations: map[string]string{"pp:endpoint": "computer-groups.dropdown", "pp:method": "GET", "pp:path": "/ComputerGroup/ComputerGroupGetDropdownByOrganizationId", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			path := "/ComputerGroup/ComputerGroupGetDropdownByOrganizationId"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/ComputerGroup/ComputerGroupGetDropdownByOrganizationId"
 			params := map[string]string{}
 			if flagComputerGroupOSTypeId != "" {
 				params["computerGroupOSTypeId"] = formatCLIParamValue(flagComputerGroupOSTypeId)
@@ -34,10 +33,11 @@ func newComputerGroupsDropdownCmd(flags *rootFlags) *cobra.Command {
 			if flagHideGlobals != false {
 				params["hideGlobals"] = formatCLIParamValue(flagHideGlobals)
 			}
-			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "computer-groups", false, path, params, nil, cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "computer-groups", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			outputData := data
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope
@@ -45,7 +45,7 @@ func newComputerGroupsDropdownCmd(flags *rootFlags) *cobra.Command {
 			// SYNC: keep this gate aligned with command_promoted.go.tmpl.
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var countItems []json.RawMessage
-				_ = json.Unmarshal(data, &countItems)
+				_ = json.Unmarshal(outputData, &countItems)
 				printProvenance(cmd, len(countItems), prov)
 			}
 			// For JSON output, wrap with provenance envelope before passing through flags.
@@ -64,12 +64,16 @@ func newComputerGroupsDropdownCmd(flags *rootFlags) *cobra.Command {
 				if wrapErr != nil {
 					return wrapErr
 				}
+				wrapped, wrapErr = wrapPlatformStructuredOutput(wrapped, flags, "results", true)
+				if wrapErr != nil {
+					return wrapErr
+				}
 				return printOutput(cmd.OutOrStdout(), wrapped, true)
 			}
 			// For all other output modes (table, csv, plain, quiet), use the standard pipeline
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var items []map[string]any
-				if json.Unmarshal(data, &items) == nil && len(items) > 0 {
+				if json.Unmarshal(outputData, &items) == nil && len(items) > 0 {
 					if err := printAutoTable(cmd.OutOrStdout(), items); err != nil {
 						return err
 					}
@@ -79,7 +83,11 @@ func newComputerGroupsDropdownCmd(flags *rootFlags) *cobra.Command {
 					return nil
 				}
 			}
-			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
+			formatData := data
+			if flags.csv || flags.plain {
+				formatData = outputData
+			}
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"})
 		},
 	}
 	cmd.Flags().StringVar(&flagComputerGroupOSTypeId, "os-type", "0", "OS type filter")

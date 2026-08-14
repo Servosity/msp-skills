@@ -33,14 +33,13 @@ func newComputersListCmd(flags *rootFlags) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {
 			}
+			path := "/Computer/ComputerGetByAllParameters"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/Computer/ComputerGetByAllParameters"
 			params := map[string]string{}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -52,37 +51,40 @@ func newComputersListCmd(flags *rootFlags) *cobra.Command {
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
-				if bodyPageNumber != 0 {
-					body["pageNumber"] = bodyPageNumber
+				bodyMap := map[string]any{}
+				body = bodyMap
+				if cmd.Flags().Changed("page-number") || bodyPageNumber != 0 {
+					bodyMap["pageNumber"] = bodyPageNumber
 				}
-				if bodyPageSize != 0 {
-					body["pageSize"] = bodyPageSize
+				if cmd.Flags().Changed("page-size") || bodyPageSize != 0 {
+					bodyMap["pageSize"] = bodyPageSize
 				}
-				if bodySearchText != "" {
-					body["searchText"] = bodySearchText
+				if cmd.Flags().Changed("search-text") || bodySearchText != "" {
+					bodyMap["searchText"] = bodySearchText
 				}
-				if bodySearchBy != 0 {
-					body["searchBy"] = bodySearchBy
+				if cmd.Flags().Changed("search-by") || bodySearchBy != 0 {
+					bodyMap["searchBy"] = bodySearchBy
 				}
-				if bodyAction != "" {
-					body["action"] = bodyAction
+				if cmd.Flags().Changed("action") || bodyAction != "" {
+					bodyMap["action"] = bodyAction
 				}
-				if bodyKindOfAction != "" {
-					body["kindOfAction"] = bodyKindOfAction
+				if cmd.Flags().Changed("kind-of-action") || bodyKindOfAction != "" {
+					bodyMap["kindOfAction"] = bodyKindOfAction
 				}
-				if bodyComputerGroup != "" {
-					body["computerGroup"] = bodyComputerGroup
+				if cmd.Flags().Changed("computer-group") || bodyComputerGroup != "" {
+					bodyMap["computerGroup"] = bodyComputerGroup
 				}
-				if bodyOrderBy != "" {
-					body["orderBy"] = bodyOrderBy
+				if cmd.Flags().Changed("order-by") || bodyOrderBy != "" {
+					bodyMap["orderBy"] = bodyOrderBy
 				}
 				if cmd.Flags().Changed("ascending") {
-					body["isAscending"] = bodyIsAscending
+					bodyMap["isAscending"] = bodyIsAscending
 				}
-				if cmd.Flags().Changed("child-orgs") {
-					body["childOrganizations"] = bodyChildOrganizations
-				}
+				// Always sent: --help advertises a default for --child-orgs, so the
+				// value must reach the API even when the user did not type the
+				// flag. Without this a bare call returns one organization
+				// instead of the whole managed tree (#208).
+				bodyMap["childOrganizations"] = bodyChildOrganizations
 			}
 			data, statusCode, err := c.PostQueryWithParams(cmd.Context(), path, params, body)
 			if err != nil {
@@ -148,6 +150,9 @@ func newComputersListCmd(flags *rootFlags) *cobra.Command {
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -186,14 +191,26 @@ func newComputersListCmd(flags *rootFlags) *cobra.Command {
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {
@@ -226,7 +243,7 @@ func newComputersListCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyComputerGroup, "computer-group", "", "Computer group GUID filter")
 	cmd.Flags().StringVar(&bodyOrderBy, "order-by", "computername", "Sort field")
 	cmd.Flags().BoolVar(&bodyIsAscending, "ascending", true, "Sort ascending")
-	cmd.Flags().BoolVar(&bodyChildOrganizations, "child-orgs", false, "Include child (managed) organizations")
+	cmd.Flags().BoolVar(&bodyChildOrganizations, "child-orgs", true, "Include child (managed) organizations")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd
