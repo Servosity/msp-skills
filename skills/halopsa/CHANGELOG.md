@@ -4,6 +4,22 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.5] - 2026-08-14
+
+### Fixed
+- Every SLA view reported zero risk and zero attainment on every tenant. They
+  read `targetdate`, a legacy column HaloPSA parks at `1900-01-01`, rather than
+  the `fixbydate` the portal actually shows. Because a date window can never
+  match `1900-01-01`, the failure was a silent zero rather than an error:
+  `sla breaching` listed no tickets at risk whatever was due, `triage` reported
+  `breach_count` 0 for every agent, `sla scorecard` counted every closed ticket
+  as carrying a target nothing could satisfy and reported 0 percent met, and
+  `client card` showed `1900-01-01` as each ticket's target while its
+  `sla_at_risk` overlay metric stayed permanently 0. On the reporting tenant
+  scorecard attainment goes from 0 percent to 97-99 percent, which is the real
+  figure. `targetdate` is kept as a fallback for tenants that populate it.
+  Thanks to @geekbrownbear for the portal-verified diagnosis (#213).
+
 ## [0.2.4] - 2026-08-13
 
 ### Fixed

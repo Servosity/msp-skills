@@ -90,9 +90,9 @@ Reads the local sync store. Run 'halopsa-cli sync' first.`,
 			}
 			q := `SELECT ` + groupExpr + ` AS grp,
 				COUNT(*) AS closed,
-				SUM(CASE WHEN COALESCE(json_extract(data,'$.targetdate'),'') != '' THEN 1 ELSE 0 END) AS with_target,
-				SUM(CASE WHEN COALESCE(json_extract(data,'$.targetdate'),'') != ''
-				          AND datetime(` + haloTicketActivityExpr("") + `) <= datetime(json_extract(data,'$.targetdate'))
+				SUM(CASE WHEN ` + slaResolutionTargetExpr("") + ` IS NOT NULL THEN 1 ELSE 0 END) AS with_target,
+				SUM(CASE WHEN ` + slaResolutionTargetExpr("") + ` IS NOT NULL
+				          AND datetime(` + haloTicketActivityExpr("") + `) <= datetime(` + slaResolutionTargetExpr("") + `)
 				     THEN 1 ELSE 0 END) AS met
 			FROM tickets
 			WHERE json_extract(data,'$.status_id') IN (8,9)

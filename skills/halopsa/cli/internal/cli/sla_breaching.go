@@ -20,8 +20,9 @@ func newNovelSlaBreachingCmd(flags *rootFlags) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "breaching",
-		Short: "Tickets whose targetdate falls in the next N hours, sorted by time-to-breach",
-		Long: `Reads tickets.targetdate locally; joins agent + client + current status.
+		Short: "Tickets whose resolution target falls in the next N hours, sorted by time-to-breach",
+		Long: `Reads each ticket's resolution deadline locally (fixbydate, falling back to
+targetdate); joins agent + client + current status.
 The Friday-afternoon-before-handoff command.`,
 		Example: strings.Trim(`
   # 24-hour breach window across all teams
@@ -49,7 +50,7 @@ The Friday-afternoon-before-handoff command.`,
 			defer db.Close()
 			where := []string{
 				"COALESCE(json_extract(data,'$.status_id'),0) NOT IN (8,9)",
-				"datetime(COALESCE(json_extract(data,'$.targetdate'),'')) BETWEEN datetime('now') AND datetime('now', '+' || ? || ' hours')",
+				"datetime(" + slaResolutionTargetExpr("") + ") BETWEEN datetime('now') AND datetime('now', '+' || ? || ' hours')",
 			}
 			argsSQL := []any{hours}
 			if team != "" {
@@ -61,8 +62,8 @@ The Friday-afternoon-before-handoff command.`,
                 ` + haloAgentLabelExpr("", "?") + ` AS agent,
                 COALESCE(json_extract(data,'$.status_name'),'?') AS status,
                 COALESCE(summary,'') AS summary,
-                COALESCE(json_extract(data,'$.targetdate'),'') AS targetdate,
-                CAST((julianday(COALESCE(json_extract(data,'$.targetdate'),'')) - julianday('now')) * 24 * 60 AS INTEGER) AS minutes_to_breach
+                ` + slaResolutionTargetExpr("") + ` AS targetdate,
+                CAST((julianday(` + slaResolutionTargetExpr("") + `) - julianday('now')) * 24 * 60 AS INTEGER) AS minutes_to_breach
                 FROM tickets WHERE ` + strings.Join(where, " AND ") + `
                 ORDER BY minutes_to_breach ASC LIMIT ?`
 			argsSQL = append(argsSQL, limit)
