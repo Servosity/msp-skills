@@ -4,6 +4,22 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.6] - 2026-08-14
+
+### Fixed
+- `tickets reopens` now reports reopened tickets instead of saying detection is
+  unavailable, and `standup`'s `reopened` column is no longer permanently zero.
+  Both read a ticket-level marker HaloPSA never writes; the ticket fields record
+  only the final close, while the action trail keeps the whole history. Reopens
+  are now derived from it, unioning explicit Re-Open outcomes with tickets
+  resolved more than once. Neither signal alone is enough: a reopen driven by a
+  customer email has no Re-Open action, and a reopen not yet re-resolved has only
+  one Resolved action. Because outcome names can be tenant-configured, the
+  repeated-resolution signal is deliberately configuration-independent and
+  carries the feature on its own where those names differ. The honest "cannot
+  tell" message is kept, but now fires on an unsynced actions table, which is the
+  real unknown. Thanks to @geekbrownbear for the operator-confirmed trail (#218).
+
 ## [0.2.5] - 2026-08-14
 
 ### Fixed
