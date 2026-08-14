@@ -115,6 +115,30 @@ Run 'halopsa-cli sync' first.`,
 				}
 				byAgent[r.Agent] = &r
 			}
+			// Reopens per agent, derived from the action trail. The column was
+			// permanently 0 because it read a ticket-level $.reopened marker
+			// HaloPSA never writes; see reopen_sql.go (#218).
+			reopenSQL := `WITH reopens AS (` + reopenCountsSQL + `)
+            SELECT ` + haloAgentLabelExpr("t", "(unassigned)") + ` AS agent_label,
+                   SUM(r.reopens) AS n
+            FROM tickets t
+            JOIN reopens r ON r.ticket_id = t.id
+            WHERE datetime(` + haloTicketActivityExpr("t") + `) >= datetime(?)
+            GROUP BY agent_label`
+			if ro, roErr := db.DB().QueryContext(cmd.Context(), reopenSQL, t.Format(time.RFC3339)); roErr == nil {
+				defer ro.Close()
+				for ro.Next() {
+					var who string
+					var n sql.NullInt64
+					if ro.Scan(&who, &n) != nil {
+						continue
+					}
+					if e, ok := byAgent[who]; ok {
+						e.Reopened = int(n.Int64)
+					}
+				}
+			}
+
 			// Hours logged from actions table in window
 			hoursSQL := `SELECT
                 COALESCE(NULLIF(json_extract(data, '$.who'),''), '(unassigned)') AS who,

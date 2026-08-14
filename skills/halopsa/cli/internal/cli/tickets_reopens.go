@@ -67,14 +67,15 @@ Reads the local sync store. Run 'halopsa-cli sync' first.`,
 				hintIfStale(cmd, db, "tickets", flags.maxAge)
 			}
 
-			// Field-presence probe: absence of the marker tenant-wide means
-			// "cannot detect", not "zero boomerangs".
-			var carrier int
-			_ = db.DB().QueryRowContext(ctx, `SELECT COUNT(*) FROM tickets
-				WHERE json_extract(data,'$.reopened') IS NOT NULL`).Scan(&carrier)
+			// Reopens are derived from the action trail, so the genuine
+			// "cannot tell" case is an unsynced actions table rather than a
+			// missing ticket-level marker. Keeping that distinction is the
+			// point: an empty actions table must not read as zero boomerangs.
+			var actionRows int
+			_ = db.DB().QueryRowContext(ctx, `SELECT COUNT(*) FROM actions`).Scan(&actionRows)
 			view := reopenView{Since: t.Format(time.RFC3339), Rows: []reopenRow{}}
-			if carrier == 0 {
-				view.Note = "synced ticket payloads carry no $.reopened marker on this tenant; reopen detection unavailable (not zero boomerangs)"
+			if actionRows == 0 {
+				view.Note = "the actions table is empty on this cache, and reopens are derived from it; run 'halopsa-cli sync --resources actions' first (this is 'cannot tell', not zero boomerangs)"
 				fmt.Fprintln(cmd.ErrOrStderr(), "hint: "+view.Note)
 				if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 					return printJSONFiltered(cmd.OutOrStdout(), view, flags)
@@ -83,15 +84,16 @@ Reads the local sync store. Run 'halopsa-cli sync' first.`,
 				return nil
 			}
 
-			rows, err := db.DB().QueryContext(ctx, `SELECT id,
-				COALESCE(NULLIF(json_extract(data,'$.summary'),''),'(no summary)'),
-				COALESCE(NULLIF(client_name,''),'(no client)'),
-				` + haloAgentLabelExpr("", "(unassigned)") + `,
-				CAST(COALESCE(json_extract(data,'$.reopened'),0) AS INTEGER) AS reopens
-			FROM tickets
-			WHERE CAST(COALESCE(json_extract(data,'$.reopened'),0) AS INTEGER) > 0
-			  AND datetime(` + haloTicketActivityExpr("") + `) >= datetime(?)
-			ORDER BY reopens DESC, id DESC`, t.Format(time.RFC3339))
+			rows, err := db.DB().QueryContext(ctx, `WITH reopens AS (`+reopenCountsSQL+`)
+			SELECT t.id,
+				COALESCE(NULLIF(json_extract(t.data,'$.summary'),''),'(no summary)'),
+				COALESCE(NULLIF(t.client_name,''),'(no client)'),
+				`+haloAgentLabelExpr("t", "(unassigned)")+`,
+				CAST(r.reopens AS INTEGER) AS reopens
+			FROM tickets t
+			JOIN reopens r ON r.ticket_id = t.id
+			WHERE datetime(`+haloTicketActivityExpr("t")+`) >= datetime(?)
+			ORDER BY reopens DESC, t.id DESC`, t.Format(time.RFC3339))
 			if err != nil {
 				return fmt.Errorf("reopens query: %w", err)
 			}
