@@ -4,6 +4,20 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.7] - 2026-08-14
+
+### Fixed
+- `--since` now accepts the RFC3339 timestamps its own help documents. The
+  parser folded its input to lowercase before trying any format, and because
+  `time.Parse` matches layout characters literally, the uppercase `T` separator
+  and `Z` designator no longer matched, so every timestamp was rejected as an
+  unrecognized time. The fold is still applied to keywords and durations, which
+  need it: `time.ParseDuration` rejects uppercase unit letters, so `24H` and
+  `7D` only work because of it. Affects `standup`, `agent workload`,
+  `sla scorecard`, `tickets age-out` and `tickets reopens`, all of which
+  document RFC3339 and all of which rejected it. Thanks to @geekbrownbear for
+  the report and the fix (#219).
+
 ## [0.2.6] - 2026-08-14
 
 ### Fixed
