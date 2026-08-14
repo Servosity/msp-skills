@@ -45,6 +45,7 @@
     "github.com/quic-go/quic-go",
     "github.com/refraction-networking/utls",
     "github.com/remyoudompheng/bigfft",
+    "github.com/santhosh-tekuri/jsonschema/v6",
     "github.com/spf13/cast",
     "github.com/spf13/cobra",
     "github.com/spf13/pflag",
