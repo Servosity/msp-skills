@@ -84,7 +84,7 @@ Reads the local sync store. Run 'halopsa-cli sync' first.`,
 				hintIfStale(cmd, db, "tickets", flags.maxAge)
 			}
 
-			groupExpr := "COALESCE(NULLIF(agent_name,''),'(unassigned)')"
+			groupExpr := haloAgentLabelExpr("", "(unassigned)")
 			if by == "team" {
 				groupExpr = "COALESCE(NULLIF(team,''), NULLIF(json_extract(data,'$.team'),''), '(no team)')"
 			}
@@ -92,11 +92,11 @@ Reads the local sync store. Run 'halopsa-cli sync' first.`,
 				COUNT(*) AS closed,
 				SUM(CASE WHEN COALESCE(json_extract(data,'$.targetdate'),'') != '' THEN 1 ELSE 0 END) AS with_target,
 				SUM(CASE WHEN COALESCE(json_extract(data,'$.targetdate'),'') != ''
-				          AND datetime(COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), datecreated)) <= datetime(json_extract(data,'$.targetdate'))
+				          AND datetime(` + haloTicketActivityExpr("") + `) <= datetime(json_extract(data,'$.targetdate'))
 				     THEN 1 ELSE 0 END) AS met
 			FROM tickets
 			WHERE json_extract(data,'$.status_id') IN (8,9)
-			  AND datetime(COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), datecreated)) >= datetime(?)
+			  AND datetime(` + haloTicketActivityExpr("") + `) >= datetime(?)
 			GROUP BY grp
 			ORDER BY closed DESC`
 			rows, err := db.DB().QueryContext(ctx, q, t.Format(time.RFC3339))

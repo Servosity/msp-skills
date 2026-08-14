@@ -104,7 +104,7 @@
       "name": "halopsa",
       "source": "./skills/halopsa",
       "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
-      "version": "0.2.3",
+      "version": "0.2.4",
       "category": "psa",
       "tags": [
         "halopsa",

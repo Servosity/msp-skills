@@ -58,7 +58,7 @@ The Friday-afternoon-before-handoff command.`,
 			}
 			q := `SELECT id,
                 COALESCE(client_name,'?') AS client,
-                COALESCE(agent_name,'?') AS agent,
+                ` + haloAgentLabelExpr("", "?") + ` AS agent,
                 COALESCE(json_extract(data,'$.status_name'),'?') AS status,
                 COALESCE(summary,'') AS summary,
                 COALESCE(json_extract(data,'$.targetdate'),'') AS targetdate,

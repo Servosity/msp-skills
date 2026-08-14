@@ -1,6 +1,6 @@
 {
   "slug": "halopsa",
-  "doc": "CHANGELOG.md (#147, #203)",
+  "doc": "CHANGELOG.md (#147, #203, #211)",
   "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #147 (reporter @Xenith-B), fixed 2026-06-20. The OAuth2 token-mint/refresh paths assembled the token URL ('https://{tenant}.{domain}/auth/token') outside the normal request flow and POSTed it WITHOUT substituting the {tenant}/{domain} placeholders that buildURL resolves for ordinary requests -- so every `auth login`, auto-mint, and refresh failed with `invalid character \"{\" in host name`, even when HALOPSA_TENANT/HALOPSA_DOMAIN were set correctly. Fix routes the token URL through a new exported ResolveTemplateURL helper (wrapping the existing buildURL substitution). This is a GENERATOR-class defect (the press emits token-URL literals it never resolves) tracked for an upstream retro; until the press is fixed, a reprint regenerates the unresolved literals and these markers guard the connector. No new flag/command/output; bug-fix-only.",
   "handfixes": [
     {
@@ -141,6 +141,40 @@
         {
           "file": "cli/internal/store/store.go",
           "contains": "func (s *Store) migratePurgeLegacyActionKeys",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "halo-ticket-column-exprs",
+      "summary": "every local view resolves the agent name from the synced agent records and falls ticket age through to dateoccurred, because HaloPSA populates neither tickets.agent_name nor tickets.datecreated (issue #211)",
+      "why": "agent_name and datecreated are generated columns the press derived from the OpenAPI schema, but Halo's live ticket payload carries agent_id and dateoccurred instead, so both are blank on every row of a real sync. #203 fixed triage; the identical defect was present in standup, agent workload, sla breaching, sla scorecard, tickets age-out, tickets reopens, asset history and client card, each silently reporting '(unassigned)' agents and zero-day ages. The shared haloAgentLabelExpr / haloTicketCreatedExpr / haloTicketActivityExpr fragments encode the live-API truth in one place. Both are conservative: a populated agent_name or datecreated still wins, so a future Halo version needs no change. standup and agent workload additionally grouped on names colliding with real ticket columns (who, agent_name), which SQLite resolves ahead of output aliases, collapsing every agent into one row; both now aggregate over a CTE. A reprint regenerates these novel commands from the prior sources and would reintroduce the blank-column reads.",
+      "status": "active",
+      "spec_encode_followup": "The durable fix is for the press to not emit generated columns for schema fields the live API never populates, or to mark them so novel-command authors do not read them by mistake.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/halo_ticket_columns.go",
+          "contains": "func haloAgentLabelExpr",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/halo_ticket_columns.go",
+          "contains": "func haloTicketCreatedExpr",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/standup.go",
+          "contains": "GROUP BY agent_label",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/agent_workload.go",
+          "contains": "GROUP BY agent_label",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/halo_ticket_columns_test.go",
+          "contains": "TestStandupGroupsPerAgentNotCollapsed",
           "min_count": 1
         }
       ]

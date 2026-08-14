@@ -59,15 +59,26 @@ Run 'halopsa-cli sync' first.`,
 				argsSQL = append(argsSQL, team)
 			}
 			// Tickets closed in window
-			closedSQL := `SELECT
-                COALESCE(NULLIF(agent_name,''), '(unassigned)') AS who,
+			// Aggregated over a CTE exposing agent_label: grouping on a bare
+			// `who` alias would bind to the real, always-NULL tickets.who
+			// column, because SQLite resolves GROUP BY names against source
+			// columns before output aliases, collapsing every agent into one
+			// row. Same defect as triage in #203.
+			closedSQL := `WITH scoped AS (
+                SELECT
+                    ` + haloAgentLabelExpr("", "(unassigned)") + ` AS agent_label,
+                    COALESCE(client_name, '?') AS client_label
+                FROM tickets
+                WHERE json_extract(data, '$.status_id') IN (8,9)
+                  AND datetime(` + haloTicketActivityExpr("") + `) >= datetime(?)
+                  ` + whereTeam + `
+            )
+            SELECT
+                agent_label AS who,
                 COUNT(*) AS closed,
-                COALESCE(client_name, '?') AS top_client
-            FROM tickets
-            WHERE json_extract(data, '$.status_id') IN (8,9)
-              AND datetime(COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), datecreated)) >= datetime(?)
-              ` + whereTeam + `
-            GROUP BY who
+                client_label AS top_client
+            FROM scoped
+            GROUP BY agent_label
             ORDER BY closed DESC LIMIT ?`
 			argsSQL = append(argsSQL, limit)
 			rows, err := db.DB().QueryContext(cmd.Context(), closedSQL, argsSQL...)

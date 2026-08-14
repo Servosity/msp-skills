@@ -56,9 +56,9 @@ func newNovelAgentWorkloadCmd(flags *rootFlags) *cobra.Command {
 			}
 			// Open counts + oldest age
 			openSQL := `SELECT
-                COALESCE(NULLIF(agent_name,''),'(unassigned)') AS agent,
+                ` + haloAgentLabelExpr("", "(unassigned)") + ` AS agent,
                 COUNT(*) AS open_count,
-                CAST(MAX(julianday('now') - julianday(datecreated)) AS INTEGER) AS oldest_days
+                CAST(MAX(julianday('now') - julianday(` + haloTicketCreatedExpr("") + `)) AS INTEGER) AS oldest_days
                 FROM tickets
                 WHERE COALESCE(json_extract(data,'$.status_id'),0) NOT IN (8,9) ` + whereTeam + `
                 GROUP BY agent`
@@ -85,9 +85,15 @@ func newNovelAgentWorkloadCmd(flags *rootFlags) *cobra.Command {
 				byAgent[e.Agent] = &e
 			}
 			// Touched in window: tickets whose lastactiondate falls within
-			touchedSQL := `SELECT COALESCE(NULLIF(agent_name,''),'(unassigned)'), COUNT(*) FROM tickets
-                WHERE datetime(COALESCE(NULLIF(json_extract(data,'$.lastactiondate'),''), datecreated)) >= datetime(?) ` + whereTeam + `
-                GROUP BY agent_name`
+			// Grouped over a CTE: GROUP BY agent_name bound to the real,
+			// always-blank column, so every agent collapsed into one row.
+			touchedSQL := `WITH scoped AS (
+                    SELECT ` + haloAgentLabelExpr("", "(unassigned)") + ` AS agent_label
+                    FROM tickets
+                    WHERE datetime(` + haloTicketActivityExpr("") + `) >= datetime(?) ` + whereTeam + `
+                )
+                SELECT agent_label, COUNT(*) FROM scoped
+                GROUP BY agent_label`
 			tArgs := append([]any{t.Format(time.RFC3339)}, argsSQL...)
 			if tRows, terr := db.DB().QueryContext(cmd.Context(), touchedSQL, tArgs...); terr == nil {
 				defer tRows.Close()
