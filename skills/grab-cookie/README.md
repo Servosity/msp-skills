@@ -72,12 +72,12 @@ on demand, so they are a cache rather than a second copy of record.
 ## Quick start
 
 ```bash
-python <this-skill-dir>/scripts/credgrab.py --selfcheck
+python "<this-skill-dir>/scripts/credgrab.py" --selfcheck
 cp profiles/example-cookie-site.json profiles/mysite.json
 # edit profiles/mysite.json, then paste a Copy as cURL into captures/mysite.curl.txt
-python <this-skill-dir>/scripts/credgrab.py seed --profile mysite --curl captures/mysite.curl.txt
-python <this-skill-dir>/scripts/credgrab.py doctor --all
-```bash
+python "<this-skill-dir>/scripts/credgrab.py" seed --profile mysite --curl captures/mysite.curl.txt
+python "<this-skill-dir>/scripts/credgrab.py" doctor --all
+```
 
 Schedule the last line daily and the thirty-day surprise becomes a warning.
 

@@ -40,6 +40,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -205,22 +206,30 @@ def _placeholders(template: str) -> list[str]:
 def atomic_write(path: Path, content: str, mode: int) -> None:
     """Write `content` to `path` atomically, never world-readable in between.
 
-    The temp file carries the credential, so it is CREATED with `mode` rather
-    than created at the process umask and chmod'd afterwards -- that ordering
-    leaves the secret readable by other local users for the length of the write.
-    O_CREAT's mode is still masked by the umask, so the chmod stays as the
-    enforcing step.
+    The temp file carries the credential, so it is created with mkstemp -- a
+    unique, O_EXCL, mode-0600 file in the destination directory. That closes two
+    holes a fixed `<dest>.tmp` name leaves open: a concurrent seed/wire writing
+    the same profile through the same inode, and a symlink pre-planted at the tmp
+    name redirecting the credential write when the parent dir is shared-writable.
+    `mode` is still applied before the rename, since mkstemp forces 0600 and the
+    consumer file may legitimately want something else.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
-    with open(fd, "w", encoding="utf-8", newline="") as fh:
-        fh.write(content)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    tmp = Path(tmp_name)
     try:
-        os.chmod(tmp, mode)
-    except OSError:
-        pass  # best effort on Windows
-    os.replace(tmp, path)
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
+            fh.write(content)
+        try:
+            os.chmod(tmp, mode)
+        except OSError:
+            pass  # best effort on Windows
+        os.replace(tmp, path)
+    finally:
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass  # already renamed into place
 
 
 def do_wire(prof: dict, values: dict[str, str] | None = None) -> Path:
