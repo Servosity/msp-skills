@@ -80,9 +80,9 @@ UniFi Network plus your AI answers the gateway questions the console makes you r
 | Do I have switch port and PoE headroom before adding hardware? | `unifi-network-cli port-audit --site default --json` |
 | Which firewall policy would match traffic from this host? | `unifi-network-cli rule-predict --src 10.0.3.50 --dst 10.0.0.1` |
 | Which clients are sitting behind which device? | `unifi-network-cli topology --site default` |
-| What firewall policies are configured on this site? | `unifi-network-cli sites firewall get-policies <siteId>` |
+| What firewall policies are configured on this site? | `unifi-network-cli sites firewall get-policies <siteId> --all` |
 | Who is on the guest network, and which vouchers are live? | `unifi-network-cli guest report --site default` |
-| List every adopted device on the site | `unifi-network-cli sites devices get-adopted-overview-page <siteId>` |
+| List every adopted device on the site | `unifi-network-cli sites devices get-adopted-overview-page <siteId> --all` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/unifi-network/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/unifi-network/guide.md).
 
@@ -95,7 +95,7 @@ The UniFi console stays the system of record and the place you make changes. Thi
 ## The pain this closes
 
 - The UniFi Network integration API exposes no config-versioning or audit-trail endpoint, so 'what changed on this site, and when?' has no answer you can pull - a gap the Ubiquiti Community has open feature requests for under titles like 'UniFi Change Logs or Change Control options?' and 'Audit log of recent changes'.
-- Spotting new hardware on a network means eyeballing a client list you have no baseline for - there is no first-seen record, so nothing distinguishes a device that appeared this morning from one that has been there for a year.
+- Spotting new hardware means eyeballing a list with no baseline: clients have no first-seen record at all (only a current-session connectedAt), and a device's adoptedAt exists only on the per-device detail fetch, never in the list you scan.
 - Port and PoE status lives one device-detail screen at a time; the list endpoints do not return per-port interface data at all, so checking free ports before planning a new AP or camera means opening every switch by hand.
 
 ## Install
@@ -130,8 +130,8 @@ After install, authenticate once with your UniFi Network credentials, then verif
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | drift, newcomer, topology, port-audit, rule-predict, analytics, sites devices get-adopted-overview-page, sites firewall get-policies (non-mutating reads except the secret-returning ones below; drift and newcomer advance their own local baseline each run) | Allow |
-| Credential (incl. secret-returning reads) | auth set-token, auth logout, sites wifi get-broadcast-details (that SSID's cleartext passphrase), sites hotspot get-voucher, sites hotspot get-vouchers, guest report, search (usable guest voucher codes) | Human-in-the-loop only - never in a blanket allow-all-reads policy. Three writes (sites hotspot create-vouchers, sites wifi create-broadcast / update-broadcast) also return secrets in their response body; treat their output the same way |
+| Read | drift, newcomer, topology, port-audit, rule-predict, sites devices get-adopted-overview-page, sites firewall get-policies (non-mutating reads except the secret-bearing ones below; drift and newcomer advance their own local baseline each run) | Allow |
+| Credential (incl. secret-returning reads) | auth set-token, auth logout, and every command whose output can carry a live secret (the CLI redacts nothing): sites wifi get-broadcast-details, sites hotspot get-voucher / get-vouchers, guest report, search, analytics --group-by code, export <resource> | Human-in-the-loop only - never in a blanket allow-all-reads policy. Three writes (sites hotspot create-vouchers, sites wifi create-broadcast / update-broadcast) also return secrets in their response body; treat their output the same way |
 | Write (routine) | sites firewall create-policy, sites firewall update-policy, sites acl-rules create, sites networks create, sites wifi update-broadcast, sites dns create-policy, sites hotspot create-vouchers | Preview with --dry-run, then a reviewed write |
 | Device / port control | sites devices adopt, sites devices execute-adopted-action, sites devices execute-port-action, sites clients execute-connected-action | Human-in-the-loop only - these take physical effect on the network |
 | Destructive / config | sites devices remove (factory-resets an online device), sites firewall delete-zone, sites networks delete, sites acl-rules delete, sites dns delete-policy, sites wifi delete-broadcast | Human-in-the-loop only, explicit confirmation |

@@ -12,10 +12,12 @@ titled [UniFi Change Logs or Change Control options?](https://community.ui.com/q
 [Audit log of recent changes](https://community.ui.com/questions/Audit-log-of-recent-changes/710d01da-2191-4acf-84f0-ec4ca830eed7),
 and [Controller Logs for settings changes](https://community.ui.com/questions/Controller-Logs-for-settings-changes/c3dbb64b-78ca-48a7-92de-b78ec8008e1d).
 
-The same missing-baseline problem shows up twice more. There is no first-seen
-record for a device or client, so nothing on the screen distinguishes hardware
-that appeared this morning from hardware that has been there a year - you are
-eyeballing a list you have no reference point for. And per-port interface data
+The same missing-baseline problem shows up twice more. For clients there is no
+first-seen record at all - the API exposes only a current-session `connectedAt` -
+so nothing distinguishes a laptop that appeared this morning from one that has
+been there a year. For devices an `adoptedAt` does exist, but only on the
+per-device detail fetch, never in the list you actually scan, so you are still
+eyeballing a list with no reference point. And per-port interface data
 never appears in any list response, only in a per-device detail fetch, so
 answering "which ports are free, and which already energize PoE?" means opening
 every switch on the site one at a time.

@@ -152,13 +152,14 @@ UNIFI_API_KEY=<value> UNIFI_GATEWAY_HOST=<value> unifi-network-cli doctor
 | Do I have switch port and PoE headroom before adding hardware? | `unifi-network-cli port-audit --site default` |
 | Which firewall policy would match traffic from this host? | `unifi-network-cli rule-predict --src 10.0.3.50 --dst 10.0.0.1` |
 | Which clients are sitting behind which device? | `unifi-network-cli topology --site default` |
-| What firewall policies are configured on this site? | `unifi-network-cli sites firewall get-policies <siteId>` |
+| What firewall policies are configured on this site? | `unifi-network-cli sites firewall get-policies <siteId> --all` |
 | Who is on the guest network, and which vouchers are live? | `unifi-network-cli guest report --site default` |
-| List every adopted device on the site | `unifi-network-cli sites devices get-adopted-overview-page <siteId>` |
+| List every adopted device on the site | `unifi-network-cli sites devices get-adopted-overview-page <siteId> --all` |
 
 Run `unifi-network-cli sync` first - `drift`, `newcomer`, `topology`, `guest report`, and
 `rule-predict` all compute from the local mirror, and `port-audit` needs the synced
-device list before it can fetch port detail.
+device list before it can fetch port detail. On paginated `sites ...` reads, pass `--all`:
+they default to `--limit 25` and emit no truncation warning.
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
@@ -172,7 +173,7 @@ This skill syncs UniFi into a **local SQLite mirror** with full-text search, and
 
 UniFi gear is everywhere in small-business networks, and the thing operators keep asking it for is the one thing it won't give them: history. The Network integration API exposes no config-versioning and no audit-trail endpoint, so "what changed on this site, and when?" has nothing to query. The Ubiquiti Community has carried standing feature requests on exactly this for years - threads titled [UniFi Change Logs or Change Control options?](https://community.ui.com/questions/UniFi-Change-Logs-or-Change-Control-options/7c9f7b06-9c3b-4cad-92a7-5920b06e9f9c), [UniFi audit/change logs supported?](https://community.ui.com/questions/UniFi-audit-change-logs-supported/64ced74e-114d-4c2e-9e8d-469388b9eccc), and [Audit log of recent changes](https://community.ui.com/questions/Audit-log-of-recent-changes/710d01da-2191-4acf-84f0-ec4ca830eed7).
 
-The same missing-baseline problem shows up twice more. There's no first-seen record for a device or client, so nothing on the screen distinguishes hardware that appeared this morning from hardware that's been there a year. And per-port interface data never appears in any list response - only in a per-device detail fetch - so "which ports are free, and which are already energizing PoE?" means opening every switch on the site one at a time.
+The same missing-baseline problem shows up twice more. For clients there's no first-seen record at all (the API exposes only a current-session `connectedAt`), so nothing distinguishes a laptop that appeared this morning from one that's been there a year; for devices an `adoptedAt` exists, but only on the per-device detail fetch, never in the list you actually scan. And per-port interface data never appears in any list response - only in a per-device detail fetch - so "which ports are free, and which are already energizing PoE?" means opening every switch on the site one at a time.
 
 - **`unifi-network-cli drift --site default --json`** - diffs the site's config against the snapshot this command captured last run, then advances it. It keeps its own history precisely because the API has none.
 - **`unifi-network-cli newcomer --since 7d --json`** - first-seen record per device and client, so new hardware surfaces against a baseline instead of a flat list.
@@ -224,8 +225,8 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `drift`, `newcomer`, `topology`, `port-audit`, `rule-predict`, `analytics`, and non-mutating `sites ...` endpoints **except the secret-returning reads below**. Note `drift` and `newcomer` advance their own local baseline on every run. | Allow |
-| Credential (incl. secret-returning **reads**) | `auth set-token`, `auth logout`, and every read whose output carries a live secret: `sites wifi get-broadcast-details` (that SSID's cleartext passphrase) and `sites hotspot get-voucher` / `get-vouchers` / `guest report` / `search` (usable guest voucher codes) | Human-in-the-loop only - never in a blanket "allow all reads" policy. Three **writes** return secrets too (`sites hotspot create-vouchers`, `sites wifi create-broadcast` / `update-broadcast`) - same handling for their output. |
+| Read | `drift`, `newcomer`, `topology`, `port-audit`, `rule-predict`, and non-mutating `sites ...` endpoints **except the secret-bearing commands below**. Note `drift` and `newcomer` advance their own local baseline on every run. | Allow |
+| Credential (incl. secret-returning **reads**) | `auth set-token`, `auth logout`, and every command whose output can carry a live secret - the CLI redacts nothing: `sites wifi get-broadcast-details` (that SSID's cleartext passphrase), `sites hotspot get-voucher` / `get-vouchers`, `guest report`, `search`, `analytics --type hotspot --group-by code`, and `export <resource>` (usable guest voucher codes) | Human-in-the-loop only - never in a blanket "allow all reads" policy. Three **writes** return secrets too (`sites hotspot create-vouchers`, `sites wifi create-broadcast` / `update-broadcast`) - same handling for their output. |
 | Write (routine) - 18 commands | `sites firewall create-policy`, `sites acl-rules update`, `sites networks create`, `sites wifi update-broadcast`, `sites dns create-policy`, `sites hotspot create-vouchers` | Preview with `--dry-run`, then a reviewed write |
 | Device / port control - 4 commands | `sites devices adopt`, `sites devices execute-adopted-action`, `sites devices execute-port-action`, `sites clients execute-connected-action` | Human-in-the-loop only - a port action can power-cycle PoE and drop whatever is plugged into it |
 | Destructive - 10 commands | `sites devices remove` (**factory-resets the device if it's online**), `sites firewall delete-zone`, `sites networks delete`, `sites acl-rules delete`, `sites wifi delete-broadcast` | Human-in-the-loop only, explicit confirmation |

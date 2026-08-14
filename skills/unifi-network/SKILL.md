@@ -103,6 +103,17 @@ These capabilities aren't available in any other tool for this API.
   unifi-network-cli rule-predict --src 10.0.3.50 --dst 10.0.0.1 --port 443 --json
   ```
 
+## Paginated reads default to 25 rows
+
+Every `sites ...` list command takes `--limit` (**default 25**) and `--all`. Offset
+pagination emits **no truncation warning**, so page 1 comes back looking like the whole
+answer. Any question phrased as "every" or "all" needs `--all`:
+
+```bash
+unifi-network-cli sites devices get-adopted-overview-page <siteId> --all
+unifi-network-cli sites firewall get-policies <siteId> --all
+```
+
 ## Before any local-mirror command: sync
 
 `drift`, `newcomer`, `topology`, `guest report`, `rule-predict`, and `search` all read the
@@ -157,6 +168,13 @@ Site ID is required for most other API requests.
 - `unifi-network-cli sites`  -  Retrieve a paginated list of local sites managed by this Network application.
 
 
+**This reference is partial.** It lists the top-level convenience commands only; the full
+surface is 137 commands, including the entire `sites ...` subtree (devices, clients,
+firewall, ACL, networks, DNS, WiFi, hotspot, switching, VPN, WANs, RADIUS,
+traffic-matching-lists). Enumerate it with `unifi-network-cli sites --help`,
+`unifi-network-cli api` for every endpoint by interface, or read
+[guide.md](./guide.md).
+
 ### Finding the right command
 
 When you know what you want to do but not which command does it, ask the CLI directly:
@@ -165,7 +183,7 @@ When you know what you want to do but not which command does it, ask the CLI dir
 unifi-network-cli which "<capability in your own words>"
 ```
 
-`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query.
+`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query. **Under `--agent` or `--json` the exit code is always 0**; test `matches` for emptiness instead.
 
 ## Recipes
 
@@ -239,7 +257,7 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
 - Use `--home <dir>` for one invocation, or set `UNIFI_HOME=<dir>` to relocate all four path kinds under one root.
 - Use per-kind env vars only when a specific kind must diverge: `UNIFI_CONFIG_DIR`, `UNIFI_DATA_DIR`, `UNIFI_STATE_DIR`, `UNIFI_CACHE_DIR`.
 - Resolution order is per-kind env var, `--home`, `UNIFI_HOME`, XDG (`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`), then platform defaults.
-- `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, `data.db`, cookies, and auth sidecars. `state` contains persisted queries, jobs, and `teach.log`. `cache` contains regenerable HTTP/cache files.
+- `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, `data.db`, and `novel-snapshots/` (drift's per-site snapshots and newcomer's first-seen file). `state` contains `teach.log`, `learnings.jsonl`, and the learn journal. The `.agentcookie-managed` marker sits beside `config.toml` in the CONFIG dir, not data. `cache` contains regenerable HTTP/cache files.
 - Stored secrets live in `credentials.toml` under the data dir. Existing legacy `config.toml` secrets are read for compatibility and leave `config.toml` on the first auth write.
 - Run `unifi-network-cli doctor --fail-on warn` to surface path and credential-location warnings. `agent-context` exposes a schema v4 `paths` block for agents that need the resolved dirs.
 - For MCP, pass relocation through the MCP host config. The MCP binary does not inherit CLI flags:
@@ -478,7 +496,7 @@ Every command accepts `--deliver <sink>`. The output goes to the named sink in a
 | `file:<path>` | Atomically write output to `<path>` (tmp + rename) |
 | `webhook:<url>` | POST the output body to the URL (`application/json` or `application/x-ndjson` when `--compact`) |
 
-Unknown schemes are refused with a structured error naming the supported set. Webhook failures return non-zero and log the URL + HTTP status on stderr.
+Unknown schemes are refused with a plain-text error naming the supported set, exiting 1. Webhook failures return non-zero and log the URL + HTTP status on stderr.
 
 ## Named Profiles
 
@@ -502,6 +520,7 @@ Explicit flags always win over profile values; profile values win over defaults.
 | 2 | Usage error (wrong arguments) |
 | 3 | Resource not found |
 | 4 | Authentication required |
+| 1 | Pre-run failure (e.g. an unknown `--deliver` scheme), raised before the typed codes apply |
 | 5 | API error (upstream issue) |
 | 6 | Partial failure (2xx with a partial-failure body; pass `--allow-partial-failure` to downgrade to a warning) |
 | 7 | Rate limited (wait and retry) |
@@ -523,26 +542,34 @@ Full tiers and rationale: [governance.md](./governance.md). ([AGENTS.md](./AGENT
 maintainer/operating contract, not a permission model.)
 The short version an agent must honor:
 
-- **Reads are fine to run**  -  except the ones that return secrets. `sites wifi
-  get-broadcast-details` returns that SSID's cleartext WiFi passphrase, and
-  `sites hotspot get-voucher` / `get-vouchers`, **`guest report`**, and **`search`**
-  return usable guest voucher codes (`search` reads them straight out of the local
-  mirror, no gateway call). The CLI does not redact output. Do not run these
-  unattended and do not spill their raw output into context.
-- **Three writes also RETURN secrets in their response body**, so treat their output
-  the same way: `sites hotspot create-vouchers` returns the new voucher `code`s, and
-  `sites wifi create-broadcast` / `update-broadcast` return the SSID's
-  `securityConfiguration` including the cleartext passphrase.
+- **The CLI never redacts output. Any command that can emit a stored or returned field
+  verbatim can emit a secret.** Two secrets exist on this API: an SSID's cleartext
+  `passphrase` (inside `securityConfiguration`) and a usable guest voucher `code`.
+  Treat the output of anything that can surface them as credential-grade  -  do not run
+  it unattended, log it, or paste it into context. Known carriers:
+  - direct reads: `sites wifi get-broadcast-details` (passphrase),
+    `sites hotspot get-voucher` / `get-vouchers` (codes);
+  - mirror-derived, no gateway call: `guest report`, `search`, `analytics`
+    (`--group-by code` on the `hotspot` type dumps every code), `export <resource>`
+    (writes the whole resource to a file);
+  - writes that echo the secret back: `sites hotspot create-vouchers`,
+    `sites wifi create-broadcast` / `update-broadcast`;
+  - and `sync` itself, which persists voucher codes into `data.db` in cleartext.
+  If you add or discover another command that reads the mirror, assume it belongs here.
 - **Never auto-run these  -  ask a human first.** `sites devices remove` (unadopts AND
   **factory-resets** an online device), `sites devices execute-port-action` (can
   power-cycle PoE and drop whatever is plugged in), `sites clients
   execute-connected-action` (can force a client off the network), `sites devices adopt`,
   `sites devices execute-adopted-action`, and every `delete` command
-  (`sites firewall delete-zone`, `sites networks delete`, `sites acl-rules delete`,
-  `sites dns delete-policy`, `sites wifi delete-broadcast`,
+  (`sites firewall delete-policy`, `sites firewall delete-zone`, `sites networks delete`,
+  `sites acl-rules delete`, `sites dns delete-policy`, `sites wifi delete-broadcast`,
   `sites traffic-matching-lists delete`, `sites hotspot delete-voucher(s)`).
-- **Routine config writes** (`create`/`update`/`patch` on firewall, ACL, networks, DNS,
-  WiFi, vouchers): preview with `--dry-run`, show the exact command, get approval, then run.
+- **Every other gateway-mutating command is a routine config write**  -  any
+  `create` / `update` / `patch` under `sites ...` (firewall policies and zones, ACL
+  rules, networks, DNS policies, WiFi broadcasts, hotspot vouchers, **traffic-matching
+  lists**, policy ordering). Preview with `--dry-run`, show the exact command, get
+  approval, then run. If a command mutates and is not named above, treat it as this
+  tier  -  never as a read.
 - **`drift` and `newcomer` write local state.** `drift` advances its own snapshot every
   run, so running it twice makes the second run report no changes.
 

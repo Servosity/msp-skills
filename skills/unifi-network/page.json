@@ -19,7 +19,7 @@
   ],
   "pain_points": [
     "The UniFi Network integration API exposes no config-versioning or audit-trail endpoint, so 'what changed on this site, and when?' has no answer you can pull - a gap the Ubiquiti Community has open feature requests for under titles like 'UniFi Change Logs or Change Control options?' and 'Audit log of recent changes'.",
-    "Spotting new hardware on a network means eyeballing a client list you have no baseline for - there is no first-seen record, so nothing distinguishes a device that appeared this morning from one that has been there for a year.",
+    "Spotting new hardware means eyeballing a list with no baseline: clients have no first-seen record at all (only a current-session connectedAt), and a device's adoptedAt exists only on the per-device detail fetch, never in the list you scan.",
     "Port and PoE status lives one device-detail screen at a time; the list endpoints do not return per-port interface data at all, so checking free ports before planning a new AP or camera means opening every switch by hand."
   ],
   "outcomes": [
@@ -45,7 +45,7 @@
     },
     {
       "question": "What firewall policies are configured on this site?",
-      "command": "unifi-network-cli sites firewall get-policies <siteId>"
+      "command": "unifi-network-cli sites firewall get-policies <siteId> --all"
     },
     {
       "question": "Who is on the guest network, and which vouchers are live?",
@@ -53,7 +53,7 @@
     },
     {
       "question": "List every adopted device on the site",
-      "command": "unifi-network-cli sites devices get-adopted-overview-page <siteId>"
+      "command": "unifi-network-cli sites devices get-adopted-overview-page <siteId> --all"
     }
   ],
   "different_vs_wrappers": "Most UniFi integrations proxy each question straight into a live API call. That works for reading one record and falls apart for anything historical, because the integration API has no config-versioning or audit-trail endpoint to proxy to - the data simply is not there to ask for. This skill syncs the gateway into a local SQLite mirror and keeps its own snapshots, so `drift` can diff this site's config against the last time you looked and `newcomer` can hold a first-seen record per device and client. Those answers are computed locally from state the API never returns twice.",
@@ -92,12 +92,12 @@
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "drift, newcomer, topology, port-audit, rule-predict, analytics, sites devices get-adopted-overview-page, sites firewall get-policies (non-mutating reads except the secret-returning ones below; drift and newcomer advance their own local baseline each run)",
+      "examples": "drift, newcomer, topology, port-audit, rule-predict, sites devices get-adopted-overview-page, sites firewall get-policies (non-mutating reads except the secret-bearing ones below; drift and newcomer advance their own local baseline each run)",
       "policy": "Allow"
     },
     {
       "tier": "Credential (incl. secret-returning reads)",
-      "examples": "auth set-token, auth logout, sites wifi get-broadcast-details (that SSID's cleartext passphrase), sites hotspot get-voucher, sites hotspot get-vouchers, guest report, search (usable guest voucher codes)",
+      "examples": "auth set-token, auth logout, and every command whose output can carry a live secret (the CLI redacts nothing): sites wifi get-broadcast-details, sites hotspot get-voucher / get-vouchers, guest report, search, analytics --group-by code, export <resource>",
       "policy": "Human-in-the-loop only - never in a blanket allow-all-reads policy. Three writes (sites hotspot create-vouchers, sites wifi create-broadcast / update-broadcast) also return secrets in their response body; treat their output the same way"
     },
     {
