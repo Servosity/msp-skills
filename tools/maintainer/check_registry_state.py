@@ -32,7 +32,7 @@ REGISTRY_REF = "origin/main:tools/maintainer/skills.json"
 
 def load_current() -> dict:
     try:
-        return json.loads(REGISTRY.read_text())["skills"]
+        return json.loads(REGISTRY.read_text(encoding="utf-8"))["skills"]
     except (OSError, json.JSONDecodeError, KeyError) as e:
         print(f"check_registry_state: cannot read {REGISTRY}: {e}")
         sys.exit(2)

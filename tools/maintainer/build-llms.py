@@ -155,7 +155,7 @@ def load_page_data(slug: str, meta: dict, cat: dict) -> dict:
         "governance_summary": "",
     }
     if page_json.exists():
-        pj = json.loads(page_json.read_text())
+        pj = json.loads(page_json.read_text(encoding="utf-8"))
         # page.json's real keys are outcome_intro / question / command (the
         # schema render_docs_page.py consumes). The old q/cmd/intro reads
         # silently returned empty strings and the fallback parser papered
@@ -172,7 +172,7 @@ def load_page_data(slug: str, meta: dict, cat: dict) -> dict:
     # Fallback: parse the rendered docs page.
     md = DOCS / "skills" / f"{slug}.md"
     if md.exists():
-        fm, body = split_front_matter(md.read_text())
+        fm, body = split_front_matter(md.read_text(encoding="utf-8"))
         # Intro = first prose paragraph after the H1 + banner blockquote + the
         # badge notice + the vocab one-liner.
         data["intro"] = first_intro_paragraph(body)
@@ -246,7 +246,7 @@ def why_pillars() -> list[tuple[str, str]]:
     md = DOCS / "why-msp-skills.md"
     if not md.exists():
         return []
-    _, body = split_front_matter(md.read_text())
+    _, body = split_front_matter(md.read_text(encoding="utf-8"))
     out: list[tuple[str, str]] = []
     for m in re.finditer(r"^##\s+(.+?)\s*$(.*?)(?=^##\s|\Z)", body, re.DOTALL | re.MULTILINE):
         head = strip_md(m.group(1))
@@ -266,7 +266,7 @@ def glossary_definition() -> str:
     md = DOCS / "what-is-an-mcp-server.md"
     if not md.exists():
         return ""
-    _, body = split_front_matter(md.read_text())
+    _, body = split_front_matter(md.read_text(encoding="utf-8"))
     for b in re.split(r"\n\s*\n", body):
         s = b.strip()
         if not s or s.startswith(("#", ">", "<", "{%", "|")):
@@ -386,7 +386,7 @@ def render_full(pages: list[dict]) -> str:
 
 
 def main() -> int:
-    catalog = json.loads(CATALOG.read_text())
+    catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
     cat_by_slug = {c["name"]: c for c in catalog.get("skills", [])}
     meta = registry.skills()  # sorted by slug
 

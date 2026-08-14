@@ -56,7 +56,7 @@ def _plugin_version(skill_dir: Path) -> str:
     pj = skill_dir / ".claude-plugin" / "plugin.json"
     if pj.exists():
         try:
-            return json.loads(pj.read_text()).get("version", "0.0.0")
+            return json.loads(pj.read_text(encoding="utf-8")).get("version", "0.0.0")
         except (OSError, ValueError):
             return "0.0.0"
     return "0.0.0"
@@ -85,7 +85,7 @@ def build_entry(skill_dir: Path) -> dict:
         manifest_path = skill_dir / "manifest.json"
         if not manifest_path.exists():
             raise SystemExit(f"missing manifest.json for skill {slug}")
-        manifest = json.loads(manifest_path.read_text())
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         version = manifest.get("version", "0.0.0")
 
     entry = {
@@ -384,7 +384,7 @@ def render_agent_can_do() -> str:
                 f"skills/{meta.get('source_dir', slug)}/page.json missing - "
                 "every connector needs one for the agent-can-do block."
             )
-        outcomes = json.loads(page_path.read_text()).get("outcomes", [])
+        outcomes = json.loads(page_path.read_text(encoding="utf-8")).get("outcomes", [])
         if not outcomes:
             raise SystemExit(f"page.json for '{slug}' has no outcomes.")
         for o in outcomes[:per_skill]:
@@ -461,7 +461,7 @@ def main() -> int:
     generated_at = dt.date.today().isoformat()
     if CATALOG.exists():
         try:
-            prev = json.loads(CATALOG.read_text())
+            prev = json.loads(CATALOG.read_text(encoding="utf-8"))
             if prev.get("schema_version") == 1 and prev.get("skills") == skills:
                 generated_at = prev.get("generated_at", generated_at)
         except Exception:
@@ -472,12 +472,12 @@ def main() -> int:
         "generated_at": generated_at,
         "skills": skills,
     }
-    CATALOG.write_text(json.dumps(catalog, indent=2) + "\n")
+    CATALOG.write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
 
     DOCS_CATALOG.parent.mkdir(parents=True, exist_ok=True)
-    DOCS_CATALOG.write_text(json.dumps(build_docs_catalog(skills), indent=2) + "\n")
+    DOCS_CATALOG.write_text(json.dumps(build_docs_catalog(skills), indent=2) + "\n", encoding="utf-8")
 
-    readme = README.read_text()
+    readme = README.read_text(encoding="utf-8")
     new_readme = replace_block(
         readme,
         "<!-- catalog:start -->",
@@ -502,15 +502,15 @@ def main() -> int:
         f"img.shields.io/badge/skills-{connector_count}-green",
         new_readme,
     )
-    README.write_text(new_readme)
+    README.write_text(new_readme, encoding="utf-8")
 
     # Regenerate the it-works issue form's skill dropdown so a reporter can pick
     # the exact connector (not be forced into "other"); the catalog.yml drift
     # gate keeps it in lockstep with the registry. Skipped gracefully if the
     # form is absent (e.g. a partial checkout).
     if IT_WORKS_FORM.exists():
-        form = IT_WORKS_FORM.read_text()
-        IT_WORKS_FORM.write_text(render_it_works_form(form, skills))
+        form = IT_WORKS_FORM.read_text(encoding="utf-8")
+        IT_WORKS_FORM.write_text(render_it_works_form(form, skills), encoding="utf-8")
 
     # Re-render every connector's docs page in the same pass, so a registry
     # change (live-verified flip, display rename) or a page.json edit shows up

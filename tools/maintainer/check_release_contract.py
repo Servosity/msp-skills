@@ -72,8 +72,8 @@ def main() -> int:
             continue
         checked += 1
         d = registry.skill_path(slug)
-        sh = (d / "install.sh").read_text()
-        ps = (d / "install.ps1").read_text()
+        sh = (d / "install.sh").read_text(encoding="utf-8")
+        ps = (d / "install.ps1").read_text(encoding="utf-8")
 
         sh_cli, sh_mcp = _sh_var(sh, "CLI_BIN"), _sh_var(sh, "MCP_BIN")
         ps_cli = (_ps_var(ps, "CliBin") or "").removesuffix(".exe")
