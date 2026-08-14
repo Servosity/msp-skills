@@ -152,8 +152,9 @@ vendor's fault.
   than on a command line, so it does not land in process-creation logs.
 - The complete value is never printed, never logged, and never returned into the
   agent's context. Receipts carry length, a hash prefix, and the last four
-  characters, which is enough to tell two credentials apart and not enough to use
-  one.
+  characters -- and the last-four field is withheld entirely for short secrets
+  (under twelve characters), so a receipt is enough to tell two credentials apart
+  and never enough to reconstruct one, even a short one.
 - Capture files hold a real credential until deleted. They belong in
   `.gitignore`, and the Skill treats them as disposable.
 - Consumer config files are written with mode 0600 and are regenerated on demand,
@@ -163,7 +164,8 @@ vendor's fault.
 
 ## What this does not do
 
-It does not refresh a session automatically. No refresh token exists for these
-sites, which is the entire reason the tool exists. It shortens and schedules the
-human step; it does not remove it. Any tool claiming otherwise for an httpOnly
-session cookie is either driving a browser or storing your password.
+It does not refresh a session automatically. For an httpOnly session cookie,
+re-authentication still means a human logging in again -- a vendor may offer its
+own renewal path, but this workflow does not drive one. It shortens and schedules
+that human step; it does not remove it. Any tool claiming to fully automate an
+httpOnly session cookie is either driving a browser or storing your password.
