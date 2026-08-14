@@ -11,8 +11,7 @@ func newApplicationsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "applications",
 		Short:       "Application definitions (custom + built-in) and policies' targets",
-		Hidden:      true,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 
@@ -22,6 +21,5 @@ func newApplicationsCmd(flags *rootFlags) *cobra.Command {
 	cmd.AddCommand(newApplicationsResearchCmd(flags))
 	cmd.AddCommand(newApplicationsSearchCmd(flags))
 	cmd.AddCommand(newApplicationsUpdateCmd(flags))
-	cmd.AddCommand(newNovelApplicationsHuntCmd(flags))
 	return cmd
 }

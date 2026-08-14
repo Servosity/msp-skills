@@ -11,16 +11,15 @@ func newAuditCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "audit",
 		Short:       "Unified Audit (ActionLog) — permit/deny events. Default retention 31 days.",
-		Hidden:      true,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 
 	cmd.AddCommand(newAuditFileHistoryCmd(flags))
 	cmd.AddCommand(newAuditGetCmd(flags))
 	cmd.AddCommand(newAuditSearchCmd(flags))
-	cmd.AddCommand(newNovelAuditDriftCmd(flags))
-	cmd.AddCommand(newNovelAuditExportCmd(flags))
-	cmd.AddCommand(newNovelAuditRetentionCheckCmd(flags))
+	addNovelCommandIfAbsent(cmd, newNovelAuditDriftCmd(flags))
+	addNovelCommandIfAbsent(cmd, newNovelAuditExportCmd(flags))
+	addNovelCommandIfAbsent(cmd, newNovelAuditRetentionCheckCmd(flags))
 	return cmd
 }

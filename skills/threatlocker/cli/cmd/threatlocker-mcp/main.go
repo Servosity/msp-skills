@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/mark3labs/mcp-go/server"
+	"threatlocker-pp-cli/internal/cli"
 	mcptools "threatlocker-pp-cli/internal/mcp"
 )
 
@@ -27,6 +28,13 @@ const (
 var version = "0.0.0-dev"
 
 func main() {
+	// Pin the learn-event surface for this process and every walker
+	// shell-out child, so usage events record surface=mcp.
+	_ = os.Setenv("THREATLOCKER_LEARN_SURFACE", "mcp")
+	if err := cli.BindMCPServerProfile(); err != nil {
+		fmt.Fprintf(os.Stderr, "MCP client-profile bind failed: %v\n", err)
+		os.Exit(1)
+	}
 	s := server.NewMCPServer(
 		"Threatlocker",
 		version,

@@ -2079,7 +2079,7 @@ Governance: The skill reads everything across your fleet - agents, clients, site
 ### ThreatLocker (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/threatlocker/
-Verification: Awaiting live verification
+Verification: Live-verified by @geekbrownbear (MSP) (2026-08-14)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/install.sh)
 
 Running ThreatLocker across a whole book of customer tenants? Ask your AI "what approvals are pending everywhere," "which agents went dark this week," or "which clients are about to lose audit evidence," and get one cross-tenant answer the Portal can't compose. Every tenant is mirrored into a local store, so one approval queue, one audit archive, and one health rollup replace dozens of one-tenant-at-a-time Portal logins.

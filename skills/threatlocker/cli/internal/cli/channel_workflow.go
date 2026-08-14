@@ -6,9 +6,11 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
+	"threatlocker-pp-cli/internal/cliutil"
 	"threatlocker-pp-cli/internal/store"
 )
 
@@ -16,7 +18,7 @@ func newWorkflowCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "workflow",
 		Short:       "Compound workflows that combine multiple API operations",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 	cmd.AddCommand(newWorkflowArchiveCmd(flags))
@@ -55,7 +57,18 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			resources := []string{"computer-groups", "organizations", "scheduled-actions"}
+			// One source of truth with `sync`. The generated literal here went
+			// stale: it carried a duplicate organizations entry (double-counting
+			// cached rows), the computer-groups dropdown twin, and
+			// scheduled-actions, which always answers HTTP 417. See #208.
+			resources := defaultSyncResources()
+			archiveMaxPages := 100
+			if cliutil.IsDogfoodEnv() {
+				archiveMaxPages = 1
+				if len(resources) > 3 {
+					resources = resources[:3]
+				}
+			}
 			totalSynced := 0
 			syncEventWriter := cmd.OutOrStdout()
 			if flags.asJSON {
@@ -67,20 +80,33 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			// since filter, not cursor reset. Mirrors newSyncCmd's pattern.
 			if full {
 				for _, resource := range resources {
-					_ = s.SaveSyncState(resource, "", 0)
+					if err := s.SaveSyncState(resource, "", 0); err != nil {
+						return fmt.Errorf("clearing sync state for %s: %w", resource, err)
+					}
 				}
 			}
 
+			// Outcomes are counted, not just printed: an archive that logged an
+			// error or a warning for every resource and then reported
+			// "resources_synced: <all of them>" and exit 0 is the same false
+			// success #208 was about, one command over.
+			archivedOK, archivedWarned, archivedErrored := 0, 0, 0
 			for _, resource := range resources {
-				res := syncResource(cmd.Context(), c, s, resource, "", full, 100, false, nil, syncEventWriter)
+				res := syncResource(cmd.Context(), c, s, resource, "", full, archiveMaxPages, false, false, nil, syncEventWriter)
 				if res.Err != nil {
+					if isSyncStatePersistenceError(res.Err) {
+						return fmt.Errorf("archiving %s: %w", resource, res.Err)
+					}
+					archivedErrored++
 					fmt.Fprintf(cmd.ErrOrStderr(), "  %s: error: %v\n", resource, res.Err)
 					continue
 				}
 				if res.Warn != nil {
+					archivedWarned++
 					fmt.Fprintf(cmd.ErrOrStderr(), "  %s: warning: %v\n", resource, res.Warn)
 					continue
 				}
+				archivedOK++
 				totalSynced += res.Count
 				fmt.Fprintf(cmd.ErrOrStderr(), "  %s: %d synced\n", resource, res.Count)
 			}
@@ -88,20 +114,25 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			if flags.asJSON {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
-				return enc.Encode(map[string]any{
-					"resources_synced": len(resources),
-					"total_items":      totalSynced,
-					"store_path":       dbPath,
-					"timestamp":        time.Now().UTC().Format(time.RFC3339),
-				})
+				if err := enc.Encode(map[string]any{
+					"resources_synced":  archivedOK,
+					"resources_warned":  archivedWarned,
+					"resources_errored": archivedErrored,
+					"total_items":       totalSynced,
+					"store_path":        dbPath,
+					"timestamp":         time.Now().UTC().Format(time.RFC3339),
+				}); err != nil {
+					return err
+				}
+				return archiveOutcomeError(archivedOK, archivedWarned, archivedErrored)
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Archived %d items across %d resources to %s\n", totalSynced, len(resources), dbPath)
-			return nil
+			fmt.Fprintf(cmd.OutOrStdout(), "Archived %d items across %d of %d resources to %s\n", totalSynced, archivedOK, len(resources), dbPath)
+			return archiveOutcomeError(archivedOK, archivedWarned, archivedErrored)
 		},
 	}
 
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/threatlocker-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "SQLite database file path (default: resolved data directory data.db)")
 	cmd.Flags().BoolVar(&full, "full", false, "Full re-archive (ignore previous sync state)")
 
 	return cmd
@@ -123,15 +154,34 @@ func newWorkflowStatusCmd(flags *rootFlags) *cobra.Command {
 			if dbPath == "" {
 				dbPath = defaultDBPath("threatlocker-cli")
 			}
-			s, err := store.OpenWithContext(cmd.Context(), dbPath)
-			if err != nil {
-				return fmt.Errorf("opening store: %w", err)
-			}
-			defer s.Close()
 
-			status, err := s.Status()
-			if err != nil {
-				return err
+			status := map[string]int{}
+			if _, err := os.Stat(dbPath); err == nil {
+				s, err := store.OpenReadOnlyContext(cmd.Context(), dbPath)
+				if err != nil {
+					return fmt.Errorf("opening store read-only: %w", err)
+				}
+				defer s.Close()
+
+				schemaVersion, err := s.SchemaVersion()
+				if err != nil {
+					return fmt.Errorf("checking store schema read-only: %w", err)
+				}
+				if schemaVersion < store.StoreSchemaVersion {
+
+					return fmt.Errorf("local store schema version %d requires migration to %d; run 'workflow archive' to migrate it", schemaVersion, store.StoreSchemaVersion)
+
+				}
+				if schemaVersion > store.StoreSchemaVersion {
+					return fmt.Errorf("local store schema version %d is newer than supported version %d; upgrade the CLI binary", schemaVersion, store.StoreSchemaVersion)
+				}
+
+				status, err = s.Status()
+				if err != nil {
+					return err
+				}
+			} else if !os.IsNotExist(err) {
+				return fmt.Errorf("checking store path: %w", err)
 			}
 
 			if flags.asJSON {
@@ -157,9 +207,24 @@ func newWorkflowStatusCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path")
+	cmd.Flags().StringVar(&dbPath, "db", "", "SQLite database file path (default: resolved data directory data.db)")
 
 	return cmd
 }
 
 // defaultDBPath is defined in helpers.go
+
+// archiveOutcomeError converts per-resource outcomes into the command's exit
+// status. Nothing archived cleanly is a failure; a partial run is reported so a
+// caller can tell it apart from a clean one. Hand-added: the generated body
+// returned nil unconditionally. See skills/threatlocker/handfixes.json
+// (sync-typed-table-honesty).
+func archiveOutcomeError(ok, warned, errored int) error {
+	if ok == 0 && (warned > 0 || errored > 0) {
+		return fmt.Errorf("archive stored nothing: %d resource(s) errored, %d warned", errored, warned)
+	}
+	if errored > 0 || warned > 0 {
+		return fmt.Errorf("archive incomplete: %d resource(s) archived, %d errored, %d warned", ok, errored, warned)
+	}
+	return nil
+}

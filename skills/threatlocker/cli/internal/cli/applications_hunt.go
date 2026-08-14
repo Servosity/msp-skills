@@ -80,7 +80,7 @@ func huntTrustedFiles(ctx context.Context, db *store.Store, query map[string]str
 	sql := `SELECT af.application_id, COALESCE(a.name, ''), af.full_path, af.cert, af.hash
 		FROM application_files af
 		LEFT JOIN applications a ON a.application_id = af.application_id
-		` + whereClause(clauses) + ` LIMIT ?`
+		` + huntWhereClause(clauses) + ` LIMIT ?`
 	args = append(args, limit)
 	rows, err := db.DB().QueryContext(ctx, sql, args...)
 	if err != nil {
@@ -162,7 +162,7 @@ a policy to other tenants.
 The tenantRollup counts are computed over the full local store; --limit caps
 only the per-row detail lists.
 
-Sync first: threatlocker-cli sync --resources approvals,application-files,applications`,
+Sync first: threatlocker-cli sync --resources approvals,applications`,
 		Example: strings.Trim(`
   threatlocker-cli applications hunt --hash 3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b --agent
   threatlocker-cli applications hunt --path chrome.exe --json
@@ -186,7 +186,7 @@ Sync first: threatlocker-cli sync --resources approvals,application-files,applic
 			}
 			db, err := tlOpenStore(cmd.Context(), dbPath)
 			if err != nil {
-				return fmt.Errorf("opening local database: %w\nRun 'threatlocker-cli sync --resources approvals,application-files,applications' first.", err)
+				return fmt.Errorf("opening local database: %w\nRun 'threatlocker-cli sync --resources approvals,applications' first.", err)
 			}
 			defer db.Close()
 
@@ -231,7 +231,7 @@ Sync first: threatlocker-cli sync --resources approvals,application-files,applic
 					SUM(CASE WHEN status_id = 1 THEN 1 ELSE 0 END),
 					SUM(CASE WHEN status_id IS NULL OR status_id <> 1 THEN 1 ELSE 0 END),
 					COUNT(DISTINCT NULLIF(computer_name, ''))
-					FROM approvals ` + whereClause(apprClauses) + ` GROUP BY org`
+					FROM approvals ` + huntWhereClause(apprClauses) + ` GROUP BY org`
 				rRows, err := db.DB().QueryContext(cmd.Context(), rollupSQL, apprArgs...)
 				if err != nil {
 					return fmt.Errorf("querying approval rollup: %w", err)
@@ -261,7 +261,7 @@ Sync first: threatlocker-cli sync --resources approvals,application-files,applic
 
 				// 2b. Detail rows, newest first, capped by --limit.
 				detailSQL := `SELECT organization_id, organization_name, computer_name, file_name, full_path, hash, status, date_requested
-					FROM approvals ` + whereClause(apprClauses) + ` ORDER BY date_requested DESC LIMIT ?`
+					FROM approvals ` + huntWhereClause(apprClauses) + ` ORDER BY date_requested DESC LIMIT ?`
 				detailArgs := append(append([]any{}, apprArgs...), flagLimit)
 				aRows, err := db.DB().QueryContext(cmd.Context(), detailSQL, detailArgs...)
 				if err != nil {
@@ -301,7 +301,13 @@ Sync first: threatlocker-cli sync --resources approvals,application-files,applic
 			}
 			switch {
 			case len(view.Approvals) == 0 && len(view.TrustedFiles) == 0:
-				view.Note = "no matches in the local store; sync first with 'threatlocker-cli sync --resources approvals,application-files,applications' or widen the query"
+				// application_files is deliberately NOT in the sync set: its endpoint
+				// is keyed by applicationId and flat sync supplies only pagination,
+				// so it can never enumerate. The table is populated on demand by
+				// `application-files list --application-id <id>` (live reads write
+				// through to the store). Say so rather than implying a sync would
+				// have filled it. See #208.
+				view.Note = "no matches in the local store; sync first with 'threatlocker-cli sync --resources approvals,applications' or widen the query. Trusted-file (application_files) matches additionally require 'threatlocker-cli application-files list --application-id <id>' for the applications you care about, which sync cannot enumerate on its own."
 			case certOnlyUnresolved:
 				view.Note = "cert-only hunt: no hashes resolved from matching application file rules, so the approval queue was not searched; add --hash or --path to search it"
 			case totalRollupRows > len(view.Approvals):
@@ -357,4 +363,16 @@ Sync first: threatlocker-cli sync --resources approvals,application-files,applic
 	cmd.Flags().IntVar(&flagLimit, "limit", 200, "Maximum detail rows per section (tenantRollup is always computed over the full store)")
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path")
 	return cmd
+}
+
+// huntWhereClause joins clauses into a SQL WHERE fragment (empty when no
+// clauses). Kept private to this hand-authored file: the shared whereClause it
+// used to call lived in the pre-4.30.2 hand-authored audit_export.go, which the
+// reprint replaced with a generated one. A hunt-local name also cannot collide
+// if a future press version emits its own whereClause helper.
+func huntWhereClause(clauses []string) string {
+	if len(clauses) == 0 {
+		return ""
+	}
+	return " WHERE " + strings.Join(clauses, " AND ")
 }

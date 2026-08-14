@@ -11,8 +11,7 @@ func newApprovalsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "approvals",
 		Short:       "Application-control approval requests (list, inspect, approve)",
-		Hidden:      true,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 
@@ -22,7 +21,7 @@ func newApprovalsCmd(flags *rootFlags) *cobra.Command {
 	cmd.AddCommand(newApprovalsListCmd(flags))
 	cmd.AddCommand(newApprovalsPermitOptionsCmd(flags))
 	cmd.AddCommand(newApprovalsStorageCmd(flags))
-	cmd.AddCommand(newNovelApprovalsApproveBatchCmd(flags))
-	cmd.AddCommand(newNovelApprovalsTriageCmd(flags))
+	addNovelCommandIfAbsent(cmd, newNovelApprovalsApproveBatchCmd(flags))
+	addNovelCommandIfAbsent(cmd, newNovelApprovalsTriageCmd(flags))
 	return cmd
 }

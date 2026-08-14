@@ -35,10 +35,11 @@ func newOnlineDevicesPromotedCmd(flags *rootFlags) *cobra.Command {
 			if flagPageSize != 0 {
 				params["pageSize"] = formatCLIParamValue(flagPageSize)
 			}
-			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "online-devices", true, path, params, nil, cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "online-devices", true, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
+			outputData := data
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope
@@ -46,9 +47,9 @@ func newOnlineDevicesPromotedCmd(flags *rootFlags) *cobra.Command {
 			// SYNC: keep this gate aligned with command_endpoint.go.tmpl.
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var countItems []json.RawMessage
-				if json.Unmarshal(data, &countItems) != nil {
+				if json.Unmarshal(outputData, &countItems) != nil {
 					// Single object, not an array
-					countItems = []json.RawMessage{data}
+					countItems = []json.RawMessage{outputData}
 				}
 				printProvenance(cmd, len(countItems), prov)
 			}
@@ -68,11 +69,15 @@ func newOnlineDevicesPromotedCmd(flags *rootFlags) *cobra.Command {
 				if wrapErr != nil {
 					return wrapErr
 				}
+				wrapped, wrapErr = wrapPlatformStructuredOutput(wrapped, flags, "results", true)
+				if wrapErr != nil {
+					return wrapErr
+				}
 				return printOutput(cmd.OutOrStdout(), wrapped, true)
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var items []map[string]any
-				if json.Unmarshal(data, &items) == nil && len(items) > 0 {
+				if json.Unmarshal(outputData, &items) == nil && len(items) > 0 {
 					if err := printAutoTable(cmd.OutOrStdout(), items); err != nil {
 						return err
 					}
@@ -82,7 +87,11 @@ func newOnlineDevicesPromotedCmd(flags *rootFlags) *cobra.Command {
 					return nil
 				}
 			}
-			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
+			formatData := data
+			if flags.csv || flags.plain {
+				formatData = outputData
+			}
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"})
 		},
 	}
 	cmd.Flags().IntVar(&flagPageNumber, "page-number", 1, "1-based page number")
