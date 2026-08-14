@@ -37,6 +37,7 @@ body:
         - connectwise-automate
         - connectwise-control
         - connectwise-manage
+        - cork
         - cove
         - crowdstrike
         - datto-bcdr

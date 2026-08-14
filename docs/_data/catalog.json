@@ -1,5 +1,5 @@
 {
-  "count": 60,
+  "count": 61,
   "connectors": [
     {
       "slug": "abnormal",
@@ -150,6 +150,16 @@
       "verified_by": null,
       "issue_url": null,
       "url": "/skills/connectwise-manage/"
+    },
+    {
+      "slug": "cork",
+      "display_name": "Cork",
+      "tagline": "Explain why a client's risk score moved, patch by what is actually exploited, and catch the connector that reports healthy while its data went stale.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
+      "url": "/skills/cork/"
     },
     {
       "slug": "cove",

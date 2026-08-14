@@ -1,0 +1,35 @@
+{
+  "slug": "cork",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. status: active = connector-only, a reprint would clobber it; upstreamed = also fixed in the press, a reprint from a fixed press regenerates it, but the back-port must still be present today.",
+  "handfixes": [
+    {
+      "id": "feedback-parent-has-examples",
+      "summary": "The `feedback` parent command carries an Example block, with the read-only `list` subcommand leading",
+      "why": "The press feedback parent template ships without an Examples section, which the Phase 5 dogfood gate flags as a finding. The example was hand-added and `list` deliberately leads so the first thing an operator copies is read-only rather than a write. A reprint from an unfixed press template drops the block and the dogfood finding returns.",
+      "status": "active",
+      "spec_encode_followup": "Add an Examples section to the press `feedback` parent template so it is emitted by construction (filed as a retro item against the generator).",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/feedback.go",
+          "contains": "Example: `  cork-cli feedback list",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "installer-setup-404-is-typed-not-failure",
+      "summary": "`software get-installer-setup` declares typed exit codes 0,3 so a 404 is a not-found answer rather than a command failure",
+      "why": "A vendor/package-manager pair with no installer setup configured on the tenant returns HTTP 404. Without the `pp:typed-exit-codes` annotation the generated command surfaces that as a generic failure, so an agent cannot distinguish 'this pair needs no setup' from 'the call broke'. Generated endpoint commands do not currently derive typed exit codes from declared 404 responses, so a reprint reverts this to an untyped failure.",
+      "status": "active",
+      "spec_encode_followup": "Derive `pp:typed-exit-codes` from the operation's declared 404 response in the press so endpoint commands get this by construction (filed as a retro item against the generator).",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/software_get-installer-setup.go",
+          "contains": "\"pp:typed-exit-codes\": \"0,3\"",
+          "min_count": 1
+        }
+      ]
+    }
+  ]
+}
