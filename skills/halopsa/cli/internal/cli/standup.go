@@ -192,10 +192,21 @@ Run 'halopsa-cli sync' first.`,
 }
 
 // parseSince accepts: "yesterday", "today", a duration like "24h" / "7d", or an absolute date/time.
+//
+// Case handling is deliberately split. Keywords and durations are matched
+// case-folded, because time.ParseDuration requires lowercase unit letters and
+// the keyword switch compares lowercase literals, so "24H", "7D" and
+// "Yesterday" only work once folded. Timestamps are matched against the raw
+// input, because time.Parse compares layout characters literally and
+// time.RFC3339 carries an uppercase "T" separator and "Z" designator. Folding
+// the whole string first turned a valid RFC3339 value into
+// "2026-08-01t00:00:00z", which matches no layout, so every --since timestamp
+// was rejected as "unrecognized time" despite the flag help documenting it.
 func parseSince(s string) (time.Time, error) {
-	s = strings.TrimSpace(strings.ToLower(s))
+	raw := strings.TrimSpace(s)
+	lower := strings.ToLower(raw)
 	now := time.Now()
-	switch s {
+	switch lower {
 	case "", "today":
 		y, m, d := now.Date()
 		return time.Date(y, m, d, 0, 0, 0, 0, now.Location()), nil
@@ -204,23 +215,23 @@ func parseSince(s string) (time.Time, error) {
 		return time.Date(y, m, d, 0, 0, 0, 0, now.Location()), nil
 	}
 	// duration suffix
-	if strings.HasSuffix(s, "d") {
+	if strings.HasSuffix(lower, "d") {
 		var d int
-		if _, err := fmt.Sscanf(s, "%dd", &d); err == nil && d > 0 {
+		if _, err := fmt.Sscanf(lower, "%dd", &d); err == nil && d > 0 {
 			return now.AddDate(0, 0, -d), nil
 		}
 	}
-	if dur, err := time.ParseDuration(s); err == nil {
+	if dur, err := time.ParseDuration(lower); err == nil {
 		return now.Add(-dur), nil
 	}
 	for _, layout := range []string{time.RFC3339, "2006-01-02 15:04", "2006-01-02 15:04:05", "2006-01-02"} {
-		if t, err := time.Parse(layout, s); err == nil {
+		if t, err := time.Parse(layout, raw); err == nil {
 			return t, nil
 		}
 	}
 	// Bare clock time (e.g. "09:00", "9:30:15") means today at that time.
 	for _, layout := range []string{"15:04", "15:04:05"} {
-		if hm, err := time.Parse(layout, s); err == nil {
+		if hm, err := time.Parse(layout, raw); err == nil {
 			y, mo, d := now.Date()
 			return time.Date(y, mo, d, hm.Hour(), hm.Minute(), hm.Second(), 0, now.Location()), nil
 		}
