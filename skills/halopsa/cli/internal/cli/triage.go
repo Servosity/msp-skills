@@ -68,7 +68,7 @@ func buildTriageQuery(team, agent string, staleDays, breachHrs, limit int) (stri
                 agent_label AS who,
                 COUNT(*) AS open_count,
                 SUM(CASE WHEN (julianday('now') - julianday(COALESCE(NULLIF(json_extract(data, '$.lastactiondate'),''), created_at))) > ? THEN 1 ELSE 0 END) AS stale_count,
-                SUM(CASE WHEN datetime(COALESCE(json_extract(data, '$.targetdate'), '')) BETWEEN datetime('now') AND datetime('now', '+' || ? || ' hours') THEN 1 ELSE 0 END) AS breach_count,
+                SUM(CASE WHEN datetime(` + slaResolutionTargetSQL + `) BETWEEN datetime('now') AND datetime('now', '+' || ? || ' hours') THEN 1 ELSE 0 END) AS breach_count,
                 CAST(MAX(julianday('now') - julianday(created_at)) AS INTEGER) AS oldest_days
             FROM scoped
             ` + agentFilter + `

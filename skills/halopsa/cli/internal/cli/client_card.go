@@ -84,10 +84,10 @@ client. Resolves by numeric ID or by name (case-insensitive substring match).`,
 			// Active tickets
 			tRows, _ := db.DB().QueryContext(cmd.Context(), `SELECT id, COALESCE(summary,''), COALESCE(agent_name,'?'),
                 COALESCE(json_extract(data,'$.status_name'),'?'),
-                COALESCE(json_extract(data,'$.targetdate'),'')
+                COALESCE(` + slaResolutionTargetSQL + `,'')
                 FROM tickets
                 WHERE client_id = ? AND COALESCE(json_extract(data,'$.status_id'),0) NOT IN (8,9)
-                ORDER BY COALESCE(json_extract(data,'$.targetdate'),'') ASC
+                ORDER BY COALESCE(` + slaResolutionTargetSQL + `,'') ASC
                 LIMIT ?`, clientID, limitT)
 			activeTickets := []map[string]any{}
 			if tRows != nil {
@@ -228,7 +228,7 @@ func newNovelClientOverlayCmd(flags *rootFlags) *cobra.Command {
                     GROUP BY client ORDER BY metric DESC LIMIT ?`
 			case "sla_at_risk":
 				q = `SELECT COALESCE(client_name,'?') AS client,
-                    SUM(CASE WHEN datetime(COALESCE(json_extract(data,'$.targetdate'),'')) BETWEEN datetime('now') AND datetime('now', '+24 hours') THEN 1 ELSE 0 END) AS metric
+                    SUM(CASE WHEN datetime(` + slaResolutionTargetSQL + `) BETWEEN datetime('now') AND datetime('now', '+24 hours') THEN 1 ELSE 0 END) AS metric
                     FROM tickets
                     WHERE COALESCE(json_extract(data,'$.status_id'),0) NOT IN (8,9)
                     GROUP BY client ORDER BY metric DESC LIMIT ?`

@@ -144,6 +144,63 @@
           "min_count": 1
         }
       ]
+    },
+    {
+      "id": "sla-target-reads-fixbydate",
+      "summary": "every SLA-facing view resolves the deadline from fixbydate (falling back to targetdate) instead of reading tickets.targetdate, which HaloPSA parks at the 1900-01-01 sentinel",
+      "why": "HaloPSA does not use tickets.targetdate. The portal's Response Target and Resolution Target come from respondbydate and fixbydate, while targetdate is a legacy column left at 1900-01-01T00:00:00. On the tenant this was found against, 1264 of 1265 synced tickets carry that sentinel and all 1265 carry real respondbydate and fixbydate values. The consequence is a silent zero rather than an error: a window test like datetime(targetdate) BETWEEN now AND now+24h can never be true against 1900-01-01, so sla breaching and triage's breach_count reported no SLA risk on every tenant regardless of what was actually due, and sla scorecard counted every closed ticket as carrying a target that nothing could satisfy and reported 0 percent met. client card displayed 1900-01-01 as each ticket's target date, ordered its active-ticket panel by it, and its sla_at_risk overlay metric was permanently 0. Confirmed against the portal on six tickets: each Response Target and Resolution Target rendered in the UI matches respondbydate / fixbydate exactly, offset only by the tenant's UTC display conversion, while targetdate reads 1900-01-01 on all of them. One open ticket was 16 hours from its resolution target and 27 hours past its response target while sla breaching reported zero. After the fix that ticket surfaces with minutes_to_breach 989, triage reports breaching 1, and the scorecard moves from 0 percent met to 98.9 percent (Alerts, 87 of 88) and 97.0 percent (Service Desk, 64 of 66). targetdate is retained as a fallback rather than dropped, since it is populated on a small number of tickets and a tenant that does use it must keep working; the shared expression treats the 1900-01-01 sentinel as absent so has-a-target tests count real deadlines only.",
+      "status": "active",
+      "spec_encode_followup": "None available: these are hand-written novel commands, so the press cannot derive the field choice. The ledger entry is the backstop against a new SLA view reading targetdate again.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sla_target_sql.go",
+          "contains": "const slaResolutionTargetSQL",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sla_target_sql.go",
+          "contains": "$.fixbydate",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sla_breaching.go",
+          "contains": "slaResolutionTargetSQL",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/sla_scorecard.go",
+          "contains": "slaResolutionTargetSQL",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/triage.go",
+          "contains": "slaResolutionTargetSQL",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/client_card.go",
+          "contains": "slaResolutionTargetSQL",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/sla_breaching.go",
+          "not_contains": "json_extract(data,'$.targetdate')"
+        },
+        {
+          "file": "cli/internal/cli/triage.go",
+          "not_contains": "json_extract(data, '$.targetdate')"
+        },
+        {
+          "file": "cli/internal/cli/sla_target_sql_test.go",
+          "contains": "TestSLABreachWindowMatchesOnlyRealDeadlines",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sla_target_sql_test.go",
+          "contains": "TestSLAViewsDoNotReadTargetdateDirectly",
+          "min_count": 1
+        }
+      ]
     }
   ]
 }
