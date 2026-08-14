@@ -1,6 +1,6 @@
 {
   "slug": "halopsa",
-  "doc": "CHANGELOG.md (#147, #203, #211)",
+  "doc": "CHANGELOG.md (#147, #203, #211, #213)",
   "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #147 (reporter @Xenith-B), fixed 2026-06-20. The OAuth2 token-mint/refresh paths assembled the token URL ('https://{tenant}.{domain}/auth/token') outside the normal request flow and POSTed it WITHOUT substituting the {tenant}/{domain} placeholders that buildURL resolves for ordinary requests -- so every `auth login`, auto-mint, and refresh failed with `invalid character \"{\" in host name`, even when HALOPSA_TENANT/HALOPSA_DOMAIN were set correctly. Fix routes the token URL through a new exported ResolveTemplateURL helper (wrapping the existing buildURL substitution). This is a GENERATOR-class defect (the press emits token-URL literals it never resolves) tracked for an upstream retro; until the press is fixed, a reprint regenerates the unresolved literals and these markers guard the connector. No new flag/command/output; bug-fix-only.",
   "handfixes": [
     {
@@ -175,6 +175,50 @@
         {
           "file": "cli/internal/cli/halo_ticket_columns_test.go",
           "contains": "TestStandupGroupsPerAgentNotCollapsed",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "sla-resolution-target-field",
+      "summary": "every SLA-facing view resolves the deadline from fixbydate (falling back to targetdate), treating the 1900-01-01 sentinel as absent (issue #213)",
+      "why": "tickets.targetdate is a legacy column HaloPSA parks at the sentinel 1900-01-01T00:00:00; the portal's Response and Resolution targets come from respondbydate and fixbydate. On the reporting tenant 1264 of 1265 tickets carried the sentinel while all 1265 carried real fixbydate values. Because a window comparison against 1900-01-01 can never be true, the failure was a silent zero rather than an error: sla breaching reported no tickets at risk on every tenant, triage's breach_count was 0 for every agent, sla scorecard counted every closed ticket as carrying an unsatisfiable target and reported 0 percent met on a tenant whose real attainment is 97-99 percent, and client card displayed 1900-01-01 as each ticket's target while its sla_at_risk overlay metric was permanently 0. Verified against the portal on six tickets, each UI value matching fixbydate/respondbydate exactly. targetdate is retained as a fallback because a small number of tickets genuinely populate it. This is the same family as the blank agent_name/datecreated columns in #203 and #211: a generated column the live API never fills, which the generator cannot detect because the spec describes all three date fields with no description.",
+      "status": "active",
+      "spec_encode_followup": "The press cannot tell which of several same-shaped date fields an API actually writes. Either surface unpopulated generated columns at sync time, or let a connector declare the live field so novel commands do not have to guess.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sla_target_sql.go",
+          "contains": "func slaResolutionTargetExpr",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/triage.go",
+          "contains": "slaResolutionTargetExpr",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sla_breaching.go",
+          "contains": "slaResolutionTargetExpr",
+          "min_count": 3
+        },
+        {
+          "file": "cli/internal/cli/sla_scorecard.go",
+          "contains": "slaResolutionTargetExpr",
+          "min_count": 3
+        },
+        {
+          "file": "cli/internal/cli/client_card.go",
+          "contains": "slaResolutionTargetExpr",
+          "min_count": 3
+        },
+        {
+          "file": "cli/internal/cli/sla_target_sql_test.go",
+          "contains": "TestSLAResolutionTargetPrefersFixbydate",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sla_target_sql_test.go",
+          "contains": "TestSLAPreFixTargetdateQueryFindsNothing",
           "min_count": 1
         }
       ]
