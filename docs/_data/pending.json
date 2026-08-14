@@ -399,11 +399,11 @@
     "released_hash": "sha256:a8b7f1459ad945320557294177f55723eb7b2e6fd1dde5721b101abff691c9ea"
   },
   "threatlocker": {
-    "state": "up-to-date",
-    "version": "0.2.0",
+    "state": "version-pending",
+    "version": "0.3.0",
     "latest_tag": "threatlocker-v0.2.0",
-    "current_hash": "sha256:5d8c9d496a52e240cb9c6a1659015333f907d11d4b5bf24114fcd27ce9b68b04",
-    "released_hash": "sha256:5d8c9d496a52e240cb9c6a1659015333f907d11d4b5bf24114fcd27ce9b68b04"
+    "current_hash": "sha256:394600865fed0f5e33bff9c662ba55027205e38e5d734f2d16a88d7cddfd51dc",
+    "released_hash": "sha256:394600865fed0f5e33bff9c662ba55027205e38e5d734f2d16a88d7cddfd51dc"
   },
   "veeam": {
     "state": "binary-pending",
