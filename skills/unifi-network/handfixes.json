@@ -93,6 +93,20 @@
           "min_count": 1
         }
       ]
+    },
+    {
+      "id": "api-hint-binary-name",
+      "summary": "the `api` command's hint text names unifi-network-cli, not the nonexistent unifi-cli",
+      "why": "api_discovery.go hardcoded the bare slug string \"unifi\" in three Fprintf/Errorf calls that build '%s-cli ...', so `api` printed copy-pasteable hints for a binary named `unifi-cli` - which does not exist; the binary is `unifi-network-cli`. It survived the -pp- strip because the literal is the bare original slug, not a -pp- suffixed name, so no rename rule matched it.",
+      "status": "active",
+      "spec_encode_followup": "The press should derive this hint from the CLI's own binary name (os.Args[0] or the generated cliName const) rather than baking the slug in as a literal.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/api_discovery.go",
+          "contains": "\"unifi-network\"",
+          "min_count": 3
+        }
+      ]
     }
   ]
 }
