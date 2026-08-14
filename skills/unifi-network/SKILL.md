@@ -239,7 +239,10 @@ Two environment variables are required:
 
 The gateway's self-signed certificate is handled automatically for private, loopback, and link-local hosts, so the common case needs no extra configuration. There is no `--insecure` flag; the auto-detection matches only a literal RFC1918 / loopback / link-local IP or the exact string `localhost`  -  any DNS name (`unifi.lan` included) is treated as not-private, so a hostname or public IP will fail certificate verification and needs `UNIFI_INSECURE_SKIP_VERIFY=1` set deliberately. It also accepts 0/false to force verification back on when you have installed a real certificate.
 
-Run `unifi-network-cli doctor` to verify setup.
+Run `unifi-network-cli doctor` to check config, paths, and gateway reachability. **It does
+not validate the credential** - it reports `present, not verified` and exits 0 even for a
+wrong key (a 401 still shows `API: reachable`). To confirm the key actually works, run a
+read command such as `unifi-network-cli sites` and check for exit 4.
 
 ## Agent Mode
 
@@ -258,7 +261,10 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 
 ### Response envelope
 
-Commands that read from the local store or the API wrap output in a provenance envelope:
+Under `--agent`, commands that read from the local store or the API wrap output in a
+provenance envelope. **Plain `--json` does not wrap** - it emits the bare payload for
+backward compatibility, so `.results` and `.meta` are absent. The examples in this file
+use `--json` and therefore return bare JSON; add `--agent` if you want the envelope:
 
 ```json
 {

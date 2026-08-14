@@ -162,7 +162,7 @@ device list before it can fetch port detail. On paginated reads pass `--all`: th
 `--limit 25` (vouchers 100) and emit no truncation warning. This affects `countries`,
 `pending-devices`, and `dpi ...` too, not just the `sites ...` subtree.
 
-The full surface is 137 commands; almost all of it lives under `sites ...`. Enumerate it recursively with `unifi-network-cli sites --help`. [guide.md](./guide.md) covers install, auth, and the headline commands. For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
+The full surface is 137 commands; almost all of it lives under `sites ...`. Enumerate it with `unifi-network-cli sites --help` for the 14 resource groups, then `unifi-network-cli sites <group> --help` for each group's commands. [guide.md](./guide.md) covers install, auth, and the headline commands. For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 

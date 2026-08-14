@@ -80,8 +80,9 @@ local state (`sync`, `teach*`, `learnings`, `playbook amend`, `profile`, `feedba
   without touching the gateway at all.
 - **`sync` writes secrets to disk.** It mirrors `/v1/sites/{siteId}/hotspot/vouchers`, so
   usable guest voucher codes land in `data.db` in cleartext and stay readable offline.
-  Treat the mirror as credential-bearing: it lives under your user account, and deleting a
-  voucher on the gateway does not scrub the synced copy until you re-sync.
+  Treat the mirror as credential-bearing: it lives under your user account. Deleting a
+  voucher through this CLI does scrub the mirror row immediately, but a voucher deleted
+  in the console or via the API directly leaves the synced copy on disk until you re-sync.
 - **TLS verification is OFF by default for private gateways.** The CLI skips certificate
   verification when `UNIFI_GATEWAY_HOST` is a **literal** RFC1918 / loopback / link-local
   IP, or the exact string `localhost` - that is what makes the gateway's self-signed cert
