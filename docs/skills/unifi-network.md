@@ -24,7 +24,7 @@ faqs:
   - q: "Why do the drift and newcomer commands report nothing on the first run?"
     a: "Both maintain their own baseline because the API offers no history to read. The first run for a site captures the current state as the baseline and reports no changes - that is expected, not an error. From the second run on, they report what moved since the previous run. Run `unifi-network-cli sync` before each check so the mirror is current."
   - q: "Can I trust rule-predict before making a firewall change?"
-    a: "Treat it as a local simulation, not a live trace. It walks the last synced firewall policies in the same ascending-index, first-match-wins order the gateway uses, and matches on source and destination IP only - `--port` is echoed for reference and is not used for matching. Zone-wide policies and traffic-matching-list references it cannot resolve are flagged as uncertain rather than silently assumed. Sync first, and confirm the real change in the console."
+    a: "Treat it as a local simulation, not a live trace. It walks the last synced firewall policies in the same ascending-index, first-match-wins order the gateway uses, and matches on source and destination IP only - `--port` is echoed for reference and is not used for matching. Pass host IPs rather than CIDRs: a CIDR is collapsed to the network's first address, so `--src 10.0.3.0/24` predicts only for `10.0.3.0` and would miss a policy matching `10.0.3.50`. Zone-wide policies and traffic-matching-list references it cannot resolve are flagged as uncertain rather than silently assumed. Sync first, and confirm the real change in the console."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/unifi-network/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/unifi-network/install.ps1 | iex"
@@ -78,7 +78,7 @@ UniFi Network plus your AI answers the gateway questions the console makes you r
 | What changed in this site's config since my last check? | `unifi-network-cli drift --site default --json` |
 | What devices and clients joined the network this week? | `unifi-network-cli newcomer --since 7d --json` |
 | Do I have switch port and PoE headroom before adding hardware? | `unifi-network-cli port-audit --site default --json` |
-| Which firewall policy would match traffic from this subnet? | `unifi-network-cli rule-predict --src 10.0.3.0/24 --dst 10.0.0.1` |
+| Which firewall policy would match traffic from this host? | `unifi-network-cli rule-predict --src 10.0.3.50 --dst 10.0.0.1` |
 | Which clients are sitting behind which device? | `unifi-network-cli topology --site default` |
 | What firewall policies are configured on this site? | `unifi-network-cli sites firewall get-policies <siteId>` |
 | Who is on the guest network, and which vouchers are live? | `unifi-network-cli guest report --site default` |
@@ -130,13 +130,13 @@ After install, authenticate once with your UniFi Network credentials, then verif
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | drift, newcomer, topology, port-audit, guest report, rule-predict, search, analytics, sites devices get-adopted-overview-page, sites firewall get-policies (non-mutating reads except the secret-returning ones below) | Allow |
-| Credential (incl. secret-returning reads) | auth set-token, auth logout, sites wifi get-broadcast-details, sites wifi get-broadcast-page (cleartext WiFi passphrase), sites hotspot get-voucher, sites hotspot get-vouchers (usable guest codes) | Human-in-the-loop only - never in a blanket allow-all-reads policy |
+| Read | drift, newcomer, topology, port-audit, rule-predict, analytics, sites devices get-adopted-overview-page, sites firewall get-policies (non-mutating reads except the secret-returning ones below; drift and newcomer advance their own local baseline each run) | Allow |
+| Credential (incl. secret-returning reads) | auth set-token, auth logout, sites wifi get-broadcast-details (that SSID's cleartext passphrase), sites hotspot get-voucher, sites hotspot get-vouchers, guest report, search (usable guest voucher codes) | Human-in-the-loop only - never in a blanket allow-all-reads policy |
 | Write (routine) | sites firewall create-policy, sites firewall update-policy, sites acl-rules create, sites networks create, sites wifi update-broadcast, sites dns create-policy, sites hotspot create-vouchers | Preview with --dry-run, then a reviewed write |
 | Device / port control | sites devices adopt, sites devices execute-adopted-action, sites devices execute-port-action, sites clients execute-connected-action | Human-in-the-loop only - these take physical effect on the network |
 | Destructive / config | sites devices remove (factory-resets an online device), sites firewall delete-zone, sites networks delete, sites acl-rules delete, sites dns delete-policy, sites wifi delete-broadcast | Human-in-the-loop only, explicit confirmation |
 
-Most read commands - the local-mirror views, reports, search, and the non-mutating site endpoints - change nothing on the gateway and are safe to let an agent run. Two exceptions matter. A few reads return live secrets (the WiFi broadcast reads include the cleartext passphrase, the hotspot reads return usable voucher codes) and the CLI does not redact response bodies, so those belong in the credential tier rather than a blanket allow-all-reads policy. Writes are grouped by blast radius: routine config writes should be previewed with --dry-run and approved. Two tiers should never run unattended: device and port control, where one command can power-cycle a PoE port or kick a client off the network, and destructive commands, where `sites devices remove` factory-resets an online device. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/unifi-network/governance.md).
+Most read commands - the local-mirror views, reports, and the non-mutating site endpoints - change nothing on the gateway and are safe to let an agent run. Two exceptions matter. Several reads return live secrets (the WiFi detail read includes that SSID's cleartext passphrase; guest report, search, and the hotspot reads return usable voucher codes) and the CLI does not redact output, so those belong in the credential tier rather than a blanket allow-all-reads policy. Writes are grouped by blast radius: routine config writes should be previewed with --dry-run and approved. Two tiers should never run unattended: device and port control, where one command can power-cycle a PoE port or kick a client off the network, and destructive commands, where `sites devices remove` factory-resets an online device. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/unifi-network/governance.md).
 
 ## Frequently asked questions
 
@@ -174,7 +174,7 @@ Both maintain their own baseline because the API offers no history to read. The 
 
 ### Can I trust rule-predict before making a firewall change?
 
-Treat it as a local simulation, not a live trace. It walks the last synced firewall policies in the same ascending-index, first-match-wins order the gateway uses, and matches on source and destination IP only - `--port` is echoed for reference and is not used for matching. Zone-wide policies and traffic-matching-list references it cannot resolve are flagged as uncertain rather than silently assumed. Sync first, and confirm the real change in the console.
+Treat it as a local simulation, not a live trace. It walks the last synced firewall policies in the same ascending-index, first-match-wins order the gateway uses, and matches on source and destination IP only - `--port` is echoed for reference and is not used for matching. Pass host IPs rather than CIDRs: a CIDR is collapsed to the network's first address, so `--src 10.0.3.0/24` predicts only for `10.0.3.0` and would miss a policy matching `10.0.3.50`. Zone-wide policies and traffic-matching-list references it cannot resolve are flagged as uncertain rather than silently assumed. Sync first, and confirm the real change in the console.
 
 
 ## More Network Monitoring connectors

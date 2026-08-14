@@ -37,10 +37,11 @@ every time, because the state you would compare against was never kept.
   PoE status for every switching or gateway device on the site, reading the device
   list from the local mirror and fetching the interface detail the list endpoints
   omit. Without `--json` the terminal path prints a one-line summary per device.
-- **`unifi-network-cli rule-predict --src 10.0.3.0/24 --dst 10.0.0.1`** - walks the
+- **`unifi-network-cli rule-predict --src 10.0.3.50 --dst 10.0.0.1`** - walks the
   synced firewall policies in the gateway's own ascending-index, first-match-wins
   order and reports which one would match, flagging zone-wide and unresolvable
-  policies as uncertain rather than guessing.
+  policies as uncertain rather than guessing. Pass host IPs - a CIDR is tested as its
+  first address only.
 - **`unifi-network-cli topology --site default`** - groups every synced client under
   the device it is attached to, so "which clients are behind this AP?" is one
   command against local data. Device-to-device uplink chaining is not exposed by the
@@ -56,7 +57,7 @@ APIs and are out of scope.
 ## Status
 
 Awaiting live verification. The command surface is validated against the UniFi
-Network integration API and the CLI's own mock verification suite; the closed-loop
+Network integration API's published spec and the CLI's own mock verification suite; the closed-loop
 receipt - a named MSP running it against a production gateway - is tracked
 separately and lands here once it exists.
 

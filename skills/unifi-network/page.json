@@ -36,8 +36,8 @@
       "command": "unifi-network-cli port-audit --site default --json"
     },
     {
-      "question": "Which firewall policy would match traffic from this subnet?",
-      "command": "unifi-network-cli rule-predict --src 10.0.3.0/24 --dst 10.0.0.1"
+      "question": "Which firewall policy would match traffic from this host?",
+      "command": "unifi-network-cli rule-predict --src 10.0.3.50 --dst 10.0.0.1"
     },
     {
       "question": "Which clients are sitting behind which device?",
@@ -85,19 +85,19 @@
     },
     {
       "q": "Can I trust rule-predict before making a firewall change?",
-      "a": "Treat it as a local simulation, not a live trace. It walks the last synced firewall policies in the same ascending-index, first-match-wins order the gateway uses, and matches on source and destination IP only - `--port` is echoed for reference and is not used for matching. Zone-wide policies and traffic-matching-list references it cannot resolve are flagged as uncertain rather than silently assumed. Sync first, and confirm the real change in the console."
+      "a": "Treat it as a local simulation, not a live trace. It walks the last synced firewall policies in the same ascending-index, first-match-wins order the gateway uses, and matches on source and destination IP only - `--port` is echoed for reference and is not used for matching. Pass host IPs rather than CIDRs: a CIDR is collapsed to the network's first address, so `--src 10.0.3.0/24` predicts only for `10.0.3.0` and would miss a policy matching `10.0.3.50`. Zone-wide policies and traffic-matching-list references it cannot resolve are flagged as uncertain rather than silently assumed. Sync first, and confirm the real change in the console."
     }
   ],
-  "governance_summary": "Most read commands - the local-mirror views, reports, search, and the non-mutating site endpoints - change nothing on the gateway and are safe to let an agent run. Two exceptions matter. A few reads return live secrets (the WiFi broadcast reads include the cleartext passphrase, the hotspot reads return usable voucher codes) and the CLI does not redact response bodies, so those belong in the credential tier rather than a blanket allow-all-reads policy. Writes are grouped by blast radius: routine config writes should be previewed with --dry-run and approved. Two tiers should never run unattended: device and port control, where one command can power-cycle a PoE port or kick a client off the network, and destructive commands, where `sites devices remove` factory-resets an online device.",
+  "governance_summary": "Most read commands - the local-mirror views, reports, and the non-mutating site endpoints - change nothing on the gateway and are safe to let an agent run. Two exceptions matter. Several reads return live secrets (the WiFi detail read includes that SSID's cleartext passphrase; guest report, search, and the hotspot reads return usable voucher codes) and the CLI does not redact output, so those belong in the credential tier rather than a blanket allow-all-reads policy. Writes are grouped by blast radius: routine config writes should be previewed with --dry-run and approved. Two tiers should never run unattended: device and port control, where one command can power-cycle a PoE port or kick a client off the network, and destructive commands, where `sites devices remove` factory-resets an online device.",
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "drift, newcomer, topology, port-audit, guest report, rule-predict, search, analytics, sites devices get-adopted-overview-page, sites firewall get-policies (non-mutating reads except the secret-returning ones below)",
+      "examples": "drift, newcomer, topology, port-audit, rule-predict, analytics, sites devices get-adopted-overview-page, sites firewall get-policies (non-mutating reads except the secret-returning ones below; drift and newcomer advance their own local baseline each run)",
       "policy": "Allow"
     },
     {
       "tier": "Credential (incl. secret-returning reads)",
-      "examples": "auth set-token, auth logout, sites wifi get-broadcast-details, sites wifi get-broadcast-page (cleartext WiFi passphrase), sites hotspot get-voucher, sites hotspot get-vouchers (usable guest codes)",
+      "examples": "auth set-token, auth logout, sites wifi get-broadcast-details (that SSID's cleartext passphrase), sites hotspot get-voucher, sites hotspot get-vouchers, guest report, search (usable guest voucher codes)",
       "policy": "Human-in-the-loop only - never in a blanket allow-all-reads policy"
     },
     {

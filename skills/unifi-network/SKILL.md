@@ -90,18 +90,34 @@ These capabilities aren't available in any other tool for this API.
   ```
 - **`guest report`**  -  Summarize guest network usage: active vouchers and connected guest clients, from local data.
 
-  _Use for a quick guest-network health check without cross-referencing three separate UI screens._
+  _Use for a quick guest-network health check without cross-referencing separate voucher and client screens. Note the output contains live voucher codes._
 
   ```bash
   unifi-network-cli guest report --site default --json
   ```
-- **`rule-predict`**  -  Predict which firewall policy would match a hypothetical packet before making a live change.
+- **`rule-predict`**  -  Predict which firewall policy would match a hypothetical packet before making a live change. Matches on source and destination IP only: `--port` is echoed for reference and is not used for matching. **Pass host IPs, not CIDRs**  -  a CIDR is collapsed to the network's FIRST address, so `--src 10.0.3.0/24` predicts only for `10.0.3.0` and will miss a policy that matches `10.0.3.50`.
 
   _Use to check the effect of a proposed firewall change before applying it live._
 
   ```bash
-  unifi-network-cli rule-predict --src 10.0.3.0/24 --dst 10.0.0.1 --port 443 --json
+  unifi-network-cli rule-predict --src 10.0.3.50 --dst 10.0.0.1 --port 443 --json
   ```
+
+## Before any local-mirror command: sync
+
+`drift`, `newcomer`, `topology`, `guest report`, `rule-predict`, and `search` all read the
+local SQLite mirror, and `port-audit` needs the synced device list before it can fetch port
+detail. On a fresh install the mirror is empty:
+
+```bash
+unifi-network-cli sync
+```
+
+Without it, `topology` / `port-audit` / `guest report` / `drift` exit **3** with
+`site "default" not found in local mirror`. **`newcomer` is the trap**: it exits **0** and
+prints `[]` on stdout, with `run 'unifi-network-cli sync' first` only on stderr  -  so an
+agent reading stdout sees "no new devices" on a gateway full of hardware. Always sync
+first, and treat an empty `newcomer` result as suspect if you have not.
 
 ## Command Reference
 
@@ -159,7 +175,7 @@ Lists PoE status and free ports across every switch on the site.
 ### Check what a firewall change would match
 
 ```bash
-unifi-network-cli rule-predict --src 10.0.3.0/24 --dst 10.0.0.1 --port 443 --json
+unifi-network-cli rule-predict --src 10.0.3.50 --dst 10.0.0.1 --port 443 --json
 ```
 
 Simulates rule evaluation order against the synced ruleset before making a live change.
@@ -242,7 +258,9 @@ Before list/search/drill commands on a new user question, run:
 unifi-network-cli recall "<user's question>" --agent
 ```
 
-The response envelope:
+The response envelope. NOTE: every field below is nested under a top-level `results`
+object (alongside `meta`), so the hit array is `.results.results` and the flag is
+`.results.found`  -  not `.found`:
 
 ```json
 {
@@ -482,7 +500,32 @@ Parse `$ARGUMENTS`:
 
 1. **Empty, `help`, or `--help`** → show `unifi-network-cli --help` output
 2. **Starts with `install`** → ends with `mcp` → MCP installation; otherwise → see Prerequisites above
-3. **Anything else** → Direct Use (execute as CLI command with `--agent`)
+3. **Anything else** → Direct Use (execute as CLI command with `--agent`), subject to the
+   safety model below  -  `--agent` implies `--yes`, and this CLI has no confirmation prompt
+   on any gateway-mutating command.
+
+## Safety model (read before running anything that mutates)
+
+Full tiers and rationale: [governance.md](./governance.md) and [AGENTS.md](./AGENTS.md).
+The short version an agent must honor:
+
+- **Reads are fine to run**  -  except the ones that return secrets. `sites wifi
+  get-broadcast-details` returns the network's cleartext WiFi passphrase, and
+  `sites hotspot get-voucher` / `get-vouchers` / `guest report` return usable guest
+  voucher codes. The CLI does not redact response bodies. Do not run these
+  unattended and do not spill their raw output into context.
+- **Never auto-run these  -  ask a human first.** `sites devices remove` (unadopts AND
+  **factory-resets** an online device), `sites devices execute-port-action` (can
+  power-cycle PoE and drop whatever is plugged in), `sites clients
+  execute-connected-action` (can force a client off the network), `sites devices adopt`,
+  `sites devices execute-adopted-action`, and every `delete` command
+  (`sites firewall delete-zone`, `sites networks delete`, `sites acl-rules delete`,
+  `sites dns delete-policy`, `sites wifi delete-broadcast`,
+  `sites traffic-matching-lists delete`, `sites hotspot delete-voucher(s)`).
+- **Routine config writes** (`create`/`update`/`patch` on firewall, ACL, networks, DNS,
+  WiFi, vouchers): preview with `--dry-run`, show the exact command, get approval, then run.
+- **`drift` and `newcomer` write local state.** `drift` advances its own snapshot every
+  run, so running it twice makes the second run report no changes.
 
 ## MCP Server Installation
 

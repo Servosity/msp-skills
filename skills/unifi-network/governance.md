@@ -18,8 +18,8 @@ variables are required:
   absolute server, so there is no default endpoint to fall back on.
 
 The key is gateway-scoped, not a cloud or multi-tenant credential: one CLI instance
-sees one controller. Credentials are read from the environment (or a config file you
-write with `auth set-token`) - never logged, and never sent anywhere except your own
+sees one controller. Credentials are read from the environment (or from `credentials.toml` under the data dir,
+which `auth set-token` writes; a legacy `config.toml` is still read for compatibility) - never logged, and never sent anywhere except your own
 gateway. Nothing routes through a vendor cloud.
 
 ## Default-safe behavior
@@ -30,8 +30,9 @@ gateway. Nothing routes through a vendor cloud.
 - **Most read commands are safe to run** (the local-mirror views, reports, search); they
   change nothing on the gateway. Two caveats. `drift` and `newcomer` write their own
   local baseline on every run - `drift` advances its snapshot, so running it twice in a
-  row makes the second run report no changes. And a handful of reads return **secrets**;
-  see the Credential tier below.
+  row makes the second run report no changes. And several reads return **secrets** - the
+  WiFi detail read, the hotspot voucher reads, `guest report`, and `search`; see the
+  Credential tier below.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not
   add any write gating - the preview-then-approve policy above still applies. See
   AGENTS.md.
@@ -49,11 +50,11 @@ local state (`sync`, `teach*`, `learnings`, `playbook amend`, `profile`, `feedba
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, local-mirror views, search. No gateway change. | `drift`, `newcomer`, `topology`, `port-audit`, `guest report`, `rule-predict`, `search`, `analytics`, and non-mutating `sites ...` endpoints **except the secret-returning reads listed in the Credential tier** | Allow |
+| **Read** | Reports, rollups, local-mirror views. No gateway change. | `drift`, `newcomer`, `topology`, `port-audit`, `rule-predict`, `analytics`, and non-mutating `sites ...` endpoints **except the secret-returning reads in the Credential tier** | Allow |
 | **Write (routine)** | Day-to-day config mutations. 18 commands. | `sites acl-rules create`, `sites acl-rules update`, `sites acl-rules update-ordering`, `sites dns create-policy`, `sites dns update-policy`, `sites firewall create-policy`, `sites firewall create-zone`, `sites firewall patch-policy`, `sites firewall update-policy`, `sites firewall update-policy-ordering`, `sites firewall update-zone`, `sites hotspot create-vouchers`, `sites networks create`, `sites networks update`, `sites traffic-matching-lists create`, `sites traffic-matching-lists update`, `sites wifi create-broadcast`, `sites wifi update-broadcast` | Preview with `--dry-run`, then an approved write |
 | **Device / port control** | Takes physical effect on the network right now. 4 commands. | `sites devices adopt`, `sites devices execute-adopted-action`, `sites devices execute-port-action`, `sites clients execute-connected-action` | Human-in-the-loop only. A port action can power-cycle PoE and drop whatever is plugged into it; a client action can force a device off the network |
 | **Destructive** | Irreversible config or hardware loss. 10 commands. | `sites devices remove` (**unadopts the device, and factory-resets it if it is online**), `sites acl-rules delete`, `sites dns delete-policy`, `sites firewall delete-policy`, `sites firewall delete-zone`, `sites hotspot delete-voucher`, `sites hotspot delete-vouchers`, `sites networks delete`, `sites traffic-matching-lists delete`, `sites wifi delete-broadcast` | Human-in-the-loop only, explicit confirmation |
-| **Credential / security** | Handles or RETURNS secrets. | Local credential storage: `auth set-token`, `auth logout`. **Secret-returning reads** (they are `GET`s, but the response body carries a live secret and the CLI does not redact response bodies): `sites wifi get-broadcast-details`, `sites wifi get-broadcast-page`, `sites hotspot get-voucher`, `sites hotspot get-vouchers` - the WiFi reads return `securityConfiguration`, which for WPA2/WPA3-Personal contains the network's cleartext `passphrase`, and the hotspot reads return usable guest voucher codes | Human-in-the-loop only. Do not put these in an agent's Allow list, and do not pipe their raw output into a model's context |
+| **Credential / security** | Handles or RETURNS secrets. | Local credential storage: `auth set-token`, `auth logout`. **Secret-returning reads** (they are `GET`s or local-mirror reads, but the output carries a live secret and the CLI does not redact response bodies): `sites wifi get-broadcast-details` returns that SSID's `securityConfiguration`, which for WPA2/WPA3-Personal contains the cleartext `passphrase` (the list endpoint `get-broadcast-page` returns only an interface-kind enum, no passphrase). `sites hotspot get-voucher`, `sites hotspot get-vouchers`, **`guest report`**, and **`search`** all surface usable guest voucher `code` values - `guest report` prints `code=` in the terminal path and emits `"code"` in `--json`, reading them from the mirror rather than the API | Human-in-the-loop only. Do not put these in an agent's Allow list, and do not pipe their raw output into a model's context |
 
 ## How to lock it down
 
@@ -65,9 +66,20 @@ local state (`sync`, `teach*`, `learnings`, `playbook amend`, `profile`, `feedba
 - **Keep autonomous agents to Read + previewed writes.** Have a human approve the
   actual write for Write tier and above.
 - **Exclude the secret-returning reads from any blanket read allowance.** "Allow all
-  GETs" is not a safe policy on this API: one call to `sites wifi get-broadcast-details`
-  hands an agent every WiFi pre-shared key on the site, in cleartext, because the CLI
-  passes response bodies through unredacted.
+  GETs" is not a safe policy on this API, because the CLI passes response bodies through
+  unredacted: `sites wifi get-broadcast-details <siteId> <wifiBroadcastId>` returns that
+  SSID's pre-shared key in cleartext (enumerate the broadcasts and it is every key on the
+  site), and `guest report` / `search` hand back live guest voucher codes from the mirror
+  without touching the gateway at all.
+- **`sync` writes secrets to disk.** It mirrors `/v1/sites/{siteId}/hotspot/vouchers`, so
+  usable guest voucher codes land in `data.db` in cleartext and stay readable offline.
+  Treat the mirror as credential-bearing: it lives under your user account, and deleting a
+  voucher on the gateway does not scrub the synced copy until you re-sync.
+- **TLS verification is OFF by default for private gateways.** For any RFC1918, loopback,
+  or link-local host the CLI skips certificate verification (that is what makes the
+  gateway's self-signed cert work with no flags). It is the right default on a LAN, but it
+  means the connection is not authenticated - set `UNIFI_INSECURE_SKIP_VERIFY=0` to force
+  verification back on if you have installed a real certificate.
 - **Never let an agent run Device/port control or Destructive commands unattended.**
   `execute-port-action` and `sites devices remove` have immediate physical
   consequences on a live network - treat them like a production database drop:

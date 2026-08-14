@@ -150,7 +150,7 @@ UNIFI_API_KEY=<value> UNIFI_GATEWAY_HOST=<value> unifi-network-cli doctor
 | What changed in this site's config since my last check? | `unifi-network-cli drift --site default --json` |
 | What devices and clients joined the network this week? | `unifi-network-cli newcomer --since 7d --json` |
 | Do I have switch port and PoE headroom before adding hardware? | `unifi-network-cli port-audit --site default` |
-| Which firewall policy would match traffic from this subnet? | `unifi-network-cli rule-predict --src 10.0.3.0/24 --dst 10.0.0.1` |
+| Which firewall policy would match traffic from this host? | `unifi-network-cli rule-predict --src 10.0.3.50 --dst 10.0.0.1` |
 | Which clients are sitting behind which device? | `unifi-network-cli topology --site default` |
 | What firewall policies are configured on this site? | `unifi-network-cli sites firewall get-policies <siteId>` |
 | Who is on the guest network, and which vouchers are live? | `unifi-network-cli guest report --site default` |
@@ -177,7 +177,7 @@ The same missing-baseline problem shows up twice more. There's no first-seen rec
 - **`unifi-network-cli drift --site default --json`** - diffs the site's config against the snapshot this command captured last run, then advances it. It keeps its own history precisely because the API has none.
 - **`unifi-network-cli newcomer --since 7d --json`** - first-seen record per device and client, so new hardware surfaces against a baseline instead of a flat list.
 - **`unifi-network-cli port-audit --site default --json`** - per-port link state and PoE status for every switching or gateway device. Without `--json` the terminal path prints a one-line `N up / M down, PoE active on K port(s)` summary per device.
-- **`unifi-network-cli rule-predict --src 10.0.3.0/24 --dst 10.0.0.1`** - walks the synced policies in the gateway's own first-match-wins order and reports which one would match, flagging what it can't resolve as uncertain rather than guessing.
+- **`unifi-network-cli rule-predict --src 10.0.3.50 --dst 10.0.0.1`** - walks the synced policies in the gateway's own first-match-wins order and reports which one would match, flagging what it can't resolve as uncertain rather than guessing. Pass host IPs: a CIDR is tested as its first address only.
 - **`unifi-network-cli topology --site default`** - groups every synced client under the device it's attached to. Device-to-device uplink chaining isn't in the list endpoints, so every device sits at the top level - a switch behind a switch isn't nested.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
@@ -224,17 +224,17 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `drift`, `newcomer`, `topology`, `port-audit`, `guest report`, `rule-predict`, `search`, and non-mutating `sites ...` endpoints **except the secret-returning reads below** | Allow |
-| Credential (incl. secret-returning **reads**) | `auth set-token`, `auth logout`, and the reads whose response body carries a live secret: `sites wifi get-broadcast-details` / `get-broadcast-page` (cleartext WiFi passphrase) and `sites hotspot get-voucher` / `get-vouchers` (usable guest codes) | Human-in-the-loop only - never in a blanket "allow all reads" policy |
+| Read | `drift`, `newcomer`, `topology`, `port-audit`, `rule-predict`, `analytics`, and non-mutating `sites ...` endpoints **except the secret-returning reads below**. Note `drift` and `newcomer` advance their own local baseline on every run. | Allow |
+| Credential (incl. secret-returning **reads**) | `auth set-token`, `auth logout`, and every read whose output carries a live secret: `sites wifi get-broadcast-details` (that SSID's cleartext passphrase) and `sites hotspot get-voucher` / `get-vouchers` / `guest report` / `search` (usable guest voucher codes) | Human-in-the-loop only - never in a blanket "allow all reads" policy |
 | Write (routine) - 18 commands | `sites firewall create-policy`, `sites acl-rules update`, `sites networks create`, `sites wifi update-broadcast`, `sites dns create-policy`, `sites hotspot create-vouchers` | Preview with `--dry-run`, then a reviewed write |
 | Device / port control - 4 commands | `sites devices adopt`, `sites devices execute-adopted-action`, `sites devices execute-port-action`, `sites clients execute-connected-action` | Human-in-the-loop only - a port action can power-cycle PoE and drop whatever is plugged into it |
 | Destructive - 10 commands | `sites devices remove` (**factory-resets the device if it's online**), `sites firewall delete-zone`, `sites networks delete`, `sites acl-rules delete`, `sites wifi delete-broadcast` | Human-in-the-loop only, explicit confirmation |
 
-Two caveats worth knowing up front. This CLI applies no privilege separation of its own, so whatever your API key is permitted to do, any command can do - the same credential that runs `drift` may also run `sites devices remove`, and the gate has to live in your agent's policy. And **"allow all reads" is not a safe policy here**: the CLI does not redact response bodies, so one `sites wifi get-broadcast-details` call returns every WiFi pre-shared key on the site in cleartext. Full details, including how to lock it down, are in [governance.md](./governance.md).
+Two caveats worth knowing up front. This CLI applies no privilege separation of its own, so whatever your API key is permitted to do, any command can do - the same credential that runs `drift` may also run `sites devices remove`, and the gate has to live in your agent's policy. And **"allow all reads" is not a safe policy here**: the CLI does not redact response bodies, so `sites wifi get-broadcast-details` returns an SSID's pre-shared key in cleartext, and `guest report` and `search` return live guest voucher codes straight from the local mirror. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 
-Beta, awaiting live verification. The command surface is validated against the UniFi Network integration API and the CLI's own mock verification suite; no closed-loop receipt from an MSP running it against a production gateway exists yet. We validate skills with MSPs in our weekly Build Sessions - RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Beta, awaiting live verification. The command surface is validated against the UniFi Network integration API's published spec and the CLI's own mock verification suite (the generation run recorded `live_api_verification` as unverified); no closed-loop receipt from an MSP running it against a production gateway exists yet. We validate skills with MSPs in our weekly Build Sessions - RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 
