@@ -1449,7 +1449,7 @@
       "category": "Network Monitoring",
       "display_name": "UniFi Network",
       "tagline": "Audit UniFi devices, firewall policy, and overnight config drift on a self-hosted gateway from your terminal.",
-      "cli_hash": "sha256:52633a1baa84447aaea5d800eb814c2417c690839196b660b9ac803f060bbb88",
+      "cli_hash": "sha256:b585e205fcd544e88037923e687bfb7cc7287880ba9f2c1c606a14915616549e",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

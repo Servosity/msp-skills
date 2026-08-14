@@ -171,12 +171,21 @@ Site ID is required for most other API requests.
 - `unifi-network-cli sites`  -  Retrieve a paginated list of local sites managed by this Network application.
 
 
-**This reference is partial.** It lists the top-level convenience commands only; the full
-surface is 137 commands, including the entire `sites ...` subtree (devices, clients,
+**This reference is partial**  -  it lists the top-level convenience commands only. The full
+surface is 137 commands, and almost all of it lives under `sites ...` (devices, clients,
 firewall, ACL, networks, DNS, WiFi, hotspot, switching, VPN, WANs, RADIUS,
-traffic-matching-lists). Enumerate it with `unifi-network-cli sites --help`,
-`unifi-network-cli api` for every endpoint by interface, or read
-[guide.md](./guide.md).
+traffic-matching-lists), including every write and destructive command.
+
+**Enumerate it with `--help`, recursively:**
+
+```bash
+unifi-network-cli sites --help                 # the 15 resource groups
+unifi-network-cli sites firewall --help        # that group's commands
+```
+
+Do not rely on `api` for discovery: it only lists interfaces tagged as API resources,
+which in this CLI is `dpi` alone (2 of 137 commands). `guide.md` is likewise a partial
+reference, not the full surface.
 
 ### Finding the right command
 
@@ -186,7 +195,14 @@ When you know what you want to do but not which command does it, ask the CLI dir
 unifi-network-cli which "<capability in your own words>"
 ```
 
-`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query. **Under `--agent` or `--json` the exit code is always 0**; test `matches` for emptiness instead.
+`which` resolves a natural-language capability query against this CLI's curated feature
+index. **That index holds only the 6 novel commands** (`topology`, `drift`, `newcomer`,
+`port-audit`, `guest report`, `rule-predict`)  -  not the 131 others. A question about an
+API command can therefore score a spurious hit and exit 0: `which "list every adopted
+device"` returns `topology`, not `sites devices get-adopted-overview-page`. Use `which`
+to find the novel commands, and `--help` for everything else. Exit code `0` means at
+least one match, `2` means no confident match; **under `--agent` or `--json` the exit
+code is always 0**, so test `matches` for emptiness instead.
 
 ## Recipes
 

@@ -393,13 +393,16 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 
 ## Known Gaps
 
-- **`topology` and `port-audit` are not local-mirror-only.** Every other
-  novel command reads only the synced local database. These two also make
-  live calls: neither device-to-device uplink chaining nor per-port
-  link/PoE state appears in any list/sync response for this API  -  only a
-  per-device detail fetch returns them. Both commands still read device IDs
-  from the local mirror first, then fetch details live, one call per
-  device.
+- **`port-audit` is the only novel command that is not local-mirror-only.**
+  Per-port link/PoE state appears in no list/sync response for this API  - 
+  only a per-device detail fetch returns it  -  so `port-audit` reads device
+  IDs from the local mirror, then fetches interfaces live, one call per
+  switching or gateway device.
+- **`topology` makes no live call, and so cannot show device-to-device
+  uplink chaining.** That chaining is also detail-only, and `topology`
+  deliberately stays local: it groups synced clients under the device each
+  is attached to, leaving every device at the top level. A switch behind a
+  switch is not nested.
 
 ## Sources & Inspiration
 
