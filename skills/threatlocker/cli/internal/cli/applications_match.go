@@ -28,14 +28,13 @@ func newApplicationsMatchCmd(flags *rootFlags) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {
 			}
+			path := "/Application/ApplicationGetMatchingList"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/Application/ApplicationGetMatchingList"
 			params := map[string]string{}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -47,21 +46,22 @@ func newApplicationsMatchCmd(flags *rootFlags) *cobra.Command {
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
-				if bodyOsType != 0 {
-					body["osType"] = bodyOsType
+				bodyMap := map[string]any{}
+				body = bodyMap
+				if cmd.Flags().Changed("os-type") || bodyOsType != 0 {
+					bodyMap["osType"] = bodyOsType
 				}
-				if bodyHash != "" {
-					body["hash"] = bodyHash
+				if cmd.Flags().Changed("hash") || bodyHash != "" {
+					bodyMap["hash"] = bodyHash
 				}
-				if bodySha256 != "" {
-					body["sha256"] = bodySha256
+				if cmd.Flags().Changed("sha256") || bodySha256 != "" {
+					bodyMap["sha256"] = bodySha256
 				}
-				if bodyPath != "" {
-					body["path"] = bodyPath
+				if cmd.Flags().Changed("path") || bodyPath != "" {
+					bodyMap["path"] = bodyPath
 				}
-				if bodyProcessPath != "" {
-					body["processPath"] = bodyProcessPath
+				if cmd.Flags().Changed("process-path") || bodyProcessPath != "" {
+					bodyMap["processPath"] = bodyProcessPath
 				}
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
@@ -131,6 +131,9 @@ func newApplicationsMatchCmd(flags *rootFlags) *cobra.Command {
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -169,14 +172,26 @@ func newApplicationsMatchCmd(flags *rootFlags) *cobra.Command {
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {

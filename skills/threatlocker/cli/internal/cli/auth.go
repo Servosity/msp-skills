@@ -5,16 +5,19 @@ package cli
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
+
+	"github.com/spf13/cobra"
+	"threatlocker-pp-cli/internal/cliutil"
 	"threatlocker-pp-cli/internal/config"
 )
 
 func newAuthCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "auth",
-		Short: "Manage authentication for Threatlocker",
-		RunE:  parentNoSubcommandRunE(flags),
+		Use:         "auth",
+		Short:       "Manage authentication for Threatlocker",
+		Annotations: map[string]string{"pp:parent-group": "true"},
+		RunE:        parentNoSubcommandRunE(flags),
 	}
 
 	cmd.AddCommand(newAuthSetupCmd(flags))
@@ -104,7 +107,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:     "set-token <token>",
-		Short:   "Save an API token to the config file",
+		Short:   "Save an API token to the credentials file",
 		Example: "  threatlocker-cli auth set-token YOUR_TOKEN_HERE",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -128,17 +131,35 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 				return configErr(fmt.Errorf("saving token: %w", err))
 			}
 
-			// JSON envelope: {saved, config_path}.
+			savePath := credentialSavePath(cfg)
+			// JSON envelope: {saved, config_path, credentials_path}.
 			if flags.asJSON {
-				return printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+				out := map[string]any{
 					"saved":       true,
 					"config_path": cfg.Path,
-				}, flags)
+				}
+				if !cfg.AgentcookieManagedByExternalStore() {
+					out["credentials_path"] = savePath
+				}
+				return printJSONFiltered(cmd.OutOrStdout(), out, flags)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Token saved to %s\n", cfg.Path)
+			fmt.Fprintf(cmd.OutOrStdout(), "Token saved to %s\n", savePath)
 			return nil
 		},
 	}
+}
+
+func credentialSavePath(cfg *config.Config) string {
+	if cfg != nil && cfg.AgentcookieManagedByExternalStore() {
+		return cfg.Path
+	}
+	if path, err := cliutil.CredentialsFilePath(); err == nil {
+		return path
+	}
+	if cfg != nil {
+		return cfg.Path
+	}
+	return ""
 }
 
 func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {

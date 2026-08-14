@@ -34,14 +34,13 @@ func newApplicationsSearchCmd(flags *rootFlags) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {
 			}
+			path := "/Application/ApplicationGetByParameters"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/Application/ApplicationGetByParameters"
 			params := map[string]string{}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -53,39 +52,42 @@ func newApplicationsSearchCmd(flags *rootFlags) *cobra.Command {
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
-				if bodyPageNumber != 0 {
-					body["pageNumber"] = bodyPageNumber
+				bodyMap := map[string]any{}
+				body = bodyMap
+				if cmd.Flags().Changed("page-number") || bodyPageNumber != 0 {
+					bodyMap["pageNumber"] = bodyPageNumber
 				}
-				if bodyPageSize != 0 {
-					body["pageSize"] = bodyPageSize
+				if cmd.Flags().Changed("page-size") || bodyPageSize != 0 {
+					bodyMap["pageSize"] = bodyPageSize
 				}
-				if bodySearchText != "" {
-					body["searchText"] = bodySearchText
+				if cmd.Flags().Changed("search-text") || bodySearchText != "" {
+					bodyMap["searchText"] = bodySearchText
 				}
-				if bodySearchBy != "" {
-					body["searchBy"] = bodySearchBy
+				if cmd.Flags().Changed("search-by") || bodySearchBy != "" {
+					bodyMap["searchBy"] = bodySearchBy
 				}
-				if bodyOsType != 0 {
-					body["osType"] = bodyOsType
+				if cmd.Flags().Changed("os-type") || bodyOsType != 0 {
+					bodyMap["osType"] = bodyOsType
 				}
-				if bodyCategory != 0 {
-					body["category"] = bodyCategory
+				if cmd.Flags().Changed("category") || bodyCategory != 0 {
+					bodyMap["category"] = bodyCategory
 				}
-				if bodyOrderBy != "" {
-					body["orderBy"] = bodyOrderBy
+				if cmd.Flags().Changed("order-by") || bodyOrderBy != "" {
+					bodyMap["orderBy"] = bodyOrderBy
 				}
 				if cmd.Flags().Changed("ascending") {
-					body["isAscending"] = bodyIsAscending
+					bodyMap["isAscending"] = bodyIsAscending
 				}
-				if cmd.Flags().Changed("child-orgs") {
-					body["includeChildOrganizations"] = bodyIncludeChildOrganizations
-				}
+				// Always sent: --help advertises a default for --child-orgs, so the
+				// value must reach the API even when the user did not type the
+				// flag. Without this a bare call returns one organization
+				// instead of the whole managed tree (#208).
+				bodyMap["includeChildOrganizations"] = bodyIncludeChildOrganizations
 				if cmd.Flags().Changed("hidden") {
-					body["isHidden"] = bodyIsHidden
+					bodyMap["isHidden"] = bodyIsHidden
 				}
 				if cmd.Flags().Changed("permitted-only") {
-					body["permittedApplications"] = bodyPermittedApplications
+					bodyMap["permittedApplications"] = bodyPermittedApplications
 				}
 			}
 			data, statusCode, err := c.PostQueryWithParams(cmd.Context(), path, params, body)
@@ -152,6 +154,9 @@ func newApplicationsSearchCmd(flags *rootFlags) *cobra.Command {
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -190,14 +195,26 @@ func newApplicationsSearchCmd(flags *rootFlags) *cobra.Command {
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {
@@ -229,7 +246,7 @@ func newApplicationsSearchCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().IntVar(&bodyCategory, "category", 0, "Category: 0=all,1=custom,2=built-in")
 	cmd.Flags().StringVar(&bodyOrderBy, "order-by", "name", "Sort field")
 	cmd.Flags().BoolVar(&bodyIsAscending, "ascending", true, "Sort ascending")
-	cmd.Flags().BoolVar(&bodyIncludeChildOrganizations, "child-orgs", false, "Include managed orgs")
+	cmd.Flags().BoolVar(&bodyIncludeChildOrganizations, "child-orgs", true, "Include managed orgs")
 	cmd.Flags().BoolVar(&bodyIsHidden, "hidden", false, "Include hidden applications")
 	cmd.Flags().BoolVar(&bodyPermittedApplications, "permitted-only", false, "Only permitted applications")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")

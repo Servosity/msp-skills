@@ -11,8 +11,7 @@ func newNetworkPoliciesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "network-policies",
 		Short:       "Network Control (network access) policies",
-		Hidden:      true,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 

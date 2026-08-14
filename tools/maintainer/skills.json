@@ -1423,18 +1423,18 @@
       "category": "Security",
       "display_name": "ThreatLocker",
       "tagline": "Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking.",
-      "cli_hash": "sha256:1b845c41fae829b14d8195d9eb1a16613bd2cdf779a6b3d63eb638aba8305fa5",
+      "cli_hash": "sha256:5d8c9d496a52e240cb9c6a1659015333f907d11d4b5bf24114fcd27ce9b68b04",
       "template_version": 3,
-      "version": "0.1.1",
-      "cli_hash_at_release": "sha256:1b845c41fae829b14d8195d9eb1a16613bd2cdf779a6b3d63eb638aba8305fa5",
+      "version": "0.2.0",
+      "cli_hash_at_release": "sha256:5d8c9d496a52e240cb9c6a1659015333f907d11d4b5bf24114fcd27ce9b68b04",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null,
-        "verified_by": null,
-        "issue_url": null
+        "status": "live-verified",
+        "date": "2026-08-14",
+        "source": "github",
+        "evidence": "https://github.com/Servosity/msp-skills/issues/208",
+        "verified_by": "@geekbrownbear (MSP)",
+        "issue_url": "https://github.com/Servosity/msp-skills/issues/208"
       },
       "install_auth_hint": "Then set `THREATLOCKER_API_KEY` (Portal > Administrators > API Users > Generate API Token) and run `threatlocker-cli doctor`"
     },

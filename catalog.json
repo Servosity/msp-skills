@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-13",
+  "generated_at": "2026-08-14",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -1145,8 +1145,8 @@
       "skill_path": "skills/threatlocker",
       "cli_binary": "threatlocker-cli",
       "mcp_binary": "threatlocker-mcp",
-      "version": "0.1.1",
-      "printing_press_version": "4.24.0",
+      "version": "0.2.0",
+      "printing_press_version": "4.30.2",
       "license": "Apache-2.0",
       "vendor": "ThreatLocker",
       "vendor_trademark_owner": "ThreatLocker, Inc.",
@@ -1154,7 +1154,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/install.sh)",
       "install_mcp_doc": "skills/threatlocker/mcp-install.md",
       "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "Security",
       "tagline": "Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking."
     },

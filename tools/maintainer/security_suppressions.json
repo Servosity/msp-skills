@@ -245,6 +245,46 @@
       "file": "cli/internal/learn/journal.go",
       "rule": "G117",
       "reason": "FLEET (generated). The marshaled struct field SessionKey is a local journal SESSION IDENTIFIER (JournalSessionKey()), not a credential; gosec G117 name-matches the field name against a secret pattern. No secret is serialized."
+    },
+    {
+      "file": "cli/internal/platform/gate.go",
+      "rule": "G101",
+      "reason": "FLEET (generated, printing-press 4.30.2+). The flagged line is the GateOutcome status enum (GateInvalidCredentials = \"invalid_credentials\"); it is a result label, not a credential. No secret material is present in the file."
+    },
+    {
+      "file": "cli/internal/platform/migration.go",
+      "rule": "G202",
+      "reason": "FLEET (generated, printing-press 4.30.2+). SQLite's VACUUM INTO does not accept a bound parameter for its destination, so the path must be concatenated. The value is an internally-derived store path (never user SQL), single-quotes are escaped by doubling, the parent dir is created 0700 and the result is chmod 0600. No injection surface."
+    },
+    {
+      "file": "cli/internal/platform/profile.go",
+      "rule": "G304",
+      "reason": "FLEET (generated, printing-press 4.30.2+). Reads the CLI's own profile file from a path the CLI derives from its config/XDG dirs, matching the already-vetted fleet entries for cli/internal/cliutil/paths.go and cli/internal/config/config.go."
+    },
+    {
+      "file": "cli/internal/platform/ratelimit.go",
+      "rule": "G304",
+      "reason": "FLEET (generated, printing-press 4.30.2+). Reads the CLI's own rate-limit state file from a CLI-derived cache path; same class as the vetted cli/internal/cache/cache.go entry."
+    },
+    {
+      "file": "cli/internal/store/store.go",
+      "rule": "G304",
+      "reason": "FLEET (generated). Opens the CLI's own SQLite store at a CLI-derived path (XDG data dir or --db), not attacker-controlled input; same class as the vetted cli/internal/cli/export.go and import.go entries."
+    },
+    {
+      "file": "cli/internal/platform/profile.go",
+      "rule": "G302",
+      "reason": "FLEET (generated, printing-press 4.30.2+). The 0700 mode is applied to a DIRECTORY (os.MkdirAll/os.Chmod on filepath.Dir); 0700 is the correct restrictive mode for a directory, since 0600 would make it non-traversable. The profile file itself is written 0600."
+    },
+    {
+      "file": "cli/internal/client/client.go",
+      "rule": "G302",
+      "reason": "FLEET (generated). The 0700 mode is applied to the cache DIRECTORY; the cache file itself is written with os.WriteFile(..., 0o600) on the following line."
+    },
+    {
+      "file": "cli/internal/cliutil/testenv/sandbox_unix.go",
+      "rule": "G302",
+      "reason": "FLEET (generated, printing-press 4.30.2+). Test-only helper (takes *testing.T) that chmods a temp sandbox DIRECTORY to 0700; never compiled into a shipped binary."
     }
   ]
 }

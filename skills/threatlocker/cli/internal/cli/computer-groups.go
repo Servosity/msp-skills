@@ -11,8 +11,7 @@ func newComputerGroupsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "computer-groups",
 		Short:       "List and get computer groups",
-		Hidden:      true,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 
