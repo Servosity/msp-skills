@@ -18,27 +18,29 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.ps1
 ---
 
-# Auvik  -  Printing Press CLI
+# Auvik - Claude Code Skill
+
+> Unofficial. Community-built Claude Code Skill and MCP server for the Auvik
+> API. Not affiliated with, endorsed by, or sponsored by Auvik Networks Inc.
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `auvik-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
    bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.sh)
    ```
-2. Verify: `auvik-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.ps1 | iex
+   ```
+3. Verify: `auvik-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.6 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.sh)          # macOS / Linux
-```
-```powershell
-iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.ps1 | iex            # Windows
-```
+The installer places the `auvik-cli` and `auvik-mcp` binaries on your PATH. It
+does not register anything with your agent - see [mcp-install.md](./mcp-install.md)
+for the MCP wire-up.
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
@@ -46,7 +48,7 @@ Auvik holds the richest network-truth dataset an MSP has, behind a read-only JSO
 
 ## When to Use This CLI
 
-Use this CLI for read-only questions about network inventory, device health, config history, alerts, billing usage, and SaaS app inventory held in Auvik - especially questions that span more than one client tenant. It is strongest where Auvik itself is weakest: cross-tenant rollups, absence queries over device configs, and detecting devices that disappeared. The only write this API supports anywhere is dismissing an alert. Run 'sync' before the local-store commands (eol, changes, configuration audit, inventory diff, usage reconcile, device discovery-gaps, alert noise, asm shadow); use the typed endpoint commands or the 'api' escape hatch for live single-tenant lookups.
+Use this CLI for read-only questions about network inventory, device health, config history, alerts, billing usage, and SaaS app inventory held in Auvik - especially questions that span more than one client tenant. It is strongest where Auvik itself is weakest: cross-tenant rollups, absence queries over device configs, and detecting devices that disappeared. The only write this API supports anywhere is dismissing an alert. Run `sync` before the local-store commands (eol, changes, configuration audit, inventory diff, usage reconcile, device discovery-gaps, alert noise, asm shadow). **A bare `sync` does not cover all eight**: it omits `billing` and the ASM application/user/licence tables, so `usage reconcile` and `asm shadow` come back empty. Each command prints the exact `sync --resources ...` line it needs in its own `--help` - run that one. Use the typed endpoint commands or the `api` escape hatch for live single-tenant lookups.
 
 ## Anti-triggers
 
@@ -241,17 +243,17 @@ When you know what you want to do but not which command does it, ask the CLI dir
 auvik-cli which "<capability in your own words>"
 ```
 
-`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query.
+`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. In human mode, exit code `0` means at least one match and exit code `2` means no confident match. **Under `--agent` (or `--json`) it always exits `0`** and returns an empty `results.matches` array instead, deliberately, so an agent branches on `matches.length == 0` rather than parsing a usage error. Every recipe in this file uses `--agent`, so check the array, not the exit code.
 
 ## Recipes
 
 ### End-of-support exposure across the whole book
 
 ```bash
-auvik-cli eol --agent --select rows.client,rows.device_name,rows.make_model,rows.end_of_support
+auvik-cli eol --agent --select rows.client,rows.device_name,rows.make_model,rows.last_support_date
 ```
 
-The quarterly-business-review answer in one line. The report is an envelope, so select through 'rows.' to narrow to the four fields that go on the slide.
+The quarterly-business-review answer in one line. The report is an envelope, so select through 'rows.' to narrow to the four fields that go on the slide (Auvik exposes no single end-of-life date; `last_support_date` is the support-lifecycle one).
 
 ### Prove which devices are not backed up
 

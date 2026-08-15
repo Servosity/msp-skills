@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Auvik MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/auvik-v4.30.2/auvik-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Auvik release on the [releases page](https://github.com/servosity/msp-skills/releases?q=auvik).)
+[**Download Auvik MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/auvik-v0.1.0/auvik-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Auvik release on the [releases page](https://github.com/servosity/msp-skills/releases?q=auvik).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -168,7 +168,7 @@ One gap is structural rather than a matter of convenience: **Auvik's API emits n
 
 ## The pain this closes
 
-Auvik bills per billable device, and the count that drives the invoice is a number on a screen. When it moves, nothing shows you which devices moved it - a recurring complaint in r/msp threads about Auvik pricing and billable-device counts, where the advice usually ends at "export it and count by hand." That is the shape of every question an owner actually asks of Auvik: the data is there, the aggregate is not.
+Auvik bills per billable device, and the count that drives the invoice is a number on a screen. When it moves, nothing shows you which devices moved it, and the practical answer ends where the tooling does: export it and count by hand. That is the shape of every question an owner actually asks of Auvik: the data is there, the aggregate is not.
 
 - **The invoice argument.** `usage reconcile --mismatch-only` puts each client's billed count next to the synced inventory and names the device rows on both sides of the difference.
 - **The refresh conversation.** `eol --within 90` buckets every device by the earliest of its end-of-support, end-of-life, end-of-sale, and warranty dates, across every client at once.
@@ -217,7 +217,8 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | `eol`, `configuration audit`, `inventory diff`, `usage reconcile`, `device discovery-gaps`, `alert noise`, `asm shadow`, `changes`, `sync`, `search`, `export`, every `list` / `get`, and all of the `settings` and `stat` SNMP-poller commands (GET-only, despite reading like setters) | Allow |
-| Write (routine) | `alert dismiss` (alias `alert dismiss-single`) - the only write the Auvik API supports | Preview with `--dry-run`, then a reviewed write |
+| Write (routine) | `alert dismiss-single` and its friendly twin `alert dismiss` - the only write the Auvik API supports; allowlist both names | Preview with `--dry-run`, then a reviewed write |
+| Data egress | `--deliver webhook:<url>` on any command (POSTs that command's output to a URL you name) and `feedback --send` (POSTs to `AUVIK_FEEDBACK_ENDPOINT` when set) | Human-in-the-loop - a webhook sink moves client data off-box |
 | Credential / security | `auth set-credentials` (writes the credential to the CLI's credentials file), `auth logout` | Human-in-the-loop only |
 
 The Auvik API exposes no delete and no administrative write, so there is no Destructive or Admin tier to gate.
@@ -226,7 +227,7 @@ The strongest control is the **scope you grant the Auvik credentials** - the CLI
 
 ## Status
 
-Beta. Validated against the Auvik API surface and being validated with MSPs running it live against their own production tenant in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Beta, awaiting live verification. The command surface is generated from the Auvik API spec and the cross-client analyses are covered by unit tests against spec-derived fixtures, but no closed-loop receipt from an MSP running this against a production Auvik tenant exists yet - so nothing here has been proven against real Auvik responses. If you run it against your own tenant, the it-works form is how that becomes a badge. MSPs put connectors like this through their paces in our weekly Build Sessions - RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 

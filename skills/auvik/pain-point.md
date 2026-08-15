@@ -14,9 +14,7 @@ and stays silent on removals.
 
 The billing question is the one that reaches the owner directly. Auvik bills per
 billable device, and the count driving the invoice is a number on a screen. When
-it moves, nothing attached to that number says which devices moved it. On r/msp,
-threads about Auvik pricing and billable-device counts recur, and the practical
-advice usually ends where the tooling does: export it and count by hand.
+it moves, nothing attached to that number says which devices moved it. The practical advice ends where the tooling does: export it and count by hand.
 
 ## Why the obvious fixes do not work
 

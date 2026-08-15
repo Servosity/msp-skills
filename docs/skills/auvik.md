@@ -125,8 +125,9 @@ After install, authenticate once with your Auvik credentials, then verify with `
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | eol, configuration audit, inventory diff, usage reconcile, device discovery-gaps, alert noise, asm shadow, changes, sync, search, export, every list/get command, and all of the settings and stat SNMP-poller commands (they are GET-only despite the name) | Allow |
-| Write (routine) | alert dismiss (and its alias alert dismiss-single) - the only write the Auvik API supports | Preview with --dry-run, then a reviewed write |
+| Write (routine) | alert dismiss-single and its friendly twin alert dismiss - both call POST /v1/alert/dismiss/{id}, the only write the Auvik API supports; allowlist both names | Preview with --dry-run, then a reviewed write |
 | Credential / security | auth set-credentials (writes the credential to the CLI's credentials file), auth logout | Human-in-the-loop only |
+| Data egress | --deliver webhook:<url> on any command (POSTs that command's output to a URL you name), and feedback --send (POSTs to AUVIK_FEEDBACK_ENDPOINT when set) | Human-in-the-loop - a webhook sink moves client data off-box |
 
 Auvik's API is read-only in practice and this CLI reflects that: the eight cross-client analysis commands read the local mirror and cannot change anything upstream, and dismissing an alert is the only write the API supports at all. The strongest control is the scope of the API key, which inherits the permissions of the user who created it - mint it as a read-only user for a reporting workflow. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/auvik/governance.md).
 

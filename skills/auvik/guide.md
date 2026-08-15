@@ -61,7 +61,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
       "env": {
         "AUVIK_USERNAME": "<your-auvik-user-email>",
         "AUVIK_API_KEY": "<your-auvik-api-key>",
-        "AUVIK_BASE_URL": "https://auvikapi.us1.my.auvik.com/v1"
+        "AUVIK_BASE_URL": "https://auvikapi.us1.my.auvik.com"
       }
     }
   }
@@ -171,10 +171,10 @@ These capabilities aren't available in any other tool for this API.
 ### End-of-support exposure across the whole book
 
 ```bash
-auvik-cli eol --agent --select rows.client,rows.device_name,rows.make_model,rows.end_of_support
+auvik-cli eol --agent --select rows.client,rows.device_name,rows.make_model,rows.last_support_date
 ```
 
-The quarterly-business-review answer in one line. The report is an envelope, so select through 'rows.' to narrow to the four fields that go on the slide.
+The quarterly-business-review answer in one line. The report is an envelope, so select through 'rows.' to narrow to the four fields that go on the slide (Auvik exposes no single end-of-life date; `last_support_date` is the support-lifecycle one).
 
 ### Prove which devices are not backed up
 

@@ -39,7 +39,7 @@ Add (or merge with your existing `mcpServers` block):
       "env": {
         "AUVIK_USERNAME": "<your-auvik-user-email>",
         "AUVIK_API_KEY": "<your-auvik-api-key>",
-        "AUVIK_BASE_URL": "https://auvikapi.us1.my.auvik.com/v1"
+        "AUVIK_BASE_URL": "https://auvikapi.us1.my.auvik.com"
       }
     }
   }
@@ -66,7 +66,7 @@ Configuration**) and add:
       "env": {
         "AUVIK_USERNAME": "<your-auvik-user-email>",
         "AUVIK_API_KEY": "<your-auvik-api-key>",
-        "AUVIK_BASE_URL": "https://auvikapi.us1.my.auvik.com/v1"
+        "AUVIK_BASE_URL": "https://auvikapi.us1.my.auvik.com"
       }
     }
   }
@@ -89,7 +89,7 @@ Claude Desktop:
       "env": {
         "AUVIK_USERNAME": "<your-auvik-user-email>",
         "AUVIK_API_KEY": "<your-auvik-api-key>",
-        "AUVIK_BASE_URL": "https://auvikapi.us1.my.auvik.com/v1"
+        "AUVIK_BASE_URL": "https://auvikapi.us1.my.auvik.com"
       }
     }
   }
@@ -107,7 +107,7 @@ All remote agents need `auvik-mcp` reachable as a public **HTTPS** endpoint. Run
 in HTTP mode with your credentials in the environment:
 
 ```bash
-PRINTING_PRESS_CLIENT_PROFILE=<value> auvik-mcp --transport http --addr :7777
+AUVIK_USERNAME=<your-auvik-user-email> AUVIK_API_KEY=<your-auvik-api-key> auvik-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

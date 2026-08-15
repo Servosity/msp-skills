@@ -29,10 +29,22 @@
       },
       "environmentVariables": [
         {
-          "name": "PRINTING_PRESS_CLIENT_PROFILE",
-          "description": "Set the PRINTING_PRESS_CLIENT_PROFILE credential for the Auvik MCP server.",
+          "name": "AUVIK_USERNAME",
+          "description": "The Auvik user email whose API key you are using (Basic auth username).",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "AUVIK_API_KEY",
+          "description": "Auvik API key (Basic auth password). Auvik > Admin > Integrations > Auvik API.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "AUVIK_BASE_URL",
+          "description": "Your Auvik regional API host with no path suffix, e.g. https://auvikapi.us1.my.auvik.com",
+          "isRequired": true,
+          "isSecret": false
         }
       ]
     }

@@ -95,13 +95,18 @@
     },
     {
       "tier": "Write (routine)",
-      "examples": "alert dismiss (and its alias alert dismiss-single) - the only write the Auvik API supports",
+      "examples": "alert dismiss-single and its friendly twin alert dismiss - both call POST /v1/alert/dismiss/{id}, the only write the Auvik API supports; allowlist both names",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {
       "tier": "Credential / security",
       "examples": "auth set-credentials (writes the credential to the CLI's credentials file), auth logout",
       "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Data egress",
+      "examples": "--deliver webhook:<url> on any command (POSTs that command's output to a URL you name), and feedback --send (POSTs to AUVIK_FEEDBACK_ENDPOINT when set)",
+      "policy": "Human-in-the-loop - a webhook sink moves client data off-box"
     }
   ]
 }

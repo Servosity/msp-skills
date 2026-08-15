@@ -27,7 +27,17 @@ the key as a read-only user is the single most effective control you have.
 
 ## Default-safe behavior
 
-- **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Make your agent's policy: preview, show the exact command, get approval, then run the write.
+- **`--dry-run` is opt-in, and it only guards API writes.** `alert dismiss` (the
+  one Auvik-API write) sends immediately unless you pass `--dry-run`, which
+  prints the exact request and dials nothing. Make your agent's policy for it:
+  preview, show the command, get approval, then run the write.
+- **`--dry-run` does NOT guard the LOCAL credential and profile writes.**
+  `auth set-credentials ... --dry-run` still writes the credential to
+  `credentials.toml`, `auth logout --dry-run` still clears it, and
+  `profile save --dry-run` still writes `profiles.json`. These commands touch
+  your machine rather than the Auvik API, and the flag does not reach them.
+  Treat them as unguarded writes and keep a human on them; do not rely on a
+  preview step that does not exist.
 - **Read commands are always safe to run** (reports, rollups, search, and all eight
   cross-client analysis commands); they cannot change anything. The eight analysis
   commands read the LOCAL mirror, so they do not even reach the API.
@@ -45,7 +55,8 @@ require a human for anything below the line.
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
 | **Read** | Reports, rollups, search. No change. | `eol`, `configuration audit`, `inventory diff`, `usage reconcile`, `device discovery-gaps`, `alert noise`, `asm shadow`, `changes`, `sync`, `search`, `export`, every `list` / `get`, and **all of the `settings` and `stat` SNMP-poller commands** - every one of those is a GET despite reading like a setter | Allow |
-| **Write (routine)** | Day-to-day mutations. | `alert dismiss` (alias `alert dismiss-single`) - `POST /v1/alert/dismiss/{id}`, the ONLY write the Auvik API supports | Preview with `--dry-run`, then an approved write |
+| **Write (routine)** | Day-to-day mutations. | `alert dismiss-single` and its friendly twin `alert dismiss` - both call `POST /v1/alert/dismiss/{id}`, the ONLY write the Auvik API supports. Allowlist BOTH names | Preview with `--dry-run`, then an approved write |
+| **Data egress** | Sends data off this machine to a destination you choose. | `--deliver webhook:<url>` on any command (POSTs that command's output to a URL you name) and `feedback --send` (POSTs to `AUVIK_FEEDBACK_ENDPOINT` when set) | Human-in-the-loop. Read output is still your clients' data; a webhook sink moves it off-box |
 | **Credential / security** | Touches tokens or keys. | `auth set-credentials` (writes the credential to the CLI's credentials file), `auth logout` | Human-in-the-loop only |
 | **Destructive** | Irreversible data or config loss. | (none - the Auvik API exposes no delete) | n/a |
 | **Admin** | Back-office administration. | (none - the Auvik API exposes no administrative write) | n/a |
