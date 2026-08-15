@@ -327,7 +327,9 @@ def scan_python(files: list[Path], suppress: set[tuple[str, str]]) -> list[dict]
         if f.suffix != ".py" or not f.is_file():
             continue
         rel = str(f.relative_to(REPO))
-        src = f.read_text(encoding="utf-8", errors="replace")
+        # utf-8-sig, not utf-8: a BOM runs fine but makes ast.parse raise
+        # SyntaxError, which would false-P1 a valid file (Windows editors add one).
+        src = f.read_text(encoding="utf-8-sig", errors="replace")
         try:
             tree = ast.parse(src)
         except SyntaxError as e:
@@ -349,11 +351,17 @@ def scan_python(files: list[Path], suppress: set[tuple[str, str]]) -> list[dict]
             elif name in ("pickle.load", "pickle.loads"):
                 add("python-pickle-load", "P1", rel, ln,
                     f"{name}() executes arbitrary code when the input is untrusted.")
-            elif name == "yaml.load" and not any(
-                k.arg == "Loader" for k in node.keywords
-            ):
-                add("python-yaml-unsafe", "P1", rel, ln,
-                    "yaml.load() without an explicit safe Loader executes arbitrary tags.")
+            elif name == "yaml.load":
+                # Loader may be a keyword OR the second positional arg. Do not just
+                # count args: yaml.load(s, yaml.UnsafeLoader) has 2 and is unsafe.
+                loader = next((k.value for k in node.keywords if k.arg == "Loader"), None)
+                if loader is None and len(node.args) >= 2:
+                    loader = node.args[1]
+                leaf = dotted(loader).rsplit(".", 1)[-1] if loader is not None else ""
+                if leaf not in ("SafeLoader", "CSafeLoader", "BaseLoader"):
+                    add("python-yaml-unsafe", "P1", rel, ln,
+                        f"yaml.load() with Loader={leaf or 'unset'} executes arbitrary tags; "
+                        "use SafeLoader (or yaml.safe_load).")
 
             # shell=True, as an actual keyword argument (not the words in a docstring).
             for kw in node.keywords:
@@ -400,13 +408,18 @@ def _strip_comments(text: str) -> str:
                      for line in text.split("\n"))
 
 
-def scan_shell_scripts(files: list[Path], suppress: set[tuple[str, str]]) -> list[dict]:
-    """SCRIPT_RULES over shipped .sh/.ps1 that are not the two installers."""
+def scan_shell_scripts(slug: str, files: list[Path], suppress: set[tuple[str, str]]) -> list[dict]:
+    """SCRIPT_RULES over shipped .sh/.ps1 that are not the two root installers."""
+    # Skip by PATH, not by basename. scan_install_scripts reads exactly
+    # skills/<slug>/install.sh and install.ps1, so a basename skip would drop
+    # skills/<slug>/scripts/install.sh from BOTH scanners and ship it unscanned.
+    root_installers = {REPO / "skills" / slug / "install.sh",
+                       REPO / "skills" / slug / "install.ps1"}
     findings: list[dict] = []
     for f in files:
         if f.suffix not in (".sh", ".ps1") or not f.is_file():
             continue
-        if f.name in ("install.sh", "install.ps1"):
+        if f in root_installers:
             continue  # covered by scan_install_scripts with the stricter INSTALL_RULES
         rel = str(f.relative_to(REPO))
         text = _strip_comments(f.read_text(encoding="utf-8", errors="replace"))
@@ -756,7 +769,7 @@ def gate_slug(slug: str, base: str | None, allow: set[str], suppress: set[tuple[
     # Always scan shipped scripts: a connector ships them too (bootstrap helpers),
     # and this is the ONLY coverage a markdown-only skill's code gets.
     findings += scan_python(script_files(slug, only), suppress)
-    findings += scan_shell_scripts(script_files(slug, only), suppress)
+    findings += scan_shell_scripts(slug, script_files(slug, only), suppress)
 
     # The Go toolchain lane, only for skills that HAVE a Go module. A markdown-only
     # skill has no skills/<slug>/cli/go.mod, and running gosec/govulncheck/osv-scanner
