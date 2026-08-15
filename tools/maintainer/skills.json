@@ -177,6 +177,29 @@
         "issue_url": null
       }
     },
+    "auvik": {
+      "system": "Network monitoring: sites, devices, interfaces, and alerts across client networks for MSPs",
+      "status": "beta",
+      "cli_binary": "auvik-cli",
+      "mcp_binary": "auvik-mcp",
+      "vendor": "Auvik",
+      "vendor_trademark_owner": "Auvik Networks Inc.",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "Auvik",
+      "cli_hash": "sha256:873ae5eece432f1eed8a1b94f749087dd8cbba8bd139d49c6cd0e635e0e3433a",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": false,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      },
+      "install_auth_hint": "Then set your Auvik credentials: `export AUVIK_USERNAME=<your Auvik user email>` and `export AUVIK_API_KEY=<your API key>` (Auvik > Admin > Integrations > Auvik API), set `AUVIK_BASE_URL` to your region's host if you are not on us1, and run `auvik-cli doctor` to confirm it works"
+    },
     "aws-billing": {
       "system": "AWS billing & Cost Explorer - plain-English bill breakdowns and waste flags",
       "status": "beta",

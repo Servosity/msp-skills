@@ -1,0 +1,112 @@
+{
+  "outcome_intro": "Ask your AI what is going end-of-life, what is unbacked-up, or why a client's billable device count moved, and get the device rows behind the answer across every client at once. Auvik holds the richest network truth an MSP has, but its API answers one client, right now, and reports no deletions at all. This mirrors Auvik into local SQLite so the cross-client and change-over-time questions become one query.",
+  "instead_of_say": [
+    {
+      "instead": "Exporting each client's inventory to a spreadsheet and sorting by support date to find what is aging out",
+      "say": "What is past end-of-support across all my clients?",
+      "cli": "auvik-cli eol --bucket expired"
+    },
+    {
+      "instead": "Opening every client's config-backup screen to check which devices actually have a backup",
+      "say": "Which devices have no configuration backup?",
+      "cli": "auvik-cli configuration audit --finding no_backup"
+    },
+    {
+      "instead": "Arguing about an Auvik invoice with no way to see which devices moved the billable count",
+      "say": "Which clients' billed device counts do not match their inventory?",
+      "cli": "auvik-cli usage reconcile --mismatch-only"
+    }
+  ],
+  "pain_points": [
+    "Auvik's API emits no deletion event. A decommissioned device just stops appearing, so nothing tells you it left.",
+    "Hardware lifecycle lives per device, per client. 'What is aging out across the book' is a spreadsheet export every time.",
+    "The billable-device count is a number in the UI. When it moves, nothing shows you which devices caused it.",
+    "A device Auvik cannot fully poll looks similar to one that is simply quiet, and the credential state behind it is three screens away.",
+    "Config backups are a per-device screen, so 'which devices have no backup at all' is not a question you can ask."
+  ],
+  "outcomes": [
+    {
+      "question": "What hardware is past or approaching end-of-support across every client?",
+      "command": "auvik-cli eol --bucket expired"
+    },
+    {
+      "question": "What ages out in the next 90 days, so I can put it in a QBR?",
+      "command": "auvik-cli eol --within 90"
+    },
+    {
+      "question": "Which devices have no configuration backup, or only a stale one?",
+      "command": "auvik-cli configuration audit --finding no_backup"
+    },
+    {
+      "question": "What was added, changed, or removed across the fleet since the last sync?",
+      "command": "auvik-cli inventory diff --since 7d"
+    },
+    {
+      "question": "Which clients' billed device counts disagree with their actual inventory?",
+      "command": "auvik-cli usage reconcile --mismatch-only"
+    },
+    {
+      "question": "Which devices can Auvik not fully poll, and what credential is failing?",
+      "command": "auvik-cli device discovery-gaps --method snmp"
+    },
+    {
+      "question": "Which devices and clients generate the most alert noise?",
+      "command": "auvik-cli alert noise --since 30d --group-by client"
+    },
+    {
+      "question": "Which SaaS apps have users but no licence, and which licences is nobody using?",
+      "command": "auvik-cli asm shadow --finding unused_licenses"
+    }
+  ],
+  "different_vs_wrappers": "Most Auvik integrations are a language binding: they hand a question straight to the REST API and hand back typed structs. That works for one device, right now. It cannot answer what changed, what left, or anything that spans clients, because the API has no cross-client aggregate and emits no deletion event. This syncs Auvik into a local SQLite mirror first, so those become one local join instead of a fan-out that does not exist upstream.",
+  "different_vs_vendor": "The Auvik UI is per-client and per-screen by design, and its API mirrors that shape. Neither differences two points in time, so a removed device is invisible and a moved billable count has no explanation attached. The mirror keeps your own prior view of the fleet, which is what makes removals and deltas detectable at all.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Auvik MCP server through a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Auvik user email and API key once."
+    },
+    {
+      "q": "Why does it need both a username and an API key?",
+      "a": "Auvik authenticates with HTTP Basic: your Auvik user email is the username and the API key is the password. There is no single-token form. You also need the right regional host - AUVIK_BASE_URL selects us1, us2, eu1 and so on, and pointing at the wrong region returns a 401 that looks exactly like a bad key."
+    },
+    {
+      "q": "Is my Auvik data safe?",
+      "a": "Your data stays on your machine by default. The CLI, MCP server, and the local mirror are all local, and the MCP server runs over stdio unless you deliberately start it in HTTP mode (`--transport http`, or `PP_MCP_TRANSPORT=http`), which the remote-agent path for ChatGPT and Copilot asks you to do - that opens a listener, so tunnel it behind SSO and treat the URL as a secret. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "Will this hit my Auvik API rate limits?",
+      "a": "Mostly no, and that is the point of the mirror. sync does the reading; the cross-client commands then answer from local SQLite and touch no API at all. Re-running the same question costs nothing upstream."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    }
+  ],
+  "governance_summary": "Auvik's API is read-only in practice and this CLI reflects that: the eight cross-client analysis commands read the local mirror and cannot change anything upstream, and dismissing an alert is the only write the API supports at all. The strongest control is the scope of the API key, which inherits the permissions of the user who created it - mint it as a read-only user for a reporting workflow.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "eol, configuration audit, inventory diff, usage reconcile, device discovery-gaps, alert noise, asm shadow, changes, sync, search, export, every list/get command, and all of the settings and stat SNMP-poller commands (they are GET-only despite the name)",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "alert dismiss-single and its friendly twin alert dismiss - both call POST /v1/alert/dismiss/{id}, the only write the Auvik API supports; allowlist both names",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Credential / security",
+      "examples": "auth set-credentials (writes the credential to the CLI's credentials file), auth logout",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Data egress",
+      "examples": "--deliver webhook:<url> on any command (POSTs that command's output to a URL you name), feedback --send, and bare feedback when AUVIK_FEEDBACK_AUTO_SEND=true - that one needs no flag at all",
+      "policy": "Human-in-the-loop - a webhook sink moves client data off-box"
+    }
+  ]
+}
