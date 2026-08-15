@@ -132,7 +132,7 @@ func newNovelScoreAttributeCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			if len(points) < 2 {
-				view.Note = fmt.Sprintf("only %d score point(s) in the last %s; at least 2 are needed to attribute a move", len(points), window)
+				view.Note = fmt.Sprintf("only %d score point(s) in the last %s; at least 2 are needed to attribute a move", len(points), corkWindowLabel(flagSince, window))
 				if capHit {
 					view.Note += "; the page scan cap was reached, so raise --max-scan-pages to widen the window"
 				}
@@ -199,7 +199,7 @@ func newNovelScoreAttributeCmd(flags *rootFlags) *cobra.Command {
 				if view.Note != "" {
 					view.Note += "; "
 				}
-				view.Note += fmt.Sprintf("the page scan cap of %d was reached, so the reported window start is the oldest point fetched, not necessarily the oldest in %s", flagMaxScanPages, flagSince)
+				view.Note += fmt.Sprintf("the page scan cap of %d was reached, so the reported window start is the oldest point fetched, not necessarily the oldest in %s", flagMaxScanPages, corkWindowLabel(flagSince, window))
 			}
 
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {

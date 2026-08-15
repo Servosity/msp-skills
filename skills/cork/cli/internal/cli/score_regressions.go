@@ -181,7 +181,7 @@ func newNovelScoreRegressionsCmd(flags *rootFlags) *cobra.Command {
 			if examined == 0 {
 				view.Note = "no clients in the local mirror; run: cork-cli sync --resources clients"
 			} else if moved == 0 {
-				view.Note = fmt.Sprintf("examined %d clients; none %s by at least %d points in the last %s", examined, direction, flagMinDrop, flagSince)
+				view.Note = fmt.Sprintf("examined %d clients; none %s by at least %d points in the last %s", examined, direction, flagMinDrop, corkWindowLabel(flagSince, window))
 			}
 			// Appended last so it cannot be overwritten by the branches above.
 			// Cork embeds only the ten most recent score points in the client
@@ -190,7 +190,7 @@ func newNovelScoreRegressionsCmd(flags *rootFlags) *cobra.Command {
 				if view.Note != "" {
 					view.Note += "; "
 				}
-				view.Note += fmt.Sprintf("%d client(s) had no embedded score point older than the requested window, so their delta covers a shorter span than %s — use 'score attribute' for one client's full history", historyTruncated, flagSince)
+				view.Note += fmt.Sprintf("%d client(s) had no embedded score point older than the requested window, so their delta covers a shorter span than %s — use 'score attribute' for one client's full history", historyTruncated, corkWindowLabel(flagSince, window))
 			}
 
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {

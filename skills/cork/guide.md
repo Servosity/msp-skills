@@ -6,7 +6,7 @@ Cork tells you a client's risk score moved but never why, and offers no way to a
 
 ## Install
 
-This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer places the `cork-cli` and `cork-mcp` binaries on your PATH. Registering the skill with your agent, and wiring `cork-mcp` into Claude Desktop or ChatGPT, are separate steps - see the [README](./README.md) install table and [mcp-install.md](./mcp-install.md).
+This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer places the `cork-cli` and `cork-mcp` binaries in your user bin directory (it appends to PATH on Windows; on macOS and Linux it prints the `export` line to add if `~/.local/bin` is not already there). Registering the skill with your agent, and wiring `cork-mcp` into Claude Desktop or ChatGPT, are separate steps - see the [README](./README.md) install table and [mcp-install.md](./mcp-install.md).
 
 1. macOS / Linux:
    ```bash

@@ -74,6 +74,21 @@ type coverageGapsView struct {
 // compared case-insensitively; names are only ever a fallback.
 func normIdent(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 
+// coverageTruncationCause names why the sweep was cut short. Three different
+// conditions set scanCapHit and they have three different remedies, so blaming a
+// page limit for an undecodable-device truncation sends the operator to raise a
+// cap that will not change the outcome.
+func coverageTruncationCause(connectorsSkipped, undecodableDevices int) string {
+	switch {
+	case connectorsSkipped > 0:
+		return fmt.Sprintf("%d connector(s) skipped or failed", connectorsSkipped)
+	case undecodableDevices > 0:
+		return fmt.Sprintf("%d connector device(s) could not be decoded and were not diffed", undecodableDevices)
+	default:
+		return "a page limit was reached"
+	}
+}
+
 func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 	var flagClient string
 	var flagMaxConnectors int
@@ -336,10 +351,7 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 					// Same page-cap-vs-connector-cap distinction as the rows-present
 					// path below. This branch matters more: it is the one asserting
 					// "no coverage gaps".
-					detail := "a page limit was reached"
-					if view.ConnectorsSkipped > 0 {
-						detail = fmt.Sprintf("%d connector(s) skipped or failed", view.ConnectorsSkipped)
-					}
+					detail := coverageTruncationCause(view.ConnectorsSkipped, undecodableConnectorDevices)
 					view.Note = fmt.Sprintf("no coverage gaps among the %d connector device(s) examined across %d connector(s), but the sweep was truncated (%s); this is not a clean bill of health — raise --max-connectors or --max-scan-pages",
 						connectorDevices, walked, detail)
 				} else {
@@ -384,10 +396,7 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 				// ConnectorsSkipped only counts connectors; a page cap or an
 				// undecodable-device warning also truncates the sweep, so do not
 				// print "(0 connector(s) skipped)" and read as self-contradictory.
-				detail := "a page limit was reached"
-				if view.ConnectorsSkipped > 0 {
-					detail = fmt.Sprintf("%d connector(s) skipped or failed", view.ConnectorsSkipped)
-				}
+				detail := coverageTruncationCause(view.ConnectorsSkipped, undecodableConnectorDevices)
 				fmt.Fprintf(cmd.OutOrStdout(), "the sweep was truncated (%s); this gap list is a floor, not a total - raise --max-connectors or --max-scan-pages\n",
 					detail)
 			}

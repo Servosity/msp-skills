@@ -377,6 +377,17 @@ func corkParseTime(s string) (time.Time, bool) {
 
 // corkSince parses a --since value using the loose duration parser so 7d/1w
 // shorthand works, matching the framework's own `sync --since`.
+// corkWindowLabel is what a human note should call the window: the literal the
+// user typed, so "--since 90d" does not read back as "2160h0m0s". An empty
+// --since is a supported input (corkSince falls back to the default), so fall
+// back with it rather than printing nothing.
+func corkWindowLabel(raw string, resolved time.Duration) string {
+	if strings.TrimSpace(raw) == "" {
+		return resolved.String()
+	}
+	return raw
+}
+
 func corkSince(raw string, def time.Duration) (time.Duration, error) {
 	if strings.TrimSpace(raw) == "" {
 		return def, nil
