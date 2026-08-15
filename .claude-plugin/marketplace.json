@@ -962,6 +962,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "unifi-network",
+      "source": "./skills/unifi-network",
+      "description": "Every UniFi Network API operation, plus drift detection, topology, and rule prediction no other UniFi tool has.",
+      "version": "0.1.0",
+      "category": "network-monitoring",
+      "tags": [
+        "unifi-network",
+        "unifi",
+        "network-monitoring",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

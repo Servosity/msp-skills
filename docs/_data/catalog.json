@@ -1,5 +1,5 @@
 {
-  "count": 60,
+  "count": 61,
   "connectors": [
     {
       "slug": "abnormal",
@@ -560,6 +560,16 @@
       "verified_by": "@geekbrownbear (MSP)",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/208",
       "url": "/skills/threatlocker/"
+    },
+    {
+      "slug": "unifi-network",
+      "display_name": "UniFi Network",
+      "tagline": "Audit UniFi devices, firewall policy, and overnight config drift on a self-hosted gateway from your terminal.",
+      "category": "Network Monitoring",
+      "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
+      "url": "/skills/unifi-network/"
     },
     {
       "slug": "veeam",

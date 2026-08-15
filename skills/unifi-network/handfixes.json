@@ -1,0 +1,112 @@
+{
+  "slug": "unifi-network",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: the 2026-08-14 onboarding of the upstream unifi print (printing-press 4.30.1, contributed by Ricardo Cabral / @phoenix-server) into msp-skills as unifi-network. Every entry corrects a claim or value that the generated tree got wrong; the adversarial review that caught the topology claim is the reason this ledger exists.",
+  "handfixes": [
+    {
+      "id": "topology-is-device-to-client-not-physical-tree",
+      "summary": "topology is described as the device-to-client tree it actually builds, not a gateway-to-switch-to-AP physical tree",
+      "why": "The generated description (in the Cobra Short, the root --help highlights, the `which` feature index, the MCP feature list, SKILL.md and guide.md) claimed topology shows 'the physical device tree (gateway to switches to APs)'. The command's own Long description contradicts that: 'The API's device-list response does not include device-to-device uplink chaining (that only appears on a per-device detail fetch), so a switch-behind-switch or AP-behind-switch relationship is not shown - every device is listed at the top level.' topology.go groups clients under their uplinkDeviceId, producing a two-level device-to-client tree. Shipping the original wording would have promised a network map the command cannot draw. If a reprint restores the phrase 'physical device tree', the claim is false again.",
+      "status": "active",
+      "spec_encode_followup": "The novel-feature description in .printing-press.json was written from the feature's intent rather than its implemented behaviour, and the press propagated it to six surfaces. A reprint should regenerate these strings from the corrected .printing-press.json novel_features entry.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/topology.go",
+          "contains": "Group every synced client under the device it is attached to",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "Group every synced client under the device it is attached to",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/which.go",
+          "contains": "which clients sit behind which device",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "Group every synced client under the device it is attached to",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "drift-baseline-is-the-last-drift-run",
+      "summary": "drift's one-line description says the baseline is the last drift run, not the last sync",
+      "why": "The generated Short said drift shows what changed 'since the last sync snapshot'. drift.go's own Long says the comparison is 'against a snapshot captured the last time drift itself ran for this site' - running sync does not set or move the baseline. An agent that believed the Short would run sync, then drift, and report the diff as covering the sync window.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/drift.go",
+          "contains": "since the last drift run for this site",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "since the last drift run for this site",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "adopt-example-mac-address",
+      "summary": "sites devices adopt's example passes a MAC address, not a street address",
+      "why": "The generated example was `--mac-address 123 Test St, Anytown, ST 12345` - a mock-value collision that put a postal address in a MAC field. Copy-pasteable examples are the first thing an agent tries.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sites_devices_adopt.go",
+          "contains": "--mac-address 00:11:22:33:44:55",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "unifi-brand-casing",
+      "summary": "user-facing strings say UniFi, not Unifi",
+      "why": "The generated root Short/Long, the auth command's Short, and the MCP server name used 'Unifi'. The vendor's brand is UniFi; the mis-cased form appeared in the first line of --help.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "UniFi CLI",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "Manage authentication for UniFi Network",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "dev-version-not-upstream-release",
+      "summary": "var version is 0.0.0-dev, not the upstream public-library release number",
+      "why": "The vendored tree carried `var version = \"2026.8.1\"`, the version this CLI was released under in mvanhorn/printing-press-library. In msp-skills the release workflow injects the tag version via ldflags (-X <module>/internal/cli.version=), and every other connector ships 0.0.0-dev as the source default. Leaving 2026.8.1 in makes an unreleased local build claim a version that does not correspond to any msp-skills tag.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/version.go",
+          "contains": "var version = \"0.0.0-dev\"",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "api-hint-binary-name",
+      "summary": "the `api` command's hint text names unifi-network-cli, not the nonexistent unifi-cli",
+      "why": "api_discovery.go hardcoded the bare slug string \"unifi\" in three Fprintf/Errorf calls that build '%s-cli ...', so `api` printed copy-pasteable hints for a binary named `unifi-cli` - which does not exist; the binary is `unifi-network-cli`. It survived the -pp- strip because the literal is the bare original slug, not a -pp- suffixed name, so no rename rule matched it.",
+      "status": "active",
+      "spec_encode_followup": "The press should derive this hint from the CLI's own binary name (os.Args[0] or the generated cliName const) rather than baking the slug in as a literal.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/api_discovery.go",
+          "contains": "\"unifi-network\"",
+          "min_count": 3
+        }
+      ]
+    }
+  ]
+}

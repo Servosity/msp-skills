@@ -78,6 +78,7 @@ body:
         - syncro
         - tactical-rmm
         - threatlocker
+        - unifi-network
         - veeam
         - wordpress
         - xero

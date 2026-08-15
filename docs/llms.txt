@@ -178,6 +178,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - ThreatLocker (Security) - ask "What application approvals are pending across all my clients right now?" - Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking.
   Verification: Live-verified by @geekbrownbear (MSP) (2026-08-14). Page: https://msp-skills.compoundingteams.com/skills/threatlocker/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/install.sh)
+- UniFi Network (Network Monitoring) - ask "What changed in this site's config since my last check?" - Audit UniFi devices, firewall policy, and overnight config drift on a self-hosted gateway from your terminal.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/unifi-network/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/unifi-network/install.sh)
 - Veeam (Backup/DR) - ask "Which backup jobs are failing across all my customers?" - 
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/veeam/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/veeam/install.sh)
