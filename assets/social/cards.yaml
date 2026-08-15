@@ -72,6 +72,10 @@ connectwise-manage:
   vendor: "ConnectWise Manage"
   example_command: "Which closed tickets have no time logged?"
 
+cork:
+  vendor: "Cork"
+  example_command: "Why did this client's Cork score drop?"
+
 cove:
   vendor: "Cove Data Protection"
   example_command: "Which Cove backups failed last night?"

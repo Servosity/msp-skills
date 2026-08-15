@@ -14,15 +14,16 @@ import (
 func newAPICmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "api [interface]",
-		Short:       "Browse all API endpoints by interface name",
+		Short:       "Discover API endpoints by interface name",
 		Annotations: map[string]string{"mcp:read-only": "true"},
-		Long: `Browse and call any API endpoint using the raw interface names.
+		Long: `Discover which endpoints exist, grouped by raw interface name.
 
-The friendly top-level commands cover the most common operations.
-This command provides access to ALL endpoints for power users and
-agents that need full API coverage.
+This is a directory, not a caller: it prints command names so you know what
+to run, and running the named command is what makes the request. It lists the
+generated API interfaces only, so top-level commands that are not part of a
+generated interface (clients, warranties, invoices, me) will not appear here.
 
-Run 'api' with no arguments to list all interfaces.
+Run 'api' with no arguments to list the interfaces.
 Run 'api <interface>' to see that interface's methods.`,
 		Example: `  # List all available interfaces
   cork-cli api
@@ -59,11 +60,11 @@ Run 'api <interface>' to see that interface's methods.`,
 						for _, method := range methods {
 							fmt.Fprintf(cmd.OutOrStdout(), "  %-50s %s\n", child.Name()+" "+method.Name(), method.Short)
 						}
-						fmt.Fprintf(cmd.OutOrStdout(), "\nUse '%s-pp-cli %s <method> --help' for details.\n", "cork", child.Name())
+						fmt.Fprintf(cmd.OutOrStdout(), "\nUse '%s-cli %s <method> --help' for details.\n", "cork", child.Name())
 						return nil
 					}
 				}
-				return fmt.Errorf("interface %q not found. Run '%s-pp-cli api' to list all interfaces", args[0], "cork")
+				return fmt.Errorf("interface %q not found. Run '%s-cli api' to list all interfaces", args[0], "cork")
 			}
 
 			// Pre-formatting human strings ahead of time would block the JSON
@@ -100,7 +101,7 @@ Run 'api <interface>' to see that interface's methods.`,
 			for _, e := range ifaces {
 				fmt.Fprintf(cmd.OutOrStdout(), "  %-45s %s\n", e.Name, e.Short)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "\nUse '%s-pp-cli api <interface>' to see methods.\n", "cork")
+			fmt.Fprintf(cmd.OutOrStdout(), "\nUse '%s-cli api <interface>' to see methods.\n", "cork")
 			return nil
 		},
 	}

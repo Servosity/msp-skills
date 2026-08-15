@@ -370,6 +370,20 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "\n%d gap(s): %d connector device(s) across %d connector(s) vs %d attributed device(s)\n",
 				len(gaps), connectorDevices, walked, len(clientDevices))
+			// A truncated sweep must say so even when it DID find gaps. The gap
+			// list is a floor, not a total: the skipped connectors were never
+			// read, so a device only they can see is missing from this table.
+			if scanCapHit {
+				// ConnectorsSkipped only counts connectors; a page cap or an
+				// undecodable-device warning also truncates the sweep, so do not
+				// print "(0 connector(s) skipped)" and read as self-contradictory.
+				detail := "a page limit was reached"
+				if view.ConnectorsSkipped > 0 {
+					detail = fmt.Sprintf("%d connector(s) skipped or failed", view.ConnectorsSkipped)
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "the sweep was truncated (%s); this gap list is a floor, not a total - raise --max-connectors or --max-scan-pages\n",
+					detail)
+			}
 			return nil
 		},
 	}

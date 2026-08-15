@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Servosity/cork-mcp",
   "title": "Cork MCP",
-  "description": "Every Cork API operation, plus cross-client risk attribution, exploitability-first vulnerability triage, and",
+  "description": "Every Cork API operation, plus cross-client risk attribution and exploitability-first vuln triage.",
   "version": "0.1.0",
   "icons": [
     {

@@ -12,31 +12,30 @@ metadata:
       bins:
         - cork-cli
     install:
-      - kind: go
+      - kind: script
         bins: [cork-cli]
-        module: github.com/mvanhorn/printing-press-library/library/monitoring/cork/cmd/cork-cli
+        sh: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cork/install.sh
+        ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cork/install.ps1
 ---
 
-# Cork  -  Printing Press CLI
+# Cork - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
 This skill drives the `cork-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install cork --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cork/install.sh)
    ```
-2. Verify: `cork-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cork/install.ps1 | iex
+   ```
+3. Verify: `cork-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.5 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/monitoring/cork/cmd/cork-cli@latest
-```
-
-If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Cork tells you a client's risk score moved but never why, and offers no way to ask a question across your whole book of business. This CLI mirrors the API into local SQLite, then answers the questions that need history and fan-out: score attribute explains what drove a score change, score regressions ranks every client by how far they slipped, vulnerabilities triage orders patching by what is actually being exploited rather than by CVSS, and integrations health catches the connector that reports healthy while its data quietly went stale.
 
@@ -48,7 +47,8 @@ Reach for this CLI when the question spans more than one Cork client or more tha
 
 Do not use this CLI for:
 - Do not use this CLI to provision distributor partners or push software installs; those endpoints mutate real customer environments and belong in a reviewed change process, not an agent loop
-- Do not use this CLI to retrieve or relay integration credentials; that endpoint returns secret material and the command redacts by default
+- Do not use `import` in an agent loop for any resource. `import <resource> --input file.jsonl` issues one POST per line into those same endpoints (`import software` -> `/software/installer/install`, `import distributor` -> `/distributor/partners`, `import integrations` -> `/integrations`) and, by its own help text, failed records are logged but do not stop the run. It is the bulk form of the two commands named above and carries their blast radius; preview with `--dry-run` and keep a human on it
+- Do not use this CLI to retrieve or relay integration credentials; `integrations credentials get-integration` prints the endpoint's response verbatim with no redaction, and `integrations raw-data get-integration` returns a presigned URL that downloads the connector's full raw data with no further auth. Both are reads whose output IS the secret - keep them out of any blanket allow-all-reads policy
 - Do not use this CLI as a substitute for the Cork web platform when configuring integrations or editing notification settings interactively
 - Do not use this CLI for security advisories or CVE metadata in general; it only knows about CVEs Cork has already associated with your fleet, so pair it with a vulnerability database for research
 
@@ -537,9 +537,9 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
+1. Install the MCP server (the same installer ships both binaries):
    ```bash
-   go install github.com/mvanhorn/printing-press-library/library/monitoring/cork/cmd/cork-mcp@latest
+   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cork/install.sh)
    ```
 2. Register with Claude Code:
    ```bash

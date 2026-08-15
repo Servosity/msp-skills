@@ -20,7 +20,7 @@ faqs:
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
   - q: "Will this hit my Cork API rate limits?"
-    a: "The skill syncs once into a local SQLite mirror, then answers most questions from local data, so repeated questions never touch the API. Three commands read live by necessity, because the underlying rows carry no id to mirror: vulnerabilities triage, vulnerabilities exposure, and compliance overdue. Cork publishes no rate limits, so those commands cap their own scans and tell you when a sweep was truncated rather than reporting a false all-clear."
+    a: "`sync` fills a local SQLite mirror, and search and score regressions answer from it without touching the API. export is NOT one of them - it paginates the live API and is one of the heaviest readers here, so pass --limit unless you mean to pull everything. The other seven analysis commands fetch live on every run, and two of them fan out (coverage gaps per connector, compliance overdue per client), so those are the ones to watch. Each caps its own scan and tells you when it truncated."
   - q: "Why does my Cork key get a 403 on some commands?"
     a: "A Cork API key inherits the permissions of the user who created it. A 403 on the distributor or integration endpoints usually means the key was minted by an operator without that scope, not that the key is wrong. That property is also your best control: mint a read-only key for read-only work."
   - q: "Will this replace the Cork portal?"
@@ -124,11 +124,12 @@ After install, authenticate once with your Cork credentials, then verify with `c
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | score attribute, score regressions, vulnerabilities triage, vulnerabilities exposure, compliance overdue, integrations health, coverage gaps, warranties exposure, sync, search, export, and every list/get command | Allow |
+| Read | score attribute, score regressions, vulnerabilities triage, vulnerabilities exposure, compliance overdue, integrations health, coverage gaps, warranties exposure, sync, search, export, and every list/get command except the secret-returning reads in the Credential row | Allow |
 | Write (routine) | integrations connect, integrations update, integrations resync integration | Preview with --dry-run, then a reviewed write |
-| Credential / security | integrations credentials, integrations credentials get-integration, the credential fields of integrations update | Human-in-the-loop only |
+| Credential / security | integrations credentials, integrations credentials get-integration (printed verbatim, not redacted), integrations raw-data get-integration (returns a presigned URL that downloads the connector's full raw data with no further auth), the credential fields of integrations update | Human-in-the-loop only, never in a blanket allow-all-reads policy |
 | Destructive / endpoint-affecting | integrations delete, software install (installs a package on a real customer device through its RMM integration) | Human-in-the-loop only, explicit confirmation |
 | Admin | distributor provision-partner | Operator-only, not for agents |
+| Bulk write | import <resource> --input file.jsonl - one POST per line into the write endpoints above, continuing past failures | Human-in-the-loop only, explicit confirmation. Never unattended |
 
 The skill reads your Cork clients, devices, risk scores, compliance events, vulnerabilities, integrations, warranties, and invoices, and it can connect, update, resync, or delete integrations, install a software package on a mapped device through that device's RMM integration, and provision a partner account. Reads and sync are always safe to allow. Routine integration writes should be previewed with --dry-run, then approved. Deleting an integration, reading or replacing connector credentials, installing software on a customer endpoint, and provisioning a partner are human-in-the-loop only. The strongest control is the credential itself: a Cork API key inherits the permissions of the user who created it, so a key minted by a read-only user makes the destructive tiers unreachable. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/cork/governance.md).
 
@@ -160,7 +161,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 ### Will this hit my Cork API rate limits?
 
-The skill syncs once into a local SQLite mirror, then answers most questions from local data, so repeated questions never touch the API. Three commands read live by necessity, because the underlying rows carry no id to mirror: vulnerabilities triage, vulnerabilities exposure, and compliance overdue. Cork publishes no rate limits, so those commands cap their own scans and tell you when a sweep was truncated rather than reporting a false all-clear.
+`sync` fills a local SQLite mirror, and search and score regressions answer from it without touching the API. export is NOT one of them - it paginates the live API and is one of the heaviest readers here, so pass --limit unless you mean to pull everything. The other seven analysis commands fetch live on every run, and two of them fan out (coverage gaps per connector, compliance overdue per client), so those are the ones to watch. Each caps its own scan and tells you when it truncated.
 
 ### Why does my Cork key get a 403 on some commands?
 

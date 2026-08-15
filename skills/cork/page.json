@@ -77,7 +77,7 @@
     },
     {
       "q": "Will this hit my Cork API rate limits?",
-      "a": "The skill syncs once into a local SQLite mirror, then answers most questions from local data, so repeated questions never touch the API. Three commands read live by necessity, because the underlying rows carry no id to mirror: vulnerabilities triage, vulnerabilities exposure, and compliance overdue. Cork publishes no rate limits, so those commands cap their own scans and tell you when a sweep was truncated rather than reporting a false all-clear."
+      "a": "`sync` fills a local SQLite mirror, and search and score regressions answer from it without touching the API. export is NOT one of them - it paginates the live API and is one of the heaviest readers here, so pass --limit unless you mean to pull everything. The other seven analysis commands fetch live on every run, and two of them fan out (coverage gaps per connector, compliance overdue per client), so those are the ones to watch. Each caps its own scan and tells you when it truncated."
     },
     {
       "q": "Why does my Cork key get a 403 on some commands?",
@@ -92,7 +92,7 @@
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "score attribute, score regressions, vulnerabilities triage, vulnerabilities exposure, compliance overdue, integrations health, coverage gaps, warranties exposure, sync, search, export, and every list/get command",
+      "examples": "score attribute, score regressions, vulnerabilities triage, vulnerabilities exposure, compliance overdue, integrations health, coverage gaps, warranties exposure, sync, search, export, and every list/get command except the secret-returning reads in the Credential row",
       "policy": "Allow"
     },
     {
@@ -102,8 +102,8 @@
     },
     {
       "tier": "Credential / security",
-      "examples": "integrations credentials, integrations credentials get-integration, the credential fields of integrations update",
-      "policy": "Human-in-the-loop only"
+      "examples": "integrations credentials, integrations credentials get-integration (printed verbatim, not redacted), integrations raw-data get-integration (returns a presigned URL that downloads the connector's full raw data with no further auth), the credential fields of integrations update",
+      "policy": "Human-in-the-loop only, never in a blanket allow-all-reads policy"
     },
     {
       "tier": "Destructive / endpoint-affecting",
@@ -114,6 +114,11 @@
       "tier": "Admin",
       "examples": "distributor provision-partner",
       "policy": "Operator-only, not for agents"
+    },
+    {
+      "tier": "Bulk write",
+      "examples": "import <resource> --input file.jsonl - one POST per line into the write endpoints above, continuing past failures",
+      "policy": "Human-in-the-loop only, explicit confirmation. Never unattended"
     }
   ]
 }

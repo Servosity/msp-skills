@@ -143,7 +143,7 @@ One property of Cork keys is worth knowing up front: **an API key inherits the p
 
 ### Sync before you ask
 
-Most of the cross-client answers come from a local mirror. Populate it once:
+`search`, `score regressions`, and the client-roster lookups inside several other commands read a local mirror. Populate it once:
 
 ```bash
 cork-cli sync
@@ -171,9 +171,9 @@ Full command reference: [guide.md](./guide.md). For the AI-agent operating contr
 
 Cork's own tooling is a stateless mirror of its REST API: it answers one client, right now. Every question an MSP actually asks is cross-client, cross-time, or both, and **the Cork API exposes no cross-client aggregate endpoint at all**, so the live path for any of them is a fan-out across every client with no stored yesterday to compare against.
 
-This skill syncs Cork into a **local SQLite mirror**, so those questions become one local join. That is what turns "the risk score dropped" into "the risk score dropped *because* compliance moved, and here are the overdue events behind it."
+This skill syncs Cork into a **local SQLite mirror** and does the fan-out and the joining for you, so "the risk score dropped" becomes "the risk score dropped *because* compliance moved, and here are the overdue events behind it" - one command instead of a per-client walk you assemble by hand.
 
-Three of the eight analysis commands read live rather than from the mirror, because the underlying rows carry no id that can be mirrored: `vulnerabilities triage`, `vulnerabilities exposure`, and `compliance overdue`. Those cap their own scans and say so when a sweep was truncated, instead of reporting a false all-clear.
+Only `score regressions` answers purely from the local mirror. The other seven fetch from the Cork API on every run, because the rows they need carry no id that can be mirrored - vulnerability findings, compliance events, connector state, and score history. Several of them do use the mirror for the client roster so they can skip a live `/clients` fan-out, and fall back to a live roster scan when the mirror is empty. Every one of them caps its own scan and prints when a sweep was truncated, instead of reporting a false all-clear.
 
 ## The pain this closes
 
@@ -205,7 +205,7 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries, 
 
 ### Will this hit my Cork API rate limits?
 
-Mostly no. The skill syncs once into a local SQLite mirror, then answers from local data, so repeated questions never touch the API. The three live-path commands above are the exception, and they cap their own scans. Cork publishes no rate limits, which is exactly why those caps exist.
+Partly. `sync` fills a local SQLite mirror, and `search` and `score regressions` answer from it without touching the API. `export` is NOT one of them - it paginates the live API and is one of the heaviest readers here, so pass `--limit` unless you mean to pull everything. The other seven analysis commands fetch live on every run, and two of them fan out - `coverage gaps` per connector, `compliance overdue` per client - so those are the ones to watch. Each caps its own scan (`--max-clients`, `--max-connectors`, `--max-scan-pages`) and tells you when it truncated. Cork publishes no rate limits, which is exactly why those caps exist.
 
 ### Why does my Cork key get a 403 on some commands?
 
@@ -223,13 +223,14 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `score attribute`, `score regressions`, `vulnerabilities triage`, `vulnerabilities exposure`, `compliance overdue`, `integrations health`, `coverage gaps`, `warranties exposure`, `sync`, `search`, `export`, every `list` / `get` | Allow |
+| Read | `score attribute`, `score regressions`, `vulnerabilities triage`, `vulnerabilities exposure`, `compliance overdue`, `integrations health`, `coverage gaps`, `warranties exposure`, `sync`, `search`, `export`, every `list` / `get` **except the secret-returning reads below** | Allow |
 | Write (routine) | `integrations connect`, `integrations update`, `integrations resync integration` | Preview with `--dry-run`, then a reviewed write |
-| Credential / security | `integrations credentials`, `integrations credentials get-integration` | Human-in-the-loop only |
+| Credential / security | `integrations credentials`, `integrations credentials get-integration` (printed verbatim, not redacted), `integrations raw-data get-integration` (returns a presigned URL that downloads the connector's full raw data with no further auth) | Human-in-the-loop only, never in a blanket allow-all-reads policy |
 | Destructive / endpoint-affecting | `integrations delete`, `software install` (installs a package on a real customer device through its RMM integration) | Human-in-the-loop only, explicit confirmation |
 | Admin | `distributor provision-partner` | Operator-only, not for agents |
+| Bulk write | `import <resource> --input file.jsonl` - one POST per line into the write endpoints above, continuing past failures | Human-in-the-loop only, explicit confirmation. Never unattended |
 
-Two of those reach outside Cork itself: `software install` changes the state of a real customer machine, and `distributor provision-partner` creates a partner account. Treat both like a manual RMM push or a commercial change, with the approval you already require for those.
+Three of those reach outside Cork itself: `software install` changes the state of a real customer machine, `distributor provision-partner` creates a partner account, and `import` runs either of those endpoints in bulk, one POST per line. Treat them like a manual RMM push or a commercial change, with the approval you already require for those.
 
 The strongest control is the **scope you grant the Cork API key** - the CLI can only do what the key's creating user is permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 

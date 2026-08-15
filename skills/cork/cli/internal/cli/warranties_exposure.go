@@ -266,6 +266,13 @@ func newNovelWarrantiesExposureCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "\n%d of %d client(s) without active coverage\n", view.Uncovered, view.ClientsScanned)
+			// The truncation caveat is set above but the rows-present path used
+			// to drop it, so a client could read "COVERED: no" off a warranty
+			// record that was simply never fetched. This drives a commercial
+			// conversation, so the caveat travels with the table.
+			if view.Note != "" {
+				fmt.Fprintln(cmd.OutOrStdout(), "\n"+view.Note)
+			}
 			return nil
 		},
 	}

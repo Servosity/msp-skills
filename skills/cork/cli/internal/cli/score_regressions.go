@@ -190,7 +190,7 @@ func newNovelScoreRegressionsCmd(flags *rootFlags) *cobra.Command {
 				if view.Note != "" {
 					view.Note += "; "
 				}
-				view.Note += fmt.Sprintf("%d client(s) had no embedded score point older than the requested window, so their delta covers a shorter span than %s — use 'score attribute' for one client's full history", historyTruncated, window)
+				view.Note += fmt.Sprintf("%d client(s) had no embedded score point older than the requested window, so their delta covers a shorter span than %s — use 'score attribute' for one client's full history", historyTruncated, flagSince)
 			}
 
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
@@ -205,7 +205,15 @@ func newNovelScoreRegressionsCmd(flags *rootFlags) *cobra.Command {
 			for _, r := range rows {
 				fmt.Fprintf(tw, "%s\t%d\t%d\t%+d\t%d\n", truncate(r.Client, 40), r.ScoreThen, r.ScoreNow, r.Delta, r.PointsUsed)
 			}
-			return tw.Flush()
+			if err := tw.Flush(); err != nil {
+				return err
+			}
+			// A shorter-than-requested window changes what every delta means, so
+			// the human table must carry the same caveat the JSON does.
+			if view.Note != "" {
+				fmt.Fprintln(cmd.OutOrStdout(), "\n"+view.Note)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&flagSince, "since", "7d", "Window to measure movement over (7d, 24h, 1w)")
