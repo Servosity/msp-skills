@@ -1452,7 +1452,7 @@
       "cli_hash": "sha256:b585e205fcd544e88037923e687bfb7cc7287880ba9f2c1c606a14915616549e",
       "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:b585e205fcd544e88037923e687bfb7cc7287880ba9f2c1c606a14915616549e",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
