@@ -231,7 +231,7 @@ func newNovelIntegrationsHealthCmd(flags *rootFlags) *cobra.Command {
 			case seen == 0:
 				view.Note = "no connected integrations returned"
 			case len(rows) == 0:
-				view.Note = fmt.Sprintf("all %d connector(s) examined report ok and synced within %s", seen, staleAfter)
+				view.Note = fmt.Sprintf("all %d connector(s) examined report ok and synced within %s", seen, corkWindowLabel(flagStaleAfter, staleAfter))
 				if capHit {
 					view.Note += "; the integration page scan cap was reached, so connectors beyond it were not examined"
 				}

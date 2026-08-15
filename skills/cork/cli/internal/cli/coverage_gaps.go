@@ -78,14 +78,18 @@ func normIdent(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 // conditions set scanCapHit and they have three different remedies, so blaming a
 // page limit for an undecodable-device truncation sends the operator to raise a
 // cap that will not change the outcome.
-func coverageTruncationCause(connectorsSkipped, undecodableDevices int) string {
+func coverageTruncationCause(connectorsSkipped, undecodableDevices int) (cause, remedy string) {
 	switch {
 	case connectorsSkipped > 0:
-		return fmt.Sprintf("%d connector(s) skipped or failed", connectorsSkipped)
+		return fmt.Sprintf("%d connector(s) skipped or failed", connectorsSkipped),
+			"raise --max-connectors or --max-scan-pages"
 	case undecodableDevices > 0:
-		return fmt.Sprintf("%d connector device(s) could not be decoded and were not diffed", undecodableDevices)
+		// No cap can make a malformed device decode. Sending the operator to
+		// raise one is a remedy that cannot change the outcome.
+		return fmt.Sprintf("%d connector device(s) could not be decoded and were not diffed", undecodableDevices),
+			"see the warning on stderr for the affected connector(s); this is a data-shape problem, not a cap"
 	default:
-		return "a page limit was reached"
+		return "a page limit was reached", "raise --max-connectors or --max-scan-pages"
 	}
 }
 
@@ -351,9 +355,9 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 					// Same page-cap-vs-connector-cap distinction as the rows-present
 					// path below. This branch matters more: it is the one asserting
 					// "no coverage gaps".
-					detail := coverageTruncationCause(view.ConnectorsSkipped, undecodableConnectorDevices)
-					view.Note = fmt.Sprintf("no coverage gaps among the %d connector device(s) examined across %d connector(s), but the sweep was truncated (%s); this is not a clean bill of health — raise --max-connectors or --max-scan-pages",
-						connectorDevices, walked, detail)
+					detail, remedy := coverageTruncationCause(view.ConnectorsSkipped, undecodableConnectorDevices)
+					view.Note = fmt.Sprintf("no coverage gaps among the %d connector device(s) examined across %d connector(s), but the sweep was truncated (%s); this is not a clean bill of health — %s",
+						connectorDevices, walked, detail, remedy)
 				} else {
 					view.Note = fmt.Sprintf("no coverage gaps: %d connector device(s) across %d connector(s) all map to the client's %d attributed device(s)",
 						connectorDevices, walked, len(clientDevices))
@@ -396,9 +400,9 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 				// ConnectorsSkipped only counts connectors; a page cap or an
 				// undecodable-device warning also truncates the sweep, so do not
 				// print "(0 connector(s) skipped)" and read as self-contradictory.
-				detail := coverageTruncationCause(view.ConnectorsSkipped, undecodableConnectorDevices)
-				fmt.Fprintf(cmd.OutOrStdout(), "the sweep was truncated (%s); this gap list is a floor, not a total - raise --max-connectors or --max-scan-pages\n",
-					detail)
+				detail, remedy := coverageTruncationCause(view.ConnectorsSkipped, undecodableConnectorDevices)
+				fmt.Fprintf(cmd.OutOrStdout(), "the sweep was truncated (%s); this gap list is a floor, not a total - %s\n",
+					detail, remedy)
 			}
 			return nil
 		},

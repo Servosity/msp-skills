@@ -119,3 +119,34 @@ func TestCoverageGapsSilentWhenSweepComplete(t *testing.T) {
 		t.Fatalf("complete sweep wrongly reported truncation:\n%s", out)
 	}
 }
+
+// TestCoverageTruncationCauseMatchesItsRemedy pins the pairing. Three different
+// conditions set scanCapHit and they do NOT share a remedy: no cap can make a
+// malformed device decode, so sending the operator to raise one is a remedy that
+// cannot change the outcome.
+func TestCoverageTruncationCauseMatchesItsRemedy(t *testing.T) {
+	for _, tc := range []struct {
+		name                             string
+		skipped, undecodable             int
+		wantCause, wantRemedy            string
+	}{
+		{"connector cap", 11, 0, "11 connector(s) skipped or failed", "raise --max-connectors or --max-scan-pages"},
+		{"page cap", 0, 0, "a page limit was reached", "raise --max-connectors or --max-scan-pages"},
+		{"undecodable devices", 0, 3, "3 connector device(s) could not be decoded and were not diffed", "data-shape problem"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cause, remedy := coverageTruncationCause(tc.skipped, tc.undecodable)
+			if !strings.Contains(cause, tc.wantCause) {
+				t.Fatalf("cause = %q, want it to contain %q", cause, tc.wantCause)
+			}
+			if !strings.Contains(remedy, tc.wantRemedy) {
+				t.Fatalf("remedy = %q, want it to contain %q", remedy, tc.wantRemedy)
+			}
+		})
+	}
+	// The undecodable remedy must NOT send the operator to a cap.
+	_, remedy := coverageTruncationCause(0, 1)
+	if strings.Contains(remedy, "--max-connectors") || strings.Contains(remedy, "--max-scan-pages") {
+		t.Fatalf("undecodable remedy points at a cap that cannot fix it: %q", remedy)
+	}
+}

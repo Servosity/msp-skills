@@ -102,10 +102,10 @@ All remote agents need `cork-mcp` reachable as a public **HTTPS** endpoint.
 its own - so put a stdio-to-HTTP bridge in front of it:
 
 ```bash
-CORK_API_KEY=<value> npx -y mcp-remote --stdio "cork-mcp" --port 7777
+CORK_API_KEY=<value> npx -y supergateway --stdio "cork-mcp" --port 7777
 ```
 
-Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel
+supergateway serves the bridged server at `http://localhost:7777/sse`. Expose that as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. **Treat that URL as
 sensitive** - it's a key to your MCP server. Never expose it bare on the internet;
 gate it behind SSO / Cloudflare Access for team use.

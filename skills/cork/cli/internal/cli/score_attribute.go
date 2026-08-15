@@ -205,7 +205,7 @@ func newNovelScoreAttributeCmd(flags *rootFlags) *cobra.Command {
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "score %d -> %d (%+d) over %s, %d points\n\n", view.ScoreThen, view.ScoreNow, view.Delta, flagSince, view.PointsUsed)
+			fmt.Fprintf(cmd.OutOrStdout(), "score %d -> %d (%+d) over %s, %d points\n\n", view.ScoreThen, view.ScoreNow, view.Delta, corkWindowLabel(flagSince, window), view.PointsUsed)
 			tw := newTabWriter(cmd.OutOrStdout())
 			fmt.Fprintln(tw, "COMPONENT\tTHEN\tNOW\tDELTA\tSHARE")
 			for _, cm := range view.Components {
