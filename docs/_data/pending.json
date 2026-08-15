@@ -406,11 +406,11 @@
     "released_hash": "sha256:394600865fed0f5e33bff9c662ba55027205e38e5d734f2d16a88d7cddfd51dc"
   },
   "unifi-network": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "unifi-network-v0.1.0",
     "current_hash": "sha256:b585e205fcd544e88037923e687bfb7cc7287880ba9f2c1c606a14915616549e",
-    "released_hash": null
+    "released_hash": "sha256:b585e205fcd544e88037923e687bfb7cc7287880ba9f2c1c606a14915616549e"
   },
   "veeam": {
     "state": "binary-pending",
