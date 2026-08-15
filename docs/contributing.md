@@ -30,6 +30,55 @@ skills/<vendor>/
 
 Use the existing `skills/halopsa/` and `skills/servosity/` directories as the template.
 
+## The other shape: a markdown-only skill
+
+Not every useful skill is a connector. A skill can be instructions plus a few
+scripts, with no Go, no compiled binary, and no MCP server. `skills/connect-tool/`
+is the worked example:
+
+```
+skills/<name>/
+  README.md             # user-facing landing page (H1 + banner)
+  SKILL.md              # entry point with the same YAML frontmatter fields
+  scripts/              # optional, any language
+  references/           # optional, deeper docs the agent loads on demand
+```
+
+Add `"markdown_only": true` to the skill's entry in `tools/maintainer/skills.json`.
+That single flag is load-bearing: it tells the skill-contract check to require only
+`SKILL.md` and `README.md`, and tells the build matrix, release queue, CLI-claims
+check, release-contract check, and the connector page formula to skip the skill
+entirely. Without it, checks fail asking for installers and a binary you were never
+going to ship.
+
+The security check still reads any `.py`, `.sh`, or `.ps1` you ship. It looks for
+things like `shell=True`, `os.system`, `eval`, `pickle.load`, and a subprocess call
+given a command string instead of a list of arguments. Writing scripts the way
+`skills/connect-tool/scripts/` does - list arguments, explicit `shell=False` - passes
+cleanly.
+
+## What a maintainer finishes for you
+
+Please do not hold a PR back over any of these. They need tooling or authority you
+do not have, and a maintainer picks them up after merge:
+
+- **Social preview images and the demo video.** Minted from an internal toolchain.
+- **The `live-verified` badge.** Only a real MSP's report against a real tenant
+  flips it. An author cannot self-certify, and neither can we.
+- **Generated files you could not regenerate**, such as `catalog.json`. Say so in
+  the PR.
+
+## If the security check flags your PR
+
+`security-gate` reads `security_suppressions.json` and `dep_allowlist.json` from
+`main`, never from your branch. Adding an exception to your own PR therefore has no
+effect - that is deliberate, so a PR cannot approve its own exception.
+
+- **A real finding** gets fixed. Most often it is an out-of-date dependency and the
+  fix is a version bump (`go get <module>@latest`).
+- **A false positive** gets noted in the PR and left alone. A maintainer reviews it
+  and merges the exception to `main` first; your PR then goes green on rebase.
+
 ## The non-affiliation banner
 
 Every skill for a third-party vendor must open its `README.md` with a non-affiliation banner before any other content. Template:
@@ -99,26 +148,25 @@ The `-s` flag appends the `Signed-off-by:` line that asserts you have the right 
 
 ## Local verification before opening a PR
 
+Run the same checks CI runs, rather than hand-rolled greps:
+
 ```bash
-# Em-dash check (Unicode U+2014). Should return nothing.
-python3 -c "import pathlib; [print(f'{p}:{i+1}') for p in pathlib.Path('.').rglob('*') if p.is_file() and '.git' not in str(p) for i, l in enumerate(p.read_text(errors='ignore').splitlines()) if chr(0x2014) in l]"
+bash tools/maintainer/ci_guards.sh            # em-dashes, personal paths, secrets
+python3 tools/maintainer/check_skill_contract.py   # required files + frontmatter
+python3 tools/maintainer/check_vocabulary.py       # the words MSPs search for
+python3 tools/maintainer/check_md_links.py         # local links resolve
+python3 tools/maintainer/check_no_todos.py         # no leftover placeholders
+python3 tools/maintainer/check_security_gate.py --slug <your-slug>
 
-# Banned vocabulary
-grep -rEn '\bagent-native CLI\b|\bMSP capability pack\b|\bcapability pack\b' .
-
-# Personal paths and emails
-grep -rn '/Users/' .
-grep -rn '/home/' .
-
-# Catalog regeneration
+# Regenerate the catalog, then confirm nothing drifted
 python3 tools/maintainer/build-catalog.py
-git diff catalog.json README.md  # should be empty after regen
+git status --porcelain -- catalog.json README.md docs/_data/catalog.json docs/skills/
 
-# Install script dry-runs
+# Connectors only: install script dry-run
 DRY_RUN=1 bash skills/<vendor>/install.sh
 ```
 
-All of these should pass / return nothing before you open the PR.
+All of these should pass, and the `git status` line should print nothing.
 
 **On Windows:** run the commands above from WSL or Git Bash (they use `bash`, `grep`, and
 `python3`); use `python` if `python3` is not on your PATH. For the install dry-run in
