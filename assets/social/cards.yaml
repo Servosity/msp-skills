@@ -57,6 +57,7 @@ cipp:
   example_command: "Which tenants lack MFA?"
 
 connect-tool:
+  subtitle: "Claude Code Skill - no MCP server to install"
   vendor: "connect-tool"  # matches docs/skills/connect-tool.md
   example_command: "Connect my Pax8 account and prove it works"
 
@@ -91,6 +92,11 @@ datto-rmm:
 domotz:
   vendor: "Domotz"
   example_command: "Which client sites have devices down?"
+
+grab-cookie:
+  subtitle: "Claude Code Skill - no MCP server to install"
+  vendor: "grab-cookie"  # matches docs/skills/grab-cookie.md
+  example_command: "Re-auth the tool whose session expired"
 
 gradient:
   vendor: "Gradient MSP"
@@ -146,6 +152,7 @@ microsoft-graph:
   example_command: "Which M365 licenses are we wasting?"
 
 msp-skills-concierge:
+  subtitle: "Claude Code Skill - no MCP server to install"
   vendor: "MSP Skills Concierge"
   example_command: "Which connectors fit my MSP stack?"
 

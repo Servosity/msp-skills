@@ -68,6 +68,8 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Domotz (Network Monitoring) - ask "Is anything on fire across all my sites?" - Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/domotz/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domotz/install.sh)
+- grab-cookie (Meta) - Re-auth the tools that never issue an API key. One paste, stored in the OS credential store, verified live.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/grab-cookie/
 - Gradient MSP (Billing) - ask "Push a whole file of usage counts and rebuild billing exactly once?" - Push usage counts, catch billing drift, and trace alerts to PSA tickets in Gradient MSP Synthesize from your terminal.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/gradient/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/gradient/install.sh)

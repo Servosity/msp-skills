@@ -5,9 +5,10 @@
 #
 # Vendored into credgrab from Servosity's msp-skills `connect-tool` skill
 # (https://github.com/Servosity/msp-skills), Apache-2.0, author Damien Stevens.
-# Only change from upstream: the credential-store namespace in target_name() is
-# `credgrab/<service>/<account>` instead of `Servosity/connect-tool/...`.
-# See README.md (Attribution) and NOTICE in this skill directory.
+# Forked, not merely copied: the namespace in target_name() is
+# `credgrab/<service>/<account>` instead of `Servosity/connect-tool/...`, and
+# _selfcheck's live round-trip is opt-in here (--live) rather than always-on.
+# NOTICE in this skill directory lists every divergence.
 #
 """The credential backend: macOS Keychain or Windows Credential Manager.
 
@@ -68,9 +69,15 @@ def receipt(value: str, service: str, account: str) -> str:
     masked value the vendor portal displays; sha256[:8] lets two captures be
     compared without either being shown. A short secret gets no last4 at all.
     """
-    tail = f" last4={value[-4:]}" if len(value) >= MIN_LEN_FOR_LAST4 else " last4=(withheld, short secret)"
+    if len(value) >= MIN_LEN_FOR_LAST4:
+        return (f"STORED service={service} account={account} len={len(value)} "
+                f"sha256_8={hashlib.sha256(value.encode()).hexdigest()[:8]} last4={value[-4:]}")
+    # Short secret: withhold BOTH last4 and the digest. Publishing len plus an
+    # unsalted sha256 prefix is a verification oracle -- with the length known
+    # exactly, a 6-character secret is recovered by brute force in about a
+    # second, so the digest leaks the value the withheld last4 was protecting.
     return (f"STORED service={service} account={account} len={len(value)} "
-            f"sha256_8={hashlib.sha256(value.encode()).hexdigest()[:8]}{tail}")
+            f"sha256_8=(withheld, short secret) last4=(withheld, short secret)")
 
 
 # -- macOS -----------------------------------------------------------------

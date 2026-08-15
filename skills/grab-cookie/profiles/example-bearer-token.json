@@ -23,7 +23,7 @@
     }
   ],
 
-  "_wire_note": "env-file rewrites only the named keys and leaves the rest of the file alone, so an existing .env keeps its other settings.",
+  "_wire_note": "env-file is REGENERATED from the credential store on every wire, so point `path` at a file this profile owns exclusively. If the destination holds any setting this profile does not own, `wire` refuses rather than overwriting it - have your tool read this file and its own settings file separately.",
   "wire": {
     "type": "env-file",
     "path": "${HOME}/.config/example-cli/.env",

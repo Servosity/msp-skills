@@ -17,7 +17,7 @@
     }
   ],
 
-  "_wire_note": "The consumer file is regenerated FROM the credential store, so it can be deleted at any time and rebuilt with `grab-cookie wire`. The stored secret is the source of truth.",
+  "_wire_note": "The consumer file is regenerated FROM the credential store, so it can be deleted at any time and rebuilt with `python scripts/credgrab.py wire --profile <name>`. The stored secret is the source of truth.",
   "wire": {
     "type": "template-file",
     "path": "${HOME}/.config/example-cli/credentials.toml",
@@ -26,7 +26,7 @@
     "mode": "0600"
   },
 
-  "_verify_note": "Point this at any command that makes a real authenticated call and fails loudly when the credential is dead. A vendor CLI, a curl invocation, or a one-line script all work. Verification is what makes a reseed provable rather than hopeful.",
+  "_verify_note": "Point this at any command that makes a real authenticated call and fails loudly when the credential is dead. A vendor CLI, a curl invocation, or a one-line script all work. The command receives NO placeholder substitution, so it must read the credential from the consumer file this profile wires (or from the credential store) - never paste the secret into this profile, which is a plaintext file the agent reads on every run. Verification is what makes a reseed provable rather than hopeful.",
   "verify": {
     "cmd": ["example-cli", "whoami"],
     "expired_on": [

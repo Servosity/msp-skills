@@ -138,12 +138,19 @@ thirty-day session.
 ## 6. Self-check
 
 ```bash
-python "<this-skill-dir>/scripts/credgrab.py" --selfcheck
+python "<this-skill-dir>/scripts/credgrab.py" --selfcheck          # offline checks only
+python "<this-skill-dir>/scripts/credgrab.py" --selfcheck --live   # + real credential store
 ```
 
-Round-trips a synthetic value through the real credential store on this machine
-and deletes it. Run this first on a new machine, before assuming a failure is the
-vendor's fault.
+Plain `--selfcheck` runs the offline checks - redaction, blob round-trip, cURL
+parsing, the env-file merge - and never touches the credential store. Adding
+`--live` round-trips a synthetic value through the real Keychain or Credential
+Manager under a per-run unique account name and deletes it. The split is
+deliberate: a live check can raise a macOS Keychain access prompt, which must not
+happen behind a command documented as touching no credentials.
+
+**Run `--selfcheck --live` first on a new machine**, before assuming a failure is
+the vendor's fault - it is the only one of the two that proves the platform path.
 
 ## Security posture, stated plainly
 
@@ -151,14 +158,24 @@ vendor's fault.
   Windows that is `CredWriteW` with the value passed as a memory buffer rather
   than on a command line, so it does not land in process-creation logs.
 - The complete value is never printed, never logged, and never returned into the
-  agent's context. Receipts carry length, a hash prefix, and the last four
-  characters -- and the last-four field is withheld entirely for short secrets
-  (under twelve characters), so a receipt is enough to tell two credentials apart
-  and never enough to reconstruct one, even a short one.
-- Capture files hold a real credential until deleted. They belong in
-  `.gitignore`, and the Skill treats them as disposable.
-- Consumer config files are written with mode 0600 and are regenerated on demand,
-  so they can be treated as a cache rather than as a secret store.
+  agent's context. A receipt carries length, a hash prefix, and the last four
+  characters. For a short secret (under twelve characters) the last four AND the
+  hash prefix are both withheld: publishing an exact length beside an unsalted
+  digest is a verification oracle, and a six-character secret falls to brute
+  force in about a second, so withholding only the last four would not have been
+  enough.
+- Capture files hold a real credential until deleted - the whole DevTools
+  request, meaning every cookie for that origin and every auth header, not just
+  the one value. A `.gitignore` in this Skill directory covers `captures/`,
+  `*.curl.txt`, and `state.json`. **Delete the capture once the seed verifies.**
+- Consumer config files are written with mode 0600 on macOS and Linux and are
+  regenerated on demand, so they can be treated as a cache rather than as a
+  secret store. On Windows the mode is best-effort and the file inherits its
+  parent directory's NTFS ACLs. `state.json` uses the same 0600 path.
+- **Platform status: Windows is verified against Credential Manager. On macOS
+  the credential-store round trip passes (`--selfcheck --live`), but no full seed
+  against a real site has been exercised there.** Say so rather than implying
+  both platforms are equally proven.
 - This Skill adds no browser automation and no network listener. It reads a file
   the user pasted.
 

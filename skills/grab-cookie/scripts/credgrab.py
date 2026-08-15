@@ -114,19 +114,33 @@ def read_state() -> dict:
     try:
         with open(STATE_PATH, "r", encoding="utf-8") as fh:
             return json.load(fh)
-    except (OSError, ValueError):
-        return {"profiles": {}}
+    except (OSError, ValueError) as exc:
+        # Never degrade a corrupt state file into "nothing is seeded" -- that is
+        # byte-identical to all-healthy and turns the expiry alarm off silently.
+        raise SystemExit(
+            f"FAIL: state file unreadable: {STATE_PATH}: {exc}\n"
+            f"  Re-seed each profile to rebuild it: credgrab.py seed --profile <name> ..."
+        ) from exc
 
 
 def write_state(state: dict) -> None:
-    tmp = STATE_PATH.with_suffix(".json.tmp")
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(state, fh, indent=2)
-    os.replace(tmp, STATE_PATH)
+    # state.json holds a receipt per seeded profile (len + digest + last4 of a
+    # LIVE credential), so it is secret-adjacent and goes through the same
+    # 0600 atomic path as the consumer file -- not a bare open() at the umask
+    # default, which lands 0644 and world-readable.
+    atomic_write(STATE_PATH, json.dumps(state, indent=2) + "\n", 0o600)
 
 
 def record_seed(name: str, receipts: dict[str, str]) -> None:
-    state = read_state()
+    # The seed has already succeeded and verified by the time this runs, so a
+    # corrupt state file must not turn a good outcome into a non-zero exit. The
+    # strict read stays on the paths that REPORT health (doctor, list), where
+    # silently reading an empty state is the dangerous failure.
+    try:
+        state = read_state()
+    except SystemExit:
+        print(f"  warning: state file was unreadable and has been rebuilt: {STATE_PATH}")
+        state = {"profiles": {}}
     state.setdefault("profiles", {})[name] = {
         "last_seed": int(time.time()),
         "receipts": receipts,  # already redacted (len/sha8/last4 lines)
@@ -190,12 +204,19 @@ def render_wire(wire: dict, values: dict[str, str]) -> str:
     if wtype == "template-file":
         return sub(wire["template"])
     if wtype == "env-file":
+        # Deliberately a from-scratch render, not a merge. This module's contract
+        # (see the header) is that a consumer file is a DERIVED artifact rebuilt
+        # from the credential store, so its format is always correct and a
+        # mis-quoted hand edit cannot recur. do_wire refuses to overwrite a file
+        # that carries foreign settings, so pointing this at a shared .env fails
+        # loudly instead of quietly destroying the other keys.
         body = ""
         if wire.get("header_comment"):
             body += wire["header_comment"].rstrip("\n") + "\n"
         for line in wire["lines"]:
             body += sub(line) + "\n"
         return body
+
     raise SystemExit(f"FAIL: unknown wire type {wtype!r}")
 
 
@@ -261,6 +282,39 @@ def do_wire(prof: dict, values: dict[str, str] | None = None) -> Path:
         )
 
     dest = resolve_path(wire["path"], SKILL_DIR)
+
+    # An env-file is regenerated from scratch, so any setting in it that this
+    # profile does not own would be destroyed. Refuse instead: a shared .env is
+    # a misconfiguration, not something to silently overwrite. Detecting foreign
+    # keys is a whole-line comparison, deliberately not an .env parser -- the
+    # goal is "is anything here that I did not write", not "merge it".
+    if wire["type"] == "env-file" and dest.exists():
+        owned = {ln.split("=", 1)[0].strip().removeprefix("export ").strip()
+                 for ln in content.splitlines() if "=" in ln}
+        foreign = []
+        try:
+            existing = dest.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            existing = ""
+        for ln in existing.split("\n"):
+            bare = ln.strip()
+            if not bare or bare.startswith("#") or "=" not in bare:
+                continue
+            key = bare.split("=", 1)[0].strip().removeprefix("export ").strip()
+            if key not in owned:
+                foreign.append(key)
+        if foreign:
+            raise SystemExit(
+                f"FAIL: refusing to overwrite {wire['path']} -- it holds "
+                f"{len(foreign)} setting(s) this profile does not own "
+                f"({', '.join(sorted(set(foreign))[:5])}"
+                f"{', ...' if len(set(foreign)) > 5 else ''}).\n"
+                f"  This file is REGENERATED from the credential store on every wire, so "
+                f"those settings would be lost.\n"
+                f"  Point this profile's wire.path at a file it owns exclusively, and have "
+                f"your tool read both."
+            )
+
     mode = int(wire.get("mode", "0600"), 8) if isinstance(wire.get("mode"), str) else wire.get("mode", 0o600)
     atomic_write(dest, content, mode)
     return dest
@@ -373,9 +427,18 @@ def cmd_seed(args) -> int:
         credstore.store(store_as, prof["name"], value)
         receipts[store_as] = credstore.receipt(value, store_as, prof["name"])
 
-    dest = do_wire(prof)  # rebuild from the store we just wrote
+    # Roll back on ANY failure between here and a passing verify, not just a
+    # non-OK verify code. The credential store is canonical and has already been
+    # written above, so an exception out of do_wire (a guard refusal, a bad path,
+    # a full disk) would otherwise leave it holding a value nothing ever checked.
+    try:
+        dest = do_wire(prof)  # rebuild from the store we just wrote
+        code, detail = run_verify(prof)
+    except BaseException:
+        _rollback_seed(prof, prior_values, dest_path, prior_consumer)
+        print(f"  rolled back: '{prof['name']}' credential and consumer file left unchanged")
+        raise
 
-    code, detail = run_verify(prof)
     if code != OK:
         # Wrong or expired capture: roll back to the previous known state.
         _rollback_seed(prof, prior_values, dest_path, prior_consumer)
@@ -427,6 +490,14 @@ def cmd_doctor(args) -> int:
     # credentials that do not exist.
     if args.all or not args.profile:
         names = sorted(state.get("profiles", {}))
+        if not names:
+            # Zero lines + exit 0 is what an all-healthy run looks like, so a
+            # scheduled doctor whose state was lost would report "fine" forever.
+            print("FAIL: no seeded profiles to check "
+                  f"(nothing recorded in {STATE_PATH}).")
+            print("  If you expected profiles here, the state file was lost -- "
+                  "re-seed: credgrab.py seed --profile <name> --curl <capture>")
+            return ERROR
     else:
         names = [args.profile]
     worst = OK
@@ -458,15 +529,16 @@ def cmd_list(args) -> int:
 
 
 def cmd_selfcheck(live: bool = False) -> int:
+    import tempfile
     curlparse._selfcheck()
     credstore._selfcheck(live=live)
     # render + guard, with no live creds
     wire_tmpl = {
         "type": "template-file",
-        "template": "access_token = 'example_session={ZERORANK_SESSION}'\n",
+        "template": "access_token = 'example_session={EXAMPLE_SESSION}'\n",
         "guard_startswith": "access_token = 'example_session=",
     }
-    rendered = render_wire(wire_tmpl, {"ZERORANK_SESSION": "s%3Aabc{}def"})  # braces in value are safe
+    rendered = render_wire(wire_tmpl, {"EXAMPLE_SESSION": "s%3Aabc{}def"})  # braces in value are safe
     assert rendered == "access_token = 'example_session=s%3Aabc{}def'\n", rendered
     assert rendered.startswith(wire_tmpl["guard_startswith"])
     wire_env = {
@@ -475,13 +547,37 @@ def cmd_selfcheck(live: bool = False) -> int:
         "lines": ["A={A}", "B={B}"],
     }
     assert render_wire(wire_env, {"A": "1"}) == "# test\nA=1\nB=\n", render_wire(wire_env, {"A": "1"})
+    # An env-file is regenerated from scratch, so do_wire must REFUSE to
+    # overwrite a file holding settings this profile does not own rather than
+    # silently destroying them.
+    with tempfile.TemporaryDirectory() as td:
+        envp = os.path.join(td, ".env")
+        with open(envp, "w", encoding="utf-8") as fh:
+            fh.write("# comment is fine\nOTHER_SETTING=keepme\nA=stale\nDB_URL=postgres://x\n")
+        prof_env = {"name": "sc", "extract": [], "wire": {**wire_env, "path": envp}}
+        try:
+            do_wire(prof_env, values={"A": "1", "B": "2"})
+            raise AssertionError("do_wire overwrote a .env holding foreign settings")
+        except SystemExit as exc:
+            msg = str(exc)
+            assert "refusing to overwrite" in msg, msg
+            assert "OTHER_SETTING" in msg and "DB_URL" in msg, msg
+        # the foreign settings are still on disk, untouched
+        after = open(envp, encoding="utf-8").read()
+        assert "OTHER_SETTING=keepme" in after and "DB_URL=postgres://x" in after, after
+        # a file this profile DOES own exclusively is rewritten normally
+        with open(envp, "w", encoding="utf-8") as fh:
+            fh.write("# test\nA=stale\nB=stale\n")
+        do_wire(prof_env, values={"A": "1", "B": "2"})
+        owned_after = open(envp, encoding="utf-8").read()
+        assert "A=1" in owned_after and "B=2" in owned_after and "stale" not in owned_after, owned_after
     # do_wire round-trip + anti-double-wrap guard, against a temp file (no live creds)
     import tempfile
     with tempfile.TemporaryDirectory() as td:
         good_path = os.path.join(td, "credentials.toml")
         dest = do_wire(
             {"name": "x", "extract": [], "wire": {**wire_tmpl, "path": good_path}},
-            values={"ZERORANK_SESSION": "s%3Agoodvalue"},
+            values={"EXAMPLE_SESSION": "s%3Agoodvalue"},
         )
         with open(dest, encoding="utf-8") as fh:
             assert fh.read() == "access_token = 'example_session=s%3Agoodvalue'\n"
