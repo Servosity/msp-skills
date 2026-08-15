@@ -245,6 +245,33 @@ def _placeholders(template: str) -> list[str]:
 
 
 
+def _dest_present(path: Path, what: str) -> bool:
+    """True if `path` exists, False if it definitively does not -- and refuse if
+    we cannot tell.
+
+    `Path.exists()` is `os.path.exists()`, which swallows EVERY OSError, so an
+    ACL-denied or EIO-failing destination reports False. Every caller then treats
+    it as "no file here": the ownership guard is skipped entirely, atomic_write's
+    os.replace succeeds (rename needs only the parent directory), and another
+    tool's credential file is destroyed. The rollback path has the mirror bug --
+    it unlinks a file it believes absent while printing "left unchanged". Only
+    "it is not there" is safe to answer False to.
+    """
+    try:
+        path.lstat()
+        return True
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    except OSError as exc:
+        raise SystemExit(
+            f"FAIL: refusing to {what} {path} -- it could not be checked "
+            f"({exc.__class__.__name__}), so this profile cannot tell whether a "
+            f"file it does not own is sitting there.\n"
+            f"  Fix the permissions, or point this profile's wire.path at a file "
+            f"it owns exclusively."
+        ) from exc
+
+
 def atomic_write(path: Path, content: str, mode: int) -> None:
     """Write `content` to `path` atomically, never world-readable in between.
 
@@ -309,7 +336,7 @@ def do_wire(prof: dict, values: dict[str, str] | None = None) -> Path:
     # a misconfiguration, not something to silently overwrite. Detecting foreign
     # keys is a whole-line comparison, deliberately not an .env parser -- the
     # goal is "is anything here that I did not write", not "merge it".
-    if wire["type"] == "env-file" and dest.exists():
+    if wire["type"] == "env-file" and _dest_present(dest, "overwrite"):
         # Compare the destination against exactly what THIS render would write:
         # an assignment is ours if we own its key (the value rotates), and any
         # other line is ours only if it is byte-identical to a line we emit. That
@@ -449,7 +476,9 @@ def _rollback_seed(prof: dict, prior_values: dict[str, str | None],
         # bytes there would still chmod a file we were told not to touch -- which
         # is how a shared 0644 .env silently became owner-only.
         try:
-            unchanged = dest_path.exists() and dest_path.read_bytes() == prior_consumer
+            # A read failure here must not be mistaken for "the bytes differ",
+            # which would rewrite and chmod a file this seed never touched.
+            unchanged = dest_path.read_bytes() == prior_consumer
         except OSError:
             unchanged = False
         if not unchanged:
@@ -461,10 +490,14 @@ def _rollback_seed(prof: dict, prior_values: dict[str, str | None],
                 os.chmod(dest_path, prior_mode if prior_mode is not None else 0o600)
             except OSError:
                 pass
-    elif dest_path.exists():
+    else:
+        # Only remove a file this seed actually created. exists() answering False
+        # for an unreadable file made this delete someone else's config while the
+        # caller printed "left unchanged".
         try:
-            dest_path.unlink()
-        except OSError:
+            if _dest_present(dest_path, "remove"):
+                dest_path.unlink()
+        except (OSError, SystemExit):
             pass
 
 
@@ -488,8 +521,9 @@ def cmd_seed(args) -> int:
     }
     dest_path = resolve_path(prof["wire"]["path"], SKILL_DIR)
     try:
-        prior_consumer = dest_path.read_bytes() if dest_path.exists() else None
-        prior_mode = (dest_path.stat().st_mode & 0o777) if dest_path.exists() else None
+        present = _dest_present(dest_path, "seed over")
+        prior_consumer = dest_path.read_bytes() if present else None
+        prior_mode = (dest_path.stat().st_mode & 0o777) if present else None
     except OSError as exc:
         # Nothing has been stored yet, so this is a clean abort -- but it must read
         # like every other failure here, not like a crash.
@@ -668,13 +702,23 @@ def cmd_selfcheck(live: bool = False) -> int:
             fh.write("FOREIGN_SETTING=keepme\n")
         os.chmod(envp, 0o000)
         try:
-            do_wire(prof_env, values={"A": "1", "B": "2"})
+            open(envp, encoding="utf-8").read()
+            denied = False   # root, or a platform where chmod does not deny reads
+        except OSError:
+            denied = True
+        if not denied:
             os.chmod(envp, 0o600)
-            raise AssertionError("do_wire overwrote a destination it could not read")
-        except SystemExit as exc:
-            assert "could not be read" in str(exc), str(exc)
-        os.chmod(envp, 0o600)
-        assert "FOREIGN_SETTING=keepme" in open(envp, encoding="utf-8").read()
+            os.unlink(envp)
+        elif True:
+            try:
+                do_wire(prof_env, values={"A": "1", "B": "2"})
+                os.chmod(envp, 0o600)
+                raise AssertionError("do_wire overwrote a destination it could not read")
+            except SystemExit as exc:
+                assert "could not be read" in str(exc), str(exc)
+            os.chmod(envp, 0o600)
+            assert "FOREIGN_SETTING=keepme" in open(envp, encoding="utf-8").read()
+            os.unlink(envp)
 
         # A secret sitting on its own line must not be echoed into the message.
         with open(envp, "w", encoding="utf-8") as fh:

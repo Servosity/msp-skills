@@ -124,7 +124,9 @@ consumer is REGENERATED from scratch, so `wire` refuses to overwrite one that
 holds any line this profile did not write - a hand-added key, a commented-out
 setting, or a whole foreign config file. The message gives the line NUMBERS, never their content - a line this profile did not write can be another tool's secret, and the message is model-visible. Either
 point `wire.path` at a file this profile owns exclusively and have your tool read
-both, or delete the file and re-run `wire` if it is stale.
+both, or delete the file and re-run the command you just ran if it is stale. (A refusal
+during `seed` has already rolled the credential back, so re-run `seed`, not `wire` -
+`wire` would rebuild the file from the old value.)
 This is the command to reach for when a tool suddenly cannot authenticate but the
 session itself has not expired.
 
