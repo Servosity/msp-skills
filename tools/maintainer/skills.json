@@ -190,7 +190,7 @@
       "cli_hash": "sha256:873ae5eece432f1eed8a1b94f749087dd8cbba8bd139d49c6cd0e635e0e3433a",
       "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:deb0ad8ec20dae279cdc5a39a72e4c3841f4ff044d66badcdfa952961b1d1d6c",
       "has_video": false,
       "live_verified": {
         "status": "awaiting",
