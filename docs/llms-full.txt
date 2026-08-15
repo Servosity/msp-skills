@@ -322,7 +322,7 @@ A: No. Paste one sentence into Claude Code or Codex and your agent does the inst
 Q: Why does it need both a username and an API key?
 A: Auvik authenticates with HTTP Basic: your Auvik user email is the username and the API key is the password. There is no single-token form. You also need the right regional host - AUVIK_BASE_URL selects us1, us2, eu1 and so on, and pointing at the wrong region returns a 401 that looks exactly like a bad key.
 Q: Is my Auvik data safe?
-A: Your data stays on your machine by default. The CLI, MCP server, and the local mirror are all local, and the MCP server runs over stdio unless you deliberately start it in HTTP mode (`auvik-mcp --transport http`), which the remote-agent path for ChatGPT and Copilot asks you to do - that opens a listener, so tunnel it behind SSO and treat the URL as a secret. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+A: Your data stays on your machine by default. The CLI, MCP server, and the local mirror are all local, and the MCP server runs over stdio unless you deliberately start it in HTTP mode (`--transport http`, or `PP_MCP_TRANSPORT=http`), which the remote-agent path for ChatGPT and Copilot asks you to do - that opens a listener, so tunnel it behind SSO and treat the URL as a secret. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
 Q: Will this hit my Auvik API rate limits?
 A: Mostly no, and that is the point of the mirror. sync does the reading; the cross-client commands then answer from local SQLite and touch no API at all. Re-running the same question costs nothing upstream.
 Q: What does it cost?

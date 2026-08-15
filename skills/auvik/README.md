@@ -194,7 +194,7 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 ### Is my Auvik data safe?
 
-Your data stays on **your machine**. The CLI and MCP server are local binaries, and the MCP server runs over stdio unless you deliberately start it in HTTP mode (`auvik-mcp --transport http`) for a remote agent - that opens a listener, so tunnel it behind SSO and treat the URL as a secret. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
+Your data stays on **your machine**. The CLI and MCP server are local binaries, and the MCP server runs over stdio unless you deliberately start it in HTTP mode (`auvik-mcp --transport http`, or `PP_MCP_TRANSPORT=http`) for a remote agent - that opens a listener, so tunnel it behind SSO and treat the URL as a secret. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
 ### Why does it need both a username and an API key?
 
