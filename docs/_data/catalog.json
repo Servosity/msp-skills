@@ -1,5 +1,5 @@
 {
-  "count": 61,
+  "count": 62,
   "connectors": [
     {
       "slug": "abnormal",
@@ -70,6 +70,16 @@
       "verified_by": null,
       "issue_url": null,
       "url": "/skills/autotask/"
+    },
+    {
+      "slug": "auvik",
+      "display_name": "Auvik",
+      "tagline": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
+      "category": "RMM",
+      "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
+      "url": "/skills/auvik/"
     },
     {
       "slug": "aws-billing",

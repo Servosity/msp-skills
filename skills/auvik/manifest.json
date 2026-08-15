@@ -1,0 +1,63 @@
+{
+  "manifest_version": "0.3",
+  "name": "auvik-pp-mcp",
+  "display_name": "Auvik",
+  "version": "0.1.0",
+  "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/auvik-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/auvik-pp-mcp",
+      "args": [],
+      "env": {
+        "AUVIK_USERNAME": "${user_config.auvik_username}",
+        "AUVIK_API_KEY": "${user_config.auvik_api_key}",
+        "AUVIK_BASE_URL": "${user_config.auvik_base_url}"
+      }
+    }
+  },
+  "user_config": {
+    "auvik_username": {
+      "type": "string",
+      "title": "Auvik user email",
+      "description": "The email address of the Auvik user whose API key you are using. Auvik authenticates with HTTP Basic; this is the username half.",
+      "required": true,
+      "sensitive": false
+    },
+    "auvik_api_key": {
+      "type": "string",
+      "title": "Auvik API key",
+      "description": "Auvik > Admin > Integrations > Auvik API. This is the password half of the Basic credential.",
+      "required": true,
+      "sensitive": true
+    },
+    "auvik_base_url": {
+      "type": "string",
+      "title": "Auvik regional API host",
+      "description": "Your Auvik region's host, with no path suffix - for example https://auvikapi.us1.my.auvik.com. The wrong region returns a 401 that looks like a bad key.",
+      "required": true,
+      "sensitive": false,
+      "default": "https://auvikapi.us1.my.auvik.com"
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.30.2",
+  "press_provenance": {
+    "printing_press_version": "4.30.2",
+    "generated_at": "2026-08-14T20:09:54.402026Z",
+    "spec_checksum": "sha256:aba3f4daaeeb65961ffe29b3c7c0e751ef3963573f1bdf72b92a26ad73177ea9",
+    "spec_format": "openapi3"
+  }
+}

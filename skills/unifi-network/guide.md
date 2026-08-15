@@ -6,7 +6,7 @@ unifi-network-cli wraps the full local Network integration API (devices, clients
 
 ## Install
 
-This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer places the `unifi-network-cli` and `unifi-network-mcp` binaries and registers the skill with your agent:
+This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer places the `unifi-network-cli` and `unifi-network-mcp` binaries on your PATH. Registering the skill with your agent, and wiring `unifi-network-mcp` into Claude Desktop or ChatGPT, are separate steps - see the [README](./README.md) install table and [mcp-install.md](./mcp-install.md):
 
 1. macOS / Linux:
    ```bash
