@@ -152,7 +152,7 @@ These capabilities aren't available in any other tool for this API.
   _Reach for this when someone asks why a client got worse, instead of pulling raw score points and eyeballing a trend._
 
   ```bash
-  cork-cli score attribute 3f2a9c14-7b6d-4e21-9a8c-1d5e2f0b4c77 --since 30d --agent
+  cork-cli score attribute 00000000-0000-0000-0000-000000000000 --since 30d --agent
   ```
 - **`score regressions`**  -  Rank every client by score change over a window, worst movers first.
 
@@ -198,7 +198,7 @@ These capabilities aren't available in any other tool for this API.
   _Use this during onboarding verification or when coverage impact is dragging a score and you need the specific unmonitored endpoints. Exit 3 means there were no connector devices to diff, a negative answer rather than a failure; the command refuses outright rather than reporting gaps against a device baseline it could not read._
 
   ```bash
-  cork-cli coverage gaps --client 3f2a9c14-7b6d-4e21-9a8c-1d5e2f0b4c77 --agent
+  cork-cli coverage gaps --client 00000000-0000-0000-0000-000000000000 --agent
   ```
 
 ### Commercial signal
@@ -215,7 +215,7 @@ These capabilities aren't available in any other tool for this API.
 ### Explain a score drop before a QBR
 
 ```bash
-cork-cli score attribute 3f2a9c14-7b6d-4e21-9a8c-1d5e2f0b4c77 --since 30d --agent
+cork-cli score attribute 00000000-0000-0000-0000-000000000000 --since 30d --agent
 ```
 
 Returns the four score impact components differenced across the window so you can name the cause instead of describing the trend.
@@ -239,7 +239,7 @@ Scans the live vulnerability collection page by page and matches the CVE locally
 ### Verify a new client is fully monitored after onboarding
 
 ```bash
-cork-cli coverage gaps --client 3f2a9c14-7b6d-4e21-9a8c-1d5e2f0b4c77 --agent
+cork-cli coverage gaps --client 00000000-0000-0000-0000-000000000000 --agent
 ```
 
 Diffs connector-reported devices against client-attributed devices to list endpoints that one tool sees and another is missing.

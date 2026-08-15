@@ -93,10 +93,10 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 			"Use this command to find device-level coverage blind spots inside a client. Do\n" +
 			"NOT use this command to check whether a connector is down or stale; use\n" +
 			"'integrations health' instead.",
-		Example: "  cork-cli coverage gaps --client 3f2a9c14-7b6d-4e21-9a8c-1d5e2f0b4c77 --agent",
+		Example: "  cork-cli coverage gaps --client 00000000-0000-0000-0000-000000000000 --agent",
 		Annotations: map[string]string{
 			"mcp:read-only":       "true",
-			"pp:happy-args":       "--client=3f2a9c14-7b6d-4e21-9a8c-1d5e2f0b4c77",
+			"pp:happy-args":       "--client=00000000-0000-0000-0000-000000000000",
 			"pp:typed-exit-codes": "0,3",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {

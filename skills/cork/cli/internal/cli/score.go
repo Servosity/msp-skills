@@ -19,7 +19,7 @@ func newNovelScoreCmd(flags *rootFlags) *cobra.Command {
 		Short: "score subcommands: attribute, regressions",
 		Example: strings.Trim(`
   cork-cli score regressions --since 7d --min-drop 10 --agent
-  cork-cli score attribute 3f2a9c14-7b6d-4e21-9a8c-1d5e2f0b4c77 --since 30d --agent
+  cork-cli score attribute 00000000-0000-0000-0000-000000000000 --since 30d --agent
 `, "\n"),
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),

@@ -18,7 +18,7 @@ func newNovelCoverageCmd(flags *rootFlags) *cobra.Command {
 		Use:   "coverage",
 		Short: "coverage subcommands: gaps",
 		Example: strings.Trim(`
-  cork-cli coverage gaps --client 3f2a9c14-7b6d-4e21-9a8c-1d5e2f0b4c77 --agent
+  cork-cli coverage gaps --client 00000000-0000-0000-0000-000000000000 --agent
 `, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only": "true",

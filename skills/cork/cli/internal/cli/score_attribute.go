@@ -63,10 +63,10 @@ func newNovelScoreAttributeCmd(flags *rootFlags) *cobra.Command {
 			"Use this command to explain WHY one named client's Cork score moved. Do NOT\n" +
 			"use this command to find which clients moved across the whole book of\n" +
 			"business; use 'score regressions' instead.",
-		Example: "  cork-cli score attribute 3f2a9c14-7b6d-4e21-9a8c-1d5e2f0b4c77 --since 30d --agent",
+		Example: "  cork-cli score attribute 00000000-0000-0000-0000-000000000000 --since 30d --agent",
 		Annotations: map[string]string{
 			"mcp:read-only": "true",
-			"pp:happy-args": "client-uuid=3f2a9c14-7b6d-4e21-9a8c-1d5e2f0b4c77",
+			"pp:happy-args": "client-uuid=00000000-0000-0000-0000-000000000000",
 			// A client uuid that does not exist yields HTTP 404 -> exit 3. That is
 			// a correct not-found answer, not a command failure.
 			"pp:typed-exit-codes": "0,3",
