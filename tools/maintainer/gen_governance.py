@@ -72,7 +72,7 @@ def auth_env(slug: str) -> list[str]:
     if not mf.exists():
         return []
     try:
-        m = json.loads(mf.read_text())
+        m = json.loads(mf.read_text(encoding="utf-8"))
         env = m.get("server", {}).get("mcp_config", {}).get("env", {})
         return sorted(env.keys())
     except Exception:
@@ -81,7 +81,7 @@ def auth_env(slug: str) -> list[str]:
 
 def has_dry_run(slug: str) -> bool:
     root = SKILLS_DIR / slug / "cli" / "internal" / "cli" / "root.go"
-    return root.exists() and bool(re.search(r"dry-run", root.read_text(), re.IGNORECASE))
+    return root.exists() and bool(re.search(r"dry-run", root.read_text(encoding="utf-8"), re.IGNORECASE))
 
 
 def sample(items: list[str], n: int = 8) -> str:

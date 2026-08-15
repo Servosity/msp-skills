@@ -4,6 +4,53 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.7] - 2026-08-14
+
+### Fixed
+- `--since` now accepts the RFC3339 timestamps its own help documents. The
+  parser folded its input to lowercase before trying any format, and because
+  `time.Parse` matches layout characters literally, the uppercase `T` separator
+  and `Z` designator no longer matched, so every timestamp was rejected as an
+  unrecognized time. The fold is still applied to keywords and durations, which
+  need it: `time.ParseDuration` rejects uppercase unit letters, so `24H` and
+  `7D` only work because of it. Affects `standup`, `agent workload`,
+  `sla scorecard`, `tickets age-out` and `tickets reopens`, all of which
+  document RFC3339 and all of which rejected it. Thanks to @geekbrownbear for
+  the report and the fix (#219).
+
+## [0.2.6] - 2026-08-14
+
+### Fixed
+- `tickets reopens` now reports reopened tickets instead of saying detection is
+  unavailable, and `standup`'s `reopened` column is no longer permanently zero.
+  Both read a ticket-level marker HaloPSA never writes; the ticket fields record
+  only the final close, while the action trail keeps the whole history. Reopens
+  are now derived from it, unioning explicit Re-Open outcomes with tickets
+  resolved more than once. Neither signal alone is enough: a reopen driven by a
+  customer email has no Re-Open action, and a reopen not yet re-resolved has only
+  one Resolved action. Because outcome names can be tenant-configured, the
+  repeated-resolution signal is deliberately configuration-independent and
+  carries the feature on its own where those names differ. The honest "cannot
+  tell" message is kept, but now fires on an unsynced actions table, which is the
+  real unknown. Thanks to @geekbrownbear for the operator-confirmed trail (#218).
+
+## [0.2.5] - 2026-08-14
+
+### Fixed
+- Every SLA view reported zero risk and zero attainment wherever HaloPSA leaves
+  `targetdate` at its `1900-01-01` sentinel, which was the case on 1264 of 1265
+  tickets on the tenant this was reported against. They read that legacy column
+  rather than the `fixbydate` the portal actually shows. Because a date window
+  can never match `1900-01-01`, the failure was a silent zero rather than an
+  error: `sla breaching` listed no tickets at risk whatever was due, `triage`
+  reported `breach_count` 0 for every agent, `sla scorecard` counted those
+  tickets as carrying a target nothing could satisfy and reported 0 percent met,
+  and `client card` showed `1900-01-01` as their target while its `sla_at_risk`
+  overlay metric stayed at 0. On the reporting tenant scorecard attainment goes
+  from 0 percent to 97-99 percent, which is the real figure. `targetdate` is
+  kept as a fallback, so a tenant that does populate it is unaffected either
+  way. Thanks to @geekbrownbear for the portal-verified diagnosis (#213).
+
 ## [0.2.4] - 2026-08-13
 
 ### Fixed

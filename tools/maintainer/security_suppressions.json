@@ -285,6 +285,21 @@
       "file": "cli/internal/cliutil/testenv/sandbox_unix.go",
       "rule": "G302",
       "reason": "FLEET (generated, printing-press 4.30.2+). Test-only helper (takes *testing.T) that chmods a temp sandbox DIRECTORY to 0700; never compiled into a shipped binary."
+    },
+    {
+      "file": "skills/unifi-network/cli/internal/cli/novel_common.go",
+      "rule": "G304",
+      "reason": "Reads drift's own snapshot JSON under the CLI's resolved state dir (novel-snapshots/, created 0700). Path is filepath.Join(stateDir, '<table>-<siteID>.json') where table comes from an internal allowlist and siteID is returned by resolveSiteIDLocal (novel_common.go:140), which matches the --site flag against sites already present in the local SQLite mirror and returns the gateway's own site id - the raw flag value never reaches the path. Local-user file under their own home; no privilege boundary crossed. Annotated //nolint:gosec at the call site."
+    },
+    {
+      "file": "skills/unifi-network/cli/internal/cli/newcomer.go",
+      "rule": "G304",
+      "reason": "Same pattern as the novel_common.go G304 entry: reads newcomer's own first-seen JSON at filepath.Join(stateDir, 'newcomer-first-seen-<siteID>.json'), siteID resolved from the synced mirror via resolveSiteIDLocal, not raw user input. Local-user file under their own home. Annotated //nolint:gosec at the call site."
+    },
+    {
+      "file": "skills/connect-tool/bootstrap.ps1",
+      "rule": "script-powershell-rce",
+      "reason": "The `iex` match is inside a SINGLE-QUOTED STRING LITERAL that bootstrap.ps1 appends to its missing-dependency list and PRINTS to the user: 'uv  powershell -ExecutionPolicy ByPass -c \"irm https://astral.sh/uv/install.ps1 | iex\"'. It is the vendor's documented install command shown as advice; bootstrap.ps1 never executes it. Whole-line comments are already stripped before scanning, but a string literal is not a comment. Vetted 2026-08-14."
     }
   ]
 }

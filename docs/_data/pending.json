@@ -155,10 +155,10 @@
   },
   "halopsa": {
     "state": "up-to-date",
-    "version": "0.2.4",
-    "latest_tag": "halopsa-v0.2.4",
-    "current_hash": "sha256:0410ba0021238d41899af932e7a192d08cd11bfb183b4687c557c746bb9bdc9d",
-    "released_hash": "sha256:0410ba0021238d41899af932e7a192d08cd11bfb183b4687c557c746bb9bdc9d"
+    "version": "0.2.7",
+    "latest_tag": "halopsa-v0.2.7",
+    "current_hash": "sha256:95b9a7fc8a0325c88a49e7131a34a5d7adbdb6b59d116fee78945f71a0d5a863",
+    "released_hash": "sha256:95b9a7fc8a0325c88a49e7131a34a5d7adbdb6b59d116fee78945f71a0d5a863"
   },
   "hubspot": {
     "state": "binary-pending",
@@ -400,10 +400,17 @@
   },
   "threatlocker": {
     "state": "up-to-date",
-    "version": "0.2.0",
-    "latest_tag": "threatlocker-v0.2.0",
-    "current_hash": "sha256:5d8c9d496a52e240cb9c6a1659015333f907d11d4b5bf24114fcd27ce9b68b04",
-    "released_hash": "sha256:5d8c9d496a52e240cb9c6a1659015333f907d11d4b5bf24114fcd27ce9b68b04"
+    "version": "0.3.0",
+    "latest_tag": "threatlocker-v0.3.0",
+    "current_hash": "sha256:394600865fed0f5e33bff9c662ba55027205e38e5d734f2d16a88d7cddfd51dc",
+    "released_hash": "sha256:394600865fed0f5e33bff9c662ba55027205e38e5d734f2d16a88d7cddfd51dc"
+  },
+  "unifi-network": {
+    "state": "up-to-date",
+    "version": "0.1.0",
+    "latest_tag": "unifi-network-v0.1.0",
+    "current_hash": "sha256:b585e205fcd544e88037923e687bfb7cc7287880ba9f2c1c606a14915616549e",
+    "released_hash": "sha256:b585e205fcd544e88037923e687bfb7cc7287880ba9f2c1c606a14915616549e"
   },
   "veeam": {
     "state": "binary-pending",

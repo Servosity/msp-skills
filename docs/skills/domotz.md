@@ -165,6 +165,10 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 No add-on is required - you generate an API Key from the Domotz Portal under Settings > Services > API Keys on your existing account. A handful of endpoints (company areas, team moves, some RBAC) are Enterprise-plan only; everything else works on standard accounts, and the CLI returns a clear error when a plan gates an endpoint.
 
 
+## More Network Monitoring connectors
+
+Run more than one Network Monitoring tool, or comparing options? These connectors work the same way: [UniFi Network](/skills/unifi-network/)
+
 ## Status
 
 Beta. Validated against the Domotz API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.

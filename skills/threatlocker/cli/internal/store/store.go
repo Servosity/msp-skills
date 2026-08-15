@@ -2677,14 +2677,16 @@ func (s *Store) UpsertVersions(data json.RawMessage) error {
 // child path-item annotated with x-resource-id resolves the same as a flat
 // path-item.
 var resourceIDFieldOverrides = map[string]string{
-	"applications":    "applicationId",
-	"approvals":       "approvalRequestId",
-	"computer-groups": "computerGroupId",
-	"computers":       "computerId",
-	"online-devices":  "computerId",
-	"organizations":   "organizationId",
-	"tags":            "value",
-	"versions":        "value",
+	"applications":      "applicationId",
+	"approvals":         "approvalRequestId",
+	"computer-groups":   "computerGroupId",
+	"computers":         "computerId",
+	"online-devices":    "computerId",
+	"organizations":     "organizationId",
+	"reports":           "categoryName",
+	"scheduled-actions": "scheduledActionId",
+	"tags":              "value",
+	"versions":          "value",
 }
 
 // Generic ID fields are split around the resource-specific suffix probe.
@@ -2703,6 +2705,22 @@ var resourceIDBaseOverrides = map[string]string{}
 // many-to-many sub-collections collapse every parent association onto the
 // child's bare id and silently keep only the last synced parent.
 var resourceParentKeyColumns = map[string][]string{}
+
+// RegisterDependentKey declares a parent-keyed resource at init time: idField
+// is the child row's own key and parentColumn is the field carrying its parent
+// id, which resourceStorageID appends so a child that is only unique WITHIN
+// its parent (a maintenance window on a computer) still gets a unique storage
+// key. Hand-added for the query-param dependents the profiler cannot detect;
+// see internal/cli/sync_dependents.go and skills/threatlocker/handfixes.json
+// (sync-dependent-fanout).
+func RegisterDependentKey(resource, idField, parentColumn string) {
+	if idField != "" {
+		resourceIDFieldOverrides[resource] = idField
+	}
+	if parentColumn != "" {
+		resourceParentKeyColumns[resource] = []string{parentColumn}
+	}
+}
 
 // ExtractResourceID resolves the bare resource id field that UpsertBatch
 // extracts from a resource item. For dependent resource types, UpsertBatch

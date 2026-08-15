@@ -225,6 +225,18 @@ Resource scoping:
 			// and dependent per-parent reconcile share this gate.
 			prune := full && !noPrune
 			work := make(chan string, len(resources))
+			// Records flat resources whose sync did not complete cleanly, so a
+			// dependent fanning out over a partial parent table inherits the
+			// warning instead of reporting success over a subset.
+			var parentOutcomes sync.Map
+			// Released once every flat resource has finished, so the
+			// dependent wave sees a populated parent table.
+			var dependentBarrier sync.WaitGroup
+			for _, resource := range resources {
+				if _, ok := dependentSyncSpecs[resource]; !ok {
+					dependentBarrier.Add(1)
+				}
+			}
 			results := make(chan syncResult, len(resources))
 
 			var wg sync.WaitGroup
@@ -234,16 +246,53 @@ Resource scoping:
 					defer wg.Done()
 					for resource := range work {
 						res := syncResource(cmd.Context(), c, db, resource, sinceTS, full, maxPages, effectiveLatestOnly, prune, userParams, syncEventWriter)
+						if _, isDependent := dependentSyncSpecs[resource]; !isDependent {
+							// A parent that errored or warned leaves a partial table,
+							// and a dependent fanning out over it would report clean
+							// success over a subset. Record the outcome so the
+							// dependent wave can inherit it.
+							if res.Err != nil || res.Warn != nil {
+								parentOutcomes.Store(resource, true)
+							}
+							dependentBarrier.Done()
+						} else if spec, ok := dependentSyncSpecs[resource]; ok && res.Err == nil {
+							if _, degraded := parentOutcomes.Load(spec.parent); degraded {
+								warn := fmt.Errorf("%s fanned out over a partial %s table (its sync did not complete cleanly); some children may be missing", resource, spec.parent)
+								if res.Warn != nil {
+									warn = fmt.Errorf("%w; %v", warn, res.Warn)
+								}
+								res.Warn = warn
+							}
+						}
 						results <- res
 					}
 				}()
 			}
 
-			// Enqueue all resources
+			// Enqueue in two waves: parent-keyed resources fan out over ids
+			// already in the store, so a dependent scheduled alongside its
+			// parent would find an empty parent table and warn. Flat
+			// resources drain first, then the dependents.
+			var flatWave, dependentWave []string
 			for _, resource := range resources {
-				work <- resource
+				if _, ok := dependentSyncSpecs[resource]; ok {
+					dependentWave = append(dependentWave, resource)
+					continue
+				}
+				flatWave = append(flatWave, resource)
 			}
-			close(work)
+			go func() {
+				for _, resource := range flatWave {
+					work <- resource
+				}
+				if len(dependentWave) > 0 {
+					dependentBarrier.Wait()
+					for _, resource := range dependentWave {
+						work <- resource
+					}
+				}
+				close(work)
+			}()
 
 			// Collect results in a separate goroutine
 			go func() {
@@ -386,6 +435,16 @@ func syncResource(ctx context.Context, c interface {
 	started := time.Now()
 	if syncEvents == nil {
 		syncEvents = io.Discard
+	}
+
+	// Parent-keyed resources cannot be walked flat: their collection endpoint
+	// is scoped by a required QUERY parameter the generated loop never sends,
+	// so the API rejects every call. See sync_dependents.go.
+	if spec, ok := dependentSyncSpecs[resource]; ok {
+		if !humanFriendly {
+			fmt.Fprintf(syncEvents, `{"event":"sync_start","resource":"%s"}`+"\n", resource)
+		}
+		return syncDependentResource(ctx, c, db, resource, spec, maxPages, syncEvents, started)
 	}
 
 	if !humanFriendly {
@@ -621,11 +680,10 @@ func syncResource(ctx context.Context, c interface {
 		}
 
 		if len(items) == 0 && !cursorPageHasContinuation(pageSize.cursorType, hasMore, nextCursor) {
-			// An envelope that declares its own failure ({"success":false,...})
-			// is NOT a natural end: isEmptyPageResponse treats a null data field
-			// on a failed envelope as a legitimate empty page, which would mark
-			// the walk complete, advance the watermark and report success on an
-			// API error. Check it first and end abnormally instead (#208).
+			// An envelope that declares its own failure ({"success":false,...}) is
+			// NOT a natural end: isEmptyPageResponse treats a null data field on a
+			// failed envelope as a legitimate empty page, which would mark the walk
+			// complete, advance the watermark and report success on an API error.
 			if responseReportsFailure(data) {
 				outcome.reason = "api_reported_failure"
 				if humanFriendly {
@@ -957,13 +1015,10 @@ func syncResource(ctx context.Context, c interface {
 		}
 	}
 
-	// The API returned rows and we stored none. Always a defect, never data, so it
-	// must not aggregate as a plain success: #208 shipped for months because this
-	// path exited 0. A legitimately empty resource has consumedTotal == 0.
-	// totalCount is rows stored by THIS run; cachedCount is the whole mirror
-	// (including rows from earlier syncs). Guarding on cachedCount would let a
-	// resource that stored nothing today pass because yesterday's rows are still
-	// there -- the exact masking #208 is about.
+	// totalCount is rows stored by THIS run; cachedCount is the whole mirror,
+	// including earlier syncs. Guarding on cachedCount would let a resource that
+	// stored nothing today pass because yesterday's rows are still there.
+	// The API returned rows and we stored none: always a defect, never data.
 	if consumedTotal > 0 && totalCount == 0 {
 		return syncResult{
 			Resource: resource,
@@ -973,8 +1028,8 @@ func syncResource(ctx context.Context, c interface {
 		}
 	}
 
-	// An abnormal end to the walk (non-JSON 200, stuck cursor) means the
-	// enumeration was never trustworthy; it must not read as a clean success.
+	// An abnormal end to the walk (non-JSON 200, API-declared failure, stuck
+	// cursor) means the enumeration was never trustworthy.
 	if outcome.reason != "" && !outcome.complete {
 		return syncResult{
 			Resource: resource,
@@ -1073,6 +1128,14 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			limitParam:     "pageSize",
 			limit:          100,
 		}
+	case "scheduled-actions":
+		return paginationDefaults{
+			cursorParam:    "pageNumber",
+			cursorType:     "page",
+			nextCursorPath: "",
+			limitParam:     "pageSize",
+			limit:          100,
+		}
 	}
 	return paginationDefaults{
 		cursorParam:    "pageNumber",
@@ -1098,6 +1161,8 @@ func resourceSupportsPagination(resource string) bool {
 	case "online-devices":
 		return true
 	case "organizations":
+		return true
+	case "scheduled-actions":
 		return true
 	}
 	return false
@@ -1147,6 +1212,8 @@ func syncResourceMethod(resource string) string {
 	case "computers":
 		return "POST"
 	case "organizations":
+		return "POST"
+	case "scheduled-actions":
 		return "POST"
 	}
 	return "GET"
@@ -1200,6 +1267,13 @@ func syncResourceBodyParamTypes(resource string) map[string]string {
 			"pageNumber":         "int",
 			"pageSize":           "int",
 		}
+	case "scheduled-actions":
+		return map[string]string{
+			"orderBy":     "string",
+			"isAscending": "bool",
+			"pageNumber":  "int",
+			"pageSize":    "int",
+		}
 	}
 	return nil
 }
@@ -1251,6 +1325,13 @@ func syncResourceBodyParamWireNames(resource string) map[string]string {
 			"isAscending":        "isAscending",
 			"pageNumber":         "pageNumber",
 			"pageSize":           "pageSize",
+		}
+	case "scheduled-actions":
+		return map[string]string{
+			"orderBy":     "orderBy",
+			"isAscending": "isAscending",
+			"pageNumber":  "pageNumber",
+			"pageSize":    "pageSize",
 		}
 	}
 	return nil
@@ -1314,6 +1395,13 @@ func syncResourceStaticBody(resource string) map[string]any {
 			"isAscending":        true,
 			"pageNumber":         1,
 			"pageSize":           100,
+		}
+	case "scheduled-actions":
+		return map[string]any{
+			"orderBy":     "scheduleddatetime",
+			"isAscending": true,
+			"pageNumber":  1,
+			"pageSize":    100,
 		}
 	}
 	return map[string]any{}
@@ -1611,11 +1699,10 @@ func isEmptyPageResponse(data json.RawMessage, responsePaths ...string) bool {
 }
 
 // responseReportsFailure reports whether a 200 body declares its own failure
-// (e.g. {"success": false} or {"status": "error"}). Hand-added: the generated
-// empty-page classifier treats a failed envelope with a null data field as a
-// legitimate empty page, which would end the walk "complete" and report a clean
-// sync on an API error. See skills/threatlocker/handfixes.json
-// (sync-typed-table-honesty).
+// (e.g. {"success": false} or {"status": "error"}). The generated empty-page
+// classifier treats a failed envelope with a null data field as a legitimate
+// empty page, which would end the walk "complete" and report a clean sync on an
+// API error. See skills/threatlocker/handfixes.json (sync-typed-table-honesty).
 func responseReportsFailure(data []byte) bool {
 	var envelope map[string]json.RawMessage
 	if json.Unmarshal(data, &envelope) != nil {
@@ -2236,12 +2323,16 @@ func parseRestSyncTimestamp(value string) (time.Time, bool) {
 
 func defaultSyncResources() []string {
 	return []string{
+		"application-files",
+		"maintenance",
 		"applications",
 		"approvals",
 		"computer-groups",
 		"computers",
 		"online-devices",
 		"organizations",
+		"reports",
+		"scheduled-actions",
 		"tags",
 		"versions",
 	}
@@ -2252,13 +2343,16 @@ func defaultSyncResources() []string {
 // validation to reject misspellings before they become silent no-ops.
 func knownSyncResourceNames() []string {
 	names := []string{
+		"application-files",
 		"applications",
 		"approvals",
 		"computer-groups",
 		"computers",
+		"maintenance",
 		"online-devices",
 		"organizations",
 		"reports",
+		"scheduled-actions",
 		"tags",
 		"versions",
 	}
@@ -2287,15 +2381,18 @@ func describeResourceFailure(count int, label string, resources []string) string
 // this preserves the actual endpoint path like "/ISteamApps/GetAppList/v2".
 func syncResourcePath(resource string) (string, error) {
 	paths := map[string]string{ // #nosec G101 -- endpoint paths, not credentials.
-		"applications":    "/Application/ApplicationGetByParameters",
-		"approvals":       "/ApprovalRequest/ApprovalRequestGetByParameters",
-		"computer-groups": "/ComputerGroup/ComputerGroupGetGroupAndComputer",
-		"computers":       "/Computer/ComputerGetByAllParameters",
-		"online-devices":  "/OnlineDevices/OnlineDevicesGetByParameters",
-		"organizations":   "/Organization/OrganizationGetChildOrganizationsByParameters",
-		"reports":         "/Report/ReportGetByOrganizationId",
-		"tags":            "/Tag/TagGetDowndownOptionsByOrganizationId",
-		"versions":        "/ThreatLockerVersion/ThreatLockerVersionGetForDropdownList",
+		"application-files": "/ApplicationFile/ApplicationFileGetByApplicationId",
+		"applications":      "/Application/ApplicationGetByParameters",
+		"approvals":         "/ApprovalRequest/ApprovalRequestGetByParameters",
+		"computer-groups":   "/ComputerGroup/ComputerGroupGetGroupAndComputer",
+		"computers":         "/Computer/ComputerGetByAllParameters",
+		"maintenance":       "/MaintenanceMode/MaintenanceModeGetByComputerIdV2",
+		"online-devices":    "/OnlineDevices/OnlineDevicesGetByParameters",
+		"organizations":     "/Organization/OrganizationGetChildOrganizationsByParameters",
+		"reports":           "/Report/ReportGetByOrganizationId",
+		"scheduled-actions": "/ScheduledAgentAction/GetByParameters",
+		"tags":              "/Tag/TagGetDowndownOptionsByOrganizationId",
+		"versions":          "/ThreatLockerVersion/ThreatLockerVersionGetForDropdownList",
 	}
 	if p, ok := paths[resource]; ok {
 		return p, nil
@@ -2383,14 +2480,16 @@ func isNullOrEmptyJSON(data json.RawMessage) bool {
 // annotations on a child path-item are honored at runtime, not just on
 // flat paths.
 var resourceIDFieldOverrides = map[string]string{
-	"applications":    "applicationId",
-	"approvals":       "approvalRequestId",
-	"computer-groups": "computerGroupId",
-	"computers":       "computerId",
-	"online-devices":  "computerId",
-	"organizations":   "organizationId",
-	"tags":            "value",
-	"versions":        "value",
+	"applications":      "applicationId",
+	"approvals":         "approvalRequestId",
+	"computer-groups":   "computerGroupId",
+	"computers":         "computerId",
+	"online-devices":    "computerId",
+	"organizations":     "organizationId",
+	"reports":           "categoryName",
+	"scheduled-actions": "scheduledActionId",
+	"tags":              "value",
+	"versions":          "value",
 }
 
 // partitionOutcome tracks whether a sync loop (flat tenant-scoped OR dependent

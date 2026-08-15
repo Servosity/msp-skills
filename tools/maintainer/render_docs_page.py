@@ -96,7 +96,7 @@ def render_page(slug: str) -> Path:
             f"render_docs_page: {page_path} missing - every connector skill "
             "carries a page.json (the publish skill scaffolds a stub)"
         )
-    page = json.loads(page_path.read_text())
+    page = json.loads(page_path.read_text(encoding="utf-8"))
     vendor = entry.get("vendor", slug)
     display = entry.get("display_name", vendor)
     owner = entry.get("vendor_trademark_owner", vendor)
@@ -105,7 +105,7 @@ def render_page(slug: str) -> Path:
     desc = ""
     mf = skill_dir / "manifest.json"
     if mf.exists():
-        desc = json.loads(mf.read_text()).get("description", "")
+        desc = json.loads(mf.read_text(encoding="utf-8")).get("description", "")
     lv = entry.get("live_verified") or {}
     if lv.get("status") == "live-verified":
         verified_by = lv.get("verified_by") or "a real MSP"
@@ -308,7 +308,7 @@ Maintained by [Servosity](https://www.servosity.com) for the MSP community. Apac
 """
     out = ROOT / "docs" / "skills" / f"{slug}.md"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(text)
+    out.write_text(text, encoding="utf-8")
     return out
 
 
