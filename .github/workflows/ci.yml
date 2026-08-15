@@ -41,6 +41,9 @@ jobs:
       - name: Vocabulary contract (banned + required terms)
         run: python3 tools/maintainer/check_vocabulary.py
 
+      - name: AEO contract (answer-first, unique titles, connector formula)
+        run: python3 tools/maintainer/check_aeo.py
+
       - name: Video assets (skills that opt in via has_video)
         run: python3 tools/maintainer/check_video_assets.py
 

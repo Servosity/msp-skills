@@ -188,7 +188,7 @@ jobs:
             echo "No changes to commit (already live-verified?)."
             exit 0
           fi
-          git commit -m "badge: $SLUG live-verified via #$ISSUE"
+          git commit -s -m "badge: $SLUG live-verified via #$ISSUE"
           # Self-heal push loop: the concurrency group serializes the common
           # case, but a peer commit (release_batch push, catalog bot) can land
           # between our checkout and our push. The badge flip is recomputable,
@@ -218,7 +218,7 @@ jobs:
               echo "now in sync after peer commit - nothing left to push"
               exit 0
             fi
-            git commit -m "badge: $SLUG live-verified via #$ISSUE"
+            git commit -s -m "badge: $SLUG live-verified via #$ISSUE"
           done
           echo "::error::could not push the badge flip after 5 attempts"
           exit 1

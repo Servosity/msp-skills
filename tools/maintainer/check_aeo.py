@@ -33,6 +33,9 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import registry  # noqa: E402  (local tools/maintainer module)
+
 ROOT = Path(__file__).resolve().parent.parent.parent
 DOCS = ROOT / "docs"
 
@@ -190,14 +193,22 @@ def main() -> int:
 
         permalink = fm.get("permalink", "")
 
-        # A GENERATED per-connector page (the formula assertions 3 + 4 apply only
-        # to these). The hand-authored hub at docs/skills/index.md sits in the
-        # same directory but carries no skill_name, so it is NOT a connector page.
-        is_connector_page = md.parent.name == "skills" and "skill_name" in fm
+        # A GENERATED per-skill page. The hand-authored hub at docs/skills/index.md
+        # sits in the same directory but carries no skill_name, so it is not one.
+        skill_name = fm.get("skill_name", "").strip()
+        is_skill_page = md.parent.name == "skills" and bool(skill_name)
+
+        # The formula assertions (3 + 4) say the page must be titled and must open
+        # as "there is an MCP server for <vendor>". That describes a VENDOR
+        # CONNECTOR. A markdown-only skill (connect-tool, the concierge) is not an
+        # MCP server for a vendor, so the formula does not describe it - asserting
+        # it anyway just makes an honest page permanently red. Uniqueness
+        # (assertion 2) and the answer-first word limit still apply to every page.
+        is_connector_page = is_skill_page and not registry.is_markdown_only(skill_name)
 
         # --- Assertion 2: unique title + description for the required pages. ---
         require_unique = (
-            is_connector_page or permalink in REQUIRE_TITLE_DESC_PERMALINKS
+            is_skill_page or permalink in REQUIRE_TITLE_DESC_PERMALINKS
         )
         if require_unique:
             title = fm.get("title", "").strip()

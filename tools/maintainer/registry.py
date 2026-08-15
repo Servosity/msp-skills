@@ -30,7 +30,7 @@ TARGETS = [
 
 
 def load() -> dict:
-    return json.loads(REGISTRY.read_text())
+    return json.loads(REGISTRY.read_text(encoding="utf-8"))
 
 
 def owner_repo() -> tuple[str, str]:
@@ -84,7 +84,7 @@ def slug_for_dir(dirname: str) -> str:
 def module_path(slug: str) -> str:
     """Read the Go module path from skills/<slug>/cli/go.mod."""
     gomod = SKILLS_DIR / slug / "cli" / "go.mod"
-    for line in gomod.read_text().splitlines():
+    for line in gomod.read_text(encoding="utf-8").splitlines():
         if line.startswith("module "):
             return line.split(None, 1)[1].strip()
     raise SystemExit(f"{slug}: no module line in {gomod}")
