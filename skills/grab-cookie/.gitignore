@@ -7,6 +7,7 @@ captures/
 # state.json records a receipt per seeded profile (length, digest, last4 of a
 # live credential). Secret-adjacent, machine-local, never shared.
 state.json
+state.json.unreadable-*
 .state.json.*
 
 # Your own site profiles may name internal hosts and paths. The two shipped

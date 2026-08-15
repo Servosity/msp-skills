@@ -139,7 +139,19 @@ def record_seed(name: str, receipts: dict[str, str]) -> None:
     try:
         state = read_state()
     except SystemExit:
-        print(f"  warning: state file was unreadable and has been rebuilt: {STATE_PATH}")
+        # Do NOT silently rebuild: the unreadable file may be intact and hold
+        # other profiles, and dropping them turns the next `doctor --all` into a
+        # one-line all-clear that checked one of three. Move it aside first, name
+        # the backup, and say what was lost.
+        backup = STATE_PATH.with_name(f"{STATE_PATH.name}.unreadable-{int(time.time())}")
+        try:
+            os.replace(STATE_PATH, backup)
+            print(f"  warning: state file was unreadable; moved to {backup.name}")
+        except OSError as exc:
+            print(f"  warning: state file is unreadable and could not be moved aside ({exc})")
+        print("  warning: any OTHER profile's recorded seed time is no longer tracked -- "
+              "re-seed them, or restore the backup, or `doctor --all` will silently check "
+              "only what is re-recorded from here")
         state = {"profiles": {}}
     state.setdefault("profiles", {})[name] = {
         "last_seed": int(time.time()),
@@ -224,6 +236,21 @@ def _placeholders(template: str) -> list[str]:
     return re.findall(r"\{([A-Z0-9_]+)\}", template)
 
 
+
+def _describe_foreign_line(bare: str) -> str:
+    """A short, non-secret label for a line we refuse to overwrite.
+
+    The refusal message is model-visible, and the module contract is that a
+    credential value never is. A destination line can itself be a secret (a bare
+    base64 token, say), so anything long or high-entropy-looking is reported by
+    shape rather than by value.
+    """
+    key = bare.split("=", 1)[0].strip().removeprefix("export ").strip() if "=" in bare else bare
+    if len(key) > 32 or re.fullmatch(r"[A-Za-z0-9+/_.\-]{20,}", key):
+        return f"<a {len(bare)}-char line>"
+    return key
+
+
 def atomic_write(path: Path, content: str, mode: int) -> None:
     """Write `content` to `path` atomically, never world-readable in between.
 
@@ -291,28 +318,39 @@ def do_wire(prof: dict, values: dict[str, str] | None = None) -> Path:
     if wire["type"] == "env-file" and dest.exists():
         owned = {ln.split("=", 1)[0].strip().removeprefix("export ").strip()
                  for ln in content.splitlines() if "=" in ln}
-        foreign = []
         try:
             existing = dest.read_text(encoding="utf-8", errors="replace")
         except OSError:
             existing = ""
+        existing = existing.lstrip("\ufeff")  # a Windows editor's BOM is not content
+        # Allow-list, not deny-list. Anything that is not a blank line, not this
+        # profile's own comment header, and not an owned KEY= assignment counts as
+        # foreign -- including a commented-out setting, and including a YAML, JSON
+        # or INI body, which has no "=" at all and which a key-only scan waved
+        # straight through while this file gets regenerated from scratch.
+        header = (wire.get("header_comment") or "").strip()
+        foreign = []
         for ln in existing.split("\n"):
             bare = ln.strip()
-            if not bare or bare.startswith("#") or "=" not in bare:
+            if not bare:
                 continue
-            key = bare.split("=", 1)[0].strip().removeprefix("export ").strip()
-            if key not in owned:
-                foreign.append(key)
+            if header and bare == header:
+                continue
+            key = bare.split("=", 1)[0].strip().removeprefix("export ").strip() if "=" in bare else None
+            if key is not None and key in owned:
+                continue
+            foreign.append(_describe_foreign_line(bare))
         if foreign:
+            shown = sorted(set(foreign))
             raise SystemExit(
-                f"FAIL: refusing to overwrite {wire['path']} -- it holds "
-                f"{len(foreign)} setting(s) this profile does not own "
-                f"({', '.join(sorted(set(foreign))[:5])}"
-                f"{', ...' if len(set(foreign)) > 5 else ''}).\n"
+                f"FAIL: refusing to overwrite {wire['path']} -- {len(foreign)} line(s) in it "
+                f"were not written by this profile "
+                f"({', '.join(shown[:5])}{', ...' if len(shown) > 5 else ''}).\n"
                 f"  This file is REGENERATED from the credential store on every wire, so "
-                f"those settings would be lost.\n"
-                f"  Point this profile's wire.path at a file it owns exclusively, and have "
-                f"your tool read both."
+                f"anything else in it would be lost.\n"
+                f"  If those lines matter, point this profile's wire.path at a file it owns "
+                f"exclusively and have your tool read both.\n"
+                f"  If the file is stale and safe to discard, delete it and re-run wire."
             )
 
     mode = int(wire.get("mode", "0600"), 8) if isinstance(wire.get("mode"), str) else wire.get("mode", 0o600)
@@ -389,11 +427,20 @@ def _rollback_seed(prof: dict, prior_values: dict[str, str | None],
             except Exception:
                 pass
     if prior_consumer is not None:
-        dest_path.write_bytes(prior_consumer)
+        # Only touch the file if this seed actually changed it. do_wire can refuse
+        # before writing (the env-file ownership guard), and restoring identical
+        # bytes there would still chmod a file we were told not to touch -- which
+        # is how a shared 0644 .env silently became owner-only.
         try:
-            os.chmod(dest_path, 0o600)
+            unchanged = dest_path.exists() and dest_path.read_bytes() == prior_consumer
         except OSError:
-            pass
+            unchanged = False
+        if not unchanged:
+            dest_path.write_bytes(prior_consumer)
+            try:
+                os.chmod(dest_path, 0o600)
+            except OSError:
+                pass
     elif dest_path.exists():
         try:
             dest_path.unlink()
@@ -565,6 +612,27 @@ def cmd_selfcheck(live: bool = False) -> int:
         # the foreign settings are still on disk, untouched
         after = open(envp, encoding="utf-8").read()
         assert "OTHER_SETTING=keepme" in after and "DB_URL=postgres://x" in after, after
+        # A destination with no "=" at all -- a YAML/JSON/INI config -- must also be
+        # refused. A key-only scan waved these straight through and destroyed them.
+        for body, what in (('database:\n  password_file: /etc/secret\n', "yaml"),
+                           ('{"apiKey": "live_abc"}\n', "json"),
+                           ("# DB_URL=postgres://x  (disabled)\n", "commented setting")):
+            with open(envp, "w", encoding="utf-8") as fh:
+                fh.write(body)
+            try:
+                do_wire(prof_env, values={"A": "1", "B": "2"})
+                raise AssertionError(f"do_wire destroyed a {what} destination")
+            except SystemExit:
+                pass
+            assert open(envp, encoding="utf-8").read() == body, what
+        # A secret sitting on its own line must not be echoed into the message.
+        with open(envp, "w", encoding="utf-8") as fh:
+            fh.write("eyJhbGciOiJIUzI1NiJ9.SUPERSECRETPAYLOAD==\n")
+        try:
+            do_wire(prof_env, values={"A": "1", "B": "2"})
+            raise AssertionError("do_wire overwrote a secret-bearing destination")
+        except SystemExit as exc:
+            assert "SUPERSECRETPAYLOAD" not in str(exc), "SECRET LEAKED into the refusal message"
         # a file this profile DOES own exclusively is rewritten normally
         with open(envp, "w", encoding="utf-8") as fh:
             fh.write("# test\nA=stale\nB=stale\n")

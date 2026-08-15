@@ -118,6 +118,13 @@ python "<this-skill-dir>/scripts/credgrab.py" wire --profile <name>
 
 The credential store is the source of truth, so a consumer config file can be
 deleted, corrupted, or excluded from a backup and rebuilt with no browser step.
+
+One exception, and it is a hard failure rather than a surprise: an `env-file`
+consumer is REGENERATED from scratch, so `wire` refuses to overwrite one that
+holds any line this profile did not write - a hand-added key, a commented-out
+setting, or a whole foreign config file. The message names the lines. Either
+point `wire.path` at a file this profile owns exclusively and have your tool read
+both, or delete the file and re-run `wire` if it is stale.
 This is the command to reach for when a tool suddenly cannot authenticate but the
 session itself has not expired.
 
@@ -143,7 +150,8 @@ python "<this-skill-dir>/scripts/credgrab.py" --selfcheck --live   # + real cred
 ```
 
 Plain `--selfcheck` runs the offline checks - redaction, blob round-trip, cURL
-parsing, the env-file merge - and never touches the credential store. Adding
+parsing, the consumer-file render and its ownership guard - and never touches the
+credential store. Adding
 `--live` round-trips a synthetic value through the real Keychain or Credential
 Manager under a per-run unique account name and deletes it. The split is
 deliberate: a live check can raise a macOS Keychain access prompt, which must not

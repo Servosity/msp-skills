@@ -16,9 +16,14 @@ assume a one-line edit:
   instead of `Servosity/connect-tool/<service>/<account>`, so the two Skills do
   not write over each other's entries. This is also the prefix to search for in
   the Windows Credential Manager UI when you want to find or revoke an entry,
-  and the `Comment` field on the entry carries the same string.
+  and the entry's `Comment` field carries the bare literal `credgrab`.
 - **`_selfcheck(live=False)`**: the round-trip against the real credential store
   is opt-in here via `--selfcheck --live`, where connect-tool's always ran it.
+- **A randomized live-self-check target.** connect-tool round-trips a fixed
+  account name; this uses `selfcheck-<random>` so the check can only ever create
+  and delete its own entry. A fixed target could collide with a real credential
+  a user happened to store under that name and, via `-U` on macOS, overwrite
+  then delete it.
   The reason is that a live check can raise a macOS Keychain access prompt,
   which should not happen behind a check documented as touching no credentials.
 - **A `_mac_only` platform guard**, so the macOS helpers refuse rather than

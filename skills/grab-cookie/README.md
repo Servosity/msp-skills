@@ -80,7 +80,10 @@ should not happen behind a command documented as touching no credentials.
 The secret is written through the platform credential API rather than a command
 line, so on Windows it does not appear in process-creation logs. The complete
 value is never printed, never logged, and never returned into the agent's
-context; receipts carry a length, a hash prefix, and the last four characters.
+context; a receipt carries a length, a hash prefix, and the last four characters.
+For a short secret (under twelve characters) the hash prefix and the last four
+are both withheld, because an exact length beside an unsalted digest is enough to
+brute-force a short value back out.
 Capture files hold a live credential until deleted and belong in `.gitignore`.
 Consumer config files are written 0600 on macOS and Linux and regenerated from
 the credential store on demand, so they are a cache rather than a second copy of
