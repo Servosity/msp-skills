@@ -110,7 +110,13 @@ def capture_path(prof: dict, override: str | None) -> Path:
 # --------------------------------------------------------------------------- #
 
 def read_state() -> dict:
-    if not STATE_PATH.exists():
+    # The fourth exists() gate, and the one with the worst consequence: an
+    # un-stat-able state.json reported "nothing is seeded", record_seed then
+    # rebuilt it, and every OTHER profile's seed record was destroyed during a
+    # completely successful seed -- no backup, no warning, and the expiry alarm
+    # silently off for them. Same rule as the consumer file: only "it is not
+    # there" is safe to answer False to.
+    if not _dest_present(STATE_PATH, "read the state file"):
         return {"profiles": {}}
     try:
         with open(STATE_PATH, "r", encoding="utf-8") as fh:
@@ -147,7 +153,7 @@ def record_seed(name: str, receipts: dict[str, str]) -> None:
         stamp = int(time.time())
         backup = STATE_PATH.with_name(f"{STATE_PATH.name}.unreadable-{stamp}")
         n = 1
-        while backup.exists():  # two failures in the same second must not overwrite
+        while _dest_present(backup, "use as a backup name"):  # never overwrite a real backup
             backup = STATE_PATH.with_name(f"{STATE_PATH.name}.unreadable-{stamp}.{n}")
             n += 1
         saved = False
@@ -267,8 +273,8 @@ def _dest_present(path: Path, what: str) -> bool:
             f"FAIL: refusing to {what} {path} -- it could not be checked "
             f"({exc.__class__.__name__}), so this profile cannot tell whether a "
             f"file it does not own is sitting there.\n"
-            f"  Fix the permissions, or point this profile's wire.path at a file "
-            f"it owns exclusively."
+            f"  Fix the permissions, or remove it if it is a broken symlink, or "
+            f"point this profile's wire.path at a file it owns exclusively."
         ) from exc
 
 
@@ -476,8 +482,11 @@ def _rollback_seed(prof: dict, prior_values: dict[str, str | None],
         # bytes there would still chmod a file we were told not to touch -- which
         # is how a shared 0644 .env silently became owner-only.
         try:
-            # A read failure here must not be mistaken for "the bytes differ",
-            # which would rewrite and chmod a file this seed never touched.
+            # Dropping the exists() short-circuit covers the stat-denied-but-
+            # readable case. A read failure still lands in `unchanged = False`
+            # below and still rewrites -- restoring the snapshot is the safer of
+            # the two guesses when we cannot see the current bytes, but it is a
+            # guess, not a protection.
             unchanged = dest_path.read_bytes() == prior_consumer
         except OSError:
             unchanged = False
@@ -531,8 +540,8 @@ def cmd_seed(args) -> int:
             f"FAIL: cannot read the existing consumer file {dest_path} "
             f"({exc.__class__.__name__}), so this seed cannot be rolled back safely "
             f"if it fails.\n"
-            f"  Fix the permissions (or remove the file if it is a leftover directory) "
-            f"and re-run."
+            f"  Fix the permissions, or remove it if it is a leftover directory or a "
+            f"broken symlink, and re-run."
         ) from exc
 
     receipts: dict[str, str] = {}
@@ -719,6 +728,33 @@ def cmd_selfcheck(live: bool = False) -> int:
             os.chmod(envp, 0o600)
             assert "FOREIGN_SETTING=keepme" in open(envp, encoding="utf-8").read()
             os.unlink(envp)
+
+        # _dest_present must fail CLOSED on a path it cannot stat. An
+        # unsearchable PARENT directory makes lstat raise EACCES portably on
+        # POSIX, which chmod-000 on the file itself cannot express (lstat still
+        # works there). Without this case, reverting _dest_present to a bare
+        # exists() leaves the selfcheck green -- and that revert destroyed a
+        # foreign credential file AND every other profile's seed record.
+        locked = os.path.join(td, "locked")
+        os.mkdir(locked)
+        hidden = os.path.join(locked, ".env")
+        with open(hidden, "w", encoding="utf-8") as fh:
+            fh.write("FOREIGN=keepme\n")
+        os.chmod(locked, 0o000)
+        try:
+            open(hidden, encoding="utf-8").read()
+            stat_denied = False   # root, or a platform that does not enforce it
+        except OSError:
+            stat_denied = True
+        if stat_denied:
+            try:
+                _dest_present(Path(hidden), "overwrite")
+                raise AssertionError("_dest_present answered for a path it cannot stat")
+            except SystemExit as exc:
+                assert "could not be checked" in str(exc), str(exc)
+        os.chmod(locked, 0o700)
+        os.unlink(hidden)
+        os.rmdir(locked)
 
         # A secret sitting on its own line must not be echoed into the message.
         with open(envp, "w", encoding="utf-8") as fh:
