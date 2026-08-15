@@ -51,7 +51,9 @@ chronological event stream. No single Auvik endpoint returns this.
 
 Use this command for the full change timeline of ONE device. Do NOT use this
 command for searching config text across the whole fleet; use
-'configuration grep' instead.
+'configuration audit' instead, which reports backup COVERAGE -- Auvik's
+Configuration API exposes backup metadata only, so config text cannot be
+searched.
 
 Reads the local mirror. Run this first:
   auvik-cli sync --resources tenants,inventory,inventory-configuration,inventory-entity-audit,inventory-entity-note,alert --full

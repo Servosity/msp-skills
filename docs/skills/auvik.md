@@ -12,15 +12,17 @@ faqs:
   - q: "Is the Auvik MCP server safe for client data?"
     a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Auvik MCP server via a secure bridge. Step-by-step in the install guide."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Auvik MCP server through a secure bridge. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
-    a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Auvik user email and API key once."
+  - q: "Why does it need both a username and an API key?"
+    a: "Auvik authenticates with HTTP Basic: your Auvik user email is the username and the API key is the password. There is no single-token form. You also need the right regional host - AUVIK_BASE_URL selects us1, us2, eu1 and so on, and pointing at the wrong region returns a 401 that looks exactly like a bad key."
   - q: "Is my Auvik data safe?"
-    a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    a: "Your data stays on your machine. The CLI, the MCP server, and the SQLite mirror are all local, and the MCP server speaks stdio only so it opens no network listener. The AI sees query results rather than raw bulk data. The mirror holds device and client inventory for your whole book of business, so treat that file like any other export of client data."
+  - q: "Will this hit my Auvik API rate limits?"
+    a: "Mostly no, and that is the point of the mirror. sync does the reading; the cross-client commands then answer from local SQLite and touch no API at all. Re-running the same question costs nothing upstream."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
-  - q: "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Auvik portal)"
-    a: "TODO"
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.ps1 | iex"
@@ -40,7 +42,7 @@ howto:
 
 Yes - there is an MCP server for Auvik. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Auvik to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-TODO: <=70 words, MSP-owner language, leads with the outcome. What does Auvik + your AI answer in one sentence that the portal cannot?
+Ask your AI what is going end-of-life, what is unbacked-up, or why a client's billable device count moved, and get the device rows behind the answer across every client at once. Auvik holds the richest network truth an MSP has, but its API answers one client, right now, and reports no deletions at all. This mirrors Auvik into local SQLite so the cross-client and change-over-time questions become one query.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -48,43 +50,47 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Auvik + 
 
 ## Instead of clicking through Auvik, just ask
 
-**Instead of** TODO: the painful manual workflow (exporting reports, clicking through the portal)
-**just ask:** *"TODO: the natural-language question the MSP owner asks instead"*
-<sub>Your agent runs: <code>auvik-cli TODO</code></sub>
+**Instead of** Exporting each client's inventory to a spreadsheet and sorting by support date to find what is aging out
+**just ask:** *"What is past end-of-support across all my clients?"*
+<sub>Your agent runs: <code>auvik-cli eol --bucket expired</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>auvik-cli TODO</code></sub>
+**Instead of** Opening every client's config-backup screen to check which devices actually have a backup
+**just ask:** *"Which devices have no configuration backup?"*
+<sub>Your agent runs: <code>auvik-cli configuration audit --finding no_backup</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>auvik-cli TODO</code></sub>
+**Instead of** Arguing about an Auvik invoice with no way to see which devices moved the billable count
+**just ask:** *"Which clients' billed device counts do not match their inventory?"*
+<sub>Your agent runs: <code>auvik-cli usage reconcile --mismatch-only</code></sub>
 
-
-## See it in 30 seconds
-
-<video controls preload="metadata" style="width:100%; max-width:960px; border-radius:12px;" poster="/assets/social/auvik/wide-1200x630.png" src="/assets/video/auvik/demo-30s.mp4">Your browser does not support the video tag. <a href="/assets/video/auvik/demo-30s.mp4">Watch the 30-second demo</a>.</video>
-
-<sub>Demo data is simulated. Every command shown exists in the real CLI.</sub>
 
 ## What it does
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| TODO: question an MSP keeps asking | `auvik-cli TODO` |
+| What hardware is past or approaching end-of-support across every client? | `auvik-cli eol --bucket expired` |
+| What ages out in the next 90 days, so I can put it in a QBR? | `auvik-cli eol --within 90` |
+| Which devices have no configuration backup, or only a stale one? | `auvik-cli configuration audit --finding no_backup` |
+| What was added, changed, or removed across the fleet since the last sync? | `auvik-cli inventory diff --since 7d` |
+| Which clients' billed device counts disagree with their actual inventory? | `auvik-cli usage reconcile --mismatch-only` |
+| Which devices can Auvik not fully poll, and what credential is failing? | `auvik-cli device discovery-gaps --method snmp` |
+| Which devices and clients generate the most alert noise? | `auvik-cli alert noise --since 30d --group-by client` |
+| Which SaaS apps have users but no licence, and which licences is nobody using? | `auvik-cli asm shadow --finding unused_licenses` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/auvik/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/auvik/guide.md).
 
 ## What makes this one different
 
-TODO: one or two sentences vs typical MCP wrappers (generic, no competitor names): most Auvik integrations proxy each question into a live API call ...
+Most Auvik integrations are a language binding: they hand a question straight to the REST API and hand back typed structs. That works for one device, right now. It cannot answer what changed, what left, or anything that spans clients, because the API has no cross-client aggregate and emits no deletion event. This syncs Auvik into a local SQLite mirror first, so those become one local join instead of a fan-out that does not exist upstream.
 
-TODO: one sentence vs Auvik's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.
+The Auvik UI is per-client and per-screen by design, and its API mirrors that shape. Neither differences two points in time, so a removed device is invisible and a moved billable count has no explanation attached. The mirror keeps your own prior view of the fleet, which is what makes removals and deltas detectable at all.
 
 ## The pain this closes
 
-- TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread
-- TODO: pain 2
+- Auvik's API emits no deletion event. A decommissioned device just stops appearing, so nothing tells you it left.
+- Hardware lifecycle lives per device, per client. 'What is aging out across the book' is a spreadsheet export every time.
+- The billable-device count is a number in the UI. When it moves, nothing shows you which devices caused it.
+- A device Auvik cannot fully poll looks similar to one that is simply quiet, and the credential state behind it is three screens away.
+- Config backups are a per-device screen, so 'which devices have no backup at all' is not a question you can ask.
 
 ## Install
 
@@ -118,11 +124,11 @@ After install, authenticate once with your Auvik credentials, then verify with `
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | TODO: read commands | Allow |
-| Write (routine) | TODO | Preview with --dry-run, then a reviewed write |
-| Destructive / config | TODO | Human-in-the-loop only |
+| Read | eol, configuration audit, inventory diff, usage reconcile, device discovery-gaps, alert noise, asm shadow, changes, sync, search, export, every list/get command, and all of the settings and stat SNMP-poller commands (they are GET-only despite the name) | Allow |
+| Write (routine) | alert dismiss (and its alias alert dismiss-single) - the only write the Auvik API supports | Preview with --dry-run, then a reviewed write |
+| Credential / security | auth set-credentials (writes the credential to the CLI's credentials file), auth logout | Human-in-the-loop only |
 
-TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/auvik/governance.md).
+Auvik's API is read-only in practice and this CLI reflects that: the eight cross-client analysis commands read the local mirror and cannot change anything upstream, and dismissing an alert is the only write the API supports at all. The strongest control is the scope of the API key, which inherits the permissions of the user who created it - mint it as a read-only user for a reporting workflow. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/auvik/governance.md).
 
 ## Frequently asked questions
 
@@ -136,23 +142,27 @@ Yes, by design. The CLI, the MCP server, and any local data mirror run on your o
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Auvik MCP server via a secure bridge. Step-by-step in the install guide.
+Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Auvik MCP server through a secure bridge. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 
-No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Auvik user email and API key once.
+
+### Why does it need both a username and an API key?
+
+Auvik authenticates with HTTP Basic: your Auvik user email is the username and the API key is the password. There is no single-token form. You also need the right regional host - AUVIK_BASE_URL selects us1, us2, eu1 and so on, and pointing at the wrong region returns a 401 that looks exactly like a bad key.
 
 ### Is my Auvik data safe?
 
-Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Your data stays on your machine. The CLI, the MCP server, and the SQLite mirror are all local, and the MCP server speaks stdio only so it opens no network listener. The AI sees query results rather than raw bulk data. The mirror holds device and client inventory for your whole book of business, so treat that file like any other export of client data.
+
+### Will this hit my Auvik API rate limits?
+
+Mostly no, and that is the point of the mirror. sync does the reading; the cross-client commands then answer from local SQLite and touch no API at all. Re-running the same question costs nothing upstream.
 
 ### What does it cost?
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
-
-### TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Auvik portal)
-
-TODO
 
 
 ## More RMM connectors

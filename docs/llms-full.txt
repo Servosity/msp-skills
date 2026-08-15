@@ -296,6 +296,40 @@ A: Same product. Autotask PSA is now branded Datto Autotask PSA under Kaseya; th
 
 Governance: The skill drives the autotask-cli and autotask-mcp binaries, authenticating with an Autotask API user's credentials read from the environment (AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, AUTOTASK_PSA_API_INTEGRATION_CODE) - never logged and never sent anywhere except your own Autotask zone. Read commands (the cross-entity views, search, picklist) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the delete commands and any security-level administration human-only. The strongest control is the security level on the API user you create.
 
+### Auvik (RMM)
+
+Page: https://msp-skills.compoundingteams.com/skills/auvik/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/auvik/install.sh)
+
+Ask your AI what is going end-of-life, what is unbacked-up, or why a client's billable device count moved, and get the device rows behind the answer across every client at once. Auvik holds the richest network truth an MSP has, but its API answers one client, right now, and reports no deletions at all. This mirrors Auvik into local SQLite so the cross-client and change-over-time questions become one query.
+
+Outcomes (question -> command your AI agent runs):
+- What hardware is past or approaching end-of-support across every client? -> auvik-cli eol --bucket expired
+- What ages out in the next 90 days, so I can put it in a QBR? -> auvik-cli eol --within 90
+- Which devices have no configuration backup, or only a stale one? -> auvik-cli configuration audit --finding no_backup
+- What was added, changed, or removed across the fleet since the last sync? -> auvik-cli inventory diff --since 7d
+- Which clients' billed device counts disagree with their actual inventory? -> auvik-cli usage reconcile --mismatch-only
+- Which devices can Auvik not fully poll, and what credential is failing? -> auvik-cli device discovery-gaps --method snmp
+- Which devices and clients generate the most alert noise? -> auvik-cli alert noise --since 30d --group-by client
+- Which SaaS apps have users but no licence, and which licences is nobody using? -> auvik-cli asm shadow --finding unused_licenses
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Auvik MCP server through a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Auvik user email and API key once.
+Q: Why does it need both a username and an API key?
+A: Auvik authenticates with HTTP Basic: your Auvik user email is the username and the API key is the password. There is no single-token form. You also need the right regional host - AUVIK_BASE_URL selects us1, us2, eu1 and so on, and pointing at the wrong region returns a 401 that looks exactly like a bad key.
+Q: Is my Auvik data safe?
+A: Your data stays on your machine. The CLI, the MCP server, and the SQLite mirror are all local, and the MCP server speaks stdio only so it opens no network listener. The AI sees query results rather than raw bulk data. The mirror holds device and client inventory for your whole book of business, so treat that file like any other export of client data.
+Q: Will this hit my Auvik API rate limits?
+A: Mostly no, and that is the point of the mirror. sync does the reading; the cross-client commands then answer from local SQLite and touch no API at all. Re-running the same question costs nothing upstream.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: Auvik's API is read-only in practice and this CLI reflects that: the eight cross-client analysis commands read the local mirror and cannot change anything upstream, and dismissing an alert is the only write the API supports at all. The strongest control is the scope of the API key, which inherits the permissions of the user who created it - mint it as a read-only user for a reporting workflow.
+
 ### AWS (Billing)
 
 Page: https://msp-skills.compoundingteams.com/skills/aws-billing/

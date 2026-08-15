@@ -7,15 +7,32 @@
 
 ## What it authenticates as
 
-The skill drives the `auvik-cli` binary (and `auvik-mcp`),
-authenticating with `PRINTING_PRESS_CLIENT_PROFILE`. Credentials are read from the environment only -
-never written to disk, never logged, never sent anywhere except the Auvik API.
+The skill drives the `auvik-cli` binary (and `auvik-mcp`), authenticating with
+**HTTP Basic**: `AUVIK_USERNAME` (your Auvik user email) plus `AUVIK_API_KEY`.
+Both are required - Auvik has no single-token form. `AUVIK_BASE_URL` selects your
+region's host (`us1`, `us2`, `eu1`, ...); the wrong region is a 401 that looks
+like a bad key. The credential is never logged and never sent anywhere except the
+Auvik API.
+
+**Where the credential lives is your choice, and one of the two options writes it
+to disk.** Exporting `AUVIK_USERNAME` / `AUVIK_API_KEY` keeps it out of the
+filesystem, and that is the recommended path for an agent. `auvik-cli
+auth set-credentials <email> <api-key>` instead saves it to the CLI's credentials
+file (run `auvik-cli doctor` for the exact path), where it persists until you
+replace or delete it. If you use `auth set-credentials`, that file is a secret and
+belongs under the same protection as any other stored credential.
+
+An Auvik API key inherits the permissions of the user who created it, so minting
+the key as a read-only user is the single most effective control you have.
 
 ## Default-safe behavior
 
 - **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Make your agent's policy: preview, show the exact command, get approval, then run the write.
-- **Read commands are always safe to run** (reports, rollups, search); they cannot
-  change anything.
+- **Read commands are always safe to run** (reports, rollups, search, and all eight
+  cross-client analysis commands); they cannot change anything. The eight analysis
+  commands read the LOCAL mirror, so they do not even reach the API.
+- **`sync` is read-only against the API.** It issues GET requests and writes only to
+  the local SQLite mirror on your own machine.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not
   add any write gating - the preview-then-approve policy above still applies. See
   AGENTS.md.
@@ -27,11 +44,11 @@ require a human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `settings`, `settings read-multiple-snmp-poller`, `settings read-multiple-snmp-poller-devices`, `settings read-snmp-poller-single`, `stat read-multiple-snmp-poller-setting-int-history`, `stat read-multiple-snmp-poller-setting-string-history` | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
-| **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
-| **Destructive** | Irreversible data or config loss. | (none detected) | Human-in-the-loop only, explicit confirmation |
-| **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
+| **Read** | Reports, rollups, search. No change. | `eol`, `configuration audit`, `inventory diff`, `usage reconcile`, `device discovery-gaps`, `alert noise`, `asm shadow`, `changes`, `sync`, `search`, `export`, every `list` / `get`, and **all of the `settings` and `stat` SNMP-poller commands** - every one of those is a GET despite reading like a setter | Allow |
+| **Write (routine)** | Day-to-day mutations. | `alert dismiss` (alias `alert dismiss-single`) - `POST /v1/alert/dismiss/{id}`, the ONLY write the Auvik API supports | Preview with `--dry-run`, then an approved write |
+| **Credential / security** | Touches tokens or keys. | `auth set-credentials` (writes the credential to the CLI's credentials file), `auth logout` | Human-in-the-loop only |
+| **Destructive** | Irreversible data or config loss. | (none - the Auvik API exposes no delete) | n/a |
+| **Admin** | Back-office administration. | (none - the Auvik API exposes no administrative write) | n/a |
 
 ## How to lock it down
 

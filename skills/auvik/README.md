@@ -137,7 +137,7 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 Set the credentials the CLI needs (from your Auvik portal):
 
 ```bash
-PRINTING_PRESS_CLIENT_PROFILE=<value> auvik-cli doctor
+AUVIK_USERNAME=<value> AUVIK_API_KEY=<value> auvik-cli doctor
 ```
 
 `doctor` checks config, paths, and API reachability, and reports whether credentials are loaded - it does not validate them. Run a read command to confirm the credential actually works end-to-end.
@@ -145,25 +145,36 @@ PRINTING_PRESS_CLIENT_PROFILE=<value> auvik-cli doctor
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `auvik-cli ...` |
-
--->
+| What hardware is past end-of-support across every client? | `auvik-cli eol --bucket expired` |
+| What ages out in the next 90 days, for the QBR deck? | `auvik-cli eol --within 90` |
+| Which devices have no configuration backup at all? | `auvik-cli configuration audit --finding no_backup` |
+| What was added, changed, or removed fleet-wide since the last sync? | `auvik-cli inventory diff --since 7d` |
+| Which clients' billed device counts disagree with their inventory? | `auvik-cli usage reconcile --mismatch-only` |
+| Which devices can Auvik not fully poll, and which credential is failing? | `auvik-cli device discovery-gaps --method snmp` |
+| Which devices and clients generate the most alert noise? | `auvik-cli alert noise --since 30d --group-by client` |
+| Which SaaS licences is nobody using? | `auvik-cli asm shadow --finding unused_licenses` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Auvik integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Auvik integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you are asking "what is past end-of-support across all 40 clients, and which of it is still under warranty" the week before a QBR.
 
-This skill syncs Auvik into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs Auvik into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `eol`, `usage reconcile`, and `changes` join across device inventory, lifecycle and warranty dates, billing usage records, config revisions, entity audit entries and alert history - work a stateless API wrapper cannot do.
+
+One gap is structural rather than a matter of convenience: **Auvik's API emits no deletion event.** `filter[modifiedAfter]` surfaces additions and changes only, so a decommissioned device simply stops appearing in list responses. A removal is detectable only by keeping your own prior view of the fleet, which is exactly what `inventory diff --snapshot` records.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+Auvik bills per billable device, and the count that drives the invoice is a number on a screen. When it moves, nothing shows you which devices moved it - a recurring complaint in r/msp threads about Auvik pricing and billable-device counts, where the advice usually ends at "export it and count by hand." That is the shape of every question an owner actually asks of Auvik: the data is there, the aggregate is not.
+
+- **The invoice argument.** `usage reconcile --mismatch-only` puts each client's billed count next to the synced inventory and names the device rows on both sides of the difference.
+- **The refresh conversation.** `eol --within 90` buckets every device by the earliest of its end-of-support, end-of-life, end-of-sale, and warranty dates, across every client at once.
+- **The silent decommission.** `inventory diff --since 7d` reports what left, which the Auvik API never tells you.
+- **The unbacked-up switch.** `configuration audit --finding no_backup` finds devices with no stored config backup, a stale one, or none flagged running.
+- **The box nobody can see.** `device discovery-gaps` joins discovery status against the credential probe results, so "why can't we poll this thing" is one command instead of three screens.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +196,17 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Why does it need both a username and an API key?
+
+Auvik authenticates with HTTP Basic: your Auvik user email is the username, the API key is the password. There is no single-token form. You also need the right regional host - `AUVIK_BASE_URL` selects `us1`, `us2`, `eu1` and so on, and pointing at the wrong region returns a 401 that looks exactly like a bad key.
+
+### Will this hit my Auvik API rate limits?
+
+Mostly no, and that is the point of the mirror. `sync` does the reading; the eight cross-client commands then answer from local SQLite and touch no API at all, so re-asking a question costs nothing upstream.
+
+### Will this replace the Auvik portal?
+
+No. Auvik remains where you watch live network state and work the alert queue. This is for the questions the portal is not shaped to answer: across every client, and across two points in time.
 
 ### What does it cost?
 
@@ -198,15 +214,13 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
+| Read | `eol`, `configuration audit`, `inventory diff`, `usage reconcile`, `device discovery-gaps`, `alert noise`, `asm shadow`, `changes`, `sync`, `search`, `export`, every `list` / `get`, and all of the `settings` and `stat` SNMP-poller commands (GET-only, despite reading like setters) | Allow |
+| Write (routine) | `alert dismiss` (alias `alert dismiss-single`) - the only write the Auvik API supports | Preview with `--dry-run`, then a reviewed write |
+| Credential / security | `auth set-credentials` (writes the credential to the CLI's credentials file), `auth logout` | Human-in-the-loop only |
 
--->
+The Auvik API exposes no delete and no administrative write, so there is no Destructive or Admin tier to gate.
 
 The strongest control is the **scope you grant the Auvik credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +232,4 @@ Beta. Validated against the Auvik API surface and being validated with MSPs runn
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-08-15._

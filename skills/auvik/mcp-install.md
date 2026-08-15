@@ -37,7 +37,9 @@ Add (or merge with your existing `mcpServers` block):
     "auvik": {
       "command": "auvik-mcp",
       "env": {
-        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
+        "AUVIK_USERNAME": "<your-auvik-user-email>",
+        "AUVIK_API_KEY": "<your-auvik-api-key>",
+        "AUVIK_BASE_URL": "https://auvikapi.us1.my.auvik.com/v1"
       }
     }
   }
@@ -62,7 +64,9 @@ Configuration**) and add:
       "type": "stdio",
       "command": "auvik-mcp",
       "env": {
-        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
+        "AUVIK_USERNAME": "<your-auvik-user-email>",
+        "AUVIK_API_KEY": "<your-auvik-api-key>",
+        "AUVIK_BASE_URL": "https://auvikapi.us1.my.auvik.com/v1"
       }
     }
   }
@@ -83,7 +87,9 @@ Claude Desktop:
     "auvik": {
       "command": "auvik-mcp",
       "env": {
-        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
+        "AUVIK_USERNAME": "<your-auvik-user-email>",
+        "AUVIK_API_KEY": "<your-auvik-api-key>",
+        "AUVIK_BASE_URL": "https://auvikapi.us1.my.auvik.com/v1"
       }
     }
   }

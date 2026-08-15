@@ -32,6 +32,9 @@ import (
 // from before the open through after the close takes it to 0.
 func acquireSnapshotLock(dbPath string) (release func(), err error) {
 	lockPath := dbPath + ".snapshot-lock"
+	// #nosec G304 -- lockPath is this CLI's own --db path plus a fixed suffix, on
+	// the operator's own machine. It is a zero-byte advisory lock sidecar opened
+	// 0600; nothing is read from it and no untrusted input reaches the path.
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("opening snapshot lock %s: %w", lockPath, err)

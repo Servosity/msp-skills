@@ -2,82 +2,29 @@
 
 **Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.**
 
-Auvik holds the richest network-truth dataset an MSP has, behind a read-only JSON:API with bracketed filters, cursor pagination, and per-region hosts. Every existing tool is a language binding that hands you typed structs and leaves the question unanswered. This CLI mirrors Auvik into local SQLite so you can ask things no Auvik surface supports: what is end-of-life across every client (eol), which devices are missing a required config line (configuration grep --not), and which devices disappeared since last sync (inventory diff) - a removal Auvik never reports.
+Auvik holds the richest network-truth dataset an MSP has, behind a read-only JSON:API with bracketed filters, cursor pagination, and per-region hosts. Every existing tool is a language binding that hands you typed structs and leaves the question unanswered. This CLI mirrors Auvik into local SQLite so you can ask things no Auvik surface supports: what is end-of-life across every client (eol), which devices have no configuration backup at all (configuration audit), and which devices disappeared since last sync (inventory diff) - a removal Auvik never reports.
 
 ## Install
 
-The recommended path installs both the `auvik-cli` binary and the `pp-auvik` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer places the `auvik-cli` and `auvik-mcp` binaries and registers the skill with your agent:
 
-```bash
-npx -y @mvanhorn/printing-press-library install auvik
-```
+1. macOS / Linux:
+   ```bash
+   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.sh)
+   ```
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.ps1 | iex
+   ```
+3. Verify: `auvik-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-For CLI only (no skill):
-
-```bash
-npx -y @mvanhorn/printing-press-library install auvik --cli-only
-```
-
-For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
-
-```bash
-npx -y @mvanhorn/printing-press-library install auvik --skill-only
-```
-
-To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
-
-```bash
-npx -y @mvanhorn/printing-press-library install auvik --agent claude-code
-npx -y @mvanhorn/printing-press-library install auvik --agent claude-code --agent codex
-```
-
-### Without Node (Go fallback)
-
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/monitoring/auvik/cmd/auvik-cli@latest
-```
-
-This installs the CLI only  -  no skill.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 ### Pre-built binary
 
-Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/auvik-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+Download a pre-built binary for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=auvik). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
 
-<!-- pp-hermes-install-anchor -->
-## Install for Hermes
-
-Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
-
-```bash
-npx -y @mvanhorn/printing-press-library install auvik --cli-only
-```
-
-Then install the focused Hermes skill.
-
-From the Hermes CLI:
-
-```bash
-hermes skills install mvanhorn/printing-press-library/cli-skills/pp-auvik --force
-```
-
-Inside a Hermes chat session:
-
-```bash
-/skills install mvanhorn/printing-press-library/cli-skills/pp-auvik --force
-```
-
-Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
-
-## Install for OpenClaw
-Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
-
-```bash
-npx -y @mvanhorn/printing-press-library install auvik --agent openclaw
-```
-
-Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
 
 ## Use with Claude Desktop
 
@@ -85,9 +32,9 @@ This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -
 
 To install:
 
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/auvik-current).
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `AUVIK_USERNAME` when Claude Desktop prompts you.
+3. Fill in `AUVIK_USERNAME` (your Auvik user email) and `AUVIK_API_KEY` when Claude Desktop prompts you. Set `AUVIK_BASE_URL` to your region's host (`us1`, `us2`, `eu1`, ...) if you are not on `us1`.
 
 Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
@@ -98,7 +45,10 @@ If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), i
 
 
 ```bash
-go install github.com/mvanhorn/printing-press-library/library/monitoring/auvik/cmd/auvik-mcp@latest
+bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.sh)          # macOS / Linux
+```
+```powershell
+iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.ps1 | iex            # Windows
 ```
 
 Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
@@ -109,7 +59,9 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
     "auvik": {
       "command": "auvik-mcp",
       "env": {
-        "AUVIK_USERNAME": "<your-key>"
+        "AUVIK_USERNAME": "<your-auvik-user-email>",
+        "AUVIK_API_KEY": "<your-auvik-api-key>",
+        "AUVIK_BASE_URL": "https://auvikapi.us1.my.auvik.com/v1"
       }
     }
   }

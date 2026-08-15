@@ -53,8 +53,8 @@ licenses per ASM client, then reports two findings:
   unlicensed_usage  an application has active users but no license records
   unused_licenses   licenses exist that no active user is consuming
 
-Auvik SaaS Management data is absent from the leading Auvik MCP entirely, and
-ASM licenses are exposed by no other surveyed Auvik tool.
+The ASM application, user, and license records are three separate endpoints;
+the set-join across them is what turns them into an entitlement finding.
 
 Use this command for SaaS application, user, and license inventory from Auvik
 SaaS Management. Do NOT use this command for Auvik's own billable network-device

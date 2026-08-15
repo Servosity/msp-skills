@@ -12,9 +12,10 @@ metadata:
       bins:
         - auvik-cli
     install:
-      - kind: go
+      - kind: script
         bins: [auvik-cli]
-        module: github.com/mvanhorn/printing-press-library/library/monitoring/auvik/cmd/auvik-cli
+        sh: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.sh
+        ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.ps1
 ---
 
 # Auvik  -  Printing Press CLI
@@ -25,7 +26,7 @@ This skill drives the `auvik-cli` binary. **You must verify the CLI is installed
 
 1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   npx -y @mvanhorn/printing-press-library install auvik --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.sh)
    ```
 2. Verify: `auvik-cli --version`
 3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
@@ -33,12 +34,15 @@ This skill drives the `auvik-cli` binary. **You must verify the CLI is installed
 If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.6 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
 
 ```bash
-go install github.com/mvanhorn/printing-press-library/library/monitoring/auvik/cmd/auvik-cli@latest
+bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.sh)          # macOS / Linux
+```
+```powershell
+iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.ps1 | iex            # Windows
 ```
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-Auvik holds the richest network-truth dataset an MSP has, behind a read-only JSON:API with bracketed filters, cursor pagination, and per-region hosts. Every existing tool is a language binding that hands you typed structs and leaves the question unanswered. This CLI mirrors Auvik into local SQLite so you can ask things no Auvik surface supports: what is end-of-life across every client (eol), which devices are missing a required config line (configuration grep --not), and which devices disappeared since last sync (inventory diff) - a removal Auvik never reports.
+Auvik holds the richest network-truth dataset an MSP has, behind a read-only JSON:API with bracketed filters, cursor pagination, and per-region hosts. Every existing tool is a language binding that hands you typed structs and leaves the question unanswered. This CLI mirrors Auvik into local SQLite so you can ask things no Auvik surface supports: what is end-of-life across every client (eol), which devices have no configuration backup at all (configuration audit), and which devices disappeared since last sync (inventory diff) - a removal Auvik never reports.
 
 ## When to Use This CLI
 
@@ -602,7 +606,7 @@ Parse `$ARGUMENTS`:
 
 1. Install the MCP server:
    ```bash
-   go install github.com/mvanhorn/printing-press-library/library/monitoring/auvik/cmd/auvik-mcp@latest
+   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.sh)
    ```
 2. Register with Claude Code:
    ```bash
