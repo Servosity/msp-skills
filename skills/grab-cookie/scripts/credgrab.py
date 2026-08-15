@@ -326,8 +326,20 @@ def do_wire(prof: dict, values: dict[str, str] | None = None) -> Path:
                 owned_literals.add(bare)
         try:
             existing = dest.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            existing = ""
+        except OSError as exc:
+            # Fail CLOSED. Treating an unreadable file as empty let this fall
+            # through to atomic_write, and os.replace needs only the parent
+            # directory to be writable -- so a root-owned or ACL-denied config in
+            # a user-writable dir got silently destroyed by the guard that exists
+            # to protect it. A file we cannot read is a file we cannot prove we own.
+            raise SystemExit(
+                f"FAIL: refusing to overwrite {wire['path']} -- it exists but could "
+                f"not be read ({exc.__class__.__name__}), so this profile cannot "
+                f"prove the file is its own to regenerate.\n"
+                f"  Fix the permissions, or point this profile's wire.path at a file "
+                f"it owns exclusively.\n"
+                f"  If the file is stale and safe to discard, delete it and re-run."
+            ) from exc
         existing = existing.lstrip("\ufeff")  # a Windows editor's BOM is not content
         foreign = []
         for n, ln in enumerate(existing.split("\n"), start=1):
@@ -353,7 +365,8 @@ def do_wire(prof: dict, values: dict[str, str] | None = None) -> Path:
                 f"  If they matter, point this profile's wire.path at a file it owns "
                 f"exclusively and have your tool read both.\n"
                 f"  If they are stale -- a key or header this profile no longer writes -- "
-                f"delete the file and re-run wire."
+                f"delete the file and re-run the command you just ran (a refusal during "
+                f"seed rolls the credential back, so re-run seed, not wire)."
             )
 
     mode = int(wire.get("mode", "0600"), 8) if isinstance(wire.get("mode"), str) else wire.get("mode", 0o600)
@@ -474,8 +487,19 @@ def cmd_seed(args) -> int:
         store_as: credstore.fetch(store_as, prof["name"]) for store_as in values
     }
     dest_path = resolve_path(prof["wire"]["path"], SKILL_DIR)
-    prior_consumer = dest_path.read_bytes() if dest_path.exists() else None
-    prior_mode = (dest_path.stat().st_mode & 0o777) if dest_path.exists() else None
+    try:
+        prior_consumer = dest_path.read_bytes() if dest_path.exists() else None
+        prior_mode = (dest_path.stat().st_mode & 0o777) if dest_path.exists() else None
+    except OSError as exc:
+        # Nothing has been stored yet, so this is a clean abort -- but it must read
+        # like every other failure here, not like a crash.
+        raise SystemExit(
+            f"FAIL: cannot read the existing consumer file {dest_path} "
+            f"({exc.__class__.__name__}), so this seed cannot be rolled back safely "
+            f"if it fails.\n"
+            f"  Fix the permissions (or remove the file if it is a leftover directory) "
+            f"and re-run."
+        ) from exc
 
     receipts: dict[str, str] = {}
     for store_as, value in values.items():
@@ -637,6 +661,21 @@ def cmd_selfcheck(live: bool = False) -> int:
             except SystemExit:
                 pass
             assert open(envp, encoding="utf-8").read() == body, what
+        # A destination we cannot READ must refuse, not fall through: os.replace
+        # needs only the parent dir, so failing open destroys the very file the
+        # guard exists to protect.
+        with open(envp, "w", encoding="utf-8") as fh:
+            fh.write("FOREIGN_SETTING=keepme\n")
+        os.chmod(envp, 0o000)
+        try:
+            do_wire(prof_env, values={"A": "1", "B": "2"})
+            os.chmod(envp, 0o600)
+            raise AssertionError("do_wire overwrote a destination it could not read")
+        except SystemExit as exc:
+            assert "could not be read" in str(exc), str(exc)
+        os.chmod(envp, 0o600)
+        assert "FOREIGN_SETTING=keepme" in open(envp, encoding="utf-8").read()
+
         # A secret sitting on its own line must not be echoed into the message.
         with open(envp, "w", encoding="utf-8") as fh:
             fh.write("eyJhbGciOiJIUzI1NiJ9.SUPERSECRETPAYLOAD==\n")
