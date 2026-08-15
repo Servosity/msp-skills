@@ -75,7 +75,7 @@
     },
     {
       "q": "Is my Auvik data safe?",
-      "a": "Your data stays on your machine. The CLI, the MCP server, and the SQLite mirror are all local, and the MCP server speaks stdio only so it opens no network listener. The AI sees query results rather than raw bulk data. The mirror holds device and client inventory for your whole book of business, so treat that file like any other export of client data."
+      "a": "Your data stays on your machine by default. The CLI, MCP server, and the local mirror are all local, and the MCP server runs over stdio unless you deliberately start it in HTTP mode (`auvik-mcp --transport http`), which the remote-agent path for ChatGPT and Copilot asks you to do - that opens a listener, so tunnel it behind SSO and treat the URL as a secret. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
     },
     {
       "q": "Will this hit my Auvik API rate limits?",

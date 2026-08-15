@@ -107,7 +107,7 @@ All remote agents need `auvik-mcp` reachable as a public **HTTPS** endpoint. Run
 in HTTP mode with your credentials in the environment:
 
 ```bash
-AUVIK_USERNAME=<your-auvik-user-email> AUVIK_API_KEY=<your-auvik-api-key> auvik-mcp --transport http --addr :7777
+AUVIK_USERNAME=<your-auvik-user-email> AUVIK_API_KEY=<your-auvik-api-key> AUVIK_BASE_URL=https://auvikapi.us1.my.auvik.com auvik-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

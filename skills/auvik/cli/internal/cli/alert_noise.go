@@ -59,7 +59,7 @@ client names, plus the severity and status mix per offender.
 
 Use this command for retrospective alert-volume ranking over the local alert
 history. Do NOT use this command for working the live alert queue or dismissing
-alerts; use 'alert triage' instead.
+alerts; use 'alert list' to read the queue and 'alert dismiss' to clear one.
 
 Reads the local mirror. Run this first:
   auvik-cli sync --resources tenants,inventory,alert --full

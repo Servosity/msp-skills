@@ -305,9 +305,9 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  auvik-cli alert read-multiple-info --agent --select alertDefinitionId,description,detectedOn
+  auvik-cli alert read-multiple-info --agent --select attributes.alertDefinitionId,attributes.description,attributes.detectedOn
   ```
-- **Previewable**  -  `--dry-run` shows the request without sending
+- **Previewable**  -  `--dry-run` shows the request without sending Note this guards the Auvik API write only: `auth set-credentials`, `auth logout` and `profile save` write to your own machine and run regardless of the flag.
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
 - **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success

@@ -194,7 +194,7 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 ### Is my Auvik data safe?
 
-Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
+Your data stays on **your machine**. The CLI and MCP server are local binaries, and the MCP server runs over stdio unless you deliberately start it in HTTP mode (`auvik-mcp --transport http`) for a remote agent - that opens a listener, so tunnel it behind SSO and treat the URL as a secret. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
 ### Why does it need both a username and an API key?
 
@@ -218,8 +218,8 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | --- | --- | --- |
 | Read | `eol`, `configuration audit`, `inventory diff`, `usage reconcile`, `device discovery-gaps`, `alert noise`, `asm shadow`, `changes`, `sync`, `search`, `export`, every `list` / `get`, and all of the `settings` and `stat` SNMP-poller commands (GET-only, despite reading like setters) | Allow |
 | Write (routine) | `alert dismiss-single` and its friendly twin `alert dismiss` - the only write the Auvik API supports; allowlist both names | Preview with `--dry-run`, then a reviewed write |
-| Data egress | `--deliver webhook:<url>` on any command (POSTs that command's output to a URL you name) and `feedback --send` (POSTs to `AUVIK_FEEDBACK_ENDPOINT` when set) | Human-in-the-loop - a webhook sink moves client data off-box |
 | Credential / security | `auth set-credentials` (writes the credential to the CLI's credentials file), `auth logout` | Human-in-the-loop only |
+| Data egress | `--deliver webhook:<url>` on any command (POSTs that command's output to a URL you name) and `feedback --send` (POSTs to `AUVIK_FEEDBACK_ENDPOINT` when set) | Human-in-the-loop - a webhook sink moves client data off-box |
 
 The Auvik API exposes no delete and no administrative write, so there is no Destructive or Admin tier to gate.
 

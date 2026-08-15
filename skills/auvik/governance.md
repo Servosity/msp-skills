@@ -1,7 +1,7 @@
 # auvik skill - governance and safety model
 
 > Unofficial. Community-built skill for the Auvik API. Not affiliated with,
-> endorsed by, or sponsored by the vendor.
+> endorsed by, or sponsored by Auvik Networks Inc.
 > This page tells an MSP owner exactly what the auvik skill can touch and how to
 > scope it, so you can decide what to let an AI agent do.
 
@@ -63,13 +63,20 @@ require a human for anything below the line.
 
 ## How to lock it down
 
-- **Scope the credential** to only what your workflow needs. A read/report workflow
-  does not need a credential that can run the Destructive or Credential tiers.
+- **Scope the credential** to only what your workflow needs. An Auvik key inherits
+  the permissions of the user who created it, so a read/report workflow should use
+  a key minted by a read-only user - that makes even `alert dismiss` unreachable.
+  Note what key scope canNOT gate: the Credential tier here is `auth
+  set-credentials` / `auth logout`, which write and clear a file on your own
+  machine, and the Data egress tier sends to a destination the CALLER names. Those
+  are gated by your agent's policy, not by Auvik.
 - **Keep autonomous agents to Read + previewed writes.** Have a human approve the
   actual write for Write tier and above - the gate lives in your agent's policy,
-  not in the binary's defaults.
-- **Never let an agent run Credential, Destructive, or Admin tier commands
-  unattended.** Treat them like a production database drop: human, reviewed, logged.
+  not in the binary's defaults. Remember `--dry-run` only previews the Auvik API
+  write; it does not guard the local credential and profile writes.
+- **Never let an agent run Credential or Data-egress tier commands unattended.**
+  (This API exposes no delete and no administrative write, so there is no
+  Destructive or Admin tier to gate.)
 - **Rotate the credential if it is ever exposed** (for example after bridging the
   MCP server to a public endpoint for ChatGPT - see mcp-install.md).
 

@@ -485,7 +485,7 @@ auvik-cli alert read-multiple-info
 # JSON for scripting and agents
 auvik-cli alert read-multiple-info --json
 # Filter to specific fields
-auvik-cli alert read-multiple-info --json --select alertDefinitionId,description,detectedOn
+auvik-cli alert read-multiple-info --json --select attributes.alertDefinitionId,attributes.description,attributes.detectedOn
 
 # Dry run  -  show the request without sending
 auvik-cli alert read-multiple-info --dry-run
@@ -528,8 +528,9 @@ Environment variables:
 
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
-| `AUVIK_USERNAME` | per_call | Yes |  |
-| `AUVIK_API_KEY` | per_call | Yes | Set to your API credential. |
+| `AUVIK_USERNAME` | per_call | Yes | Your Auvik user email - the username half of the HTTP Basic credential. |
+| `AUVIK_API_KEY` | per_call | Yes | Your Auvik API key (Auvik > Admin > Integrations > Auvik API) - the password half. |
+| `AUVIK_BASE_URL` | per_call | Yes unless you are on us1 | Your region's API host, e.g. `https://auvikapi.eu1.my.auvik.com`, with no path suffix. A valid key against the wrong region returns a 401 that looks exactly like a bad key. |
 
 ### agentcookie (optional)
 
