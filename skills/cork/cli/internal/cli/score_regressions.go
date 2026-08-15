@@ -181,7 +181,7 @@ func newNovelScoreRegressionsCmd(flags *rootFlags) *cobra.Command {
 			if examined == 0 {
 				view.Note = "no clients in the local mirror; run: cork-cli sync --resources clients"
 			} else if moved == 0 {
-				view.Note = fmt.Sprintf("examined %d clients; none %s by at least %d points in the last %s", examined, direction, flagMinDrop, window)
+				view.Note = fmt.Sprintf("examined %d clients; none %s by at least %d points in the last %s", examined, direction, flagMinDrop, flagSince)
 			}
 			// Appended last so it cannot be overwritten by the branches above.
 			// Cork embeds only the ten most recent score points in the client

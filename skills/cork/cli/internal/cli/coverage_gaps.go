@@ -333,8 +333,15 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 				// sweep; an unqualified "no coverage gaps" is exactly the
 				// sentence an operator would act on.
 				if scanCapHit {
-					view.Note = fmt.Sprintf("no coverage gaps among the %d connector device(s) examined across %d connector(s), but the sweep was truncated (%d connector(s) skipped or failed); this is not a clean bill of health — raise --max-connectors or --max-scan-pages",
-						connectorDevices, walked, view.ConnectorsSkipped)
+					// Same page-cap-vs-connector-cap distinction as the rows-present
+					// path below. This branch matters more: it is the one asserting
+					// "no coverage gaps".
+					detail := "a page limit was reached"
+					if view.ConnectorsSkipped > 0 {
+						detail = fmt.Sprintf("%d connector(s) skipped or failed", view.ConnectorsSkipped)
+					}
+					view.Note = fmt.Sprintf("no coverage gaps among the %d connector device(s) examined across %d connector(s), but the sweep was truncated (%s); this is not a clean bill of health — raise --max-connectors or --max-scan-pages",
+						connectorDevices, walked, detail)
 				} else {
 					view.Note = fmt.Sprintf("no coverage gaps: %d connector device(s) across %d connector(s) all map to the client's %d attributed device(s)",
 						connectorDevices, walked, len(clientDevices))

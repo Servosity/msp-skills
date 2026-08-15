@@ -14,9 +14,9 @@ anywhere except the Cork API.
 **Where the credential lives is your choice, and one of the two options writes it
 to disk.** `CORK_API_KEY` in the environment keeps it out of the filesystem
 entirely, and that is the recommended path for an agent. `cork-cli auth set-token`
-instead saves it to `credentials.toml` under the CLI's data directory (run
-`cork-cli doctor` for the exact path), where it persists until you replace or
-delete it. If you use `auth set-token`, that file is a secret and belongs under
+instead saves it to `credentials.toml` under the CLI's data directory -
+`auth set-token` prints the exact path when it writes - where it persists until
+you replace or delete it. If you use `auth set-token`, that file is a secret and belongs under
 the same protection as any other stored credential.
 
 One property of the Cork API is worth knowing before you mint a key: **a Cork API

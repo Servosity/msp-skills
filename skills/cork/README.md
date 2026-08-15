@@ -225,7 +225,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | --- | --- | --- |
 | Read | `score attribute`, `score regressions`, `vulnerabilities triage`, `vulnerabilities exposure`, `compliance overdue`, `integrations health`, `coverage gaps`, `warranties exposure`, `sync`, `search`, `export`, every `list` / `get` **except the secret-returning reads below** | Allow |
 | Write (routine) | `integrations connect`, `integrations update`, `integrations resync integration` | Preview with `--dry-run`, then a reviewed write |
-| Credential / security | `integrations credentials`, `integrations credentials get-integration` (printed verbatim, not redacted), `integrations raw-data get-integration` (returns a presigned URL that downloads the connector's full raw data with no further auth) | Human-in-the-loop only, never in a blanket allow-all-reads policy |
+| Credential / security | `integrations credentials`, `integrations credentials get-integration` (printed verbatim, not redacted), `integrations raw-data get-integration` (returns a presigned URL that downloads the connector's full raw data with no further auth), and the credential fields of `integrations update` | Human-in-the-loop only, never in a blanket allow-all-reads policy |
 | Destructive / endpoint-affecting | `integrations delete`, `software install` (installs a package on a real customer device through its RMM integration) | Human-in-the-loop only, explicit confirmation |
 | Admin | `distributor provision-partner` | Operator-only, not for agents |
 | Bulk write | `import <resource> --input file.jsonl` - one POST per line into the write endpoints above, continuing past failures | Human-in-the-loop only, explicit confirmation. Never unattended |
