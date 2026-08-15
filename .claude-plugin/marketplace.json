@@ -978,6 +978,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "auvik",
+      "source": "./skills/auvik",
+      "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
+      "version": "4.30.2",
+      "category": "rmm",
+      "tags": [
+        "auvik",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

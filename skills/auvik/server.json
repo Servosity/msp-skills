@@ -1,0 +1,40 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/auvik-mcp",
+  "title": "Auvik MCP",
+  "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give",
+  "version": "4.30.2",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/auvik/auvik-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/auvik"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/auvik-v4.30.2/auvik-mcp.mcpb",
+      "version": "4.30.2",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Set the PRINTING_PRESS_CLIENT_PROFILE credential for the Auvik MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
