@@ -18,6 +18,20 @@ Always-on deterministic checks (no external tools needed):
     skills/<slug>/install.sh|.ps1 (the artifact MSPs run via curl|sh). NOTE: an installer
     is executable by nature, so this flags KNOWN-BAD remote/shell-exec forms - it is not a
     complete sandbox. CODEOWNERS review of install-script changes is the human backstop.
+  * Shipped-script patterns - dangerous constructs in the .py/.sh/.ps1 a skill ships.
+    Python is checked through the AST (eval/exec, os.system, pickle.load, unsafe
+    yaml.load, shell=True, subprocess given a command STRING instead of a list argv),
+    not a regex: skills legitimately DISCUSS these names in docstrings and references,
+    and failing an honest script for describing good practice is false-RED. Shell and
+    PowerShell get SCRIPT_RULES with whole-line comments stripped first, so a script
+    documenting its own `curl ... | bash` install line is not flagged for saying so.
+
+TWO LANES. A skill WITH skills/<slug>/cli/go.mod gets the Go lane (dependency policy +
+gosec/govulncheck/osv-scanner/semgrep). A markdown-only skill has no Go module, so the
+Go lane is skipped and the shipped-script scan is its coverage. Running the Go scanners
+against a non-existent go.mod used to fail them CLOSED - 4 permanent P1s on a file that
+does not exist, unfixable by any contributor - while the Python that actually ships went
+completely unread. That was false-RED and false-GREEN in the same verdict.
 
 Suppressions are BASE-OWNED, not self-grantable: a finding is suppressed only if its
 (file, rule) is listed in tools/maintainer/security_suppressions.json. Inline `// #nosec`
@@ -46,6 +60,7 @@ Exit code: 0 = pass (no P1), 1 = block (>=1 P1), 2 = usage error.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import re
@@ -156,8 +171,15 @@ def have(tool: str) -> bool:
 
 
 def list_slugs() -> list[str]:
+    """Every skill dir, not just the ones with a Go module.
+
+    This used to filter on cli/go.mod, so `--all` silently skipped every
+    markdown-only skill - the ones whose shipped Python nothing else reads."""
     d = REPO / "skills"
-    return sorted(p.name for p in d.iterdir() if (p / "cli" / "go.mod").is_file()) if d.is_dir() else []
+    if not d.is_dir():
+        return []
+    return sorted(p.name for p in d.iterdir()
+                  if (p / "cli" / "go.mod").is_file() or (p / "SKILL.md").is_file())
 
 
 def modules_in_gomod(gomod: Path) -> set[str]:
@@ -179,7 +201,7 @@ def rebuild_allowlist() -> int:
                      "anti-backdoor / anti-fork-swap). Regenerate with --rebuild-allowlist ONLY "
                      "after a human has vetted the new dependency."),
         "allowed": sorted(mods),
-    }, indent=2) + "\n")
+    }, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {ALLOWLIST} with {len(mods)} approved modules")
     return 0
 
@@ -191,7 +213,7 @@ def _policy_text(path: Path, ref: str | None) -> str | None:
         rel = str(path.relative_to(REPO))
         code, out, _ = run(["git", "-C", str(REPO), "show", f"{ref}:{rel}"])
         return out if code == 0 else None
-    return path.read_text() if path.is_file() else None
+    return path.read_text(encoding="utf-8") if path.is_file() else None
 
 
 def load_allowlist(ref: str | None = None) -> set[str]:
@@ -263,6 +285,138 @@ def scan_install_scripts(slug: str, only: list[Path] | None, suppress: set[tuple
                 lineno = text[:m.start()].count("\n") + 1
                 findings.append({"tool": "install", "rule": rule, "severity": sev,
                                  "file": rel, "line": lineno,
+                                 "evidence": text[m.start():m.start() + 80].replace("\n", "\\n")})
+    return findings
+
+
+def scan_python(files: list[Path], suppress: set[tuple[str, str]]) -> list[dict]:
+    """Flag dangerous constructs in shipped Python, via the AST - not a regex.
+
+    A markdown-only skill ships Python an MSP runs on their own machine, and until
+    now nothing read it: scan_go_patterns filters on `.go`, and scan_install_scripts
+    only opened install.sh/install.ps1.
+
+    The AST matters. connect-tool's own grab_secret.py contains the sentence "there
+    is no `shell=True` anywhere" in a docstring, and skills/*/references/*.md discuss
+    these constructs by name. A regex would fail the healthiest skill in the repo for
+    describing good practice - false-RED, which per doctrine is as useless as
+    false-GREEN. The AST sees calls, not prose.
+
+    Calibrated against the healthy connect-tool and grab-cookie trees: every
+    subprocess call there is list-argv with an explicit shell=False, and both pass.
+    """
+    findings: list[dict] = []
+
+    def add(rule: str, sev: str, rel: str, line: int, evidence: str) -> None:
+        if (rel, rule) in suppress:  # base-owned suppression (NOT self-grantable)
+            return
+        findings.append({"tool": "script", "rule": rule, "severity": sev,
+                         "file": rel, "line": line, "evidence": evidence})
+
+    def dotted(node: ast.AST) -> str:
+        """Best-effort dotted name for a call target (os.system, pickle.loads)."""
+        parts: list[str] = []
+        while isinstance(node, ast.Attribute):
+            parts.append(node.attr)
+            node = node.value
+        if isinstance(node, ast.Name):
+            parts.append(node.id)
+        return ".".join(reversed(parts))
+
+    for f in files:
+        if f.suffix != ".py" or not f.is_file():
+            continue
+        rel = str(f.relative_to(REPO))
+        src = f.read_text(encoding="utf-8", errors="replace")
+        try:
+            tree = ast.parse(src)
+        except SyntaxError as e:
+            # Shipped Python that does not parse cannot be reviewed - and cannot run.
+            add("python-syntax-error", "P1", rel, e.lineno or 0,
+                f"cannot parse shipped Python: {e.msg} (fail-closed).")
+            continue
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            name = dotted(node.func)
+            ln = getattr(node, "lineno", 0)
+
+            if name in ("eval", "exec", "compile"):
+                add("python-eval-exec", "P1", rel, ln, f"{name}() on shipped code path.")
+            elif name in ("os.system", "os.popen"):
+                add("python-os-system", "P1", rel, ln, f"{name}() runs a shell command string.")
+            elif name in ("pickle.load", "pickle.loads"):
+                add("python-pickle-load", "P1", rel, ln,
+                    f"{name}() executes arbitrary code when the input is untrusted.")
+            elif name == "yaml.load" and not any(
+                k.arg == "Loader" for k in node.keywords
+            ):
+                add("python-yaml-unsafe", "P1", rel, ln,
+                    "yaml.load() without an explicit safe Loader executes arbitrary tags.")
+
+            # shell=True, as an actual keyword argument (not the words in a docstring).
+            for kw in node.keywords:
+                if kw.arg == "shell" and isinstance(kw.value, ast.Constant) and kw.value.value is True:
+                    add("python-shell-true", "P1", rel, ln,
+                        f"{name or 'call'}(shell=True) - the command string is shell-interpreted.")
+
+            # subprocess given a STRING (or a built-up string) instead of a list argv.
+            if name.startswith("subprocess.") and node.args:
+                first = node.args[0]
+                if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                    add("python-subprocess-string", "P1", rel, ln,
+                        f"{name}() called with a command string, not a list argv.")
+                elif isinstance(first, (ast.BinOp, ast.JoinedStr)):
+                    add("python-subprocess-string", "P1", rel, ln,
+                        f"{name}() called with a built-up command string, not a list argv.")
+    return findings
+
+
+# Shell/PowerShell shipped OUTSIDE install.sh/install.ps1 (bootstrap scripts, helpers).
+# Narrower than INSTALL_RULES: those are tuned for the curl|sh artifact and would
+# false-RED on a legitimate bootstrap script that runs the tool it just installed.
+SCRIPT_RULES = [
+    ("script-pipe-to-shell", "P1", re.compile(r'\|\s*(?:sudo\s+)?(?:ba|z|da|a)?sh\b', re.I)),
+    ("script-decode-then-run", "P1",
+     re.compile(r'(?:\bbase64\s+(?:-d|--decode|-D)\b|\bfrombase64string\b)[^\n]{0,40}\|\s*(?:ba|z)?sh\b'
+                r'|\biex\b[^\n]{0,40}\bfrombase64string\b', re.I)),
+    ("script-powershell-rce", "P1",
+     re.compile(r'\b(?:iex|invoke-expression)\b|\bdownloadstring\b|-e(?:nc\b|ncodedcommand\b)', re.I)),
+]
+
+
+def _strip_comments(text: str) -> str:
+    """Blank out whole-line comments, keeping line numbering intact.
+
+    The shell equivalent of using the AST for Python. connect-tool's bootstrap.sh
+    documents its own install command in the header - `curl ... | bash` - and
+    bootstrap.ps1 documents the `iex` form. Those are the instructions a user
+    follows, not code the script runs, and flagging them fails an honest script for
+    telling the truth about itself. Only full-line comments are stripped: a trailing
+    `# ...` on a real command line is left alone, so `curl x | bash  # go` still trips.
+    """
+    return "\n".join("" if line.lstrip().startswith("#") else line
+                     for line in text.split("\n"))
+
+
+def scan_shell_scripts(files: list[Path], suppress: set[tuple[str, str]]) -> list[dict]:
+    """SCRIPT_RULES over shipped .sh/.ps1 that are not the two installers."""
+    findings: list[dict] = []
+    for f in files:
+        if f.suffix not in (".sh", ".ps1") or not f.is_file():
+            continue
+        if f.name in ("install.sh", "install.ps1"):
+            continue  # covered by scan_install_scripts with the stricter INSTALL_RULES
+        rel = str(f.relative_to(REPO))
+        text = _strip_comments(f.read_text(encoding="utf-8", errors="replace"))
+        for rule, sev, rx in SCRIPT_RULES:
+            if (rel, rule) in suppress:
+                continue
+            m = rx.search(text)
+            if m:
+                findings.append({"tool": "script", "rule": rule, "severity": sev,
+                                 "file": rel, "line": text[:m.start()].count("\n") + 1,
                                  "evidence": text[m.start():m.start() + 80].replace("\n", "\\n")})
     return findings
 
@@ -582,16 +736,40 @@ def go_files(slug: str, only: list[Path] | None) -> list[Path]:
     return list((REPO / "skills" / slug / "cli").rglob("*.go"))
 
 
+def script_files(slug: str, only: list[Path] | None) -> list[Path]:
+    if only is not None:
+        return only
+    return [p for p in (REPO / "skills" / slug).rglob("*")
+            if p.suffix in (".py", ".sh", ".ps1")]
+
+
+def has_go_module(slug: str) -> bool:
+    return (REPO / "skills" / slug / "cli" / "go.mod").is_file()
+
+
 def gate_slug(slug: str, base: str | None, allow: set[str], suppress: set[tuple[str, str]],
               require: bool = False) -> dict:
     only = changed_files(base, slug) if base else None
     findings = []
     findings += scan_go_patterns(go_files(slug, only), suppress)
     findings += scan_install_scripts(slug, only, suppress)
-    findings += scan_dependencies(slug, allow, only)
-    findings += scan_external(slug, suppress, base, require)
+    # Always scan shipped scripts: a connector ships them too (bootstrap helpers),
+    # and this is the ONLY coverage a markdown-only skill's code gets.
+    findings += scan_python(script_files(slug, only), suppress)
+    findings += scan_shell_scripts(script_files(slug, only), suppress)
+
+    # The Go toolchain lane, only for skills that HAVE a Go module. A markdown-only
+    # skill has no skills/<slug>/cli/go.mod, and running gosec/govulncheck/osv-scanner
+    # against that non-existent path made them fail-close: 4 permanent P1s on a file
+    # that does not exist, unfixable by any contributor, while the Python that
+    # actually ships went unread. False-RED and false-GREEN in the same verdict.
+    if has_go_module(slug):
+        findings += scan_dependencies(slug, allow, only)
+        findings += scan_external(slug, suppress, base, require)
+
     p1 = [f for f in findings if f["severity"] == "P1"]
     return {"slug": slug, "base": base, "scope": "diff" if only is not None else "full",
+            "lane": "go" if has_go_module(slug) else "scripts",
             "findings": findings, "p1_count": len(p1),
             "verdict": "block" if p1 else "pass",
             "tools": {t: have(t) for t in ("gosec", "govulncheck", "osv-scanner", "semgrep")}}
@@ -632,7 +810,8 @@ def main() -> int:
         print(json.dumps(results if args.all else results[0], indent=2))
     else:
         for r in results:
-            print(f"[{'BLOCK' if r['verdict'] == 'block' else 'pass'}] {r['slug']} ({r['scope']}): "
+            print(f"[{'BLOCK' if r['verdict'] == 'block' else 'pass'}] {r['slug']} "
+                  f"({r['scope']}, {r['lane']} lane): "
                   f"{r['p1_count']} P1 / {len(r['findings'])} findings")
             for f in r["findings"]:
                 print(f"    {f['severity']} {f['tool']}:{f['rule']} {f['file']}:{f['line']} - {f['evidence']}")

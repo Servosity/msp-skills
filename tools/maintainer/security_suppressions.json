@@ -295,6 +295,11 @@
       "file": "skills/unifi-network/cli/internal/cli/newcomer.go",
       "rule": "G304",
       "reason": "Same pattern as the novel_common.go G304 entry: reads newcomer's own first-seen JSON at filepath.Join(stateDir, 'newcomer-first-seen-<siteID>.json'), siteID resolved from the synced mirror via resolveSiteIDLocal, not raw user input. Local-user file under their own home. Annotated //nolint:gosec at the call site."
+    },
+    {
+      "file": "skills/connect-tool/bootstrap.ps1",
+      "rule": "script-powershell-rce",
+      "reason": "The `iex` match is inside a SINGLE-QUOTED STRING LITERAL that bootstrap.ps1 appends to its missing-dependency list and PRINTS to the user: 'uv  powershell -ExecutionPolicy ByPass -c \"irm https://astral.sh/uv/install.ps1 | iex\"'. It is the vendor's documented install command shown as advice; bootstrap.ps1 never executes it. Whole-line comments are already stripped before scanning, but a string literal is not a comment. Vetted 2026-08-14."
     }
   ]
 }
