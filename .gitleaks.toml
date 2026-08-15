@@ -6,7 +6,12 @@
 useDefault = true
 
 [allowlist]
-description = "Synthetic JWT fixtures in the vendored CLI tests (not credentials; built from repeated characters, see the test comments)."
-paths = [
-  '''skills/.*/cli/internal/cliutil/jwtshape_test\.go''',
+description = "The synthetic RS256 JWT header in the vendored cliutil/jwtshape_test.go fixtures (not a credential; the payload/signature are strings.Repeat, see the test comments)."
+# Content match, not a path match: gitleaks reports platform-native paths on
+# --no-git scans, so a path pattern either breaks on Windows ('/'-only, #235) or,
+# with [/\\], can be spoofed on Linux by a filename containing literal
+# backslashes. The exact public literal can never equal a real secret.
+regexTarget = "secret"
+regexes = [
+  '''^eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImFvNi1PYzAyQlZHTF9GbnBDeE5JMiJ9\.$''',
 ]
