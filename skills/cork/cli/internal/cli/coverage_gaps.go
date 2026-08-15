@@ -272,6 +272,7 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 			walked := 0
 			connectorsFailed := 0
 			undecodableConnectorDevices := 0
+			undecodableConnectors := make([]string, 0)
 			for _, in := range integrations {
 				rawID, _, devCapHit, idErr := corkFetchPages(ctx, c, "/integrations/"+corkPathSeg(in.UUID)+"/devices", nil, flagMaxScanPages)
 				if idErr != nil {
@@ -289,6 +290,9 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 				for _, r := range rawID {
 					var d corkIntegrationDevice
 					if json.Unmarshal(r, &d) != nil {
+						if undecodableConnectorDevices == 0 || (len(undecodableConnectors) > 0 && undecodableConnectors[len(undecodableConnectors)-1] != vendorLabel) {
+							undecodableConnectors = append(undecodableConnectors, vendorLabel)
+						}
 						undecodableConnectorDevices++
 						continue
 					}
@@ -330,7 +334,11 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 			corkSortStable(gaps, func(a, b coverageGapRow) bool { return a.Device < b.Device })
 
 			if undecodableConnectorDevices > 0 {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d connector device(s) could not be decoded and were not diffed\n", undecodableConnectorDevices)
+				// Name the connectors. The truncation remedy points the operator
+				// here, and a bare count told them nothing they did not already
+				// have from the note itself.
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d connector device(s) could not be decoded and were not diffed (connector(s): %s)\n",
+					undecodableConnectorDevices, strings.Join(undecodableConnectors, ", "))
 				scanCapHit = true
 			}
 

@@ -126,9 +126,9 @@ func TestCoverageGapsSilentWhenSweepComplete(t *testing.T) {
 // cannot change the outcome.
 func TestCoverageTruncationCauseMatchesItsRemedy(t *testing.T) {
 	for _, tc := range []struct {
-		name                             string
-		skipped, undecodable             int
-		wantCause, wantRemedy            string
+		name                  string
+		skipped, undecodable  int
+		wantCause, wantRemedy string
 	}{
 		{"connector cap", 11, 0, "11 connector(s) skipped or failed", "raise --max-connectors or --max-scan-pages"},
 		{"page cap", 0, 0, "a page limit was reached", "raise --max-connectors or --max-scan-pages"},

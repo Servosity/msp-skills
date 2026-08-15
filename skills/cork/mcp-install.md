@@ -102,10 +102,19 @@ All remote agents need `cork-mcp` reachable as a public **HTTPS** endpoint.
 its own - so put a stdio-to-HTTP bridge in front of it:
 
 ```bash
+# ChatGPT and anything else that accepts SSE:
 CORK_API_KEY=<value> npx -y supergateway --stdio "cork-mcp" --port 7777
+
+# Microsoft 365 Copilot / Copilot Studio, which take Streamable HTTP only:
+CORK_API_KEY=<value> npx -y supergateway --stdio "cork-mcp" --port 7777 \
+  --outputTransport streamableHttp --streamableHttpPath /mcp
 ```
 
-supergateway serves the bridged server at `http://localhost:7777/sse`. Expose that as a public HTTPS URL via a secure tunnel
+**Pick the transport your consumer actually takes** - that is the whole reason
+there are two lines. The first serves the bridged server at
+`http://localhost:7777/sse`; the second at `http://localhost:7777/mcp`. Both were
+verified against this binary (the port binds and the endpoint answers). Expose
+whichever one you started as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. **Treat that URL as
 sensitive** - it's a key to your MCP server. Never expose it bare on the internet;
 gate it behind SSO / Cloudflare Access for team use.
@@ -126,7 +135,8 @@ and Security Copilot all consume MCP over **remote Streamable-HTTP only** - the 
 license** and a **tenant admin** to enable it. This is a build-and-host task, not a
 self-serve install.
 
-Once `cork-mcp` is hosted over HTTPS (above), the lowest-code route:
+Once `cork-mcp` is hosted over HTTPS using the **Streamable HTTP** line above
+(`--outputTransport streamableHttp`, served at `/mcp`), the lowest-code route:
 
 1. In **Copilot Studio**, open your agent > **Tools** > **Add a tool** > **Model
    Context Protocol**.
