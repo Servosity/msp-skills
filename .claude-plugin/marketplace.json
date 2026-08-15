@@ -9,6 +9,22 @@
   },
   "plugins": [
     {
+      "name": "abnormal",
+      "source": "./skills/abnormal",
+      "description": "The full Abnormal Security REST API as an agent-native CLI \u2014 with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.",
+      "version": "0.1.1",
+      "category": "security",
+      "tags": [
+        "abnormal",
+        "abnormal security",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "acronis",
       "source": "./skills/acronis",
       "description": "The first real CLI for the Acronis Cyber Protect Cloud platform \u2014 every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
@@ -17,6 +33,66 @@
       "tags": [
         "acronis",
         "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "action1",
+      "source": "./skills/action1",
+      "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
+      "version": "0.1.1",
+      "category": "rmm",
+      "tags": [
+        "action1",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "afi",
+      "source": "./skills/afi",
+      "description": "The first CLI for Afi SaaS backup \u2014 full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
+      "version": "0.1.1",
+      "category": "backup-dr",
+      "tags": [
+        "afi",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "appdirect",
+      "source": "./skills/appdirect",
+      "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.",
+      "version": "0.1.1",
+      "category": "billing",
+      "tags": [
+        "appdirect",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "atera",
+      "source": "./skills/atera",
+      "description": "Every Atera RMM + PSA endpoint, plus a local SQLite mirror that answers fleet-health, SLA, and book-of-business questions no single API call can.",
+      "version": "0.1.1",
+      "category": "rmm",
+      "tags": [
+        "atera",
+        "rmm",
         "msp",
         "mcp",
         "claude-code",
@@ -39,6 +115,83 @@
       ]
     },
     {
+      "name": "auvik",
+      "source": "./skills/auvik",
+      "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "auvik",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "aws-billing",
+      "source": "./skills/aws-billing",
+      "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call.",
+      "version": "0.1.0",
+      "category": "billing",
+      "tags": [
+        "aws-billing",
+        "amazon web services",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "axcient",
+      "source": "./skills/axcient",
+      "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give \u2014 offline, joined, and agent-ready.",
+      "version": "0.2.8",
+      "category": "backup-dr",
+      "tags": [
+        "axcient",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "betterstack",
+      "source": "./skills/betterstack",
+      "description": "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics \u2014 what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift \u2014 that the API alone can't answer.",
+      "version": "0.1.1",
+      "category": "monitoring",
+      "tags": [
+        "betterstack",
+        "better stack",
+        "monitoring",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "blumira",
+      "source": "./skills/blumira",
+      "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account - in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
+      "version": "0.1.1",
+      "category": "security",
+      "tags": [
+        "blumira",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "cipp",
       "source": "./skills/cipp",
       "description": "First single-binary CLI for CIPP \u2014 offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.",
@@ -47,6 +200,58 @@
       "tags": [
         "cipp",
         "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "connect-tool",
+      "source": "./skills/connect-tool",
+      "description": "Set up and prove authentication for any CLI, MCP server, or Skill by driving the Chrome you are already logged into. Reconciles to a desired auth state (setup, refresh, broaden scopes, re-auth, repair), stores secrets in the macOS Keychain or Windows Credential Manager without the complete value entering the agent's context, and finishes only when a real authenticated call returns live data. Runs on Windows and macOS. No compiled CLI or MCP binary; ships Markdown plus stdlib Python helpers.",
+      "version": "0.2.0",
+      "category": "meta",
+      "tags": [
+        "msp-skills",
+        "auth",
+        "oauth",
+        "api-keys",
+        "keychain",
+        "credential-manager",
+        "windows",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "connectwise-automate",
+      "source": "./skills/connectwise-automate",
+      "description": "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "connectwise-automate",
+        "connectwise",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "connectwise-control",
+      "source": "./skills/connectwise-control",
+      "description": "Manage ConnectWise Control (ScreenConnect) remote support and access sessions from the terminal or your AI agent: list and inspect sessions across groups, run commands on guest machines, rename and tag sessions, manage instance users, and query the audit log - the whole instance from one CLI.",
+      "version": "0.1.1",
+      "category": "remote-access",
+      "tags": [
+        "connectwise-control",
+        "connectwise",
+        "remote-access",
         "msp",
         "mcp",
         "claude-code",
@@ -70,6 +275,37 @@
       ]
     },
     {
+      "name": "cork",
+      "source": "./skills/cork",
+      "description": "Every Cork API operation, plus cross-client risk attribution, exploitability-first vulnerability triage, overdue-compliance detection, and stale-connector health checks that a stateless API mirror cannot answer in a single call.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "cork",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "cove",
+      "source": "./skills/cove",
+      "description": "The first CLI and MCP server for Cove Data Protection \u2014 fleet-wide backup health, billing usage, and storage trends from a terminal, with the local history the vendor console doesn't keep.",
+      "version": "0.1.3",
+      "category": "backup-dr",
+      "tags": [
+        "cove",
+        "cove data protection",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "crowdstrike",
       "source": "./skills/crowdstrike",
       "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once \u2014 something no other Falcon tool (including the official MCP server) does.",
@@ -78,6 +314,22 @@
       "tags": [
         "crowdstrike",
         "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "datto-bcdr",
+      "source": "./skills/datto-bcdr",
+      "description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk.",
+      "version": "0.1.1",
+      "category": "backup-dr",
+      "tags": [
+        "datto-bcdr",
+        "datto bcdr",
+        "backup-dr",
         "msp",
         "mcp",
         "claude-code",
@@ -94,6 +346,37 @@
         "datto-rmm",
         "datto rmm",
         "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "domotz",
+      "source": "./skills/domotz",
+      "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
+      "version": "0.1.1",
+      "category": "network-monitoring",
+      "tags": [
+        "domotz",
+        "network-monitoring",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "gradient",
+      "source": "./skills/gradient",
+      "description": "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has.",
+      "version": "0.1.1",
+      "category": "billing",
+      "tags": [
+        "gradient",
+        "gradient msp",
+        "billing",
         "msp",
         "mcp",
         "claude-code",
@@ -124,6 +407,129 @@
       "tags": [
         "hubspot",
         "crm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "hudu",
+      "source": "./skills/hudu",
+      "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
+      "version": "0.1.5",
+      "category": "documentation",
+      "tags": [
+        "hudu",
+        "documentation",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "huntress",
+      "source": "./skills/huntress",
+      "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
+      "version": "0.1.1",
+      "category": "security",
+      "tags": [
+        "huntress",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "itglue",
+      "source": "./skills/itglue",
+      "description": "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search, and documentation-hygiene analytics no other IT Glue tool offers.",
+      "version": "0.1.1",
+      "category": "documentation",
+      "tags": [
+        "itglue",
+        "it glue",
+        "documentation",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "kaseya-bms",
+      "source": "./skills/kaseya-bms",
+      "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute.",
+      "version": "0.1.1",
+      "category": "psa",
+      "tags": [
+        "kaseya-bms",
+        "kaseya bms",
+        "psa",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "knowbe4",
+      "source": "./skills/knowbe4",
+      "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer.",
+      "version": "0.1.1",
+      "category": "security",
+      "tags": [
+        "knowbe4",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "levelio",
+      "source": "./skills/levelio",
+      "description": "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command.",
+      "version": "0.1.1",
+      "category": "rmm",
+      "tags": [
+        "levelio",
+        "level",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "liongard",
+      "source": "./skills/liongard",
+      "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
+      "version": "0.1.1",
+      "category": "documentation",
+      "tags": [
+        "liongard",
+        "documentation",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "maxio",
+      "source": "./skills/maxio",
+      "description": "The first open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror that outlives Maxio's deprecated Insights API.",
+      "version": "0.1.0",
+      "category": "billing",
+      "tags": [
+        "maxio",
+        "billing",
         "msp",
         "mcp",
         "claude-code",
@@ -196,6 +602,22 @@
       ]
     },
     {
+      "name": "nerdio",
+      "source": "./skills/nerdio",
+      "description": "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has.",
+      "version": "0.1.1",
+      "category": "rmm",
+      "tags": [
+        "nerdio",
+        "nerdio manager",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "ninjaone",
       "source": "./skills/ninjaone",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
@@ -211,6 +633,36 @@
       ]
     },
     {
+      "name": "pagerduty",
+      "source": "./skills/pagerduty",
+      "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions \u2014 MTTA/MTTR, on-call coverage gaps, responder load \u2014 that neither the API nor the web UI can.",
+      "version": "0.1.1",
+      "category": "incident-response",
+      "tags": [
+        "pagerduty",
+        "incident-response",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "pandadoc",
+      "source": "./skills/pandadoc",
+      "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has \u2014 stalled deals, aging, recipient engagement, and open quote value from a local store.",
+      "version": "0.1.1",
+      "category": "documentation",
+      "tags": [
+        "pandadoc",
+        "documentation",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "pax8",
       "source": "./skills/pax8",
       "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces.",
@@ -219,6 +671,142 @@
       "tags": [
         "pax8",
         "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "pipedrive",
+      "source": "./skills/pipedrive",
+      "description": "Full Pipedrive CRUD plus a local SQLite pipeline copy: stale deals, forecasts, aging, dupes, rep leaderboards.",
+      "version": "0.1.1",
+      "category": "crm",
+      "tags": [
+        "pipedrive",
+        "crm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "proofpoint",
+      "source": "./skills/proofpoint",
+      "description": "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions \u2014 who is both attacked and clicking, what touched this user \u2014 inside Proofpoint's punishing daily quotas.",
+      "version": "0.1.1",
+      "category": "security",
+      "tags": [
+        "proofpoint",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "quickbooks",
+      "source": "./skills/quickbooks",
+      "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
+      "version": "0.1.4",
+      "category": "billing",
+      "tags": [
+        "quickbooks",
+        "quickbooks online",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "resourceguru",
+      "source": "./skills/resourceguru",
+      "description": "Every Resource Guru endpoint as a typed command, plus a local database and per-resource per-day utilization no Resource Guru report gives you.",
+      "version": "0.1.0",
+      "category": "msp",
+      "tags": [
+        "resourceguru",
+        "resource guru",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "rewst",
+      "source": "./skills/rewst",
+      "description": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
+      "version": "0.1.0",
+      "category": "automation",
+      "tags": [
+        "rewst",
+        "automation",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "rocketcyber",
+      "source": "./skills/rocketcyber",
+      "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
+      "version": "0.1.1",
+      "category": "security",
+      "tags": [
+        "rocketcyber",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "rootly",
+      "source": "./skills/rootly",
+      "description": "Every Rootly incident, alert, and on-call object as a typed command, with a local SQLite mirror for offline analytics.",
+      "version": "0.1.1",
+      "category": "incident-response",
+      "tags": [
+        "rootly",
+        "incident-response",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "runzero",
+      "source": "./skills/runzero",
+      "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice.",
+      "version": "0.1.1",
+      "category": "security",
+      "tags": [
+        "runzero",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "salesbuildr",
+      "source": "./skills/salesbuildr",
+      "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics.",
+      "version": "0.1.1",
+      "category": "crm",
+      "tags": [
+        "salesbuildr",
+        "crm",
         "msp",
         "mcp",
         "claude-code",
@@ -248,6 +836,36 @@
       "category": "backup-dr",
       "tags": [
         "servosity",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "sherweb",
+      "source": "./skills/sherweb",
+      "description": "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has.",
+      "version": "0.1.1",
+      "category": "billing",
+      "tags": [
+        "sherweb",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "skykick",
+      "source": "./skills/skykick",
+      "description": "Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots, and coverage gaps no portal or wrapper can show.",
+      "version": "0.1.1",
+      "category": "backup-dr",
+      "tags": [
+        "skykick",
         "backup-dr",
         "msp",
         "mcp",
@@ -286,219 +904,6 @@
       ]
     },
     {
-      "name": "threatlocker",
-      "source": "./skills/threatlocker",
-      "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
-      "version": "0.3.0",
-      "category": "security",
-      "tags": [
-        "threatlocker",
-        "security",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "hudu",
-      "source": "./skills/hudu",
-      "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
-      "version": "0.1.5",
-      "category": "documentation",
-      "tags": [
-        "hudu",
-        "documentation",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "itglue",
-      "source": "./skills/itglue",
-      "description": "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search, and documentation-hygiene analytics no other IT Glue tool offers.",
-      "version": "0.1.1",
-      "category": "documentation",
-      "tags": [
-        "itglue",
-        "it glue",
-        "documentation",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "huntress",
-      "source": "./skills/huntress",
-      "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
-      "version": "0.1.1",
-      "category": "security",
-      "tags": [
-        "huntress",
-        "security",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "datto-bcdr",
-      "source": "./skills/datto-bcdr",
-      "description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk.",
-      "version": "0.1.1",
-      "category": "backup-dr",
-      "tags": [
-        "datto-bcdr",
-        "datto bcdr",
-        "backup-dr",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "atera",
-      "source": "./skills/atera",
-      "description": "Every Atera RMM + PSA endpoint, plus a local SQLite mirror that answers fleet-health, SLA, and book-of-business questions no single API call can.",
-      "version": "0.1.1",
-      "category": "rmm",
-      "tags": [
-        "atera",
-        "rmm",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "quickbooks",
-      "source": "./skills/quickbooks",
-      "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
-      "version": "0.1.4",
-      "category": "billing",
-      "tags": [
-        "quickbooks",
-        "quickbooks online",
-        "billing",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "pagerduty",
-      "source": "./skills/pagerduty",
-      "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions \u2014 MTTA/MTTR, on-call coverage gaps, responder load \u2014 that neither the API nor the web UI can.",
-      "version": "0.1.1",
-      "category": "incident-response",
-      "tags": [
-        "pagerduty",
-        "incident-response",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "xero",
-      "source": "./skills/xero",
-      "description": "Every Xero Accounting read plus a local SQLite ledger \u2014 aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
-      "version": "0.1.1",
-      "category": "billing",
-      "tags": [
-        "xero",
-        "billing",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "blumira",
-      "source": "./skills/blumira",
-      "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account - in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
-      "version": "0.1.1",
-      "category": "security",
-      "tags": [
-        "blumira",
-        "security",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "sherweb",
-      "source": "./skills/sherweb",
-      "description": "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has.",
-      "version": "0.1.1",
-      "category": "billing",
-      "tags": [
-        "sherweb",
-        "billing",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "pandadoc",
-      "source": "./skills/pandadoc",
-      "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has \u2014 stalled deals, aging, recipient engagement, and open quote value from a local store.",
-      "version": "0.1.1",
-      "category": "documentation",
-      "tags": [
-        "pandadoc",
-        "documentation",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "domotz",
-      "source": "./skills/domotz",
-      "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
-      "version": "0.1.1",
-      "category": "network-monitoring",
-      "tags": [
-        "domotz",
-        "network-monitoring",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "rootly",
-      "source": "./skills/rootly",
-      "description": "Every Rootly incident, alert, and on-call object as a typed command, with a local SQLite mirror for offline analytics.",
-      "version": "0.1.1",
-      "category": "incident-response",
-      "tags": [
-        "rootly",
-        "incident-response",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
       "name": "tactical-rmm",
       "source": "./skills/tactical-rmm",
       "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express.",
@@ -515,448 +920,14 @@
       ]
     },
     {
-      "name": "runzero",
-      "source": "./skills/runzero",
-      "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice.",
-      "version": "0.1.1",
+      "name": "threatlocker",
+      "source": "./skills/threatlocker",
+      "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
+      "version": "0.3.0",
       "category": "security",
       "tags": [
-        "runzero",
+        "threatlocker",
         "security",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "liongard",
-      "source": "./skills/liongard",
-      "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
-      "version": "0.1.1",
-      "category": "documentation",
-      "tags": [
-        "liongard",
-        "documentation",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "action1",
-      "source": "./skills/action1",
-      "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
-      "version": "0.1.1",
-      "category": "rmm",
-      "tags": [
-        "action1",
-        "rmm",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "levelio",
-      "source": "./skills/levelio",
-      "description": "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command.",
-      "version": "0.1.1",
-      "category": "rmm",
-      "tags": [
-        "levelio",
-        "level",
-        "rmm",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "knowbe4",
-      "source": "./skills/knowbe4",
-      "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer.",
-      "version": "0.1.1",
-      "category": "security",
-      "tags": [
-        "knowbe4",
-        "security",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "pipedrive",
-      "source": "./skills/pipedrive",
-      "description": "Full Pipedrive CRUD plus a local SQLite pipeline copy: stale deals, forecasts, aging, dupes, rep leaderboards.",
-      "version": "0.1.1",
-      "category": "crm",
-      "tags": [
-        "pipedrive",
-        "crm",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "salesbuildr",
-      "source": "./skills/salesbuildr",
-      "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics.",
-      "version": "0.1.1",
-      "category": "crm",
-      "tags": [
-        "salesbuildr",
-        "crm",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "nerdio",
-      "source": "./skills/nerdio",
-      "description": "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has.",
-      "version": "0.1.1",
-      "category": "rmm",
-      "tags": [
-        "nerdio",
-        "nerdio manager",
-        "rmm",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "betterstack",
-      "source": "./skills/betterstack",
-      "description": "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics \u2014 what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift \u2014 that the API alone can't answer.",
-      "version": "0.1.1",
-      "category": "monitoring",
-      "tags": [
-        "betterstack",
-        "better stack",
-        "monitoring",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "rocketcyber",
-      "source": "./skills/rocketcyber",
-      "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
-      "version": "0.1.1",
-      "category": "security",
-      "tags": [
-        "rocketcyber",
-        "security",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "proofpoint",
-      "source": "./skills/proofpoint",
-      "description": "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions \u2014 who is both attacked and clicking, what touched this user \u2014 inside Proofpoint's punishing daily quotas.",
-      "version": "0.1.1",
-      "category": "security",
-      "tags": [
-        "proofpoint",
-        "security",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "abnormal",
-      "source": "./skills/abnormal",
-      "description": "The full Abnormal Security REST API as an agent-native CLI \u2014 with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.",
-      "version": "0.1.1",
-      "category": "security",
-      "tags": [
-        "abnormal",
-        "abnormal security",
-        "security",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "skykick",
-      "source": "./skills/skykick",
-      "description": "Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots, and coverage gaps no portal or wrapper can show.",
-      "version": "0.1.1",
-      "category": "backup-dr",
-      "tags": [
-        "skykick",
-        "backup-dr",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "axcient",
-      "source": "./skills/axcient",
-      "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give \u2014 offline, joined, and agent-ready.",
-      "version": "0.2.8",
-      "category": "backup-dr",
-      "tags": [
-        "axcient",
-        "backup-dr",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "afi",
-      "source": "./skills/afi",
-      "description": "The first CLI for Afi SaaS backup \u2014 full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
-      "version": "0.1.1",
-      "category": "backup-dr",
-      "tags": [
-        "afi",
-        "backup-dr",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "cove",
-      "source": "./skills/cove",
-      "description": "The first CLI and MCP server for Cove Data Protection \u2014 fleet-wide backup health, billing usage, and storage trends from a terminal, with the local history the vendor console doesn't keep.",
-      "version": "0.1.3",
-      "category": "backup-dr",
-      "tags": [
-        "cove",
-        "cove data protection",
-        "backup-dr",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "kaseya-bms",
-      "source": "./skills/kaseya-bms",
-      "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute.",
-      "version": "0.1.1",
-      "category": "psa",
-      "tags": [
-        "kaseya-bms",
-        "kaseya bms",
-        "psa",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "appdirect",
-      "source": "./skills/appdirect",
-      "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.",
-      "version": "0.1.1",
-      "category": "billing",
-      "tags": [
-        "appdirect",
-        "billing",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "gradient",
-      "source": "./skills/gradient",
-      "description": "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has.",
-      "version": "0.1.1",
-      "category": "billing",
-      "tags": [
-        "gradient",
-        "gradient msp",
-        "billing",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "connectwise-automate",
-      "source": "./skills/connectwise-automate",
-      "description": "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift.",
-      "version": "0.1.0",
-      "category": "rmm",
-      "tags": [
-        "connectwise-automate",
-        "connectwise",
-        "rmm",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "veeam",
-      "source": "./skills/veeam",
-      "description": "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.",
-      "version": "0.1.0",
-      "category": "backup-dr",
-      "tags": [
-        "veeam",
-        "backup-dr",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "rewst",
-      "source": "./skills/rewst",
-      "description": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
-      "version": "0.1.0",
-      "category": "automation",
-      "tags": [
-        "rewst",
-        "automation",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "connectwise-control",
-      "source": "./skills/connectwise-control",
-      "description": "Manage ConnectWise Control (ScreenConnect) remote support and access sessions from the terminal or your AI agent: list and inspect sessions across groups, run commands on guest machines, rename and tag sessions, manage instance users, and query the audit log - the whole instance from one CLI.",
-      "version": "0.1.1",
-      "category": "remote-access",
-      "tags": [
-        "connectwise-control",
-        "connectwise",
-        "remote-access",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "resourceguru",
-      "source": "./skills/resourceguru",
-      "description": "Every Resource Guru endpoint as a typed command, plus a local database and per-resource per-day utilization no Resource Guru report gives you.",
-      "version": "0.1.0",
-      "category": "msp",
-      "tags": [
-        "resourceguru",
-        "resource guru",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "maxio",
-      "source": "./skills/maxio",
-      "description": "The first open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror that outlives Maxio's deprecated Insights API.",
-      "version": "0.1.0",
-      "category": "billing",
-      "tags": [
-        "maxio",
-        "billing",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "aws-billing",
-      "source": "./skills/aws-billing",
-      "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call.",
-      "version": "0.1.0",
-      "category": "billing",
-      "tags": [
-        "aws-billing",
-        "amazon web services",
-        "billing",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "wordpress",
-      "source": "./skills/wordpress",
-      "description": "Publish and manage WordPress pages, posts, media",
-      "version": "0.1.0",
-      "category": "msp",
-      "tags": [
-        "wordpress",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "zammad",
-      "source": "./skills/zammad",
-      "description": "Every Zammad ticket, article, and Knowledge Base operation as one agent-native CLI  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
-      "version": "0.1.0",
-      "category": "psa",
-      "tags": [
-        "zammad",
-        "psa",
-        "msp",
-        "mcp",
-        "claude-code",
-        "claude-mcp"
-      ]
-    },
-    {
-      "name": "connect-tool",
-      "source": "./skills/connect-tool",
-      "description": "Set up and prove authentication for any CLI, MCP server, or Skill by driving the Chrome you are already logged into. Reconciles to a desired auth state (setup, refresh, broaden scopes, re-auth, repair), stores secrets in the macOS Keychain or Windows Credential Manager without the complete value entering the agent's context, and finishes only when a real authenticated call returns live data. Runs on Windows and macOS. No compiled CLI or MCP binary; ships Markdown plus stdlib Python helpers.",
-      "version": "0.2.0",
-      "category": "meta",
-      "tags": [
-        "msp-skills",
-        "auth",
-        "oauth",
-        "api-keys",
-        "keychain",
-        "credential-manager",
-        "windows",
         "msp",
         "mcp",
         "claude-code",
@@ -980,14 +951,58 @@
       ]
     },
     {
-      "name": "cork",
-      "source": "./skills/cork",
-      "description": "Every Cork API operation, plus cross-client risk attribution, exploitability-first vulnerability triage, overdue-compliance detection, and stale-connector health checks that a stateless API mirror cannot answer in a single call.",
+      "name": "veeam",
+      "source": "./skills/veeam",
+      "description": "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.",
       "version": "0.1.0",
-      "category": "security",
+      "category": "backup-dr",
       "tags": [
-        "cork",
-        "security",
+        "veeam",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "wordpress",
+      "source": "./skills/wordpress",
+      "description": "Publish and manage WordPress pages, posts, media",
+      "version": "0.1.0",
+      "category": "msp",
+      "tags": [
+        "wordpress",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "xero",
+      "source": "./skills/xero",
+      "description": "Every Xero Accounting read plus a local SQLite ledger \u2014 aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
+      "version": "0.1.1",
+      "category": "billing",
+      "tags": [
+        "xero",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "zammad",
+      "source": "./skills/zammad",
+      "description": "Every Zammad ticket, article, and Knowledge Base operation as one agent-native CLI  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
+      "version": "0.1.0",
+      "category": "psa",
+      "tags": [
+        "zammad",
+        "psa",
         "msp",
         "mcp",
         "claude-code",

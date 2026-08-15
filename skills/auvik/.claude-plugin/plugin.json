@@ -1,0 +1,20 @@
+{
+  "name": "auvik",
+  "version": "0.1.0",
+  "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/auvik",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "auvik",
+    "rmm",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

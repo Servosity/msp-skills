@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-14",
+  "generated_at": "2026-08-15",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -162,6 +162,25 @@
       "verification": "awaiting",
       "category": "PSA",
       "tagline": "Triage tickets, surface unbilled time, and project retainer burn by asking."
+    },
+    {
+      "name": "auvik",
+      "system": "Network monitoring: sites, devices, interfaces, and alerts across client networks for MSPs",
+      "status": "beta",
+      "skill_path": "skills/auvik",
+      "cli_binary": "auvik-cli",
+      "mcp_binary": "auvik-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.30.2",
+      "license": "Apache-2.0",
+      "vendor": "Auvik",
+      "vendor_trademark_owner": "Auvik Networks Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/auvik/install.sh)",
+      "install_mcp_doc": "skills/auvik/mcp-install.md",
+      "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
+      "verification": "awaiting",
+      "category": "RMM"
     },
     {
       "name": "aws-billing",

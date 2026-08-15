@@ -32,6 +32,10 @@ atera:
   vendor: "Atera"
   example_command: "Which customers am I managing but not billing?"
 
+auvik:
+  vendor: "Auvik"
+  example_command: "What is past end-of-support across all my clients?"
+
 autotask:
   vendor: "Autotask"
   example_command: "Which approved time hasn't been invoiced?"
