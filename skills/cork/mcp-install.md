@@ -97,11 +97,12 @@ web** is remote-only - see the remote section below.)
 
 # Remote agents (expose the binary over HTTPS first)
 
-All remote agents need `cork-mcp` reachable as a public **HTTPS** endpoint. Run it
-in HTTP mode with your credentials in the environment:
+All remote agents need `cork-mcp` reachable as a public **HTTPS** endpoint.
+`cork-mcp` speaks **stdio only** - it has no HTTP mode and opens no listener of
+its own - so put a stdio-to-HTTP bridge in front of it:
 
 ```bash
-CORK_API_KEY=<value> cork-mcp --transport http --addr :7777
+CORK_API_KEY=<value> npx -y mcp-remote --stdio "cork-mcp" --port 7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel
