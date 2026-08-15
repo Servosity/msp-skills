@@ -321,6 +321,32 @@ VERDICT = {OK: "OK", ERROR: "ERROR", EXPIRED: "EXPIRED"}
 # commands
 # --------------------------------------------------------------------------- #
 
+def _rollback_seed(prof: dict, prior_values: dict[str, str | None],
+                   dest_path: Path, prior_consumer: bytes | None) -> None:
+    """Undo a seed whose verify did not pass: restore the prior credential and
+    consumer file so a wrong or expired capture never destroys a known-good one."""
+    for store_as, prior in prior_values.items():
+        if prior is not None:
+            credstore.store(store_as, prof["name"], prior)
+        else:
+            # There was nothing before; remove what this seed added.
+            try:
+                credstore.delete(store_as, prof["name"])
+            except Exception:
+                pass
+    if prior_consumer is not None:
+        dest_path.write_bytes(prior_consumer)
+        try:
+            os.chmod(dest_path, 0o600)
+        except OSError:
+            pass
+    elif dest_path.exists():
+        try:
+            dest_path.unlink()
+        except OSError:
+            pass
+
+
 def cmd_seed(args) -> int:
     prof = load_profile(args.profile)
     cap = capture_path(prof, args.curl)
@@ -333,6 +359,15 @@ def cmd_seed(args) -> int:
     headers = curlparse.parse_headers_from_file(str(cap))
     values = extract_values(prof, headers)
 
+    # Snapshot everything this seed is about to overwrite. The credential store is
+    # canonical, so a failed verify must not leave it holding a bad value or the
+    # consumer file wired to one. We commit only after run_verify passes.
+    prior_values: dict[str, str | None] = {
+        store_as: credstore.fetch(store_as, prof["name"]) for store_as in values
+    }
+    dest_path = resolve_path(prof["wire"]["path"], SKILL_DIR)
+    prior_consumer = dest_path.read_bytes() if dest_path.exists() else None
+
     receipts: dict[str, str] = {}
     for store_as, value in values.items():
         credstore.store(store_as, prof["name"], value)
@@ -340,12 +375,20 @@ def cmd_seed(args) -> int:
 
     dest = do_wire(prof)  # rebuild from the store we just wrote
 
+    code, detail = run_verify(prof)
+    if code != OK:
+        # Wrong or expired capture: roll back to the previous known state.
+        _rollback_seed(prof, prior_values, dest_path, prior_consumer)
+        print(f"verify: {VERDICT[code]} - {detail}")
+        print(f"  rolled back: '{prof['name']}' credential and consumer file left unchanged "
+              f"(the new capture did not verify)")
+        return code
+
+    # Verified good -- now it is safe to publish receipts and record the seed.
     print(f"seeded '{prof['name']}' ({len(values)} credential(s)); wired -> {dest}")
     for store_as, rc in receipts.items():
         print(f"  {store_as}: {rc}")
     record_seed(prof["name"], receipts)
-
-    code, detail = run_verify(prof)
     print(f"verify: {VERDICT[code]} - {detail}")
     return code
 
@@ -378,8 +421,14 @@ def _expiring(prof: dict, state: dict) -> bool:
 
 
 def cmd_doctor(args) -> int:
-    names = all_profiles() if (args.all or not args.profile) else [args.profile]
     state = read_state()
+    # --all checks SEEDED profiles only. all_profiles() would include the shipped
+    # example-* profiles that were never seeded and report false failures for
+    # credentials that do not exist.
+    if args.all or not args.profile:
+        names = sorted(state.get("profiles", {}))
+    else:
+        names = [args.profile]
     worst = OK
     for name in names:
         prof = load_profile(name)

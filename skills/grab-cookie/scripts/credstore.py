@@ -190,11 +190,20 @@ def _win_store(service: str, account: str, value: str) -> None:
         raise CredError(f"CredWriteW failed (error {ctypes.get_last_error()})")
 
 
+ERROR_NOT_FOUND = 1168  # winerror.h: the credential target does not exist
+
+
 def _win_fetch(service: str, account: str) -> str | None:
     ctypes, CREDENTIAL, advapi = _win_structs()
     ptr = ctypes.POINTER(CREDENTIAL)()
     if not advapi.CredReadW(target_name(service, account), CRED_TYPE_GENERIC, 0, ctypes.byref(ptr)):
-        return None
+        # Only a genuinely missing target reads as None. Any other failure
+        # (no logon session, invalid flags, access denied) is a real error and
+        # must not be silently reported as "no credential stored".
+        err = ctypes.get_last_error()
+        if err == ERROR_NOT_FOUND:
+            return None
+        raise CredError(f"CredReadW failed (error {err})")
     try:
         c = ptr.contents
         # string_at, NOT slicing a c_byte array: c_byte is SIGNED, so any byte
@@ -284,8 +293,12 @@ def _selfcheck(live: bool = False) -> None:
         print("credstore.py selfcheck OK (offline: redaction + blob round-trip, no live creds)")
         return
 
-    # Live round-trip against the real backend for this platform.
-    svc, acct = "CREDGRAB_SELFCHECK", "selfcheck"
+    # Live round-trip against the real backend for this platform. The account is
+    # unique per run so the check can only ever create and delete its OWN entry --
+    # a fixed target could collide with (and, via -U on macOS, overwrite then
+    # delete) a real credential a user happened to store under that name.
+    import secrets
+    svc, acct = "CREDGRAB_SELFCHECK", "selfcheck-" + secrets.token_hex(4)
     try:
         out = store(svc, acct, secret)
         assert secret not in out, "SECRET LEAKED from store()"
