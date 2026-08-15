@@ -8,7 +8,7 @@ All notable changes to this skill are documented here. Format follows
 
 ### Added
 - Initial msp-skills release: `auvik-cli` and `auvik-mcp` for the Auvik
-  read-only JSON:API, plus a local SQLite mirror.
+  JSON:API (read-dominant - dismissing an alert is the only write it exposes), plus a local SQLite mirror.
 - Full endpoint surface: inventory, devices, interfaces, networks, alerts,
   configurations, entity audit and notes, billing usage, statistics, and the
   Auvik SaaS Management (ASM) applications, users, and licences.

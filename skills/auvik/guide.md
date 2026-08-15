@@ -501,7 +501,9 @@ This CLI is designed for AI agent consumption:
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
 - **Filterable** - `--select <field>[,<field>...]` returns only fields you need
-- **Previewable** - `--dry-run` shows the request without sending
+- **Previewable** - `--dry-run` shows the request without sending. This guards the
+  Auvik API write only: `auth set-credentials`, `auth logout` and `profile save`
+  write to your own machine and run regardless of the flag.
 - **Explicit retries** - add `--idempotent` to create retries when a no-op success is acceptable
 - **Confirmable** - `--yes` for explicit confirmation of destructive actions
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
