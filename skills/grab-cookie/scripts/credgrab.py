@@ -30,7 +30,8 @@ Commands:
                                         round trip (creates and deletes one entry, and
                                         can raise a Keychain prompt on macOS).
 
-Profiles live in profiles/<name>.json (see README.md for the schema).
+Profiles live in profiles/<name>.json; the two annotated example-*.json
+files in that directory are the schema reference.
 """
 from __future__ import annotations
 
@@ -143,15 +144,22 @@ def record_seed(name: str, receipts: dict[str, str]) -> None:
         # other profiles, and dropping them turns the next `doctor --all` into a
         # one-line all-clear that checked one of three. Move it aside first, name
         # the backup, and say what was lost.
-        backup = STATE_PATH.with_name(f"{STATE_PATH.name}.unreadable-{int(time.time())}")
+        stamp = int(time.time())
+        backup = STATE_PATH.with_name(f"{STATE_PATH.name}.unreadable-{stamp}")
+        n = 1
+        while backup.exists():  # two failures in the same second must not overwrite
+            backup = STATE_PATH.with_name(f"{STATE_PATH.name}.unreadable-{stamp}.{n}")
+            n += 1
+        saved = False
         try:
             os.replace(STATE_PATH, backup)
+            saved = True
             print(f"  warning: state file was unreadable; moved to {backup.name}")
         except OSError as exc:
             print(f"  warning: state file is unreadable and could not be moved aside ({exc})")
-        print("  warning: any OTHER profile's recorded seed time is no longer tracked -- "
-              "re-seed them, or restore the backup, or `doctor --all` will silently check "
-              "only what is re-recorded from here")
+        print("  warning: any OTHER profile's recorded seed time is no longer tracked, so "
+              "`doctor --all` will check only what is re-recorded from here. Re-seed them"
+              + (f", or restore {backup.name}." if saved else "."))
         state = {"profiles": {}}
     state.setdefault("profiles", {})[name] = {
         "last_seed": int(time.time()),
@@ -237,20 +245,6 @@ def _placeholders(template: str) -> list[str]:
 
 
 
-def _describe_foreign_line(bare: str) -> str:
-    """A short, non-secret label for a line we refuse to overwrite.
-
-    The refusal message is model-visible, and the module contract is that a
-    credential value never is. A destination line can itself be a secret (a bare
-    base64 token, say), so anything long or high-entropy-looking is reported by
-    shape rather than by value.
-    """
-    key = bare.split("=", 1)[0].strip().removeprefix("export ").strip() if "=" in bare else bare
-    if len(key) > 32 or re.fullmatch(r"[A-Za-z0-9+/_.\-]{20,}", key):
-        return f"<a {len(bare)}-char line>"
-    return key
-
-
 def atomic_write(path: Path, content: str, mode: int) -> None:
     """Write `content` to `path` atomically, never world-readable in between.
 
@@ -316,41 +310,50 @@ def do_wire(prof: dict, values: dict[str, str] | None = None) -> Path:
     # keys is a whole-line comparison, deliberately not an .env parser -- the
     # goal is "is anything here that I did not write", not "merge it".
     if wire["type"] == "env-file" and dest.exists():
-        owned = {ln.split("=", 1)[0].strip().removeprefix("export ").strip()
-                 for ln in content.splitlines() if "=" in ln}
+        # Compare the destination against exactly what THIS render would write:
+        # an assignment is ours if we own its key (the value rotates), and any
+        # other line is ours only if it is byte-identical to a line we emit. That
+        # covers a multi-line header_comment and comments inside `lines` without
+        # a special case, and it needs no .env parser.
+        owned_keys, owned_literals = set(), set()
+        for ln in content.splitlines():
+            bare = ln.strip()
+            if not bare:
+                continue
+            if "=" in bare:
+                owned_keys.add(bare.split("=", 1)[0].strip().removeprefix("export ").strip())
+            else:
+                owned_literals.add(bare)
         try:
             existing = dest.read_text(encoding="utf-8", errors="replace")
         except OSError:
             existing = ""
         existing = existing.lstrip("\ufeff")  # a Windows editor's BOM is not content
-        # Allow-list, not deny-list. Anything that is not a blank line, not this
-        # profile's own comment header, and not an owned KEY= assignment counts as
-        # foreign -- including a commented-out setting, and including a YAML, JSON
-        # or INI body, which has no "=" at all and which a key-only scan waved
-        # straight through while this file gets regenerated from scratch.
-        header = (wire.get("header_comment") or "").strip()
         foreign = []
-        for ln in existing.split("\n"):
+        for n, ln in enumerate(existing.split("\n"), start=1):
             bare = ln.strip()
-            if not bare:
+            if not bare or bare in owned_literals:
                 continue
-            if header and bare == header:
+            if "=" in bare and bare.split("=", 1)[0].strip().removeprefix("export ").strip() in owned_keys:
                 continue
-            key = bare.split("=", 1)[0].strip().removeprefix("export ").strip() if "=" in bare else None
-            if key is not None and key in owned:
-                continue
-            foreign.append(_describe_foreign_line(bare))
+            foreign.append(n)
         if foreign:
-            shown = sorted(set(foreign))
+            # Report LINE NUMBERS, never content. Any line here is by definition
+            # something this profile did not write, so it can be another tool's
+            # secret -- and this message is model-visible. A line number cannot
+            # leak a value; a "redacted" label still has to decide what is safe
+            # to print, and that decision is what leaked.
+            shown = ", ".join(str(n) for n in foreign[:10])
+            more = f", and {len(foreign) - 10} more" if len(foreign) > 10 else ""
             raise SystemExit(
                 f"FAIL: refusing to overwrite {wire['path']} -- {len(foreign)} line(s) in it "
-                f"were not written by this profile "
-                f"({', '.join(shown[:5])}{', ...' if len(shown) > 5 else ''}).\n"
+                f"were not written by this profile (line {shown}{more}).\n"
                 f"  This file is REGENERATED from the credential store on every wire, so "
-                f"anything else in it would be lost.\n"
-                f"  If those lines matter, point this profile's wire.path at a file it owns "
+                f"anything else in it would be lost. Open it and look at those lines.\n"
+                f"  If they matter, point this profile's wire.path at a file it owns "
                 f"exclusively and have your tool read both.\n"
-                f"  If the file is stale and safe to discard, delete it and re-run wire."
+                f"  If they are stale -- a key or header this profile no longer writes -- "
+                f"delete the file and re-run wire."
             )
 
     mode = int(wire.get("mode", "0600"), 8) if isinstance(wire.get("mode"), str) else wire.get("mode", 0o600)
@@ -414,7 +417,8 @@ VERDICT = {OK: "OK", ERROR: "ERROR", EXPIRED: "EXPIRED"}
 # --------------------------------------------------------------------------- #
 
 def _rollback_seed(prof: dict, prior_values: dict[str, str | None],
-                   dest_path: Path, prior_consumer: bytes | None) -> None:
+                   dest_path: Path, prior_consumer: bytes | None,
+                   prior_mode: int | None = None) -> None:
     """Undo a seed whose verify did not pass: restore the prior credential and
     consumer file so a wrong or expired capture never destroys a known-good one."""
     for store_as, prior in prior_values.items():
@@ -437,8 +441,11 @@ def _rollback_seed(prof: dict, prior_values: dict[str, str | None],
             unchanged = False
         if not unchanged:
             dest_path.write_bytes(prior_consumer)
+            # Restore the mode the file actually had. Hardcoding 0600 turned a
+            # profile's declared 0644 consumer owner-only during a rollback that
+            # reports the file as left unchanged.
             try:
-                os.chmod(dest_path, 0o600)
+                os.chmod(dest_path, prior_mode if prior_mode is not None else 0o600)
             except OSError:
                 pass
     elif dest_path.exists():
@@ -468,6 +475,7 @@ def cmd_seed(args) -> int:
     }
     dest_path = resolve_path(prof["wire"]["path"], SKILL_DIR)
     prior_consumer = dest_path.read_bytes() if dest_path.exists() else None
+    prior_mode = (dest_path.stat().st_mode & 0o777) if dest_path.exists() else None
 
     receipts: dict[str, str] = {}
     for store_as, value in values.items():
@@ -482,13 +490,13 @@ def cmd_seed(args) -> int:
         dest = do_wire(prof)  # rebuild from the store we just wrote
         code, detail = run_verify(prof)
     except BaseException:
-        _rollback_seed(prof, prior_values, dest_path, prior_consumer)
+        _rollback_seed(prof, prior_values, dest_path, prior_consumer, prior_mode)
         print(f"  rolled back: '{prof['name']}' credential and consumer file left unchanged")
         raise
 
     if code != OK:
         # Wrong or expired capture: roll back to the previous known state.
-        _rollback_seed(prof, prior_values, dest_path, prior_consumer)
+        _rollback_seed(prof, prior_values, dest_path, prior_consumer, prior_mode)
         print(f"verify: {VERDICT[code]} - {detail}")
         print(f"  rolled back: '{prof['name']}' credential and consumer file left unchanged "
               f"(the new capture did not verify)")
@@ -608,7 +616,11 @@ def cmd_selfcheck(live: bool = False) -> int:
         except SystemExit as exc:
             msg = str(exc)
             assert "refusing to overwrite" in msg, msg
-            assert "OTHER_SETTING" in msg and "DB_URL" in msg, msg
+            # Line numbers, never content: a foreign line is by definition
+            # something another tool wrote, so it can be another tool's secret.
+            assert "line " in msg, msg
+            assert "OTHER_SETTING" not in msg and "keepme" not in msg, "LEAKED destination content"
+            assert "DB_URL" not in msg and "postgres" not in msg, "LEAKED destination content"
         # the foreign settings are still on disk, untouched
         after = open(envp, encoding="utf-8").read()
         assert "OTHER_SETTING=keepme" in after and "DB_URL=postgres://x" in after, after
@@ -633,6 +645,18 @@ def cmd_selfcheck(live: bool = False) -> int:
             raise AssertionError("do_wire overwrote a secret-bearing destination")
         except SystemExit as exc:
             assert "SUPERSECRETPAYLOAD" not in str(exc), "SECRET LEAKED into the refusal message"
+        # A multi-line header_comment must round-trip: comparing the header as one
+        # physical line refused the profile's OWN output forever, and inside seed
+        # that rollback meant a site could never be re-authed.
+        os.unlink(envp)  # previous case left a foreign file here
+        multi = {"type": "env-file",
+                 "header_comment": "# Regenerated by grab-cookie.\n# Do not edit: rebuilt from the store.",
+                 "lines": ["A={A}", "B={B}"], "path": envp}
+        prof_multi = {"name": "sc", "extract": [], "wire": multi}
+        do_wire(prof_multi, values={"A": "1", "B": "2"})
+        do_wire(prof_multi, values={"A": "9", "B": "8"})  # re-wire its own output
+        again = open(envp, encoding="utf-8").read()
+        assert "A=9" in again and "Do not edit" in again, again
         # a file this profile DOES own exclusively is rewritten normally
         with open(envp, "w", encoding="utf-8") as fh:
             fh.write("# test\nA=stale\nB=stale\n")

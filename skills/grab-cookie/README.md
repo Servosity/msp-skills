@@ -46,8 +46,9 @@ tradeoff on purpose and in writing. If your vendor has an API key, use
 
 It is forked from `connect-tool`'s credential-store backend rather than reused
 unmodified: the namespace differs (`credgrab/...`, so the two Skills never
-collide in the OS credential store), the live self-check is opt-in here, and
-there are four further behavioural differences. NOTICE lists every one.
+collide in the OS credential store), the live self-check is opt-in here, the
+receipt withholds more for a short secret, and there are several further
+behavioural differences. NOTICE enumerates all of them.
 
 ## What ships
 
