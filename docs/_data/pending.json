@@ -48,6 +48,13 @@
     "current_hash": "sha256:5b6ba5c0d36149baa8914cb3dcb1339aa330ec8230caf5a7548ec18070ff4e0d",
     "released_hash": "sha256:d38c62044a6ebdadc8b90b338e28235c063aefb5d6e267b61d73daed9a5b7f3a"
   },
+  "auvik": {
+    "state": "version-pending",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:deb0ad8ec20dae279cdc5a39a72e4c3841f4ff044d66badcdfa952961b1d1d6c",
+    "released_hash": "sha256:deb0ad8ec20dae279cdc5a39a72e4c3841f4ff044d66badcdfa952961b1d1d6c"
+  },
   "aws-billing": {
     "state": "up-to-date",
     "version": "0.1.0",
