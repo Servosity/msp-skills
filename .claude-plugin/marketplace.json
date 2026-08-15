@@ -978,6 +978,27 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "grab-cookie",
+      "source": "./skills/grab-cookie",
+      "description": "Capture, store, wire, and verify a browser-session credential for sites that issue no API key and no OAuth: httpOnly session cookies, opaque localStorage bearer tokens, and custom auth headers. One DevTools Copy as cURL paste is the only human step; extraction, storage in the Windows Credential Manager or macOS Keychain, config regeneration, live verification, and expiry warning are automated. Complements connect-tool, which deliberately refuses cookie import. Markdown plus stdlib Python, no compiled binary and no MCP server.",
+      "version": "0.1.0",
+      "category": "meta",
+      "tags": [
+        "msp-skills",
+        "auth",
+        "session",
+        "cookie",
+        "credentials",
+        "keychain",
+        "credential-manager",
+        "re-auth",
+        "windows",
+        "macos",
+        "msp",
+        "claude-code"
+      ]
     }
   ]
 }

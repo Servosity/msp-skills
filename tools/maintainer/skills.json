@@ -1045,7 +1045,7 @@
       "cli_binary": "pipedrive-cli",
       "mcp_binary": "pipedrive-mcp",
       "vendor": "Pipedrive",
-      "vendor_trademark_owner": "Pipedrive OÜ",
+      "vendor_trademark_owner": "Pipedrive O\u00dc",
       "first_party": false,
       "category": "CRM",
       "display_name": "Pipedrive",

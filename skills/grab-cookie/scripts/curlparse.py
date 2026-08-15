@@ -44,7 +44,7 @@ _CK_ANSIC = re.compile(r"(?:-b|--cookie)\s+\$'((?:[^'\\]|\\.)*)'")
 _CK_SINGLE = re.compile(r"(?:-b|--cookie)\s+'([^']*)'")
 _CK_DOUBLE = re.compile(r'(?:-b|--cookie)\s+"((?:[^"\\]|\\.)*)"')
 
-# Line continuations: bash `\`, cmd `^`, PowerShell backtick — each at EOL.
+# Line continuations: bash `\`, cmd `^`, PowerShell backtick - each at EOL.
 _CONT = re.compile(r"[\\^`]\r?\n")
 
 
