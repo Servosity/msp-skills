@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-15",
+  "generated_at": "2026-08-16",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -1232,7 +1232,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/wordpress/install.sh)",
       "install_mcp_doc": "skills/wordpress/mcp-install.md",
       "description": "Publish and manage WordPress pages, posts, media",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "Marketing"
     },
     {
@@ -1271,7 +1271,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zammad/install.sh)",
       "install_mcp_doc": "skills/zammad/mcp-install.md",
       "description": "Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "PSA",
       "tagline": "Read, search, and triage Zammad tickets and Knowledge Base, plus team-management analytics the API can't answer in one call."
     }
