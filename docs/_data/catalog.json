@@ -596,8 +596,8 @@
       "display_name": "WordPress",
       "tagline": "Publish and manage WordPress pages, posts, media",
       "category": "Marketing",
-      "verification": "awaiting",
-      "verified_by": null,
+      "verification": "live-verified",
+      "verified_by": "Servosity (maintainer)",
       "issue_url": null,
       "url": "/skills/wordpress/"
     },
@@ -616,8 +616,8 @@
       "display_name": "Zammad",
       "tagline": "Read, search, and triage Zammad tickets and Knowledge Base, plus team-management analytics the API can't answer in one call.",
       "category": "PSA",
-      "verification": "awaiting",
-      "verified_by": null,
+      "verification": "live-verified",
+      "verified_by": "Servosity (maintainer)",
       "issue_url": null,
       "url": "/skills/zammad/"
     }

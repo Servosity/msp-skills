@@ -5,7 +5,7 @@ description: "Every Zammad ticket, article, and Knowledge Base operation as one 
 permalink: /skills/zammad/
 skill_name: "Zammad MCP"
 image: /assets/social/zammad/wide-1200x630.png
-verification: awaiting
+verification: live-verified
 faqs:
   - q: "Is there an MCP server for Zammad?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Zammad, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
@@ -38,7 +38,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Zammad GmbH.
 
-**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-08-16.
 
 Yes - there is an MCP server for Zammad. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Zammad to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
