@@ -413,9 +413,9 @@
     "released_hash": "sha256:4fd5870f0fc6b20ea433c5c760194168328f2121e5a58a98a8d56ca04a6e9395"
   },
   "unifi-network": {
-    "state": "up-to-date",
+    "state": "version-pending",
     "version": "0.1.1",
-    "latest_tag": "unifi-network-v0.1.1",
+    "latest_tag": "unifi-network-v0.1.0",
     "current_hash": "sha256:3d50029226959bd3d93889ea89bca5d47c18a1b0b3927466b123715ffc5b8852",
     "released_hash": "sha256:3d50029226959bd3d93889ea89bca5d47c18a1b0b3927466b123715ffc5b8852"
   },
