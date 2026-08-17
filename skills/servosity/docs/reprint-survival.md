@@ -72,3 +72,53 @@ reprint on an unfixed press restores the false logout. The ritual must re-apply:
   `auth set-token` names the file it actually wrote.
 - `internal/config/config_test.go` - hand-written, not generated. Carries the two
   regression tests that fail without the fix.
+
+## mcp-filesystem-path-flags (PR #248)
+
+The MCP server shells out to the companion CLI as the server account, so any
+forwarded flag that names a local path lets a tool caller choose where that
+account reads or writes. The generated `blockedDestinationFlags` list covered
+`audit-dir` / `o` / `output` / `receipt-file` and missed:
+
+| Flag | Commands | Effect |
+| --- | --- | --- |
+| `--db` | every local-store command (21 tools) | attacker-chosen SQLite file path |
+| `--out` | `qbr`, `qbr-all` | attacker-chosen report destination |
+| `--input` | `import` | server-side file read |
+| `--notes-file`, `--playbook-file`, `--playbook-notes-file` | `teach`, `teach playbook` | server-side file read and write |
+| `--reconcile` | `bill` | server-side CSV read |
+
+28 of 155 tools exposed at least one. Driving `learnings_list` with
+`{"db": "<any path>"}` through the MCP server created a 1.8 MB SQLite file there.
+
+**Reprint durability:** both files are generated, so a reprint reopens all 28.
+The ritual must re-apply:
+
+- `internal/mcp/cobratree/shellout.go` - the added `db` / `input` / `out` entries
+  in `blockedDestinationFlags`, plus `filesystemPathFlagPhrases` and
+  `isFilesystemPathFlag`.
+- `internal/mcp/cobratree/typemap.go` - the `isFilesystemPathFlag` call inside
+  `blockedStructuredArgsForCommand`'s local-flag walk.
+- `internal/mcp/cobratree/filesystem_flags_test.go` - hand-written, not generated.
+
+Matching the flag's **usage text** rather than its **name** is load-bearing. This
+CLI ships generated API body fields called `--path`, `--seed-path`,
+`--source-paths`, `--exclude-paths`, `--filename` and `--working-dir` whose values
+go to the vendor API and never touch the server's filesystem. A name-based rule
+would block those real API surfaces and still miss the next generated path flag.
+
+## cross-host-redirect-strips-all-credentials (PR #248)
+
+The generated `CheckRedirect` deleted only `Authorization` on a host-changing
+redirect while Go replayed every other header verbatim. The 4.30 surface added
+26 `--x-servosity-mfa` flags, so `X-Servosity-Mfa` is a second live credential on
+the wire, and `config.headers` lets an operator put an API key in any header name
+they choose. A 3xx from the API (an open redirect, or a partner handoff) handed
+those credentials to a host the operator never authenticated against.
+
+**Reprint durability:** `internal/client/client.go` is generated. The ritual must
+re-apply `isCredentialHeader` + `stripCredentialHeaders` and the
+`stripCredentialHeaders(req.Header)` call on the cross-host branch. The
+same-host branch is unchanged: it still re-derives `Authorization` so nonce-bound
+schemes keep working and in-host redirects do not start returning 401.
+`internal/client/redirect_credentials_test.go` is hand-written, not generated.

@@ -274,10 +274,14 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 			return errors.New("stopped after 10 redirects")
 		}
 		// Never carry credential material across a host-changing redirect.
-		// Go strips Authorization and Cookie in common cases, but custom
-		// headers and URL query values need explicit removal here.
+		// Go strips Authorization and Cookie in common cases, but this client
+		// also sends per-endpoint credential headers (X-Servosity-Mfa on the
+		// MFA-gated endpoints) and arbitrary operator-configured headers from
+		// config.headers, and Go copies both to the new host verbatim.
+		// Deleting only Authorization would hand a second live credential to
+		// whatever host a 3xx names, so strip every credential-classed header.
 		if req.URL.Host != via[0].URL.Host {
-			req.Header.Del("Authorization")
+			stripCredentialHeaders(req.Header)
 		}
 		// Same-host gate mirrors Go's shouldCopyHeaderOnRedirect: a
 		// cross-domain 3xx (open redirect or partner handoff) must not
@@ -291,6 +295,84 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 		return nil
 	}
 	return c
+}
+
+// credentialHeaderNames are header names that carry a credential outright,
+// matched case-insensitively on the whole name.
+var credentialHeaderNames = map[string]bool{
+	"authorization":       true,
+	"proxy-authorization": true,
+	"cookie":              true,
+	"cookie2":             true,
+	"www-authenticate":    true,
+	"proxy-authenticate":  true,
+}
+
+// credentialHeaderTokens are hyphen- or underscore-separated name segments that
+// mark a header as credential-bearing. Matching whole segments rather than raw
+// substrings keeps the rule from tripping on unrelated names (an "assignee"
+// header does not match "sig"), while still covering vendor headers this
+// connector never enumerated: X-Servosity-Mfa, X-API-Key, X-Auth-Token,
+// X-Session-Id, X-Client-Secret and anything an operator adds to
+// config.headers. A cross-host redirect is the only place this runs, so the
+// bias is deliberately toward stripping one header too many rather than one
+// too few.
+var credentialHeaderTokens = map[string]bool{
+	"auth":          true,
+	"authorization": true,
+	"apikey":        true,
+	"bearer":        true,
+	"cookie":        true,
+	"credential":    true,
+	"credentials":   true,
+	"csrf":          true,
+	"hmac":          true,
+	"jwt":           true,
+	"key":           true,
+	"mfa":           true,
+	"nonce":         true,
+	"otp":           true,
+	"passwd":        true,
+	"password":      true,
+	"private":       true,
+	"pwd":           true,
+	"secret":        true,
+	"session":       true,
+	"sig":           true,
+	"signature":     true,
+	"token":         true,
+	"totp":          true,
+	"xsrf":          true,
+}
+
+// isCredentialHeader reports whether name looks like it carries a credential.
+func isCredentialHeader(name string) bool {
+	lower := strings.ToLower(strings.TrimSpace(name))
+	if lower == "" {
+		return false
+	}
+	if credentialHeaderNames[lower] {
+		return true
+	}
+	for _, segment := range strings.FieldsFunc(lower, func(r rune) bool {
+		return r == '-' || r == '_' || r == '.'
+	}) {
+		if credentialHeaderTokens[segment] {
+			return true
+		}
+	}
+	return false
+}
+
+// stripCredentialHeaders removes every credential-classed header from h. It is
+// called on a host-changing redirect, where any surviving credential would be
+// replayed to a host the operator never authenticated against.
+func stripCredentialHeaders(h http.Header) {
+	for name := range h {
+		if isCredentialHeader(name) {
+			h.Del(name)
+		}
+	}
 }
 
 // RateLimit returns the current effective rate limit in req/s. Returns 0 if disabled.

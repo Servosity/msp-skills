@@ -13,6 +13,7 @@ import (
 
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/spf13/pflag"
 	"servosity-msp-pp-cli/internal/mcp/bound"
 )
 
@@ -191,12 +192,55 @@ var reservedStructuredArgs = map[string]bool{
 
 // MCP runs commands as the server account. Letting clients choose filesystem
 // destinations would let a tool write or truncate anything that account can
-// reach.
+// reach; letting them choose filesystem SOURCES would let a tool read a file
+// that account can reach and hand the bytes back in the tool result.
+//
+// This list is the floor, not the whole gate: isFilesystemPathFlag below also
+// blocks any command-local flag whose usage text names a filesystem location,
+// so a newly generated path flag is refused before anyone has to notice it.
 var blockedDestinationFlags = map[string]bool{
 	"audit-dir":    true,
+	"db":           true,
+	"input":        true,
 	"o":            true,
+	"out":          true,
 	"output":       true,
 	"receipt-file": true,
+}
+
+// filesystemPathFlagPhrases are usage-string fragments that mark a flag as
+// naming a filesystem location the server account would read or write.
+//
+// Matching the usage text rather than the flag NAME is deliberate. This CLI
+// carries generated API body fields called --path, --seed-path, --source-paths,
+// --exclude-paths, --filename and --working-dir whose values are sent to the
+// vendor API and never touch the server's own filesystem; a name-based rule
+// would block those real API surfaces while still missing the next generated
+// flag that does take a local path. The generated body fields describe
+// themselves with a bare Title-case noun ("Path", "Seed path"), while a genuine
+// local-filesystem flag spells out that it takes a file or directory path.
+var filesystemPathFlagPhrases = []string{
+	"file path",
+	"path to ",
+	"database path",
+	"output directory",
+	"audit directory",
+	"directory path",
+}
+
+// isFilesystemPathFlag reports whether flag's own description says it names a
+// filesystem location.
+func isFilesystemPathFlag(flag *pflag.Flag) bool {
+	if flag == nil {
+		return false
+	}
+	usage := strings.ToLower(flag.Usage)
+	for _, phrase := range filesystemPathFlagPhrases {
+		if strings.Contains(usage, phrase) {
+			return true
+		}
+	}
+	return false
 }
 
 // blockedRootFlags are root-level CLI flags that an MCP client must not be

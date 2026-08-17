@@ -205,6 +205,12 @@ func blockedStructuredArgsForCommand(cmd *cobra.Command) map[string]bool {
 			return
 		}
 		localFlags[flag.Name] = true
+		// A command-local flag normally overrides the root denylist, but a
+		// local flag that names a filesystem location is exactly the thing
+		// blockedDestinationFlags exists to refuse, so the rule wins here.
+		if isFilesystemPathFlag(flag) {
+			blocked[flag.Name] = true
+		}
 	})
 	cmd.InheritedFlags().VisitAll(func(flag *pflag.Flag) {
 		if flag == nil || flag.Hidden || flag.Deprecated != "" {
