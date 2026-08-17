@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "axcient-mcp",
   "display_name": "Axcient x360Recover",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give \u2014 offline, joined, and agent-ready.",
   "author": {
     "name": "Servosity Inc."
