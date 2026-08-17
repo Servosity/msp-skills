@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/unifi-network-mcp",
   "title": "UniFi MCP",
   "description": "Every UniFi Network API operation, plus drift detection, topology, and rule prediction no other",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/unifi-network/unifi-network-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/unifi-network-v0.1.0/unifi-network-mcp.mcpb",
-      "version": "0.1.0",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/unifi-network-v0.1.1/unifi-network-mcp.mcpb",
+      "version": "0.1.1",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

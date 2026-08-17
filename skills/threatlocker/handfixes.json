@@ -269,6 +269,34 @@
           "min_count": 1
         }
       ]
+    },
+    {
+      "id": "mcp-tenant-gate-allows-ungated-invocation",
+      "summary": "the MCP tenant gate falls through to the tool handler when no platform source is registered, instead of default-denying every non-mirror tool",
+      "why": "cli.VerifyMCPInvocation returns (nil, nil) when registeredPlatformSource is nil, which means 'there is nothing to gate' - and no connector in this repo registers a platform source (registerPlatformSource has zero callers outside internal/cli/platform_client.go). The 4.30.1/4.30.2 gate read that nil session as a failure and answered 'MCP tenant gate is not configured' for every tool that is not a Cobra mirror. Cobra mirrors carry pp:tenant-gate = \"child-cli\" and pass through, so the damage was invisible in a tool count: 6 tools per connector were dead while the server still listed them. Those 6 are the entire offline-mirror surface (context, search, sql) plus the entire code-orchestration surface (<prefix>_search / _get / _execute) - exactly the capabilities this connector's own description says a plain read-only MCP does not ship. Measured over stdio before the fix: 6/6 returned isError with the gate message; after, all 6 reach their handler. Fixed upstream in cli-printing-press 4.30.3 (issue #4157, PR #4171); this is the surgical back-port, byte-identical to what 4.30.3 emits. TestMCPUngatedInvocationUsesRealVerifier is the regression test that ships with the 4.30.3 template: it drives the wrapper with the REAL verifier (not the fake the other two tests install) and fails if the handler is blocked. Reverting either the fall-through or the test fails check_handfixes.py.",
+      "status": "upstreamed",
+      "spec_encode_followup": "Already fixed in the press at 4.30.3 (mvanhorn/cli-printing-press#4171). A reprint on 4.30.3 or later regenerates both the fall-through and the conformance test, so this entry exists to keep the back-port from being dropped by a reprint on an older engine or by a regen-merge that resurrects the 4.30.2 body.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/platform_gate.go",
+          "not_contains": "NewToolResultError(\"MCP tenant gate is not configured\")"
+        },
+        {
+          "file": "cli/internal/mcp/platform_gate.go",
+          "contains": "return next(ctx, request)",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/mcp/platform_gate_test.go",
+          "contains": "func TestMCPUngatedInvocationUsesRealVerifier(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/platform_gate_test.go",
+          "contains": "verifyFreshMCPInvocation = cli.VerifyMCPInvocation",
+          "min_count": 1
+        }
+      ]
     }
   ]
 }
