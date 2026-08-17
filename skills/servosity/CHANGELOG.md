@@ -4,6 +4,195 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.5.0] - unreleased
+
+Regenerated the vendored `servosity-cli` / `servosity-mcp` source from
+cli-printing-press 4.24.0 to 4.30.3 (engine swap). This release carries five
+breaking changes. Read the `### Changed` section before upgrading a script.
+
+### Changed
+
+- **BREAKING. Positional argument order changed on 15 commands.** 4.24 bound
+  path parameters alphabetically; 4.30 binds them in URL path order, which is
+  the correct order and what the API expects. Every affected command takes
+  same-typed IDs on both sides of the swap, so an existing script does not
+  error - it silently addresses a different resource. Five of the 15 are
+  `DELETE`:
+
+  | Command | Old order | New order |
+  | --- | --- | --- |
+  | `backup-job-report` | `<backup_destination_id> <backup_id> <backup_job_id> <backup_set_id>` | `<backup_id> <backup_set_id> <backup_job_id> <backup_destination_id>` |
+  | `backup-job-report-summary` | same as above | same as above |
+  | `companies c2c companies-delete` (DELETE) | `<backup_type> <id>` | `<id> <backup_type>` |
+  | `companies restore-queues companies-jobs-delete` (DELETE) | `<company_pk> <id> <resticrestorequeue_pk>` | `<company_pk> <resticrestorequeue_pk> <id>` |
+  | `companies restore-queues companies-jobs-order-first` | same as above | same as above |
+  | `companies restore-queues companies-jobs-order-last` | same as above | same as above |
+  | `companies restore-queues companies-jobs-partial-update` | same as above | same as above |
+  | `companies restore-queues companies-jobs-update` | same as above | same as above |
+  | `restic-backups backup-sets restic-backups-delete` (DELETE) | `<id> <resticbackup_pk>` | `<resticbackup_pk> <id>` |
+  | `restic-backups backup-sets restic-backups-exclude-paths-delete` (DELETE) | `<id> <resticbackup_pk> <resticbackupset_pk>` | `<resticbackup_pk> <resticbackupset_pk> <id>` |
+  | `restic-backups backup-sets restic-backups-exclude-paths-toggle-case-sensitive` | same as above | same as above |
+  | `restic-backups backup-sets restic-backups-partial-update` | `<id> <resticbackup_pk>` | `<resticbackup_pk> <id>` |
+  | `restic-backups backup-sets restic-backups-read` | same as above | same as above |
+  | `restic-backups backup-sets restic-backups-source-paths-delete` (DELETE) | `<id> <resticbackup_pk> <resticbackupset_pk>` | `<resticbackup_pk> <resticbackupset_pk> <id>` |
+  | `restic-backups backup-sets restic-backups-update` | `<id> <resticbackup_pk>` | `<resticbackup_pk> <id>` |
+
+  Only `companies c2c companies-delete` pairs differently-typed arguments (a
+  UUID and an enum string), so it is the one case likely to 404 instead of
+  hitting the wrong record. Re-read `<command> --help` before re-running any
+  stored invocation.
+
+- **BREAKING. `--agent` no longer implies `--yes`.** In 4.24 the `--agent`
+  bundle silently set `--yes`, so a confirmation-gated command run by an agent
+  never prompted. In 4.30 `--agent` expands to `--json --compact --no-input
+  --no-color` only, and `profile delete`, `client delete` and `client cache
+  clear` refuse without an explicit `--yes`. This is the safer default but it
+  changes the write-gating contract: any agent script relying on `--agent`
+  alone now exits non-zero instead of proceeding. `SKILL.md`, `README.md` and
+  `governance.md` still described the old behavior and are corrected here.
+
+- **BREAKING. Two sync resources no longer resolve, and `reports` points
+  somewhere new.** `sync --resources reports-account` and `sync --resources
+  companies-fully-managed-ng` now fail with `unknown sync resource`. Their
+  replacements are `reports` and `fully_managed_companies` respectively. The
+  quiet half: `reports` used to sync `/reports/usage/` and now syncs
+  `/reports/account/`, so it still resolves but mirrors different data. Usage
+  reporting moved to the new `reports-usage` bucket. `contracts-get-by-token`
+  is also new.
+
+- **BREAKING. MCP `endpoint_id` `companies.fully-managed-ng` was renamed to
+  `fully_managed_companies.companies-fully-managed-ng`.** Both point at
+  `GET /companies/fully-managed-ng/`. Anything that hardcoded the old id in a
+  `servosity-msp_search` / `servosity-msp_execute` call breaks.
+
+- **BREAKING. 79 read commands lost their offline fallback.** They flipped
+  `resolveRead` strategy from `auto` to `live`, so `--data-source local` now
+  hard-errors with `no local data source for this command` (exit 5) instead of
+  reading the mirror, and the default `auto` no longer falls back to local when
+  the API is unreachable. All 79 are nested sub-resource reads under
+  `companies` (30), `dr-backups` (14), `restic-backups` (13), `resellers` (11),
+  `backups` (5) plus `backup-sets read`, `credentials versions credentials`,
+  `issues events issues`, `backup-job-report`, `backup-job-report-summary` and
+  `backup-job-status`. The 57 flat list and read commands keep `auto`.
+
+- **The local store schema moved from 4 to 9, one way.** Once a 0.5.0 binary
+  opens `data.db`, a 0.4.0 binary refuses it with `database schema version 9 is
+  newer than supported version 4`. Keep `servosity-cli` and `servosity-mcp` on
+  the same version; downgrading means deleting the store and resyncing.
+
+- **`sync --full` now prunes.** A full resync reconciles deletions and removes
+  local rows the API no longer returns for a fully enumerated partition. It was
+  purely additive before. Pass `--no-prune` for the old behavior.
+
+- **30 flags across 23 commands changed type from string to int**, including
+  `agent-login create --company-id`, `companies create --reseller-id`, the
+  `company-notes` and `credentials` create/update trio, and the
+  `restic-backups backup-sets` id flags. Two consequences: a non-numeric value
+  is now rejected by the flag parser, and the JSON request body carries a
+  number where it carried a string (`"reseller_id": 42`, not `"reseller_id":
+  "42"`).
+
+- **Errors now print a JSON envelope on stdout under `--agent` / `--json`.**
+  API and usage failures emit `{"code":N,"error":"..."}` to stdout in addition
+  to the human message on stderr; stdout used to be empty on error. A script
+  that treats non-empty stdout as success needs to check the exit code instead.
+
+- **`meta.source` reports `dry-run` under `--dry-run`**, where it previously
+  reported `live`.
+
+### Added
+
+- **18 new command paths (9 new top-level commands).** `export <resource>
+  [id]` writes JSONL or JSON for backup, migration and analysis.
+  `fully-managed-companies` is the fleet-wide fully-managed list. The remaining
+  16 are the self-learning loop: `recall`, `teach`, `teach-pattern`,
+  `teach-lookup`, `teach-playbook`, `playbook` (`list`, `amend`) and
+  `learnings` (`list`, `candidates`, `stats`, `confirm`, `reject`, `forget`,
+  `purge`).
+
+- **`fully-managed-companies` recovers an endpoint that had no command.**
+  `GET /companies/fully-managed-ng/` existed only in the MCP endpoint table and
+  the sync map; the CLI could reach the single-company read but not the list.
+  Press 4.30 added a declared-API-surface conformance test that fails the build
+  when a declared path has no Cobra command, which is what surfaced it.
+
+- **26 `--x-servosity-mfa` flags** on the MFA-gated endpoints: every
+  destructive delete plus every encryption-key and API-token read or write,
+  across `restic-backups` (6), `backups` (5), `dr-backups` (5), `current-user`
+  (3), `companies` (3), `users` (2), `credentials` (1) and `resellers` (1). The
+  flag sets the `X-Servosity-Mfa` request header. Additive: no existing
+  invocation changes.
+
+- **Six new global flags** - `--home`, `--client-profile`, `--no-learn`,
+  `--receipt`, `--receipt-file`, `--audit-dir` - and the `SERVOSITY_MSP_NO_LEARN`
+  environment variable. No global flag was removed.
+
+- **The MCP server went from 37 to 155 tools.** Every non-endpoint CLI command
+  now has a shell-out tool alongside the existing
+  `servosity-msp_search` / `_execute`, plus a new `servosity-msp_get`. Additive,
+  but it is a much larger tool list for a connecting agent to hold.
+
+- `agent-context` schema_version moved from 3 to 4 and gained top-level `paths`
+  and `learn_protocol` sections.
+
+### Fixed
+
+- **`auth logout` reported success while the token stayed live, and
+  `auth set-token` silently kept using the old one.** The credentials layer was
+  config-path-aware on read but not on write: `config.Load` prefers the
+  credentials store colocated with an explicit `--config` /
+  `SERVOSITY_MSP_CONFIG` file, but `SaveCredentials` and `RemoveCredentials`
+  always resolved the default data-directory store. So `auth logout` printed
+  `Logged out. Credentials cleared.` while the sibling token stayed on disk and
+  kept reaching the wire, and `auth set-token` wrote the rotated token to the
+  default store while the sibling kept serving the superseded one - a revoked or
+  leaked credential kept being used with nothing to say so. Both paths now
+  resolve the same store the read path prefers, `auth set-token` names the file
+  it actually wrote, and `auth logout` clears the sibling and the default store
+  because either can authenticate the same config (#248).
+
+- **The MCP server let a tool caller choose filesystem paths.** The shell-out
+  gate blocked four destination flags and missed `--db` (every local-store
+  command), `--out` (`qbr`, `qbr-all`), `--input` (`import`), `--notes-file` /
+  `--playbook-file` / `--playbook-notes-file` (`teach`) and `--reconcile`
+  (`bill`): 28 of 155 tools forwarded one, so an MCP caller could direct a read
+  or a write anywhere the server account could reach. The gate now refuses any
+  flag whose usage text names a filesystem location, matched on the description
+  rather than the name so the generated API body fields `--path`,
+  `--seed-path`, `--source-paths`, `--exclude-paths`, `--filename` and
+  `--working-dir` stay callable (#248).
+
+- **A cross-host redirect stripped only `Authorization`.** With the new
+  `X-Servosity-Mfa` header there is a second live credential on the wire, and
+  `config.headers` lets an operator put an API key in any header name, all of
+  which Go replayed to whatever host a 3xx named. Every credential-classed
+  header is now deleted on a host change. Same-host redirects are unchanged and
+  still re-derive `Authorization` (#248).
+
+- `--dry-run` no longer prints the last four characters of the token. The
+  Authorization preview is now a bare `****`.
+
+- Documentation: `guide.md` and `SKILL.md` printed the old positional order for
+  `backup-job-report` and `backup-job-report-summary`, and `SKILL.md`,
+  `README.md` and `governance.md` claimed `--agent` implies `--yes`. All
+  corrected against the binary.
+
+### Removed
+
+- The `reports-account` and `companies-fully-managed-ng` sync resources. See
+  the `### Changed` entry above for the replacements.
+
+### Security
+
+- `golang.org/x/text` bumped to v0.39.0 (GO-2026-5970).
+
+### Known limitations
+
+- This release is not live-verified. The 2026-06-05 badge was earned against
+  the 4.24.0 binary and the engine swap invalidated it, so the connector is
+  back to `awaiting`. Nothing in this release has been exercised against a real
+  Servosity tenant.
+
 ## [0.4.0] - 2026-07-06
 
 ### Removed
