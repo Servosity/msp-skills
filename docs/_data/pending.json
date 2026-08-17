@@ -49,10 +49,10 @@
     "released_hash": "sha256:d38c62044a6ebdadc8b90b338e28235c063aefb5d6e267b61d73daed9a5b7f3a"
   },
   "auvik": {
-    "state": "version-pending",
+    "state": "binary-pending",
     "version": "0.1.0",
     "latest_tag": null,
-    "current_hash": "sha256:deb0ad8ec20dae279cdc5a39a72e4c3841f4ff044d66badcdfa952961b1d1d6c",
+    "current_hash": "sha256:fa27abf2801bc0cdfcbf17723b03f5659cd3e6c0ee6392a73b9549f9f189ffeb",
     "released_hash": "sha256:deb0ad8ec20dae279cdc5a39a72e4c3841f4ff044d66badcdfa952961b1d1d6c"
   },
   "aws-billing": {
@@ -406,17 +406,17 @@
     "released_hash": "sha256:a8b7f1459ad945320557294177f55723eb7b2e6fd1dde5721b101abff691c9ea"
   },
   "threatlocker": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.3.0",
     "latest_tag": "threatlocker-v0.3.0",
-    "current_hash": "sha256:394600865fed0f5e33bff9c662ba55027205e38e5d734f2d16a88d7cddfd51dc",
+    "current_hash": "sha256:4fd5870f0fc6b20ea433c5c760194168328f2121e5a58a98a8d56ca04a6e9395",
     "released_hash": "sha256:394600865fed0f5e33bff9c662ba55027205e38e5d734f2d16a88d7cddfd51dc"
   },
   "unifi-network": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.0",
     "latest_tag": "unifi-network-v0.1.0",
-    "current_hash": "sha256:b585e205fcd544e88037923e687bfb7cc7287880ba9f2c1c606a14915616549e",
+    "current_hash": "sha256:3d50029226959bd3d93889ea89bca5d47c18a1b0b3927466b123715ffc5b8852",
     "released_hash": "sha256:b585e205fcd544e88037923e687bfb7cc7287880ba9f2c1c606a14915616549e"
   },
   "veeam": {
