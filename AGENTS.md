@@ -52,6 +52,34 @@ Find connectors whose hand-fixes are not yet recorded:
 python3 tools/maintainer/check_handfixes.py --discover
 ```
 
+## When a connector flips to live-verified (READ THIS TOO)
+
+A `live-verified` badge means a real MSP confirmed the connector against a real
+tenant. That is the moment it becomes worth keeping current, because it is the
+first moment anyone is positioned to notice a regression. Two questions come due:
+
+```bash
+python3 tools/maintainer/check_engine_freshness.py --slug <slug>
+```
+
+1. **Is the vendored engine behind the fleet?** The bar is the newest
+   `printing_press_version` anywhere in `skills/*/manifest.json`, so it rises on
+   its own - there is no constant to maintain. Behind the bar means a reprint is
+   worth considering, subject to the hand-fix rules above. It is not an order:
+   a reprint is expensive and can clobber hand-fixes, and some connectors cannot
+   be reprinted at all (a templated `token_url` is refused by press >= 4.30).
+
+2. **Is the shipped binary behind `main`?** This is the one that actually bites.
+   A tree-only engine upgrade reaches nobody: on 2026-08-16, 41 of 61 connectors
+   were shipping binaries built before the 4.24 engine upgrade that had been
+   sitting in `main` since June. `main` being current is not evidence that any
+   user is running current code - only a tag is.
+
+`.github/workflows/live-verified.yml` runs this automatically on every badge flip
+and posts the result as an issue comment. It is **advisory** - nothing gates on
+it. Whoever decides should record the decision in a reply on that issue so the
+next agent does not re-litigate it.
+
 ## General
 
 - Sign commits (`git commit -s`); no em-dashes in committed files; run

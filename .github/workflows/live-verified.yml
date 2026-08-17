@@ -232,3 +232,32 @@ jobs:
         run: |
           set -euo pipefail
           gh issue comment "$ISSUE" --body "Thank you for closing the loop. **$SLUG** is now badged **live-verified**. See the updated skill page: https://msp-skills.compoundingteams.com/skills/$SLUG/"
+
+      # A live-verified badge is the moment this connector becomes worth keeping
+      # current: a real tenant exists, and someone is finally positioned to
+      # notice a regression. So this is where we ask whether its engine is
+      # behind the fleet, and whether the SHIPPED BINARY is behind `main` - the
+      # failure that hid 41 connectors on pre-4.24 binaries for two months while
+      # `main` said otherwise.
+      #
+      # Advisory only. It posts a comment; it never gates, never reprints, and
+      # never releases. The decision is a human's, and the ask is that they
+      # record it in a reply so the next agent does not re-litigate it.
+      - name: Check whether the engine and the shipped binary are current
+        if: steps.parse.outputs.ok == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SLUG: ${{ steps.parse.outputs.slug }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -uo pipefail
+          # Exit 2 means "stale", which is the case we want to comment on; any
+          # other non-zero is a tool problem and must not fail the badge flip.
+          out="$(python3 tools/maintainer/check_engine_freshness.py --slug "$SLUG" --markdown)"
+          rc=$?
+          if [ "$rc" -eq 2 ]; then
+            gh issue comment "$ISSUE" --body "$out"
+          else
+            echo "engine freshness: rc=$rc (nothing to report)"
+          fi
