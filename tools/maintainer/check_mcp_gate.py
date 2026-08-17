@@ -50,8 +50,12 @@ import tempfile
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SKILLS = os.path.join(REPO, "skills")
 
-# The refusal the 4.30.1/4.30.2 gate emitted. Matched case-insensitively on a
-# substring so a reworded variant of the same default-deny still trips.
+# The refusal the 4.30.1/4.30.2 gate emitted, matched case-insensitively on a
+# substring. This names the KNOWN wording; it is not the only net. A refusal
+# phrased differently is still caught by is_protocol_error() whenever it
+# surfaces as a JSON-RPC error object, which is the shape a Go-error return
+# takes. Verified: a gate mutated to return errors.New("nope, denied for
+# unrelated reasons") fails this check on all five probes.
 GATE_REFUSAL = "tenant gate is not configured"
 
 GATE_OWNER_KEY = "pp:tenant-gate"
@@ -126,12 +130,42 @@ HANDSHAKE = [
 
 
 def result_text(message: dict) -> str:
-    result = message.get("result") or {}
+    """Every string the server sent back for one tools/call, result OR error.
+
+    A refusal can arrive two ways. The gate we are hunting returns
+    `NewToolResultError(...)`, which is a normal `result` carrying an error
+    content block - but a variant that returns a non-nil Go error instead
+    surfaces as a JSON-RPC `error` OBJECT with no `result` at all. Reading only
+    `result.content[].text` scores that second shape as a clean answer, because
+    the response still has an `id` and so counts as answered. That is a
+    false-GREEN in the one check whose entire job is to catch a default-deny:
+    verified by mutating the gate to `return nil, errors.New("MCP tenant gate
+    is not configured")`, which denied every tool while this script printed
+    `ok` for all five probes and exited 0.
+    """
     parts = []
+    result = message.get("result") or {}
     for block in result.get("content") or []:
         if isinstance(block, dict) and "text" in block:
             parts.append(str(block["text"]))
+    error = message.get("error")
+    if isinstance(error, dict):
+        for key in ("message", "data"):
+            val = error.get(key)
+            if val:
+                parts.append(str(val))
     return "\n".join(parts)
+
+
+def is_protocol_error(message: dict) -> bool:
+    """True when the server answered with a JSON-RPC error object.
+
+    A tool that cannot answer at all is a failure regardless of wording: it is
+    either the gate refusing under a phrasing we did not predict, or the server
+    breaking. Matching the known refusal string is the specific signal;
+    this is the backstop that does not depend on guessing the words.
+    """
+    return isinstance(message.get("error"), dict)
 
 
 def check_slug(slug: str, timeout: int, verbose: bool) -> tuple[str, list[str]]:
@@ -223,6 +257,12 @@ def check_slug(slug: str, timeout: int, verbose: bool) -> tuple[str, list[str]]:
             if GATE_REFUSAL in text.lower():
                 failures.append(
                     f"[{slug}] MCP tool `{name}` is DEFAULT-DENIED by the tenant gate: "
+                    f"{' '.join(text.split())[:160]}"
+                )
+            elif is_protocol_error(message):
+                failures.append(
+                    f"[{slug}] MCP tool `{name}` answered with a JSON-RPC error instead of "
+                    f"a result, so it never reached its handler: "
                     f"{' '.join(text.split())[:160]}"
                 )
             elif verbose:
