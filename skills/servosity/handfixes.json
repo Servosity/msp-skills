@@ -9,8 +9,8 @@
       "why": "The servosity-msp engine adds an MSP partner-token auth path the stock print does not have. The env-var wiring and config field are re-applied by the de-msp ritual; a naive reprint that bypassed the ritual would drop them and break authentication.",
       "status": "active",
       "asserts": [
-        {"file": "cli/internal/config/config.go", "contains": "SERVOSITY_MSP_TOKEN", "min_count": 1},
-        {"file": "cli/internal/config/config.go", "contains": "ServosityMspToken", "min_count": 1}
+        {"file": "cli/internal/config/config.go", "contains": "os.Getenv(\"SERVOSITY_MSP_TOKEN\")", "min_count": 1},
+        {"file": "cli/internal/config/config.go", "contains": "cfg.ServosityMspToken = v", "min_count": 1}
       ]
     },
     {
@@ -21,9 +21,9 @@
       "issue": 78,
       "spec_encode_followup": "cli-printing-press supports x-prefix on an apiKey header securityScheme (docs/SPEC-EXTENSIONS.md), which would make the press emit the 'Token ' scheme natively and retire this hand-fix. NOT adopted yet: the generated applyAuthFormat path would prepend unconditionally, double-prefixing every user who set SERVOSITY_MSP_TOKEN='Token <t>' per the old workaround. Adopt only together with a stripAuthScheme-equivalent normalization upstream, and only with a live-tenant retest.",
       "asserts": [
-        {"file": "cli/internal/config/config.go", "contains": "stripAuthScheme", "min_count": 1},
+        {"file": "cli/internal/config/config.go", "contains": "func stripAuthScheme(v string) string {", "min_count": 1},
         {"file": "cli/internal/config/config.go", "contains": "\"Token \" + stripAuthScheme", "min_count": 1},
-        {"file": "cli/internal/config/config_test.go", "contains": "TestAuthHeader_TokenScheme", "min_count": 1}
+        {"file": "cli/internal/config/config_test.go", "contains": "func TestAuthHeader_TokenScheme(", "min_count": 1}
       ]
     },
     {
