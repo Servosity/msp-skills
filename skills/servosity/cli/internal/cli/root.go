@@ -247,9 +247,12 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 		// Hand-wired (transcendent root help; see skills/servosity/handfixes.json):
 		// the press emits a generic "Manage servosity-msp resources via the
 		// servosity-msp API" here, which both DROPS the discovery surface for all
-		// 13 novel commands from --help and agent-context, and leaks the internal
-		// servosity-msp mint name that the de-msp ritual exists to remove. This
-		// block is re-applied on every reprint.
+		// 13 novel commands from --help and agent-context, and prints the internal
+		// MINT SLUG servosity-msp where the product name belongs. The slug is
+		// meaningful (servosity-msp is the MSP-fleet CLI, as distinct from
+		// servosity-admin), so the de-msp ritual renders it as the readable
+		// "Servosity Msp CLI" rather than erasing the MSP distinction. This block
+		// is re-applied on every reprint.
 		Short: `Servosity Msp CLI — The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you …`,
 		Long: `Servosity Msp CLI — The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you …
 
