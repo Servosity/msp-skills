@@ -286,6 +286,24 @@ func SaveCredentials(creds *Credentials) error {
 	if err != nil {
 		return err
 	}
+	return saveCredentialsTo(path, creds)
+}
+
+// SaveCredentialsForConfig writes to the credentials store colocated with an
+// explicitly selected config file, mirroring the path resolution
+// LoadCredentialsForConfigWithStatus uses to read it. Reads prefer that sibling
+// store, so a save that landed in the default store instead would leave the
+// sibling holding the previous secret and the CLI would keep authenticating
+// with the token the operator believed they had rotated away.
+func SaveCredentialsForConfig(configPath string, creds *Credentials) error {
+	path, err := CredentialsFilePathForConfig(configPath)
+	if err != nil {
+		return err
+	}
+	return saveCredentialsTo(path, creds)
+}
+
+func saveCredentialsTo(path string, creds *Credentials) error {
 	data, err := toml.Marshal(credentialsFileFrom(creds)) // #nosec G117 -- credentials are intentionally persisted to a 0600 private file.
 	if err != nil {
 		return fmt.Errorf("marshaling credentials: %w", err)
@@ -308,6 +326,22 @@ func RemoveCredentials() error {
 	if err != nil {
 		return err
 	}
+	return removeCredentialsAt(path)
+}
+
+// RemoveCredentialsForConfig deletes the credentials store colocated with an
+// explicitly selected config file. Removing only the default store would leave
+// the sibling store live, so `auth logout` would report success while the token
+// it claimed to clear kept authenticating every later call.
+func RemoveCredentialsForConfig(configPath string) error {
+	path, err := CredentialsFilePathForConfig(configPath)
+	if err != nil {
+		return err
+	}
+	return removeCredentialsAt(path)
+}
+
+func removeCredentialsAt(path string) error {
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("removing credentials: %w", err)
 	}

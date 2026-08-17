@@ -30,16 +30,24 @@ type Config struct {
 	// legacySourcePath records the legacy config path when Load fell
 	// back to it. Used by save() to scrub credential fields from the
 	// old location after relocation. Unexported: never persisted.
-	legacySourcePath  string
-	AccessToken       string          `toml:"access_token"`
-	RefreshToken      string          `toml:"refresh_token"`
-	TokenExpiry       time.Time       `toml:"token_expiry"`
-	ClientID          string          `toml:"client_id"`
-	ClientSecret      string          `toml:"client_secret"`
-	Path              string          `toml:"-"`
-	envOverrides      map[string]bool `toml:"-"`
-	fileConfig        *Config         `toml:"-"`
-	ServosityMspToken string          `toml:"msp_token"`
+	legacySourcePath string
+	// explicitConfigFile records that Load resolved Path from --config or
+	// SERVOSITY_MSP_CONFIG rather than from the standard config directory.
+	// Reads already honor that choice by preferring the credentials store
+	// colocated with the file (see LoadCredentialsForConfigWithStatus), so
+	// writes and deletes must honor it too or `auth set-token` and
+	// `auth logout` operate on a store the read path never consults.
+	// Unexported: never persisted.
+	explicitConfigFile bool
+	AccessToken        string          `toml:"access_token"`
+	RefreshToken       string          `toml:"refresh_token"`
+	TokenExpiry        time.Time       `toml:"token_expiry"`
+	ClientID           string          `toml:"client_id"`
+	ClientSecret       string          `toml:"client_secret"`
+	Path               string          `toml:"-"`
+	envOverrides       map[string]bool `toml:"-"`
+	fileConfig         *Config         `toml:"-"`
+	ServosityMspToken  string          `toml:"msp_token"`
 }
 
 func Load(configPath string) (*Config, error) {
@@ -53,6 +61,7 @@ func Load(configPath string) (*Config, error) {
 		return nil, err
 	}
 	cfg.Path = path
+	cfg.explicitConfigFile = explicitConfigFile
 
 	if explicitConfigFile {
 		// Keep non-secret settings from a readable config even when its permissions
@@ -472,13 +481,39 @@ func (c *Config) applyCredentials(creds *cliutil.Credentials) {
 	}
 }
 
+// usesColocatedCredentials reports whether this config's credentials live in the
+// store colocated with an explicitly selected config file rather than in the
+// default data directory.
+func (c *Config) usesColocatedCredentials() bool {
+	return c != nil && c.explicitConfigFile && strings.TrimSpace(c.Path) != ""
+}
+
+// CredentialsPath reports the credentials store this config actually reads and
+// writes, so `auth set-token` can name the file it wrote instead of the default
+// store it did not touch.
+func (c *Config) CredentialsPath() (string, error) {
+	if c.usesColocatedCredentials() {
+		return cliutil.CredentialsFilePathForConfig(c.Path)
+	}
+	return cliutil.CredentialsFilePath()
+}
+
 func (c *Config) saveCredentialsFirst() error {
 	if c.AgentcookieManagedByExternalStore() {
 		c.markAgentcookieManaged()
 		return nil
 	}
 	persisted := c.configForSave()
-	if err := cliutil.SaveCredentials(persisted.credentials()); err != nil {
+	// Route the write to the same store the read path prefers. With an
+	// explicit --config / SERVOSITY_MSP_CONFIG the colocated sibling store
+	// wins on load, so saving to the default store would persist the new
+	// token somewhere Load never reaches while the sibling kept serving the
+	// old one - a rotation that silently keeps the superseded credential.
+	if c.usesColocatedCredentials() {
+		if err := cliutil.SaveCredentialsForConfig(c.Path, persisted.credentials()); err != nil {
+			return err
+		}
+	} else if err := cliutil.SaveCredentials(persisted.credentials()); err != nil {
 		return err
 	}
 	c.CredentialSource = "credentials file"
@@ -569,6 +604,16 @@ func (c *Config) ClearTokens() error {
 		// agentcookie-managed stores, so the zeroed fields must be written
 		// back; returning early would leave the secrets on disk.
 		return c.save()
+	}
+	// With an explicit --config / SERVOSITY_MSP_CONFIG, Load reads the
+	// colocated sibling store first and only falls back to the default store
+	// when the sibling holds nothing, so BOTH can authenticate this config.
+	// Logout must clear both or it reports "Credentials cleared" while a live
+	// token remains usable.
+	if c.usesColocatedCredentials() {
+		if err := cliutil.RemoveCredentialsForConfig(c.Path); err != nil {
+			return err
+		}
 	}
 	if err := cliutil.RemoveCredentials(); err != nil {
 		return err

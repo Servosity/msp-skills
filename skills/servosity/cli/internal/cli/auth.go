@@ -169,6 +169,15 @@ func credentialSavePath(cfg *config.Config) string {
 	if cfg != nil && cfg.AgentcookieManagedByExternalStore() {
 		return cfg.Path
 	}
+	// Ask the config which store it actually wrote: an explicit --config /
+	// SERVOSITY_MSP_CONFIG keeps its own colocated credentials file, and
+	// naming the default store instead would send an operator auditing or
+	// revoking the token to a file the CLI never touched.
+	if cfg != nil {
+		if path, err := cfg.CredentialsPath(); err == nil {
+			return path
+		}
+	}
 	if path, err := cliutil.CredentialsFilePath(); err == nil {
 		return path
 	}

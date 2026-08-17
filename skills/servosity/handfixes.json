@@ -46,6 +46,24 @@
         {"file": "cli/internal/cli/root_test.go", "not_contains": "\"issues archived\""},
         {"file": "cli/internal/cli/root_test.go", "not_contains": "\"issues ignored\""}
       ]
+    },
+    {
+      "id": "explicit-config-credential-writes",
+      "summary": "auth set-token and auth logout write and delete the credentials store colocated with an explicit --config / SERVOSITY_MSP_CONFIG file, not just the default data-dir store (PR #248)",
+      "why": "The generated cliutil credentials layer is config-path-aware on READ (LoadCredentialsForConfigWithStatus resolves <dir-of-config>/data/credentials.toml and Load prefers it) but not on WRITE: SaveCredentials and RemoveCredentials always resolved the DEFAULT store. With --config or SERVOSITY_MSP_CONFIG set, `auth logout` printed 'Logged out. Credentials cleared.' while the sibling token stayed on disk and kept authenticating every later call, and `auth set-token` wrote the rotated token to the default store while the sibling kept serving the OLD one - a rotation the operator believes happened but did not. The fix adds SaveCredentialsForConfig / RemoveCredentialsForConfig mirroring the read-path resolution, records explicitConfigFile on Config so the write paths can honor it, routes saveCredentialsFirst/ClearTokens through them, and makes the path `auth set-token` prints follow the store it actually wrote. All four files are generated ('DO NOT EDIT'), so a reprint on an unfixed press silently restores the false-logout. Regression tests live in the hand-written cli/internal/config/config_test.go and fail without the fix.",
+      "status": "active",
+      "pr": 248,
+      "asserts": [
+        {"file": "cli/internal/cliutil/credentials.go", "contains": "func SaveCredentialsForConfig(", "min_count": 1},
+        {"file": "cli/internal/cliutil/credentials.go", "contains": "func RemoveCredentialsForConfig(", "min_count": 1},
+        {"file": "cli/internal/config/config.go", "contains": "func (c *Config) usesColocatedCredentials() bool {", "min_count": 1},
+        {"file": "cli/internal/config/config.go", "contains": "func (c *Config) CredentialsPath() (string, error) {", "min_count": 1},
+        {"file": "cli/internal/config/config.go", "contains": "cliutil.SaveCredentialsForConfig(c.Path", "min_count": 1},
+        {"file": "cli/internal/config/config.go", "contains": "cliutil.RemoveCredentialsForConfig(c.Path)", "min_count": 1},
+        {"file": "cli/internal/cli/auth.go", "contains": "cfg.CredentialsPath()", "min_count": 1},
+        {"file": "cli/internal/config/config_test.go", "contains": "func TestClearTokensWithExplicitConfigClearsSiblingStore(", "min_count": 1},
+        {"file": "cli/internal/config/config_test.go", "contains": "func TestSaveCredentialWithExplicitConfigWritesSiblingStore(", "min_count": 1}
+      ]
     }
   ]
 }
