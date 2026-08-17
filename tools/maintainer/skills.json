@@ -1298,14 +1298,6 @@
       "has_video": true,
       "featured": 1,
       "install_auth_hint": "Then authenticate with `SERVOSITY_MSP_TOKEN=<your-partner-token> servosity-cli doctor`",
-      "live_verified": {
-        "status": "live-verified",
-        "date": "2026-06-05",
-        "source": "self",
-        "evidence": "Damien: verified live against the Servosity partner tenant (2026-06-05)",
-        "verified_by": "Servosity (maintainer)",
-        "issue_url": null
-      },
       "category": "Backup/DR",
       "tagline": "Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.",
       "display_name": "Servosity"
