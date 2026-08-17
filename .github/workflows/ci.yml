@@ -157,3 +157,12 @@ jobs:
         # files (go test stays green); this turns that into a loud failure.
         # No-op for skills without a ledger. See docs/reprint-survival.md.
         run: python3 tools/maintainer/check_handfixes.py --slug ${{ matrix.skill.name }}
+
+      - name: No default-denied MCP tool (this skill)
+        # Hard gate: boot this skill's MCP server over stdio and call the tools
+        # the tenant-gate middleware wraps in-process, asserting none answers a
+        # gate refusal. Issue #249 shipped two connectors where 6 tools each
+        # were dead while build, vet, go test, the security gate and tools/list
+        # were all green - only tools/call could see it. Needs no credentials
+        # and runs in about a second on a warm build cache.
+        run: python3 tools/maintainer/check_mcp_gate.py --slug ${{ matrix.skill.name }}
