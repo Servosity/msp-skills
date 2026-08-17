@@ -300,6 +300,11 @@
       "file": "skills/connect-tool/bootstrap.ps1",
       "rule": "script-powershell-rce",
       "reason": "The `iex` match is inside a SINGLE-QUOTED STRING LITERAL that bootstrap.ps1 appends to its missing-dependency list and PRINTS to the user: 'uv  powershell -ExecutionPolicy ByPass -c \"irm https://astral.sh/uv/install.ps1 | iex\"'. It is the vendor's documented install command shown as advice; bootstrap.ps1 never executes it. Whole-line comments are already stripped before scanning, but a string literal is not a comment. Vetted 2026-08-14."
+    },
+    {
+      "file": "cli/internal/cli/doctor.go",
+      "rule": "G101",
+      "reason": "FLEET (generated, printing-press 4.30.3+). gosec G101 HIGH-severity / LOW-confidence false-positive on the identifier NAME in `credentialRemediation := \"run auth set-token or auth logout\"` inside collectCredentialsLocationReport: the literal is the doctor command's user-facing REMEDIATION HINT (it names two of the CLI's own subcommands), not credential material. Introduced by press 4.30.3 (#4198 'align auth set-token references with command surface'), so it will surface on every connector reprinted at 4.30.3 or later. Same name-based FP class as the existing auth.go / client.go `tokenURL` entries (#109) and internal/platform/gate.go GateInvalidCredentials. Confirmed with `gosec -fmt json -include=G101 ./...` in skills/servosity/cli: 2 issues, both HIGH/LOW, both name-based. Surfaced by the servosity 4.30.3 reprint."
     }
   ]
 }
