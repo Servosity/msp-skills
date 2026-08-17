@@ -142,6 +142,35 @@ jobs:
           go build ./...
           go vet ./...
 
+      # Cross-compile for every platform the release matrix ships, so a
+      # platform-specific compile break is caught HERE and not from a missing
+      # artifact after a tag push.
+      #
+      # auvik shipped exactly that: `syscall.Flock` in a novel command file with
+      # no build tag, which does not exist on Windows. It merged with CI green
+      # because CI built only for the runner's platform, and the six-target
+      # matrix runs on a TAG PUSH. The first real tag published 16 assets
+      # instead of 25 while every job stayed green - a partial asset set fails
+      # nothing. See the auvik Windows-build fix and issue #249 for the same
+      # shape one layer up.
+      #
+      # Compile only (`go build`), no vet or test: this is about "does it
+      # compile for the targets we ship", and it adds a few seconds per row.
+      - name: Cross-compile every released target
+        run: |
+          cd ${{ matrix.skill.dir }}
+          fail=0
+          for pair in windows/amd64 windows/arm64 darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
+            os="${pair%/*}"; arch="${pair#*/}"
+            if ! GOOS="$os" GOARCH="$arch" go build ./... 2>build.err; then
+              echo "::error::does not compile for $pair"
+              sed 's/^/    /' build.err
+              fail=1
+            fi
+          done
+          rm -f build.err
+          exit "$fail"
+
       - name: CLI claims vs built binary (this skill)
         # Runs here, in the per-skill matrix job, because verifying doc claims
         # builds the real CLI and needs Go on PATH (already set up above). The
