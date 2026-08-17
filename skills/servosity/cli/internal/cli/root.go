@@ -244,11 +244,33 @@ func isCobraUsageError(err error) bool {
 func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "servosity-cli",
-		Short: "Manage servosity-msp resources via the servosity-msp API",
-		Long: `Manage servosity-msp resources via the servosity-msp API.
+		// Hand-wired (transcendent root help; see skills/servosity/handfixes.json):
+		// the press emits a generic "Manage servosity-msp resources via the
+		// servosity-msp API" here, which both DROPS the discovery surface for all
+		// 13 novel commands from --help and agent-context, and leaks the internal
+		// servosity-msp mint name that the de-msp ritual exists to remove. This
+		// block is re-applied on every reprint.
+		Short: `Servosity Msp CLI — The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you …`,
+		Long: `Servosity Msp CLI — The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you …
 
-Add --agent to any command for JSON output + non-interactive mode.
-Run 'servosity-cli doctor' to verify auth and connectivity.`,
+Highlights (not in the official API docs):
+  • attention   One screen across your whole book of clients. Merges open issues, stale backups into a per-company ranked view, then persists the result so tomorrow's drift command can compare.
+  • qbr   Generate the backup section of a client's Quarterly Business Review as Markdown, HTML, or PDF. Job success rate, restore tests run this quarter, coverage map across all three engines, open issues, st…
+  • drift   Diff two snapshots the CLI collected — show which companies got worse, which recovered, and which are new since a past anchor. Default compares yesterday-to-now on the attention metric.
+  • stale-backups   Slice the stale-backup-sets report by company, age window, and backup engine — entirely offline once cached. Use --refresh to repull from the API.
+  • triage   List open issues with filters, then batch-mutate them (ignore / archive / reactivate / comment) in one invocation with --dry-run support and typed exit codes.
+  • restore-queue watch   Watch every active company's restore queue across the book during a DR event. Polls each company periodically and prints diffs since the last tick.
+  • backup-facts   Unified view across Servosity's three backup engines (classic, restic, DR) for one company or all. Engine, ID, hostname, last_successful_at, state, and freshness-derived health — joined from three lo…
+  • bill --reconcile   Pull the MSP's monthly Servosity bill and compare line-by-line against a CSV of what the MSP is invoicing their clients. Surfaces drift — clients under- or over-charged.
+  • unprovisioned   List agents installed on client machines but not yet pulling backups, ranked by client. Surfaces lost revenue from incomplete onboardings.
+  • storage-trend   Linear-regression forecast of when a specific client will hit a capacity threshold. Reads the historical storage_bytes time series from local snapshots; with --snapshot, persists a new measurement fo…
+  • email-draft   Generate ready-to-paste follow-up email bodies for every client with a stale backup, filled from the local store (client name, hosts, days stale, last success).
+  • fleet-health   One fleet-wide scorecard: 24h job success rate, companies with stale backups, and open issues, with week-over-week deltas.
+  • qbr-all   Generate every client's QBR backup report in one pass, one file per company.
+
+Agent mode: add --agent to any command for JSON output + non-interactive mode.
+Health check: run 'servosity-cli doctor' to verify auth and connectivity.
+See README.md or the bundled SKILL.md for recipes.`,
 		SilenceUsage: true,
 		Version:      version,
 	}

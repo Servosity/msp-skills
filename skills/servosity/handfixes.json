@@ -1,99 +1,267 @@
 {
-  "slug": "servosity",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "servosity is a SPECIAL case: it is engine-swapped from the servosity-msp mint via a staging strip + de-msp rename ritual that is RE-APPLIED on every reprint, so most of its divergence from a stock print is re-derived, not lost. These entries pin the load-bearing engine-swap invariants so a NAIVE reprint (one that bypassed the ritual) is caught. NOTE: a full reprint-diff would surface more; this records the auth/identity invariants that matter most. Issue #78 (bare SERVOSITY_MSP_TOKEN lacked the required 'Token ' DRF auth-scheme prefix -> HTTP 403 on every data endpoint) is FIXED in AuthHeader() and pinned below; the servosity-msp engine still emits a bare token, so a reprint that bypassed re-applying this prefix would reintroduce the bug. 2026-08-17 (4.30.3 reprint): the admin-only-endpoints entry gained asserts for two surfaces the 4.24.0 ledger did not cover - cli/internal/cli/channel_workflow.go (the workflow sync resource list) and cli/internal/cli/root_test.go (the 4.30 declared-API-surface conformance test, which FAILS the build if a declared path has no Cobra command). The 4.30.3 reprint reintroduced the endpoints on both and the ledger did not catch them; they are pinned now.",
-  "handfixes": [
-    {
-      "id": "msp-token-auth-plumbing",
-      "summary": "MSP-token auth (SERVOSITY_MSP_TOKEN env var -> ServosityMspToken -> AuthHeader) is hand-wired by the engine swap",
-      "why": "The servosity-msp engine adds an MSP partner-token auth path the stock print does not have. The env-var wiring and config field are re-applied by the de-msp ritual; a naive reprint that bypassed the ritual would drop them and break authentication.",
-      "status": "active",
-      "asserts": [
-        {"file": "cli/internal/config/config.go", "contains": "os.Getenv(\"SERVOSITY_MSP_TOKEN\")", "min_count": 1},
-        {"file": "cli/internal/config/config.go", "contains": "cfg.ServosityMspToken = v", "min_count": 1}
-      ]
-    },
-    {
-      "id": "msp-token-auth-scheme-prefix",
-      "summary": "AuthHeader() prepends the DRF 'Token ' scheme to the MSP partner token (issue #78)",
-      "why": "The Servosity API authenticates the MSP partner token via Django REST Framework's TokenAuthentication, which requires the 'Token ' scheme on the Authorization header; a bare value 403s on every data endpoint. The stock servosity-msp engine emits the token verbatim, so the de-msp ritual must re-apply this scheme prefix on every reprint or the bug returns. hasAuthScheme tolerates an already-prefixed value for backward compatibility with the SERVOSITY_MSP_TOKEN='Token <t>' workaround.",
-      "status": "active",
-      "issue": 78,
-      "spec_encode_followup": "cli-printing-press supports x-prefix on an apiKey header securityScheme (docs/SPEC-EXTENSIONS.md), which would make the press emit the 'Token ' scheme natively and retire this hand-fix. NOT adopted yet: the generated applyAuthFormat path would prepend unconditionally, double-prefixing every user who set SERVOSITY_MSP_TOKEN='Token <t>' per the old workaround. Adopt only together with a stripAuthScheme-equivalent normalization upstream, and only with a live-tenant retest.",
-      "asserts": [
-        {"file": "cli/internal/config/config.go", "contains": "func stripAuthScheme(v string) string {", "min_count": 1},
-        {"file": "cli/internal/config/config.go", "contains": "\"Token \" + stripAuthScheme", "min_count": 1},
-        {"file": "cli/internal/config/config_test.go", "contains": "func TestAuthHeader_TokenScheme(", "min_count": 1}
-      ]
-    },
-    {
-      "id": "admin-only-issues-endpoints-removed",
-      "summary": "issues archived (/issues/archived/) and issues ignored (/issues/ignored/) are stripped from EVERY surface (CLI, MCP code-orch, sync, store, workflow resource list, declared-surface conformance test) because they are admin-scoped and 403 for the reseller-scoped partner token this connector ships (PR #178)",
-      "why": "These two GET endpoints are generated from the OpenAPI spec and admin-only; the partner SERVOSITY_MSP_TOKEN gets HTTP 403. A naive reprint regenerates them on every surface (the CLI command files, the MCP code-orch endpoint table agents drive via servosity-msp_search/_execute, the sync resource map + store PK map, the workflow sync resource list, and - since press 4.30 - the declared-API-surface conformance test in root_test.go, which fails the build when a declared path has no Cobra command). The de-msp ritual must re-strip all of them; these not_contains asserts fail CI if any surface reintroduced them. Admin functionality lives in Servosity's separate internal admin CLI (admin-token-scoped) instead. See docs/reprint-survival.md.",
-      "status": "active",
-      "pr": 178,
-      "asserts": [
-        {"file": "cli/internal/cli/issues.go", "not_contains": "newIssuesArchivedCmd"},
-        {"file": "cli/internal/cli/issues.go", "not_contains": "newIssuesIgnoredCmd"},
-        {"file": "cli/internal/mcp/code_orch.go", "not_contains": "codeOrchKeywords(\"issues\", \"archived\""},
-        {"file": "cli/internal/mcp/code_orch.go", "not_contains": "codeOrchKeywords(\"issues\", \"ignored\""},
-        {"file": "cli/internal/cli/sync.go", "not_contains": "\"issues-archived\""},
-        {"file": "cli/internal/cli/sync.go", "not_contains": "\"issues-ignored\""},
-        {"file": "cli/internal/store/store.go", "not_contains": "\"issues-archived\""},
-        {"file": "cli/internal/store/store.go", "not_contains": "\"issues-ignored\""},
-        {"file": "cli/internal/cli/channel_workflow.go", "not_contains": "\"issues-archived\""},
-        {"file": "cli/internal/cli/channel_workflow.go", "not_contains": "\"issues-ignored\""},
-        {"file": "cli/internal/cli/root_test.go", "not_contains": "\"issues archived\""},
-        {"file": "cli/internal/cli/root_test.go", "not_contains": "\"issues ignored\""}
-      ]
-    },
-    {
-      "id": "explicit-config-credential-writes",
-      "summary": "auth set-token and auth logout write and delete the credentials store colocated with an explicit --config / SERVOSITY_MSP_CONFIG file, not just the default data-dir store (PR #248)",
-      "why": "The generated cliutil credentials layer is config-path-aware on READ (LoadCredentialsForConfigWithStatus resolves <dir-of-config>/data/credentials.toml and Load prefers it) but not on WRITE: SaveCredentials and RemoveCredentials always resolved the DEFAULT store. With --config or SERVOSITY_MSP_CONFIG set, `auth logout` printed 'Logged out. Credentials cleared.' while the sibling token stayed on disk and kept authenticating every later call, and `auth set-token` wrote the rotated token to the default store while the sibling kept serving the OLD one - a rotation the operator believes happened but did not. The fix adds SaveCredentialsForConfig / RemoveCredentialsForConfig mirroring the read-path resolution, records explicitConfigFile on Config so the write paths can honor it, routes saveCredentialsFirst/ClearTokens through them, and makes the path `auth set-token` prints follow the store it actually wrote. All four files are generated ('DO NOT EDIT'), so a reprint on an unfixed press silently restores the false-logout. Regression tests live in the hand-written cli/internal/config/config_test.go and fail without the fix.",
-      "status": "active",
-      "pr": 248,
-      "asserts": [
-        {"file": "cli/internal/cliutil/credentials.go", "contains": "func SaveCredentialsForConfig(", "min_count": 1},
-        {"file": "cli/internal/cliutil/credentials.go", "contains": "func RemoveCredentialsForConfig(", "min_count": 1},
-        {"file": "cli/internal/config/config.go", "contains": "func (c *Config) usesColocatedCredentials() bool {", "min_count": 1},
-        {"file": "cli/internal/config/config.go", "contains": "func (c *Config) CredentialsPath() (string, error) {", "min_count": 1},
-        {"file": "cli/internal/config/config.go", "contains": "cliutil.SaveCredentialsForConfig(c.Path", "min_count": 1},
-        {"file": "cli/internal/config/config.go", "contains": "cliutil.RemoveCredentialsForConfig(c.Path)", "min_count": 1},
-        {"file": "cli/internal/cli/auth.go", "contains": "cfg.CredentialsPath()", "min_count": 1},
-        {"file": "cli/internal/config/config_test.go", "contains": "func TestClearTokensWithExplicitConfigClearsSiblingStore(", "min_count": 1},
-        {"file": "cli/internal/config/config_test.go", "contains": "func TestSaveCredentialWithExplicitConfigWritesSiblingStore(", "min_count": 1}
-      ]
-    },
-    {
-      "id": "mcp-filesystem-path-flags",
-      "summary": "the MCP shell-out gate refuses every flag whose usage text names a filesystem location, not just the four names the generated denylist happened to carry (PR #248)",
-      "why": "The MCP server runs the companion CLI as the server account, so any forwarded flag that names a local path lets a tool caller choose where that account reads or writes. The generated blockedDestinationFlags list covered audit-dir/o/output/receipt-file and missed --db (every local-store command), --out (qbr, qbr-all), --input (import), --notes-file / --playbook-file / --playbook-notes-file (teach, teach-playbook) and --reconcile (bill): 28 of 155 tools exposed one. Driving learnings_list with {\"db\": \"<any path>\"} created a 1.8 MB SQLite file at that path. The fix adds the missing names to the static floor AND adds isFilesystemPathFlag, a per-command rule matching the flag's USAGE text so a newly generated path flag is refused by default. Matching usage rather than name is load-bearing: this CLI ships generated API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values never touch the server filesystem, and a name-based rule would break those real API surfaces. Both files are generated, so a reprint reopens all 28 tools.",
-      "status": "active",
-      "pr": 248,
-      "asserts": [
-        {"file": "cli/internal/mcp/cobratree/shellout.go", "contains": "func isFilesystemPathFlag(", "min_count": 1},
-        {"file": "cli/internal/mcp/cobratree/shellout.go", "contains": "filesystemPathFlagPhrases", "min_count": 2},
-        {"file": "cli/internal/mcp/cobratree/shellout.go", "contains": "\"db\":           true,", "min_count": 1},
-        {"file": "cli/internal/mcp/cobratree/shellout.go", "contains": "\"input\":        true,", "min_count": 1},
-        {"file": "cli/internal/mcp/cobratree/shellout.go", "contains": "\"out\":          true,", "min_count": 1},
-        {"file": "cli/internal/mcp/cobratree/typemap.go", "contains": "if isFilesystemPathFlag(flag) {", "min_count": 1},
-        {"file": "cli/internal/mcp/cobratree/filesystem_flags_test.go", "contains": "func TestFilesystemPathFlagsAreRefusedAsMCPParameters(", "min_count": 1}
-      ]
-    },
-    {
-      "id": "cross-host-redirect-strips-all-credentials",
-      "summary": "a host-changing redirect drops EVERY credential-classed header, not only Authorization (PR #248)",
-      "why": "The generated CheckRedirect deleted only Authorization on a cross-host hop while Go replayed every other header verbatim. The 4.30 surface added 26 --x-servosity-mfa flags, so X-Servosity-Mfa is a second live credential on the wire, and config.headers lets an operator put an API key in any header name they like. A 3xx from the API (open redirect or partner handoff) therefore handed those credentials to a host the operator never authenticated against. The fix adds isCredentialHeader (exact names plus a hyphen/underscore SEGMENT match on auth/token/secret/key/session/mfa/otp/signature/... so unrelated names such as X-Assignee do not trip it) and stripCredentialHeaders, called only on the cross-host branch. Same-host redirects still re-derive Authorization, so nonce-bound schemes keep working and paginated redirects do not start 401ing. client.go is generated, so a reprint restores the single-header strip.",
-      "status": "active",
-      "pr": 248,
-      "asserts": [
-        {"file": "cli/internal/client/client.go", "contains": "func isCredentialHeader(", "min_count": 1},
-        {"file": "cli/internal/client/client.go", "contains": "func stripCredentialHeaders(", "min_count": 1},
-        {"file": "cli/internal/client/client.go", "contains": "stripCredentialHeaders(req.Header)", "min_count": 1},
-        {"file": "cli/internal/client/client.go", "contains": "credentialHeaderTokens", "min_count": 2},
-        {"file": "cli/internal/client/redirect_credentials_test.go", "contains": "func TestCrossHostRedirectStripsEveryCredentialHeader(", "min_count": 1}
-      ]
-    }
-  ]
+    "slug": "servosity",
+    "doc": "docs/reprint-survival.md",
+    "_comment": "servosity is a SPECIAL case: it is engine-swapped from the servosity-msp mint via a staging strip + de-msp rename ritual that is RE-APPLIED on every reprint, so most of its divergence from a stock print is re-derived, not lost. These entries pin the load-bearing engine-swap invariants so a NAIVE reprint (one that bypassed the ritual) is caught. NOTE: a full reprint-diff would surface more; this records the auth/identity invariants that matter most. Issue #78 (bare SERVOSITY_MSP_TOKEN lacked the required 'Token ' DRF auth-scheme prefix -> HTTP 403 on every data endpoint) is FIXED in AuthHeader() and pinned below; the servosity-msp engine still emits a bare token, so a reprint that bypassed re-applying this prefix would reintroduce the bug. 2026-08-17 (4.30.3 reprint): the admin-only-endpoints entry gained asserts for two surfaces the 4.24.0 ledger did not cover - cli/internal/cli/channel_workflow.go (the workflow sync resource list) and cli/internal/cli/root_test.go (the 4.30 declared-API-surface conformance test, which FAILS the build if a declared path has no Cobra command). The 4.30.3 reprint reintroduced the endpoints on both and the ledger did not catch them; they are pinned now.",
+    "handfixes": [
+        {
+            "id": "msp-token-auth-plumbing",
+            "summary": "MSP-token auth (SERVOSITY_MSP_TOKEN env var -> ServosityMspToken -> AuthHeader) is hand-wired by the engine swap",
+            "why": "The servosity-msp engine adds an MSP partner-token auth path the stock print does not have. The env-var wiring and config field are re-applied by the de-msp ritual; a naive reprint that bypassed the ritual would drop them and break authentication.",
+            "status": "active",
+            "asserts": [
+                {
+                    "file": "cli/internal/config/config.go",
+                    "contains": "os.Getenv(\"SERVOSITY_MSP_TOKEN\")",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/config/config.go",
+                    "contains": "cfg.ServosityMspToken = v",
+                    "min_count": 1
+                }
+            ]
+        },
+        {
+            "id": "msp-token-auth-scheme-prefix",
+            "summary": "AuthHeader() prepends the DRF 'Token ' scheme to the MSP partner token (issue #78)",
+            "why": "The Servosity API authenticates the MSP partner token via Django REST Framework's TokenAuthentication, which requires the 'Token ' scheme on the Authorization header; a bare value 403s on every data endpoint. The stock servosity-msp engine emits the token verbatim, so the de-msp ritual must re-apply this scheme prefix on every reprint or the bug returns. hasAuthScheme tolerates an already-prefixed value for backward compatibility with the SERVOSITY_MSP_TOKEN='Token <t>' workaround.",
+            "status": "active",
+            "issue": 78,
+            "spec_encode_followup": "cli-printing-press supports x-prefix on an apiKey header securityScheme (docs/SPEC-EXTENSIONS.md), which would make the press emit the 'Token ' scheme natively and retire this hand-fix. NOT adopted yet: the generated applyAuthFormat path would prepend unconditionally, double-prefixing every user who set SERVOSITY_MSP_TOKEN='Token <t>' per the old workaround. Adopt only together with a stripAuthScheme-equivalent normalization upstream, and only with a live-tenant retest.",
+            "asserts": [
+                {
+                    "file": "cli/internal/config/config.go",
+                    "contains": "func stripAuthScheme(v string) string {",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/config/config.go",
+                    "contains": "\"Token \" + stripAuthScheme",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/config/config_test.go",
+                    "contains": "func TestAuthHeader_TokenScheme(",
+                    "min_count": 1
+                }
+            ]
+        },
+        {
+            "id": "admin-only-issues-endpoints-removed",
+            "summary": "issues archived (/issues/archived/) and issues ignored (/issues/ignored/) are stripped from EVERY surface (CLI, MCP code-orch, sync, store, workflow resource list, declared-surface conformance test) because they are admin-scoped and 403 for the reseller-scoped partner token this connector ships (PR #178)",
+            "why": "These two GET endpoints are generated from the OpenAPI spec and admin-only; the partner SERVOSITY_MSP_TOKEN gets HTTP 403. A naive reprint regenerates them on every surface (the CLI command files, the MCP code-orch endpoint table agents drive via servosity-msp_search/_execute, the sync resource map + store PK map, the workflow sync resource list, and - since press 4.30 - the declared-API-surface conformance test in root_test.go, which fails the build when a declared path has no Cobra command). The de-msp ritual must re-strip all of them; these not_contains asserts fail CI if any surface reintroduced them. Admin functionality lives in Servosity's separate internal admin CLI (admin-token-scoped) instead. See docs/reprint-survival.md.",
+            "status": "active",
+            "pr": 178,
+            "asserts": [
+                {
+                    "file": "cli/internal/cli/issues.go",
+                    "not_contains": "newIssuesArchivedCmd"
+                },
+                {
+                    "file": "cli/internal/cli/issues.go",
+                    "not_contains": "newIssuesIgnoredCmd"
+                },
+                {
+                    "file": "cli/internal/mcp/code_orch.go",
+                    "not_contains": "codeOrchKeywords(\"issues\", \"archived\""
+                },
+                {
+                    "file": "cli/internal/mcp/code_orch.go",
+                    "not_contains": "codeOrchKeywords(\"issues\", \"ignored\""
+                },
+                {
+                    "file": "cli/internal/cli/sync.go",
+                    "not_contains": "\"issues-archived\""
+                },
+                {
+                    "file": "cli/internal/cli/sync.go",
+                    "not_contains": "\"issues-ignored\""
+                },
+                {
+                    "file": "cli/internal/store/store.go",
+                    "not_contains": "\"issues-archived\""
+                },
+                {
+                    "file": "cli/internal/store/store.go",
+                    "not_contains": "\"issues-ignored\""
+                },
+                {
+                    "file": "cli/internal/cli/channel_workflow.go",
+                    "not_contains": "\"issues-archived\""
+                },
+                {
+                    "file": "cli/internal/cli/channel_workflow.go",
+                    "not_contains": "\"issues-ignored\""
+                },
+                {
+                    "file": "cli/internal/cli/root_test.go",
+                    "not_contains": "\"issues archived\""
+                },
+                {
+                    "file": "cli/internal/cli/root_test.go",
+                    "not_contains": "\"issues ignored\""
+                }
+            ]
+        },
+        {
+            "id": "explicit-config-credential-writes",
+            "summary": "auth set-token and auth logout write and delete the credentials store colocated with an explicit --config / SERVOSITY_MSP_CONFIG file, not just the default data-dir store (PR #248)",
+            "why": "The generated cliutil credentials layer is config-path-aware on READ (LoadCredentialsForConfigWithStatus resolves <dir-of-config>/data/credentials.toml and Load prefers it) but not on WRITE: SaveCredentials and RemoveCredentials always resolved the DEFAULT store. With --config or SERVOSITY_MSP_CONFIG set, `auth logout` printed 'Logged out. Credentials cleared.' while the sibling token stayed on disk and kept authenticating every later call, and `auth set-token` wrote the rotated token to the default store while the sibling kept serving the OLD one - a rotation the operator believes happened but did not. The fix adds SaveCredentialsForConfig / RemoveCredentialsForConfig mirroring the read-path resolution, records explicitConfigFile on Config so the write paths can honor it, routes saveCredentialsFirst/ClearTokens through them, and makes the path `auth set-token` prints follow the store it actually wrote. All four files are generated ('DO NOT EDIT'), so a reprint on an unfixed press silently restores the false-logout. Regression tests live in the hand-written cli/internal/config/config_test.go and fail without the fix.",
+            "status": "active",
+            "pr": 248,
+            "asserts": [
+                {
+                    "file": "cli/internal/cliutil/credentials.go",
+                    "contains": "func SaveCredentialsForConfig(",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/cliutil/credentials.go",
+                    "contains": "func RemoveCredentialsForConfig(",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/config/config.go",
+                    "contains": "func (c *Config) usesColocatedCredentials() bool {",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/config/config.go",
+                    "contains": "func (c *Config) CredentialsPath() (string, error) {",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/config/config.go",
+                    "contains": "cliutil.SaveCredentialsForConfig(c.Path",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/config/config.go",
+                    "contains": "cliutil.RemoveCredentialsForConfig(c.Path)",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/cli/auth.go",
+                    "contains": "cfg.CredentialsPath()",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/config/config_test.go",
+                    "contains": "func TestClearTokensWithExplicitConfigClearsSiblingStore(",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/config/config_test.go",
+                    "contains": "func TestSaveCredentialWithExplicitConfigWritesSiblingStore(",
+                    "min_count": 1
+                }
+            ]
+        },
+        {
+            "id": "mcp-filesystem-path-flags",
+            "summary": "the MCP shell-out gate refuses every flag whose usage text names a filesystem location, not just the four names the generated denylist happened to carry (PR #248)",
+            "why": "The MCP server runs the companion CLI as the server account, so any forwarded flag that names a local path lets a tool caller choose where that account reads or writes. The generated blockedDestinationFlags list covered audit-dir/o/output/receipt-file and missed --db (every local-store command), --out (qbr, qbr-all), --input (import), --notes-file / --playbook-file / --playbook-notes-file (teach, teach-playbook) and --reconcile (bill): 28 of 155 tools exposed one. Driving learnings_list with {\"db\": \"<any path>\"} created a 1.8 MB SQLite file at that path. The fix adds the missing names to the static floor AND adds isFilesystemPathFlag, a per-command rule matching the flag's USAGE text so a newly generated path flag is refused by default. Matching usage rather than name is load-bearing: this CLI ships generated API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values never touch the server filesystem, and a name-based rule would break those real API surfaces. Both files are generated, so a reprint reopens all 28 tools.",
+            "status": "active",
+            "pr": 248,
+            "asserts": [
+                {
+                    "file": "cli/internal/mcp/cobratree/shellout.go",
+                    "contains": "func isFilesystemPathFlag(",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/mcp/cobratree/shellout.go",
+                    "contains": "filesystemPathFlagPhrases",
+                    "min_count": 2
+                },
+                {
+                    "file": "cli/internal/mcp/cobratree/shellout.go",
+                    "contains": "\"db\":           true,",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/mcp/cobratree/shellout.go",
+                    "contains": "\"input\":        true,",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/mcp/cobratree/shellout.go",
+                    "contains": "\"out\":          true,",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/mcp/cobratree/typemap.go",
+                    "contains": "if isFilesystemPathFlag(flag) {",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/mcp/cobratree/filesystem_flags_test.go",
+                    "contains": "func TestFilesystemPathFlagsAreRefusedAsMCPParameters(",
+                    "min_count": 1
+                }
+            ]
+        },
+        {
+            "id": "cross-host-redirect-strips-all-credentials",
+            "summary": "a host-changing redirect drops EVERY credential-classed header, not only Authorization (PR #248)",
+            "why": "The generated CheckRedirect deleted only Authorization on a cross-host hop while Go replayed every other header verbatim. The 4.30 surface added 26 --x-servosity-mfa flags, so X-Servosity-Mfa is a second live credential on the wire, and config.headers lets an operator put an API key in any header name they like. A 3xx from the API (open redirect or partner handoff) therefore handed those credentials to a host the operator never authenticated against. The fix adds isCredentialHeader (exact names plus a hyphen/underscore SEGMENT match on auth/token/secret/key/session/mfa/otp/signature/... so unrelated names such as X-Assignee do not trip it) and stripCredentialHeaders, called only on the cross-host branch. Same-host redirects still re-derive Authorization, so nonce-bound schemes keep working and paginated redirects do not start 401ing. client.go is generated, so a reprint restores the single-header strip.",
+            "status": "active",
+            "pr": 248,
+            "asserts": [
+                {
+                    "file": "cli/internal/client/client.go",
+                    "contains": "func isCredentialHeader(",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/client/client.go",
+                    "contains": "func stripCredentialHeaders(",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/client/client.go",
+                    "contains": "stripCredentialHeaders(req.Header)",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/client/client.go",
+                    "contains": "credentialHeaderTokens",
+                    "min_count": 2
+                },
+                {
+                    "file": "cli/internal/client/redirect_credentials_test.go",
+                    "contains": "func TestCrossHostRedirectStripsEveryCredentialHeader(",
+                    "min_count": 1
+                }
+            ]
+        },
+        {
+            "id": "transcendent-root-help",
+            "summary": "root.go carries the transcendent Short/Long describing all 13 novel commands, not the press's generic one-liner",
+            "why": "The press emits Short/Long as \"Manage servosity-msp resources via the servosity-msp API\". That does two kinds of damage at once. It DROPS the discovery surface for every novel command from --help and agent-context - the 13 highlights are the whole reason this connector is more than a generated API wrapper, and an agent reading agent-context can no longer find them. And it LEAKS the internal servosity-msp mint name twice in the first user-visible line, which is exactly what the de-msp rename ritual exists to remove. Verified dropped by the 4.30.3 reprint; re-apply the transcendent block on every reprint.",
+            "status": "active",
+            "asserts": [
+                {
+                    "file": "cli/internal/cli/root.go",
+                    "contains": "Highlights (not in the official API docs):",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/cli/root.go",
+                    "contains": "The first MSP-fleet CLI for backup",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/cli/root.go",
+                    "contains": "\u2022 qbr-all",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/cli/root.go",
+                    "contains": "\u2022 fleet-health",
+                    "min_count": 1
+                }
+            ]
+        }
+    ]
 }
