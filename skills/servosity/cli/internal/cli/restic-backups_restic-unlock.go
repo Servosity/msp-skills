@@ -11,7 +11,7 @@ func newResticBackupsResticUnlockCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "restic-unlock",
 		Short:       "Update restic unlock for restic backups",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 

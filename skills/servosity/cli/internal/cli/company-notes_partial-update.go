@@ -15,7 +15,7 @@ import (
 func newCompanyNotesPartialUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodyCompany int
 	var bodyCreatedAt string
-	var bodyId2 string
+	var bodyId2 int
 	var bodyText string
 	var bodyUpdatedAt string
 	var stdinBody bool
@@ -27,19 +27,33 @@ func newCompanyNotesPartialUpdateCmd(flags *rootFlags) *cobra.Command {
 		Annotations: map[string]string{"pp:endpoint": "company-notes.partial-update", "pp:method": "PATCH", "pp:path": "/company-notes/{id}/"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return cmd.Help()
+				// A missing required positional is a usage error in every output
+				// mode (matches command_promoted.go.tmpl). Machine callers
+				// (--json/--agent) also get a JSON error envelope on stdout;
+				// usageErr sets exit 2.
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "missing required argument",
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <id>"),
+					}, flags); printErr != nil {
+						return printErr
+					}
+				}
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <id>"))
 			}
 			if !stdinBody {
 			}
+			path := "/company-notes/{id}/"
+			if len(args) < 1 || args[0] == "" {
+				return usageErr(fmt.Errorf("id is required\nUsage: %s <%s>", cmd.CommandPath(), "id"))
+			}
+			path = replacePathParam(path, "id", args[0])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/company-notes/{id}/"
-			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -51,26 +65,27 @@ func newCompanyNotesPartialUpdateCmd(flags *rootFlags) *cobra.Command {
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
-				if bodyCompany != 0 {
-					body["company"] = bodyCompany
+				bodyMap := map[string]any{}
+				body = bodyMap
+				if cmd.Flags().Changed("company") || bodyCompany != 0 {
+					bodyMap["company"] = bodyCompany
 				}
-				if bodyCreatedAt != "" {
-					body["created_at"] = bodyCreatedAt
+				if cmd.Flags().Changed("created-at") || bodyCreatedAt != "" {
+					bodyMap["created_at"] = bodyCreatedAt
 				}
-				if bodyId2 != "" {
-					body["id"] = bodyId2
+				if cmd.Flags().Changed("id-2") || bodyId2 != 0 {
+					bodyMap["id"] = bodyId2
 				}
-				if bodyText != "" {
-					body["text"] = bodyText
+				if cmd.Flags().Changed("text") || bodyText != "" {
+					bodyMap["text"] = bodyText
 				}
-				if bodyUpdatedAt != "" {
-					body["updated_at"] = bodyUpdatedAt
+				if cmd.Flags().Changed("updated-at") || bodyUpdatedAt != "" {
+					bodyMap["updated_at"] = bodyUpdatedAt
 				}
 			}
 			data, statusCode, err := c.PatchWithParams(cmd.Context(), path, params, body)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			// Inspect the mutate response body for a partial-failure-shaped
 			// field (e.g. Google Ads `partialFailureError`). Several Google
@@ -135,6 +150,9 @@ func newCompanyNotesPartialUpdateCmd(flags *rootFlags) *cobra.Command {
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -168,19 +186,31 @@ func newCompanyNotesPartialUpdateCmd(flags *rootFlags) *cobra.Command {
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"company": true, "created_at": true, "id": true, "text": true, "updated_at": true})
 				}
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {
@@ -206,7 +236,7 @@ func newCompanyNotesPartialUpdateCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().IntVar(&bodyCompany, "company", 0, "Company")
 	cmd.Flags().StringVar(&bodyCreatedAt, "created-at", "", "Created at")
-	cmd.Flags().StringVar(&bodyId2, "id-2", "", "Id")
+	cmd.Flags().IntVar(&bodyId2, "id-2", 0, "Id")
 	cmd.Flags().StringVar(&bodyText, "text", "", "Text")
 	cmd.Flags().StringVar(&bodyUpdatedAt, "updated-at", "", "Updated at")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")

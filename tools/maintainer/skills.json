@@ -1291,21 +1291,13 @@
       "vendor": "Servosity",
       "vendor_trademark_owner": "Servosity Inc.",
       "first_party": true,
-      "cli_hash": "sha256:a09af51adc8d48806b4ded23bf2bb7ec4fa434ebaf50f6d4a8672dc7bd8e4a43",
+      "cli_hash": "sha256:8c13ad1e65a6315f3c244637895c3b244be2364c96cdde3104a6537c9f64cf2a",
       "template_version": 3,
       "version": "0.4.0",
       "cli_hash_at_release": "sha256:a48664a3ca0130b805cda6deb8215861aa9497e0f289c6809e616e4a3531ce6a",
       "has_video": true,
       "featured": 1,
       "install_auth_hint": "Then authenticate with `SERVOSITY_MSP_TOKEN=<your-partner-token> servosity-cli doctor`",
-      "live_verified": {
-        "status": "live-verified",
-        "date": "2026-06-05",
-        "source": "self",
-        "evidence": "Damien: verified live against the Servosity partner tenant (2026-06-05)",
-        "verified_by": "Servosity (maintainer)",
-        "issue_url": null
-      },
       "category": "Backup/DR",
       "tagline": "Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.",
       "display_name": "Servosity"

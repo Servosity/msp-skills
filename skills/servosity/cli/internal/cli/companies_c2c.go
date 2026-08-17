@@ -11,7 +11,7 @@ func newCompaniesC2cCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "c2c",
 		Short:       "Update and delete c2c for companies",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 

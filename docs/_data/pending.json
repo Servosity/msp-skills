@@ -367,7 +367,7 @@
     "state": "binary-pending",
     "version": "0.4.0",
     "latest_tag": "servosity-v0.4.0",
-    "current_hash": "sha256:b6459423df197258756fc4da6045c7316bf85be70fdb03e5aa78c5fbaad33324",
+    "current_hash": "sha256:94cb4319a7743204aeddd6ba13f3293b3b070bc22ad36fa9f03b66e1ebdff3f7",
     "released_hash": "sha256:a48664a3ca0130b805cda6deb8215861aa9497e0f289c6809e616e4a3531ce6a"
   },
   "sherweb": {

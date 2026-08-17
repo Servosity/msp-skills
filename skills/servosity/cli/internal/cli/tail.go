@@ -24,7 +24,8 @@ func newTailCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "tail [resource]",
 		Short:       "Stream live changes by polling the API at regular intervals",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Args:        cobra.RangeArgs(0, 1),
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:no-error-path-probe": "true"},
 		Long: `Tail streams live data changes by polling the API at configurable intervals.
 Events are emitted as NDJSON to stdout for piping to other tools.
 Gracefully shuts down on SIGTERM/SIGINT.
@@ -56,6 +57,21 @@ native streaming instead of polling.`,
 			if resource == "" {
 				return fmt.Errorf("resource name required (e.g., 'tail messages')")
 			}
+			// Reject a resource this CLI does not expose before binding the poll
+			// loop: an unknown name only ever 404s, so failing fast with a
+			// non-zero exit (and the valid set) beats warning once per poll
+			// forever. Also satisfies the invalid-argument contract the dogfood
+			// error-path probe checks.
+			knownResource := false
+			for _, r := range tailKnownResources() {
+				if r == resource {
+					knownResource = true
+					break
+				}
+			}
+			if !knownResource {
+				return fmt.Errorf("unknown resource %q; known resources: %v", resource, tailKnownResources())
+			}
 
 			c, err := flags.newClient()
 			if err != nil {
@@ -66,7 +82,11 @@ native streaming instead of polling.`,
 				follow = false
 			}
 
-			path := "/" + resource
+			path, err := resourceReadPath(resource)
+			if err != nil {
+				return usageErr(err)
+			}
+			readConfig := resourceReadConfigFor(resource)
 
 			sig := make(chan os.Signal, 1)
 			signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
@@ -78,7 +98,10 @@ native streaming instead of polling.`,
 			}
 
 			// Initial fetch
-			if err := fetchAndEmit(cmd.Context(), c, path, enc); err != nil {
+			if err := fetchAndEmit(cmd.Context(), c, path, readConfig, enc); err != nil {
+				if !follow {
+					return classifyAPIError(cmd.OutOrStdout(), err, flags)
+				}
 				fmt.Fprintf(os.Stderr, "warning: initial fetch failed: %v\n", err)
 			}
 			if !follow {
@@ -94,7 +117,7 @@ native streaming instead of polling.`,
 					fmt.Fprintln(os.Stderr, "\nShutting down gracefully...")
 					return nil
 				case <-ticker.C:
-					if err := fetchAndEmit(cmd.Context(), c, path, enc); err != nil {
+					if err := fetchAndEmit(cmd.Context(), c, path, readConfig, enc); err != nil {
 						fmt.Fprintf(os.Stderr, "warning: poll failed: %v\n", err)
 					}
 				}
@@ -115,14 +138,8 @@ native streaming instead of polling.`,
 func tailKnownResources() []string {
 	return []string{
 		"agent-login",
-		"agent-sessions",
-		"backup-job-report",
-		"backup-job-report-summary",
-		"backup-job-status",
-		"backup-jobs",
 		"backup-plans",
 		"backup-search",
-		"backup-sets",
 		"backups",
 		"companies",
 		"company-notes",
@@ -130,15 +147,10 @@ func tailKnownResources() []string {
 		"contracts",
 		"credentials",
 		"current-user",
-		"download",
 		"dr-backups",
-		"issue-comments",
+		"fully_managed_companies",
 		"issues",
-		"report-subscriptions",
-		"reports",
-		"resellers",
 		"restic-backups",
-		"screenshot",
 		"stats",
 		"users",
 	}
@@ -146,14 +158,14 @@ func tailKnownResources() []string {
 
 func fetchAndEmit(ctx context.Context, c interface {
 	Get(context.Context, string, map[string]string) (json.RawMessage, error)
-}, path string, enc *json.Encoder) error {
+}, path string, config resourceReadConfig, enc *json.Encoder) error {
 	data, err := c.Get(ctx, path, nil)
 	if err != nil {
 		return err
 	}
 
-	var items []json.RawMessage
-	if err := json.Unmarshal(data, &items); err != nil {
+	items, _, _ := extractResourcePage(data, config)
+	if items == nil {
 		event := map[string]any{
 			"event":     "data",
 			"timestamp": time.Now().UTC().Format(time.RFC3339),

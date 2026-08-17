@@ -38,7 +38,7 @@ func newDrBackupsSnapshotsDrBackupsReverifyCmd(flags *rootFlags) *cobra.Command 
 	var bodyEncryptionKeyCreated bool
 	var bodyEncryptionKeyLocked bool
 	var bodyGuaranteeEligible bool
-	var bodyId2 string
+	var bodyId2 int
 	var bodyLastOfflineChkdskAt string
 	var bodyLocalIpv4 string
 	var bodyManaged bool
@@ -63,11 +63,35 @@ func newDrBackupsSnapshotsDrBackupsReverifyCmd(flags *rootFlags) *cobra.Command 
 			// Bare invocation of a command with required input prints help
 			// instead of pflag's terse "required flag not set" error. Optional-
 			// only read commands fall through so a bare call still executes.
-			if cmd.Flags().NFlag() == 0 && len(args) == 0 && !flags.dryRun {
+			// Machine callers (--json/--agent, which sets asJSON) get a usage
+			// error + exit 2 instead of silent exit-0 help, so an incomplete
+			// invocation is never mistaken for success.
+			if !hasChangedLocalFlags(cmd) && len(args) == 0 && !flags.dryRun {
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "requires input",
+						"usage": cmd.CommandPath() + " --help",
+					}, flags); printErr != nil {
+						return printErr
+					}
+					return usageErr(fmt.Errorf("%q requires input; run %q for usage", cmd.CommandPath(), cmd.CommandPath()+" --help"))
+				}
 				return cmd.Help()
 			}
 			if len(args) == 0 {
-				return cmd.Help()
+				// A missing required positional is a usage error in every output
+				// mode (matches command_promoted.go.tmpl). Machine callers
+				// (--json/--agent) also get a JSON error envelope on stdout;
+				// usageErr sets exit 2.
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "missing required argument",
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <id>"),
+					}, flags); printErr != nil {
+						return printErr
+					}
+				}
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <id>"))
 			}
 			if !cmd.Flags().Changed("snapshot-id") && !flags.dryRun {
 				return fmt.Errorf("required flag \"%s\" not set", "snapshot-id")
@@ -89,18 +113,20 @@ func newDrBackupsSnapshotsDrBackupsReverifyCmd(flags *rootFlags) *cobra.Command 
 					return fmt.Errorf("required flag \"%s\" not set", "shadowprotect-keys")
 				}
 			}
+			path := "/dr-backups/{id}/snapshots/reverify/"
+			if len(args) < 1 || args[0] == "" {
+				return usageErr(fmt.Errorf("id is required\nUsage: %s <%s>", cmd.CommandPath(), "id"))
+			}
+			path = replacePathParam(path, "id", args[0])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/dr-backups/{id}/snapshots/reverify/"
-			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
-			if flagSnapshotId != "" {
+			if cmd.Flags().Changed("snapshot-id") || flagSnapshotId != "" {
 				params["snapshot_id"] = formatCLIParamValue(flagSnapshotId)
 			}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -112,87 +138,100 @@ func newDrBackupsSnapshotsDrBackupsReverifyCmd(flags *rootFlags) *cobra.Command 
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
+				bodyMap := map[string]any{}
+				body = bodyMap
 				{
 					nestedAgentSession := map[string]any{}
-					if bodyAgentSessionAgentSessionId != "" {
+					if cmd.Flags().Changed("agent-session-agent-session-id") || bodyAgentSessionAgentSessionId != "" {
 						nestedAgentSession["agent_session_id"] = bodyAgentSessionAgentSessionId
 					}
-					if bodyAgentSessionAgentVersion != "" {
+					if cmd.Flags().Changed("agent-session-agent-version") || bodyAgentSessionAgentVersion != "" {
 						nestedAgentSession["agent_version"] = bodyAgentSessionAgentVersion
 					}
-					if bodyAgentSessionClientIp != "" {
+					if cmd.Flags().Changed("agent-session-client-ip") || bodyAgentSessionClientIp != "" {
 						nestedAgentSession["client_ip"] = bodyAgentSessionClientIp
 					}
-					if bodyAgentSessionCompany != "" {
+					if cmd.Flags().Changed("agent-session-company") || bodyAgentSessionCompany != "" {
 						var parsedAgentSessionCompany any
 						if err := json.Unmarshal([]byte(bodyAgentSessionCompany), &parsedAgentSessionCompany); err != nil {
 							return fmt.Errorf("parsing --agent-session-company JSON: %w", err)
 						}
-						nestedAgentSession["company"] = parsedAgentSessionCompany
+						asArray, ok := parsedAgentSessionCompany.([]any)
+						if !ok {
+							return fmt.Errorf("--agent-session-company must be a JSON array, got JSON %T", parsedAgentSessionCompany)
+						}
+						nestedAgentSession["company"] = asArray
 					}
-					if bodyAgentSessionDiskInfo != "" {
+					if cmd.Flags().Changed("agent-session-disk-info") || bodyAgentSessionDiskInfo != "" {
 						nestedAgentSession["disk_info"] = bodyAgentSessionDiskInfo
 					}
-					if bodyAgentSessionDrbackup != "" {
+					if cmd.Flags().Changed("agent-session-drbackup") || bodyAgentSessionDrbackup != "" {
 						var parsedAgentSessionDrbackup any
 						if err := json.Unmarshal([]byte(bodyAgentSessionDrbackup), &parsedAgentSessionDrbackup); err != nil {
 							return fmt.Errorf("parsing --agent-session-drbackup JSON: %w", err)
 						}
-						nestedAgentSession["drbackup"] = parsedAgentSessionDrbackup
+						asArray, ok := parsedAgentSessionDrbackup.([]any)
+						if !ok {
+							return fmt.Errorf("--agent-session-drbackup must be a JSON array, got JSON %T", parsedAgentSessionDrbackup)
+						}
+						nestedAgentSession["drbackup"] = asArray
 					}
-					if bodyAgentSessionIsOnline != "" {
+					if cmd.Flags().Changed("agent-session-is-online") || bodyAgentSessionIsOnline != "" {
 						nestedAgentSession["is_online"] = bodyAgentSessionIsOnline
 					}
-					if bodyAgentSessionLastLoginAt != "" {
+					if cmd.Flags().Changed("agent-session-last-login-at") || bodyAgentSessionLastLoginAt != "" {
 						nestedAgentSession["last_login_at"] = bodyAgentSessionLastLoginAt
 					}
-					if bodyAgentSessionLastSeenAt != "" {
+					if cmd.Flags().Changed("agent-session-last-seen-at") || bodyAgentSessionLastSeenAt != "" {
 						nestedAgentSession["last_seen_at"] = bodyAgentSessionLastSeenAt
 					}
-					if bodyAgentSessionResticbackup != "" {
+					if cmd.Flags().Changed("agent-session-resticbackup") || bodyAgentSessionResticbackup != "" {
 						var parsedAgentSessionResticbackup any
 						if err := json.Unmarshal([]byte(bodyAgentSessionResticbackup), &parsedAgentSessionResticbackup); err != nil {
 							return fmt.Errorf("parsing --agent-session-resticbackup JSON: %w", err)
 						}
-						nestedAgentSession["resticbackup"] = parsedAgentSessionResticbackup
+						asArray, ok := parsedAgentSessionResticbackup.([]any)
+						if !ok {
+							return fmt.Errorf("--agent-session-resticbackup must be a JSON array, got JSON %T", parsedAgentSessionResticbackup)
+						}
+						nestedAgentSession["resticbackup"] = asArray
 					}
-					if bodyAgentSessionSettings != "" {
+					if cmd.Flags().Changed("agent-session-settings") || bodyAgentSessionSettings != "" {
 						nestedAgentSession["settings"] = bodyAgentSessionSettings
 					}
-					if bodyAgentSessionSystemInfo != "" {
+					if cmd.Flags().Changed("agent-session-system-info") || bodyAgentSessionSystemInfo != "" {
 						nestedAgentSession["system_info"] = bodyAgentSessionSystemInfo
 					}
 					if len(nestedAgentSession) > 0 {
-						body["agent_session"] = nestedAgentSession
+						bodyMap["agent_session"] = nestedAgentSession
 					}
 				}
-				if bodyAgentSessionId != "" {
-					body["agent_session_id"] = bodyAgentSessionId
+				if cmd.Flags().Changed("agent-session-id") || bodyAgentSessionId != "" {
+					bodyMap["agent_session_id"] = bodyAgentSessionId
 				}
-				if bodyCheckcentralCheckStatus != 0 {
-					body["checkcentral_check_status"] = bodyCheckcentralCheckStatus
+				if cmd.Flags().Changed("checkcentral-check-status") || bodyCheckcentralCheckStatus != 0 {
+					bodyMap["checkcentral_check_status"] = bodyCheckcentralCheckStatus
 				}
-				if bodyCheckcentralSpLocalCheckId != "" {
-					body["checkcentral_sp_local_check_id"] = bodyCheckcentralSpLocalCheckId
+				if cmd.Flags().Changed("checkcentral-sp-local-check-id") || bodyCheckcentralSpLocalCheckId != "" {
+					bodyMap["checkcentral_sp_local_check_id"] = bodyCheckcentralSpLocalCheckId
 				}
-				if bodyChkdskMode != "" {
-					body["chkdsk_mode"] = bodyChkdskMode
+				if cmd.Flags().Changed("chkdsk-mode") || bodyChkdskMode != "" {
+					bodyMap["chkdsk_mode"] = bodyChkdskMode
 				}
-				if bodyCompany != "" {
-					body["company"] = bodyCompany
+				if cmd.Flags().Changed("company") || bodyCompany != "" {
+					bodyMap["company"] = bodyCompany
 				}
-				if bodyCreatedAt != "" {
-					body["created_at"] = bodyCreatedAt
+				if cmd.Flags().Changed("created-at") || bodyCreatedAt != "" {
+					bodyMap["created_at"] = bodyCreatedAt
 				}
-				if bodyDeviceName != "" {
-					body["device_name"] = bodyDeviceName
+				if cmd.Flags().Changed("device-name") || bodyDeviceName != "" {
+					bodyMap["device_name"] = bodyDeviceName
 				}
-				if bodyDisplayName != "" {
-					body["display_name"] = bodyDisplayName
+				if cmd.Flags().Changed("display-name") || bodyDisplayName != "" {
+					bodyMap["display_name"] = bodyDisplayName
 				}
 				if cmd.Flags().Changed("draas-enabled") {
-					body["draas_enabled"] = bodyDraasEnabled
+					bodyMap["draas_enabled"] = bodyDraasEnabled
 				}
 				{
 					nestedEncryptionKey := map[string]any{}
@@ -203,59 +242,63 @@ func newDrBackupsSnapshotsDrBackupsReverifyCmd(flags *rootFlags) *cobra.Command 
 						nestedEncryptionKey["locked"] = bodyEncryptionKeyLocked
 					}
 					if len(nestedEncryptionKey) > 0 {
-						body["encryption_key"] = nestedEncryptionKey
+						bodyMap["encryption_key"] = nestedEncryptionKey
 					}
 				}
 				if cmd.Flags().Changed("guarantee-eligible") {
-					body["guarantee_eligible"] = bodyGuaranteeEligible
+					bodyMap["guarantee_eligible"] = bodyGuaranteeEligible
 				}
-				if bodyId2 != "" {
-					body["id"] = bodyId2
+				if cmd.Flags().Changed("id-2") || bodyId2 != 0 {
+					bodyMap["id"] = bodyId2
 				}
-				if bodyLastOfflineChkdskAt != "" {
-					body["last_offline_chkdsk_at"] = bodyLastOfflineChkdskAt
+				if cmd.Flags().Changed("last-offline-chkdsk-at") || bodyLastOfflineChkdskAt != "" {
+					bodyMap["last_offline_chkdsk_at"] = bodyLastOfflineChkdskAt
 				}
-				if bodyLocalIpv4 != "" {
-					body["local_ipv4"] = bodyLocalIpv4
+				if cmd.Flags().Changed("local-ipv4") || bodyLocalIpv4 != "" {
+					bodyMap["local_ipv4"] = bodyLocalIpv4
 				}
 				if cmd.Flags().Changed("managed") {
-					body["managed"] = bodyManaged
+					bodyMap["managed"] = bodyManaged
 				}
-				if bodyNotes != "" {
-					body["notes"] = bodyNotes
+				if cmd.Flags().Changed("notes") || bodyNotes != "" {
+					bodyMap["notes"] = bodyNotes
 				}
-				if bodyProductType != "" {
-					body["product_type"] = bodyProductType
+				if cmd.Flags().Changed("product-type") || bodyProductType != "" {
+					bodyMap["product_type"] = bodyProductType
 				}
-				if bodyRetention != "" {
-					body["retention"] = bodyRetention
+				if cmd.Flags().Changed("retention") || bodyRetention != "" {
+					bodyMap["retention"] = bodyRetention
 				}
-				if bodyShadowprotectKeys != "" {
+				if cmd.Flags().Changed("shadowprotect-keys") || bodyShadowprotectKeys != "" {
 					var parsedShadowprotectKeys any
 					if err := json.Unmarshal([]byte(bodyShadowprotectKeys), &parsedShadowprotectKeys); err != nil {
 						return fmt.Errorf("parsing --shadowprotect-keys JSON: %w", err)
 					}
-					body["shadowprotect_keys"] = parsedShadowprotectKeys
+					asArray, ok := parsedShadowprotectKeys.([]any)
+					if !ok {
+						return fmt.Errorf("--shadowprotect-keys must be a JSON array, got JSON %T", parsedShadowprotectKeys)
+					}
+					bodyMap["shadowprotect_keys"] = asArray
 				}
-				if bodyState != "" {
-					body["state"] = bodyState
+				if cmd.Flags().Changed("state") || bodyState != "" {
+					bodyMap["state"] = bodyState
 				}
-				if bodySupportTierOverride != "" {
-					body["support_tier_override"] = bodySupportTierOverride
+				if cmd.Flags().Changed("support-tier-override") || bodySupportTierOverride != "" {
+					bodyMap["support_tier_override"] = bodySupportTierOverride
 				}
-				if bodyUrl != "" {
-					body["url"] = bodyUrl
+				if cmd.Flags().Changed("url") || bodyUrl != "" {
+					bodyMap["url"] = bodyUrl
 				}
-				if bodyVerificationOrigin != "" {
-					body["verification_origin"] = bodyVerificationOrigin
+				if cmd.Flags().Changed("verification-origin") || bodyVerificationOrigin != "" {
+					bodyMap["verification_origin"] = bodyVerificationOrigin
 				}
-				if bodyVolumes != "" {
-					body["volumes"] = bodyVolumes
+				if cmd.Flags().Changed("volumes") || bodyVolumes != "" {
+					bodyMap["volumes"] = bodyVolumes
 				}
 			}
 			data, statusCode, err := c.PutWithParams(cmd.Context(), path, params, body)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			// Inspect the mutate response body for a partial-failure-shaped
 			// field (e.g. Google Ads `partialFailureError`). Several Google
@@ -320,6 +363,9 @@ func newDrBackupsSnapshotsDrBackupsReverifyCmd(flags *rootFlags) *cobra.Command 
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -353,19 +399,31 @@ func newDrBackupsSnapshotsDrBackupsReverifyCmd(flags *rootFlags) *cobra.Command 
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"product_key": true, "product_type": true, "state": true})
 				}
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {
@@ -414,7 +472,7 @@ func newDrBackupsSnapshotsDrBackupsReverifyCmd(flags *rootFlags) *cobra.Command 
 	cmd.Flags().BoolVar(&bodyEncryptionKeyCreated, "encryption-key-created", false, "Created")
 	cmd.Flags().BoolVar(&bodyEncryptionKeyLocked, "encryption-key-locked", false, "Locked")
 	cmd.Flags().BoolVar(&bodyGuaranteeEligible, "guarantee-eligible", false, "Guarantee eligible")
-	cmd.Flags().StringVar(&bodyId2, "id-2", "", "Id")
+	cmd.Flags().IntVar(&bodyId2, "id-2", 0, "Id")
 	cmd.Flags().StringVar(&bodyLastOfflineChkdskAt, "last-offline-chkdsk-at", "", "Last offline chkdsk at")
 	cmd.Flags().StringVar(&bodyLocalIpv4, "local-ipv4", "", "Local ipv4")
 	cmd.Flags().BoolVar(&bodyManaged, "managed", false, "Managed")

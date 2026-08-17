@@ -161,7 +161,7 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
   Verification: Live-verified by a real MSP (2026-06-16). Page: https://msp-skills.compoundingteams.com/skills/sentinelone/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sentinelone/install.sh)
 - Servosity (Backup/DR) - ask "Where is my attention needed today, ranked worst-first?" - Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.
-  Verification: Live-verified by Servosity (maintainer) (2026-06-05). Page: https://msp-skills.compoundingteams.com/skills/servosity/
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/servosity/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
 - Sherweb (Billing) - ask "What is my net margin per customer this month - receivable minus payable?" - Reconcile what you owe Sherweb against what customers owe you and surface true net margin per customer.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/sherweb/

@@ -25,10 +25,10 @@ func newCompaniesRestoreQueuesCompaniesJobsPartialUpdateCmd(flags *rootFlags) *c
 	var bodyResticsnapshotErrors string
 	var bodyResticsnapshotExcludes string
 	var bodyResticsnapshotHasErrors bool
-	var bodyResticsnapshotId string
+	var bodyResticsnapshotId int
 	var bodyResticsnapshotInfo string
 	var bodyResticsnapshotResticbackupDeviceName string
-	var bodyResticsnapshotResticbackupId string
+	var bodyResticsnapshotResticbackupId int
 	var bodyResticsnapshotResticbackupProductType string
 	var bodyResticsnapshotSnapshotCreatedAt string
 	var bodyResticsnapshotSnapshotId string
@@ -39,46 +39,74 @@ func newCompaniesRestoreQueuesCompaniesJobsPartialUpdateCmd(flags *rootFlags) *c
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:   "companies-jobs-partial-update <company_pk> <id> <resticrestorequeue_pk>",
+		Use:   "companies-jobs-partial-update <company_pk> <resticrestorequeue_pk> <id>",
 		Short: "Companies jobs partial update",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  servosity-cli companies restore-queues companies-jobs-partial-update example-value 550e8400-e29b-41d4-a716-446655440000 example-value",
+		Example:     "  servosity-cli companies restore-queues companies-jobs-partial-update example-value example-value 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "restore-queues.companies-jobs-partial-update", "pp:method": "PATCH", "pp:path": "/companies/{company_pk}/restore-queues/{resticrestorequeue_pk}/jobs/{id}/"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
 			// instead of pflag's terse "required flag not set" error. Optional-
 			// only read commands fall through so a bare call still executes.
-			if cmd.Flags().NFlag() == 0 && len(args) == 0 && !flags.dryRun {
+			// Machine callers (--json/--agent, which sets asJSON) get a usage
+			// error + exit 2 instead of silent exit-0 help, so an incomplete
+			// invocation is never mistaken for success.
+			if !hasChangedLocalFlags(cmd) && len(args) == 0 && !flags.dryRun {
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "requires input",
+						"usage": cmd.CommandPath() + " --help",
+					}, flags); printErr != nil {
+						return printErr
+					}
+					return usageErr(fmt.Errorf("%q requires input; run %q for usage", cmd.CommandPath(), cmd.CommandPath()+" --help"))
+				}
 				return cmd.Help()
 			}
 			if len(args) == 0 {
-				return cmd.Help()
+				// A missing required positional is a usage error in every output
+				// mode (matches command_promoted.go.tmpl). Machine callers
+				// (--json/--agent) also get a JSON error envelope on stdout;
+				// usageErr sets exit 2.
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "missing required argument",
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <company_pk> <resticrestorequeue_pk> <id>"),
+					}, flags); printErr != nil {
+						return printErr
+					}
+				}
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <company_pk> <resticrestorequeue_pk> <id>"))
 			}
 			if !stdinBody {
-				if !cmd.Flags().Changed("resticsnapshot-resticbackup-device-name") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "resticsnapshot-resticbackup-device-name")
-				}
-				if !cmd.Flags().Changed("resticsnapshot-resticbackup-product-type") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "resticsnapshot-resticbackup-product-type")
+				if (cmd.Flags().Changed("resticsnapshot-created-at") || bodyResticsnapshotCreatedAt != "") || (cmd.Flags().Changed("resticsnapshot-error-codes") || bodyResticsnapshotErrorCodes != "") || (cmd.Flags().Changed("resticsnapshot-errors") || bodyResticsnapshotErrors != "") || (cmd.Flags().Changed("resticsnapshot-excludes") || bodyResticsnapshotExcludes != "") || cmd.Flags().Changed("resticsnapshot-has-errors") || (cmd.Flags().Changed("resticsnapshot-id") || bodyResticsnapshotId != 0) || (cmd.Flags().Changed("resticsnapshot-info") || bodyResticsnapshotInfo != "") || (cmd.Flags().Changed("resticsnapshot-resticbackup-device-name") || bodyResticsnapshotResticbackupDeviceName != "") || (cmd.Flags().Changed("resticsnapshot-resticbackup-id") || bodyResticsnapshotResticbackupId != 0) || (cmd.Flags().Changed("resticsnapshot-resticbackup-product-type") || bodyResticsnapshotResticbackupProductType != "") || (cmd.Flags().Changed("resticsnapshot-snapshot-created-at") || bodyResticsnapshotSnapshotCreatedAt != "") || (cmd.Flags().Changed("resticsnapshot-snapshot-id") || bodyResticsnapshotSnapshotId != "") || (cmd.Flags().Changed("resticsnapshot-summary") || bodyResticsnapshotSummary != "") {
+					if !cmd.Flags().Changed("resticsnapshot-resticbackup-device-name") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "resticsnapshot-resticbackup-device-name")
+					}
+					if !cmd.Flags().Changed("resticsnapshot-resticbackup-product-type") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "resticsnapshot-resticbackup-product-type")
+					}
 				}
 			}
+			path := "/companies/{company_pk}/restore-queues/{resticrestorequeue_pk}/jobs/{id}/"
+			if len(args) < 1 || args[0] == "" {
+				return usageErr(fmt.Errorf("company_pk is required\nUsage: %s <%s>", cmd.CommandPath(), "company_pk"))
+			}
+			path = replacePathParam(path, "company_pk", args[0])
+			if len(args) < 3 || args[2] == "" {
+				return usageErr(fmt.Errorf("id is required\nUsage: %s <%s>", cmd.CommandPath(), "id"))
+			}
+			path = replacePathParam(path, "id", args[2])
+			if len(args) < 2 || args[1] == "" {
+				return usageErr(fmt.Errorf("resticrestorequeue_pk is required\nUsage: %s <%s>", cmd.CommandPath(), "resticrestorequeue_pk"))
+			}
+			path = replacePathParam(path, "resticrestorequeue_pk", args[1])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/companies/{company_pk}/restore-queues/{resticrestorequeue_pk}/jobs/{id}/"
-			path = replacePathParam(path, "company_pk", args[0])
-			if len(args) < 2 {
-				return usageErr(fmt.Errorf("id is required\nUsage: %s <%s>", cmd.CommandPath(), "id"))
-			}
-			path = replacePathParam(path, "id", args[1])
-			if len(args) < 3 {
-				return usageErr(fmt.Errorf("resticrestorequeue_pk is required\nUsage: %s <%s>", cmd.CommandPath(), "resticrestorequeue_pk"))
-			}
-			path = replacePathParam(path, "resticrestorequeue_pk", args[2])
 			params := map[string]string{}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -90,92 +118,93 @@ func newCompaniesRestoreQueuesCompaniesJobsPartialUpdateCmd(flags *rootFlags) *c
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
-				if bodyCreatedAt != "" {
-					body["created_at"] = bodyCreatedAt
+				bodyMap := map[string]any{}
+				body = bodyMap
+				if cmd.Flags().Changed("created-at") || bodyCreatedAt != "" {
+					bodyMap["created_at"] = bodyCreatedAt
 				}
-				if bodyErrorCodes != "" {
-					body["error_codes"] = bodyErrorCodes
+				if cmd.Flags().Changed("error-codes") || bodyErrorCodes != "" {
+					bodyMap["error_codes"] = bodyErrorCodes
 				}
-				if bodyExcludes != "" {
-					body["excludes"] = bodyExcludes
+				if cmd.Flags().Changed("excludes") || bodyExcludes != "" {
+					bodyMap["excludes"] = bodyExcludes
 				}
-				if bodyFinishedAt != "" {
-					body["finished_at"] = bodyFinishedAt
+				if cmd.Flags().Changed("finished-at") || bodyFinishedAt != "" {
+					bodyMap["finished_at"] = bodyFinishedAt
 				}
-				if bodyId2 != "" {
-					body["id"] = bodyId2
+				if cmd.Flags().Changed("id-2") || bodyId2 != "" {
+					bodyMap["id"] = bodyId2
 				}
-				if bodyIncludes != "" {
-					body["includes"] = bodyIncludes
+				if cmd.Flags().Changed("includes") || bodyIncludes != "" {
+					bodyMap["includes"] = bodyIncludes
 				}
-				if bodyName != "" {
-					body["name"] = bodyName
+				if cmd.Flags().Changed("name") || bodyName != "" {
+					bodyMap["name"] = bodyName
 				}
 				{
 					nestedResticsnapshot := map[string]any{}
-					if bodyResticsnapshotCreatedAt != "" {
+					if cmd.Flags().Changed("resticsnapshot-created-at") || bodyResticsnapshotCreatedAt != "" {
 						nestedResticsnapshot["created_at"] = bodyResticsnapshotCreatedAt
 					}
-					if bodyResticsnapshotErrorCodes != "" {
+					if cmd.Flags().Changed("resticsnapshot-error-codes") || bodyResticsnapshotErrorCodes != "" {
 						nestedResticsnapshot["error_codes"] = bodyResticsnapshotErrorCodes
 					}
-					if bodyResticsnapshotErrors != "" {
+					if cmd.Flags().Changed("resticsnapshot-errors") || bodyResticsnapshotErrors != "" {
 						nestedResticsnapshot["errors"] = bodyResticsnapshotErrors
 					}
-					if bodyResticsnapshotExcludes != "" {
+					if cmd.Flags().Changed("resticsnapshot-excludes") || bodyResticsnapshotExcludes != "" {
 						nestedResticsnapshot["excludes"] = bodyResticsnapshotExcludes
 					}
 					if cmd.Flags().Changed("resticsnapshot-has-errors") {
 						nestedResticsnapshot["has_errors"] = bodyResticsnapshotHasErrors
 					}
-					if bodyResticsnapshotId != "" {
+					if cmd.Flags().Changed("resticsnapshot-id") || bodyResticsnapshotId != 0 {
 						nestedResticsnapshot["id"] = bodyResticsnapshotId
 					}
-					if bodyResticsnapshotInfo != "" {
+					if cmd.Flags().Changed("resticsnapshot-info") || bodyResticsnapshotInfo != "" {
 						nestedResticsnapshot["info"] = bodyResticsnapshotInfo
 					}
 					{
 						nestedResticsnapshotResticbackup := map[string]any{}
-						if bodyResticsnapshotResticbackupDeviceName != "" {
+						if cmd.Flags().Changed("resticsnapshot-resticbackup-device-name") || bodyResticsnapshotResticbackupDeviceName != "" {
 							nestedResticsnapshotResticbackup["device_name"] = bodyResticsnapshotResticbackupDeviceName
 						}
-						if bodyResticsnapshotResticbackupId != "" {
+						if cmd.Flags().Changed("resticsnapshot-resticbackup-id") || bodyResticsnapshotResticbackupId != 0 {
 							nestedResticsnapshotResticbackup["id"] = bodyResticsnapshotResticbackupId
 						}
-						if bodyResticsnapshotResticbackupProductType != "" {
+						if cmd.Flags().Changed("resticsnapshot-resticbackup-product-type") || bodyResticsnapshotResticbackupProductType != "" {
 							nestedResticsnapshotResticbackup["product_type"] = bodyResticsnapshotResticbackupProductType
 						}
 						if len(nestedResticsnapshotResticbackup) > 0 {
 							nestedResticsnapshot["resticbackup"] = nestedResticsnapshotResticbackup
 						}
 					}
-					if bodyResticsnapshotSnapshotCreatedAt != "" {
+					if cmd.Flags().Changed("resticsnapshot-snapshot-created-at") || bodyResticsnapshotSnapshotCreatedAt != "" {
 						nestedResticsnapshot["snapshot_created_at"] = bodyResticsnapshotSnapshotCreatedAt
 					}
-					if bodyResticsnapshotSnapshotId != "" {
+					if cmd.Flags().Changed("resticsnapshot-snapshot-id") || bodyResticsnapshotSnapshotId != "" {
 						nestedResticsnapshot["snapshot_id"] = bodyResticsnapshotSnapshotId
 					}
-					if bodyResticsnapshotSummary != "" {
+					if cmd.Flags().Changed("resticsnapshot-summary") || bodyResticsnapshotSummary != "" {
 						nestedResticsnapshot["summary"] = bodyResticsnapshotSummary
 					}
 					if len(nestedResticsnapshot) > 0 {
-						body["resticsnapshot"] = nestedResticsnapshot
+						bodyMap["resticsnapshot"] = nestedResticsnapshot
 					}
 				}
-				if bodyStartedAt != "" {
-					body["started_at"] = bodyStartedAt
+				if cmd.Flags().Changed("started-at") || bodyStartedAt != "" {
+					bodyMap["started_at"] = bodyStartedAt
 				}
-				if bodyTarget != "" {
-					body["target"] = bodyTarget
+				if cmd.Flags().Changed("target") || bodyTarget != "" {
+					bodyMap["target"] = bodyTarget
 				}
 				if cmd.Flags().Changed("verify") {
-					body["verify"] = bodyVerify
+					bodyMap["verify"] = bodyVerify
 				}
 			}
 			data, statusCode, err := c.PatchWithParams(cmd.Context(), path, params, body)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			// Inspect the mutate response body for a partial-failure-shaped
 			// field (e.g. Google Ads `partialFailureError`). Several Google
@@ -240,6 +269,9 @@ func newCompaniesRestoreQueuesCompaniesJobsPartialUpdateCmd(flags *rootFlags) *c
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -273,19 +305,31 @@ func newCompaniesRestoreQueuesCompaniesJobsPartialUpdateCmd(flags *rootFlags) *c
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"created_at": true, "error_codes": true, "excludes": true, "finished_at": true, "id": true, "includes": true, "name": true, "resticsnapshot": true, "started_at": true, "target": true, "verify": true})
 				}
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {
@@ -321,10 +365,10 @@ func newCompaniesRestoreQueuesCompaniesJobsPartialUpdateCmd(flags *rootFlags) *c
 	cmd.Flags().StringVar(&bodyResticsnapshotErrors, "resticsnapshot-errors", "", "Errors")
 	cmd.Flags().StringVar(&bodyResticsnapshotExcludes, "resticsnapshot-excludes", "", "Excludes")
 	cmd.Flags().BoolVar(&bodyResticsnapshotHasErrors, "resticsnapshot-has-errors", false, "Has errors")
-	cmd.Flags().StringVar(&bodyResticsnapshotId, "resticsnapshot-id", "", "Id")
+	cmd.Flags().IntVar(&bodyResticsnapshotId, "resticsnapshot-id", 0, "Id")
 	cmd.Flags().StringVar(&bodyResticsnapshotInfo, "resticsnapshot-info", "", "Info")
 	cmd.Flags().StringVar(&bodyResticsnapshotResticbackupDeviceName, "resticsnapshot-resticbackup-device-name", "", "Device name")
-	cmd.Flags().StringVar(&bodyResticsnapshotResticbackupId, "resticsnapshot-resticbackup-id", "", "Id")
+	cmd.Flags().IntVar(&bodyResticsnapshotResticbackupId, "resticsnapshot-resticbackup-id", 0, "Id")
 	cmd.Flags().StringVar(&bodyResticsnapshotResticbackupProductType, "resticsnapshot-resticbackup-product-type", "", "Product type")
 	cmd.Flags().StringVar(&bodyResticsnapshotSnapshotCreatedAt, "resticsnapshot-snapshot-created-at", "", "Snapshot created at")
 	cmd.Flags().StringVar(&bodyResticsnapshotSnapshotId, "resticsnapshot-snapshot-id", "", "Snapshot id")

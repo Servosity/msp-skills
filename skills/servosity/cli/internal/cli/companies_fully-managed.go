@@ -26,12 +26,11 @@ func newCompaniesFullyManagedCmd(flags *rootFlags) *cobra.Command {
 		Example:     "  servosity-cli companies fully-managed",
 		Annotations: map[string]string{"pp:endpoint": "companies.fully-managed", "pp:method": "GET", "pp:path": "/companies/fully-managed/", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			path := "/companies/fully-managed/"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/companies/fully-managed/"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "companies", path, map[string]string{
 				"reseller": formatCLIParamValue(flagReseller),
 				"reseller__dedicated_support_staff__username": formatCLIParamValue(flagResellerDedicatedSupportStaffUsername),
@@ -39,10 +38,11 @@ func newCompaniesFullyManagedCmd(flags *rootFlags) *cobra.Command {
 				"search":       formatCLIParamValue(flagSearch),
 				"page":         formatCLIParamValue(flagPage),
 				"page_size":    formatCLIParamValue(flagPageSize),
-			}, nil, flagAll, "page", "page", "page_size", "", "", cmd.ErrOrStderr())
+			}, nil, flagAll, "page", "page", "page_size", 0, "", "", "results", cmd.ErrOrStderr())
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
+			outputData := collectionItemsForOutput(data, path)
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope
@@ -50,7 +50,7 @@ func newCompaniesFullyManagedCmd(flags *rootFlags) *cobra.Command {
 			// SYNC: keep this gate aligned with command_promoted.go.tmpl.
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var countItems []json.RawMessage
-				_ = json.Unmarshal(data, &countItems)
+				_ = json.Unmarshal(outputData, &countItems)
 				printProvenance(cmd, len(countItems), prov)
 			}
 			// For JSON output, wrap with provenance envelope before passing through flags.
@@ -63,9 +63,13 @@ func newCompaniesFullyManagedCmd(flags *rootFlags) *cobra.Command {
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"agent_provision_token_id": true, "agent_session_id": true, "beta_opt_in": true, "c2c_info": true, "checkcentral_checkgroup_fully_managed_status": true, "checkcentral_checkgroup_status": true, "checkcentral_chkdsk_check_id": true, "checkcentral_dashboard_id": true, "checkcentral_group_id": true, "checkcentral_im_iss_check_id": true, "checkcentral_private_dashboard": true, "checkcentral_public_dashboard": true, "checkcentral_sp_iss_check_id": true, "checkcentral_user_group_id": true, "chkdsk_mode": true, "external_support_contact_link": true, "fully_managed_recovery_point_status": true, "fully_managed_setup_action_required": true, "fully_managed_setup_stage": true, "fully_managed_status": true, "fully_managed_status_text": true, "fully_managed_status_url": true, "has_managed": true, "id": true, "is_automated": true, "is_fully_managed": true, "is_safe": true, "issue_priority": true, "issues": true, "name": true, "notes": true, "notification_email": true, "recovery_point_status": true, "reseller": true, "state": true, "support_tier": true, "suspended": true, "tz_offset": true, "url": true, "verification_mode": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
+				if wrapErr != nil {
+					return wrapErr
+				}
+				wrapped, wrapErr = wrapPlatformStructuredOutput(wrapped, flags, "results", true)
 				if wrapErr != nil {
 					return wrapErr
 				}
@@ -74,7 +78,7 @@ func newCompaniesFullyManagedCmd(flags *rootFlags) *cobra.Command {
 			// For all other output modes (table, csv, plain, quiet), use the standard pipeline
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var items []map[string]any
-				if json.Unmarshal(data, &items) == nil && len(items) > 0 {
+				if json.Unmarshal(outputData, &items) == nil && len(items) > 0 {
 					if err := printAutoTable(cmd.OutOrStdout(), items); err != nil {
 						return err
 					}
@@ -84,7 +88,11 @@ func newCompaniesFullyManagedCmd(flags *rootFlags) *cobra.Command {
 					return nil
 				}
 			}
-			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
+			formatData := data
+			if flags.csv || flags.plain {
+				formatData = outputData
+			}
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"agent_provision_token_id": true, "agent_session_id": true, "beta_opt_in": true, "c2c_info": true, "checkcentral_checkgroup_fully_managed_status": true, "checkcentral_checkgroup_status": true, "checkcentral_chkdsk_check_id": true, "checkcentral_dashboard_id": true, "checkcentral_group_id": true, "checkcentral_im_iss_check_id": true, "checkcentral_private_dashboard": true, "checkcentral_public_dashboard": true, "checkcentral_sp_iss_check_id": true, "checkcentral_user_group_id": true, "chkdsk_mode": true, "external_support_contact_link": true, "fully_managed_recovery_point_status": true, "fully_managed_setup_action_required": true, "fully_managed_setup_stage": true, "fully_managed_status": true, "fully_managed_status_text": true, "fully_managed_status_url": true, "has_managed": true, "id": true, "is_automated": true, "is_fully_managed": true, "is_safe": true, "issue_priority": true, "issues": true, "name": true, "notes": true, "notification_email": true, "recovery_point_status": true, "reseller": true, "state": true, "support_tier": true, "suspended": true, "tz_offset": true, "url": true, "verification_mode": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagReseller, "reseller", "", "Reseller")

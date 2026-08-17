@@ -11,7 +11,7 @@ func newCompaniesEmailReportSubscriptionDeleteCmd(flags *rootFlags) *cobra.Comma
 	cmd := &cobra.Command{
 		Use:         "email-report-subscription-delete",
 		Short:       "Manage email report subscription delete",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 

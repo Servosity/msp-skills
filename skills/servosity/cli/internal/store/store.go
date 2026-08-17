@@ -48,14 +48,21 @@ func IsUUID(s string) bool {
 
 // StoreSchemaVersion is the on-disk schema version this binary understands.
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
-// checked on every open. Non-learn CLIs advance to v4 for the
-// resources_fts content extraction.
-const StoreSchemaVersion = 4
+// checked on every open. Learn-enabled CLIs advance to v9 for the
+// learn_candidates and learn_events tables (CLI-side capture and
+// measurement), on top of the v8 learning_playbooks table for
+// hand-authored choreography keyed by query family and the v6 canonical
+// learn-loop tables ported from prediction-goat (including the v3
+// resources_fts rowid rehash and v4 resources_fts content extraction).
+const StoreSchemaVersion = 9
 
 // resourcesFTSContentSchemaVersion pins the schema bump that rewrote
 // resources_fts content from raw JSON to searchable leaf values. Keep this
-// separate from StoreSchemaVersion so future unrelated migrations do not
-// trigger an expensive full FTS rebuild.
+// separate from StoreSchemaVersion — and pinned at 4 regardless of the
+// learn shape — so schema bumps that only add tables (the learn
+// migrations) never trigger an expensive full FTS content rewrite. A
+// store stamped at v4 or later already carries the extracted-leaf FTS
+// content; opening it with a newer binary must stay additive-only.
 const resourcesFTSContentSchemaVersion = 4
 
 const resourcesFTSCreateSQL = `CREATE VIRTUAL TABLE IF NOT EXISTS resources_fts USING fts5(
@@ -99,9 +106,19 @@ func Open(dbPath string) (*Store, error) {
 // PRAGMA journal_mode=WAL on a read-only handle to a DB still in the default
 // delete mode (e.g. a pre-WAL database opened by an old binary before its
 // first read-write open) errors with "attempt to write a readonly database".
+//
+// OpenReadOnly uses context.Background(); callers holding a context should use
+// OpenReadOnlyContext so a cancelled command (SIGINT, deadline) interrupts the
+// SQLITE_BUSY retry during driver init instead of waiting out the full timeout.
 func OpenReadOnly(dbPath string) (*Store, error) {
-	dsn := "file:" + dbPath + "?mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(268435456)"
-	if err := ensureSQLiteDriverInitialized(context.Background(), dsn); err != nil {
+	return OpenReadOnlyContext(context.Background(), dbPath)
+}
+
+// OpenReadOnlyContext is OpenReadOnly with a caller-supplied context honored by
+// the driver-init SQLITE_BUSY retry.
+func OpenReadOnlyContext(ctx context.Context, dbPath string) (*Store, error) {
+	dsn := "file:" + dbPath + "?mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(0)"
+	if err := ensureSQLiteDriverInitialized(ctx, dsn); err != nil {
 		return nil, err
 	}
 
@@ -118,11 +135,22 @@ func OpenReadOnly(dbPath string) (*Store, error) {
 // retry-on-SQLITE_BUSY loop and propagates ctx.Err() back to the caller
 // instead of waiting out the full migrationLockTimeout.
 func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0o700); err != nil {
 		return nil, fmt.Errorf("creating db directory: %w", err)
 	}
+	hardenSQLiteFiles(dbPath)
+	defer hardenSQLiteFiles(dbPath)
+	if err := rejectNewerSchemaBeforeJournalMode(ctx, dbPath); err != nil {
+		return nil, err
+	}
 
-	dsn := dbPath + "?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(268435456)"
+	// Pragma order is load-bearing: busy_timeout must engage BEFORE the
+	// journal-mode conversion so concurrent first-run opens wait instead of
+	// racing the exclusive conversion. Cache-enabled profiles write local
+	// state during reads, so they use a rollback journal and avoid WAL sidecar
+	// teardown races between short-lived processes. Other store profiles keep
+	// WAL for concurrent analytical reads.
+	dsn := dbPath + "?_txlock=immediate&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(0)"
 	if err := ensureSQLiteDriverInitialized(ctx, dsn); err != nil {
 		return nil, err
 	}
@@ -132,18 +160,101 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
 
-	// WAL mode + 2 connections allows one read cursor open while a second
-	// query executes (e.g., analytics commands calling helpers during row
-	// iteration). Writes are still serialized by SQLite's WAL lock.
+	// Two connections allow one read cursor to remain open while a second query
+	// executes (e.g., analytics commands calling helpers during row iteration).
 	db.SetMaxOpenConns(2)
 
 	s := &Store{db: db, path: dbPath}
 	if err := s.migrate(ctx); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("running migrations: %w", err)
 	}
 
 	return s, nil
+}
+
+// A newer schema must be rejected before a read-write connection can attempt
+// journal-mode conversion. This lightweight read-only probe can read a
+// committed PRAGMA user_version while a peer writer is active; other probe
+// errors remain with the normal open/migration path, which returns the more
+// precise corruption, permission, or lock error.
+func rejectNewerSchemaBeforeJournalMode(ctx context.Context, dbPath string) error {
+	info, err := os.Stat(dbPath)
+	if os.IsNotExist(err) || (err == nil && info.Size() == 0) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("stating database for schema preflight: %w", err)
+	}
+	probe, err := sql.Open("sqlite", "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)")
+	if err != nil {
+		return nil
+	}
+	defer probe.Close()
+	probe.SetMaxOpenConns(1)
+
+	var current int
+	if err := probe.QueryRowContext(ctx, `PRAGMA user_version`).Scan(&current); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return nil
+	}
+	if current > StoreSchemaVersion {
+		return fmt.Errorf("database schema version %d is newer than supported version %d; upgrade the CLI binary or open an older database", current, StoreSchemaVersion)
+	}
+	return nil
+}
+
+// hardenSQLiteFiles is best-effort so stores on filesystems without Unix modes
+// remain usable. The deferred call catches files the SQLite driver creates.
+func hardenSQLiteFiles(dbPath string) {
+	for _, path := range []string{dbPath, dbPath + "-journal", dbPath + "-wal", dbPath + "-shm"} {
+		info, err := os.Lstat(path)
+		if err != nil || !info.Mode().IsRegular() {
+			continue
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			continue
+		}
+		openInfo, statErr := file.Stat()
+		pathInfo, lstatErr := os.Lstat(path)
+		if statErr == nil && lstatErr == nil && pathInfo.Mode().IsRegular() && os.SameFile(openInfo, pathInfo) {
+			_ = file.Chmod(0o600)
+		}
+		_ = file.Close()
+	}
+}
+
+// ensureSQLiteJournalPrivate creates the cache-profile rollback journal before
+// SQLite starts a write transaction, so its mode is private for the whole
+// transaction rather than only after the journal has been created.
+func ensureSQLiteJournalPrivate(dbPath string) {
+	journalPath := dbPath + "-journal"
+	file, err := os.OpenFile(journalPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err == nil {
+		_ = file.Close()
+		return
+	}
+	if os.IsExist(err) {
+		hardenSQLiteFiles(dbPath)
+	}
+}
+
+// lockForWrite and unlockAfterWrite keep SQLite sidecars private across the
+// lifetime of every serialized writer. TRUNCATE journaling reuses its journal
+// file and can restore its mode when a later transaction starts, after the
+// one-time OpenWithContext hardening has already run.
+func (s *Store) lockForWrite() {
+	s.writeMu.Lock()
+	hardenSQLiteFiles(s.path)
+}
+
+func (s *Store) unlockAfterWrite() {
+	hardenSQLiteFiles(s.path)
+	s.writeMu.Unlock()
 }
 
 func ensureSQLiteDriverInitialized(ctx context.Context, dsn string) error {
@@ -160,9 +271,23 @@ func ensureSQLiteDriverInitialized(ctx context.Context, dsn string) error {
 	}
 	defer db.Close()
 
-	conn, err := db.Conn(ctx)
-	if err != nil {
-		return fmt.Errorf("initializing sqlite driver: %w", err)
+	// Acquiring the first physical connection runs the DSN _pragma directives,
+	// including the journal-mode conversion for a read-write DSN. On a
+	// fresh DB opened concurrently — e.g. the scorecard live-check probing
+	// sampled commands in parallel — that conversion can return SQLITE_BUSY
+	// before the DSN's busy_timeout engages, so retry the acquisition against a
+	// bounded deadline. SQLITE_BUSY here is always transient.
+	deadline := time.Now().Add(migrationLockTimeout)
+	var conn *sql.Conn
+	if err := retryOnBusy(ctx, deadline, "initializing sqlite driver", func() error {
+		c, err := db.Conn(ctx)
+		if err != nil {
+			return err
+		}
+		conn = c
+		return nil
+	}); err != nil {
+		return err
 	}
 	if err := conn.Close(); err != nil {
 		return fmt.Errorf("closing sqlite initialization connection: %w", err)
@@ -383,7 +508,6 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "companies", column: "tz_offset", decl: "TEXT"},
 		{table: "companies", column: "url", decl: "TEXT"},
 		{table: "companies", column: "verification_mode", decl: "TEXT"},
-		{table: "companies", column: "reseller__name", decl: "TEXT"},
 		{table: "companies_agent_session", column: "companies_id", decl: "TEXT"},
 		{table: "companies_agents", column: "companies_id", decl: "TEXT"},
 		{table: "backup_set_templates", column: "companies_id", decl: "TEXT"},
@@ -471,6 +595,8 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "snapshot_chkdsk_results", column: "dr_backups_id", decl: "TEXT"},
 		{table: "dr_backups_snapshots", column: "dr_backups_id", decl: "TEXT"},
 		{table: "dr_backups_tunnel", column: "dr_backups_id", decl: "TEXT"},
+		{table: "fully_managed_companies", column: "name", decl: "TEXT"},
+		{table: "fully_managed_companies", column: "reseller__name", decl: "TEXT"},
 		{table: "issue_comments", column: "body", decl: "TEXT"},
 		{table: "issue_comments", column: "created_at", decl: "DATETIME"},
 		{table: "issue_comments", column: "updated_at", decl: "DATETIME"},
@@ -645,6 +771,156 @@ func (s *Store) migrate(ctx context.Context) error {
 			total_count INTEGER DEFAULT 0
 		)`,
 		resourcesFTSCreateSQL,
+		// CLI Printing Press: learn migrations
+		//
+		// search_learnings: LLM-driven per-query reranking. Populated by
+		// the `teach` command (silent, backgrounded by the LLM after a
+		// successful response) and read by the rerank layer to
+		// boost/hide/alias hits on subsequent queries. See learnings.go
+		// for the full semantics. Per-user table; stays small.
+		//
+		// query_entities: JSON array of case-preserving entity tokens
+		// extracted from query_pattern at teach time. Used by the recall
+		// match validator to reject cross-entity matches that would
+		// otherwise score high on non-entity Jaccard.
+		`CREATE TABLE IF NOT EXISTS search_learnings (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			query_pattern TEXT NOT NULL,
+			query_entities TEXT,
+			venue TEXT,
+			resource_type TEXT,
+			resource_id TEXT NOT NULL,
+			action TEXT NOT NULL,
+			alias_target TEXT,
+			source TEXT NOT NULL,
+			confidence INTEGER DEFAULT 1,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			last_observed_at DATETIME,
+			notes TEXT
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_learn_query ON search_learnings(query_pattern)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_learn_unique ON search_learnings(query_pattern, resource_id, action)`,
+		// entity_lookups: canonical-to-value reference data for the
+		// pattern substitution engine in internal/learn/patterns. Seeded
+		// at migration time by the consumer (e.g., a CLI may register
+		// country codes, sports team abbreviations, etc.); per-user
+		// additions land via the `teach-lookup` CLI command with
+		// source='taught'. PK is the (kind, canonical, value) triple so
+		// multiple aliases under the same kind coexist without
+		// collision.
+		`CREATE TABLE IF NOT EXISTS entity_lookups (
+			kind TEXT NOT NULL,
+			canonical TEXT NOT NULL,
+			value TEXT NOT NULL,
+			source TEXT NOT NULL DEFAULT 'seeded',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (kind, canonical, value)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_entity_lookup_canonical ON entity_lookups(canonical)`,
+		`CREATE INDEX IF NOT EXISTS idx_entity_lookup_kind ON entity_lookups(kind)`,
+		// search_patterns: inferred and taught templates for the
+		// generalization layer in internal/learn/patterns. Each row
+		// encodes a query_template with one {entity[:kind]} slot and a
+		// resource_template that names how the entity substitutes into
+		// the resource ID. Extract() writes "inferred" rows whenever
+		// two or more search_learnings rows share a structural shape;
+		// the teach-pattern CLI command writes "taught" rows directly
+		// for explicit template authorship.
+		//
+		// Idempotency leans on idx_patterns_unique: a re-Extract pass
+		// over the same source learnings re-asserts the same
+		// (query_template, resource_template, strategy) triple, which
+		// bumps confidence and refreshes last_observed_at on the
+		// existing row rather than spawning a duplicate.
+		`CREATE TABLE IF NOT EXISTS search_patterns (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			query_template TEXT NOT NULL,
+			resource_template TEXT NOT NULL,
+			resource_type TEXT NOT NULL,
+			venue TEXT,
+			strategy TEXT NOT NULL,
+			entity_kind TEXT NOT NULL,
+			confidence INTEGER NOT NULL DEFAULT 2,
+			source TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			last_observed_at DATETIME,
+			example_query TEXT,
+			example_resource TEXT
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_patterns_query_template ON search_patterns(query_template)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_patterns_unique ON search_patterns(query_template, resource_template, strategy)`,
+		// learning_playbooks (v7): hand-authored playbook primitive
+		// keyed on the structural query family (all entities stripped;
+		// see learn.QueryFamily). One row per family holds the optional
+		// structured playbook (ordered CLI command sequence with entity
+		// slots) and the optional free-text notes (gotchas, workarounds
+		// the CLI surface doesn't expose). Either field may be empty;
+		// non-empty in both is the strongest signal.
+		//
+		// Read at recall time by query_family; surfaces to the agent
+		// alongside the existing per-resource hits so a future inquiry
+		// of the same shape can skip rediscovery of the choreography.
+		//
+		// Distinct concept from search_patterns (which auto-extracts
+		// generalization templates from search_learnings); playbooks
+		// are hand-authored choreography + notes attached by family.
+		`CREATE TABLE IF NOT EXISTS learning_playbooks (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			query_family TEXT NOT NULL UNIQUE,
+			playbook_json TEXT,
+			notes_text TEXT,
+			source TEXT NOT NULL DEFAULT 'taught',
+			confidence INTEGER NOT NULL DEFAULT 2,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			last_observed_at TIMESTAMP
+		)`,
+		// query_family already carries a column-level UNIQUE constraint
+		// (SQLite auto-creates the backing index), so no separate
+		// CREATE UNIQUE INDEX is needed -- a second named unique index
+		// would just double the write cost on every upsert.
+		`CREATE INDEX IF NOT EXISTS idx_playbooks_source ON learning_playbooks(source)`,
+		`CREATE INDEX IF NOT EXISTS idx_playbooks_last_observed_at ON learning_playbooks(last_observed_at)`,
+		// learn_candidates (v9): CLI-derived improvement candidates
+		// awaiting explicit agent judgment. Rows are written by the
+		// post-run derivation pass (flag corrections, repeated
+		// discovery shapes) and surfaced read-only in the recall
+		// envelope. Candidates are structurally quarantined: they
+		// never become search_learnings rows and sightings never
+		// grant skip authority — only an explicit confirm promotes
+		// the payload. derivation_signature dedupes re-derivations of
+		// the same observation into a sightings bump instead of a
+		// duplicate row.
+		`CREATE TABLE IF NOT EXISTS learn_candidates (
+			id INTEGER PRIMARY KEY,
+			class TEXT NOT NULL CHECK(class IN ('flag_alias','playbook_candidate')),
+			payload TEXT NOT NULL,
+			derivation_signature TEXT NOT NULL UNIQUE,
+			sightings INTEGER NOT NULL DEFAULT 1,
+			status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','confirmed','rejected','expired')),
+			query_family TEXT,
+			command_path TEXT,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			last_seen_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_learn_candidates_status ON learn_candidates(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_learn_candidates_family ON learn_candidates(query_family)`,
+		// learn_events (v9): capped, best-effort telemetry for the
+		// learn loop's measurement layer. recall logs hit/miss with
+		// the matched row id so teach-to-reuse joins by row id (family
+		// hash as fallback); `learnings stats` aggregates over it.
+		// Inserts are telemetry-class — they never fail the command
+		// and never hold writeMu across a recall match.
+		`CREATE TABLE IF NOT EXISTS learn_events (
+			id INTEGER PRIMARY KEY,
+			ts TEXT NOT NULL,
+			event TEXT NOT NULL CHECK(event IN ('recall_hit','recall_miss','recall_playbook_hit','teach','teach_playbook','amend','forget','candidate_confirmed','candidate_rejected')),
+			query_family_hash TEXT,
+			matched_row_id INTEGER,
+			entity_match INTEGER,
+			surface TEXT CHECK(surface IN ('cli','mcp'))
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_learn_events_event_ts ON learn_events(event, ts)`,
 		`CREATE TABLE IF NOT EXISTS "agent_login" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -904,8 +1180,7 @@ func (s *Store) migrate(ctx context.Context) error {
 			"suspended" INTEGER,
 			"tz_offset" TEXT,
 			"url" TEXT,
-			"verification_mode" TEXT,
-			"reseller__name" TEXT
+			"verification_mode" TEXT
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_companies_agent_provision_token_id" ON "companies"("agent_provision_token_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_companies_agent_session_id" ON "companies"("agent_session_id")`,
@@ -1358,6 +1633,13 @@ func (s *Store) migrate(ctx context.Context) error {
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_dr_backups_tunnel_dr_backups_id" ON "dr_backups_tunnel"("dr_backups_id")`,
+		`CREATE TABLE IF NOT EXISTS "fully_managed_companies" (
+			"id" TEXT PRIMARY KEY,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"name" TEXT,
+			"reseller__name" TEXT
+		)`,
 		`CREATE TABLE IF NOT EXISTS "issue_comments" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -1993,13 +2275,13 @@ func rebuildResourcesFTS(ctx context.Context, conn *sql.Conn) error {
 	for rows.Next() {
 		var r resourceRow
 		if err := rows.Scan(&r.id, &r.resourceType, &r.data); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return fmt.Errorf("scanning resource: %w", err)
 		}
 		resources = append(resources, r)
 	}
 	if err := rows.Err(); err != nil {
-		rows.Close()
+		_ = rows.Close()
 		return fmt.Errorf("reading resource rows: %w", err)
 	}
 	if err := rows.Close(); err != nil {
@@ -2155,8 +2437,8 @@ func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, dat
 }
 
 func (s *Store) Upsert(resourceType, id string, data json.RawMessage) error {
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -2214,7 +2496,7 @@ func (s *Store) Search(query string, limit int, resourceTypes ...string) ([]json
 	if limit <= 0 {
 		limit = 50
 	}
-	matchQuery := ftsMatchQuery(query)
+	matchQuery := FTSMatchQuery(query)
 	if matchQuery == "" {
 		return nil, nil
 	}
@@ -2228,7 +2510,7 @@ func (s *Store) Search(query string, limit int, resourceTypes ...string) ([]json
 			 JOIN resources_fts f ON r.id = f.id AND r.resource_type = f.resource_type
 			 WHERE resources_fts MATCH ?
 			 AND r.resource_type = ?
-			 ORDER BY rank
+			 ORDER BY f.rank
 			 LIMIT ?`,
 			matchQuery, resourceType, limit,
 		)
@@ -2251,7 +2533,7 @@ func (s *Store) Search(query string, limit int, resourceTypes ...string) ([]json
 		`SELECT r.data FROM resources r
 		 JOIN resources_fts f ON r.id = f.id AND r.resource_type = f.resource_type
 		 WHERE resources_fts MATCH ?
-		 ORDER BY rank
+		 ORDER BY f.rank
 		 LIMIT ?`,
 		matchQuery, limit,
 	)
@@ -2309,15 +2591,12 @@ func shouldIndexSearchString(key, value string) bool {
 		return false
 	}
 	lower := strings.ToLower(s)
-	upper := strings.ToUpper(s)
 	switch {
 	case IsUUID(s):
 		return false
 	case isoDatePattern.MatchString(s):
 		return false
 	case strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://"):
-		return false
-	case upper == s && len(s) == 3 && strings.IndexFunc(s, func(r rune) bool { return r < 'A' || r > 'Z' }) == -1:
 		return false
 	}
 	tokens := ftsQueryTokenRE.FindAllString(s, -1)
@@ -2337,7 +2616,8 @@ func isIdentifierKey(key string) bool {
 		strings.HasSuffix(key, "ID")
 }
 
-func ftsMatchQuery(query string) string {
+// FTSMatchQuery converts arbitrary text into a safe FTS5 MATCH expression.
+func FTSMatchQuery(query string) string {
 	tokens := ftsQueryTokenRE.FindAllString(query, -1)
 	if len(tokens) == 0 {
 		return ""
@@ -2350,9 +2630,11 @@ func ftsMatchQuery(query string) string {
 }
 
 func extractObjectID(obj map[string]any) string {
-	for _, key := range []string{"id", "Id", "ID", "uuid", "slug", "name"} {
+	for _, key := range []string{"id", "Id", "ID", "_id", "uuid", "slug", "name"} {
 		if v, ok := obj[key]; ok {
-			return ResourceIDString(v)
+			if id := ResourceIDString(v); id != "" && id != "<nil>" {
+				return id
+			}
 		}
 	}
 	return ""
@@ -2441,6 +2723,10 @@ func ResourceIDString(v any) string {
 	switch t := v.(type) {
 	case nil:
 		return ""
+	case string:
+		return extendedJSONIDString(t)
+	case map[string]any:
+		return extendedJSONIDMapString(t)
 	case json.Number:
 		return strings.TrimSpace(t.String())
 	case float64:
@@ -2459,6 +2745,30 @@ func ResourceIDString(v any) string {
 		// that sentinel so unresolved IDs do not become stored resource keys.
 		return strings.TrimSpace(fmt.Sprint(t))
 	}
+}
+
+func extendedJSONIDString(value string) string {
+	value = strings.TrimSpace(value)
+	if !strings.HasPrefix(value, "{") {
+		return value
+	}
+	var object map[string]any
+	if err := json.Unmarshal([]byte(value), &object); err != nil {
+		return value
+	}
+	if id := extendedJSONIDMapString(object); id != "" {
+		return id
+	}
+	return value
+}
+
+func extendedJSONIDMapString(object map[string]any) string {
+	for _, key := range []string{"$oid", "$numberLong", "$numberInt"} {
+		if value, ok := object[key]; ok {
+			return ResourceIDString(value)
+		}
+	}
+	return ""
 }
 
 // upsertAgentLoginTx writes the per-resource domain-table portion of a
@@ -2499,8 +2809,8 @@ func (s *Store) UpsertAgentLogin(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("agent-login", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -2559,8 +2869,8 @@ func (s *Store) UpsertAgentSessions(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("agent-sessions", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -2611,8 +2921,8 @@ func (s *Store) UpsertAgentLogs(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("agent_logs", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -2663,8 +2973,8 @@ func (s *Store) UpsertInstallImagemanager(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("install_imagemanager", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -2715,8 +3025,8 @@ func (s *Store) UpsertInstallSpx(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("install_spx", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -2767,8 +3077,8 @@ func (s *Store) UpsertRestartImagemanager(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restart_imagemanager", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -2819,8 +3129,8 @@ func (s *Store) UpsertRestartSpx(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restart_spx", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -2871,8 +3181,8 @@ func (s *Store) UpsertSpxActivate(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("spx_activate", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -2923,8 +3233,8 @@ func (s *Store) UpsertUpdateBeta(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("update_beta", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -2975,8 +3285,8 @@ func (s *Store) UpsertUpdateLatest(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("update_latest", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3033,8 +3343,8 @@ func (s *Store) UpsertBackupPlans(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("backup-plans", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3089,8 +3399,8 @@ func (s *Store) UpsertBackupSearch(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("backup-search", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3153,8 +3463,8 @@ func (s *Store) UpsertBackupSets(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("backup-sets", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3221,8 +3531,8 @@ func (s *Store) UpsertBackups(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("backups", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3273,8 +3583,8 @@ func (s *Store) UpsertConfigIni(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("config_ini", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3325,8 +3635,8 @@ func (s *Store) UpsertBackupsEncryptionKey(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("backups_encryption_key", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3377,8 +3687,8 @@ func (s *Store) UpsertBackupsEncryptionKeyVersions(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("backups_encryption_key_versions", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3429,8 +3739,8 @@ func (s *Store) UpsertBackupsGuaranteeEligible(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("backups_guarantee_eligible", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3481,8 +3791,8 @@ func (s *Store) UpsertBackupsGuaranteedRecoveryPoint(data json.RawMessage) error
 	}
 	storageID := resourceStorageID("backups_guaranteed_recovery_point", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3533,8 +3843,8 @@ func (s *Store) UpsertLogin(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("login", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3585,8 +3895,8 @@ func (s *Store) UpsertMigrateDr(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("migrate_dr", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3637,8 +3947,8 @@ func (s *Store) UpsertPassword(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("password", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3689,8 +3999,8 @@ func (s *Store) UpsertBackupsReissueSpxKey(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("backups_reissue_spx_key", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3741,8 +4051,8 @@ func (s *Store) UpsertUnlock(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("unlock", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3766,9 +4076,9 @@ func (s *Store) UpsertUnlock(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertCompaniesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "companies" ("id", "data", "synced_at", "agent_provision_token_id", "agent_session_id", "beta_opt_in", "checkcentral_checkgroup_fully_managed_status", "checkcentral_checkgroup_status", "checkcentral_chkdsk_check_id", "checkcentral_dashboard_id", "checkcentral_group_id", "checkcentral_im_iss_check_id", "checkcentral_private_dashboard", "checkcentral_public_dashboard", "checkcentral_sp_iss_check_id", "checkcentral_user_group_id", "chkdsk_mode", "external_support_contact_link", "fully_managed_recovery_point_status", "fully_managed_setup_action_required", "fully_managed_setup_stage", "fully_managed_status", "fully_managed_status_text", "fully_managed_status_url", "has_managed", "is_automated", "is_fully_managed", "is_safe", "issue_priority", "name", "notification_email", "recovery_point_status", "state", "support_tier", "suspended", "tz_offset", "url", "verification_mode", "reseller__name")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "agent_provision_token_id" = excluded."agent_provision_token_id", "agent_session_id" = excluded."agent_session_id", "beta_opt_in" = excluded."beta_opt_in", "checkcentral_checkgroup_fully_managed_status" = excluded."checkcentral_checkgroup_fully_managed_status", "checkcentral_checkgroup_status" = excluded."checkcentral_checkgroup_status", "checkcentral_chkdsk_check_id" = excluded."checkcentral_chkdsk_check_id", "checkcentral_dashboard_id" = excluded."checkcentral_dashboard_id", "checkcentral_group_id" = excluded."checkcentral_group_id", "checkcentral_im_iss_check_id" = excluded."checkcentral_im_iss_check_id", "checkcentral_private_dashboard" = excluded."checkcentral_private_dashboard", "checkcentral_public_dashboard" = excluded."checkcentral_public_dashboard", "checkcentral_sp_iss_check_id" = excluded."checkcentral_sp_iss_check_id", "checkcentral_user_group_id" = excluded."checkcentral_user_group_id", "chkdsk_mode" = excluded."chkdsk_mode", "external_support_contact_link" = excluded."external_support_contact_link", "fully_managed_recovery_point_status" = excluded."fully_managed_recovery_point_status", "fully_managed_setup_action_required" = excluded."fully_managed_setup_action_required", "fully_managed_setup_stage" = excluded."fully_managed_setup_stage", "fully_managed_status" = excluded."fully_managed_status", "fully_managed_status_text" = excluded."fully_managed_status_text", "fully_managed_status_url" = excluded."fully_managed_status_url", "has_managed" = excluded."has_managed", "is_automated" = excluded."is_automated", "is_fully_managed" = excluded."is_fully_managed", "is_safe" = excluded."is_safe", "issue_priority" = excluded."issue_priority", "name" = excluded."name", "notification_email" = excluded."notification_email", "recovery_point_status" = excluded."recovery_point_status", "state" = excluded."state", "support_tier" = excluded."support_tier", "suspended" = excluded."suspended", "tz_offset" = excluded."tz_offset", "url" = excluded."url", "verification_mode" = excluded."verification_mode", "reseller__name" = excluded."reseller__name"`,
+		`INSERT INTO "companies" ("id", "data", "synced_at", "agent_provision_token_id", "agent_session_id", "beta_opt_in", "checkcentral_checkgroup_fully_managed_status", "checkcentral_checkgroup_status", "checkcentral_chkdsk_check_id", "checkcentral_dashboard_id", "checkcentral_group_id", "checkcentral_im_iss_check_id", "checkcentral_private_dashboard", "checkcentral_public_dashboard", "checkcentral_sp_iss_check_id", "checkcentral_user_group_id", "chkdsk_mode", "external_support_contact_link", "fully_managed_recovery_point_status", "fully_managed_setup_action_required", "fully_managed_setup_stage", "fully_managed_status", "fully_managed_status_text", "fully_managed_status_url", "has_managed", "is_automated", "is_fully_managed", "is_safe", "issue_priority", "name", "notification_email", "recovery_point_status", "state", "support_tier", "suspended", "tz_offset", "url", "verification_mode")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "agent_provision_token_id" = excluded."agent_provision_token_id", "agent_session_id" = excluded."agent_session_id", "beta_opt_in" = excluded."beta_opt_in", "checkcentral_checkgroup_fully_managed_status" = excluded."checkcentral_checkgroup_fully_managed_status", "checkcentral_checkgroup_status" = excluded."checkcentral_checkgroup_status", "checkcentral_chkdsk_check_id" = excluded."checkcentral_chkdsk_check_id", "checkcentral_dashboard_id" = excluded."checkcentral_dashboard_id", "checkcentral_group_id" = excluded."checkcentral_group_id", "checkcentral_im_iss_check_id" = excluded."checkcentral_im_iss_check_id", "checkcentral_private_dashboard" = excluded."checkcentral_private_dashboard", "checkcentral_public_dashboard" = excluded."checkcentral_public_dashboard", "checkcentral_sp_iss_check_id" = excluded."checkcentral_sp_iss_check_id", "checkcentral_user_group_id" = excluded."checkcentral_user_group_id", "chkdsk_mode" = excluded."chkdsk_mode", "external_support_contact_link" = excluded."external_support_contact_link", "fully_managed_recovery_point_status" = excluded."fully_managed_recovery_point_status", "fully_managed_setup_action_required" = excluded."fully_managed_setup_action_required", "fully_managed_setup_stage" = excluded."fully_managed_setup_stage", "fully_managed_status" = excluded."fully_managed_status", "fully_managed_status_text" = excluded."fully_managed_status_text", "fully_managed_status_url" = excluded."fully_managed_status_url", "has_managed" = excluded."has_managed", "is_automated" = excluded."is_automated", "is_fully_managed" = excluded."is_fully_managed", "is_safe" = excluded."is_safe", "issue_priority" = excluded."issue_priority", "name" = excluded."name", "notification_email" = excluded."notification_email", "recovery_point_status" = excluded."recovery_point_status", "state" = excluded."state", "support_tier" = excluded."support_tier", "suspended" = excluded."suspended", "tz_offset" = excluded."tz_offset", "url" = excluded."url", "verification_mode" = excluded."verification_mode"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -3807,7 +4117,6 @@ func (s *Store) upsertCompaniesTx(tx *sql.Tx, id string, obj map[string]any, dat
 		lookupFieldValue(obj, "tz_offset"),
 		lookupFieldValue(obj, "url"),
 		lookupFieldValue(obj, "verification_mode"),
-		lookupFieldValue(obj, "reseller__name"),
 	); err != nil {
 		return fmt.Errorf("insert into companies: %w", err)
 	}
@@ -3828,8 +4137,8 @@ func (s *Store) UpsertCompanies(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("companies", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3880,8 +4189,8 @@ func (s *Store) UpsertCompaniesAgentSession(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("companies_agent_session", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3932,8 +4241,8 @@ func (s *Store) UpsertCompaniesAgents(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("companies_agents", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -3984,8 +4293,8 @@ func (s *Store) UpsertBackupSetTemplates(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("backup_set_templates", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4036,8 +4345,8 @@ func (s *Store) UpsertBackupStores(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("backup_stores", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4088,8 +4397,8 @@ func (s *Store) UpsertC2c(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("c2c", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4140,8 +4449,8 @@ func (s *Store) UpsertCloudToCloudDashboard(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("cloud_to_cloud_dashboard", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4192,8 +4501,8 @@ func (s *Store) UpsertConnectwiseDownloadUrl(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("connectwise_download_url", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4244,8 +4553,8 @@ func (s *Store) UpsertDrSnapshots(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("dr_snapshots", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4296,8 +4605,8 @@ func (s *Store) UpsertDrUpload(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("dr_upload", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4348,8 +4657,8 @@ func (s *Store) UpsertDraas(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("draas", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4400,8 +4709,8 @@ func (s *Store) UpsertCompaniesEmailReportSubscriptionDelete(data json.RawMessag
 	}
 	storageID := resourceStorageID("companies_email_report_subscription_delete", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4452,8 +4761,8 @@ func (s *Store) UpsertCompaniesEmailReportSubscriptions(data json.RawMessage) er
 	}
 	storageID := resourceStorageID("companies_email_report_subscriptions", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4504,8 +4813,8 @@ func (s *Store) UpsertFullyManagedNg(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("fully_managed_ng", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4556,8 +4865,8 @@ func (s *Store) UpsertFullyManagedSetupStage(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("fully_managed_setup_stage", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4608,8 +4917,8 @@ func (s *Store) UpsertFullyManagedStatus(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("fully_managed_status", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4660,8 +4969,8 @@ func (s *Store) UpsertImagemanagerInfo(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("imagemanager_info", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4712,8 +5021,8 @@ func (s *Store) UpsertCompaniesIssues(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("companies_issues", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4764,8 +5073,8 @@ func (s *Store) UpsertLogUpload(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("log_upload", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4816,8 +5125,8 @@ func (s *Store) UpsertLogUploadList(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("log_upload_list", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4868,8 +5177,8 @@ func (s *Store) UpsertCompaniesNotes(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("companies_notes", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4920,8 +5229,8 @@ func (s *Store) UpsertOtherInfo(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("other_info", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -4972,8 +5281,8 @@ func (s *Store) UpsertRecentSuccess(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("recent_success", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5024,8 +5333,8 @@ func (s *Store) UpsertResticBackupFailures(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_backup_failures", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5076,8 +5385,8 @@ func (s *Store) UpsertResticSnapshots(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_snapshots", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5128,8 +5437,8 @@ func (s *Store) UpsertRestoreQueues(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restore_queues", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5180,8 +5489,8 @@ func (s *Store) UpsertServosityOne(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("servosity_one", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5232,8 +5541,8 @@ func (s *Store) UpsertServosityOneConversionRequest(data json.RawMessage) error 
 	}
 	storageID := resourceStorageID("servosity_one_conversion_request", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5284,8 +5593,8 @@ func (s *Store) UpsertSpxBackupFailures(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("spx_backup_failures", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5339,8 +5648,8 @@ func (s *Store) UpsertCompanyNotes(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("company-notes", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5395,8 +5704,8 @@ func (s *Store) UpsertContracts(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("contracts", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5447,8 +5756,8 @@ func (s *Store) UpsertFinalize(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("finalize", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5507,8 +5816,8 @@ func (s *Store) UpsertCredentials(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("credentials", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5559,8 +5868,8 @@ func (s *Store) UpsertRotate(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("rotate", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5611,8 +5920,8 @@ func (s *Store) UpsertVersions(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("versions", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5680,8 +5989,8 @@ func (s *Store) UpsertCurrentUser(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("current-user", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5734,8 +6043,8 @@ func (s *Store) UpsertDrBackups(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("dr-backups", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5786,8 +6095,8 @@ func (s *Store) UpsertDrBackupsAgentSession(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("dr_backups_agent_session", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5838,8 +6147,8 @@ func (s *Store) UpsertDrBackupsAgentToken(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("dr_backups_agent_token", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5890,8 +6199,8 @@ func (s *Store) UpsertDrBackupsEncryptionKey(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("dr_backups_encryption_key", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5942,8 +6251,8 @@ func (s *Store) UpsertDrBackupsEncryptionKeyVersions(data json.RawMessage) error
 	}
 	storageID := resourceStorageID("dr_backups_encryption_key_versions", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -5994,8 +6303,8 @@ func (s *Store) UpsertDrBackupsFailures(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("dr_backups_failures", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6046,8 +6355,8 @@ func (s *Store) UpsertDrBackupsGuaranteeEligible(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("dr_backups_guarantee_eligible", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6098,8 +6407,8 @@ func (s *Store) UpsertDrBackupsGuaranteedRecoveryPoint(data json.RawMessage) err
 	}
 	storageID := resourceStorageID("dr_backups_guaranteed_recovery_point", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6150,8 +6459,8 @@ func (s *Store) UpsertDrBackupsIssues(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("dr_backups_issues", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6202,8 +6511,8 @@ func (s *Store) UpsertLatestOffsite(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("latest_offsite", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6254,8 +6563,8 @@ func (s *Store) UpsertDrBackupsLatestSuccess(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("dr_backups_latest_success", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6306,8 +6615,8 @@ func (s *Store) UpsertRebootEvents(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("reboot_events", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6358,8 +6667,8 @@ func (s *Store) UpsertDrBackupsReissueSpxKey(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("dr_backups_reissue_spx_key", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6410,8 +6719,8 @@ func (s *Store) UpsertSelectedVolumes(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("selected_volumes", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6462,8 +6771,8 @@ func (s *Store) UpsertSnapshot(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("snapshot", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6514,8 +6823,8 @@ func (s *Store) UpsertSnapshotChkdskResults(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("snapshot_chkdsk_results", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6566,8 +6875,8 @@ func (s *Store) UpsertDrBackupsSnapshots(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("dr_backups_snapshots", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6618,8 +6927,8 @@ func (s *Store) UpsertDrBackupsTunnel(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("dr_backups_tunnel", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6630,6 +6939,59 @@ func (s *Store) UpsertDrBackupsTunnel(data json.RawMessage) error {
 		return err
 	}
 	if err := s.upsertDrBackupsTunnelTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertFullyManagedCompaniesTx writes the per-resource domain-table portion of a
+// fully_managed_companies upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertFullyManagedCompaniesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "fully_managed_companies" ("id", "data", "synced_at", "name", "reseller__name")
+		 VALUES (?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "name" = excluded."name", "reseller__name" = excluded."reseller__name"`,
+		id,
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "name"),
+		lookupFieldValue(obj, "reseller__name"),
+	); err != nil {
+		return fmt.Errorf("insert into fully_managed_companies: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertFullyManagedCompanies inserts or updates a fully_managed_companies record with domain-specific columns.
+func (s *Store) UpsertFullyManagedCompanies(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling fully_managed_companies: %w", err)
+	}
+
+	id := extractObjectID(obj)
+	if id == "" {
+		return fmt.Errorf("missing id for fully_managed_companies")
+	}
+	storageID := resourceStorageID("fully_managed_companies", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := s.upsertGenericResourceTx(tx, "fully_managed_companies", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertFullyManagedCompaniesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6672,8 +7034,8 @@ func (s *Store) UpsertIssueComments(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("issue-comments", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6746,8 +7108,8 @@ func (s *Store) UpsertIssues(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("issues", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6798,8 +7160,8 @@ func (s *Store) UpsertArchive(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("archive", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6850,8 +7212,8 @@ func (s *Store) UpsertComments(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("comments", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6902,8 +7264,8 @@ func (s *Store) UpsertEvents(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("events", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -6954,8 +7316,8 @@ func (s *Store) UpsertIgnore(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("ignore", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7006,8 +7368,8 @@ func (s *Store) UpsertReactivate(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("reactivate", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7061,8 +7423,8 @@ func (s *Store) UpsertReportSubscriptions(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("report-subscriptions", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7113,8 +7475,8 @@ func (s *Store) UpsertReverify(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("reverify", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7179,8 +7541,8 @@ func (s *Store) UpsertResellers(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("resellers", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7231,8 +7593,8 @@ func (s *Store) UpsertAgentInstallToken(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("agent_install_token", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7283,8 +7645,8 @@ func (s *Store) UpsertResellersAgents(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("resellers_agents", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7335,8 +7697,8 @@ func (s *Store) UpsertBill(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("bill", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7387,8 +7749,8 @@ func (s *Store) UpsertBillingInfo(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("billing_info", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7439,8 +7801,8 @@ func (s *Store) UpsertResellersContracts(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("resellers_contracts", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7491,8 +7853,8 @@ func (s *Store) UpsertResellersEmailReportSubscriptionDelete(data json.RawMessag
 	}
 	storageID := resourceStorageID("resellers_email_report_subscription_delete", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7543,8 +7905,8 @@ func (s *Store) UpsertResellersEmailReportSubscriptions(data json.RawMessage) er
 	}
 	storageID := resourceStorageID("resellers_email_report_subscriptions", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7595,8 +7957,8 @@ func (s *Store) UpsertResellersIssues(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("resellers_issues", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7647,8 +8009,8 @@ func (s *Store) UpsertResellersNotes(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("resellers_notes", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7699,8 +8061,8 @@ func (s *Store) UpsertPostmarkRotate(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("postmark_rotate", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7751,8 +8113,8 @@ func (s *Store) UpsertPrices(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("prices", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7803,8 +8165,8 @@ func (s *Store) UpsertSubscriptions(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("subscriptions", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7869,8 +8231,8 @@ func (s *Store) UpsertResticBackups(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic-backups", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7921,8 +8283,8 @@ func (s *Store) UpsertAgentServiceStop(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("agent_service_stop", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -7973,8 +8335,8 @@ func (s *Store) UpsertAgentServiceStopError(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("agent_service_stop_error", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8025,8 +8387,8 @@ func (s *Store) UpsertResticBackupsAgentSession(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_backups_agent_session", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8077,8 +8439,8 @@ func (s *Store) UpsertResticBackupsAgentToken(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_backups_agent_token", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8129,8 +8491,8 @@ func (s *Store) UpsertResticBackupsBackupSets(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_backups_backup_sets", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8181,8 +8543,8 @@ func (s *Store) UpsertResticBackupsEncryptionKey(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_backups_encryption_key", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8233,8 +8595,8 @@ func (s *Store) UpsertResticBackupsEncryptionKeyVersions(data json.RawMessage) e
 	}
 	storageID := resourceStorageID("restic_backups_encryption_key_versions", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8285,8 +8647,8 @@ func (s *Store) UpsertResticBackupsFailures(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_backups_failures", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8337,8 +8699,8 @@ func (s *Store) UpsertResticBackupsGuaranteeEligible(data json.RawMessage) error
 	}
 	storageID := resourceStorageID("restic_backups_guarantee_eligible", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8389,8 +8751,8 @@ func (s *Store) UpsertResticBackupsGuaranteedRecoveryPoint(data json.RawMessage)
 	}
 	storageID := resourceStorageID("restic_backups_guaranteed_recovery_point", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8441,8 +8803,8 @@ func (s *Store) UpsertResticBackupsIssues(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_backups_issues", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8493,8 +8855,8 @@ func (s *Store) UpsertResticBackupsLatestSuccess(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_backups_latest_success", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8545,8 +8907,8 @@ func (s *Store) UpsertResticCheck(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_check", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8597,8 +8959,8 @@ func (s *Store) UpsertResticEnv(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_env", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8649,8 +9011,8 @@ func (s *Store) UpsertResticInterrupt(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_interrupt", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8701,8 +9063,8 @@ func (s *Store) UpsertResticMigrate(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_migrate", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8753,8 +9115,8 @@ func (s *Store) UpsertResticPrune(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_prune", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8805,8 +9167,8 @@ func (s *Store) UpsertResticRepairIndex(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_repair_index", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8857,8 +9219,8 @@ func (s *Store) UpsertResticRepairSnapshots(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_repair_snapshots", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8909,8 +9271,8 @@ func (s *Store) UpsertResticUnlock(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_unlock", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -8961,8 +9323,8 @@ func (s *Store) UpsertSnapshotLs(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("snapshot_ls", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -9013,8 +9375,8 @@ func (s *Store) UpsertResticBackupsSnapshots(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_backups_snapshots", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -9065,8 +9427,8 @@ func (s *Store) UpsertStartBackup(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("start_backup", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -9117,8 +9479,8 @@ func (s *Store) UpsertStartRestore(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("start_restore", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -9169,8 +9531,8 @@ func (s *Store) UpsertResticBackupsTunnel(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("restic_backups_tunnel", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -9227,8 +9589,8 @@ func (s *Store) UpsertUsers(data json.RawMessage) error {
 	}
 	storageID := resourceStorageID("users", id, obj)
 
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -9255,146 +9617,150 @@ func (s *Store) UpsertUsers(data json.RawMessage) error {
 // child path-item annotated with x-resource-id resolves the same as a flat
 // path-item.
 var resourceIDFieldOverrides = map[string]string{
-	"backup-plans":               "id",
-	"backup-search":              "device_name",
-	"backups":                    "id",
-	"backups-mfa-codes":          "id",
-	"companies":                  "id",
-	"companies-fully-managed":    "id",
-	"companies-fully-managed-ng": "id",
-	"companies-summary":          "id",
-	"companies-summary-ng":       "id",
-	"company-notes":              "id",
-	"contracts":                  "identifier",
-	"contracts-signatures":       "identifier",
-	"credentials":                "id",
-	"dr-backups":                 "id",
-	"issues":                     "id",
-	"restic-backups":             "id",
+	"backup-plans":            "id",
+	"backup-search":           "device_name",
+	"backups":                 "id",
+	"backups-mfa-codes":       "id",
+	"companies":               "id",
+	"companies-fully-managed": "id",
+	"companies-summary":       "id",
+	"companies-summary-ng":    "id",
+	"company-notes":           "id",
+	"contracts":               "identifier",
+	"contracts-get-by-token":  "identifier",
+	"contracts-signatures":    "identifier",
+	"credentials":             "id",
+	"dr-backups":              "id",
+	"fully_managed_companies": "id",
+	"issues":                  "id",
+	"restic-backups":          "id",
 }
 
-// genericIDFieldFallbacks is the runtime safety net for resources that did
-// NOT receive a templated IDField. API-specific names belong in spec
-// annotations (x-resource-id), not this list. Order matters: vendor
-// identifier names (gid, sid, uid, uuid, guid) take precedence over `name`
-// so APIs like Asana (gid) and Twilio (sid) don't fall through to a display
-// field and upsert on names — see #1394.
-var genericIDFieldFallbacks = []string{"id", "ID", "gid", "sid", "uid", "uuid", "guid", "name", "slug", "key", "code"}
+// Generic ID fields are split around the resource-specific suffix probe.
+// Stable vendor identifiers win first; then fields derived from the resource
+// name (accountId, workspaceId); descriptive fallbacks are last. Keeping name
+// ahead of the resource-specific probe silently keys rows by display labels.
+var genericIDFieldFallbacks = []string{"id", "ID", "_id", "gid", "sid", "uid", "uuid", "guid", "api_id"}
+var genericDescriptiveIDFieldFallbacks = []string{"name", "slug", "key", "code"}
+
+// resourceIDBaseOverrides preserves the complete final collection name for
+// composed dependents whose child segment is itself multiword.
+var resourceIDBaseOverrides = map[string]string{}
 
 // resourceParentKeyColumns identifies generated dependent resources whose
 // local mirror rows need the parent context in the storage key. Without this,
 // many-to-many sub-collections collapse every parent association onto the
 // child's bare id and silently keep only the last synced parent.
-var resourceParentKeyColumns = map[string]string{
-	"agent_logs":                        "agent_sessions_id",
-	"install_imagemanager":              "agent_sessions_id",
-	"install_spx":                       "agent_sessions_id",
-	"restart_imagemanager":              "agent_sessions_id",
-	"restart_spx":                       "agent_sessions_id",
-	"spx_activate":                      "agent_sessions_id",
-	"update_beta":                       "agent_sessions_id",
-	"update_latest":                     "agent_sessions_id",
-	"config_ini":                        "backups_id",
-	"backups_encryption_key":            "backups_id",
-	"backups_encryption_key_versions":   "backups_id",
-	"backups_guarantee_eligible":        "backups_id",
-	"backups_guaranteed_recovery_point": "backups_id",
-	"login":                             "backups_id",
-	"migrate_dr":                        "backups_id",
-	"password":                          "backups_id",
-	"backups_reissue_spx_key":           "backups_id",
-	"unlock":                            "backups_id",
-	"companies_agent_session":           "companies_id",
-	"companies_agents":                  "companies_id",
-	"backup_set_templates":              "companies_id",
-	"backup_stores":                     "companies_id",
-	"c2c":                               "companies_id",
-	"cloud_to_cloud_dashboard":          "companies_id",
-	"connectwise_download_url":          "companies_id",
-	"dr_snapshots":                      "companies_id",
-	"dr_upload":                         "companies_id",
-	"draas":                             "companies_id",
-	"companies_email_report_subscription_delete": "companies_id",
-	"companies_email_report_subscriptions":       "companies_id",
-	"fully_managed_ng":                           "companies_id",
-	"fully_managed_setup_stage":                  "companies_id",
-	"fully_managed_status":                       "companies_id",
-	"imagemanager_info":                          "companies_id",
-	"companies_issues":                           "companies_id",
-	"log_upload":                                 "companies_id",
-	"log_upload_list":                            "companies_id",
-	"companies_notes":                            "companies_id",
-	"other_info":                                 "companies_id",
-	"recent_success":                             "companies_id",
-	"restic_backup_failures":                     "companies_id",
-	"restic_snapshots":                           "companies_id",
-	"restore_queues":                             "companies_id",
-	"servosity_one":                              "companies_id",
-	"servosity_one_conversion_request":           "companies_id",
-	"spx_backup_failures":                        "companies_id",
-	"finalize":                                   "contracts_id",
-	"rotate":                                     "credentials_id",
-	"versions":                                   "credentials_id",
-	"dr_backups_agent_session":                   "dr_backups_id",
-	"dr_backups_agent_token":                     "dr_backups_id",
-	"dr_backups_encryption_key":                  "dr_backups_id",
-	"dr_backups_encryption_key_versions":         "dr_backups_id",
-	"dr_backups_failures":                        "dr_backups_id",
-	"dr_backups_guarantee_eligible":              "dr_backups_id",
-	"dr_backups_guaranteed_recovery_point":       "dr_backups_id",
-	"dr_backups_issues":                          "dr_backups_id",
-	"latest_offsite":                             "dr_backups_id",
-	"dr_backups_latest_success":                  "dr_backups_id",
-	"reboot_events":                              "dr_backups_id",
-	"dr_backups_reissue_spx_key":                 "dr_backups_id",
-	"selected_volumes":                           "dr_backups_id",
-	"snapshot":                                   "dr_backups_id",
-	"snapshot_chkdsk_results":                    "dr_backups_id",
-	"dr_backups_snapshots":                       "dr_backups_id",
-	"dr_backups_tunnel":                          "dr_backups_id",
-	"archive":                                    "issues_id",
-	"comments":                                   "issues_id",
-	"events":                                     "issues_id",
-	"ignore":                                     "issues_id",
-	"reactivate":                                 "issues_id",
-	"reverify":                                   "report_subscriptions_id",
-	"agent_install_token":                        "resellers_id",
-	"resellers_agents":                           "resellers_id",
-	"bill":                                       "resellers_id",
-	"billing_info":                               "resellers_id",
-	"resellers_contracts":                        "resellers_id",
-	"resellers_email_report_subscription_delete": "resellers_id",
-	"resellers_email_report_subscriptions":       "resellers_id",
-	"resellers_issues":                           "resellers_id",
-	"resellers_notes":                            "resellers_id",
-	"postmark_rotate":                            "resellers_id",
-	"prices":                                     "resellers_id",
-	"subscriptions":                              "resellers_id",
-	"agent_service_stop":                         "restic_backups_id",
-	"agent_service_stop_error":                   "restic_backups_id",
-	"restic_backups_agent_session":               "restic_backups_id",
-	"restic_backups_agent_token":                 "restic_backups_id",
-	"restic_backups_backup_sets":                 "restic_backups_id",
-	"restic_backups_encryption_key":              "restic_backups_id",
-	"restic_backups_encryption_key_versions":     "restic_backups_id",
-	"restic_backups_failures":                    "restic_backups_id",
-	"restic_backups_guarantee_eligible":          "restic_backups_id",
-	"restic_backups_guaranteed_recovery_point":   "restic_backups_id",
-	"restic_backups_issues":                      "restic_backups_id",
-	"restic_backups_latest_success":              "restic_backups_id",
-	"restic_check":                               "restic_backups_id",
-	"restic_env":                                 "restic_backups_id",
-	"restic_interrupt":                           "restic_backups_id",
-	"restic_migrate":                             "restic_backups_id",
-	"restic_prune":                               "restic_backups_id",
-	"restic_repair_index":                        "restic_backups_id",
-	"restic_repair_snapshots":                    "restic_backups_id",
-	"restic_unlock":                              "restic_backups_id",
-	"snapshot_ls":                                "restic_backups_id",
-	"restic_backups_snapshots":                   "restic_backups_id",
-	"start_backup":                               "restic_backups_id",
-	"start_restore":                              "restic_backups_id",
-	"restic_backups_tunnel":                      "restic_backups_id",
+var resourceParentKeyColumns = map[string][]string{
+	"agent_install_token":               {"resellers_id"},
+	"agent_logs":                        {"agent_sessions_id"},
+	"agent_service_stop":                {"restic_backups_id"},
+	"agent_service_stop_error":          {"restic_backups_id"},
+	"archive":                           {"issues_id"},
+	"backup_set_templates":              {"companies_id"},
+	"backup_stores":                     {"companies_id"},
+	"backups_encryption_key":            {"backups_id"},
+	"backups_encryption_key_versions":   {"backups_id"},
+	"backups_guarantee_eligible":        {"backups_id"},
+	"backups_guaranteed_recovery_point": {"backups_id"},
+	"backups_reissue_spx_key":           {"backups_id"},
+	"bill":                              {"resellers_id"},
+	"billing_info":                      {"resellers_id"},
+	"c2c":                               {"companies_id"},
+	"cloud_to_cloud_dashboard":          {"companies_id"},
+	"comments":                          {"issues_id"},
+	"companies_agent_session":           {"companies_id"},
+	"companies_agents":                  {"companies_id"},
+	"companies_email_report_subscription_delete": {"companies_id"},
+	"companies_email_report_subscriptions":       {"companies_id"},
+	"companies_issues":                           {"companies_id"},
+	"companies_notes":                            {"companies_id"},
+	"config_ini":                                 {"backups_id"},
+	"connectwise_download_url":                   {"companies_id"},
+	"dr_backups_agent_session":                   {"dr_backups_id"},
+	"dr_backups_agent_token":                     {"dr_backups_id"},
+	"dr_backups_encryption_key":                  {"dr_backups_id"},
+	"dr_backups_encryption_key_versions":         {"dr_backups_id"},
+	"dr_backups_failures":                        {"dr_backups_id"},
+	"dr_backups_guarantee_eligible":              {"dr_backups_id"},
+	"dr_backups_guaranteed_recovery_point":       {"dr_backups_id"},
+	"dr_backups_issues":                          {"dr_backups_id"},
+	"dr_backups_latest_success":                  {"dr_backups_id"},
+	"dr_backups_reissue_spx_key":                 {"dr_backups_id"},
+	"dr_backups_snapshots":                       {"dr_backups_id"},
+	"dr_backups_tunnel":                          {"dr_backups_id"},
+	"dr_snapshots":                               {"companies_id"},
+	"dr_upload":                                  {"companies_id"},
+	"draas":                                      {"companies_id"},
+	"events":                                     {"issues_id"},
+	"finalize":                                   {"contracts_id"},
+	"fully_managed_ng":                           {"companies_id"},
+	"fully_managed_setup_stage":                  {"companies_id"},
+	"fully_managed_status":                       {"companies_id"},
+	"ignore":                                     {"issues_id"},
+	"imagemanager_info":                          {"companies_id"},
+	"install_imagemanager":                       {"agent_sessions_id"},
+	"install_spx":                                {"agent_sessions_id"},
+	"latest_offsite":                             {"dr_backups_id"},
+	"log_upload":                                 {"companies_id"},
+	"log_upload_list":                            {"companies_id"},
+	"login":                                      {"backups_id"},
+	"migrate_dr":                                 {"backups_id"},
+	"other_info":                                 {"companies_id"},
+	"password":                                   {"backups_id"},
+	"postmark_rotate":                            {"resellers_id"},
+	"prices":                                     {"resellers_id"},
+	"reactivate":                                 {"issues_id"},
+	"reboot_events":                              {"dr_backups_id"},
+	"recent_success":                             {"companies_id"},
+	"resellers_agents":                           {"resellers_id"},
+	"resellers_contracts":                        {"resellers_id"},
+	"resellers_email_report_subscription_delete": {"resellers_id"},
+	"resellers_email_report_subscriptions":       {"resellers_id"},
+	"resellers_issues":                           {"resellers_id"},
+	"resellers_notes":                            {"resellers_id"},
+	"restart_imagemanager":                       {"agent_sessions_id"},
+	"restart_spx":                                {"agent_sessions_id"},
+	"restic_backup_failures":                     {"companies_id"},
+	"restic_backups_agent_session":               {"restic_backups_id"},
+	"restic_backups_agent_token":                 {"restic_backups_id"},
+	"restic_backups_backup_sets":                 {"restic_backups_id"},
+	"restic_backups_encryption_key":              {"restic_backups_id"},
+	"restic_backups_encryption_key_versions":     {"restic_backups_id"},
+	"restic_backups_failures":                    {"restic_backups_id"},
+	"restic_backups_guarantee_eligible":          {"restic_backups_id"},
+	"restic_backups_guaranteed_recovery_point":   {"restic_backups_id"},
+	"restic_backups_issues":                      {"restic_backups_id"},
+	"restic_backups_latest_success":              {"restic_backups_id"},
+	"restic_backups_snapshots":                   {"restic_backups_id"},
+	"restic_backups_tunnel":                      {"restic_backups_id"},
+	"restic_check":                               {"restic_backups_id"},
+	"restic_env":                                 {"restic_backups_id"},
+	"restic_interrupt":                           {"restic_backups_id"},
+	"restic_migrate":                             {"restic_backups_id"},
+	"restic_prune":                               {"restic_backups_id"},
+	"restic_repair_index":                        {"restic_backups_id"},
+	"restic_repair_snapshots":                    {"restic_backups_id"},
+	"restic_snapshots":                           {"companies_id"},
+	"restic_unlock":                              {"restic_backups_id"},
+	"restore_queues":                             {"companies_id"},
+	"reverify":                                   {"report_subscriptions_id"},
+	"rotate":                                     {"credentials_id"},
+	"selected_volumes":                           {"dr_backups_id"},
+	"servosity_one":                              {"companies_id"},
+	"servosity_one_conversion_request":           {"companies_id"},
+	"snapshot":                                   {"dr_backups_id"},
+	"snapshot_chkdsk_results":                    {"dr_backups_id"},
+	"snapshot_ls":                                {"restic_backups_id"},
+	"spx_activate":                               {"agent_sessions_id"},
+	"spx_backup_failures":                        {"companies_id"},
+	"start_backup":                               {"restic_backups_id"},
+	"start_restore":                              {"restic_backups_id"},
+	"subscriptions":                              {"resellers_id"},
+	"unlock":                                     {"backups_id"},
+	"update_beta":                                {"agent_sessions_id"},
+	"update_latest":                              {"agent_sessions_id"},
+	"versions":                                   {"credentials_id"},
 }
 
 // ExtractResourceID resolves the bare resource id field that UpsertBatch
@@ -9423,6 +9789,14 @@ func ExtractResourceID(resourceType string, obj map[string]any) string {
 	if s := suffixIDFieldFallback(resourceType, obj); s != "" {
 		return s
 	}
+	for _, key := range genericDescriptiveIDFieldFallbacks {
+		if v := lookupFieldValue(obj, key); v != nil {
+			s := ResourceIDString(v)
+			if s != "" && s != "<nil>" {
+				return s
+			}
+		}
+	}
 	return ""
 }
 
@@ -9441,24 +9815,46 @@ func suffixIDFieldFallback(resourceType string, obj map[string]any) string {
 				}
 			}
 		}
+		camelBase := lowerCamelResourceIDBase(base)
+		for _, suffix := range []string{"Id", "Code", "Key", "Slug"} {
+			if v, ok := obj[camelBase+suffix]; ok {
+				if s := scalarIDString(v); s != "" && s != "<nil>" {
+					return s
+				}
+			}
+		}
 	}
 	return ""
 }
 
 // resourceIDBaseNames returns lowercase candidate singular/plural stems of a
 // resource name to build "<base>_id"-style key probes from (e.g. "currencies"
-// -> ["currencies","currency"]). OpenAPI-/path-derived names can carry a
-// leading verb token ("get-currencies"), so the same probes are also attempted
-// on the de-verbed stem. Minimal English depluralization; the raw name is
-// always included so already-singular names work too.
+// -> ["currencies","currency"]). Composed dependent names also probe their
+// final segment ("containers_workspaces" -> "workspaces","workspace"), which
+// is the child entity's own ID convention. OpenAPI-/path-derived names can
+// carry a leading verb token ("get-currencies"), so the same probes are also
+// attempted on the de-verbed stem.
 func resourceIDBaseNames(resourceType string) []string {
 	r := strings.ToLower(strings.TrimSpace(resourceType))
 	if r == "" {
 		return nil
 	}
-	stems := []string{r}
+	var stems []string
+	addStem := func(stem string) {
+		if stem == "" {
+			return
+		}
+		for _, existing := range stems {
+			if existing == stem {
+				return
+			}
+		}
+		stems = append(stems, stem)
+	}
+	addStem(resourceIDBaseOverrides[r])
+	addStem(r)
 	if d := stripLeadingResourceVerb(r); d != "" && d != r {
-		stems = append(stems, d)
+		addStem(d)
 	}
 	var bases []string
 	seen := map[string]bool{}
@@ -9471,6 +9867,11 @@ func resourceIDBaseNames(resourceType string) []string {
 	for _, stem := range stems {
 		add(stem)
 		add(depluralizeResourceStem(stem))
+		if i := strings.LastIndexAny(stem, "_-"); i >= 0 && i+1 < len(stem) {
+			leaf := stem[i+1:]
+			add(leaf)
+			add(depluralizeResourceStem(leaf))
+		}
 	}
 	return bases
 }
@@ -9508,6 +9909,23 @@ func depluralizeResourceStem(r string) string {
 	return r
 }
 
+func lowerCamelResourceIDBase(base string) string {
+	parts := strings.FieldsFunc(base, func(r rune) bool {
+		return r == '_' || r == '-'
+	})
+	if len(parts) == 0 {
+		return base
+	}
+	for i := range parts {
+		if i == 0 {
+			parts[i] = strings.ToLower(parts[i])
+			continue
+		}
+		parts[i] = strings.ToUpper(parts[i][:1]) + strings.ToLower(parts[i][1:])
+	}
+	return strings.Join(parts, "")
+}
+
 func scalarIDString(value any) string {
 	switch value.(type) {
 	case string, bool, int, int8, int16, int32, int64,
@@ -9520,24 +9938,60 @@ func scalarIDString(value any) string {
 }
 
 func resourceStorageID(resourceType, id string, obj map[string]any) string {
-	parentKey := resourceParentKeyColumns[resourceType]
-	if parentKey == "" {
-		return id
+	for _, parentKey := range resourceParentKeyColumns[resourceType] {
+		parentValue := ResourceIDString(lookupFieldValue(obj, parentKey))
+		if parentValue != "" && parentValue != "<nil>" {
+			return id + string([]byte{0}) + parentValue
+		}
 	}
-	parentValue := ResourceIDString(lookupFieldValue(obj, parentKey))
-	if parentValue == "" || parentValue == "<nil>" {
-		return id
-	}
-	return id + string([]byte{0}) + parentValue
+	return id
 }
 
-// UpsertBatch inserts or replaces multiple records in a single transaction
-// and returns (stored, extractFailures, err). stored counts rows landed in
-// the generic resources table; extractFailures counts items that survived
-// JSON unmarshal but had no extractable primary key (templated IDField AND
-// generic fallback both missed). callers (sync.go.tmpl) compare these
-// against len(items) to emit the per-item primary_key_unresolved warning
-// and the F4b stored_count_zero_after_extraction probe.
+// BareResourceID strips the NUL-delimited parent suffix that resourceStorageID
+// appends to dependent resource types, returning the bare entity id. ListIDs
+// returns composite keys for parent-keyed resources, so callers comparing those
+// ids against bare API ids must run them through this first. For non-composite
+// ids it returns the input unchanged, so it is safe to apply to every id.
+func BareResourceID(storageID string) string {
+	if i := strings.IndexByte(storageID, 0); i >= 0 {
+		return storageID[:i]
+	}
+	return storageID
+}
+
+// childScopeColumnSources maps a typed child table's path-placeholder scope
+// column (the FK the dependent sync injects per item, e.g. "projects_id") to
+// the singular parent-reference field the API body carries natively (e.g.
+// "project"). deriveScopeColumns consults this so write-through cache paths —
+// which pass RAW API items to UpsertBatch and never carry the path-injected
+// scope column — still satisfy the typed table's NOT NULL scope column instead
+// of stranding the row in generic resources.
+var childScopeColumnSources = map[string]string{}
+
+// deriveScopeColumns backfills a typed child table's scope column from the
+// item's own parent reference when path injection is absent. A value already
+// present (valid injection) is never overwritten.
+func deriveScopeColumns(obj map[string]any) {
+	for scopeKey, sourceKey := range childScopeColumnSources {
+		if v := lookupFieldValue(obj, scopeKey); v != nil {
+			if s, ok := v.(string); !ok || s != "" {
+				continue // path injection already supplied a usable value
+			}
+		}
+		src := lookupFieldValue(obj, sourceKey)
+		if src == nil {
+			continue
+		}
+		if s, ok := src.(string); ok && s == "" {
+			continue
+		}
+		obj[scopeKey] = src
+	}
+}
+
+// UpsertBatch inserts or replaces multiple records in a single transaction.
+// The detailed variant also reports typed-table projection failures so sync can
+// treat a generic-only write as an incomplete local mirror.
 //
 // For resource types that have a domain-specific typed table, the per-item
 // generic insert is followed by a dispatch to the matching upsert<Pascal>Tx
@@ -9550,14 +10004,18 @@ func resourceStorageID(resourceType, id string, obj map[string]any) string {
 // didn't populate the parent path placeholder) rolls back only that typed
 // upsert. The generic resources row inserted just above it survives the
 // rollback, so successful API fetches never strand in memory because one
-// downstream typed table is misconfigured. Failures are surfaced via a
-// trailing stderr warning rather than aborting the batch.
+// downstream typed table is misconfigured.
 func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, int, error) {
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	stored, extractFailures, _, err := s.UpsertBatchDetailed(resourceType, items)
+	return stored, extractFailures, err
+}
+
+func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage) (int, int, int, error) {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
 	if err != nil {
-		return 0, 0, fmt.Errorf("starting batch transaction: %w", err)
+		return 0, 0, 0, fmt.Errorf("starting batch transaction: %w", err)
 	}
 	defer tx.Rollback()
 
@@ -9574,6 +10032,13 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 		// spec declares x-resource-id).
 		id := ExtractResourceID(resourceType, obj)
 		if id == "" {
+			if keyObj, rowObj, rowItem, ok := unwrapIDBearingEnvelopeItem(resourceType, item, obj); ok {
+				id = ExtractResourceID(resourceType, keyObj)
+				obj = rowObj
+				item = rowItem
+			}
+		}
+		if id == "" {
 			skippedCount++
 			extractFailures++
 			continue
@@ -9584,13 +10049,18 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 			// Return the running stored count rather than zero so callers
 			// inspecting partial progress on failure see what already
 			// landed in earlier loop iterations.
-			return stored, extractFailures, fmt.Errorf("upserting %s/%s: %w", resourceType, storageID, err)
+			return stored, extractFailures, typedFailures, fmt.Errorf("upserting %s/%s: %w", resourceType, storageID, err)
 		}
 		stored++
 
+		// Backfill the typed child table's NOT NULL scope column from the item's
+		// own parent reference when the dependent-sync path injection is absent
+		// (write-through cache feeds RAW API items here).
+		deriveScopeColumns(obj)
+
 		savepoint := fmt.Sprintf("pp_typed_%d", i)
 		if _, err := tx.Exec("SAVEPOINT " + savepoint); err != nil {
-			return stored, extractFailures, fmt.Errorf("savepoint begin for %s/%s: %w", resourceType, storageID, err)
+			return stored, extractFailures, typedFailures, fmt.Errorf("savepoint begin for %s/%s: %w", resourceType, storageID, err)
 		}
 
 		var typedErr error
@@ -9751,6 +10221,8 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 			typedErr = s.upsertDrBackupsSnapshotsTx(tx, storageID, obj, item)
 		case "dr_backups_tunnel":
 			typedErr = s.upsertDrBackupsTunnelTx(tx, storageID, obj, item)
+		case "fully_managed_companies":
+			typedErr = s.upsertFullyManagedCompaniesTx(tx, storageID, obj, item)
 		case "issue-comments":
 			typedErr = s.upsertIssueCommentsTx(tx, storageID, obj, item)
 		case "issues":
@@ -9853,22 +10325,25 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 
 		if typedErr != nil {
 			if _, rbErr := tx.Exec("ROLLBACK TO SAVEPOINT " + savepoint); rbErr != nil {
-				return stored, extractFailures, fmt.Errorf("rollback to savepoint for %s/%s (typed err: %v): %w", resourceType, storageID, typedErr, rbErr)
+				return stored, extractFailures, typedFailures, fmt.Errorf("rollback to savepoint for %s/%s (typed err: %v): %w", resourceType, storageID, typedErr, rbErr)
 			}
 			if _, relErr := tx.Exec("RELEASE SAVEPOINT " + savepoint); relErr != nil {
-				return stored, extractFailures, fmt.Errorf("release savepoint after rollback for %s/%s: %w", resourceType, storageID, relErr)
+				return stored, extractFailures, typedFailures, fmt.Errorf("release savepoint after rollback for %s/%s: %w", resourceType, storageID, relErr)
 			}
 			typedFailures++
 			continue
 		}
 		if _, err := tx.Exec("RELEASE SAVEPOINT " + savepoint); err != nil {
-			return stored, extractFailures, fmt.Errorf("release savepoint for %s/%s: %w", resourceType, storageID, err)
+			return stored, extractFailures, typedFailures, fmt.Errorf("release savepoint for %s/%s: %w", resourceType, storageID, err)
 		}
 	}
 
-	// Warn when most items in a batch lack an extractable ID — this likely
-	// means the API uses a primary key field we don't recognize yet.
-	if skippedCount > 0 && len(items) > 0 && skippedCount*2 > len(items) {
+	// Warn when every decoded item in a batch lacks an extractable ID — this
+	// likely means the API uses a primary key field we don't recognize yet.
+	// Partial misses still surface through extractFailures so sync can emit
+	// a structured primary_key_unresolved anomaly without spamming stderr for
+	// write-through cache batches that did persist useful rows.
+	if extractFailures > 0 && stored == 0 && len(items) > 0 {
 		fmt.Fprintf(os.Stderr, "warning: %d/%d %s items returned but not cached locally (no extractable ID field; offline lookup against these rows will be incomplete; live queries unaffected)\n", skippedCount, len(items), resourceType)
 	}
 	// Surface typed-table failures without aborting the batch. Generic rows
@@ -9878,9 +10353,43 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 	}
 
 	if err := tx.Commit(); err != nil {
-		return 0, extractFailures, err
+		return 0, extractFailures, typedFailures, err
 	}
-	return stored, extractFailures, nil
+	return stored, extractFailures, typedFailures, nil
+}
+
+// Multi-field wrappers keep their outer row because scalar siblings may be
+// resource data; true single-field envelopes unwrap to the inner object.
+func unwrapIDBearingEnvelopeItem(resourceType string, item json.RawMessage, obj map[string]any) (map[string]any, map[string]any, json.RawMessage, bool) {
+	var candidate map[string]any
+	candidateKey := ""
+	candidates := 0
+	for key, value := range obj {
+		inner, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		if ExtractResourceID(resourceType, inner) != "" {
+			candidate = inner
+			candidateKey = key
+			candidates++
+		}
+	}
+	if candidates != 1 || candidate == nil || candidateKey == "" {
+		return nil, nil, nil, false
+	}
+	if len(obj) != 1 {
+		return candidate, obj, item, true
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(item, &raw); err != nil {
+		return nil, nil, nil, false
+	}
+	data, ok := raw[candidateKey]
+	if !ok {
+		return nil, nil, nil, false
+	}
+	return candidate, candidate, data, true
 }
 
 // SearchContracts searches the contracts_fts index with optional filters.
@@ -9888,7 +10397,7 @@ func (s *Store) SearchContracts(query string, limit int) ([]json.RawMessage, err
 	if limit <= 0 {
 		limit = 50
 	}
-	matchQuery := ftsMatchQuery(query)
+	matchQuery := FTSMatchQuery(query)
 	if matchQuery == "" {
 		return nil, nil
 	}
@@ -9896,7 +10405,7 @@ func (s *Store) SearchContracts(query string, limit int) ([]json.RawMessage, err
 		`SELECT t.data FROM "contracts" t
 		 JOIN "contracts_fts" ON "contracts_fts".rowid = t.rowid
 		 WHERE "contracts_fts" MATCH ?
-		 ORDER BY rank LIMIT ?`,
+		 ORDER BY "contracts_fts".rank LIMIT ?`,
 		matchQuery, limit,
 	)
 	if err != nil {
@@ -9920,7 +10429,7 @@ func (s *Store) SearchCredentials(query string, limit int) ([]json.RawMessage, e
 	if limit <= 0 {
 		limit = 50
 	}
-	matchQuery := ftsMatchQuery(query)
+	matchQuery := FTSMatchQuery(query)
 	if matchQuery == "" {
 		return nil, nil
 	}
@@ -9928,7 +10437,7 @@ func (s *Store) SearchCredentials(query string, limit int) ([]json.RawMessage, e
 		`SELECT t.data FROM "credentials" t
 		 JOIN "credentials_fts" ON "credentials_fts".rowid = t.rowid
 		 WHERE "credentials_fts" MATCH ?
-		 ORDER BY rank LIMIT ?`,
+		 ORDER BY "credentials_fts".rank LIMIT ?`,
 		matchQuery, limit,
 	)
 	if err != nil {
@@ -9952,7 +10461,7 @@ func (s *Store) SearchIssues(query string, limit int) ([]json.RawMessage, error)
 	if limit <= 0 {
 		limit = 50
 	}
-	matchQuery := ftsMatchQuery(query)
+	matchQuery := FTSMatchQuery(query)
 	if matchQuery == "" {
 		return nil, nil
 	}
@@ -9960,7 +10469,7 @@ func (s *Store) SearchIssues(query string, limit int) ([]json.RawMessage, error)
 		`SELECT t.data FROM "issues" t
 		 JOIN "issues_fts" ON "issues_fts".rowid = t.rowid
 		 WHERE "issues_fts" MATCH ?
-		 ORDER BY rank LIMIT ?`,
+		 ORDER BY "issues_fts".rank LIMIT ?`,
 		matchQuery, limit,
 	)
 	if err != nil {
@@ -9980,14 +10489,37 @@ func (s *Store) SearchIssues(query string, limit int) ([]json.RawMessage, error)
 }
 
 func (s *Store) SaveSyncState(resourceType, cursor string, count int) error {
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	return s.SaveSyncStateAt(resourceType, cursor, count, time.Now().UTC())
+}
+
+// SaveSyncStateAt stores both pagination progress and the incremental
+// watermark represented by at. Callers use this when the watermark belongs to
+// the data just fetched rather than to the instant the checkpoint is written.
+func (s *Store) SaveSyncStateAt(resourceType, cursor string, count int, at time.Time) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	_, err := s.db.Exec(
 		`INSERT INTO sync_state (resource_type, last_cursor, last_synced_at, total_count)
 		 VALUES (?, ?, ?, ?)
 		 ON CONFLICT(resource_type) DO UPDATE SET last_cursor = excluded.last_cursor,
 		 last_synced_at = excluded.last_synced_at, total_count = excluded.total_count`,
-		resourceType, cursor, time.Now().UTC().Format(time.RFC3339), count,
+		resourceType, cursor, at.UTC().Format(time.RFC3339), count,
+	)
+	return err
+}
+
+// SaveSyncProgress stores pagination progress without changing the
+// incremental watermark. A new row gets a parseable zero timestamp so
+// GetSyncState can scan it into time.Time without a NULL conversion error.
+func (s *Store) SaveSyncProgress(resourceType, cursor string, count int) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	_, err := s.db.Exec(
+		`INSERT INTO sync_state (resource_type, last_cursor, last_synced_at, total_count)
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT(resource_type) DO UPDATE SET last_cursor = excluded.last_cursor,
+		 total_count = excluded.total_count`,
+		resourceType, cursor, time.Time{}.UTC().Format(time.RFC3339), count,
 	)
 	return err
 }
@@ -10005,13 +10537,14 @@ func (s *Store) GetSyncState(resourceType string) (cursor string, lastSynced tim
 
 // SaveSyncCursor stores the pagination cursor for a resource type.
 func (s *Store) SaveSyncCursor(resourceType, cursor string) error {
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	now := time.Now().UTC().Format(time.RFC3339)
 	_, err := s.db.Exec(
 		`INSERT INTO sync_state (resource_type, last_cursor, last_synced_at, total_count)
-		 VALUES (?, ?, CURRENT_TIMESTAMP, 0)
-		 ON CONFLICT(resource_type) DO UPDATE SET last_cursor = ?, last_synced_at = CURRENT_TIMESTAMP`,
-		resourceType, cursor, cursor,
+		 VALUES (?, ?, ?, 0)
+		 ON CONFLICT(resource_type) DO UPDATE SET last_cursor = ?, last_synced_at = ?`,
+		resourceType, cursor, now, cursor, now,
 	)
 	return err
 }
@@ -10028,6 +10561,8 @@ func (s *Store) GetSyncCursor(resourceType string) string {
 
 // ListIDs returns all IDs from a resource's domain table, or from the generic
 // resources table if no domain table exists. Used by dependent sync to iterate parents.
+// For parent-keyed resource types these are composite storage keys; run them
+// through BareResourceID before comparing against bare API ids.
 //
 // resourceType is never interpolated into SQL directly. We resolve it to a real
 // table name via a parameterized sqlite_master lookup; only that trusted name is
@@ -10051,6 +10586,74 @@ func (s *Store) ListIDs(resourceType string) ([]string, error) {
 	}
 	defer rows.Close()
 
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// ListIDsScoped is ListIDs with an optional tenant filter. scopeValue=="" =>
+// unscoped (identical to ListIDs). When the typed table exists AND has
+// scopeColumn (validated via validIdentifierRE + pragma_table_info), the IDs are
+// filtered by that bound column. When the typed table exists but LACKS the
+// column, it degrades to unscoped ListIDs (never silently returns zero parents).
+// When no typed table exists, it filters the generic resources table via
+// json_extract. scopeColumn is validated; scopeValue is always bound.
+func (s *Store) ListIDsScoped(resourceType, scopeColumn, scopeValue string) ([]string, error) {
+	if scopeValue == "" || scopeColumn == "" {
+		return s.ListIDs(resourceType)
+	}
+	if !validIdentifierRE.MatchString(scopeColumn) {
+		return nil, fmt.Errorf("ListIDsScoped: invalid scope column %q", scopeColumn)
+	}
+	var table string
+	err := s.db.QueryRow(
+		`SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
+		resourceType,
+	).Scan(&table)
+	if err == nil && table != "" {
+		var colName string
+		colErr := s.db.QueryRow(
+			`SELECT name FROM pragma_table_info(?) WHERE name=?`,
+			table, scopeColumn,
+		).Scan(&colName)
+		if colErr != nil || colName == "" {
+			// Typed table exists but lacks the scope column: degrade to unscoped
+			// rather than returning zero parents.
+			return s.ListIDs(resourceType)
+		}
+		qTable := strings.ReplaceAll(table, `"`, `""`)
+		qCol := strings.ReplaceAll(colName, `"`, `""`)
+		rows, qerr := s.db.Query(
+			fmt.Sprintf(`SELECT id FROM "%s" WHERE "%s" = ?`, qTable, qCol), scopeValue)
+		if qerr != nil {
+			return nil, qerr
+		}
+		defer rows.Close()
+		var ids []string
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				continue
+			}
+			ids = append(ids, id)
+		}
+		return ids, rows.Err()
+	}
+	// No typed table: filter the generic resources table by body field.
+	rows, qerr := s.db.Query(
+		fmt.Sprintf(`SELECT id FROM resources WHERE resource_type = ? AND (CASE WHEN json_valid(data) THEN json_extract(data, '$.%s') END) = ?`, scopeColumn),
+		resourceType, scopeValue,
+	)
+	if qerr != nil {
+		return nil, qerr
+	}
+	defer rows.Close()
 	var ids []string
 	for rows.Next() {
 		var id string
@@ -10214,8 +10817,8 @@ func (s *Store) GetLastSyncedAt(resourceType string) string {
 
 // ClearSyncCursors resets all sync state for a full resync.
 func (s *Store) ClearSyncCursors() error {
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
 	_, err := s.db.Exec("DELETE FROM sync_state")
 	return err
 }
@@ -10254,6 +10857,140 @@ func (s *Store) Status() (map[string]int, error) {
 		status[rt] = count
 	}
 	return status, rows.Err()
+}
+
+// CascadeJunction names a junction table + the FK column referencing the
+// reconciled resource's primary key, to be cleaned when a row is swept.
+type CascadeJunction struct {
+	Table    string
+	FKColumn string
+}
+
+var (
+	cascadeMu        sync.Mutex
+	cascadeJunctions = map[string][]CascadeJunction{}
+)
+
+// RegisterCascadeJunction records a junction to clean when rows of resourceType
+// are reconciled away. Used for runtime-created junctions (e.g. module_issues)
+// that the generated schema does not declare.
+//
+// Registration is idempotent: re-registering the same (Table, FKColumn) for a
+// resourceType is a no-op. The registry is a process-global with no removal path
+// (registrations happen once at startup in the generated binary); dedupe keeps a
+// repeated init() or a test that re-registers across sub-tests from accumulating
+// duplicate cascades.
+func RegisterCascadeJunction(resourceType string, j CascadeJunction) {
+	cascadeMu.Lock()
+	defer cascadeMu.Unlock()
+	for _, existing := range cascadeJunctions[resourceType] {
+		if existing == j {
+			return
+		}
+	}
+	cascadeJunctions[resourceType] = append(cascadeJunctions[resourceType], j)
+}
+
+// CascadeJunctionsFor returns the registered cascade junctions for resourceType.
+func CascadeJunctionsFor(resourceType string) []CascadeJunction {
+	cascadeMu.Lock()
+	defer cascadeMu.Unlock()
+	out := make([]CascadeJunction, len(cascadeJunctions[resourceType]))
+	copy(out, cascadeJunctions[resourceType])
+	return out
+}
+
+// ReconcilePartition hard-deletes local rows of resourceType in one partition
+// (rows whose data JSON at genericScopeJSONPath equals scopeValue) whose primary
+// key is NOT in seenIDs. It is the mark-and-sweep half of deletion mirroring;
+// the caller must pass the COMPLETE, successfully-enumerated seen-ID set for the
+// partition. Victims are computed from the generic resources table so that
+// legacy rows lacking a typed projection are also cleaned. Cleans, per victim:
+// the typed table row (firing its AFTER DELETE FTS triggers, if any), the
+// generic resources_fts entry (manual, no triggers), the generic resources row,
+// and each cascade junction. Returns the number of generic rows deleted.
+func (s *Store) ReconcilePartition(resourceType, genericScopeJSONPath, scopeValue string, seenIDs []string, typedTable string, cascades []CascadeJunction) (int, error) {
+	if genericScopeJSONPath == "" || scopeValue == "" {
+		return 0, fmt.Errorf("reconcile %s: empty partition scope", resourceType)
+	}
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	// Seen-set membership is tested in Go, not SQL. Parent-keyed dependent rows
+	// carry a NUL-composite storage id ("<id>\x00<parent>", built by
+	// resourceStorageID) while seenIDs holds the BARE API ids sync enumerated, so
+	// each stored id must run through BareResourceID before the comparison. A SQL
+	// seen-set is not viable here: SQLite string functions treat the embedded NUL
+	// as a C-string terminator, so an instr/substr or `IN` test over a key
+	// containing "\x00" silently truncates and mis-matches. BareResourceID is a
+	// no-op for plain ids, so flat/non-composite partitions are unaffected.
+	seen := make(map[string]struct{}, len(seenIDs))
+	for _, id := range seenIDs {
+		seen[id] = struct{}{}
+	}
+
+	// CASE guards against a malformed-JSON row aborting the victim scan:
+	// a row we cannot parse is never a victim — it is skipped (never deleted).
+	rows, err := tx.Query(
+		`SELECT id FROM resources
+		 WHERE resource_type = ?
+		   AND (CASE WHEN json_valid(data) THEN json_extract(data, ?) END) = ?`,
+		resourceType, genericScopeJSONPath, scopeValue,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("reconcile %s: select victims: %w", resourceType, err)
+	}
+	var victims []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			_ = rows.Close()
+			return 0, err
+		}
+		if _, ok := seen[BareResourceID(id)]; ok {
+			continue // bare id was enumerated this run — keep the row
+		}
+		victims = append(victims, id)
+	}
+	_ = rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	// Safety: typedTable and cascade Table/FKColumn are TRUSTED generator/registration
+	// metadata (schema-derived or RegisterCascadeJunction), not user input — Sprintf
+	// interpolation here is intentional and safe.
+	for _, id := range victims {
+		if typedTable != "" {
+			if _, err := tx.Exec(fmt.Sprintf(`DELETE FROM "%s" WHERE id = ?`, typedTable), id); err != nil {
+				return 0, fmt.Errorf("reconcile %s: typed delete: %w", resourceType, err)
+			}
+		}
+		if _, err := tx.Exec(`DELETE FROM resources_fts WHERE rowid = ?`, ftsRowID(resourceType, id)); err != nil {
+			return 0, fmt.Errorf("reconcile %s: fts delete: %w", resourceType, err)
+		}
+		if _, err := tx.Exec(`DELETE FROM resources WHERE resource_type = ? AND id = ?`, resourceType, id); err != nil {
+			return 0, fmt.Errorf("reconcile %s: generic delete: %w", resourceType, err)
+		}
+		// Cascade junction FKs hold the BARE entity id, never the NUL-composite
+		// storage key, so strip the suffix before matching (no-op for plain ids).
+		for _, c := range cascades {
+			if _, err := tx.Exec(fmt.Sprintf(`DELETE FROM "%s" WHERE "%s" = ?`, c.Table, c.FKColumn), BareResourceID(id)); err != nil {
+				return 0, fmt.Errorf("reconcile %s: cascade %s: %w", resourceType, c.Table, err)
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return len(victims), nil
 }
 
 // ResolveByName resolves a human-readable name to a UUID from synced data.
@@ -10298,10 +11035,10 @@ func (s *Store) ResolveByName(resourceType string, input string, matchFields ...
 			}
 		}
 		if err := rows.Err(); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return "", err
 		}
-		rows.Close()
+		_ = rows.Close()
 	}
 
 	switch len(matches) {

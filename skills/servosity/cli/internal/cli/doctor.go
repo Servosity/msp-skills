@@ -20,6 +20,22 @@ import (
 	"servosity-msp-pp-cli/internal/store"
 )
 
+// Hand-coded auth flows can report credentials that are intentionally not
+// represented by the generated Config fields. Assign this from a same-package
+// author file after generation. This is a presence signal only; custom flows
+// own their transport and credential-probe validation.
+var doctorAuthConfiguredHook func() (bool, string)
+
+func doctorAuthConfiguredState(cfg *config.Config) (bool, string) {
+	if cfg != nil && cfg.CredentialConfigured() {
+		return true, cfg.AuthSource
+	}
+	if doctorAuthConfiguredHook != nil {
+		return doctorAuthConfiguredHook()
+	}
+	return false, ""
+}
+
 // looksLikeDoctorInterstitial reports whether the response body matches a known
 // bot-detection challenge page (Cloudflare, Akamai, Vercel, AWS WAF, DataDome,
 // PerimeterX). Only fires on the doctor probe — used to distinguish "transport
@@ -71,9 +87,28 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 		Short: "Check CLI health",
 		Example: `  servosity-cli doctor
   servosity-cli doctor --json
-  servosity-cli doctor --fail-on warn`,
+  servosity-cli doctor --fail-on warn
+  servosity-cli doctor --fail-on stale`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if registeredPlatformSource != nil {
+				if flags.platformSession == nil {
+					return errors.New("verified client profile session is required")
+				}
+				report, err := platformDoctorV2Report(cmd.Context(), flags.platformSession)
+				if err != nil {
+					return err
+				}
+				if err := flags.printJSON(cmd, report); err != nil {
+					return err
+				}
+				return flags.platformGateError
+			}
 			report := map[string]any{}
+			pathsReport := collectPathsReport()
+			report["paths"] = pathsReport
+			if warning := pathsWarning(pathsReport); warning != "" {
+				report["paths_warning"] = warning
+			}
 
 			// Check config
 			cfg, err := config.Load(flags.configPath)
@@ -92,19 +127,27 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				} else {
 					report["agentcookie"] = "not detected (optional)"
 				}
+				collectCredentialsLocationReport(report, cfg)
 			}
 
 			// Check auth
 			authConfigured := false
-			if cfg != nil {
-				header := cfg.AuthHeader()
-				if header == "" {
-					report["auth"] = "not configured"
-					report["auth_hint"] = "Set your API key with: export SERVOSITY_MSP_TOKEN=\"your-token-here\""
-				} else {
-					authConfigured = true
-					report["auth"] = "configured"
-					report["auth_source"] = cfg.AuthSource
+			credentialRefused := cfg != nil && cfg.HasCredentialRefusals()
+			if credentialRefused {
+				report["auth"] = "refused: credential present but not loaded"
+				report["auth_refusals"] = cfg.CredentialRefusalSummaries()
+				report["credentials"] = "refused: credential present but not loaded"
+			} else {
+				if cfg != nil {
+					configured, authSource := doctorAuthConfiguredState(cfg)
+					if !configured {
+						report["auth"] = "not configured"
+						report["auth_hint"] = "Set your API key with: export SERVOSITY_MSP_TOKEN=\"your-token-here\""
+					} else {
+						authConfigured = true
+						report["auth"] = "configured"
+						report["auth_source"] = authSource
+					}
 				}
 			}
 
@@ -196,14 +239,12 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					} else if reachErr != nil && !errors.As(reachErr, &reachAPIErr) {
 						report["credentials"] = "skipped (API unreachable)"
 					} else {
-						// Shared auth-header setup for both probe variants below.
-						// Kept hoisted out of the per-probe branches because the
-						// per-API auth-placement, RequiredHeaders, and User-Agent
-						// fallback logic is independent of which verb the probe
-						// dials.
+						// Shared probe-header setup for both probe variants below.
+						// The client's request path injects auth so OAuth refresh-on-401 can
+						// retry with the newly persisted token instead of replaying a stale
+						// header/query override captured before the refresh.
 						authParams := map[string]string{}
 						authHeaders := map[string]string{}
-						authHeaders["Authorization"] = authHeader
 						authHeaders["User-Agent"] = "servosity-cli"
 						verifyPath := "/reports/account/"
 						if !strings.HasPrefix(verifyPath, "/") {
@@ -221,8 +262,13 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 							case authAPIErr.StatusCode == 403:
 								report["credentials"] = fmt.Sprintf("scope-limited (HTTP %d) — credentials are valid but lack permission for this endpoint. Check your dashboard's API key scope.", authAPIErr.StatusCode)
 							default:
-								// Non-auth HTTP error (404, 500, etc.) — don't blame credentials
-								report["credentials"] = fmt.Sprintf("ok (HTTP %d from %s, but auth was accepted)", authAPIErr.StatusCode, verifyPath)
+								// Non-auth HTTP status (404, 500, etc.): the probe never
+								// reached an authenticated resource, so auth was neither
+								// accepted nor rejected. "Don't blame the credentials" and
+								// "the credentials are ok" are different claims; only the
+								// first is supported here. Report not-verified at WARN so the
+								// verdict is honest and --fail-on warn can trip on it.
+								report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) — probe reached a non-auth endpoint; set auth.verify_path to a known-good authenticated GET", authAPIErr.StatusCode, verifyPath)
 							}
 						default:
 							report["credentials"] = fmt.Sprintf("error: %s", authErr)
@@ -232,7 +278,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			} else if cfg != nil && cfg.BaseURL == "" {
 				report["api"] = "not configured (set base_url in config file)"
 			}
-			// Cache health: only reported when this CLI has a local store.
+			// Cache health: only reported when this CLI has generated sync.
 			// Surfaces rows + last_synced_at per resource, schema version,
 			// and a fresh/stale/unknown verdict so agents can introspect
 			// whether to trust the cached data before issuing queries.
@@ -269,6 +315,8 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				{"auth", "Auth"},
 				{"env_vars", "Env Vars"},
 				{"verify_mode", "Verify Mode"},
+				{"paths_warning", "Paths"},
+				{"credentials_location_warning", "Credentials Storage"},
 				{"api", "API"},
 				{"credentials", "Credentials"},
 			}
@@ -280,9 +328,13 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				s := fmt.Sprintf("%v", v)
 				indicator := green("OK")
 				switch {
+				case strings.HasPrefix(s, "WARN"):
+					indicator = yellow("WARN")
 				case strings.HasPrefix(s, "INFO"):
 					indicator = yellow("INFO")
 				case strings.HasPrefix(s, "ERROR"):
+					indicator = red("FAIL")
+				case strings.HasPrefix(s, "refused:"):
 					indicator = red("FAIL")
 				case strings.HasPrefix(s, "optional"):
 					// Optional-auth CLI with no key set — informational, not a failure.
@@ -305,7 +357,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintf(w, "  %s %s: %s\n", indicator, ck.label, s)
 			}
 			// Print info keys without status indicator
-			for _, key := range []string{"config_path", "base_url", "auth_source", "version"} {
+			for _, key := range []string{"config_path", "base_url", "auth_source", "auth_refusals", "credentials_location", "version"} {
 				if v, ok := report[key]; ok {
 					fmt.Fprintf(w, "  %s: %v\n", key, v)
 				}
@@ -321,33 +373,191 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					renderCacheReport(w, cacheRep)
 				}
 			}
+			if pathsAny, ok := report["paths"]; ok {
+				if pathsRep, ok := pathsAny.(map[string]any); ok {
+					renderPathsReport(w, pathsRep)
+				}
+			}
 			return doctorExitForFailOn(failOn, report)
 		},
 	}
-	cmd.Flags().StringVar(&failOn, "fail-on", "", "Exit non-zero when a health level is reached: stale, error. Default is never.")
+	cmd.Flags().StringVar(&failOn, "fail-on", "", "Exit non-zero for selected health gates. stale: cache freshness plus errors; warn: credential/path warnings plus errors; error: errors only. Default is never.")
 	return cmd
 }
 
+func collectPathsReport() map[string]any {
+	report := map[string]any{}
+	resolutions, err := cliutil.AllPathResolutions()
+	if err != nil {
+		report["status"] = "error"
+		report["detail"] = err.Error()
+		return report
+	}
+	report["status"] = "ok"
+	ignoredSeen := map[string]bool{}
+	var ignored []map[string]string
+	var notes []string
+	for _, resolution := range resolutions {
+		report[resolution.KindName] = map[string]any{
+			"dir":    resolution.Dir,
+			"rung":   resolution.Rung,
+			"source": resolution.Source,
+		}
+		for _, skipped := range resolution.IgnoredOverrides {
+			key := skipped.Name + "\x00" + skipped.Value
+			if ignoredSeen[key] {
+				continue
+			}
+			ignoredSeen[key] = true
+			ignored = append(ignored, map[string]string{
+				"name":  skipped.Name,
+				"value": skipped.Value,
+			})
+		}
+		if cliutil.HomeOverrideActive() && resolution.Rung == "per-kind-env" && (resolution.Kind == cliutil.PathKindData || resolution.Kind == cliutil.PathKindConfig) {
+			notes = append(notes, fmt.Sprintf("--home shadowed for %s by %s", resolution.KindName, resolution.Source))
+		}
+	}
+	if len(ignored) > 0 {
+		report["skipped_relative_overrides"] = ignored
+	}
+	if len(notes) > 0 {
+		report["notes"] = notes
+	}
+	return report
+}
+
+func pathsWarning(report map[string]any) string {
+	if report == nil {
+		return ""
+	}
+	var parts []string
+	if raw, ok := report["skipped_relative_overrides"].([]map[string]string); ok && len(raw) > 0 {
+		names := make([]string, 0, len(raw))
+		for _, entry := range raw {
+			names = append(names, entry["name"])
+		}
+		parts = append(parts, "relative override skipped: "+strings.Join(names, ", "))
+	}
+	if raw, ok := report["notes"].([]string); ok && len(raw) > 0 {
+		parts = append(parts, "home override shadowed")
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "WARN paths: " + strings.Join(parts, "; ")
+}
+
+func renderPathsReport(w io.Writer, rep map[string]any) {
+	fmt.Fprintf(w, "  Paths:\n")
+	for _, kind := range []string{"config", "data", "state", "cache"} {
+		entry, ok := rep[kind].(map[string]any)
+		if !ok {
+			continue
+		}
+		fmt.Fprintf(w, "    %s: %v (%v)\n", kind, entry["dir"], entry["source"])
+	}
+	if raw, ok := rep["skipped_relative_overrides"].([]map[string]string); ok && len(raw) > 0 {
+		fmt.Fprintf(w, "    skipped_relative_overrides:\n")
+		for _, entry := range raw {
+			fmt.Fprintf(w, "      %s=%q\n", entry["name"], entry["value"])
+		}
+	}
+	if raw, ok := rep["notes"].([]string); ok && len(raw) > 0 {
+		fmt.Fprintf(w, "    notes:\n")
+		for _, note := range raw {
+			fmt.Fprintf(w, "      %s\n", note)
+		}
+	}
+}
+func collectCredentialsLocationReport(report map[string]any, cfg *config.Config) {
+	if cfg == nil {
+		return
+	}
+	credentialRemediation := "run auth set-token or auth logout"
+	if cfg.CredentialSource != "" {
+		report["credentials_location"] = cfg.CredentialSource
+	} else {
+		report["credentials_location"] = "none"
+	}
+	if cfg.AgentcookieManagedByExternalStore() {
+		return
+	}
+
+	locations := []string{}
+	credsPresent, err := cliutil.CredentialsFileHasValues()
+	if err == nil && credsPresent {
+		locations = append(locations, "credentials file")
+	}
+	legacySecretsElsewhere := ""
+	for _, path := range legacyCredentialProbePaths(cfg) {
+		ok, err := config.FileHasCredentialFields(path)
+		if err == nil && ok {
+			locations = append(locations, path)
+			if path != cfg.Path {
+				legacySecretsElsewhere = path
+			}
+		}
+	}
+	if len(locations) > 0 {
+		report["credentials_locations"] = locations
+	}
+	if credsPresent && len(locations) > 1 {
+		if legacySecretsElsewhere != "" {
+			report["credentials_location_warning"] = "WARN credentials stored in more than one location; legacy secrets remain at " + legacySecretsElsewhere + "; " + credentialRemediation + " to consolidate and remove legacy secrets"
+		} else {
+			report["credentials_location_warning"] = "WARN credentials stored in more than one location; current reads use credentials file; " + credentialRemediation + " to consolidate"
+		}
+	}
+}
+
+func legacyCredentialProbePaths(cfg *config.Config) []string {
+	seen := map[string]bool{}
+	var paths []string
+	add := func(path string) {
+		if path == "" || seen[path] {
+			return
+		}
+		seen[path] = true
+		paths = append(paths, path)
+	}
+	if cfg != nil && cfg.Path != "" {
+		// Probe only the active config; a same-dir standard-named file may
+		// belong to an unrelated CLI sharing that directory.
+		add(cfg.Path)
+	}
+	if legacyPath, err := config.LegacyConfigPath(); err == nil {
+		add(legacyPath)
+	}
+	return paths
+}
+
 // doctorExitForFailOn returns a non-nil error when the report's worst
-// status meets or exceeds the --fail-on threshold. "error" always trips
-// when any section reports an error; "stale" also trips when the cache
-// section is stale. The default empty string means never fail on status.
+// status meets the --fail-on gate. "error" trips on failing sections, "warn"
+// trips on deliberate WARN sections plus errors, and "stale" trips on cache
+// freshness plus errors. The default empty string means never fail on status.
 func doctorExitForFailOn(failOn string, report map[string]any) error {
 	if failOn == "" {
 		return nil
 	}
 	worstError := false
+	worstWarn := false
 	worstStale := false
 	for _, v := range report {
 		s, ok := v.(string)
 		if ok {
-			if strings.Contains(s, "error") || strings.Contains(s, "unreachable") || strings.Contains(s, "invalid") || strings.Contains(s, "missing") {
+			if strings.HasPrefix(s, "refused:") || strings.Contains(s, "error") || strings.Contains(s, "unreachable") || strings.Contains(s, "invalid") || strings.Contains(s, "missing") {
 				worstError = true
+			}
+			if strings.HasPrefix(s, "WARN") {
+				worstWarn = true
 			}
 		}
 		if m, ok := v.(map[string]any); ok {
 			if st, _ := m["status"].(string); st == "error" {
 				worstError = true
+			} else if st == "warn" {
+				worstWarn = true
 			} else if st == "stale" {
 				worstStale = true
 			}
@@ -358,12 +568,16 @@ func doctorExitForFailOn(failOn string, report map[string]any) error {
 		if worstError {
 			return fmt.Errorf("doctor: --fail-on=error triggered")
 		}
+	case "warn":
+		if worstError || worstWarn {
+			return fmt.Errorf("doctor: --fail-on=warn triggered")
+		}
 	case "stale":
 		if worstError || worstStale {
 			return fmt.Errorf("doctor: --fail-on=stale triggered")
 		}
 	default:
-		return fmt.Errorf("doctor: unknown --fail-on value %q (valid: stale, error)", failOn)
+		return fmt.Errorf("doctor: unknown --fail-on value %q (valid: stale, warn, error)", failOn)
 	}
 	return nil
 }
@@ -457,8 +671,11 @@ func collectCacheReport(ctx context.Context, staleAfterSpec string) map[string]a
 
 	switch {
 	case !haveAny && len(resources) == 0:
-		report["status"] = "unknown"
-		report["hint"] = "sync_state is empty; run 'servosity-cli sync' to hydrate."
+		report["status"] = "empty"
+		// Only sync-tracked resources are counted here. A store seeded by
+		// other paths (built-in reference data, local writes) can hold rows
+		// while sync_state stays empty, so say what was measured.
+		report["hint"] = "No sync recorded; run 'servosity-cli sync' to hydrate API-backed resources. Rows written by other paths are not tracked in sync_state."
 	case fresh:
 		report["status"] = "fresh"
 	default:
@@ -478,6 +695,8 @@ func renderCacheReport(w io.Writer, rep map[string]any) {
 	case "error":
 		indicator = red("FAIL")
 	case "unknown":
+		indicator = yellow("INFO")
+	case "empty":
 		indicator = yellow("INFO")
 	}
 	fmt.Fprintf(w, "  %s Cache: %s\n", indicator, status)

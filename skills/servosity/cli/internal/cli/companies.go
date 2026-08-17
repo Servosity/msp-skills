@@ -11,15 +11,13 @@ func newCompaniesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "companies",
 		Short:       "List, get, create, update, and delete companies",
-		Hidden:      true,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 
 	cmd.AddCommand(newCompaniesCreateCmd(flags))
 	cmd.AddCommand(newCompaniesDeleteCmd(flags))
 	cmd.AddCommand(newCompaniesFullyManagedCmd(flags))
-	cmd.AddCommand(newCompaniesFullyManagedNgCmd(flags))
 	cmd.AddCommand(newCompaniesListCmd(flags))
 	cmd.AddCommand(newCompaniesPartialUpdateCmd(flags))
 	cmd.AddCommand(newCompaniesReadCmd(flags))

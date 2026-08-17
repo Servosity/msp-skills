@@ -27,12 +27,11 @@ func newIssuesListCmd(flags *rootFlags) *cobra.Command {
 		Example:     "  servosity-cli issues list",
 		Annotations: map[string]string{"pp:endpoint": "issues.list", "pp:method": "GET", "pp:path": "/issues/", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			path := "/issues/"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/issues/"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "issues", path, map[string]string{
 				"audience":     formatCLIParamValue(flagAudience),
 				"backup":       formatCLIParamValue(flagBackup),
@@ -41,10 +40,11 @@ func newIssuesListCmd(flags *rootFlags) *cobra.Command {
 				"company":      formatCLIParamValue(flagCompany),
 				"reseller":     formatCLIParamValue(flagReseller),
 				"cursor":       formatCLIParamValue(flagCursor),
-			}, nil, flagAll, "cursor", "cursor", "", "", "", cmd.ErrOrStderr())
+			}, nil, flagAll, "cursor", "cursor", "", 0, "", "", "results", cmd.ErrOrStderr())
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
+			outputData := collectionItemsForOutput(data, path)
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope
@@ -52,7 +52,7 @@ func newIssuesListCmd(flags *rootFlags) *cobra.Command {
 			// SYNC: keep this gate aligned with command_promoted.go.tmpl.
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var countItems []json.RawMessage
-				_ = json.Unmarshal(data, &countItems)
+				_ = json.Unmarshal(outputData, &countItems)
 				printProvenance(cmd, len(countItems), prov)
 			}
 			// For JSON output, wrap with provenance envelope before passing through flags.
@@ -65,9 +65,13 @@ func newIssuesListCmd(flags *rootFlags) *cobra.Command {
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"audience": true, "backup": true, "can_archive": true, "can_ignore": true, "can_reactivate": true, "comments": true, "company": true, "company_name": true, "created_at": true, "description": true, "drbackup": true, "drbackup_name": true, "id": true, "ignored_until": true, "last_seen_at": true, "priority": true, "priority_display": true, "reseller": true, "reseller_name": true, "resticbackup": true, "resticbackup_name": true, "severity": true, "state": true, "updated_at": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
+				if wrapErr != nil {
+					return wrapErr
+				}
+				wrapped, wrapErr = wrapPlatformStructuredOutput(wrapped, flags, "results", true)
 				if wrapErr != nil {
 					return wrapErr
 				}
@@ -76,7 +80,7 @@ func newIssuesListCmd(flags *rootFlags) *cobra.Command {
 			// For all other output modes (table, csv, plain, quiet), use the standard pipeline
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var items []map[string]any
-				if json.Unmarshal(data, &items) == nil && len(items) > 0 {
+				if json.Unmarshal(outputData, &items) == nil && len(items) > 0 {
 					if err := printAutoTable(cmd.OutOrStdout(), items); err != nil {
 						return err
 					}
@@ -86,7 +90,11 @@ func newIssuesListCmd(flags *rootFlags) *cobra.Command {
 					return nil
 				}
 			}
-			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
+			formatData := data
+			if flags.csv || flags.plain {
+				formatData = outputData
+			}
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"audience": true, "backup": true, "can_archive": true, "can_ignore": true, "can_reactivate": true, "comments": true, "company": true, "company_name": true, "created_at": true, "description": true, "drbackup": true, "drbackup_name": true, "id": true, "ignored_until": true, "last_seen_at": true, "priority": true, "priority_display": true, "reseller": true, "reseller_name": true, "resticbackup": true, "resticbackup_name": true, "severity": true, "state": true, "updated_at": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagAudience, "audience", "", "Audience")

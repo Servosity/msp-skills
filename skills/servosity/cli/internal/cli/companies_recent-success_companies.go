@@ -21,20 +21,35 @@ func newCompaniesRecentSuccessCompaniesCmd(flags *rootFlags) *cobra.Command {
 		Annotations: map[string]string{"pp:endpoint": "recent-success.companies", "pp:method": "GET", "pp:path": "/companies/{id}/recent-success/", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return cmd.Help()
+				// A missing required positional is a usage error in every output
+				// mode (matches command_promoted.go.tmpl). Machine callers
+				// (--json/--agent) also get a JSON error envelope on stdout;
+				// usageErr sets exit 2.
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "missing required argument",
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <id>"),
+					}, flags); printErr != nil {
+						return printErr
+					}
+				}
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <id>"))
 			}
+			path := "/companies/{id}/recent-success/"
+			if len(args) < 1 || args[0] == "" {
+				return usageErr(fmt.Errorf("id is required\nUsage: %s <%s>", cmd.CommandPath(), "id"))
+			}
+			path = replacePathParam(path, "id", args[0])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/companies/{id}/recent-success/"
-			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "recent-success", false, path, params, nil, cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "recent-success", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
+			outputData := data
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope
@@ -42,7 +57,7 @@ func newCompaniesRecentSuccessCompaniesCmd(flags *rootFlags) *cobra.Command {
 			// SYNC: keep this gate aligned with command_promoted.go.tmpl.
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var countItems []json.RawMessage
-				_ = json.Unmarshal(data, &countItems)
+				_ = json.Unmarshal(outputData, &countItems)
 				printProvenance(cmd, len(countItems), prov)
 			}
 			// For JSON output, wrap with provenance envelope before passing through flags.
@@ -55,9 +70,13 @@ func newCompaniesRecentSuccessCompaniesCmd(flags *rootFlags) *cobra.Command {
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"agent_provision_token_id": true, "agent_session_id": true, "beta_opt_in": true, "c2c_info": true, "checkcentral_checkgroup_fully_managed_status": true, "checkcentral_checkgroup_status": true, "checkcentral_chkdsk_check_id": true, "checkcentral_dashboard_id": true, "checkcentral_group_id": true, "checkcentral_im_iss_check_id": true, "checkcentral_private_dashboard": true, "checkcentral_public_dashboard": true, "checkcentral_sp_iss_check_id": true, "checkcentral_user_group_id": true, "chkdsk_mode": true, "external_support_contact_link": true, "fully_managed_recovery_point_status": true, "fully_managed_setup_action_required": true, "fully_managed_setup_stage": true, "fully_managed_status": true, "fully_managed_status_text": true, "fully_managed_status_url": true, "has_managed": true, "id": true, "is_automated": true, "is_fully_managed": true, "is_safe": true, "issue_priority": true, "issues": true, "name": true, "notes": true, "notification_email": true, "recovery_point_status": true, "reseller": true, "state": true, "support_tier": true, "suspended": true, "tz_offset": true, "url": true, "verification_mode": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
+				if wrapErr != nil {
+					return wrapErr
+				}
+				wrapped, wrapErr = wrapPlatformStructuredOutput(wrapped, flags, "results", true)
 				if wrapErr != nil {
 					return wrapErr
 				}
@@ -66,7 +85,7 @@ func newCompaniesRecentSuccessCompaniesCmd(flags *rootFlags) *cobra.Command {
 			// For all other output modes (table, csv, plain, quiet), use the standard pipeline
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var items []map[string]any
-				if json.Unmarshal(data, &items) == nil && len(items) > 0 {
+				if json.Unmarshal(outputData, &items) == nil && len(items) > 0 {
 					if err := printAutoTable(cmd.OutOrStdout(), items); err != nil {
 						return err
 					}
@@ -76,7 +95,11 @@ func newCompaniesRecentSuccessCompaniesCmd(flags *rootFlags) *cobra.Command {
 					return nil
 				}
 			}
-			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
+			formatData := data
+			if flags.csv || flags.plain {
+				formatData = outputData
+			}
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"agent_provision_token_id": true, "agent_session_id": true, "beta_opt_in": true, "c2c_info": true, "checkcentral_checkgroup_fully_managed_status": true, "checkcentral_checkgroup_status": true, "checkcentral_chkdsk_check_id": true, "checkcentral_dashboard_id": true, "checkcentral_group_id": true, "checkcentral_im_iss_check_id": true, "checkcentral_private_dashboard": true, "checkcentral_public_dashboard": true, "checkcentral_sp_iss_check_id": true, "checkcentral_user_group_id": true, "chkdsk_mode": true, "external_support_contact_link": true, "fully_managed_recovery_point_status": true, "fully_managed_setup_action_required": true, "fully_managed_setup_stage": true, "fully_managed_status": true, "fully_managed_status_text": true, "fully_managed_status_url": true, "has_managed": true, "id": true, "is_automated": true, "is_fully_managed": true, "is_safe": true, "issue_priority": true, "issues": true, "name": true, "notes": true, "notification_email": true, "recovery_point_status": true, "reseller": true, "state": true, "support_tier": true, "suspended": true, "tz_offset": true, "url": true, "verification_mode": true})
 		},
 	}
 

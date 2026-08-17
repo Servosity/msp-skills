@@ -184,7 +184,7 @@ Amounts may be formatted with or without a leading "$" (e.g. "128.50" or
 			}
 			data, err := c.GetWithHeaders(cmd.Context(), billPath, params, nil)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 
 			// Plain bill mode: pass the API response through the standard

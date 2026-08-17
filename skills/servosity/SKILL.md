@@ -170,11 +170,11 @@ These capabilities aren't available in any other tool for this API.
 
 **backup-job-report**  -  Manage backup job report
 
-- `servosity-cli backup-job-report <backup_destination_id> <backup_id> <backup_job_id> <backup_set_id>`  -  View detailed backup report for a backup job and destination.
+- `servosity-cli backup-job-report <backup_id> <backup_set_id> <backup_job_id> <backup_destination_id>`  -  View detailed backup report for a backup job and destination.
 
 **backup-job-report-summary**  -  Manage backup job report summary
 
-- `servosity-cli backup-job-report-summary <backup_destination_id> <backup_id> <backup_job_id> <backup_set_id>`  -  View summary backup report for a backup job and destination.
+- `servosity-cli backup-job-report-summary <backup_id> <backup_set_id> <backup_job_id> <backup_destination_id>`  -  View summary backup report for a backup job and destination.
 
 **backup-job-status**  -  Manage backup job status
 
@@ -353,6 +353,37 @@ These capabilities aren't available in any other tool for this API.
 - `servosity-cli users reset-password-create`  -  Pass only `token` to confirm the token is valid. Pass `token` and `password` to set the user's password.
 
 
+**export**  -  Manage export
+
+- `servosity-cli export <resource>`  -  Export paginated API data to a local file (JSONL or JSON).
+
+**fully-managed-companies**  -  Manage fully managed companies
+
+- `servosity-cli fully-managed-companies`  -  List fully-managed companies.
+
+### Self-learning loop
+
+The CLI keeps a local, private record of which question maps to which resource, so
+you can skip rediscovery on a question you have already answered. Everything stays
+in the CLI's own SQLite store on this machine; nothing is uploaded. Skip it with
+`--no-learn`, or set `SERVOSITY_MSP_NO_LEARN=true` for a whole session.
+
+How to use it in a session:
+
+1. On a new user question, run `servosity-cli recall "<question>" --agent` FIRST. If it returns `found=true` with `entity_match` of `exact` and `confidence` of 2 or more, skip discovery and fetch the returned resource IDs directly. An empty match returns `{"found": false, "results": []}` with exit 0  -  that is an answer, not an error.
+2. If the store is cold (recall finds nothing and both `learnings list` and `learnings candidates` are empty), stop calling recall for the rest of the session.
+3. After answering, record the mapping: `servosity-cli teach --query "<question>" --resource <id> --resource-type <type>`. Strip identifiers from the question first (no client names, emails, phone numbers, account IDs)  -  teach the structural question.
+4. When a result carries a `candidates` section, treat each candidate as try-then-confirm, never as fact: run its trial command, then `servosity-cli learnings confirm <id>` only if the trial verified the behavior, or `servosity-cli learnings reject <id>` if it did not.
+
+Commands: `recall`, `teach`, `teach-pattern`, `teach-lookup`, `teach-playbook`,
+`playbook list`, `playbook amend`, `learnings list`, `learnings candidates`,
+`learnings confirm`, `learnings reject`, `learnings forget`, `learnings purge`,
+`learnings stats`.
+
+> The local store's schema stamp is one-way: once a binary carrying the
+> self-learning tables opens the database, an older servosity-cli refuses it. Keep
+> the CLI and the MCP server on the same version.
+
 ### Finding the right command
 
 When you know what you want to do but not which command does it, ask the CLI directly:
@@ -413,7 +444,7 @@ Run `servosity-cli doctor` to verify setup.
 
 ## Agent Mode
 
-Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color --yes`.
+Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color`. It does not imply `--yes`  -  a command that requires confirmation still refuses until you pass `--yes` explicitly.
 
 - **Pipeable**  -  JSON on stdout, errors on stderr
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
