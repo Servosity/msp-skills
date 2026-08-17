@@ -35,6 +35,14 @@ jobs:
     if: >-
       github.event.label.name == 'confirmed-works' &&
       contains(github.event.issue.labels.*.name, 'live-verified-report')
+    # Exported so the advisory job below can run as a SEPARATE job. It must not
+    # share this one's checkout: `actions/checkout` persists CATALOG_PUSH_TOKEN
+    # into .git/config for every later step, and the advisory executes a script
+    # on issue-derived input. Splitting it means a future flaw there is not a
+    # push-to-main primitive.
+    outputs:
+      ok: ${{ steps.parse.outputs.ok }}
+      slug: ${{ steps.parse.outputs.slug }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -233,30 +241,54 @@ jobs:
           set -euo pipefail
           gh issue comment "$ISSUE" --body "Thank you for closing the loop. **$SLUG** is now badged **live-verified**. See the updated skill page: https://msp-skills.compoundingteams.com/skills/$SLUG/"
 
-      # A live-verified badge is the moment this connector becomes worth keeping
-      # current: a real tenant exists, and someone is finally positioned to
-      # notice a regression. So this is where we ask whether its engine is
-      # behind the fleet, and whether the SHIPPED BINARY is behind `main` - the
-      # failure that hid 41 connectors on pre-4.24 binaries for two months while
-      # `main` said otherwise.
-      #
-      # Advisory only. It posts a comment; it never gates, never reprints, and
-      # never releases. The decision is a human's, and the ask is that they
-      # record it in a reply so the next agent does not re-litigate it.
+  # A live-verified badge is the moment this connector becomes worth keeping
+  # current: a real tenant exists, and someone is finally positioned to notice a
+  # regression. So this is where we ask whether its engine is behind the fleet,
+  # and whether the SHIPPED BINARY is behind `main` - the failure that hid 41
+  # connectors on pre-4.24 binaries for two months while `main` said otherwise.
+  #
+  # Advisory only. It posts a comment; it never gates, never reprints, and never
+  # releases. The decision is a human's, and the ask is that they record it in a
+  # reply so the next agent does not re-litigate it.
+  #
+  # A separate job on purpose: it runs a script on issue-derived input and gets
+  # only the default GITHUB_TOKEN, never the elevated CATALOG_PUSH_TOKEN the
+  # flip job checks out with.
+  engine_freshness:
+    needs: flip
+    if: needs.flip.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history + tags: the check compares the newest release tag
+          # against `main`, so a shallow clone would report every connector as
+          # never released.
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Check whether the engine and the shipped binary are current
-        if: steps.parse.outputs.ok == 'true'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-          SLUG: ${{ steps.parse.outputs.slug }}
+          SLUG: ${{ needs.flip.outputs.slug }}
           ISSUE: ${{ github.event.issue.number }}
         run: |
           set -uo pipefail
-          # Exit 2 means "stale", which is the case we want to comment on; any
-          # other non-zero is a tool problem and must not fail the badge flip.
+          # Exit 3 means "stale", which is the case we comment on. 0 is clean, 1
+          # is a broken check, 2 is an argparse usage error - none of those are
+          # findings, and none may fail the badge flip that already succeeded.
           out="$(python3 tools/maintainer/check_engine_freshness.py --slug "$SLUG" --markdown)"
           rc=$?
-          if [ "$rc" -eq 2 ]; then
+          if [ "$rc" -eq 3 ]; then
             gh issue comment "$ISSUE" --body "$out"
           else
             echo "engine freshness: rc=$rc (nothing to report)"
