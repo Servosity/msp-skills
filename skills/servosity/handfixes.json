@@ -1,7 +1,7 @@
 {
   "slug": "servosity",
   "doc": "docs/reprint-survival.md",
-  "_comment": "servosity is a SPECIAL case: it is engine-swapped from the servosity-msp mint via a staging strip + de-msp rename ritual that is RE-APPLIED on every reprint, so most of its divergence from a stock print is re-derived, not lost. These entries pin the load-bearing engine-swap invariants so a NAIVE reprint (one that bypassed the ritual) is caught. NOTE: a full reprint-diff would surface more; this records the auth/identity invariants that matter most. Issue #78 (bare SERVOSITY_MSP_TOKEN lacked the required 'Token ' DRF auth-scheme prefix -> HTTP 403 on every data endpoint) is FIXED in AuthHeader() and pinned below; the servosity-msp engine still emits a bare token, so a reprint that bypassed re-applying this prefix would reintroduce the bug.",
+  "_comment": "servosity is a SPECIAL case: it is engine-swapped from the servosity-msp mint via a staging strip + de-msp rename ritual that is RE-APPLIED on every reprint, so most of its divergence from a stock print is re-derived, not lost. These entries pin the load-bearing engine-swap invariants so a NAIVE reprint (one that bypassed the ritual) is caught. NOTE: a full reprint-diff would surface more; this records the auth/identity invariants that matter most. Issue #78 (bare SERVOSITY_MSP_TOKEN lacked the required 'Token ' DRF auth-scheme prefix -> HTTP 403 on every data endpoint) is FIXED in AuthHeader() and pinned below; the servosity-msp engine still emits a bare token, so a reprint that bypassed re-applying this prefix would reintroduce the bug. 2026-08-17 (4.30.3 reprint): the admin-only-endpoints entry gained asserts for two surfaces the 4.24.0 ledger did not cover - cli/internal/cli/channel_workflow.go (the workflow sync resource list) and cli/internal/cli/root_test.go (the 4.30 declared-API-surface conformance test, which FAILS the build if a declared path has no Cobra command). The 4.30.3 reprint reintroduced the endpoints on both and the ledger did not catch them; they are pinned now.",
   "handfixes": [
     {
       "id": "msp-token-auth-plumbing",
@@ -19,6 +19,7 @@
       "why": "The Servosity API authenticates the MSP partner token via Django REST Framework's TokenAuthentication, which requires the 'Token ' scheme on the Authorization header; a bare value 403s on every data endpoint. The stock servosity-msp engine emits the token verbatim, so the de-msp ritual must re-apply this scheme prefix on every reprint or the bug returns. hasAuthScheme tolerates an already-prefixed value for backward compatibility with the SERVOSITY_MSP_TOKEN='Token <t>' workaround.",
       "status": "active",
       "issue": 78,
+      "spec_encode_followup": "cli-printing-press supports x-prefix on an apiKey header securityScheme (docs/SPEC-EXTENSIONS.md), which would make the press emit the 'Token ' scheme natively and retire this hand-fix. NOT adopted yet: the generated applyAuthFormat path would prepend unconditionally, double-prefixing every user who set SERVOSITY_MSP_TOKEN='Token <t>' per the old workaround. Adopt only together with a stripAuthScheme-equivalent normalization upstream, and only with a live-tenant retest.",
       "asserts": [
         {"file": "cli/internal/config/config.go", "contains": "stripAuthScheme", "min_count": 1},
         {"file": "cli/internal/config/config.go", "contains": "\"Token \" + stripAuthScheme", "min_count": 1},
@@ -27,8 +28,8 @@
     },
     {
       "id": "admin-only-issues-endpoints-removed",
-      "summary": "issues archived (/issues/archived/) and issues ignored (/issues/ignored/) are stripped from EVERY surface (CLI, MCP code-orch, sync, store) because they are admin-scoped and 403 for the reseller-scoped partner token this connector ships (PR #178)",
-      "why": "These two GET endpoints are generated from the OpenAPI spec and admin-only; the partner SERVOSITY_MSP_TOKEN gets HTTP 403. A naive reprint regenerates them on every surface (the CLI command files, the MCP code-orch endpoint table agents drive via servosity-msp_search/_execute, the sync resource map + store PK map). The de-msp ritual must re-strip all of them; these not_contains asserts fail CI if any surface reintroduced them. Admin functionality lives in Servosity's separate internal admin CLI (admin-token-scoped) instead. See docs/reprint-survival.md.",
+      "summary": "issues archived (/issues/archived/) and issues ignored (/issues/ignored/) are stripped from EVERY surface (CLI, MCP code-orch, sync, store, workflow resource list, declared-surface conformance test) because they are admin-scoped and 403 for the reseller-scoped partner token this connector ships (PR #178)",
+      "why": "These two GET endpoints are generated from the OpenAPI spec and admin-only; the partner SERVOSITY_MSP_TOKEN gets HTTP 403. A naive reprint regenerates them on every surface (the CLI command files, the MCP code-orch endpoint table agents drive via servosity-msp_search/_execute, the sync resource map + store PK map, the workflow sync resource list, and - since press 4.30 - the declared-API-surface conformance test in root_test.go, which fails the build when a declared path has no Cobra command). The de-msp ritual must re-strip all of them; these not_contains asserts fail CI if any surface reintroduced them. Admin functionality lives in Servosity's separate internal admin CLI (admin-token-scoped) instead. See docs/reprint-survival.md.",
       "status": "active",
       "pr": 178,
       "asserts": [
@@ -39,7 +40,11 @@
         {"file": "cli/internal/cli/sync.go", "not_contains": "\"issues-archived\""},
         {"file": "cli/internal/cli/sync.go", "not_contains": "\"issues-ignored\""},
         {"file": "cli/internal/store/store.go", "not_contains": "\"issues-archived\""},
-        {"file": "cli/internal/store/store.go", "not_contains": "\"issues-ignored\""}
+        {"file": "cli/internal/store/store.go", "not_contains": "\"issues-ignored\""},
+        {"file": "cli/internal/cli/channel_workflow.go", "not_contains": "\"issues-archived\""},
+        {"file": "cli/internal/cli/channel_workflow.go", "not_contains": "\"issues-ignored\""},
+        {"file": "cli/internal/cli/root_test.go", "not_contains": "\"issues archived\""},
+        {"file": "cli/internal/cli/root_test.go", "not_contains": "\"issues ignored\""}
       ]
     }
   ]

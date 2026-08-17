@@ -11,7 +11,7 @@ func newResticBackupsAgentTokenCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "agent-token",
 		Short:       "Get agent token for restic backups",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 

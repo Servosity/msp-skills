@@ -31,30 +31,56 @@ func newCompaniesRestoreQueuesCompaniesJobsCreateCmd(flags *rootFlags) *cobra.Co
 			// Bare invocation of a command with required input prints help
 			// instead of pflag's terse "required flag not set" error. Optional-
 			// only read commands fall through so a bare call still executes.
-			if cmd.Flags().NFlag() == 0 && len(args) == 0 && !flags.dryRun {
+			// Machine callers (--json/--agent, which sets asJSON) get a usage
+			// error + exit 2 instead of silent exit-0 help, so an incomplete
+			// invocation is never mistaken for success.
+			if !hasChangedLocalFlags(cmd) && len(args) == 0 && !flags.dryRun {
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "requires input",
+						"usage": cmd.CommandPath() + " --help",
+					}, flags); printErr != nil {
+						return printErr
+					}
+					return usageErr(fmt.Errorf("%q requires input; run %q for usage", cmd.CommandPath(), cmd.CommandPath()+" --help"))
+				}
 				return cmd.Help()
 			}
 			if len(args) == 0 {
-				return cmd.Help()
+				// A missing required positional is a usage error in every output
+				// mode (matches command_promoted.go.tmpl). Machine callers
+				// (--json/--agent) also get a JSON error envelope on stdout;
+				// usageErr sets exit 2.
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "missing required argument",
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <company_pk> <resticrestorequeue_pk>"),
+					}, flags); printErr != nil {
+						return printErr
+					}
+				}
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <company_pk> <resticrestorequeue_pk>"))
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("resticsnapshot") && !flags.dryRun {
 					return fmt.Errorf("required flag \"%s\" not set", "resticsnapshot")
 				}
 			}
+			path := "/companies/{company_pk}/restore-queues/{resticrestorequeue_pk}/jobs/"
+			if len(args) < 1 || args[0] == "" {
+				return usageErr(fmt.Errorf("company_pk is required\nUsage: %s <%s>", cmd.CommandPath(), "company_pk"))
+			}
+			path = replacePathParam(path, "company_pk", args[0])
+			if len(args) < 2 || args[1] == "" {
+				return usageErr(fmt.Errorf("resticrestorequeue_pk is required\nUsage: %s <%s>", cmd.CommandPath(), "resticrestorequeue_pk"))
+			}
+			path = replacePathParam(path, "resticrestorequeue_pk", args[1])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/companies/{company_pk}/restore-queues/{resticrestorequeue_pk}/jobs/"
-			path = replacePathParam(path, "company_pk", args[0])
-			if len(args) < 2 {
-				return usageErr(fmt.Errorf("resticrestorequeue_pk is required\nUsage: %s <%s>", cmd.CommandPath(), "resticrestorequeue_pk"))
-			}
-			path = replacePathParam(path, "resticrestorequeue_pk", args[1])
 			params := map[string]string{}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -66,29 +92,30 @@ func newCompaniesRestoreQueuesCompaniesJobsCreateCmd(flags *rootFlags) *cobra.Co
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
-				if bodyExcludesJson != "" {
-					body["excludes_json"] = bodyExcludesJson
+				bodyMap := map[string]any{}
+				body = bodyMap
+				if cmd.Flags().Changed("excludes-json") || bodyExcludesJson != "" {
+					bodyMap["excludes_json"] = bodyExcludesJson
 				}
-				if bodyIncludesJson != "" {
-					body["includes_json"] = bodyIncludesJson
+				if cmd.Flags().Changed("includes-json") || bodyIncludesJson != "" {
+					bodyMap["includes_json"] = bodyIncludesJson
 				}
-				if bodyName != "" {
-					body["name"] = bodyName
+				if cmd.Flags().Changed("name") || bodyName != "" {
+					bodyMap["name"] = bodyName
 				}
-				if bodyResticrestorequeue != "" {
-					body["resticrestorequeue"] = bodyResticrestorequeue
+				if cmd.Flags().Changed("resticrestorequeue") || bodyResticrestorequeue != "" {
+					bodyMap["resticrestorequeue"] = bodyResticrestorequeue
 				}
-				if bodyResticsnapshot != 0 {
-					body["resticsnapshot"] = bodyResticsnapshot
+				if cmd.Flags().Changed("resticsnapshot") || bodyResticsnapshot != 0 {
+					bodyMap["resticsnapshot"] = bodyResticsnapshot
 				}
-				if bodyTarget != "" {
-					body["target"] = bodyTarget
+				if cmd.Flags().Changed("target") || bodyTarget != "" {
+					bodyMap["target"] = bodyTarget
 				}
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			// Inspect the mutate response body for a partial-failure-shaped
 			// field (e.g. Google Ads `partialFailureError`). Several Google
@@ -153,6 +180,9 @@ func newCompaniesRestoreQueuesCompaniesJobsCreateCmd(flags *rootFlags) *cobra.Co
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -186,19 +216,31 @@ func newCompaniesRestoreQueuesCompaniesJobsCreateCmd(flags *rootFlags) *cobra.Co
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"excludes_json": true, "includes_json": true, "name": true, "resticrestorequeue": true, "resticsnapshot": true, "target": true})
 				}
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {

@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/servosity-cli ./cmd/servosity-cli
+	go build -o bin/servosity-cli$(BIN_EXT) ./cmd/servosity-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/servosity-mcp ./cmd/servosity-mcp
+	go build -o bin/servosity-mcp$(BIN_EXT) ./cmd/servosity-mcp
 
 install-mcp:
 	go install ./cmd/servosity-mcp

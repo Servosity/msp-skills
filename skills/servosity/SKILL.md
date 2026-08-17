@@ -353,6 +353,37 @@ These capabilities aren't available in any other tool for this API.
 - `servosity-cli users reset-password-create`  -  Pass only `token` to confirm the token is valid. Pass `token` and `password` to set the user's password.
 
 
+**export**  -  Manage export
+
+- `servosity-cli export <resource>`  -  Export paginated API data to a local file (JSONL or JSON).
+
+**fully-managed-companies**  -  Manage fully managed companies
+
+- `servosity-cli fully-managed-companies`  -  List fully-managed companies.
+
+### Self-learning loop
+
+The CLI keeps a local, private record of which question maps to which resource, so
+you can skip rediscovery on a question you have already answered. Everything stays
+in the CLI's own SQLite store on this machine; nothing is uploaded. Skip it with
+`--no-learn`, or set `SERVOSITY_MSP_NO_LEARN=true` for a whole session.
+
+How to use it in a session:
+
+1. On a new user question, run `servosity-cli recall "<question>" --agent` FIRST. If it returns `found=true` with `entity_match` of `exact` and `confidence` of 2 or more, skip discovery and fetch the returned resource IDs directly. An empty match returns `{"found": false, "results": []}` with exit 0  -  that is an answer, not an error.
+2. If the store is cold (recall finds nothing and both `learnings list` and `learnings candidates` are empty), stop calling recall for the rest of the session.
+3. After answering, record the mapping: `servosity-cli teach --query "<question>" --resource <id> --resource-type <type>`. Strip identifiers from the question first (no client names, emails, phone numbers, account IDs)  -  teach the structural question.
+4. When a result carries a `candidates` section, treat each candidate as try-then-confirm, never as fact: run its trial command, then `servosity-cli learnings confirm <id>` only if the trial verified the behavior, or `servosity-cli learnings reject <id>` if it did not.
+
+Commands: `recall`, `teach`, `teach-pattern`, `teach-lookup`, `teach-playbook`,
+`playbook list`, `playbook amend`, `learnings list`, `learnings candidates`,
+`learnings confirm`, `learnings reject`, `learnings forget`, `learnings purge`,
+`learnings stats`.
+
+> The local store's schema stamp is one-way: once a binary carrying the
+> self-learning tables opens the database, an older servosity-cli refuses it. Keep
+> the CLI and the MCP server on the same version.
+
 ### Finding the right command
 
 When you know what you want to do but not which command does it, ask the CLI directly:

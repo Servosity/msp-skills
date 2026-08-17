@@ -153,7 +153,6 @@ the specified number of days. Useful for identifying forgotten or blocked work.`
 				return fmt.Errorf("opening local database: %w\nRun 'servosity-cli sync' first.", err)
 			}
 			defer db.Close()
-
 			maybeEmitSyncHints(cmd, db, "", flags.maxAge)
 
 			cutoffTime := time.Now().AddDate(0, 0, -days)
@@ -250,15 +249,16 @@ the specified number of days. Useful for identifying forgotten or blocked work.`
 				})
 			}
 
-			if flags.asJSON {
+			if wantsMachineOutput(flags) {
+				if flags.csv || flags.plain || flags.quiet {
+					return printJSONFiltered(cmd.OutOrStdout(), items, flags)
+				}
 				result := map[string]any{
 					"total_count": totalCount,
 					"showing":     len(items),
 					"items":       items,
 				}
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(result)
+				return printJSONFiltered(cmd.OutOrStdout(), result, flags)
 			}
 
 			if len(items) == 0 {
@@ -286,7 +286,7 @@ the specified number of days. Useful for identifying forgotten or blocked work.`
 
 	cmd.Flags().IntVar(&days, "days", 30, "Number of days without update to consider stale")
 	cmd.Flags().StringVar(&team, "team", "", "Filter by team identifier")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/servosity-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "SQLite database file path (default: resolved data directory data.db)")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum items to show")
 
 	return cmd

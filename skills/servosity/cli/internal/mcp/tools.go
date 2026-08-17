@@ -21,13 +21,14 @@ import (
 	"servosity-msp-pp-cli/internal/client"
 	"servosity-msp-pp-cli/internal/cliutil"
 	"servosity-msp-pp-cli/internal/config"
+	"servosity-msp-pp-cli/internal/learn"
+	"servosity-msp-pp-cli/internal/mcp/bound"
 	"servosity-msp-pp-cli/internal/mcp/cobratree"
+	"servosity-msp-pp-cli/internal/platform"
 	"servosity-msp-pp-cli/internal/store"
 )
 
 const (
-	mcpToolResultMaxBytes = 60000
-	mcpToolResultMaxItems = 50
 	// MCP hosts can fan out tool calls faster than a human CLI session.
 	// Keep them on the same polite-client limiter path instead of disabling
 	// pacing with rate=0; users can still tune human CLI calls with --rate-limit.
@@ -36,8 +37,9 @@ const (
 
 // RegisterTools registers all API operations as MCP tools.
 func RegisterTools(s *server.MCPServer) {
-	// Code-orchestration mode — the full surface is covered by two tools
-	// (<api>_search + <api>_execute). Endpoint-mirror tools are suppressed.
+	installFreshTenantGate(s)
+	// Code-orchestration mode — the full surface is covered by registry tools
+	// (<api>_search, <api>_get, and <api>_execute). Endpoint-mirror tools are suppressed.
 	RegisterCodeOrchestrationTools(s)
 	// Search tool — faster than iterating list endpoints for finding specific items
 	s.AddTool(
@@ -54,7 +56,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='items'.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='agent-login'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -85,6 +87,11 @@ type mcpParamBinding struct {
 	Default    string
 }
 
+type mcpPageConfig struct {
+	CursorParam    string
+	NextCursorPath string
+}
+
 func formatMCPParamValue(v any) string {
 	switch tv := v.(type) {
 	case string:
@@ -109,8 +116,20 @@ func formatMCPParamValue(v any) string {
 		}
 		return strconv.FormatFloat(f, 'f', -1, 32)
 	default:
+		// Composite values (a native []any / map[string]any from an array or
+		// object param) reach this path when bound to a query or path slot;
+		// JSON-encode them so the wire value is valid JSON rather than Go's
+		// "[a b c]" / "map[...]" rendering. Body params never come through
+		// here — they are stored natively in bodyArgs and marshalled there.
+		if b, err := json.Marshal(v); err == nil {
+			return string(b)
+		}
 		return fmt.Sprintf("%v", v)
 	}
+}
+
+func mcpPathValue(v any) string {
+	return cliutil.EscapePathParam(formatMCPParamValue(v))
 }
 func setNestedBodyArg(body map[string]any, path []string, value any) {
 	if len(path) == 0 {
@@ -133,17 +152,23 @@ func setNestedBodyArg(body map[string]any, path []string, value any) {
 }
 
 // makeAPIHandler creates a generic MCP tool handler for an API endpoint.
-func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse bool, headerOverrides map[string]string, bindings []mcpParamBinding, positionalParams []string) server.ToolHandlerFunc {
+func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse bool, headerOverrides map[string]string, pageConfig mcpPageConfig, bindings []mcpParamBinding, positionalParams []string) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
-		c, err := newMCPClient()
+		c, platformSession, err := newMCPClient(ctx)
 		if err != nil {
-			return mcplib.NewToolResultError(err.Error()), nil
+			return mcpToolError(err.Error()), nil
+		}
+		if platformSession != nil {
+			defer platformSession.ZeroCredentials()
 		}
 
 		// mcp-go v0.47+ made CallToolParams.Arguments an `any` to support
 		// non-map payloads; GetArguments() returns the map[string]any shape
 		// we rely on here (or an empty map when the payload is something else).
 		args := req.GetArguments()
+		if err := cli.AdoptMCPOutputSemantics(platformSession, args); err != nil {
+			return mcpToolError(err.Error()), nil
+		}
 
 		// positionalParams mixes real URL path params with CLI positional
 		// args that map to query params (e.g. `search <query>` -> ?query=);
@@ -153,6 +178,24 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 		pathParams := make(map[string]bool, len(positionalParams))
 		params := make(map[string]string)
 		bodyArgs := make(map[string]any)
+		mcpCursor := ""
+		if pageConfig.CursorParam != "" {
+			knownArgs["cursor"] = true
+			if v, ok := args["cursor"]; ok {
+				s, ok := v.(string)
+				if !ok {
+					return mcpToolError("cursor must be an opaque string returned by a previous MCP response"), nil
+				}
+				mcpCursor = s
+				upstreamCursor, err := bound.UpstreamCursor(s)
+				if err != nil {
+					return mcpToolError(err.Error()), nil
+				}
+				if upstreamCursor != "" {
+					params[pageConfig.CursorParam] = upstreamCursor
+				}
+			}
+		}
 		var headers map[string]string
 		if len(headerOverrides) > 0 {
 			headers = make(map[string]string, len(headerOverrides)+1)
@@ -180,7 +223,12 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case "path":
 				placeholder := "{" + binding.WireName + "}"
 				pathParams[binding.PublicName] = true
-				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
+				path = strings.Replace(path, placeholder, mcpPathValue(v), 1)
+			case "header":
+				if headers == nil {
+					headers = map[string]string{}
+				}
+				headers[binding.WireName] = formatMCPParamValue(v)
 			case "body":
 				if len(binding.BodyPath) > 0 {
 					setNestedBodyArg(bodyArgs, binding.BodyPath, v)
@@ -198,7 +246,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			pathParams[p] = true
 			if v, ok := args[p]; ok {
-				path = strings.Replace(path, placeholder, formatMCPParamValue(v), 1)
+				path = strings.Replace(path, placeholder, mcpPathValue(v), 1)
 			}
 		}
 
@@ -218,10 +266,18 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 		switch method {
 		case "GET":
 			if len(headers) > 0 {
-				data, err = c.GetWithHeaders(ctx, path, params, headers)
+				if readOnly {
+					data, err = c.GetWithHeaders(ctx, path, params, headers)
+				} else {
+					data, err = c.GetMutatingWithHeaders(ctx, path, params, headers)
+				}
 				break
 			}
-			data, err = c.Get(ctx, path, params)
+			if readOnly {
+				data, err = c.Get(ctx, path, params)
+			} else {
+				data, err = c.GetMutating(ctx, path, params)
+			}
 		case "POST":
 			if len(headers) > 0 {
 				if readOnly {
@@ -238,16 +294,32 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		case "PUT":
 			if len(headers) > 0 {
-				data, _, err = c.PutWithParamsAndHeaders(ctx, path, params, bodyArgs, headers)
+				if readOnly {
+					data, _, err = c.PutQueryWithParamsAndHeaders(ctx, path, params, bodyArgs, headers)
+				} else {
+					data, _, err = c.PutWithParamsAndHeaders(ctx, path, params, bodyArgs, headers)
+				}
 				break
 			}
-			data, _, err = c.PutWithParams(ctx, path, params, bodyArgs)
+			if readOnly {
+				data, _, err = c.PutQueryWithParams(ctx, path, params, bodyArgs)
+			} else {
+				data, _, err = c.PutWithParams(ctx, path, params, bodyArgs)
+			}
 		case "PATCH":
 			if len(headers) > 0 {
-				data, _, err = c.PatchWithParamsAndHeaders(ctx, path, params, bodyArgs, headers)
+				if readOnly {
+					data, _, err = c.PatchQueryWithParamsAndHeaders(ctx, path, params, bodyArgs, headers)
+				} else {
+					data, _, err = c.PatchWithParamsAndHeaders(ctx, path, params, bodyArgs, headers)
+				}
 				break
 			}
-			data, _, err = c.PatchWithParams(ctx, path, params, bodyArgs)
+			if readOnly {
+				data, _, err = c.PatchQueryWithParams(ctx, path, params, bodyArgs)
+			} else {
+				data, _, err = c.PatchWithParams(ctx, path, params, bodyArgs)
+			}
 		case "DELETE":
 			if len(headers) > 0 {
 				data, _, err = c.DeleteWithParamsAndHeaders(ctx, path, params, headers)
@@ -255,181 +327,127 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 			data, _, err = c.DeleteWithParams(ctx, path, params)
 		default:
-			return mcplib.NewToolResultError("unsupported method: " + method), nil
+			return mcpToolError("unsupported method: " + method), nil
 		}
 
 		if err != nil {
 			msg := err.Error()
 			switch {
 			case strings.Contains(msg, "HTTP 409"):
-				return mcplib.NewToolResultText("already exists (no-op)"), nil
+				return mcpToolTextWithPlatform("already exists (no-op)", platformSession), nil
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
-				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
+				return mcpToolError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
 					"\n      Set your API key with: export SERVOSITY_MSP_TOKEN=\"your-token-here\"" +
 					"\n      Run 'servosity-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
-				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
+				return mcpToolError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your API key." +
 					"\n      Set your API key with: export SERVOSITY_MSP_TOKEN=\"your-token-here\"" +
 					"\n      Run 'servosity-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
-				return mcplib.NewToolResultError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
+				return mcpToolError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
 					"\n      Set your API key with: export SERVOSITY_MSP_TOKEN=\"your-token-here\"" +
 					"\n      Run 'servosity-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
 				if method == "DELETE" {
-					return mcplib.NewToolResultText("already deleted (no-op)"), nil
+					return mcpToolTextWithPlatform("already deleted (no-op)", platformSession), nil
 				}
-				return mcplib.NewToolResultError("not found: " + msg), nil
+				return mcpToolError("not found: " + msg), nil
 			case strings.Contains(msg, "HTTP 429"):
-				return mcplib.NewToolResultError("rate limited: " + msg), nil
+				return mcpToolError("rate limited: " + msg), nil
 			default:
-				return mcplib.NewToolResultError(msg), nil
+				return mcpToolError(msg), nil
 			}
 		}
 
 		if binaryResponse {
-			out, _ := json.Marshal(map[string]any{
+			encoded := base64.StdEncoding.EncodeToString(data)
+			out, err := json.Marshal(map[string]any{
 				"content_encoding": "base64",
-				"data_base64":      base64.StdEncoding.EncodeToString(data),
+				"data_base64":      encoded,
 				"byte_count":       len(data),
 			})
-			return mcplib.NewToolResultText(string(out)), nil
+			if err != nil {
+				return mcpToolError(fmt.Sprintf("encoding binary result: %v", err)), nil
+			}
+			if len(out) > bound.MaxBytes {
+				return mcpToolError(fmt.Sprintf("binary response is too large for MCP text output: %d response bytes encode to %d base64 bytes and %d MCP result bytes, exceeding the %d byte budget. Use the companion CLI command with --output <file> to save the payload locally.", len(data), len(encoded), len(out), bound.MaxBytes)), nil
+			}
+			result := string(out)
+			if platformSession != nil {
+				result = bound.WithMetadata(result, platformSession.OutputMetadata())
+			}
+			return mcplib.NewToolResultText(result), nil
 		}
-		return mcpToolResultText(method, data), nil
+		if pageConfig.CursorParam != "" {
+			return mcpToolPageResultTextWithPlatform(method, data, pageConfig, mcpCursor, platformSession), nil
+		}
+		return mcpToolResultTextWithPlatform(method, data, platformSession), nil
 	}
 }
 
 func mcpToolResultText(method string, data json.RawMessage) *mcplib.CallToolResult {
-	trimmed := strings.TrimSpace(string(data))
-	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
-		var items []json.RawMessage
-		if json.Unmarshal(data, &items) == nil {
-			return mcplib.NewToolResultText(string(mcpBoundedListEnvelope("items", items, len(data))))
-		}
-	}
-	if len(data) <= mcpToolResultMaxBytes {
-		return mcplib.NewToolResultText(string(data))
-	}
-	if strings.EqualFold(method, "GET") {
-		if out, ok := mcpBoundedSingleArrayObject(data); ok {
-			return mcplib.NewToolResultText(string(out))
-		}
-	}
-	return mcplib.NewToolResultText(string(mcpOversizedPreviewEnvelope(data)))
+	return mcpToolResultTextWithPlatform(method, data, nil)
 }
 
-func mcpBoundedSingleArrayObject(data json.RawMessage) ([]byte, bool) {
-	var obj map[string]json.RawMessage
-	if json.Unmarshal(data, &obj) != nil {
-		return nil, false
+func mcpToolTextWithPlatform(result string, platformSession *platform.Session) *mcplib.CallToolResult {
+	if platformSession != nil {
+		result = bound.WithMetadata(result, platformSession.OutputMetadata())
 	}
-	arrayField := ""
-	var items []json.RawMessage
-	for key, raw := range obj {
-		trimmed := strings.TrimSpace(string(raw))
-		if len(trimmed) == 0 || trimmed[0] != '[' {
-			continue
-		}
-		var candidate []json.RawMessage
-		if json.Unmarshal(raw, &candidate) != nil {
-			continue
-		}
-		if arrayField != "" {
-			return nil, false
-		}
-		arrayField = key
-		items = candidate
-	}
-	if arrayField == "" {
-		return nil, false
-	}
-	build := func(subset []json.RawMessage) any {
-		out := make(map[string]any, len(obj)+6)
-		for key, raw := range obj {
-			if key == arrayField {
-				out[key] = subset
-				continue
-			}
-			out[key] = raw
-		}
-		if len(subset) < len(items) {
-			out["_pp_truncated"] = true
-			out["_pp_total_count"] = len(items)
-			out["_pp_returned_count"] = len(subset)
-			out["_pp_original_bytes"] = len(data)
-			out["_pp_max_bytes"] = mcpToolResultMaxBytes
-			out["_pp_note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
-		}
-		return out
-	}
-	out := mcpFitJSONItems(items, build)
-	if len(out) > mcpToolResultMaxBytes {
-		return nil, false
-	}
-	return out, true
+	return mcplib.NewToolResultText(result)
 }
 
-func mcpBoundedListEnvelope(field string, items []json.RawMessage, originalBytes int) []byte {
-	build := func(subset []json.RawMessage) any {
-		out := map[string]any{
-			"count": len(items),
-			field:   subset,
-		}
-		if len(subset) < len(items) {
-			out["truncated"] = true
-			out["returned_count"] = len(subset)
-			out["original_bytes"] = originalBytes
-			out["max_bytes"] = mcpToolResultMaxBytes
-			out["note"] = "Typed MCP endpoint response exceeded the tool result budget. Narrow the request with limit, offset, filters, search/sql, or a command-mirror tool with --agent/--compact/--select."
-		}
-		return out
-	}
-	return mcpFitJSONItems(items, build)
+func mcpToolResultTextWithPlatform(method string, data json.RawMessage, platformSession *platform.Session) *mcplib.CallToolResult {
+	result := bound.EndpointResponse(method, data)
+	return mcpToolTextWithPlatform(result, platformSession)
 }
 
-func mcpFitJSONItems(items []json.RawMessage, build func([]json.RawMessage) any) []byte {
-	limit := len(items)
-	if limit > mcpToolResultMaxItems {
-		limit = mcpToolResultMaxItems
-	}
-	for n := limit; n >= 0; n-- {
-		out, err := json.Marshal(build(items[:n]))
-		if err != nil {
-			continue
-		}
-		if len(out) <= mcpToolResultMaxBytes || n == 0 {
-			return out
-		}
-	}
-	out, _ := json.Marshal(build(items[:0]))
-	return out
+// mcpToolError keeps provider-controlled typed endpoint errors within the MCP
+// text-result budget just like successful endpoint results.
+func mcpToolError(message string) *mcplib.CallToolResult {
+	return mcplib.NewToolResultError(bound.Text(message))
 }
 
-func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
-	previewBytes := data
-	if len(previewBytes) > 4000 {
-		previewBytes = previewBytes[:4000]
-	}
-	out, _ := json.Marshal(map[string]any{
-		"truncated":      true,
-		"original_bytes": len(data),
-		"max_bytes":      mcpToolResultMaxBytes,
-		"preview":        string(previewBytes),
-		"note":           "Typed MCP endpoint response exceeded the tool result budget and was not a recognized list envelope. Narrow the request with filters, search/sql, or a command-mirror tool with --agent/--compact/--select.",
+func mcpToolPageResultText(method string, data json.RawMessage, pageConfig mcpPageConfig, cursor string) *mcplib.CallToolResult {
+	return mcpToolPageResultTextWithPlatform(method, data, pageConfig, cursor, nil)
+}
+
+func mcpToolPageResultTextWithPlatform(method string, data json.RawMessage, pageConfig mcpPageConfig, cursor string, platformSession *platform.Session) *mcplib.CallToolResult {
+	result := bound.EndpointPageResponse(method, data, bound.PageOptions{
+		Cursor:         cursor,
+		CursorParam:    pageConfig.CursorParam,
+		NextCursorPath: pageConfig.NextCursorPath,
 	})
-	return out
+	if platformSession != nil {
+		result = bound.WithMetadata(result, platformSession.OutputMetadata())
+	}
+	return mcplib.NewToolResultText(result)
 }
 
-func newMCPClient() (*client.Client, error) {
-	home, _ := os.UserHomeDir()
-	cfgPath := filepath.Join(home, ".config", "servosity-cli", "config.toml")
-	cfg, err := config.Load(cfgPath)
+func newMCPClient(ctx context.Context) (*client.Client, *platform.Session, error) {
+	cfg, err := newMCPConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+	c := newMCPClientFromConfig(cfg)
+	session, err := cli.BindMCPClient(ctx, c)
+	if err != nil {
+		return nil, nil, err
+	}
+	return c, session, nil
+}
+
+func newMCPConfig() (*config.Config, error) {
+	cfg, err := config.Load("")
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
+	return cfg, nil
+}
+
+func newMCPClientFromConfig(cfg *config.Config) *client.Client {
 	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
@@ -437,16 +455,56 @@ func newMCPClient() (*client.Client, error) {
 	// pre-mutation snapshot for up to the cache TTL. The interactive CLI
 	// constructs its own client and is unaffected.
 	c.NoCache = true
-	return c, nil
+	return c
 }
 
-func dbPath() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".local", "share", "servosity-cli", "data.db")
+func mcpDBPath() (string, error) {
+	dir, err := cliutil.DataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "data.db"), nil
 }
 
-// Note: MCP tools use their own dbPath() because they are in a separate package (main, not cli).
-// The CLI's defaultDBPath() in the cli package uses the same canonical path.
+type mcpStoreStatusKind string
+
+const (
+	mcpStoreStatusEmpty mcpStoreStatusKind = "empty"
+	mcpStoreStatusReady mcpStoreStatusKind = "ready"
+)
+
+func openMCPReadOnlyStore(path string) (*store.Store, *mcplib.CallToolResult) {
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return nil, mcplib.NewToolResultError(mcpMissingStoreMessage(path))
+		}
+		return nil, mcplib.NewToolResultError(fmt.Sprintf("checking local data store %s: %v", path, err))
+	}
+	db, err := store.OpenReadOnly(path)
+	if err != nil {
+		return nil, mcplib.NewToolResultError(fmt.Sprintf("opening local data store %s: %v. Run servosity-cli sync to refresh the store, or use live endpoint MCP tools for unsynced data.", path, err))
+	}
+	return db, nil
+}
+
+func mcpMissingStoreMessage(path string) string {
+	return fmt.Sprintf("No local data store found at %s. Run servosity-cli sync before using MCP search/sql, or use live endpoint MCP tools for unsynced data.", path)
+}
+
+func mcpStoreStatus(db *store.Store) (mcpStoreStatusKind, error) {
+	status, err := db.Status()
+	if err != nil {
+		return "", err
+	}
+	if len(status) == 0 {
+		return mcpStoreStatusEmpty, nil
+	}
+	return mcpStoreStatusReady, nil
+}
+
+func mcpEmptyStoreNextStep() string {
+	return "Run servosity-cli sync to populate the local SQLite store before using MCP search/sql."
+}
 
 func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
@@ -460,9 +518,13 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 		limit = int(v)
 	}
 
-	db, err := store.OpenReadOnly(dbPath())
+	path, err := mcpDBPath()
 	if err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("opening database: %v", err)), nil
+		return mcplib.NewToolResultError(fmt.Sprintf("resolving database: %v", err)), nil
+	}
+	db, toolErr := openMCPReadOnlyStore(path)
+	if toolErr != nil {
+		return toolErr, nil
 	}
 	defer db.Close()
 
@@ -470,8 +532,32 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 	if err != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("search failed: %v", err)), nil
 	}
+	storeStatus, err := mcpStoreStatus(db)
+	if err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("reading store status: %v", err)), nil
+	}
 
-	return toolResultJSON(results)
+	return toolResultJSON(mcpSearchEnvelope(results, storeStatus))
+}
+
+func mcpSearchEnvelope(results []json.RawMessage, storeStatus mcpStoreStatusKind) map[string]any {
+	if results == nil {
+		results = []json.RawMessage{}
+	}
+	out := map[string]any{
+		"count":        len(results),
+		"results":      results,
+		"store_status": storeStatus,
+		"resumable":    false,
+	}
+	if len(results) == 0 {
+		if storeStatus == mcpStoreStatusEmpty {
+			out["next_step"] = mcpEmptyStoreNextStep()
+		} else {
+			out["next_step"] = "No local search matches. Try a broader query, a lower-specificity FTS expression, or sync again if data may be stale."
+		}
+	}
+	return out
 }
 
 // validateReadOnlyQuery gates the MCP sql tool. The agent contract advertised
@@ -635,15 +721,19 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
 
-	db, err := store.OpenReadOnly(dbPath())
+	path, err := mcpDBPath()
 	if err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("opening database: %v", err)), nil
+		return mcplib.NewToolResultError(fmt.Sprintf("resolving database: %v", err)), nil
+	}
+	db, toolErr := openMCPReadOnlyStore(path)
+	if toolErr != nil {
+		return toolErr, nil
 	}
 	defer db.Close()
 
-	rows, err := db.Query(query)
+	rows, err := db.DB().QueryContext(ctx, query)
 	if err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("query failed: %v", err)), nil
+		return mcplib.NewToolResultError(mcpSQLQueryError(err)), nil
 	}
 	defer rows.Close()
 
@@ -672,28 +762,80 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 	if err := rows.Err(); err != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("reading rows: %v", err)), nil
 	}
+	storeStatus, err := mcpStoreStatus(db)
+	if err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("reading store status: %v", err)), nil
+	}
 
-	return toolResultJSON(results)
+	return toolResultJSON(mcpSQLEnvelope(results, cols, storeStatus))
+}
+
+func mcpSQLEnvelope(rows []map[string]any, columns []string, storeStatus mcpStoreStatusKind) map[string]any {
+	if rows == nil {
+		rows = []map[string]any{}
+	}
+	out := map[string]any{
+		"count":        len(rows),
+		"columns":      columns,
+		"rows":         rows,
+		"store_status": storeStatus,
+		"resumable":    false,
+	}
+	if len(rows) == 0 {
+		if storeStatus == mcpStoreStatusEmpty {
+			out["next_step"] = mcpEmptyStoreNextStep()
+		} else {
+			out["next_step"] = "The read-only SQL query returned no rows. Check resource_type filters, json_extract paths, or run sync again if data may be stale."
+		}
+	}
+	return out
+}
+
+func mcpSQLQueryError(err error) string {
+	msg := err.Error()
+	if strings.Contains(strings.ToLower(msg), "no such table") {
+		return fmt.Sprintf("query failed: %v. Synced records live in resources(resource_type, id, data), not one SQL table per resource. Filter by resource_type, for example resource_type='agent-login', and read JSON fields with json_extract(data,'$.field').", err)
+	}
+	return fmt.Sprintf("query failed: %v", err)
 }
 
 // toolResultJSON renders v as the indented JSON body of an MCP text result,
 // surfacing a marshal failure as a tool error instead of empty content.
 func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
-	data, err := json.MarshalIndent(v, "", "  ")
+	text, err := bound.JSON(v)
 	if err != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("encoding result: %v", err)), nil
 	}
-	return mcplib.NewToolResultText(string(data)), nil
+	return mcplib.NewToolResultText(text), nil
 }
 
 func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	paths := map[string]string{}
+	if dir, err := cliutil.ConfigDir(); err == nil {
+		paths["config_dir"] = dir
+	}
+	if dir, err := cliutil.DataDir(); err == nil {
+		paths["data_dir"] = dir
+	}
+	if dir, err := cliutil.StateDir(); err == nil {
+		paths["state_dir"] = dir
+	}
+	if dir, err := cliutil.CacheDir(); err == nil {
+		paths["cache_dir"] = dir
+	}
 	ctx := map[string]any{
 		"api":         "servosity-msp",
-		"description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't — across your whole book of clients.",
+		"description": "Servosity REST API surface available to authenticated MSP partners.",
 		"archetype":   "project-management",
 		"tool_count":  293,
+		"paths":       paths,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion servosity-cli binary.",
+		// learn_protocol is generated from the single shared source of
+		// truth (the exported constant internal/learn.RecallFirstProtocol)
+		// also consumed by the CLI agent-context command, so the MCP and
+		// CLI agent surfaces cannot drift.
+		"learn_protocol": learn.RecallFirstProtocol,
 		"auth": map[string]any{
 			"type": "api_key",
 			"env_vars": []map[string]any{
@@ -713,12 +855,61 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"endpoints":   []string{"create", "list"},
 				"syncable":    true,
 				"searchable":  true,
+				"writable":    true,
 			},
 			{
 				"name":        "agent-sessions",
 				"description": "Manage agent sessions",
 				"endpoints":   []string{"read"},
 				"searchable":  true,
+			},
+			{
+				"name":        "agent-sessions.agent-logs",
+				"description": "Manage agent logs",
+				"endpoints":   []string{"agent-sessions-request"},
+				"writable":    true,
+			},
+			{
+				"name":        "agent-sessions.install-imagemanager",
+				"description": "Manage install imagemanager",
+				"endpoints":   []string{"agent-sessions"},
+				"writable":    true,
+			},
+			{
+				"name":        "agent-sessions.install-spx",
+				"description": "Manage install spx",
+				"endpoints":   []string{"agent-sessions"},
+				"writable":    true,
+			},
+			{
+				"name":        "agent-sessions.restart-imagemanager",
+				"description": "Manage restart imagemanager",
+				"endpoints":   []string{"agent-sessions"},
+				"writable":    true,
+			},
+			{
+				"name":        "agent-sessions.restart-spx",
+				"description": "Manage restart spx",
+				"endpoints":   []string{"agent-sessions"},
+				"writable":    true,
+			},
+			{
+				"name":        "agent-sessions.spx-activate",
+				"description": "Manage spx activate",
+				"endpoints":   []string{"agent-sessions"},
+				"writable":    true,
+			},
+			{
+				"name":        "agent-sessions.update-beta",
+				"description": "Manage update beta",
+				"endpoints":   []string{"agent-sessions"},
+				"writable":    true,
+			},
+			{
+				"name":        "agent-sessions.update-latest",
+				"description": "Manage update latest",
+				"endpoints":   []string{"agent-sessions"},
+				"writable":    true,
 			},
 			{
 				"name":        "backup-job-report",
@@ -762,6 +953,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"description": "Manage backup sets",
 				"endpoints":   []string{"create", "delete", "list", "read", "update"},
 				"searchable":  true,
+				"writable":    true,
 			},
 			{
 				"name":        "backups",
@@ -769,13 +961,223 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"endpoints":   []string{"create", "delete", "list", "mfa-codes", "partial-update", "read", "update"},
 				"syncable":    true,
 				"searchable":  true,
+				"writable":    true,
+			},
+			{
+				"name":        "backups.config-ini",
+				"description": "Manage config ini",
+				"endpoints":   []string{"backups"},
+			},
+			{
+				"name":        "backups.encryption-key",
+				"description": "Manage encryption key",
+				"endpoints":   []string{"backups-read", "backups-update"},
+				"writable":    true,
+			},
+			{
+				"name":        "backups.encryption-key-versions",
+				"description": "Manage encryption key versions",
+				"endpoints":   []string{"backups"},
+			},
+			{
+				"name":        "backups.guarantee-eligible",
+				"description": "Manage guarantee eligible",
+				"endpoints":   []string{"backups-set"},
+				"writable":    true,
+			},
+			{
+				"name":        "backups.guaranteed-recovery-point",
+				"description": "Manage guaranteed recovery point",
+				"endpoints":   []string{"backups"},
+			},
+			{
+				"name":        "backups.login",
+				"description": "Manage login",
+				"endpoints":   []string{"backups"},
+			},
+			{
+				"name":        "backups.migrate-dr",
+				"description": "Manage migrate dr",
+				"endpoints":   []string{"backups"},
+				"writable":    true,
+			},
+			{
+				"name":        "backups.password",
+				"description": "Manage password",
+				"endpoints":   []string{"backups-change"},
+				"writable":    true,
+			},
+			{
+				"name":        "backups.reissue-spx-key",
+				"description": "Manage reissue spx key",
+				"endpoints":   []string{"backups"},
+				"writable":    true,
+			},
+			{
+				"name":        "backups.unlock",
+				"description": "Manage unlock",
+				"endpoints":   []string{"backups"},
+				"writable":    true,
 			},
 			{
 				"name":        "companies",
 				"description": "Manage companies",
-				"endpoints":   []string{"create", "delete", "fully-managed", "fully-managed-ng", "list", "partial-update", "read", "summary", "summary-ng", "update"},
+				"endpoints":   []string{"create", "delete", "fully-managed", "list", "partial-update", "read", "summary", "summary-ng", "update"},
 				"syncable":    true,
 				"searchable":  true,
+				"writable":    true,
+			},
+			{
+				"name":        "companies.agent-session",
+				"description": "Manage agent session",
+				"endpoints":   []string{"companies"},
+			},
+			{
+				"name":        "companies.agents",
+				"description": "Manage agents",
+				"endpoints":   []string{"companies-update-latest"},
+				"writable":    true,
+			},
+			{
+				"name":        "companies.backup-set-templates",
+				"description": "Manage backup set templates",
+				"endpoints":   []string{"companies"},
+			},
+			{
+				"name":        "companies.backup-stores",
+				"description": "Manage backup stores",
+				"endpoints":   []string{"companies-read", "companies-update"},
+				"writable":    true,
+			},
+			{
+				"name":        "companies.c2c",
+				"description": "Manage c2c",
+				"endpoints":   []string{"companies", "companies-delete"},
+				"writable":    true,
+			},
+			{
+				"name":        "companies.cloud-to-cloud-dashboard",
+				"description": "Manage cloud to cloud dashboard",
+				"endpoints":   []string{"companies"},
+			},
+			{
+				"name":        "companies.connectwise-download-url",
+				"description": "Manage connectwise download url",
+				"endpoints":   []string{"companies"},
+			},
+			{
+				"name":        "companies.dr-snapshots",
+				"description": "Manage dr snapshots",
+				"endpoints":   []string{"companies"},
+			},
+			{
+				"name":        "companies.dr-upload",
+				"description": "Manage dr upload",
+				"endpoints":   []string{"companies"},
+			},
+			{
+				"name":        "companies.draas",
+				"description": "Manage draas",
+				"endpoints":   []string{"companies-attach-volumes", "companies-client-vpn-config", "companies-client-vpn-endpoint-associate", "companies-client-vpn-endpoint-disassociate", "companies-create", "companies-create-client-vpn-endpoint", "companies-create-instances", "companies-create-volumes", "companies-create-vpn-ca", "companies-destroy-spinup", "companies-eligibility", "companies-events", "companies-extra-instance", "companies-extra-instance-create-image", "companies-extra-instance-password", "companies-extra-instance-terminate", "companies-finalize-spinup", "companies-images-delete", "companies-images-read", "companies-instance-actions", "companies-new-spinup", "companies-pause", "companies-read", "companies-spx-restore-override-success", "companies-spx-restore-retry", "companies-start-spx", "companies-unpause", "companies-windows-helper", "companies-windows-helper-password"},
+				"writable":    true,
+			},
+			{
+				"name":        "companies.email-report-subscription-delete",
+				"description": "Manage email report subscription delete",
+				"endpoints":   []string{"companies-email-report-sub-delete"},
+				"writable":    true,
+			},
+			{
+				"name":        "companies.email-report-subscriptions",
+				"description": "Manage email report subscriptions",
+				"endpoints":   []string{"companies-read", "companies-update"},
+				"writable":    true,
+			},
+			{
+				"name":        "companies.fully-managed-ng",
+				"description": "Manage fully managed ng",
+				"endpoints":   []string{"companies-fully-managed-retrieve"},
+			},
+			{
+				"name":        "companies.fully-managed-setup-stage",
+				"description": "Manage fully managed setup stage",
+				"endpoints":   []string{"companies"},
+				"writable":    true,
+			},
+			{
+				"name":        "companies.fully-managed-status",
+				"description": "Manage fully managed status",
+				"endpoints":   []string{"companies-clear"},
+				"writable":    true,
+			},
+			{
+				"name":        "companies.imagemanager-info",
+				"description": "Manage imagemanager info",
+				"endpoints":   []string{"companies"},
+			},
+			{
+				"name":        "companies.issues",
+				"description": "Manage issues",
+				"endpoints":   []string{"companies", "companies-archive"},
+				"writable":    true,
+			},
+			{
+				"name":        "companies.log-upload",
+				"description": "Manage log upload",
+				"endpoints":   []string{"companies-read", "companies-update"},
+				"writable":    true,
+			},
+			{
+				"name":        "companies.log-upload-list",
+				"description": "Manage log upload list",
+				"endpoints":   []string{"companies"},
+			},
+			{
+				"name":        "companies.notes",
+				"description": "Manage notes",
+				"endpoints":   []string{"companies"},
+			},
+			{
+				"name":        "companies.other-info",
+				"description": "Manage other info",
+				"endpoints":   []string{"companies"},
+			},
+			{
+				"name":        "companies.recent-success",
+				"description": "Manage recent success",
+				"endpoints":   []string{"companies"},
+			},
+			{
+				"name":        "companies.restic-backup-failures",
+				"description": "Manage restic backup failures",
+				"endpoints":   []string{"companies"},
+			},
+			{
+				"name":        "companies.restic-snapshots",
+				"description": "Manage restic snapshots",
+				"endpoints":   []string{"companies"},
+			},
+			{
+				"name":        "companies.restore-queues",
+				"description": "Manage restore queues",
+				"endpoints":   []string{"companies-create", "companies-delete", "companies-jobs-create", "companies-jobs-delete", "companies-jobs-list", "companies-jobs-order-first", "companies-jobs-order-last", "companies-jobs-partial-update", "companies-jobs-update", "companies-list", "companies-partial-update", "companies-read", "companies-update"},
+				"writable":    true,
+			},
+			{
+				"name":        "companies.servosity-one",
+				"description": "Manage servosity one",
+				"endpoints":   []string{"companies-download-windows-download-windows-latest"},
+			},
+			{
+				"name":        "companies.servosity-one-conversion-request",
+				"description": "Manage servosity one conversion request",
+				"endpoints":   []string{"companies"},
+				"writable":    true,
+			},
+			{
+				"name":        "companies.spx-backup-failures",
+				"description": "Manage spx backup failures",
+				"endpoints":   []string{"companies"},
 			},
 			{
 				"name":        "company-notes",
@@ -783,6 +1185,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"endpoints":   []string{"create", "delete", "list", "partial-update", "read", "update"},
 				"syncable":    true,
 				"searchable":  true,
+				"writable":    true,
 			},
 			{
 				"name":        "components",
@@ -796,6 +1199,13 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"endpoints":   []string{"create", "get-by-token", "list", "partial-update", "read", "signatures", "update"},
 				"syncable":    true,
 				"searchable":  true,
+				"writable":    true,
+			},
+			{
+				"name":        "contracts.finalize",
+				"description": "Manage finalize",
+				"endpoints":   []string{"contracts"},
+				"writable":    true,
 			},
 			{
 				"name":        "credentials",
@@ -803,6 +1213,18 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"endpoints":   []string{"create", "delete", "list", "partial-update", "read", "update"},
 				"syncable":    true,
 				"searchable":  true,
+				"writable":    true,
+			},
+			{
+				"name":        "credentials.rotate",
+				"description": "Manage rotate",
+				"endpoints":   []string{"credentials"},
+				"writable":    true,
+			},
+			{
+				"name":        "credentials.versions",
+				"description": "Manage versions",
+				"endpoints":   []string{"credentials"},
 			},
 			{
 				"name":        "current-user",
@@ -810,6 +1232,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"endpoints":   []string{"api-token-delete", "api-token-list", "create", "groups-list", "helpjuice-sso-create", "hubspot-sso-create", "list", "mfa-backup-codes-list", "mfa-backup-codes-update", "notifications-delete", "notifications-list", "profile-create", "profile-list", "start-mfa-create", "start-mfa-list", "start-mfa-verify-create", "verified-mfa-delete", "verified-mfa-list", "verified-mfa-send-code-create"},
 				"syncable":    true,
 				"searchable":  true,
+				"writable":    true,
 			},
 			{
 				"name":        "download",
@@ -823,12 +1246,112 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"endpoints":   []string{"create", "delete", "list", "partial-update", "read", "update"},
 				"syncable":    true,
 				"searchable":  true,
+				"writable":    true,
+			},
+			{
+				"name":        "dr-backups.agent-session",
+				"description": "Manage agent session",
+				"endpoints":   []string{"dr-backups"},
+			},
+			{
+				"name":        "dr-backups.agent-token",
+				"description": "Manage agent token",
+				"endpoints":   []string{"dr-backups"},
+			},
+			{
+				"name":        "dr-backups.encryption-key",
+				"description": "Manage encryption key",
+				"endpoints":   []string{"dr-backups-read", "dr-backups-update"},
+				"writable":    true,
+			},
+			{
+				"name":        "dr-backups.encryption-key-versions",
+				"description": "Manage encryption key versions",
+				"endpoints":   []string{"dr-backups"},
+			},
+			{
+				"name":        "dr-backups.failures",
+				"description": "Manage failures",
+				"endpoints":   []string{"dr-backups"},
+			},
+			{
+				"name":        "dr-backups.guarantee-eligible",
+				"description": "Manage guarantee eligible",
+				"endpoints":   []string{"dr-backups-set"},
+				"writable":    true,
+			},
+			{
+				"name":        "dr-backups.guaranteed-recovery-point",
+				"description": "Manage guaranteed recovery point",
+				"endpoints":   []string{"dr-backups"},
+			},
+			{
+				"name":        "dr-backups.issues",
+				"description": "Manage issues",
+				"endpoints":   []string{"dr-backups"},
+			},
+			{
+				"name":        "dr-backups.latest-offsite",
+				"description": "Manage latest offsite",
+				"endpoints":   []string{"dr-backups"},
+			},
+			{
+				"name":        "dr-backups.latest-success",
+				"description": "Manage latest success",
+				"endpoints":   []string{"dr-backups"},
+			},
+			{
+				"name":        "dr-backups.reboot-events",
+				"description": "Manage reboot events",
+				"endpoints":   []string{"dr-backups-cancel", "dr-backups-get", "dr-backups-schedule-reboot"},
+				"writable":    true,
+			},
+			{
+				"name":        "dr-backups.reissue-spx-key",
+				"description": "Manage reissue spx key",
+				"endpoints":   []string{"dr-backups"},
+				"writable":    true,
+			},
+			{
+				"name":        "dr-backups.selected-volumes",
+				"description": "Manage selected volumes",
+				"endpoints":   []string{"dr-backups-get"},
+			},
+			{
+				"name":        "dr-backups.snapshot",
+				"description": "Manage snapshot",
+				"endpoints":   []string{"dr-backups"},
+			},
+			{
+				"name":        "dr-backups.snapshot-chkdsk-results",
+				"description": "Manage snapshot chkdsk results",
+				"endpoints":   []string{"dr-backups"},
+			},
+			{
+				"name":        "dr-backups.snapshots",
+				"description": "Manage snapshots",
+				"endpoints":   []string{"dr-backups", "dr-backups-fail", "dr-backups-reverify", "dr-backups-upload"},
+				"writable":    true,
+			},
+			{
+				"name":        "dr-backups.tunnel",
+				"description": "Manage tunnel",
+				"endpoints":   []string{"dr-backups-delete", "dr-backups-update"},
+				"writable":    true,
+			},
+			{
+				"name":        "fully_managed_companies",
+				"description": "Manage fully managed companies",
+				"endpoints":   []string{"companies-fully-managed-ng"},
+				"syncable":    true,
+				"searchable":  true,
 			},
 			{
 				"name":        "issue-comments",
 				"description": "Manage issue comments",
 				"endpoints":   []string{"delete", "update"},
 				"searchable":  true,
+				"writable":    true,
 			},
 			{
 				"name":        "issues",
@@ -838,10 +1361,46 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"searchable":  true,
 			},
 			{
+				"name":        "issues.archive",
+				"description": "Manage archive",
+				"endpoints":   []string{"issues"},
+				"writable":    true,
+			},
+			{
+				"name":        "issues.comments",
+				"description": "Manage comments",
+				"endpoints":   []string{"issues-add"},
+				"writable":    true,
+			},
+			{
+				"name":        "issues.events",
+				"description": "Manage events",
+				"endpoints":   []string{"issues"},
+			},
+			{
+				"name":        "issues.ignore",
+				"description": "Manage ignore",
+				"endpoints":   []string{"issues"},
+				"writable":    true,
+			},
+			{
+				"name":        "issues.reactivate",
+				"description": "Manage reactivate",
+				"endpoints":   []string{"issues"},
+				"writable":    true,
+			},
+			{
 				"name":        "report-subscriptions",
 				"description": "Manage report subscriptions",
 				"endpoints":   []string{"read", "unsubscribe", "verify"},
 				"searchable":  true,
+				"writable":    true,
+			},
+			{
+				"name":        "report-subscriptions.reverify",
+				"description": "Manage reverify",
+				"endpoints":   []string{"report-subscriptions"},
+				"writable":    true,
 			},
 			{
 				"name":        "reports",
@@ -854,6 +1413,73 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"description": "Manage resellers",
 				"endpoints":   []string{"partial-update", "read", "update"},
 				"searchable":  true,
+				"writable":    true,
+			},
+			{
+				"name":        "resellers.agent-install-token",
+				"description": "Manage agent install token",
+				"endpoints":   []string{"resellers"},
+			},
+			{
+				"name":        "resellers.agents",
+				"description": "Manage agents",
+				"endpoints":   []string{"resellers-unprovisioned", "resellers-update-latest"},
+				"writable":    true,
+			},
+			{
+				"name":        "resellers.bill",
+				"description": "Manage bill",
+				"endpoints":   []string{"resellers", "resellers-xlsx"},
+			},
+			{
+				"name":        "resellers.billing-info",
+				"description": "Manage billing info",
+				"endpoints":   []string{"resellers-read", "resellers-update"},
+				"writable":    true,
+			},
+			{
+				"name":        "resellers.contracts",
+				"description": "Manage contracts",
+				"endpoints":   []string{"resellers", "resellers-sign"},
+				"writable":    true,
+			},
+			{
+				"name":        "resellers.email-report-subscription-delete",
+				"description": "Manage email report subscription delete",
+				"endpoints":   []string{"resellers-email-report-sub-delete"},
+				"writable":    true,
+			},
+			{
+				"name":        "resellers.email-report-subscriptions",
+				"description": "Manage email report subscriptions",
+				"endpoints":   []string{"resellers-read", "resellers-update"},
+				"writable":    true,
+			},
+			{
+				"name":        "resellers.issues",
+				"description": "Manage issues",
+				"endpoints":   []string{"resellers"},
+			},
+			{
+				"name":        "resellers.notes",
+				"description": "Manage notes",
+				"endpoints":   []string{"resellers"},
+			},
+			{
+				"name":        "resellers.postmark-rotate",
+				"description": "Manage postmark rotate",
+				"endpoints":   []string{"resellers"},
+				"writable":    true,
+			},
+			{
+				"name":        "resellers.prices",
+				"description": "Manage prices",
+				"endpoints":   []string{"resellers"},
+			},
+			{
+				"name":        "resellers.subscriptions",
+				"description": "Manage subscriptions",
+				"endpoints":   []string{"resellers"},
 			},
 			{
 				"name":        "restic-backups",
@@ -861,6 +1487,147 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"endpoints":   []string{"create", "delete", "list", "partial-update", "read", "update"},
 				"syncable":    true,
 				"searchable":  true,
+				"writable":    true,
+			},
+			{
+				"name":        "restic-backups.agent-service-stop",
+				"description": "Manage agent service stop",
+				"endpoints":   []string{"restic-backups"},
+				"writable":    true,
+			},
+			{
+				"name":        "restic-backups.agent-service-stop-error",
+				"description": "Manage agent service stop error",
+				"endpoints":   []string{"restic-backups"},
+				"writable":    true,
+			},
+			{
+				"name":        "restic-backups.agent-session",
+				"description": "Manage agent session",
+				"endpoints":   []string{"restic-backups"},
+			},
+			{
+				"name":        "restic-backups.agent-token",
+				"description": "Manage agent token",
+				"endpoints":   []string{"restic-backups"},
+			},
+			{
+				"name":        "restic-backups.backup-sets",
+				"description": "Manage backup sets",
+				"endpoints":   []string{"restic-backups-create", "restic-backups-delete", "restic-backups-exclude-paths-create", "restic-backups-exclude-paths-delete", "restic-backups-exclude-paths-toggle-case-sensitive", "restic-backups-list", "restic-backups-partial-update", "restic-backups-read", "restic-backups-source-paths-create", "restic-backups-source-paths-delete", "restic-backups-update"},
+				"writable":    true,
+			},
+			{
+				"name":        "restic-backups.encryption-key",
+				"description": "Manage encryption key",
+				"endpoints":   []string{"restic-backups-read", "restic-backups-update"},
+				"writable":    true,
+			},
+			{
+				"name":        "restic-backups.encryption-key-versions",
+				"description": "Manage encryption key versions",
+				"endpoints":   []string{"restic-backups"},
+			},
+			{
+				"name":        "restic-backups.failures",
+				"description": "Manage failures",
+				"endpoints":   []string{"restic-backups"},
+			},
+			{
+				"name":        "restic-backups.guarantee-eligible",
+				"description": "Manage guarantee eligible",
+				"endpoints":   []string{"restic-backups-set"},
+				"writable":    true,
+			},
+			{
+				"name":        "restic-backups.guaranteed-recovery-point",
+				"description": "Manage guaranteed recovery point",
+				"endpoints":   []string{"restic-backups"},
+			},
+			{
+				"name":        "restic-backups.issues",
+				"description": "Manage issues",
+				"endpoints":   []string{"restic-backups"},
+			},
+			{
+				"name":        "restic-backups.latest-success",
+				"description": "Manage latest success",
+				"endpoints":   []string{"restic-backups"},
+			},
+			{
+				"name":        "restic-backups.restic-check",
+				"description": "Manage restic check",
+				"endpoints":   []string{"restic-backups"},
+				"writable":    true,
+			},
+			{
+				"name":        "restic-backups.restic-env",
+				"description": "Manage restic env",
+				"endpoints":   []string{"restic-backups"},
+			},
+			{
+				"name":        "restic-backups.restic-interrupt",
+				"description": "Manage restic interrupt",
+				"endpoints":   []string{"restic-backups"},
+				"writable":    true,
+			},
+			{
+				"name":        "restic-backups.restic-migrate",
+				"description": "Manage restic migrate",
+				"endpoints":   []string{"restic-backups"},
+				"writable":    true,
+			},
+			{
+				"name":        "restic-backups.restic-prune",
+				"description": "Manage restic prune",
+				"endpoints":   []string{"restic-backups"},
+				"writable":    true,
+			},
+			{
+				"name":        "restic-backups.restic-repair-index",
+				"description": "Manage restic repair index",
+				"endpoints":   []string{"restic-backups"},
+				"writable":    true,
+			},
+			{
+				"name":        "restic-backups.restic-repair-snapshots",
+				"description": "Manage restic repair snapshots",
+				"endpoints":   []string{"restic-backups"},
+				"writable":    true,
+			},
+			{
+				"name":        "restic-backups.restic-unlock",
+				"description": "Manage restic unlock",
+				"endpoints":   []string{"restic-backups"},
+				"writable":    true,
+			},
+			{
+				"name":        "restic-backups.snapshot-ls",
+				"description": "Manage snapshot ls",
+				"endpoints":   []string{"restic-backups"},
+			},
+			{
+				"name":        "restic-backups.snapshots",
+				"description": "Manage snapshots",
+				"endpoints":   []string{"restic-backups"},
+			},
+			{
+				"name":        "restic-backups.start-backup",
+				"description": "Manage start backup",
+				"endpoints":   []string{"restic-backups"},
+				"writable":    true,
+			},
+			{
+				"name":        "restic-backups.start-restore",
+				"description": "Manage start restore",
+				"endpoints":   []string{"restic-backups"},
+				"writable":    true,
+			},
+			{
+				"name":        "restic-backups.tunnel",
+				"description": "Manage tunnel",
+				"endpoints":   []string{"restic-backups-delete", "restic-backups-update"},
+				"writable":    true,
 			},
 			{
 				"name":        "screenshot",
@@ -880,6 +1647,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"endpoints":   []string{"create", "delete", "list", "request-password-recovery-create", "reset-password-create"},
 				"syncable":    true,
 				"searchable":  true,
+				"writable":    true,
 			},
 		},
 		"query_tips": []string{
@@ -889,37 +1657,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints.",
 			"Prefer sql/search over repeated API calls when the data is already synced.",
 		},
-		// Command-mirror capabilities are exposed through MCP by shelling out
-		// to the companion CLI binary.
-		"command_mirror_capabilities": []map[string]string{
-			{"name": "Morning fleet sweep", "command": "attention", "description": "One screen across your whole book of clients. Merges open issues, stale backups into a per-company ranked view, then persists the result so tomorrow's drift command can compare.", "rationale": "Requires three API rollups + local join + ranking + snapshot persistence. No backup vendor's portal shows a single-screen fleet view ranked by attention need.", "via": "mcp-command-mirror"},
-			{"name": "Client QBR report", "command": "qbr", "description": "Generate the backup section of a client's Quarterly Business Review as Markdown, HTML, or PDF. Job success rate, restore tests run this quarter, coverage map across all three engines, open issues, storage trend.", "rationale": "Every MSP hand-builds these every quarter. We assemble from local store + multiple report endpoints + snapshot history into one executive-grade artifact.", "via": "mcp-command-mirror"},
-			{"name": "Drift since yesterday", "command": "drift", "description": "Diff two snapshots the CLI collected — show which companies got worse, which recovered, and which are new since a past anchor. Default compares yesterday-to-now on the attention metric.", "rationale": "Trivially impossible without a local time-keyed snapshot store. Every backup portal shows current state; none answers 'what changed since Friday?'", "via": "mcp-command-mirror"},
-			{"name": "Stale-backup follow-up list", "command": "stale-backups", "description": "Slice the stale-backup-sets report by company, age window, and backup engine — entirely offline once cached. Use --refresh to repull from the API.", "rationale": "Friday's 'who needs a follow-up?' sweep. Local snapshot means you can filter without burning an API call per slice.", "via": "mcp-command-mirror"},
-			{"name": "Batch issue triage", "command": "triage", "description": "List open issues with filters, then batch-mutate them (ignore / archive / reactivate / comment) in one invocation with --dry-run support and typed exit codes.", "rationale": "The Servosity web portal forces one-at-a-time issue actions. This compresses 20 clicks into one shell command.", "via": "mcp-command-mirror"},
-			{"name": "Restore-queue watch", "command": "restore-queue watch", "description": "Watch every active company's restore queue across the book during a DR event. Polls each company periodically and prints diffs since the last tick.", "rationale": "Web portal forces tab-switching during DR. CLI pins one terminal on every queue at once.", "via": "mcp-command-mirror"},
-			{"name": "Cross-engine backup-facts", "command": "backup-facts", "description": "Unified view across Servosity's three backup engines (classic, restic, DR) for one company or all. Engine, ID, hostname, last_successful_at, state, and freshness-derived health — joined from three local store tables into one table.", "rationale": "Three API calls become one local query. Cross-engine ranking and filtering is impossible without union-joining the engine tables.", "via": "mcp-command-mirror"},
-			{"name": "Bill reconciliation", "command": "bill --reconcile", "description": "Pull the MSP's monthly Servosity bill and compare line-by-line against a CSV of what the MSP is invoicing their clients. Surfaces drift — clients under- or over-charged.", "rationale": "MSP billing reconciliation is the most error-prone manual task per industry research. We do it with integer cents and stable sort.", "via": "mcp-command-mirror"},
-			{"name": "Unprovisioned agents", "command": "unprovisioned", "description": "List agents installed on client machines but not yet pulling backups, ranked by client. Surfaces lost revenue from incomplete onboardings.", "rationale": "Joins the reseller's unprovisioned-agents endpoint with the local companies table to give per-client visibility. Useful onboarding QA loop.", "via": "mcp-command-mirror"},
-			{"name": "Storage trend forecast", "command": "storage-trend", "description": "Linear-regression forecast of when a specific client will hit a capacity threshold. Reads the historical storage_bytes time series from local snapshots; with --snapshot, persists a new measurement for future runs.", "rationale": "Capacity-needs forecasting requires a time series. Servosity's portal shows current bytes; we project forward to a threshold and surface upsell timing.", "via": "mcp-command-mirror"},
-			{"name": "Stale follow-up email drafts", "command": "email-draft", "description": "Generate ready-to-paste follow-up email bodies for every client with a stale backup, filled from the local store (client name, hosts, days stale, last success).", "rationale": "Template-fills from the synced stale slice + companies tables — mechanical, offline, no portal copy-paste.", "via": "mcp-command-mirror"},
-			{"name": "Fleet health scorecard", "command": "fleet-health", "description": "One fleet-wide scorecard: 24h job success rate, companies with stale backups, and open issues, with week-over-week deltas.", "rationale": "Scalar rollup across the freshness and issues tables plus snapshot deltas — no single API call or portal screen returns it.", "via": "mcp-command-mirror"},
-			{"name": "All-clients QBR batch", "command": "qbr-all", "description": "Generate every client's QBR backup report in one pass, one file per company.", "rationale": "Loops the qbr assembly over the local companies table — removes the per-client manual repeat at quarter end.", "via": "mcp-command-mirror"},
-		},
 		"playbook": []map[string]string{
-			{"topic": "Morning fleet sweep", "insight": "Requires three API rollups + local join + ranking + snapshot persistence. No backup vendor's portal shows a single-screen fleet view ranked by attention need."},
-			{"topic": "Client QBR report", "insight": "Every MSP hand-builds these every quarter. We assemble from local store + multiple report endpoints + snapshot history into one executive-grade artifact."},
-			{"topic": "Drift since yesterday", "insight": "Trivially impossible without a local time-keyed snapshot store. Every backup portal shows current state; none answers 'what changed since Friday?'"},
-			{"topic": "Stale-backup follow-up list", "insight": "Friday's 'who needs a follow-up?' sweep. Local snapshot means you can filter without burning an API call per slice."},
-			{"topic": "Batch issue triage", "insight": "The Servosity web portal forces one-at-a-time issue actions. This compresses 20 clicks into one shell command."},
-			{"topic": "Restore-queue watch", "insight": "Web portal forces tab-switching during DR. CLI pins one terminal on every queue at once."},
-			{"topic": "Cross-engine backup-facts", "insight": "Three API calls become one local query. Cross-engine ranking and filtering is impossible without union-joining the engine tables."},
-			{"topic": "Bill reconciliation", "insight": "MSP billing reconciliation is the most error-prone manual task per industry research. We do it with integer cents and stable sort."},
-			{"topic": "Unprovisioned agents", "insight": "Joins the reseller's unprovisioned-agents endpoint with the local companies table to give per-client visibility. Useful onboarding QA loop."},
-			{"topic": "Storage trend forecast", "insight": "Capacity-needs forecasting requires a time series. Servosity's portal shows current bytes; we project forward to a threshold and surface upsell timing."},
-			{"topic": "Stale follow-up email drafts", "insight": "Template-fills from the synced stale slice + companies tables — mechanical, offline, no portal copy-paste."},
-			{"topic": "Fleet health scorecard", "insight": "Scalar rollup across the freshness and issues tables plus snapshot deltas — no single API call or portal screen returns it."},
-			{"topic": "All-clients QBR batch", "insight": "Loops the qbr assembly over the local companies table — removes the per-client manual repeat at quarter end."},
 			{"topic": "Finding stale work", "insight": "Use the stale command or sql query to find items not updated recently. More reliable than scanning list results manually."},
 			{"topic": "Load analysis", "insight": "When analyzing team workload, filter by assignee and status. Raw counts without status filtering are misleading."},
 			{"topic": "Bulk operations", "insight": "For bulk status changes, prefer update endpoints over delete+create. Most PM APIs track history on updates."},

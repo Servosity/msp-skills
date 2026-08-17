@@ -37,7 +37,6 @@ such as assignee, project, priority, or labels. Useful for triaging unowned work
 				return fmt.Errorf("opening local database: %w\nRun 'servosity-cli sync' first.", err)
 			}
 			defer db.Close()
-
 			maybeEmitSyncHints(cmd, db, "", flags.maxAge)
 
 			// Fields that indicate an item is properly assigned/categorized
@@ -119,15 +118,16 @@ such as assignee, project, priority, or labels. Useful for triaging unowned work
 				items = items[:limit]
 			}
 
-			if flags.asJSON {
+			if wantsMachineOutput(flags) {
+				if flags.csv || flags.plain || flags.quiet {
+					return printJSONFiltered(cmd.OutOrStdout(), items, flags)
+				}
 				result := map[string]any{
 					"total_count": totalCount,
 					"showing":     len(items),
 					"items":       items,
 				}
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(result)
+				return printJSONFiltered(cmd.OutOrStdout(), result, flags)
 			}
 
 			if len(items) == 0 {
@@ -154,7 +154,7 @@ such as assignee, project, priority, or labels. Useful for triaging unowned work
 		},
 	}
 
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/servosity-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "SQLite database file path (default: resolved data directory data.db)")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum items to show")
 
 	return cmd

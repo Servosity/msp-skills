@@ -12,9 +12,9 @@ import "testing"
 // recognized scheme (the historical SERVOSITY_MSP_TOKEN="Token <t>" workaround).
 func TestAuthHeader_TokenScheme(t *testing.T) {
 	cases := []struct {
-		name      string
-		cfg       Config
-		want      string
+		name string
+		cfg  Config
+		want string
 	}{
 		{
 			name: "bare token gets the Token scheme",

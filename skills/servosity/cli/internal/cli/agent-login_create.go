@@ -14,9 +14,9 @@ import (
 
 func newAgentLoginCreateCmd(flags *rootFlags) *cobra.Command {
 	var bodyAgentSessionId string
-	var bodyCompanyId string
-	var bodyDrBackupId string
-	var bodyResticBackupId string
+	var bodyCompanyId int
+	var bodyDrBackupId int
+	var bodyResticBackupId int
 	var bodyToken string
 	var stdinBody bool
 
@@ -28,14 +28,13 @@ func newAgentLoginCreateCmd(flags *rootFlags) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {
 			}
+			path := "/agent-login/"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/agent-login/"
 			params := map[string]string{}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -47,26 +46,27 @@ func newAgentLoginCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
-				if bodyAgentSessionId != "" {
-					body["agent_session_id"] = bodyAgentSessionId
+				bodyMap := map[string]any{}
+				body = bodyMap
+				if cmd.Flags().Changed("agent-session-id") || bodyAgentSessionId != "" {
+					bodyMap["agent_session_id"] = bodyAgentSessionId
 				}
-				if bodyCompanyId != "" {
-					body["company_id"] = bodyCompanyId
+				if cmd.Flags().Changed("company-id") || bodyCompanyId != 0 {
+					bodyMap["company_id"] = bodyCompanyId
 				}
-				if bodyDrBackupId != "" {
-					body["dr_backup_id"] = bodyDrBackupId
+				if cmd.Flags().Changed("dr-backup-id") || bodyDrBackupId != 0 {
+					bodyMap["dr_backup_id"] = bodyDrBackupId
 				}
-				if bodyResticBackupId != "" {
-					body["restic_backup_id"] = bodyResticBackupId
+				if cmd.Flags().Changed("restic-backup-id") || bodyResticBackupId != 0 {
+					bodyMap["restic_backup_id"] = bodyResticBackupId
 				}
-				if bodyToken != "" {
-					body["token"] = bodyToken
+				if cmd.Flags().Changed("token") || bodyToken != "" {
+					bodyMap["token"] = bodyToken
 				}
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			// Inspect the mutate response body for a partial-failure-shaped
 			// field (e.g. Google Ads `partialFailureError`). Several Google
@@ -131,6 +131,9 @@ func newAgentLoginCreateCmd(flags *rootFlags) *cobra.Command {
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -164,19 +167,31 @@ func newAgentLoginCreateCmd(flags *rootFlags) *cobra.Command {
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"agent_session_id": true, "company_id": true, "dr_backup_id": true, "restic_backup_id": true, "token": true})
 				}
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {
@@ -201,9 +216,9 @@ func newAgentLoginCreateCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&bodyAgentSessionId, "agent-session-id", "", "Agent session id")
-	cmd.Flags().StringVar(&bodyCompanyId, "company-id", "", "Company id")
-	cmd.Flags().StringVar(&bodyDrBackupId, "dr-backup-id", "", "Dr backup id")
-	cmd.Flags().StringVar(&bodyResticBackupId, "restic-backup-id", "", "Restic backup id")
+	cmd.Flags().IntVar(&bodyCompanyId, "company-id", 0, "Company id")
+	cmd.Flags().IntVar(&bodyDrBackupId, "dr-backup-id", 0, "Dr backup id")
+	cmd.Flags().IntVar(&bodyResticBackupId, "restic-backup-id", 0, "Restic backup id")
 	cmd.Flags().StringVar(&bodyToken, "token", "", "Token")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 

@@ -14,7 +14,7 @@ import (
 func newBackupJobReportSummaryPromotedCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "backup-job-report-summary <backup_destination_id> <backup_id> <backup_job_id> <backup_set_id>",
+		Use:         "backup-job-report-summary <backup_id> <backup_set_id> <backup_job_id> <backup_destination_id>",
 		Short:       "View summary backup report for a backup job and destination.",
 		Long:        "View summary backup report for a backup job and destination.",
 		Example:     "  servosity-cli backup-job-report-summary 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
@@ -26,7 +26,7 @@ func newBackupJobReportSummaryPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			path := "/backup-job-report-summary/{backup_id}/{backup_set_id}/{backup_job_id}/{backup_destination_id}/"
-			if len(args) < 1 {
+			if len(args) < 4 || args[3] == "" {
 				// JSON envelope: {error, usage}. Written first; the
 				// usageErr return preserves exit code 2 across modes.
 				if flags.asJSON {
@@ -39,8 +39,8 @@ func newBackupJobReportSummaryPromotedCmd(flags *rootFlags) *cobra.Command {
 				}
 				return usageErr(fmt.Errorf("backup_destination_id is required\nUsage: %s <%s>", cmd.CommandPath(), "backup_destination_id"))
 			}
-			path = replacePathParam(path, "backup_destination_id", args[0])
-			if len(args) < 2 {
+			path = replacePathParam(path, "backup_destination_id", args[3])
+			if len(args) < 1 || args[0] == "" {
 				// JSON envelope: {error, usage}. Written first; the
 				// usageErr return preserves exit code 2 across modes.
 				if flags.asJSON {
@@ -53,8 +53,8 @@ func newBackupJobReportSummaryPromotedCmd(flags *rootFlags) *cobra.Command {
 				}
 				return usageErr(fmt.Errorf("backup_id is required\nUsage: %s <%s>", cmd.CommandPath(), "backup_id"))
 			}
-			path = replacePathParam(path, "backup_id", args[1])
-			if len(args) < 3 {
+			path = replacePathParam(path, "backup_id", args[0])
+			if len(args) < 3 || args[2] == "" {
 				// JSON envelope: {error, usage}. Written first; the
 				// usageErr return preserves exit code 2 across modes.
 				if flags.asJSON {
@@ -68,7 +68,7 @@ func newBackupJobReportSummaryPromotedCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("backup_job_id is required\nUsage: %s <%s>", cmd.CommandPath(), "backup_job_id"))
 			}
 			path = replacePathParam(path, "backup_job_id", args[2])
-			if len(args) < 4 {
+			if len(args) < 2 || args[1] == "" {
 				// JSON envelope: {error, usage}. Written first; the
 				// usageErr return preserves exit code 2 across modes.
 				if flags.asJSON {
@@ -81,12 +81,13 @@ func newBackupJobReportSummaryPromotedCmd(flags *rootFlags) *cobra.Command {
 				}
 				return usageErr(fmt.Errorf("backup_set_id is required\nUsage: %s <%s>", cmd.CommandPath(), "backup_set_id"))
 			}
-			path = replacePathParam(path, "backup_set_id", args[3])
+			path = replacePathParam(path, "backup_set_id", args[1])
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "backup-job-report-summary", false, path, params, nil, cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "backup-job-report-summary", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
+			outputData := data
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope
@@ -94,9 +95,9 @@ func newBackupJobReportSummaryPromotedCmd(flags *rootFlags) *cobra.Command {
 			// SYNC: keep this gate aligned with command_endpoint.go.tmpl.
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var countItems []json.RawMessage
-				if json.Unmarshal(data, &countItems) != nil {
+				if json.Unmarshal(outputData, &countItems) != nil {
 					// Single object, not an array
-					countItems = []json.RawMessage{data}
+					countItems = []json.RawMessage{outputData}
 				}
 				printProvenance(cmd, len(countItems), prov)
 			}
@@ -110,9 +111,13 @@ func newBackupJobReportSummaryPromotedCmd(flags *rootFlags) *cobra.Command {
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, nil)
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
+				if wrapErr != nil {
+					return wrapErr
+				}
+				wrapped, wrapErr = wrapPlatformStructuredOutput(wrapped, flags, "results", true)
 				if wrapErr != nil {
 					return wrapErr
 				}
@@ -120,7 +125,7 @@ func newBackupJobReportSummaryPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var items []map[string]any
-				if json.Unmarshal(data, &items) == nil && len(items) > 0 {
+				if json.Unmarshal(outputData, &items) == nil && len(items) > 0 {
 					if err := printAutoTable(cmd.OutOrStdout(), items); err != nil {
 						return err
 					}
@@ -130,7 +135,11 @@ func newBackupJobReportSummaryPromotedCmd(flags *rootFlags) *cobra.Command {
 					return nil
 				}
 			}
-			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
+			formatData := data
+			if flags.csv || flags.plain {
+				formatData = outputData
+			}
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
 		},
 	}
 

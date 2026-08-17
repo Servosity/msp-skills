@@ -435,6 +435,18 @@ Manage dr backups
 - **`servosity-cli dr-backups read`** - Read
 - **`servosity-cli dr-backups update`** - Update a DR backup account.
 
+### export
+
+Manage export
+
+- **`servosity-cli export <resource>`** - Export paginated API data to a local file (JSONL or JSON).
+
+### fully-managed-companies
+
+Manage fully managed companies
+
+- **`servosity-cli fully-managed-companies`** - List fully-managed companies.
+
 ### issue-comments
 
 Manage issue comments
@@ -516,6 +528,39 @@ Manage users
 
 Pass `token` and `password` to set the user's password.
 
+### Self-learning loop
+
+The CLI keeps a local, private record of which question maps to which
+resource, so an agent that has answered a question once can skip rediscovery next
+time. Everything stays in the CLI's own SQLite store on your machine; nothing is
+uploaded. Disable it per-invocation with `--no-learn`, or for a whole session with
+`SERVOSITY_MSP_NO_LEARN=true`.
+
+- **`servosity-cli recall "<question>"`** - Check prior learnings for a question before running discovery. An empty match returns `{"found": false, "results": []}` with exit 0.
+- **`servosity-cli teach --query "<question>" --resource <id> --resource-type <type>`** - Record a question-to-resource mapping for future recall.
+- **`servosity-cli teach-pattern`** - Install a generalization rule so one teach covers a whole family of questions.
+- **`servosity-cli teach-lookup`** - Install a manual entity-lookup row (kind, canonical, value).
+- **`servosity-cli teach-playbook`** - Record a command playbook plus free-text notes for a question family.
+- **`servosity-cli playbook list`** / **`servosity-cli playbook amend`** - Inspect or append notes to stored playbooks.
+- **`servosity-cli learnings list`** - List recorded learnings.
+- **`servosity-cli learnings candidates`** - List auto-captured improvement candidates awaiting judgment.
+- **`servosity-cli learnings confirm`** / **`servosity-cli learnings reject`** - Accept or reject a candidate.
+- **`servosity-cli learnings forget "<question>"`** - Delete learnings matching a question.
+- **`servosity-cli learnings purge`** - Delete settled candidate rows.
+- **`servosity-cli learnings stats`** - Report loop effectiveness metrics from the local events table.
+
+```bash
+# Before discovery: has this question been answered before?
+servosity-cli recall "which companies have stale backups" --agent
+
+# After answering: record the mapping so next time is a single lookup
+servosity-cli teach --query "which companies have stale backups" \
+  --resource reports-stale-backup-sets --resource-type report
+```
+
+> The local store's schema stamp is one-way: once a binary carrying the
+> self-learning tables opens the database, an older servosity-cli refuses it. Keep
+> the CLI and the MCP server on the same version.
 
 ## Output Formats
 
