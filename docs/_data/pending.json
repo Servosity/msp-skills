@@ -49,11 +49,11 @@
     "released_hash": "sha256:d38c62044a6ebdadc8b90b338e28235c063aefb5d6e267b61d73daed9a5b7f3a"
   },
   "auvik": {
-    "state": "binary-pending",
-    "version": "0.1.1",
-    "latest_tag": "auvik-v0.1.1",
+    "state": "up-to-date",
+    "version": "0.2.0",
+    "latest_tag": "auvik-v0.2.0",
     "current_hash": "sha256:644f4892fc3fa3118e601cd3e3bdb03c049468e13a628a6d6bf99a3e76a1c7c1",
-    "released_hash": "sha256:fa27abf2801bc0cdfcbf17723b03f5659cd3e6c0ee6392a73b9549f9f189ffeb"
+    "released_hash": "sha256:644f4892fc3fa3118e601cd3e3bdb03c049468e13a628a6d6bf99a3e76a1c7c1"
   },
   "aws-billing": {
     "state": "binary-pending",
@@ -364,11 +364,11 @@
     "released_hash": "sha256:079bce372091d0a7f84cca6b32c8a2bad72282855be5feebe5208876ad4749dd"
   },
   "servosity": {
-    "state": "binary-pending",
-    "version": "0.4.0",
-    "latest_tag": "servosity-v0.4.0",
+    "state": "up-to-date",
+    "version": "0.5.0",
+    "latest_tag": "servosity-v0.5.0",
     "current_hash": "sha256:8c245c7e443a24c9cc80178a08a81600dd763163d32cb59f108c8e95ad603567",
-    "released_hash": "sha256:a48664a3ca0130b805cda6deb8215861aa9497e0f289c6809e616e4a3531ce6a"
+    "released_hash": "sha256:8c245c7e443a24c9cc80178a08a81600dd763163d32cb59f108c8e95ad603567"
   },
   "sherweb": {
     "state": "binary-pending",
