@@ -2,7 +2,7 @@ module rewst-pp-cli
 
 go 1.26
 
-toolchain go1.26.5
+toolchain go1.26.6
 
 require (
 	github.com/mark3labs/mcp-go v0.47.0
