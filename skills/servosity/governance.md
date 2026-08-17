@@ -26,15 +26,16 @@ Know exactly how writes are gated - the binary does NOT gate them for you:
   immediately unless you pass `--dry-run` first to preview the request without
   sending. Make your agent's policy: preview, show the exact command, get
   approval, then run the write.
-- **Prompts are skippable.** Where a command prompts interactively, `--yes`
-  (and `--agent`, which implies `--yes`) skips the prompt. The gate must live
+- **Prompts are skippable.** Where a command prompts interactively, an explicit
+  `--yes` skips the prompt; `--agent` does not imply `--yes`. The gate must live
   in your agent's policy, not in the binary's defaults.
 - **Read commands are always safe to run.** `attention`, `drift`,
   `stale-backups`, `backup-facts`, `search`, `qbr`, `fleet-health`,
   `unprovisioned`, `bill`, and `restore-queue watch` only read; `email-draft`
   writes nothing and sends nothing - it prints email bodies.
-- **Agent mode is explicit.** `--agent` produces JSON for scripting AND implies
-  `--yes`. It adds no write gating. See [AGENTS.md](./AGENTS.md).
+- **Agent mode is explicit.** `--agent` produces JSON for scripting and disables
+  interactive prompts; it does not imply `--yes`. It adds no write gating. See
+  [AGENTS.md](./AGENTS.md).
 
 ## Permission tiers
 

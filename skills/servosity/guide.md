@@ -207,13 +207,13 @@ Manage agent sessions
 
 Manage backup job report
 
-- **`servosity-cli backup-job-report <backup_destination_id> <backup_id> <backup_job_id> <backup_set_id>`** - View detailed backup report for a backup job and destination.
+- **`servosity-cli backup-job-report <backup_id> <backup_set_id> <backup_job_id> <backup_destination_id>`** - View detailed backup report for a backup job and destination.
 
 ### backup-job-report-summary
 
 Manage backup job report summary
 
-- **`servosity-cli backup-job-report-summary <backup_destination_id> <backup_id> <backup_job_id> <backup_set_id>`** - View summary backup report for a backup job and destination.
+- **`servosity-cli backup-job-report-summary <backup_id> <backup_set_id> <backup_job_id> <backup_destination_id>`** - View summary backup report for a backup job and destination.
 
 ### backup-job-status
 
