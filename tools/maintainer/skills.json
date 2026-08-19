@@ -432,7 +432,7 @@
       "cli_hash": "sha256:c88cb15e702a1307a94e78a7982df23e218c981631e6f38d3bcc007cbd8cb91a",
       "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:7700d37fcfecc6622c0c5f59ce9a5ef041329411a1db91a01b8fb009a9e042a9",
       "has_video": false,
       "install_auth_hint": "Then set your Cork API key: `export CORK_API_KEY=<your key>` (Cork portal > Settings > API Keys), and run `cork-cli doctor` to confirm it works",
       "live_verified": {
