@@ -1,35 +1,63 @@
 {
-  "slug": "cork",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. status: active = connector-only, a reprint would clobber it; upstreamed = also fixed in the press, a reprint from a fixed press regenerates it, but the back-port must still be present today.",
-  "handfixes": [
-    {
-      "id": "feedback-parent-has-examples",
-      "summary": "The `feedback` parent command carries an Example block, with the read-only `list` subcommand leading",
-      "why": "The press feedback parent template ships without an Examples section, which the Phase 5 dogfood gate flags as a finding. The example was hand-added and `list` deliberately leads so the first thing an operator copies is read-only rather than a write. A reprint from an unfixed press template drops the block and the dogfood finding returns.",
-      "status": "active",
-      "spec_encode_followup": "Add an Examples section to the press `feedback` parent template so it is emitted by construction (filed as a retro item against the generator).",
-      "asserts": [
+    "slug": "cork",
+    "doc": "docs/reprint-survival.md",
+    "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. status: active = connector-only, a reprint would clobber it; upstreamed = also fixed in the press, a reprint from a fixed press regenerates it, but the back-port must still be present today.",
+    "handfixes": [
         {
-          "file": "cli/internal/cli/feedback.go",
-          "contains": "Example: `  cork-cli feedback list",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "installer-setup-404-is-typed-not-failure",
-      "summary": "`software get-installer-setup` declares typed exit codes 0,3 so a 404 is a not-found answer rather than a command failure",
-      "why": "A vendor/package-manager pair with no installer setup configured on the tenant returns HTTP 404. Without the `pp:typed-exit-codes` annotation the generated command surfaces that as a generic failure, so an agent cannot distinguish 'this pair needs no setup' from 'the call broke'. Generated endpoint commands do not currently derive typed exit codes from declared 404 responses, so a reprint reverts this to an untyped failure.",
-      "status": "active",
-      "spec_encode_followup": "Derive `pp:typed-exit-codes` from the operation's declared 404 response in the press so endpoint commands get this by construction (filed as a retro item against the generator).",
-      "asserts": [
+            "id": "feedback-parent-has-examples",
+            "summary": "The `feedback` parent command carries an Example block, with the read-only `list` subcommand leading",
+            "why": "The press feedback parent template ships without an Examples section, which the Phase 5 dogfood gate flags as a finding. The example was hand-added and `list` deliberately leads so the first thing an operator copies is read-only rather than a write. A reprint from an unfixed press template drops the block and the dogfood finding returns.",
+            "status": "active",
+            "spec_encode_followup": "Add an Examples section to the press `feedback` parent template so it is emitted by construction (filed as a retro item against the generator).",
+            "asserts": [
+                {
+                    "file": "cli/internal/cli/feedback.go",
+                    "contains": "Example: `  cork-cli feedback list",
+                    "min_count": 1
+                }
+            ]
+        },
         {
-          "file": "cli/internal/cli/software_get-installer-setup.go",
-          "contains": "\"pp:typed-exit-codes\": \"0,3\"",
-          "min_count": 1
+            "id": "installer-setup-404-is-typed-not-failure",
+            "summary": "`software get-installer-setup` declares typed exit codes 0,3 so a 404 is a not-found answer rather than a command failure",
+            "why": "A vendor/package-manager pair with no installer setup configured on the tenant returns HTTP 404. Without the `pp:typed-exit-codes` annotation the generated command surfaces that as a generic failure, so an agent cannot distinguish 'this pair needs no setup' from 'the call broke'. Generated endpoint commands do not currently derive typed exit codes from declared 404 responses, so a reprint reverts this to an untyped failure.",
+            "status": "active",
+            "spec_encode_followup": "Derive `pp:typed-exit-codes` from the operation's declared 404 response in the press so endpoint commands get this by construction (filed as a retro item against the generator).",
+            "asserts": [
+                {
+                    "file": "cli/internal/cli/software_get-installer-setup.go",
+                    "contains": "\"pp:typed-exit-codes\": \"0,3\"",
+                    "min_count": 1
+                }
+            ]
+        },
+        {
+            "id": "mcp-tenant-gate-allows-ungated-invocation",
+            "summary": "the MCP tenant gate falls through to the tool handler when no platform source is registered, instead of default-denying every non-mirror tool",
+            "why": "cli.VerifyMCPInvocation returns (nil, nil) when registeredPlatformSource is nil, which means 'there is nothing to gate' - and no connector in this repo registers a platform source (registerPlatformSource has zero callers outside internal/cli/platform_client.go). The 4.30.1/4.30.2 gate read that nil session as a failure and answered 'MCP tenant gate is not configured' for every tool that is not a Cobra mirror. Cobra mirrors carry pp:tenant-gate = \"child-cli\" and pass through, so the damage was invisible in a tool count: 6 tools per connector were dead while the server still listed them. Those 6 are the entire offline-mirror surface (context, search, sql) plus the entire code-orchestration surface (<prefix>_search / _get / _execute) - exactly the capabilities this connector's own description says a plain read-only MCP does not ship. Measured over stdio before the fix: 6/6 returned isError with the gate message; after, all 6 reach their handler. Fixed upstream in cli-printing-press 4.30.3 (issue #4157, PR #4171); this is the surgical back-port, byte-identical to what 4.30.3 emits. TestMCPUngatedInvocationUsesRealVerifier is the regression test that ships with the 4.30.3 template: it drives the wrapper with the REAL verifier (not the fake the other two tests install) and fails if the handler is blocked. Reverting either the fall-through or the test fails check_handfixes.py.",
+            "status": "upstreamed",
+            "spec_encode_followup": "Already fixed in the press at 4.30.3 (mvanhorn/cli-printing-press#4171). A reprint on 4.30.3 or later regenerates both the fall-through and the conformance test, so this entry exists to keep the back-port from being dropped by a reprint on an older engine or by a regen-merge that resurrects the 4.30.2 body.",
+            "asserts": [
+                {
+                    "file": "cli/internal/mcp/platform_gate.go",
+                    "not_contains": "NewToolResultError(\"MCP tenant gate is not configured\")"
+                },
+                {
+                    "file": "cli/internal/mcp/platform_gate.go",
+                    "contains": "return next(ctx, request)",
+                    "min_count": 2
+                },
+                {
+                    "file": "cli/internal/mcp/platform_gate_test.go",
+                    "contains": "func TestMCPUngatedInvocationUsesRealVerifier(",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/mcp/platform_gate_test.go",
+                    "contains": "verifyFreshMCPInvocation = cli.VerifyMCPInvocation",
+                    "min_count": 1
+                }
+            ]
         }
-      ]
-    }
-  ]
+    ]
 }
