@@ -25,10 +25,13 @@ All notable changes to this skill are documented here. Format follows
 - Documented the **large/historical tenant playbook** across SKILL.md, guide.md, README, and the MCP `context` tool's `query_tips`: scope a heavy sync with a conditions filter (`sync --param "conditions=lastUpdated > [<iso>]"`), keep reads local (`--data-source local` / `--type`), and raise `--timeout` on big datasets. Corrected the prior claim that sync is incremental - ConnectWise list endpoints declare no temporal-filter parameter, so a plain sync re-fetches in full and `--since` has no effect on the sync itself (#146).
 - Regenerated on the printing-press 4.24.0 engine: more reliable fleet sync, corrected pagination across large result sets, robust numeric-ID handling, and dependency security updates. Same commands and workflows, sturdier local mirror.
 
-## [0.1.1] - unreleased
+## [0.1.1] - 2026-06-06
 
 ### Changed
-- Maintenance and packaging updates.
+
+- skill: connectwise-manage - ConnectWise Manage PSA connector UPDATE to 4.22.0 reprint, zero-review pipeline (#33)
+- fix(install): honor GITHUB_TOKEN/GH_TOKEN in fetch_stdout across all skills (#31)
+- feat(surfaces): generate every skill-enumerating surface; media on GitHub; Servosity live-verified (#21)
 
 ## [0.1.0]
 

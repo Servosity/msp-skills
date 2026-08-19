@@ -4,39 +4,32 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.3.1] - unreleased
+## [0.3.1] - 2026-08-17
 
-### Changed
-- Describe the changes in this release.
+### Security
 
-## [0.3.0] - unreleased
-
-### Added
-- `sync` now covers `application-files` and `maintenance`. Both are keyed by a parent
-  (an application, a computer) that the API requires as a query parameter, so a flat
-  sync could never fetch them and both tables stayed empty. Sync now walks each parent
-  already in the local store and fetches its children, running after the parent
-  resources so their ids are available. `applications hunt`'s trusted-file matching
-  reads `application-files`, so it works from a plain `sync` for the first time.
+- Go toolchain bumped to **go1.26.6**, which fixes **GO-2026-6218** (quadratic
+  complexity in `net/url`, reachable from `cliutil.ProbeReachable`). The
+  previously released binary was built with go1.26.5 and carried the advisory.
+  CI could not catch this: the workflows request `go-version: "1.26"`, which
+  resolves to the latest patched Go, so the security gate scanned a patched
+  toolchain while the build honoured the pinned one. See issue #210.
 
 ### Fixed
-- `doctor` told you to run `threatlocker-cli applications get` to confirm your token
-  worked. That command needs `--application-id`, so a bare run printed help and exited
-  0 without ever contacting the API, and a broken token looked fine. `doctor` now names
-  a command that actually makes a call, and a test drives every suggestion against a
-  fixture so a suggestion that cannot run fails the build. Reported by @geekbrownbear
-  in #217.
-- `reports` stored nothing. The endpoint returns report *categories* rather than
-  individual reports, and no row key was configured for that shape, so every row was
-  discarded.
-- `scheduled-actions` stored nothing and reported `HTTP 417 Invalid Scheduled Agent
-  Action Type provided` on every sync. Sync was calling a route that requires an action
-  type it cannot know; it now uses the paginated search endpoint, which needs no such
-  parameter.
+
+- **MCP tools are no longer default-denied.** Every tool that is not a Cobra
+  mirror - `search`, `sql`, `context`, and the `threatlocker_search` / `threatlocker_get` /
+  `threatlocker_execute` code-orchestration trio - returned
+  `MCP tenant gate is not configured` instead of running. The generated tenant
+  gate treated "no platform source registered" as a failure rather than as
+  "nothing to gate", and no connector registers one. The previously released
+  binary had 6 dead tools. See issue #249.
+
+## [0.3.0] - 2026-08-14
 
 ### Changed
-- `computers list`, `organizations list`, `applications search` and `approvals list`
-  cover the whole managed tree by default (carried forward from 0.2.0).
+
+- fix(threatlocker): sync the last four resources, and stop doctor recommending a command that cannot run (#227)
 
 ## [0.2.0]
 

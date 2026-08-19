@@ -4,10 +4,13 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.1] - unreleased
+## [0.1.1] - 2026-06-16
 
 ### Changed
-- Describe the changes in this release.
+
+- chore(deps): patch x/crypto, quic-go, x/sys in axcient + connectwise-control (#120)
+- chore(connectwise-control,rewst): pin toolchain go1.26.4 (patched stdlib) (#118)
+- feat(connectwise-control): new Remote Access connector (ConnectWise Control / ScreenConnect, press 4.24.0) (#99)
 
 ## [0.1.0]
 

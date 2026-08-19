@@ -4,10 +4,16 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.7] - unreleased
+## [0.1.7] - 2026-08-17
 
-### Changed
-- Describe the changes in this release.
+### Security
+
+- Go toolchain bumped to **go1.26.6**, which fixes **GO-2026-6218** (quadratic
+  complexity in `net/url`, reachable from `cliutil.ProbeReachable`). The
+  previously released binary was built with go1.26.5 and carried the advisory.
+  CI could not catch this: the workflows request `go-version: "1.26"`, which
+  resolves to the latest patched Go, so the security gate scanned a patched
+  toolchain while the build honoured the pinned one. See issue #210.
 
 ## [0.1.6] - 2026-07-10
 
@@ -17,32 +23,17 @@ All notable changes to this skill are documented here. Format follows
 ### Changed
 - Bumped the Go toolchain to go1.26.5 (clears the `crypto/tls` standard-library advisory GO-2026-5856).
 
-## [0.1.5] - unreleased
+## [0.1.5] - 2026-07-07
 
-### Fixed
-- `sync` now continues through NinjaOne `/v2/queries/*` report pages when the API
-  keeps the same `cursor.name` token but advances the cursor object's `offset`.
-  The loop still sends the valid cursor token to the API, but uses the offset as
-  the internal progress key so large report resources no longer stop at 200 rows
-  with `stuck_pagination`. Thanks to @Xenith-B for the live-tenant report (#179).
+### Changed
 
-## [0.1.4] - unreleased
+- fix(ninjaone): keep query object cursor paging advancing
 
-### Fixed
-- `sync` now stores correct rows for the four `/v2/queries/custom-fields*` report
-  variants, which previously cached **zero** rows. Like the rest of the
-  `/v2/queries/*` family these rows carry no top-level `id`, so the generic key
-  path skipped every one of them (`all_items_failed_id_extraction`). The source
-  API schema confirms the row shapes:
-  - `queries-custom-fields` / `queries-custom-fields-detailed` return one row per
-    device (all values packed into a `fields` map/array), so each now keys on
-    `deviceId`.
-  - `queries-scoped-custom-fields` / `queries-scoped-custom-fields-detailed`
-    return one row per (`scope`, `entityId`); since `entityId` is unique only
-    within a scope, each now keys on `entityId` plus a `scope` discriminator so a
-    device and an organization sharing an id never collapse together.
-  Offline SQL and full-text `search` now see these custom-field reports. This
-  completes the `/v2/queries/*` storage fix begun in 0.1.3. (#137)
+## [0.1.4] - 2026-06-18
+
+### Changed
+
+- fix(ninjaone): store the queries-custom-fields* report variants (#137) (#142)
 
 ## [0.1.3]
 
