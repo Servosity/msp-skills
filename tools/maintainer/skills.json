@@ -165,8 +165,8 @@
       "tagline": "Triage tickets, surface unbilled time, and project retainer burn by asking.",
       "cli_hash": "sha256:d38c62044a6ebdadc8b90b338e28235c063aefb5d6e267b61d73daed9a5b7f3a",
       "template_version": 3,
-      "version": "0.1.1",
-      "cli_hash_at_release": "sha256:d38c62044a6ebdadc8b90b338e28235c063aefb5d6e267b61d73daed9a5b7f3a",
+      "version": "0.1.2",
+      "cli_hash_at_release": "sha256:bee42d23b709bd008b36731eda435771b0d1c59c40b2610b38d662d24da62aea",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
