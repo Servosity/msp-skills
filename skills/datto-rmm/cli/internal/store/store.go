@@ -2340,6 +2340,15 @@ func (s *Store) UpsertSystem(data json.RawMessage) error {
 // path-item.
 var resourceIDFieldOverrides = map[string]string{
 	"activity-logs": "id",
+	// Datto RMM alerts key on `alertUid` and carry no id/uid/uuid/name field,
+	// so every generic fallback misses and the suffix fallback cannot help
+	// either: it probes "<resource>_id"-style keys against the resource name
+	// ("account-alerts-open"), never the "alert" stem, and only by direct
+	// snake_case map lookup. Result before this override: every alert row
+	// failed ID extraction and sync stored 0 of N (#258). The snake_case key
+	// resolves the camelCase JSON field via LookupFieldValue.
+	"account-alerts-open":     "alert_uid",
+	"account-alerts-resolved": "alert_uid",
 }
 
 // genericIDFieldFallbacks is the runtime safety net for resources that did
