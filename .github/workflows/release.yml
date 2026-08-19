@@ -103,11 +103,6 @@ jobs:
     needs: [security_gate]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Ensure release exists
         env:
           GH_TOKEN: ${{ github.token }}
@@ -116,30 +111,9 @@ jobs:
           set -euo pipefail
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists; reusing it."
-            exit 0
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes
           fi
-          # Release notes come from the SKILL'S OWN CHANGELOG, never
-          # --generate-notes.
-          #
-          # --generate-notes computes its range against the previous tag in the
-          # REPO. In a monorepo with per-skill tags that is some unrelated
-          # skill's tag, so the notes list every PR merged in between regardless
-          # of what it touched. zammad-v0.1.1 shipped notes advertising the
-          # auvik onboarding and a batch of CI work, footed with
-          # "compare/unifi-network-v0.1.0...zammad-v0.1.1" - accurate about the
-          # range, useless and misleading about the skill.
-          #
-          # The per-skill CHANGELOG section is the authoritative, human-written
-          # answer to "what changed in THIS connector", and release.py already
-          # maintains it.
-          slug="${TAG%-v*}"
-          version="${TAG##*-v}"
-          notes=$(python3 tools/maintainer/changelog_section.py --slug "$slug" --version "$version") || {
-            echo "::error::no usable CHANGELOG section for $slug $version"
-            exit 1
-          }
-          printf '%s\n' "$notes" > /tmp/release-notes.md
-          gh release create "$TAG" --title "$TAG" --notes-file /tmp/release-notes.md
 
   build:
     needs: [prepare, create-release, security_gate]
