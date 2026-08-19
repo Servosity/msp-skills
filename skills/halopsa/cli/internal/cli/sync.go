@@ -580,7 +580,7 @@ func syncResource(ctx context.Context, c interface {
 
 		// Try to extract items from the response.
 		// Strategy: try array first, then common wrapper keys.
-		items, nextCursor, hasMore := extractPageItems(data, pageSize.cursorParam)
+		items, nextCursor, hasMore := extractPageItems(resource, data, pageSize.cursorParam)
 
 		// Hand-wired: prefer Halo's reported result-set total over the
 		// "a full page means more pages" heuristic. Halo sets record_count to
@@ -626,7 +626,7 @@ func syncResource(ctx context.Context, c interface {
 		}
 
 		if len(items) == 0 {
-			if isEmptyPageResponse(data) {
+			if isEmptyPageResponse(resource, data) {
 				break
 			}
 			// Single object response - try to store as-is
@@ -1135,7 +1135,7 @@ func formatSyncSinceValue(value string, paramFormat string) string {
 // 2. Common wrapper keys: "data", "results", "items", "records", "nodes", "entries"
 // 3. JSend-style nested data envelopes: {"data":{"<resource>":[...]}}
 // It also extracts the next cursor from common response fields.
-func extractPageItems(data json.RawMessage, cursorParam string) ([]json.RawMessage, string, bool) {
+func extractPageItems(resource string, data json.RawMessage, cursorParam string) ([]json.RawMessage, string, bool) {
 	// Strategy 1: direct array
 	var items []json.RawMessage
 	if err := json.Unmarshal(data, &items); err == nil {
@@ -1146,6 +1146,14 @@ func extractPageItems(data json.RawMessage, cursorParam string) ([]json.RawMessa
 	var envelope map[string]json.RawMessage
 	if err := json.Unmarshal(data, &envelope); err != nil {
 		return nil, "", false
+	}
+
+	// HAND-FIX (handfixes.json: halo-envelope-declared-items-key). The spec
+	// DECLARES which property carries the rows; consult it before any guess.
+	// See resourceEnvelopeItemsKeys for why the guess is not good enough.
+	if items, ok := envelopeDeclaredItems(resource, envelope); ok {
+		nextCursor, hasMore := extractPaginationFromEnvelope(envelope, cursorParam)
+		return items, nextCursor, hasMore
 	}
 
 	if items, ok := extractItemsByKnownKeys(envelope); ok {
@@ -1262,7 +1270,7 @@ func isDryRunResponse(data json.RawMessage) bool {
 	return json.Unmarshal(raw, &v) == nil && v
 }
 
-func isEmptyPageResponse(data json.RawMessage) bool {
+func isEmptyPageResponse(resource string, data json.RawMessage) bool {
 	var direct []json.RawMessage
 	if err := json.Unmarshal(data, &direct); err == nil && !isJSONNull(data) {
 		return len(direct) == 0
@@ -1271,6 +1279,15 @@ func isEmptyPageResponse(data json.RawMessage) bool {
 	var envelope map[string]json.RawMessage
 	if err := json.Unmarshal(data, &envelope); err != nil {
 		return false
+	}
+
+	// HAND-FIX (handfixes.json: halo-envelope-declared-items-key). A declared
+	// row array that is present and empty is an authoritative "no rows on this
+	// page". Without this, `{"attachments":[],"folders":[]}` reached the
+	// single-object fallback and aborted the resource with "missing id for
+	// attachment" (#265).
+	if items, ok := envelopeDeclaredItems(resource, envelope); ok {
+		return len(items) == 0
 	}
 
 	if isEmptyPageEnvelope(envelope) {
@@ -3471,6 +3488,82 @@ var resourceIDFieldOverrides = map[string]string{
 // so APIs like Asana (gid) and Twilio (sid) don't fall through to a display
 // field and upsert on names — see #1394.
 var genericIDFieldFallbacks = []string{"id", "ID", "gid", "sid", "uid", "uuid", "guid", "name", "slug", "key", "code"}
+
+// resourceEnvelopeItemsKeys names the property that carries the row array in
+// each resource's DECLARED response envelope, taken from the OpenAPI schema
+// rather than inferred at runtime.
+//
+// HAND-FIX (handfixes.json: halo-envelope-declared-items-key). Halo answers a
+// list endpoint with a `<Entity>_View` object, not a bare array, and that
+// object carries sidecar arrays next to the rows: `columns` on most views,
+// `statuses`/`priorities`/`agents` on the ticket views, `folders` on
+// /Attachment, `actionsdetails` on /Actions. None of the generic strategies
+// can resolve that: the wrapper key is the resource's own name rather than
+// data/results/items, and extractSingleObjectArraySibling deliberately gives
+// up when more than one array is populated because it cannot tell rows from
+// sidecar.
+//
+// Until #265 that ambiguity was invisible, because Halo omits or empties the
+// sidecars unless they are asked for, leaving exactly one array and letting
+// the sibling scan land on it by luck. /Attachment is the endpoint that always
+// returns its sidecar: `folders` ships populated, the scan counted two arrays,
+// gave up, and the whole envelope fell through to the single-object path,
+// which failed the sync with "missing id for attachment" and stored nothing.
+// The other 22 resources here are one tenant configuration away from the same
+// silent break, so the fix is the table rather than a special case for
+// attachments. Reported in #265; see also #203, the same shape of silent
+// sync loss one layer up.
+//
+// Single-object endpoints (/Client/me, /Users/me) are deliberately ABSENT:
+// they return an entity, not a `_View`, and their nested arrays
+// (`attachments`, `customfields`) are fields of that entity. Unwrapping one
+// would break a resource that works today.
+var resourceEnvelopeItemsKeys = map[string]string{
+	"actions":           "actions",        // Actions_View
+	"asset":             "assets",         // Device_View
+	"attachment":        "attachments",    // Attachment_View
+	"automation":        "automations",    // Automation_View
+	"client-contract":   "contracts",      // ContractHeader_View
+	"clients":           "clients",        // Area_View
+	"config-commit":     "commits",        // ConfigCommit_View
+	"invoice":           "invoices",       // InvoiceHeader_View
+	"invoice-lines":     "invoices",       // InvoiceHeader_View
+	"kbarticle":         "articles",       // KBEntry_View
+	"opportunities":     "tickets",        // Faults_View
+	"projects":          "tickets",        // Faults_View
+	"purchase-order":    "purchaseorders", // SupplierOrderHeader_View
+	"quotation":         "quotes",         // QuotationHeader_View
+	"recurring-invoice": "invoices",       // InvoiceHeader_View
+	"report":            "reports",        // AnalyzerProfile_View
+	"sales-order":       "salesorders",    // OrderHead_View
+	"service":           "services",       // ServSite_View
+	"site":              "sites",          // Site_View
+	"supplier":          "suppliers",      // Company_View
+	"supplier-contract": "contracts",      // Contract_View
+	"tickets":           "tickets",        // Faults_View
+	"users":             "users",          // Users_View
+}
+
+// envelopeDeclaredItems returns the declared row array for resource. ok
+// reports that the resource declares an items key AND the envelope carries it
+// as a JSON array — including an EMPTY one, which authoritatively means "no
+// rows on this page" and must not be re-litigated by the guessing strategies
+// or by the single-object fallback.
+func envelopeDeclaredItems(resource string, envelope map[string]json.RawMessage) ([]json.RawMessage, bool) {
+	key, declared := resourceEnvelopeItemsKeys[resource]
+	if !declared {
+		return nil, false
+	}
+	raw, present := envelope[key]
+	if !present || isJSONNull(raw) {
+		return nil, false
+	}
+	var items []json.RawMessage
+	if err := json.Unmarshal(raw, &items); err != nil {
+		return nil, false
+	}
+	return items, true
+}
 
 // pageItemKeys is scanned in priority order; lowercase REST-convention keys
 // come first, PascalCase .NET variants second. Without the PascalCase row,
