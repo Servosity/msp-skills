@@ -56,6 +56,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - ConnectWise PSA (Manage) (PSA) - ask "Which tickets did we touch this week that have zero time logged against them?" - Triage boards, catch unbilled time, and prep QBRs by asking.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/connectwise-manage/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-manage/install.sh)
+- Cork (Security) - ask "Why did this client's risk score move, and which component drove it?" - Explain why a client's risk score moved, patch by what is actually exploited, and catch the connector that reports healthy while its data went stale.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/cork/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cork/install.sh)
 - Cove Data Protection (Backup/DR) - ask "Which devices failed their last backup since yesterday?" - Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal.
   Verification: Live-verified by @AvlCompCo (MSP) (2026-06-18). Page: https://msp-skills.compoundingteams.com/skills/cove/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cove/install.sh)
