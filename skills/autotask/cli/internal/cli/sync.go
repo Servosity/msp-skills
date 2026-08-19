@@ -968,10 +968,8 @@ func syncFetch(ctx context.Context, c interface {
 		return c.Get(ctx, path, params)
 	}
 	queryParams, body := splitSyncPostParams(resource, params)
-	if cursor != "" {
-		if err := appendIDWalkFilter(body, idWalk, cursor); err != nil {
-			return nil, err
-		}
+	if err := appendIDWalkFilter(body, idWalk, cursor); err != nil {
+		return nil, err
 	}
 	data, _, err := c.PostQueryWithParams(ctx, path, queryParams, body)
 	return data, err
@@ -981,9 +979,43 @@ func appendIDWalkFilter(body map[string]any, config idWalkConfig, cursor string)
 	if config.filterParam == "" || config.idField == "" {
 		return nil
 	}
-	filters, ok := coerceIDWalkFilters(body[config.filterParam])
+	raw, supplied := body[config.filterParam]
+	filters, ok := coerceIDWalkFilters(raw)
 	if !ok {
 		return fmt.Errorf("invalid id-walk filter %q: expected a JSON array", config.filterParam)
+	}
+	// Supplied but empty (`[]`, `null`, "", whitespace) is a caller error, not
+	// a licence to seed. An empty condition list matches no records, so quietly
+	// substituting the seed would turn an explicit request into a whole-tenant
+	// sync. The seed exists for the caller who supplied nothing at all.
+	if supplied && len(filters) == 0 {
+		return fmt.Errorf("empty id-walk filter %q: an empty condition list matches no records; omit the parameter to sync every record", config.filterParam)
+	}
+	if cursor == "" {
+		// First page. APIs whose query endpoint requires a filter reject a
+		// filterless body outright — Autotask answers HTTP 500 "Value cannot
+		// be null. Parameter name: filters" — so page 1 needs a seed with the
+		// same shape every later page already sends.
+		//
+		// An empty array is NOT a valid seed: the API matches records against
+		// the filter conditions, so zero conditions matches zero records and a
+		// sync that should have walked the whole entity silently reports 0 rows
+		// instead of erroring. Seeding the walk's own field keeps page 1
+		// all-inclusive (ids are positive) and consistent with the `gt cursor`
+		// condition used from page 2 on.
+		if len(filters) > 0 {
+			// Caller supplied conditions; leave them alone, but write back the
+			// coerced value so a --param override that arrived as a JSON string
+			// reaches the wire as a real array.
+			body[config.filterParam] = filters
+			return nil
+		}
+		body[config.filterParam] = []any{map[string]any{
+			"field": config.idField,
+			"op":    "gte",
+			"value": int64(0),
+		}}
+		return nil
 	}
 	body[config.filterParam] = append(filters, map[string]any{
 		"field": config.idField,
@@ -1015,7 +1047,10 @@ func coerceIDWalkFilters(value any) ([]any, bool) {
 		}
 		return nil, false
 	}
-	return nil, true
+	// Any other shape (object, number, bool) is a caller error, not "no
+	// filter". Reporting it as absent would let the first-page seed replace a
+	// caller's intended restriction and sync the entire tenant, so fail closed.
+	return nil, false
 }
 
 func coerceIDWalkValue(cursor string) any {
@@ -1044,7 +1079,34 @@ func splitSyncPostParams(resource string, params map[string]string) (map[string]
 			queryParams[key] = value
 		}
 	}
+	ensureIDWalkKeyField(resource, body, bodyParamWireNames)
 	return queryParams, body
+}
+
+// ensureIDWalkKeyField keeps the walk's key column in a field-restricted
+// request. `--param includeFields=companyName` otherwise returns rows with no
+// id: the store cannot key them and the walk stops after one page with an
+// id_walk_cursor_missing warning. Autotask additionally requires the id field
+// in a restricted-field query that matches more than 500 records.
+func ensureIDWalkKeyField(resource string, body map[string]any, wireNames map[string]string) {
+	config, usesIDWalk := syncResourceIDWalkConfig(resource)
+	if !usesIDWalk || config.idField == "" {
+		return
+	}
+	key := wireNames["includeFields"]
+	if key == "" {
+		key = "includeFields"
+	}
+	fields, ok := body[key].([]string)
+	if !ok || len(fields) == 0 {
+		return
+	}
+	for _, field := range fields {
+		if strings.EqualFold(field, config.idField) {
+			return
+		}
+	}
+	body[key] = append(append([]string(nil), fields...), config.idField)
 }
 
 func syncResourceMethod(resource string) string {
@@ -1681,6 +1743,16 @@ func coerceSyncBodyParam(value string, typ string) any {
 		if parsed, err := strconv.ParseBool(value); err == nil {
 			return parsed
 		}
+	case "array", "json_array":
+		// Mirrors the generated query command, which json.Unmarshals the same
+		// body field. Without this a --param/--resource-param override reaches
+		// the wire as the string "[...]" instead of a JSON array.
+		var parsed any
+		if err := json.Unmarshal([]byte(value), &parsed); err == nil {
+			return parsed
+		}
+	case "string_csv_array":
+		return cliutil.SplitCSV(value)
 	}
 	return value
 }
