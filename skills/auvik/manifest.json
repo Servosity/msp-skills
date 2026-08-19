@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "auvik-pp-mcp",
   "display_name": "Auvik",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
   "author": {
     "name": "Servosity Inc."

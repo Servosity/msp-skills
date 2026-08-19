@@ -40,7 +40,6 @@ person. Helps identify overloaded team members and unbalanced workload.`,
 				return fmt.Errorf("opening local database: %w\nRun 'servosity-cli sync' first.", err)
 			}
 			defer db.Close()
-
 			maybeEmitSyncHints(cmd, db, "", flags.maxAge)
 
 			// Build user name lookup from synced users
@@ -144,29 +143,26 @@ person. Helps identify overloaded team members and unbalanced workload.`,
 			}
 			sort.Slice(entries, func(i, j int) bool { return entries[i].Count > entries[j].Count })
 
-			if flags.asJSON {
-				shown := entries
-				if limit > 0 && len(shown) > limit {
-					shown = shown[:limit]
+			shown := entries
+			if limit > 0 && len(shown) > limit {
+				shown = shown[:limit]
+			}
+
+			if wantsMachineOutput(flags) {
+				if flags.csv || flags.plain || flags.quiet {
+					return printJSONFiltered(cmd.OutOrStdout(), shown, flags)
 				}
 				result := map[string]any{
 					"total_count":  total,
 					"showing":      len(shown),
 					"distribution": shown,
 				}
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(result)
+				return printJSONFiltered(cmd.OutOrStdout(), result, flags)
 			}
 
 			if len(entries) == 0 {
 				fmt.Fprintln(cmd.OutOrStdout(), "No items found. Run sync first.")
 				return nil
-			}
-
-			shown := entries
-			if limit > 0 && len(shown) > limit {
-				shown = shown[:limit]
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "Workload Distribution (%d total items, showing %d):\n\n", total, len(shown))
@@ -179,7 +175,7 @@ person. Helps identify overloaded team members and unbalanced workload.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/servosity-cli/data.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "SQLite database file path (default: resolved data directory data.db)")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum entries to show")
 
 	return cmd

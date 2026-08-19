@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "huntress-mcp",
   "display_name": "Huntress",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
   "author": {
     "name": "Servosity Inc."

@@ -60,6 +60,7 @@ if run python3 tools/maintainer/check_surface_coverage.py; then pass "surface co
 if run python3 tools/maintainer/check_media_block.py;     then pass "README media block";  else fail "README media block";  fi
 if run python3 tools/maintainer/check_handfixes.py;       then pass "hand-fix ledgers";    else fail "hand-fix ledgers";    fi
 if run python3 tools/maintainer/check_security_gate.py --all; then pass "security gate";   else fail "security gate";       fi
+if run python3 tools/maintainer/check_mcp_gate.py --all;  then pass "MCP tools callable";  else fail "MCP tools callable";  fi
 if run bash    tools/maintainer/ci_guards.sh;             then pass "repo hygiene guards"; else fail "repo hygiene guards"; fi
 
 echo "== Plugin manifest validation (claude plugin validate --strict) =="

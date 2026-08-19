@@ -5,7 +5,7 @@ description: "The first MSP-fleet CLI for backup. Every Servosity API endpoint a
 permalink: /skills/servosity/
 skill_name: "Servosity MCP"
 image: /assets/social/servosity/wide-1200x630.png
-verification: live-verified
+verification: awaiting
 faqs:
   - q: "Is there an MCP server for Servosity?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Servosity, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
@@ -41,7 +41,7 @@ howto:
 > Published by Servosity Inc. for MSP partners. Servosity is a trademark of
 > Servosity Inc.. Apache-2.0 licensed.
 
-**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-06-05.
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
 
 Yes - there is an MCP server for Servosity. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Servosity to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 

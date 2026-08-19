@@ -24,30 +24,57 @@ func newResticBackupsSnapshotLsResticBackupsCmd(flags *rootFlags) *cobra.Command
 			// Bare invocation of a command with required input prints help
 			// instead of pflag's terse "required flag not set" error. Optional-
 			// only read commands fall through so a bare call still executes.
-			if cmd.Flags().NFlag() == 0 && len(args) == 0 && !flags.dryRun {
+			// Machine callers (--json/--agent, which sets asJSON) get a usage
+			// error + exit 2 instead of silent exit-0 help, so an incomplete
+			// invocation is never mistaken for success.
+			if !hasChangedLocalFlags(cmd) && len(args) == 0 && !flags.dryRun {
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "requires input",
+						"usage": cmd.CommandPath() + " --help",
+					}, flags); printErr != nil {
+						return printErr
+					}
+					return usageErr(fmt.Errorf("%q requires input; run %q for usage", cmd.CommandPath(), cmd.CommandPath()+" --help"))
+				}
 				return cmd.Help()
 			}
 			if len(args) == 0 {
-				return cmd.Help()
+				// A missing required positional is a usage error in every output
+				// mode (matches command_promoted.go.tmpl). Machine callers
+				// (--json/--agent) also get a JSON error envelope on stdout;
+				// usageErr sets exit 2.
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "missing required argument",
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <id>"),
+					}, flags); printErr != nil {
+						return printErr
+					}
+				}
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <id>"))
 			}
 			if !cmd.Flags().Changed("snapshot-id") && !flags.dryRun {
 				return fmt.Errorf("required flag \"%s\" not set", "snapshot-id")
 			}
+			path := "/restic-backups/{id}/snapshot-ls/"
+			if len(args) < 1 || args[0] == "" {
+				return usageErr(fmt.Errorf("id is required\nUsage: %s <%s>", cmd.CommandPath(), "id"))
+			}
+			path = replacePathParam(path, "id", args[0])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/restic-backups/{id}/snapshot-ls/"
-			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			if flagSnapshotId != "" {
 				params["snapshot_id"] = formatCLIParamValue(flagSnapshotId)
 			}
-			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", "snapshot-ls", false, path, params, nil, cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "snapshot-ls", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
+			outputData := data
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope
@@ -55,7 +82,7 @@ func newResticBackupsSnapshotLsResticBackupsCmd(flags *rootFlags) *cobra.Command
 			// SYNC: keep this gate aligned with command_promoted.go.tmpl.
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var countItems []json.RawMessage
-				_ = json.Unmarshal(data, &countItems)
+				_ = json.Unmarshal(outputData, &countItems)
 				printProvenance(cmd, len(countItems), prov)
 			}
 			// For JSON output, wrap with provenance envelope before passing through flags.
@@ -68,9 +95,13 @@ func newResticBackupsSnapshotLsResticBackupsCmd(flags *rootFlags) *cobra.Command
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"agent_session": true, "agent_session_id": true, "bucket_name": true, "bucket_prefix": true, "checkcentral_check_id": true, "checkcentral_check_status": true, "company": true, "created_at": true, "device_name": true, "display_name": true, "encryption_key": true, "guarantee_eligible": true, "id": true, "notes": true, "product_type": true, "retention": true, "state": true, "url": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
+				if wrapErr != nil {
+					return wrapErr
+				}
+				wrapped, wrapErr = wrapPlatformStructuredOutput(wrapped, flags, "results", true)
 				if wrapErr != nil {
 					return wrapErr
 				}
@@ -79,7 +110,7 @@ func newResticBackupsSnapshotLsResticBackupsCmd(flags *rootFlags) *cobra.Command
 			// For all other output modes (table, csv, plain, quiet), use the standard pipeline
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var items []map[string]any
-				if json.Unmarshal(data, &items) == nil && len(items) > 0 {
+				if json.Unmarshal(outputData, &items) == nil && len(items) > 0 {
 					if err := printAutoTable(cmd.OutOrStdout(), items); err != nil {
 						return err
 					}
@@ -89,7 +120,11 @@ func newResticBackupsSnapshotLsResticBackupsCmd(flags *rootFlags) *cobra.Command
 					return nil
 				}
 			}
-			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
+			formatData := data
+			if flags.csv || flags.plain {
+				formatData = outputData
+			}
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"agent_session": true, "agent_session_id": true, "bucket_name": true, "bucket_prefix": true, "checkcentral_check_id": true, "checkcentral_check_status": true, "company": true, "created_at": true, "device_name": true, "display_name": true, "encryption_key": true, "guarantee_eligible": true, "id": true, "notes": true, "product_type": true, "retention": true, "state": true, "url": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagSnapshotId, "snapshot-id", "", "Snapshot id")

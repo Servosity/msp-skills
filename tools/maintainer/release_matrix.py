@@ -67,6 +67,7 @@ MACHINERY = (
     "tools/maintainer/registry.py",
     "tools/maintainer/check_cli_claims.py",
     "tools/maintainer/cli_hash.py",
+    "tools/maintainer/check_mcp_gate.py",
 )
 
 

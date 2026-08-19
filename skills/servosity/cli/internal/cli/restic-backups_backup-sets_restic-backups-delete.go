@@ -14,31 +14,45 @@ import (
 func newResticBackupsBackupSetsResticBackupsDeleteCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:     "restic-backups-delete <id> <resticbackup_pk>",
+		Use:     "restic-backups-delete <resticbackup_pk> <id>",
 		Aliases: []string{"delete"},
 		Short:   "Restic backups delete",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  servosity-cli restic-backups backup-sets restic-backups-delete 550e8400-e29b-41d4-a716-446655440000 example-value",
+		Example:     "  servosity-cli restic-backups backup-sets restic-backups-delete example-value 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "backup-sets.restic-backups-delete", "pp:method": "DELETE", "pp:path": "/restic-backups/{resticbackup_pk}/backup-sets/{id}/"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return cmd.Help()
+				// A missing required positional is a usage error in every output
+				// mode (matches command_promoted.go.tmpl). Machine callers
+				// (--json/--agent) also get a JSON error envelope on stdout;
+				// usageErr sets exit 2.
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "missing required argument",
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <resticbackup_pk> <id>"),
+					}, flags); printErr != nil {
+						return printErr
+					}
+				}
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <resticbackup_pk> <id>"))
 			}
+			path := "/restic-backups/{resticbackup_pk}/backup-sets/{id}/"
+			if len(args) < 2 || args[1] == "" {
+				return usageErr(fmt.Errorf("id is required\nUsage: %s <%s>", cmd.CommandPath(), "id"))
+			}
+			path = replacePathParam(path, "id", args[1])
+			if len(args) < 1 || args[0] == "" {
+				return usageErr(fmt.Errorf("resticbackup_pk is required\nUsage: %s <%s>", cmd.CommandPath(), "resticbackup_pk"))
+			}
+			path = replacePathParam(path, "resticbackup_pk", args[0])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/restic-backups/{resticbackup_pk}/backup-sets/{id}/"
-			path = replacePathParam(path, "id", args[0])
-			if len(args) < 2 {
-				return usageErr(fmt.Errorf("resticbackup_pk is required\nUsage: %s <%s>", cmd.CommandPath(), "resticbackup_pk"))
-			}
-			path = replacePathParam(path, "resticbackup_pk", args[1])
 			params := map[string]string{}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {
-				return classifyDeleteError(err, flags)
+				return classifyDeleteError(cmd.OutOrStdout(), err, flags)
 			}
 			// Inspect the mutate response body for a partial-failure-shaped
 			// field (e.g. Google Ads `partialFailureError`). Several Google
@@ -100,6 +114,9 @@ func newResticBackupsBackupSetsResticBackupsDeleteCmd(flags *rootFlags) *cobra.C
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -133,19 +150,31 @@ func newResticBackupsBackupSetsResticBackupsDeleteCmd(flags *rootFlags) *cobra.C
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, nil)
 				}
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {

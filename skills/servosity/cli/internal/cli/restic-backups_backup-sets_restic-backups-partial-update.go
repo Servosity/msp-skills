@@ -14,11 +14,11 @@ import (
 
 func newResticBackupsBackupSetsResticBackupsPartialUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodyExcludePaths string
-	var bodyId2 string
+	var bodyId2 int
 	var bodyName string
 	var bodyOneFileSystem bool
 	var bodyResticbackupDeviceName string
-	var bodyResticbackupId string
+	var bodyResticbackupId int
 	var bodyResticbackupProductType string
 	var bodySchedulePeriodMinutes int
 	var bodySourcePaths string
@@ -27,45 +27,73 @@ func newResticBackupsBackupSetsResticBackupsPartialUpdateCmd(flags *rootFlags) *
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:   "restic-backups-partial-update <id> <resticbackup_pk>",
+		Use:   "restic-backups-partial-update <resticbackup_pk> <id>",
 		Short: "Restic backups partial update",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  servosity-cli restic-backups backup-sets restic-backups-partial-update 550e8400-e29b-41d4-a716-446655440000 example-value --name example-resource",
+		Example:     "  servosity-cli restic-backups backup-sets restic-backups-partial-update example-value 550e8400-e29b-41d4-a716-446655440000 --name example-resource",
 		Annotations: map[string]string{"pp:endpoint": "backup-sets.restic-backups-partial-update", "pp:method": "PATCH", "pp:path": "/restic-backups/{resticbackup_pk}/backup-sets/{id}/"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
 			// instead of pflag's terse "required flag not set" error. Optional-
 			// only read commands fall through so a bare call still executes.
-			if cmd.Flags().NFlag() == 0 && len(args) == 0 && !flags.dryRun {
+			// Machine callers (--json/--agent, which sets asJSON) get a usage
+			// error + exit 2 instead of silent exit-0 help, so an incomplete
+			// invocation is never mistaken for success.
+			if !hasChangedLocalFlags(cmd) && len(args) == 0 && !flags.dryRun {
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "requires input",
+						"usage": cmd.CommandPath() + " --help",
+					}, flags); printErr != nil {
+						return printErr
+					}
+					return usageErr(fmt.Errorf("%q requires input; run %q for usage", cmd.CommandPath(), cmd.CommandPath()+" --help"))
+				}
 				return cmd.Help()
 			}
 			if len(args) == 0 {
-				return cmd.Help()
+				// A missing required positional is a usage error in every output
+				// mode (matches command_promoted.go.tmpl). Machine callers
+				// (--json/--agent) also get a JSON error envelope on stdout;
+				// usageErr sets exit 2.
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "missing required argument",
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <resticbackup_pk> <id>"),
+					}, flags); printErr != nil {
+						return printErr
+					}
+				}
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <resticbackup_pk> <id>"))
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("name") && !flags.dryRun {
 					return fmt.Errorf("required flag \"%s\" not set", "name")
 				}
-				if !cmd.Flags().Changed("resticbackup-device-name") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "resticbackup-device-name")
-				}
-				if !cmd.Flags().Changed("resticbackup-product-type") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "resticbackup-product-type")
+				if (cmd.Flags().Changed("resticbackup-device-name") || bodyResticbackupDeviceName != "") || (cmd.Flags().Changed("resticbackup-id") || bodyResticbackupId != 0) || (cmd.Flags().Changed("resticbackup-product-type") || bodyResticbackupProductType != "") {
+					if !cmd.Flags().Changed("resticbackup-device-name") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "resticbackup-device-name")
+					}
+					if !cmd.Flags().Changed("resticbackup-product-type") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "resticbackup-product-type")
+					}
 				}
 			}
+			path := "/restic-backups/{resticbackup_pk}/backup-sets/{id}/"
+			if len(args) < 2 || args[1] == "" {
+				return usageErr(fmt.Errorf("id is required\nUsage: %s <%s>", cmd.CommandPath(), "id"))
+			}
+			path = replacePathParam(path, "id", args[1])
+			if len(args) < 1 || args[0] == "" {
+				return usageErr(fmt.Errorf("resticbackup_pk is required\nUsage: %s <%s>", cmd.CommandPath(), "resticbackup_pk"))
+			}
+			path = replacePathParam(path, "resticbackup_pk", args[0])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/restic-backups/{resticbackup_pk}/backup-sets/{id}/"
-			path = replacePathParam(path, "id", args[0])
-			if len(args) < 2 {
-				return usageErr(fmt.Errorf("resticbackup_pk is required\nUsage: %s <%s>", cmd.CommandPath(), "resticbackup_pk"))
-			}
-			path = replacePathParam(path, "resticbackup_pk", args[1])
 			params := map[string]string{}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -77,58 +105,67 @@ func newResticBackupsBackupSetsResticBackupsPartialUpdateCmd(flags *rootFlags) *
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
-				if bodyExcludePaths != "" {
+				bodyMap := map[string]any{}
+				body = bodyMap
+				if cmd.Flags().Changed("exclude-paths") || bodyExcludePaths != "" {
 					var parsedExcludePaths any
 					if err := json.Unmarshal([]byte(bodyExcludePaths), &parsedExcludePaths); err != nil {
 						return fmt.Errorf("parsing --exclude-paths JSON: %w", err)
 					}
-					body["exclude_paths"] = parsedExcludePaths
+					asArray, ok := parsedExcludePaths.([]any)
+					if !ok {
+						return fmt.Errorf("--exclude-paths must be a JSON array, got JSON %T", parsedExcludePaths)
+					}
+					bodyMap["exclude_paths"] = asArray
 				}
-				if bodyId2 != "" {
-					body["id"] = bodyId2
+				if cmd.Flags().Changed("id-2") || bodyId2 != 0 {
+					bodyMap["id"] = bodyId2
 				}
-				if bodyName != "" {
-					body["name"] = bodyName
+				if cmd.Flags().Changed("name") || bodyName != "" {
+					bodyMap["name"] = bodyName
 				}
 				if cmd.Flags().Changed("one-file-system") {
-					body["one_file_system"] = bodyOneFileSystem
+					bodyMap["one_file_system"] = bodyOneFileSystem
 				}
 				{
 					nestedResticbackup := map[string]any{}
-					if bodyResticbackupDeviceName != "" {
+					if cmd.Flags().Changed("resticbackup-device-name") || bodyResticbackupDeviceName != "" {
 						nestedResticbackup["device_name"] = bodyResticbackupDeviceName
 					}
-					if bodyResticbackupId != "" {
+					if cmd.Flags().Changed("resticbackup-id") || bodyResticbackupId != 0 {
 						nestedResticbackup["id"] = bodyResticbackupId
 					}
-					if bodyResticbackupProductType != "" {
+					if cmd.Flags().Changed("resticbackup-product-type") || bodyResticbackupProductType != "" {
 						nestedResticbackup["product_type"] = bodyResticbackupProductType
 					}
 					if len(nestedResticbackup) > 0 {
-						body["resticbackup"] = nestedResticbackup
+						bodyMap["resticbackup"] = nestedResticbackup
 					}
 				}
-				if bodySchedulePeriodMinutes != 0 {
-					body["schedule_period_minutes"] = bodySchedulePeriodMinutes
+				if cmd.Flags().Changed("schedule-period-minutes") || bodySchedulePeriodMinutes != 0 {
+					bodyMap["schedule_period_minutes"] = bodySchedulePeriodMinutes
 				}
-				if bodySourcePaths != "" {
+				if cmd.Flags().Changed("source-paths") || bodySourcePaths != "" {
 					var parsedSourcePaths any
 					if err := json.Unmarshal([]byte(bodySourcePaths), &parsedSourcePaths); err != nil {
 						return fmt.Errorf("parsing --source-paths JSON: %w", err)
 					}
-					body["source_paths"] = parsedSourcePaths
+					asArray, ok := parsedSourcePaths.([]any)
+					if !ok {
+						return fmt.Errorf("--source-paths must be a JSON array, got JSON %T", parsedSourcePaths)
+					}
+					bodyMap["source_paths"] = asArray
 				}
 				if cmd.Flags().Changed("use-fs-snapshot") {
-					body["use_fs_snapshot"] = bodyUseFsSnapshot
+					bodyMap["use_fs_snapshot"] = bodyUseFsSnapshot
 				}
-				if bodyWindowsNetworkShareCredential != 0 {
-					body["windows_network_share_credential"] = bodyWindowsNetworkShareCredential
+				if cmd.Flags().Changed("windows-network-share-credential") || bodyWindowsNetworkShareCredential != 0 {
+					bodyMap["windows_network_share_credential"] = bodyWindowsNetworkShareCredential
 				}
 			}
 			data, statusCode, err := c.PatchWithParams(cmd.Context(), path, params, body)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			// Inspect the mutate response body for a partial-failure-shaped
 			// field (e.g. Google Ads `partialFailureError`). Several Google
@@ -193,6 +230,9 @@ func newResticBackupsBackupSetsResticBackupsPartialUpdateCmd(flags *rootFlags) *
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -226,19 +266,31 @@ func newResticBackupsBackupSetsResticBackupsPartialUpdateCmd(flags *rootFlags) *
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"exclude_paths": true, "id": true, "name": true, "one_file_system": true, "resticbackup": true, "schedule_period_minutes": true, "source_paths": true, "use_fs_snapshot": true, "windows_network_share_credential": true})
 				}
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {
@@ -263,11 +315,11 @@ func newResticBackupsBackupSetsResticBackupsPartialUpdateCmd(flags *rootFlags) *
 		},
 	}
 	cmd.Flags().StringVar(&bodyExcludePaths, "exclude-paths", "", "Exclude paths")
-	cmd.Flags().StringVar(&bodyId2, "id-2", "", "Id")
+	cmd.Flags().IntVar(&bodyId2, "id-2", 0, "Id")
 	cmd.Flags().StringVar(&bodyName, "name", "", "Name")
 	cmd.Flags().BoolVar(&bodyOneFileSystem, "one-file-system", false, "One file system")
 	cmd.Flags().StringVar(&bodyResticbackupDeviceName, "resticbackup-device-name", "", "Device name")
-	cmd.Flags().StringVar(&bodyResticbackupId, "resticbackup-id", "", "Id")
+	cmd.Flags().IntVar(&bodyResticbackupId, "resticbackup-id", 0, "Id")
 	cmd.Flags().StringVar(&bodyResticbackupProductType, "resticbackup-product-type", "", "Product type")
 	cmd.Flags().IntVar(&bodySchedulePeriodMinutes, "schedule-period-minutes", 0, "Schedule period minutes")
 	cmd.Flags().StringVar(&bodySourcePaths, "source-paths", "", "Source paths")

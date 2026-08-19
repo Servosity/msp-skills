@@ -11,7 +11,7 @@ func newResticBackupsResticInterruptCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "restic-interrupt",
 		Short:       "Create restic interrupt for restic backups",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 

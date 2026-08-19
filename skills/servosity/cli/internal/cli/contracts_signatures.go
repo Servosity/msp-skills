@@ -22,19 +22,19 @@ func newContractsSignaturesCmd(flags *rootFlags) *cobra.Command {
 		Example:     "  servosity-cli contracts signatures",
 		Annotations: map[string]string{"pp:endpoint": "contracts.signatures", "pp:method": "GET", "pp:path": "/contracts/signatures/", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			path := "/contracts/signatures/"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/contracts/signatures/"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "contracts", path, map[string]string{
 				"page":      formatCLIParamValue(flagPage),
 				"page_size": formatCLIParamValue(flagPageSize),
-			}, nil, flagAll, "page", "page", "page_size", "", "", cmd.ErrOrStderr())
+			}, nil, flagAll, "page", "page", "page_size", 0, "", "", "results", cmd.ErrOrStderr())
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
+			outputData := collectionItemsForOutput(data, path)
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope
@@ -42,7 +42,7 @@ func newContractsSignaturesCmd(flags *rootFlags) *cobra.Command {
 			// SYNC: keep this gate aligned with command_promoted.go.tmpl.
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var countItems []json.RawMessage
-				_ = json.Unmarshal(data, &countItems)
+				_ = json.Unmarshal(outputData, &countItems)
 				printProvenance(cmd, len(countItems), prov)
 			}
 			// For JSON output, wrap with provenance envelope before passing through flags.
@@ -55,9 +55,13 @@ func newContractsSignaturesCmd(flags *rootFlags) *cobra.Command {
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"body": true, "created_at": true, "finalized_at": true, "identifier": true, "title": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
+				if wrapErr != nil {
+					return wrapErr
+				}
+				wrapped, wrapErr = wrapPlatformStructuredOutput(wrapped, flags, "results", true)
 				if wrapErr != nil {
 					return wrapErr
 				}
@@ -66,7 +70,7 @@ func newContractsSignaturesCmd(flags *rootFlags) *cobra.Command {
 			// For all other output modes (table, csv, plain, quiet), use the standard pipeline
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var items []map[string]any
-				if json.Unmarshal(data, &items) == nil && len(items) > 0 {
+				if json.Unmarshal(outputData, &items) == nil && len(items) > 0 {
 					if err := printAutoTable(cmd.OutOrStdout(), items); err != nil {
 						return err
 					}
@@ -76,7 +80,11 @@ func newContractsSignaturesCmd(flags *rootFlags) *cobra.Command {
 					return nil
 				}
 			}
-			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
+			formatData := data
+			if flags.csv || flags.plain {
+				formatData = outputData
+			}
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"body": true, "created_at": true, "finalized_at": true, "identifier": true, "title": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagPage, "page", "", "A page number within the paginated result set.")

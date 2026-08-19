@@ -14,27 +14,51 @@ import (
 
 func newResticBackupsBackupSetsResticBackupsExcludePathsToggleCaseSensitiveCmd(flags *rootFlags) *cobra.Command {
 	var bodyCaseSensitive bool
-	var bodyId2 string
+	var bodyId2 int
 	var bodyPath string
 	var bodyResticbackupset int
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "restic-backups-exclude-paths-toggle-case-sensitive <id> <resticbackup_pk> <resticbackupset_pk>",
+		Use:     "restic-backups-exclude-paths-toggle-case-sensitive <resticbackup_pk> <resticbackupset_pk> <id>",
 		Aliases: []string{"update"},
 		Short:   "Restic backups exclude paths toggle case sensitive",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  servosity-cli restic-backups backup-sets restic-backups-exclude-paths-toggle-case-sensitive 550e8400-e29b-41d4-a716-446655440000 example-value example-value --path example-value",
+		Example:     "  servosity-cli restic-backups backup-sets restic-backups-exclude-paths-toggle-case-sensitive example-value example-value 550e8400-e29b-41d4-a716-446655440000 --path example-value",
 		Annotations: map[string]string{"pp:endpoint": "backup-sets.restic-backups-exclude-paths-toggle-case-sensitive", "pp:method": "PUT", "pp:path": "/restic-backups/{resticbackup_pk}/backup-sets/{resticbackupset_pk}/exclude-paths/{id}/toggle-case-sensitive/"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
 			// instead of pflag's terse "required flag not set" error. Optional-
 			// only read commands fall through so a bare call still executes.
-			if cmd.Flags().NFlag() == 0 && len(args) == 0 && !flags.dryRun {
+			// Machine callers (--json/--agent, which sets asJSON) get a usage
+			// error + exit 2 instead of silent exit-0 help, so an incomplete
+			// invocation is never mistaken for success.
+			if !hasChangedLocalFlags(cmd) && len(args) == 0 && !flags.dryRun {
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "requires input",
+						"usage": cmd.CommandPath() + " --help",
+					}, flags); printErr != nil {
+						return printErr
+					}
+					return usageErr(fmt.Errorf("%q requires input; run %q for usage", cmd.CommandPath(), cmd.CommandPath()+" --help"))
+				}
 				return cmd.Help()
 			}
 			if len(args) == 0 {
-				return cmd.Help()
+				// A missing required positional is a usage error in every output
+				// mode (matches command_promoted.go.tmpl). Machine callers
+				// (--json/--agent) also get a JSON error envelope on stdout;
+				// usageErr sets exit 2.
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "missing required argument",
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <resticbackup_pk> <resticbackupset_pk> <id>"),
+					}, flags); printErr != nil {
+						return printErr
+					}
+				}
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <resticbackup_pk> <resticbackupset_pk> <id>"))
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("path") && !flags.dryRun {
@@ -44,23 +68,25 @@ func newResticBackupsBackupSetsResticBackupsExcludePathsToggleCaseSensitiveCmd(f
 					return fmt.Errorf("required flag \"%s\" not set", "resticbackupset")
 				}
 			}
+			path := "/restic-backups/{resticbackup_pk}/backup-sets/{resticbackupset_pk}/exclude-paths/{id}/toggle-case-sensitive/"
+			if len(args) < 3 || args[2] == "" {
+				return usageErr(fmt.Errorf("id is required\nUsage: %s <%s>", cmd.CommandPath(), "id"))
+			}
+			path = replacePathParam(path, "id", args[2])
+			if len(args) < 1 || args[0] == "" {
+				return usageErr(fmt.Errorf("resticbackup_pk is required\nUsage: %s <%s>", cmd.CommandPath(), "resticbackup_pk"))
+			}
+			path = replacePathParam(path, "resticbackup_pk", args[0])
+			if len(args) < 2 || args[1] == "" {
+				return usageErr(fmt.Errorf("resticbackupset_pk is required\nUsage: %s <%s>", cmd.CommandPath(), "resticbackupset_pk"))
+			}
+			path = replacePathParam(path, "resticbackupset_pk", args[1])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/restic-backups/{resticbackup_pk}/backup-sets/{resticbackupset_pk}/exclude-paths/{id}/toggle-case-sensitive/"
-			path = replacePathParam(path, "id", args[0])
-			if len(args) < 2 {
-				return usageErr(fmt.Errorf("resticbackup_pk is required\nUsage: %s <%s>", cmd.CommandPath(), "resticbackup_pk"))
-			}
-			path = replacePathParam(path, "resticbackup_pk", args[1])
-			if len(args) < 3 {
-				return usageErr(fmt.Errorf("resticbackupset_pk is required\nUsage: %s <%s>", cmd.CommandPath(), "resticbackupset_pk"))
-			}
-			path = replacePathParam(path, "resticbackupset_pk", args[2])
 			params := map[string]string{}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -72,23 +98,24 @@ func newResticBackupsBackupSetsResticBackupsExcludePathsToggleCaseSensitiveCmd(f
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
+				bodyMap := map[string]any{}
+				body = bodyMap
 				if cmd.Flags().Changed("case-sensitive") {
-					body["case_sensitive"] = bodyCaseSensitive
+					bodyMap["case_sensitive"] = bodyCaseSensitive
 				}
-				if bodyId2 != "" {
-					body["id"] = bodyId2
+				if cmd.Flags().Changed("id-2") || bodyId2 != 0 {
+					bodyMap["id"] = bodyId2
 				}
-				if bodyPath != "" {
-					body["path"] = bodyPath
+				if cmd.Flags().Changed("path") || bodyPath != "" {
+					bodyMap["path"] = bodyPath
 				}
-				if bodyResticbackupset != 0 {
-					body["resticbackupset"] = bodyResticbackupset
+				if cmd.Flags().Changed("resticbackupset") || bodyResticbackupset != 0 {
+					bodyMap["resticbackupset"] = bodyResticbackupset
 				}
 			}
 			data, statusCode, err := c.PutWithParams(cmd.Context(), path, params, body)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			// Inspect the mutate response body for a partial-failure-shaped
 			// field (e.g. Google Ads `partialFailureError`). Several Google
@@ -153,6 +180,9 @@ func newResticBackupsBackupSetsResticBackupsExcludePathsToggleCaseSensitiveCmd(f
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -186,19 +216,31 @@ func newResticBackupsBackupSetsResticBackupsExcludePathsToggleCaseSensitiveCmd(f
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"case_sensitive": true, "id": true, "path": true, "resticbackupset": true})
 				}
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {
@@ -223,7 +265,7 @@ func newResticBackupsBackupSetsResticBackupsExcludePathsToggleCaseSensitiveCmd(f
 		},
 	}
 	cmd.Flags().BoolVar(&bodyCaseSensitive, "case-sensitive", false, "Case sensitive")
-	cmd.Flags().StringVar(&bodyId2, "id-2", "", "Id")
+	cmd.Flags().IntVar(&bodyId2, "id-2", 0, "Id")
 	cmd.Flags().StringVar(&bodyPath, "path", "", "Path")
 	cmd.Flags().IntVar(&bodyResticbackupset, "resticbackupset", 0, "Resticbackupset")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")

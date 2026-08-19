@@ -15,7 +15,7 @@ import (
 func newCompaniesRestoreQueuesCompaniesUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodyAgentRestoreUrl string
 	var bodyAgentSession string
-	var bodyCompanyId string
+	var bodyCompanyId int
 	var bodyCompanyName string
 	var bodyCompanyUrl string
 	var bodyCreatedAt string
@@ -37,30 +37,58 @@ func newCompaniesRestoreQueuesCompaniesUpdateCmd(flags *rootFlags) *cobra.Comman
 			// Bare invocation of a command with required input prints help
 			// instead of pflag's terse "required flag not set" error. Optional-
 			// only read commands fall through so a bare call still executes.
-			if cmd.Flags().NFlag() == 0 && len(args) == 0 && !flags.dryRun {
+			// Machine callers (--json/--agent, which sets asJSON) get a usage
+			// error + exit 2 instead of silent exit-0 help, so an incomplete
+			// invocation is never mistaken for success.
+			if !hasChangedLocalFlags(cmd) && len(args) == 0 && !flags.dryRun {
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "requires input",
+						"usage": cmd.CommandPath() + " --help",
+					}, flags); printErr != nil {
+						return printErr
+					}
+					return usageErr(fmt.Errorf("%q requires input; run %q for usage", cmd.CommandPath(), cmd.CommandPath()+" --help"))
+				}
 				return cmd.Help()
 			}
 			if len(args) == 0 {
-				return cmd.Help()
+				// A missing required positional is a usage error in every output
+				// mode (matches command_promoted.go.tmpl). Machine callers
+				// (--json/--agent) also get a JSON error envelope on stdout;
+				// usageErr sets exit 2.
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "missing required argument",
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <company_pk> <id>"),
+					}, flags); printErr != nil {
+						return printErr
+					}
+				}
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <company_pk> <id>"))
 			}
 			if !stdinBody {
-				if !cmd.Flags().Changed("company-name") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "company-name")
+				if (cmd.Flags().Changed("company-id") || bodyCompanyId != 0) || (cmd.Flags().Changed("company-name") || bodyCompanyName != "") || (cmd.Flags().Changed("company-url") || bodyCompanyUrl != "") {
+					if !cmd.Flags().Changed("company-name") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "company-name")
+					}
 				}
 			}
+			path := "/companies/{company_pk}/restore-queues/{id}/"
+			if len(args) < 1 || args[0] == "" {
+				return usageErr(fmt.Errorf("company_pk is required\nUsage: %s <%s>", cmd.CommandPath(), "company_pk"))
+			}
+			path = replacePathParam(path, "company_pk", args[0])
+			if len(args) < 2 || args[1] == "" {
+				return usageErr(fmt.Errorf("id is required\nUsage: %s <%s>", cmd.CommandPath(), "id"))
+			}
+			path = replacePathParam(path, "id", args[1])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/companies/{company_pk}/restore-queues/{id}/"
-			path = replacePathParam(path, "company_pk", args[0])
-			if len(args) < 2 {
-				return usageErr(fmt.Errorf("id is required\nUsage: %s <%s>", cmd.CommandPath(), "id"))
-			}
-			path = replacePathParam(path, "id", args[1])
 			params := map[string]string{}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -72,53 +100,54 @@ func newCompaniesRestoreQueuesCompaniesUpdateCmd(flags *rootFlags) *cobra.Comman
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
-				if bodyAgentRestoreUrl != "" {
-					body["agent_restore_url"] = bodyAgentRestoreUrl
+				bodyMap := map[string]any{}
+				body = bodyMap
+				if cmd.Flags().Changed("agent-restore-url") || bodyAgentRestoreUrl != "" {
+					bodyMap["agent_restore_url"] = bodyAgentRestoreUrl
 				}
-				if bodyAgentSession != "" {
-					body["agent_session"] = bodyAgentSession
+				if cmd.Flags().Changed("agent-session") || bodyAgentSession != "" {
+					bodyMap["agent_session"] = bodyAgentSession
 				}
 				{
 					nestedCompany := map[string]any{}
-					if bodyCompanyId != "" {
+					if cmd.Flags().Changed("company-id") || bodyCompanyId != 0 {
 						nestedCompany["id"] = bodyCompanyId
 					}
-					if bodyCompanyName != "" {
+					if cmd.Flags().Changed("company-name") || bodyCompanyName != "" {
 						nestedCompany["name"] = bodyCompanyName
 					}
-					if bodyCompanyUrl != "" {
+					if cmd.Flags().Changed("company-url") || bodyCompanyUrl != "" {
 						nestedCompany["url"] = bodyCompanyUrl
 					}
 					if len(nestedCompany) > 0 {
-						body["company"] = nestedCompany
+						bodyMap["company"] = nestedCompany
 					}
 				}
-				if bodyCreatedAt != "" {
-					body["created_at"] = bodyCreatedAt
+				if cmd.Flags().Changed("created-at") || bodyCreatedAt != "" {
+					bodyMap["created_at"] = bodyCreatedAt
 				}
-				if bodyFinishedAt != "" {
-					body["finished_at"] = bodyFinishedAt
+				if cmd.Flags().Changed("finished-at") || bodyFinishedAt != "" {
+					bodyMap["finished_at"] = bodyFinishedAt
 				}
-				if bodyId2 != "" {
-					body["id"] = bodyId2
+				if cmd.Flags().Changed("id-2") || bodyId2 != "" {
+					bodyMap["id"] = bodyId2
 				}
-				if bodyJobs != "" {
-					body["jobs"] = bodyJobs
+				if cmd.Flags().Changed("jobs") || bodyJobs != "" {
+					bodyMap["jobs"] = bodyJobs
 				}
-				if bodyName != "" {
-					body["name"] = bodyName
+				if cmd.Flags().Changed("name") || bodyName != "" {
+					bodyMap["name"] = bodyName
 				}
-				if bodyRestoreQueueWebLoginUrl != "" {
-					body["restore_queue_web_login_url"] = bodyRestoreQueueWebLoginUrl
+				if cmd.Flags().Changed("restore-queue-web-login-url") || bodyRestoreQueueWebLoginUrl != "" {
+					bodyMap["restore_queue_web_login_url"] = bodyRestoreQueueWebLoginUrl
 				}
-				if bodyTarget != "" {
-					body["target"] = bodyTarget
+				if cmd.Flags().Changed("target") || bodyTarget != "" {
+					bodyMap["target"] = bodyTarget
 				}
 			}
 			data, statusCode, err := c.PutWithParams(cmd.Context(), path, params, body)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			// Inspect the mutate response body for a partial-failure-shaped
 			// field (e.g. Google Ads `partialFailureError`). Several Google
@@ -183,6 +212,9 @@ func newCompaniesRestoreQueuesCompaniesUpdateCmd(flags *rootFlags) *cobra.Comman
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -216,19 +248,31 @@ func newCompaniesRestoreQueuesCompaniesUpdateCmd(flags *rootFlags) *cobra.Comman
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"agent_restore_url": true, "agent_session": true, "company": true, "created_at": true, "finished_at": true, "id": true, "jobs": true, "name": true, "restore_queue_web_login_url": true, "target": true})
 				}
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {
@@ -254,7 +298,7 @@ func newCompaniesRestoreQueuesCompaniesUpdateCmd(flags *rootFlags) *cobra.Comman
 	}
 	cmd.Flags().StringVar(&bodyAgentRestoreUrl, "agent-restore-url", "", "Agent restore url")
 	cmd.Flags().StringVar(&bodyAgentSession, "agent-session", "", "Agent session")
-	cmd.Flags().StringVar(&bodyCompanyId, "company-id", "", "Id")
+	cmd.Flags().IntVar(&bodyCompanyId, "company-id", 0, "Id")
 	cmd.Flags().StringVar(&bodyCompanyName, "company-name", "", "Name")
 	cmd.Flags().StringVar(&bodyCompanyUrl, "company-url", "", "Url")
 	cmd.Flags().StringVar(&bodyCreatedAt, "created-at", "", "Created at")

@@ -163,7 +163,7 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
   Verification: Live-verified by a real MSP (2026-06-16). Page: https://msp-skills.compoundingteams.com/skills/sentinelone/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sentinelone/install.sh)
 - Servosity (Backup/DR) - ask "Where is my attention needed today, ranked worst-first?" - Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.
-  Verification: Live-verified by Servosity (maintainer) (2026-06-05). Page: https://msp-skills.compoundingteams.com/skills/servosity/
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/servosity/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
 - Sherweb (Billing) - ask "What is my net margin per customer this month - receivable minus payable?" - Reconcile what you owe Sherweb against what customers owe you and surface true net margin per customer.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/sherweb/
@@ -190,13 +190,13 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/veeam/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/veeam/install.sh)
 - WordPress (Marketing) - ask "Publish a landing page from HTML without opening wp-admin?" - 
-  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/wordpress/
+  Verification: Live-verified by Servosity (maintainer) (2026-08-16). Page: https://msp-skills.compoundingteams.com/skills/wordpress/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/wordpress/install.sh)
 - Xero (Billing) - ask "Who owes us, and how overdue is each invoice?" - Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal - offline, in one call.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/xero/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/xero/install.sh)
 - Zammad (PSA) - ask "Who on the team is overloaded, and who is idle?" - Read, search, and triage Zammad tickets and Knowledge Base, plus team-management analytics the API can't answer in one call.
-  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/zammad/
+  Verification: Live-verified by Servosity (maintainer) (2026-08-16). Page: https://msp-skills.compoundingteams.com/skills/zammad/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zammad/install.sh)
 
 ## Key pages

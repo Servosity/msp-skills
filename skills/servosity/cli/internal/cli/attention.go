@@ -118,7 +118,7 @@ runs of 'drift' can compute day-over-day changes.`,
 					return fmt.Errorf("resolving reseller ID: %w", err)
 				}
 				if err := countIssuesPaged(cmd.Context(), c, fmt.Sprintf("/resellers/%d/issues/", resellerID), agg); err != nil {
-					return classifyAPIError(err, flags)
+					return classifyAPIError(cmd.OutOrStdout(), err, flags)
 				}
 				// Hydrate per-backup freshness so the stale source is live.
 				if _, _, herr := hydrateLastSuccess(ctx, c, db); herr != nil {

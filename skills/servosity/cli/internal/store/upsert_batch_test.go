@@ -185,7 +185,7 @@ func TestUpsertBatch_GenericFallbackList(t *testing.T) {
 	}
 	defer s.Close()
 
-	for _, key := range []string{"id", "ID", "gid", "sid", "uid", "uuid", "guid", "name", "slug", "key", "code"} {
+	for _, key := range []string{"id", "ID", "_id", "gid", "sid", "uid", "uuid", "guid", "api_id", "name", "slug", "key", "code"} {
 		t.Run(key, func(t *testing.T) {
 			rt := "fallback_" + key
 			items := []json.RawMessage{
@@ -224,6 +224,109 @@ func TestUpsertBatch_GenericFallbackList(t *testing.T) {
 				t.Fatalf("extractFailures = %d, want 1 (%q drop must surface as extract failure)", extractFailures, key)
 			}
 		})
+	}
+}
+
+func TestUpsertBatch_SuffixFallbackAcceptsScopedCamelCaseID(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"deploymentId": "dep-1", "status": "running"}`),
+	}
+	stored, extractFailures, err := s.UpsertBatch("deployments", items)
+	if err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	}
+	if stored != 1 || extractFailures != 0 {
+		t.Fatalf("deploymentId fallback stored=%d extractFailures=%d, want stored=1 extractFailures=0", stored, extractFailures)
+	}
+	row, err := s.Get("deployments", "dep-1")
+	if err != nil {
+		t.Fatalf("Get deployment row: %v", err)
+	}
+	if !strings.Contains(string(row), `"deploymentId"`) || !strings.Contains(string(row), `"dep-1"`) {
+		t.Fatalf("cached row should preserve original object, got %s", row)
+	}
+
+	stored, extractFailures, err = s.UpsertBatch("deployments", []json.RawMessage{
+		json.RawMessage(`{"parentId": "parent-1", "status": "foreign-key-only"}`),
+	})
+	if err != nil {
+		t.Fatalf("UpsertBatch parentId: %v", err)
+	}
+	if stored != 0 || extractFailures != 1 {
+		t.Fatalf("parentId must not be promoted for deployments: stored=%d extractFailures=%d", stored, extractFailures)
+	}
+}
+
+func TestUpsertBatch_UnwrapsIDBearingEnvelopeItems(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"result":{"id":"cust-1","name":"Ada"}}`),
+		json.RawMessage(`{"kind":"customer","data":{"id":"cust-2","name":"Grace"}}`),
+		json.RawMessage(`{"customer":{"id":"cust-large","external_id":9007199254740993,"name":"Big"}}`),
+		json.RawMessage(`{"a":1,"metadata":{"uuid":"meta-1"}}`),
+		json.RawMessage(`{"id":"cust-top","name":"Top","metadata":{"uuid":"ignored"}}`),
+		json.RawMessage(`{"kind":"customer","data":{"description":"missing-id"}}`),
+		json.RawMessage(`{"kind":"customer","data":{"id":"cust-3"},"alternate":{"id":"other-1"}}`),
+	}
+	stored, extractFailures, err := s.UpsertBatch("customers", items)
+	if err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	}
+	if stored != 5 || extractFailures != 2 {
+		t.Fatalf("envelope unwrap stored=%d extractFailures=%d, want stored=5 extractFailures=2", stored, extractFailures)
+	}
+
+	row, err := s.Get("customers", "cust-1")
+	if err != nil {
+		t.Fatalf("Get cust-1: %v", err)
+	}
+	if strings.Contains(string(row), `"result"`) || !strings.Contains(string(row), `"name":"Ada"`) {
+		t.Fatalf("single-key envelope should store the flat inner object, got %s", row)
+	}
+
+	row, err = s.Get("customers", "cust-2")
+	if err != nil {
+		t.Fatalf("Get cust-2: %v", err)
+	}
+	if !strings.Contains(string(row), `"kind":"customer"`) || !strings.Contains(string(row), `"data"`) || !strings.Contains(string(row), `"name":"Grace"`) {
+		t.Fatalf("tagged envelope should keep the outer row while deriving the ID from data, got %s", row)
+	}
+
+	row, err = s.Get("customers", "cust-large")
+	if err != nil {
+		t.Fatalf("Get cust-large: %v", err)
+	}
+	if !strings.Contains(string(row), `"external_id":9007199254740993`) || strings.Contains(string(row), `9007199254740992`) {
+		t.Fatalf("envelope unwrap should preserve original large integer bytes, got %s", row)
+	}
+
+	row, err = s.Get("customers", "meta-1")
+	if err != nil {
+		t.Fatalf("Get meta-1: %v", err)
+	}
+	if !strings.Contains(string(row), `"a":1`) || !strings.Contains(string(row), `"metadata"`) || !strings.Contains(string(row), `"uuid":"meta-1"`) {
+		t.Fatalf("nested metadata ID should keep the outer row, got %s", row)
+	}
+
+	row, err = s.Get("customers", "cust-top")
+	if err != nil {
+		t.Fatalf("Get cust-top: %v", err)
+	}
+	if !strings.Contains(string(row), `"id":"cust-top"`) || !strings.Contains(string(row), `"metadata"`) {
+		t.Fatalf("top-level ID item should remain unchanged, got %s", row)
 	}
 }
 
@@ -356,6 +459,66 @@ func TestSearchQuotesFTSQuerySyntax(t *testing.T) {
 		if len(results) == 0 {
 			t.Fatalf("Search(%q) returned no results", query)
 		}
+	}
+}
+
+func TestFTSMatchQuerySanitizesPunctuation(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "comma and parens",
+			input: `Well drilling, Phase 2 (residential)`,
+			want:  `"Well" "drilling" "Phase" "2" "residential"`,
+		},
+		{
+			name:  "embedded quote",
+			input: `Alpha "quoted" beta`,
+			want:  `"Alpha" "quoted" "beta"`,
+		},
+		{
+			name:  "leading hyphen",
+			input: `-Draft- proposal`,
+			want:  `"Draft" "proposal"`,
+		},
+		{
+			name:  "bare operators",
+			input: `AND OR NOT`,
+			want:  `"AND" "OR" "NOT"`,
+		},
+		{
+			name:  "punctuation only",
+			input: `!!! , -- () ""`,
+			want:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			matchQuery := FTSMatchQuery(tt.input)
+			if matchQuery != tt.want {
+				t.Fatalf("FTSMatchQuery(%q) = %q, want %q", tt.input, matchQuery, tt.want)
+			}
+			if matchQuery == "" {
+				return
+			}
+			rows, err := s.DB().Query(`SELECT rowid FROM resources_fts WHERE resources_fts MATCH ? LIMIT 1`, matchQuery)
+			if err != nil {
+				t.Fatalf("FTS MATCH rejected sanitized query %q from %q: %v", matchQuery, tt.input, err)
+			}
+			if err := rows.Close(); err != nil {
+				t.Fatalf("close rows: %v", err)
+			}
+		})
 	}
 }
 
@@ -11026,6 +11189,48 @@ func TestUpsertBatch_KeysDrBackupsTunnelByChildAndParent(t *testing.T) {
 	}
 	if parentMatches != 2 {
 		t.Fatalf("dr_backups_id=parent_A count = %d, want 2", parentMatches)
+	}
+}
+
+// TestUpsertBatch_PopulatesFullyManagedCompaniesTable verifies that UpsertBatch
+// dispatches paginated items into both the generic resources table AND the
+// typed fully_managed_companies table. Regression for issue #268: before the fix, paginated
+// syncs only filled the generic resources table, so domain commands that
+// query the typed table saw zero rows.
+func TestUpsertBatch_PopulatesFullyManagedCompaniesTable(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "test-001"}`),
+		json.RawMessage(`{"id": "test-002"}`),
+		json.RawMessage(`{"id": "test-003"}`),
+	}
+	if _, _, err := s.UpsertBatch("fully_managed_companies", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	}
+
+	db := s.DB()
+
+	var generic int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = ?`, "fully_managed_companies").Scan(&generic); err != nil {
+		t.Fatalf("count resources: %v", err)
+	}
+	if generic != len(items) {
+		t.Fatalf("resources count = %d, want %d", generic, len(items))
+	}
+
+	var typed int
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "fully_managed_companies")
+	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
+		t.Fatalf("count fully_managed_companies: %v", err)
+	}
+	if typed != len(items) {
+		t.Fatalf("fully_managed_companies count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
 	}
 }
 

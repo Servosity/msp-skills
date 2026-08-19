@@ -126,267 +126,311 @@ func newBackupSetsUpdateCmd(flags *rootFlags) *cobra.Command {
 			// Bare invocation of a command with required input prints help
 			// instead of pflag's terse "required flag not set" error. Optional-
 			// only read commands fall through so a bare call still executes.
-			if cmd.Flags().NFlag() == 0 && len(args) == 0 && !flags.dryRun {
+			// Machine callers (--json/--agent, which sets asJSON) get a usage
+			// error + exit 2 instead of silent exit-0 help, so an incomplete
+			// invocation is never mistaken for success.
+			if !hasChangedLocalFlags(cmd) && len(args) == 0 && !flags.dryRun {
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "requires input",
+						"usage": cmd.CommandPath() + " --help",
+					}, flags); printErr != nil {
+						return printErr
+					}
+					return usageErr(fmt.Errorf("%q requires input; run %q for usage", cmd.CommandPath(), cmd.CommandPath()+" --help"))
+				}
 				return cmd.Help()
 			}
 			if len(args) == 0 {
-				return cmd.Help()
+				// A missing required positional is a usage error in every output
+				// mode (matches command_promoted.go.tmpl). Machine callers
+				// (--json/--agent) also get a JSON error envelope on stdout;
+				// usageErr sets exit 2.
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "missing required argument",
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <backup_id> <backup_set_id>"),
+					}, flags); printErr != nil {
+						return printErr
+					}
+				}
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <backup_id> <backup_set_id>"))
 			}
 			if !stdinBody {
-				if !cmd.Flags().Changed("application-settings-allow-multiple") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-allow-multiple")
-				}
-				if !cmd.Flags().Changed("application-settings-auto-enable-cbt") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-auto-enable-cbt")
-				}
-				if !cmd.Flags().Changed("application-settings-backup-system-state") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-backup-system-state")
-				}
-				if !cmd.Flags().Changed("application-settings-backup-target") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-backup-target")
-				}
-				if !cmd.Flags().Changed("application-settings-encryption-algorithm") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-encryption-algorithm")
-				}
-				if !cmd.Flags().Changed("application-settings-encryption-password") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-encryption-password")
-				}
-				if !cmd.Flags().Changed("application-settings-host") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-host")
-				}
-				if !cmd.Flags().Changed("application-settings-id") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-id")
-				}
-				if !cmd.Flags().Changed("application-settings-install-location") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-install-location")
-				}
-				if !cmd.Flags().Changed("application-settings-last-archived-log-name") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-last-archived-log-name")
-				}
-				if !cmd.Flags().Changed("application-settings-login-id") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-login-id")
-				}
-				if !cmd.Flags().Changed("application-settings-mysqldump-path") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-mysqldump-path")
-				}
-				if !cmd.Flags().Changed("application-settings-notes-ini-path") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-notes-ini-path")
-				}
-				if !cmd.Flags().Changed("application-settings-one-drive") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-one-drive")
-				}
-				if !cmd.Flags().Changed("application-settings-outlook") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-outlook")
-				}
-				if !cmd.Flags().Changed("application-settings-password") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-password")
-				}
-				if !cmd.Flags().Changed("application-settings-port") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-port")
-				}
-				if !cmd.Flags().Changed("application-settings-public-folders") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-public-folders")
-				}
-				if !cmd.Flags().Changed("application-settings-read-only") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-read-only")
-				}
-				if !cmd.Flags().Changed("application-settings-server") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-server")
-				}
-				if !cmd.Flags().Changed("application-settings-sid") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-sid")
-				}
-				if !cmd.Flags().Changed("application-settings-site-collections") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-site-collections")
-				}
-				if !cmd.Flags().Changed("application-settings-sshport") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-sshport")
-				}
-				if !cmd.Flags().Changed("application-settings-username") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-username")
-				}
-				if !cmd.Flags().Changed("application-settings-version") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-version")
-				}
-				if !cmd.Flags().Changed("application-settings-windows-desktop") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-windows-desktop")
-				}
-				if !cmd.Flags().Changed("application-settings-windows-favourites") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-windows-favourites")
-				}
-				if !cmd.Flags().Changed("application-settings-windows-mail") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-windows-mail")
-				}
-				if !cmd.Flags().Changed("application-settings-windows-my-documents") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-windows-my-documents")
-				}
-				if !cmd.Flags().Changed("application-settings-windows-outlook") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-windows-outlook")
-				}
-				if !cmd.Flags().Changed("application-settings-windows-outlook-express") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "application-settings-windows-outlook-express")
-				}
-				if !cmd.Flags().Changed("bandwidth-control-settings-bandwidth-control-list") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "bandwidth-control-settings-bandwidth-control-list")
-				}
-				if !cmd.Flags().Changed("bandwidth-control-settings-enabled") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "bandwidth-control-settings-enabled")
-				}
-				if !cmd.Flags().Changed("bandwidth-control-settings-mode") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "bandwidth-control-settings-mode")
-				}
-				if !cmd.Flags().Changed("bandwidth-control-settings-read-only") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "bandwidth-control-settings-read-only")
-				}
-				if !cmd.Flags().Changed("cdp-settings-v7-backup-type") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-backup-type")
-				}
-				if !cmd.Flags().Changed("cdp-settings-v7-computer-name") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-computer-name")
-				}
-				if !cmd.Flags().Changed("cdp-settings-v7-enable") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-enable")
-				}
-				if !cmd.Flags().Changed("cdp-settings-v7-exclude-system-files") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-exclude-system-files")
-				}
-				if !cmd.Flags().Changed("cdp-settings-v7-filter-list") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-filter-list")
-				}
-				if !cmd.Flags().Changed("cdp-settings-v7-id") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-id")
-				}
-				if !cmd.Flags().Changed("cdp-settings-v7-max-file-size") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-max-file-size")
-				}
-				if !cmd.Flags().Changed("cdp-settings-v7-min-update-interval") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-min-update-interval")
-				}
-				if !cmd.Flags().Changed("cdp-settings-v7-read-only") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-read-only")
-				}
-				if !cmd.Flags().Changed("cdp-settings-v7-selected-source-list") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-selected-source-list")
-				}
-				if !cmd.Flags().Changed("cdp-settings-v7-time-mark-interval") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-time-mark-interval")
-				}
-				if !cmd.Flags().Changed("cdp-settings-v7-type") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-type")
-				}
-				if !cmd.Flags().Changed("cdp-settings-v7-version") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-version")
-				}
-				if !cmd.Flags().Changed("filter-settings-enabled") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "filter-settings-enabled")
-				}
-				if !cmd.Flags().Changed("filter-settings-filter-list") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "filter-settings-filter-list")
-				}
-				if !cmd.Flags().Changed("filter-settings-read-only") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "filter-settings-read-only")
-				}
-				if !cmd.Flags().Changed("in-file-delta-settings-default-delta-type") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-default-delta-type")
-				}
-				if !cmd.Flags().Changed("in-file-delta-settings-enabled") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-enabled")
-				}
-				if !cmd.Flags().Changed("in-file-delta-settings-max-delta-ratio") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-max-delta-ratio")
-				}
-				if !cmd.Flags().Changed("in-file-delta-settings-max-num-of-delta") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-max-num-of-delta")
-				}
-				if !cmd.Flags().Changed("in-file-delta-settings-min-delta-file-size") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-min-delta-file-size")
-				}
-				if !cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-criteria") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-monthly-in-file-delta-schedule-criteria")
-				}
-				if !cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-date") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-monthly-in-file-delta-schedule-date")
-				}
-				if !cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-month") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-monthly-in-file-delta-schedule-month")
-				}
-				if !cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-occurrence") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-monthly-in-file-delta-schedule-occurrence")
-				}
-				if !cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-read-only") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-monthly-in-file-delta-schedule-read-only")
-				}
-				if !cmd.Flags().Changed("in-file-delta-settings-read-only") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-read-only")
-				}
-				if !cmd.Flags().Changed("in-file-delta-settings-weekly-in-file-delta-schedule-day") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-weekly-in-file-delta-schedule-day")
-				}
-				if !cmd.Flags().Changed("in-file-delta-settings-weekly-in-file-delta-schedule-read-only") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-weekly-in-file-delta-schedule-read-only")
-				}
-				if !cmd.Flags().Changed("local-copy-settings-read-only") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "local-copy-settings-read-only")
-				}
-				if !cmd.Flags().Changed("reminder-settings-logout-backup-reminder-enabled") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "reminder-settings-logout-backup-reminder-enabled")
-				}
-				if !cmd.Flags().Changed("reminder-settings-read-only") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "reminder-settings-read-only")
-				}
-				if !cmd.Flags().Changed("retention-policy-settings-advanced-retention-policy-list") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "retention-policy-settings-advanced-retention-policy-list")
-				}
-				if !cmd.Flags().Changed("retention-policy-settings-overlap-sensitive") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "retention-policy-settings-overlap-sensitive")
-				}
-				if !cmd.Flags().Changed("retention-policy-settings-period") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "retention-policy-settings-period")
-				}
-				if !cmd.Flags().Changed("retention-policy-settings-read-only") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "retention-policy-settings-read-only")
-				}
-				if !cmd.Flags().Changed("retention-policy-settings-type") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "retention-policy-settings-type")
-				}
-				if !cmd.Flags().Changed("retention-policy-settings-unit") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "retention-policy-settings-unit")
-				}
-				if !cmd.Flags().Changed("schedule-settings-computer-name") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "schedule-settings-computer-name")
-				}
-				if !cmd.Flags().Changed("schedule-settings-custom-schedule-list") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "schedule-settings-custom-schedule-list")
-				}
-				if !cmd.Flags().Changed("schedule-settings-daily-schedule-list") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "schedule-settings-daily-schedule-list")
-				}
-				if !cmd.Flags().Changed("schedule-settings-enable") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "schedule-settings-enable")
-				}
-				if !cmd.Flags().Changed("schedule-settings-monthly-schedule-list") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "schedule-settings-monthly-schedule-list")
-				}
-				if !cmd.Flags().Changed("schedule-settings-read-only") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "schedule-settings-read-only")
-				}
-				if !cmd.Flags().Changed("schedule-settings-weekly-schedule-list") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "schedule-settings-weekly-schedule-list")
+				if (cmd.Flags().Changed("application-settings-allow-multiple") || bodyApplicationSettingsAllowMultiple != "") || (cmd.Flags().Changed("application-settings-auto-enable-cbt") || bodyApplicationSettingsAutoEnableCBT != "") || (cmd.Flags().Changed("application-settings-backup-system-state") || bodyApplicationSettingsBackupSystemState != "") || (cmd.Flags().Changed("application-settings-backup-target") || bodyApplicationSettingsBackupTarget != "") || (cmd.Flags().Changed("application-settings-encryption-algorithm") || bodyApplicationSettingsEncryptionAlgorithm != "") || (cmd.Flags().Changed("application-settings-encryption-password") || bodyApplicationSettingsEncryptionPassword != "") || (cmd.Flags().Changed("application-settings-host") || bodyApplicationSettingsHost != "") || (cmd.Flags().Changed("application-settings-id") || bodyApplicationSettingsId != "") || (cmd.Flags().Changed("application-settings-install-location") || bodyApplicationSettingsInstallLocation != "") || (cmd.Flags().Changed("application-settings-last-archived-log-name") || bodyApplicationSettingsLastArchivedLogName != "") || (cmd.Flags().Changed("application-settings-login-id") || bodyApplicationSettingsLoginID != "") || (cmd.Flags().Changed("application-settings-mysqldump-path") || bodyApplicationSettingsMysqldumpPath != "") || (cmd.Flags().Changed("application-settings-notes-ini-path") || bodyApplicationSettingsNotesIniPath != "") || (cmd.Flags().Changed("application-settings-one-drive") || bodyApplicationSettingsOneDrive != "") || (cmd.Flags().Changed("application-settings-outlook") || bodyApplicationSettingsOutlook != "") || (cmd.Flags().Changed("application-settings-password") || bodyApplicationSettingsPassword != "") || (cmd.Flags().Changed("application-settings-port") || bodyApplicationSettingsPort != 0) || (cmd.Flags().Changed("application-settings-public-folders") || bodyApplicationSettingsPublicFolders != "") || (cmd.Flags().Changed("application-settings-read-only") || bodyApplicationSettingsReadOnly != "") || (cmd.Flags().Changed("application-settings-server") || bodyApplicationSettingsServer != "") || (cmd.Flags().Changed("application-settings-sid") || bodyApplicationSettingsSid != "") || (cmd.Flags().Changed("application-settings-site-collections") || bodyApplicationSettingsSiteCollections != "") || (cmd.Flags().Changed("application-settings-sshport") || bodyApplicationSettingsSshport != 0) || (cmd.Flags().Changed("application-settings-username") || bodyApplicationSettingsUsername != "") || (cmd.Flags().Changed("application-settings-version") || bodyApplicationSettingsVersion != "") || (cmd.Flags().Changed("application-settings-windows-desktop") || bodyApplicationSettingsWindowsDesktop != "") || (cmd.Flags().Changed("application-settings-windows-favourites") || bodyApplicationSettingsWindowsFavourites != "") || (cmd.Flags().Changed("application-settings-windows-mail") || bodyApplicationSettingsWindowsMail != "") || (cmd.Flags().Changed("application-settings-windows-my-documents") || bodyApplicationSettingsWindowsMyDocuments != "") || (cmd.Flags().Changed("application-settings-windows-outlook") || bodyApplicationSettingsWindowsOutlook != "") || (cmd.Flags().Changed("application-settings-windows-outlook-express") || bodyApplicationSettingsWindowsOutlookExpress != "") {
+					if !cmd.Flags().Changed("application-settings-allow-multiple") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-allow-multiple")
+					}
+					if !cmd.Flags().Changed("application-settings-auto-enable-cbt") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-auto-enable-cbt")
+					}
+					if !cmd.Flags().Changed("application-settings-backup-system-state") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-backup-system-state")
+					}
+					if !cmd.Flags().Changed("application-settings-backup-target") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-backup-target")
+					}
+					if !cmd.Flags().Changed("application-settings-encryption-algorithm") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-encryption-algorithm")
+					}
+					if !cmd.Flags().Changed("application-settings-encryption-password") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-encryption-password")
+					}
+					if !cmd.Flags().Changed("application-settings-host") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-host")
+					}
+					if !cmd.Flags().Changed("application-settings-id") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-id")
+					}
+					if !cmd.Flags().Changed("application-settings-install-location") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-install-location")
+					}
+					if !cmd.Flags().Changed("application-settings-last-archived-log-name") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-last-archived-log-name")
+					}
+					if !cmd.Flags().Changed("application-settings-login-id") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-login-id")
+					}
+					if !cmd.Flags().Changed("application-settings-mysqldump-path") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-mysqldump-path")
+					}
+					if !cmd.Flags().Changed("application-settings-notes-ini-path") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-notes-ini-path")
+					}
+					if !cmd.Flags().Changed("application-settings-one-drive") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-one-drive")
+					}
+					if !cmd.Flags().Changed("application-settings-outlook") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-outlook")
+					}
+					if !cmd.Flags().Changed("application-settings-password") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-password")
+					}
+					if !cmd.Flags().Changed("application-settings-port") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-port")
+					}
+					if !cmd.Flags().Changed("application-settings-public-folders") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-public-folders")
+					}
+					if !cmd.Flags().Changed("application-settings-read-only") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-read-only")
+					}
+					if !cmd.Flags().Changed("application-settings-server") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-server")
+					}
+					if !cmd.Flags().Changed("application-settings-sid") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-sid")
+					}
+					if !cmd.Flags().Changed("application-settings-site-collections") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-site-collections")
+					}
+					if !cmd.Flags().Changed("application-settings-sshport") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-sshport")
+					}
+					if !cmd.Flags().Changed("application-settings-username") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-username")
+					}
+					if !cmd.Flags().Changed("application-settings-version") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-version")
+					}
+					if !cmd.Flags().Changed("application-settings-windows-desktop") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-windows-desktop")
+					}
+					if !cmd.Flags().Changed("application-settings-windows-favourites") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-windows-favourites")
+					}
+					if !cmd.Flags().Changed("application-settings-windows-mail") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-windows-mail")
+					}
+					if !cmd.Flags().Changed("application-settings-windows-my-documents") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-windows-my-documents")
+					}
+					if !cmd.Flags().Changed("application-settings-windows-outlook") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-windows-outlook")
+					}
+					if !cmd.Flags().Changed("application-settings-windows-outlook-express") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "application-settings-windows-outlook-express")
+					}
+				}
+				if (cmd.Flags().Changed("bandwidth-control-settings-bandwidth-control-list") || bodyBandwidthControlSettingsBandwidthControlList != "") || (cmd.Flags().Changed("bandwidth-control-settings-enabled") || bodyBandwidthControlSettingsEnabled != "") || (cmd.Flags().Changed("bandwidth-control-settings-mode") || bodyBandwidthControlSettingsMode != "") || (cmd.Flags().Changed("bandwidth-control-settings-read-only") || bodyBandwidthControlSettingsReadOnly != "") {
+					if !cmd.Flags().Changed("bandwidth-control-settings-bandwidth-control-list") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "bandwidth-control-settings-bandwidth-control-list")
+					}
+					if !cmd.Flags().Changed("bandwidth-control-settings-enabled") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "bandwidth-control-settings-enabled")
+					}
+					if !cmd.Flags().Changed("bandwidth-control-settings-mode") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "bandwidth-control-settings-mode")
+					}
+					if !cmd.Flags().Changed("bandwidth-control-settings-read-only") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "bandwidth-control-settings-read-only")
+					}
+				}
+				if (cmd.Flags().Changed("cdp-settings-v7-backup-type") || bodyCdpSettingsV7BackupType != "") || (cmd.Flags().Changed("cdp-settings-v7-computer-name") || bodyCdpSettingsV7ComputerName != "") || (cmd.Flags().Changed("cdp-settings-v7-enable") || bodyCdpSettingsV7Enable != "") || (cmd.Flags().Changed("cdp-settings-v7-exclude-system-files") || bodyCdpSettingsV7ExcludeSystemFiles != "") || (cmd.Flags().Changed("cdp-settings-v7-filter-list") || bodyCdpSettingsV7FilterList != "") || (cmd.Flags().Changed("cdp-settings-v7-id") || bodyCdpSettingsV7Id != "") || (cmd.Flags().Changed("cdp-settings-v7-max-file-size") || bodyCdpSettingsV7MaxFileSize != 0) || (cmd.Flags().Changed("cdp-settings-v7-min-update-interval") || bodyCdpSettingsV7MinUpdateInterval != 0) || (cmd.Flags().Changed("cdp-settings-v7-read-only") || bodyCdpSettingsV7ReadOnly != "") || (cmd.Flags().Changed("cdp-settings-v7-selected-source-list") || bodyCdpSettingsV7SelectedSourceList != "") || (cmd.Flags().Changed("cdp-settings-v7-time-mark-interval") || bodyCdpSettingsV7TimeMarkInterval != 0) || (cmd.Flags().Changed("cdp-settings-v7-type") || bodyCdpSettingsV7Type != "") || (cmd.Flags().Changed("cdp-settings-v7-version") || bodyCdpSettingsV7Version != "") {
+					if !cmd.Flags().Changed("cdp-settings-v7-backup-type") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-backup-type")
+					}
+					if !cmd.Flags().Changed("cdp-settings-v7-computer-name") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-computer-name")
+					}
+					if !cmd.Flags().Changed("cdp-settings-v7-enable") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-enable")
+					}
+					if !cmd.Flags().Changed("cdp-settings-v7-exclude-system-files") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-exclude-system-files")
+					}
+					if !cmd.Flags().Changed("cdp-settings-v7-filter-list") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-filter-list")
+					}
+					if !cmd.Flags().Changed("cdp-settings-v7-id") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-id")
+					}
+					if !cmd.Flags().Changed("cdp-settings-v7-max-file-size") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-max-file-size")
+					}
+					if !cmd.Flags().Changed("cdp-settings-v7-min-update-interval") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-min-update-interval")
+					}
+					if !cmd.Flags().Changed("cdp-settings-v7-read-only") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-read-only")
+					}
+					if !cmd.Flags().Changed("cdp-settings-v7-selected-source-list") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-selected-source-list")
+					}
+					if !cmd.Flags().Changed("cdp-settings-v7-time-mark-interval") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-time-mark-interval")
+					}
+					if !cmd.Flags().Changed("cdp-settings-v7-type") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-type")
+					}
+					if !cmd.Flags().Changed("cdp-settings-v7-version") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "cdp-settings-v7-version")
+					}
+				}
+				if (cmd.Flags().Changed("filter-settings-enabled") || bodyFilterSettingsEnabled != "") || (cmd.Flags().Changed("filter-settings-filter-list") || bodyFilterSettingsFilterList != "") || (cmd.Flags().Changed("filter-settings-read-only") || bodyFilterSettingsReadOnly != "") {
+					if !cmd.Flags().Changed("filter-settings-enabled") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "filter-settings-enabled")
+					}
+					if !cmd.Flags().Changed("filter-settings-filter-list") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "filter-settings-filter-list")
+					}
+					if !cmd.Flags().Changed("filter-settings-read-only") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "filter-settings-read-only")
+					}
+				}
+				if (cmd.Flags().Changed("in-file-delta-settings-default-delta-type") || bodyInFileDeltaSettingsDefaultDeltaType != "") || (cmd.Flags().Changed("in-file-delta-settings-enabled") || bodyInFileDeltaSettingsEnabled != "") || (cmd.Flags().Changed("in-file-delta-settings-max-delta-ratio") || bodyInFileDeltaSettingsMaxDeltaRatio != 0) || (cmd.Flags().Changed("in-file-delta-settings-max-num-of-delta") || bodyInFileDeltaSettingsMaxNumOfDelta != 0) || (cmd.Flags().Changed("in-file-delta-settings-min-delta-file-size") || bodyInFileDeltaSettingsMinDeltaFileSize != 0) || (cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-criteria") || bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleCriteria != "") || (cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-date") || bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleDate != 0) || (cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-month") || bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleMonth != "") || (cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-occurrence") || bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleOccurrence != "") || (cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-read-only") || bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleReadOnly != "") || (cmd.Flags().Changed("in-file-delta-settings-read-only") || bodyInFileDeltaSettingsReadOnly != "") || (cmd.Flags().Changed("in-file-delta-settings-weekly-in-file-delta-schedule-day") || bodyInFileDeltaSettingsWeeklyInFileDeltaScheduleDay != "") || (cmd.Flags().Changed("in-file-delta-settings-weekly-in-file-delta-schedule-read-only") || bodyInFileDeltaSettingsWeeklyInFileDeltaScheduleReadOnly != "") {
+					if !cmd.Flags().Changed("in-file-delta-settings-default-delta-type") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-default-delta-type")
+					}
+					if !cmd.Flags().Changed("in-file-delta-settings-enabled") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-enabled")
+					}
+					if !cmd.Flags().Changed("in-file-delta-settings-max-delta-ratio") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-max-delta-ratio")
+					}
+					if !cmd.Flags().Changed("in-file-delta-settings-max-num-of-delta") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-max-num-of-delta")
+					}
+					if !cmd.Flags().Changed("in-file-delta-settings-min-delta-file-size") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-min-delta-file-size")
+					}
+					if !cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-criteria") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-monthly-in-file-delta-schedule-criteria")
+					}
+					if !cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-date") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-monthly-in-file-delta-schedule-date")
+					}
+					if !cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-month") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-monthly-in-file-delta-schedule-month")
+					}
+					if !cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-occurrence") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-monthly-in-file-delta-schedule-occurrence")
+					}
+					if !cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-read-only") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-monthly-in-file-delta-schedule-read-only")
+					}
+					if !cmd.Flags().Changed("in-file-delta-settings-read-only") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-read-only")
+					}
+					if !cmd.Flags().Changed("in-file-delta-settings-weekly-in-file-delta-schedule-day") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-weekly-in-file-delta-schedule-day")
+					}
+					if !cmd.Flags().Changed("in-file-delta-settings-weekly-in-file-delta-schedule-read-only") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "in-file-delta-settings-weekly-in-file-delta-schedule-read-only")
+					}
+				}
+				if cmd.Flags().Changed("local-copy-settings-read-only") || bodyLocalCopySettingsReadOnly != "" {
+					if !cmd.Flags().Changed("local-copy-settings-read-only") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "local-copy-settings-read-only")
+					}
+				}
+				if (cmd.Flags().Changed("reminder-settings-logout-backup-reminder-enabled") || bodyReminderSettingsLogoutBackupReminderEnabled != "") || (cmd.Flags().Changed("reminder-settings-read-only") || bodyReminderSettingsReadOnly != "") {
+					if !cmd.Flags().Changed("reminder-settings-logout-backup-reminder-enabled") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "reminder-settings-logout-backup-reminder-enabled")
+					}
+					if !cmd.Flags().Changed("reminder-settings-read-only") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "reminder-settings-read-only")
+					}
+				}
+				if (cmd.Flags().Changed("retention-policy-settings-advanced-retention-policy-list") || bodyRetentionPolicySettingsAdvancedRetentionPolicyList != "") || (cmd.Flags().Changed("retention-policy-settings-overlap-sensitive") || bodyRetentionPolicySettingsOverlapSensitive != "") || (cmd.Flags().Changed("retention-policy-settings-period") || bodyRetentionPolicySettingsPeriod != 0) || (cmd.Flags().Changed("retention-policy-settings-read-only") || bodyRetentionPolicySettingsReadOnly != "") || (cmd.Flags().Changed("retention-policy-settings-type") || bodyRetentionPolicySettingsType != "") || (cmd.Flags().Changed("retention-policy-settings-unit") || bodyRetentionPolicySettingsUnit != "") {
+					if !cmd.Flags().Changed("retention-policy-settings-advanced-retention-policy-list") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "retention-policy-settings-advanced-retention-policy-list")
+					}
+					if !cmd.Flags().Changed("retention-policy-settings-overlap-sensitive") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "retention-policy-settings-overlap-sensitive")
+					}
+					if !cmd.Flags().Changed("retention-policy-settings-period") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "retention-policy-settings-period")
+					}
+					if !cmd.Flags().Changed("retention-policy-settings-read-only") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "retention-policy-settings-read-only")
+					}
+					if !cmd.Flags().Changed("retention-policy-settings-type") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "retention-policy-settings-type")
+					}
+					if !cmd.Flags().Changed("retention-policy-settings-unit") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "retention-policy-settings-unit")
+					}
+				}
+				if (cmd.Flags().Changed("schedule-settings-computer-name") || bodyScheduleSettingsComputerName != "") || (cmd.Flags().Changed("schedule-settings-custom-schedule-list") || bodyScheduleSettingsCustomScheduleList != "") || (cmd.Flags().Changed("schedule-settings-daily-schedule-list") || bodyScheduleSettingsDailyScheduleList != "") || (cmd.Flags().Changed("schedule-settings-enable") || bodyScheduleSettingsEnable != "") || (cmd.Flags().Changed("schedule-settings-monthly-schedule-list") || bodyScheduleSettingsMonthlyScheduleList != "") || (cmd.Flags().Changed("schedule-settings-read-only") || bodyScheduleSettingsReadOnly != "") || (cmd.Flags().Changed("schedule-settings-weekly-schedule-list") || bodyScheduleSettingsWeeklyScheduleList != "") {
+					if !cmd.Flags().Changed("schedule-settings-computer-name") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "schedule-settings-computer-name")
+					}
+					if !cmd.Flags().Changed("schedule-settings-custom-schedule-list") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "schedule-settings-custom-schedule-list")
+					}
+					if !cmd.Flags().Changed("schedule-settings-daily-schedule-list") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "schedule-settings-daily-schedule-list")
+					}
+					if !cmd.Flags().Changed("schedule-settings-enable") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "schedule-settings-enable")
+					}
+					if !cmd.Flags().Changed("schedule-settings-monthly-schedule-list") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "schedule-settings-monthly-schedule-list")
+					}
+					if !cmd.Flags().Changed("schedule-settings-read-only") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "schedule-settings-read-only")
+					}
+					if !cmd.Flags().Changed("schedule-settings-weekly-schedule-list") && !flags.dryRun {
+						return fmt.Errorf("required flag \"%s\" not set", "schedule-settings-weekly-schedule-list")
+					}
 				}
 			}
+			path := "/backup-sets/{backup_id}/{backup_set_id}/"
+			if len(args) < 1 || args[0] == "" {
+				return usageErr(fmt.Errorf("backup_id is required\nUsage: %s <%s>", cmd.CommandPath(), "backup_id"))
+			}
+			path = replacePathParam(path, "backup_id", args[0])
+			if len(args) < 2 || args[1] == "" {
+				return usageErr(fmt.Errorf("backup_set_id is required\nUsage: %s <%s>", cmd.CommandPath(), "backup_set_id"))
+			}
+			path = replacePathParam(path, "backup_set_id", args[1])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/backup-sets/{backup_id}/{backup_set_id}/"
-			path = replacePathParam(path, "backup_id", args[0])
-			if len(args) < 2 {
-				return usageErr(fmt.Errorf("backup_set_id is required\nUsage: %s <%s>", cmd.CommandPath(), "backup_set_id"))
-			}
-			path = replacePathParam(path, "backup_set_id", args[1])
 			params := map[string]string{}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -398,159 +442,164 @@ func newBackupSetsUpdateCmd(flags *rootFlags) *cobra.Command {
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
-				if bodyAllowedIPList != "" {
+				bodyMap := map[string]any{}
+				body = bodyMap
+				if cmd.Flags().Changed("allowed-ip-list") || bodyAllowedIPList != "" {
 					var parsedAllowedIPList any
 					if err := json.Unmarshal([]byte(bodyAllowedIPList), &parsedAllowedIPList); err != nil {
 						return fmt.Errorf("parsing --allowed-ip-list JSON: %w", err)
 					}
-					body["AllowedIPList"] = parsedAllowedIPList
+					asMap, ok := parsedAllowedIPList.(map[string]any)
+					if !ok {
+						return fmt.Errorf("--allowed-ip-list must be a JSON object, got JSON %T", parsedAllowedIPList)
+					}
+					bodyMap["AllowedIPList"] = asMap
 				}
 				{
 					nestedApplicationSettings := map[string]any{}
-					if bodyApplicationSettingsAllowMultiple != "" {
+					if cmd.Flags().Changed("application-settings-allow-multiple") || bodyApplicationSettingsAllowMultiple != "" {
 						parsedApplicationSettingsAllowMultiple, err := strconv.ParseBool(bodyApplicationSettingsAllowMultiple)
 						if err != nil {
 							return fmt.Errorf("parsing --application-settings-allow-multiple as bool: %w", err)
 						}
 						nestedApplicationSettings["AllowMultiple"] = parsedApplicationSettingsAllowMultiple
 					}
-					if bodyApplicationSettingsAutoEnableCBT != "" {
+					if cmd.Flags().Changed("application-settings-auto-enable-cbt") || bodyApplicationSettingsAutoEnableCBT != "" {
 						parsedApplicationSettingsAutoEnableCBT, err := strconv.ParseBool(bodyApplicationSettingsAutoEnableCBT)
 						if err != nil {
 							return fmt.Errorf("parsing --application-settings-auto-enable-cbt as bool: %w", err)
 						}
 						nestedApplicationSettings["AutoEnableCBT"] = parsedApplicationSettingsAutoEnableCBT
 					}
-					if bodyApplicationSettingsBackupSystemState != "" {
+					if cmd.Flags().Changed("application-settings-backup-system-state") || bodyApplicationSettingsBackupSystemState != "" {
 						parsedApplicationSettingsBackupSystemState, err := strconv.ParseBool(bodyApplicationSettingsBackupSystemState)
 						if err != nil {
 							return fmt.Errorf("parsing --application-settings-backup-system-state as bool: %w", err)
 						}
 						nestedApplicationSettings["BackupSystemState"] = parsedApplicationSettingsBackupSystemState
 					}
-					if bodyApplicationSettingsBackupTarget != "" {
+					if cmd.Flags().Changed("application-settings-backup-target") || bodyApplicationSettingsBackupTarget != "" {
 						nestedApplicationSettings["BackupTarget"] = bodyApplicationSettingsBackupTarget
 					}
-					if bodyApplicationSettingsEncryptionAlgorithm != "" {
+					if cmd.Flags().Changed("application-settings-encryption-algorithm") || bodyApplicationSettingsEncryptionAlgorithm != "" {
 						nestedApplicationSettings["EncryptionAlgorithm"] = bodyApplicationSettingsEncryptionAlgorithm
 					}
-					if bodyApplicationSettingsEncryptionPassword != "" {
+					if cmd.Flags().Changed("application-settings-encryption-password") || bodyApplicationSettingsEncryptionPassword != "" {
 						nestedApplicationSettings["EncryptionPassword"] = bodyApplicationSettingsEncryptionPassword
 					}
-					if bodyApplicationSettingsHost != "" {
+					if cmd.Flags().Changed("application-settings-host") || bodyApplicationSettingsHost != "" {
 						nestedApplicationSettings["Host"] = bodyApplicationSettingsHost
 					}
-					if bodyApplicationSettingsId != "" {
+					if cmd.Flags().Changed("application-settings-id") || bodyApplicationSettingsId != "" {
 						nestedApplicationSettings["Id"] = bodyApplicationSettingsId
 					}
-					if bodyApplicationSettingsInstallLocation != "" {
+					if cmd.Flags().Changed("application-settings-install-location") || bodyApplicationSettingsInstallLocation != "" {
 						nestedApplicationSettings["InstallLocation"] = bodyApplicationSettingsInstallLocation
 					}
-					if bodyApplicationSettingsLastArchivedLogName != "" {
+					if cmd.Flags().Changed("application-settings-last-archived-log-name") || bodyApplicationSettingsLastArchivedLogName != "" {
 						nestedApplicationSettings["LastArchivedLogName"] = bodyApplicationSettingsLastArchivedLogName
 					}
-					if bodyApplicationSettingsLoginID != "" {
+					if cmd.Flags().Changed("application-settings-login-id") || bodyApplicationSettingsLoginID != "" {
 						nestedApplicationSettings["LoginID"] = bodyApplicationSettingsLoginID
 					}
-					if bodyApplicationSettingsMysqldumpPath != "" {
+					if cmd.Flags().Changed("application-settings-mysqldump-path") || bodyApplicationSettingsMysqldumpPath != "" {
 						nestedApplicationSettings["MysqldumpPath"] = bodyApplicationSettingsMysqldumpPath
 					}
-					if bodyApplicationSettingsNotesIniPath != "" {
+					if cmd.Flags().Changed("application-settings-notes-ini-path") || bodyApplicationSettingsNotesIniPath != "" {
 						nestedApplicationSettings["NotesIniPath"] = bodyApplicationSettingsNotesIniPath
 					}
-					if bodyApplicationSettingsOneDrive != "" {
+					if cmd.Flags().Changed("application-settings-one-drive") || bodyApplicationSettingsOneDrive != "" {
 						parsedApplicationSettingsOneDrive, err := strconv.ParseBool(bodyApplicationSettingsOneDrive)
 						if err != nil {
 							return fmt.Errorf("parsing --application-settings-one-drive as bool: %w", err)
 						}
 						nestedApplicationSettings["OneDrive"] = parsedApplicationSettingsOneDrive
 					}
-					if bodyApplicationSettingsOutlook != "" {
+					if cmd.Flags().Changed("application-settings-outlook") || bodyApplicationSettingsOutlook != "" {
 						parsedApplicationSettingsOutlook, err := strconv.ParseBool(bodyApplicationSettingsOutlook)
 						if err != nil {
 							return fmt.Errorf("parsing --application-settings-outlook as bool: %w", err)
 						}
 						nestedApplicationSettings["Outlook"] = parsedApplicationSettingsOutlook
 					}
-					if bodyApplicationSettingsPassword != "" {
+					if cmd.Flags().Changed("application-settings-password") || bodyApplicationSettingsPassword != "" {
 						nestedApplicationSettings["Password"] = bodyApplicationSettingsPassword
 					}
-					if bodyApplicationSettingsPort != 0 {
+					if cmd.Flags().Changed("application-settings-port") || bodyApplicationSettingsPort != 0 {
 						nestedApplicationSettings["Port"] = bodyApplicationSettingsPort
 					}
-					if bodyApplicationSettingsPublicFolders != "" {
+					if cmd.Flags().Changed("application-settings-public-folders") || bodyApplicationSettingsPublicFolders != "" {
 						parsedApplicationSettingsPublicFolders, err := strconv.ParseBool(bodyApplicationSettingsPublicFolders)
 						if err != nil {
 							return fmt.Errorf("parsing --application-settings-public-folders as bool: %w", err)
 						}
 						nestedApplicationSettings["PublicFolders"] = parsedApplicationSettingsPublicFolders
 					}
-					if bodyApplicationSettingsReadOnly != "" {
+					if cmd.Flags().Changed("application-settings-read-only") || bodyApplicationSettingsReadOnly != "" {
 						parsedApplicationSettingsReadOnly, err := strconv.ParseBool(bodyApplicationSettingsReadOnly)
 						if err != nil {
 							return fmt.Errorf("parsing --application-settings-read-only as bool: %w", err)
 						}
 						nestedApplicationSettings["ReadOnly"] = parsedApplicationSettingsReadOnly
 					}
-					if bodyApplicationSettingsServer != "" {
+					if cmd.Flags().Changed("application-settings-server") || bodyApplicationSettingsServer != "" {
 						nestedApplicationSettings["Server"] = bodyApplicationSettingsServer
 					}
-					if bodyApplicationSettingsSid != "" {
+					if cmd.Flags().Changed("application-settings-sid") || bodyApplicationSettingsSid != "" {
 						nestedApplicationSettings["Sid"] = bodyApplicationSettingsSid
 					}
-					if bodyApplicationSettingsSiteCollections != "" {
+					if cmd.Flags().Changed("application-settings-site-collections") || bodyApplicationSettingsSiteCollections != "" {
 						parsedApplicationSettingsSiteCollections, err := strconv.ParseBool(bodyApplicationSettingsSiteCollections)
 						if err != nil {
 							return fmt.Errorf("parsing --application-settings-site-collections as bool: %w", err)
 						}
 						nestedApplicationSettings["SiteCollections"] = parsedApplicationSettingsSiteCollections
 					}
-					if bodyApplicationSettingsSshport != 0 {
+					if cmd.Flags().Changed("application-settings-sshport") || bodyApplicationSettingsSshport != 0 {
 						nestedApplicationSettings["Sshport"] = bodyApplicationSettingsSshport
 					}
-					if bodyApplicationSettingsUsername != "" {
+					if cmd.Flags().Changed("application-settings-username") || bodyApplicationSettingsUsername != "" {
 						nestedApplicationSettings["Username"] = bodyApplicationSettingsUsername
 					}
-					if bodyApplicationSettingsVersion != "" {
+					if cmd.Flags().Changed("application-settings-version") || bodyApplicationSettingsVersion != "" {
 						nestedApplicationSettings["Version"] = bodyApplicationSettingsVersion
 					}
-					if bodyApplicationSettingsWindowsDesktop != "" {
+					if cmd.Flags().Changed("application-settings-windows-desktop") || bodyApplicationSettingsWindowsDesktop != "" {
 						parsedApplicationSettingsWindowsDesktop, err := strconv.ParseBool(bodyApplicationSettingsWindowsDesktop)
 						if err != nil {
 							return fmt.Errorf("parsing --application-settings-windows-desktop as bool: %w", err)
 						}
 						nestedApplicationSettings["WindowsDesktop"] = parsedApplicationSettingsWindowsDesktop
 					}
-					if bodyApplicationSettingsWindowsFavourites != "" {
+					if cmd.Flags().Changed("application-settings-windows-favourites") || bodyApplicationSettingsWindowsFavourites != "" {
 						parsedApplicationSettingsWindowsFavourites, err := strconv.ParseBool(bodyApplicationSettingsWindowsFavourites)
 						if err != nil {
 							return fmt.Errorf("parsing --application-settings-windows-favourites as bool: %w", err)
 						}
 						nestedApplicationSettings["WindowsFavourites"] = parsedApplicationSettingsWindowsFavourites
 					}
-					if bodyApplicationSettingsWindowsMail != "" {
+					if cmd.Flags().Changed("application-settings-windows-mail") || bodyApplicationSettingsWindowsMail != "" {
 						parsedApplicationSettingsWindowsMail, err := strconv.ParseBool(bodyApplicationSettingsWindowsMail)
 						if err != nil {
 							return fmt.Errorf("parsing --application-settings-windows-mail as bool: %w", err)
 						}
 						nestedApplicationSettings["WindowsMail"] = parsedApplicationSettingsWindowsMail
 					}
-					if bodyApplicationSettingsWindowsMyDocuments != "" {
+					if cmd.Flags().Changed("application-settings-windows-my-documents") || bodyApplicationSettingsWindowsMyDocuments != "" {
 						parsedApplicationSettingsWindowsMyDocuments, err := strconv.ParseBool(bodyApplicationSettingsWindowsMyDocuments)
 						if err != nil {
 							return fmt.Errorf("parsing --application-settings-windows-my-documents as bool: %w", err)
 						}
 						nestedApplicationSettings["WindowsMyDocuments"] = parsedApplicationSettingsWindowsMyDocuments
 					}
-					if bodyApplicationSettingsWindowsOutlook != "" {
+					if cmd.Flags().Changed("application-settings-windows-outlook") || bodyApplicationSettingsWindowsOutlook != "" {
 						parsedApplicationSettingsWindowsOutlook, err := strconv.ParseBool(bodyApplicationSettingsWindowsOutlook)
 						if err != nil {
 							return fmt.Errorf("parsing --application-settings-windows-outlook as bool: %w", err)
 						}
 						nestedApplicationSettings["WindowsOutlook"] = parsedApplicationSettingsWindowsOutlook
 					}
-					if bodyApplicationSettingsWindowsOutlookExpress != "" {
+					if cmd.Flags().Changed("application-settings-windows-outlook-express") || bodyApplicationSettingsWindowsOutlookExpress != "" {
 						parsedApplicationSettingsWindowsOutlookExpress, err := strconv.ParseBool(bodyApplicationSettingsWindowsOutlookExpress)
 						if err != nil {
 							return fmt.Errorf("parsing --application-settings-windows-outlook-express as bool: %w", err)
@@ -558,29 +607,33 @@ func newBackupSetsUpdateCmd(flags *rootFlags) *cobra.Command {
 						nestedApplicationSettings["WindowsOutlookExpress"] = parsedApplicationSettingsWindowsOutlookExpress
 					}
 					if len(nestedApplicationSettings) > 0 {
-						body["ApplicationSettings"] = nestedApplicationSettings
+						bodyMap["ApplicationSettings"] = nestedApplicationSettings
 					}
 				}
 				{
 					nestedBandwidthControlSettings := map[string]any{}
-					if bodyBandwidthControlSettingsBandwidthControlList != "" {
+					if cmd.Flags().Changed("bandwidth-control-settings-bandwidth-control-list") || bodyBandwidthControlSettingsBandwidthControlList != "" {
 						var parsedBandwidthControlSettingsBandwidthControlList any
 						if err := json.Unmarshal([]byte(bodyBandwidthControlSettingsBandwidthControlList), &parsedBandwidthControlSettingsBandwidthControlList); err != nil {
 							return fmt.Errorf("parsing --bandwidth-control-settings-bandwidth-control-list JSON: %w", err)
 						}
-						nestedBandwidthControlSettings["BandwidthControlList"] = parsedBandwidthControlSettingsBandwidthControlList
+						asArray, ok := parsedBandwidthControlSettingsBandwidthControlList.([]any)
+						if !ok {
+							return fmt.Errorf("--bandwidth-control-settings-bandwidth-control-list must be a JSON array, got JSON %T", parsedBandwidthControlSettingsBandwidthControlList)
+						}
+						nestedBandwidthControlSettings["BandwidthControlList"] = asArray
 					}
-					if bodyBandwidthControlSettingsEnabled != "" {
+					if cmd.Flags().Changed("bandwidth-control-settings-enabled") || bodyBandwidthControlSettingsEnabled != "" {
 						parsedBandwidthControlSettingsEnabled, err := strconv.ParseBool(bodyBandwidthControlSettingsEnabled)
 						if err != nil {
 							return fmt.Errorf("parsing --bandwidth-control-settings-enabled as bool: %w", err)
 						}
 						nestedBandwidthControlSettings["Enabled"] = parsedBandwidthControlSettingsEnabled
 					}
-					if bodyBandwidthControlSettingsMode != "" {
+					if cmd.Flags().Changed("bandwidth-control-settings-mode") || bodyBandwidthControlSettingsMode != "" {
 						nestedBandwidthControlSettings["Mode"] = bodyBandwidthControlSettingsMode
 					}
-					if bodyBandwidthControlSettingsReadOnly != "" {
+					if cmd.Flags().Changed("bandwidth-control-settings-read-only") || bodyBandwidthControlSettingsReadOnly != "" {
 						parsedBandwidthControlSettingsReadOnly, err := strconv.ParseBool(bodyBandwidthControlSettingsReadOnly)
 						if err != nil {
 							return fmt.Errorf("parsing --bandwidth-control-settings-read-only as bool: %w", err)
@@ -588,113 +641,137 @@ func newBackupSetsUpdateCmd(flags *rootFlags) *cobra.Command {
 						nestedBandwidthControlSettings["ReadOnly"] = parsedBandwidthControlSettingsReadOnly
 					}
 					if len(nestedBandwidthControlSettings) > 0 {
-						body["BandwidthControlSettings"] = nestedBandwidthControlSettings
+						bodyMap["BandwidthControlSettings"] = nestedBandwidthControlSettings
 					}
 				}
 				{
 					nestedCdpSettingsV7 := map[string]any{}
-					if bodyCdpSettingsV7BackupType != "" {
+					if cmd.Flags().Changed("cdp-settings-v7-backup-type") || bodyCdpSettingsV7BackupType != "" {
 						nestedCdpSettingsV7["BackupType"] = bodyCdpSettingsV7BackupType
 					}
-					if bodyCdpSettingsV7ComputerName != "" {
+					if cmd.Flags().Changed("cdp-settings-v7-computer-name") || bodyCdpSettingsV7ComputerName != "" {
 						nestedCdpSettingsV7["ComputerName"] = bodyCdpSettingsV7ComputerName
 					}
-					if bodyCdpSettingsV7Enable != "" {
+					if cmd.Flags().Changed("cdp-settings-v7-enable") || bodyCdpSettingsV7Enable != "" {
 						parsedCdpSettingsV7Enable, err := strconv.ParseBool(bodyCdpSettingsV7Enable)
 						if err != nil {
 							return fmt.Errorf("parsing --cdp-settings-v7-enable as bool: %w", err)
 						}
 						nestedCdpSettingsV7["Enable"] = parsedCdpSettingsV7Enable
 					}
-					if bodyCdpSettingsV7ExcludeSystemFiles != "" {
+					if cmd.Flags().Changed("cdp-settings-v7-exclude-system-files") || bodyCdpSettingsV7ExcludeSystemFiles != "" {
 						parsedCdpSettingsV7ExcludeSystemFiles, err := strconv.ParseBool(bodyCdpSettingsV7ExcludeSystemFiles)
 						if err != nil {
 							return fmt.Errorf("parsing --cdp-settings-v7-exclude-system-files as bool: %w", err)
 						}
 						nestedCdpSettingsV7["ExcludeSystemFiles"] = parsedCdpSettingsV7ExcludeSystemFiles
 					}
-					if bodyCdpSettingsV7FilterList != "" {
-						nestedCdpSettingsV7["FilterList"] = cliutil.SplitCSV(bodyCdpSettingsV7FilterList)
+					if cmd.Flags().Changed("cdp-settings-v7-filter-list") {
+						parsedCdpSettingsV7FilterList, parseErr := cliutil.ParseStringList(bodyCdpSettingsV7FilterList)
+						if parseErr != nil {
+							return fmt.Errorf("parsing --cdp-settings-v7-filter-list list: %w", parseErr)
+						}
+						nestedCdpSettingsV7["FilterList"] = parsedCdpSettingsV7FilterList
 					}
-					if bodyCdpSettingsV7Id != "" {
+					if cmd.Flags().Changed("cdp-settings-v7-id") || bodyCdpSettingsV7Id != "" {
 						nestedCdpSettingsV7["Id"] = bodyCdpSettingsV7Id
 					}
-					if bodyCdpSettingsV7MaxFileSize != 0 {
+					if cmd.Flags().Changed("cdp-settings-v7-max-file-size") || bodyCdpSettingsV7MaxFileSize != 0 {
 						nestedCdpSettingsV7["MaxFileSize"] = bodyCdpSettingsV7MaxFileSize
 					}
-					if bodyCdpSettingsV7MinUpdateInterval != 0 {
+					if cmd.Flags().Changed("cdp-settings-v7-min-update-interval") || bodyCdpSettingsV7MinUpdateInterval != 0 {
 						nestedCdpSettingsV7["MinUpdateInterval"] = bodyCdpSettingsV7MinUpdateInterval
 					}
-					if bodyCdpSettingsV7ReadOnly != "" {
+					if cmd.Flags().Changed("cdp-settings-v7-read-only") || bodyCdpSettingsV7ReadOnly != "" {
 						parsedCdpSettingsV7ReadOnly, err := strconv.ParseBool(bodyCdpSettingsV7ReadOnly)
 						if err != nil {
 							return fmt.Errorf("parsing --cdp-settings-v7-read-only as bool: %w", err)
 						}
 						nestedCdpSettingsV7["ReadOnly"] = parsedCdpSettingsV7ReadOnly
 					}
-					if bodyCdpSettingsV7SelectedSourceList != "" {
-						nestedCdpSettingsV7["SelectedSourceList"] = cliutil.SplitCSV(bodyCdpSettingsV7SelectedSourceList)
+					if cmd.Flags().Changed("cdp-settings-v7-selected-source-list") {
+						parsedCdpSettingsV7SelectedSourceList, parseErr := cliutil.ParseStringList(bodyCdpSettingsV7SelectedSourceList)
+						if parseErr != nil {
+							return fmt.Errorf("parsing --cdp-settings-v7-selected-source-list list: %w", parseErr)
+						}
+						nestedCdpSettingsV7["SelectedSourceList"] = parsedCdpSettingsV7SelectedSourceList
 					}
-					if bodyCdpSettingsV7TimeMarkInterval != 0 {
+					if cmd.Flags().Changed("cdp-settings-v7-time-mark-interval") || bodyCdpSettingsV7TimeMarkInterval != 0 {
 						nestedCdpSettingsV7["TimeMarkInterval"] = bodyCdpSettingsV7TimeMarkInterval
 					}
-					if bodyCdpSettingsV7Type != "" {
+					if cmd.Flags().Changed("cdp-settings-v7-type") || bodyCdpSettingsV7Type != "" {
 						nestedCdpSettingsV7["Type"] = bodyCdpSettingsV7Type
 					}
-					if bodyCdpSettingsV7Version != "" {
+					if cmd.Flags().Changed("cdp-settings-v7-version") || bodyCdpSettingsV7Version != "" {
 						nestedCdpSettingsV7["Version"] = bodyCdpSettingsV7Version
 					}
 					if len(nestedCdpSettingsV7) > 0 {
-						body["CdpSettingsV7"] = nestedCdpSettingsV7
+						bodyMap["CdpSettingsV7"] = nestedCdpSettingsV7
 					}
 				}
-				if bodyCompressType != "" {
-					body["CompressType"] = bodyCompressType
+				if cmd.Flags().Changed("compress-type") || bodyCompressType != "" {
+					bodyMap["CompressType"] = bodyCompressType
 				}
 				if cmd.Flags().Changed("delete-temp-file") {
-					body["DeleteTempFile"] = bodyDeleteTempFile
+					bodyMap["DeleteTempFile"] = bodyDeleteTempFile
 				}
-				if bodyDeselectedSourceList != "" {
+				if cmd.Flags().Changed("deselected-source-list") || bodyDeselectedSourceList != "" {
 					var parsedDeselectedSourceList any
 					if err := json.Unmarshal([]byte(bodyDeselectedSourceList), &parsedDeselectedSourceList); err != nil {
 						return fmt.Errorf("parsing --deselected-source-list JSON: %w", err)
 					}
-					body["DeselectedSourceList"] = parsedDeselectedSourceList
+					asMap, ok := parsedDeselectedSourceList.(map[string]any)
+					if !ok {
+						return fmt.Errorf("--deselected-source-list must be a JSON object, got JSON %T", parsedDeselectedSourceList)
+					}
+					bodyMap["DeselectedSourceList"] = asMap
 				}
-				if bodyDestinationList != "" {
+				if cmd.Flags().Changed("destination-list") || bodyDestinationList != "" {
 					var parsedDestinationList any
 					if err := json.Unmarshal([]byte(bodyDestinationList), &parsedDestinationList); err != nil {
 						return fmt.Errorf("parsing --destination-list JSON: %w", err)
 					}
-					body["DestinationList"] = parsedDestinationList
+					asMap, ok := parsedDestinationList.(map[string]any)
+					if !ok {
+						return fmt.Errorf("--destination-list must be a JSON object, got JSON %T", parsedDestinationList)
+					}
+					bodyMap["DestinationList"] = asMap
 				}
-				if bodyDestinationSettings != "" {
+				if cmd.Flags().Changed("destination-settings") || bodyDestinationSettings != "" {
 					var parsedDestinationSettings any
 					if err := json.Unmarshal([]byte(bodyDestinationSettings), &parsedDestinationSettings); err != nil {
 						return fmt.Errorf("parsing --destination-settings JSON: %w", err)
 					}
-					body["DestinationSettings"] = parsedDestinationSettings
+					asMap, ok := parsedDestinationSettings.(map[string]any)
+					if !ok {
+						return fmt.Errorf("--destination-settings must be a JSON object, got JSON %T", parsedDestinationSettings)
+					}
+					bodyMap["DestinationSettings"] = asMap
 				}
 				if cmd.Flags().Changed("enable-open-direct") {
-					body["EnableOpenDirect"] = bodyEnableOpenDirect
+					bodyMap["EnableOpenDirect"] = bodyEnableOpenDirect
 				}
 				{
 					nestedFilterSettings := map[string]any{}
-					if bodyFilterSettingsEnabled != "" {
+					if cmd.Flags().Changed("filter-settings-enabled") || bodyFilterSettingsEnabled != "" {
 						parsedFilterSettingsEnabled, err := strconv.ParseBool(bodyFilterSettingsEnabled)
 						if err != nil {
 							return fmt.Errorf("parsing --filter-settings-enabled as bool: %w", err)
 						}
 						nestedFilterSettings["Enabled"] = parsedFilterSettingsEnabled
 					}
-					if bodyFilterSettingsFilterList != "" {
+					if cmd.Flags().Changed("filter-settings-filter-list") || bodyFilterSettingsFilterList != "" {
 						var parsedFilterSettingsFilterList any
 						if err := json.Unmarshal([]byte(bodyFilterSettingsFilterList), &parsedFilterSettingsFilterList); err != nil {
 							return fmt.Errorf("parsing --filter-settings-filter-list JSON: %w", err)
 						}
-						nestedFilterSettings["FilterList"] = parsedFilterSettingsFilterList
+						asArray, ok := parsedFilterSettingsFilterList.([]any)
+						if !ok {
+							return fmt.Errorf("--filter-settings-filter-list must be a JSON array, got JSON %T", parsedFilterSettingsFilterList)
+						}
+						nestedFilterSettings["FilterList"] = asArray
 					}
-					if bodyFilterSettingsReadOnly != "" {
+					if cmd.Flags().Changed("filter-settings-read-only") || bodyFilterSettingsReadOnly != "" {
 						parsedFilterSettingsReadOnly, err := strconv.ParseBool(bodyFilterSettingsReadOnly)
 						if err != nil {
 							return fmt.Errorf("parsing --filter-settings-read-only as bool: %w", err)
@@ -702,48 +779,52 @@ func newBackupSetsUpdateCmd(flags *rootFlags) *cobra.Command {
 						nestedFilterSettings["ReadOnly"] = parsedFilterSettingsReadOnly
 					}
 					if len(nestedFilterSettings) > 0 {
-						body["FilterSettings"] = nestedFilterSettings
+						bodyMap["FilterSettings"] = nestedFilterSettings
 					}
 				}
 				if cmd.Flags().Changed("follow-link") {
-					body["FollowLink"] = bodyFollowLink
+					bodyMap["FollowLink"] = bodyFollowLink
 				}
 				{
 					nestedInFileDeltaSettings := map[string]any{}
-					if bodyInFileDeltaSettingsDefaultDeltaType != "" {
+					if cmd.Flags().Changed("in-file-delta-settings-default-delta-type") || bodyInFileDeltaSettingsDefaultDeltaType != "" {
 						nestedInFileDeltaSettings["DefaultDeltaType"] = bodyInFileDeltaSettingsDefaultDeltaType
 					}
-					if bodyInFileDeltaSettingsEnabled != "" {
+					if cmd.Flags().Changed("in-file-delta-settings-enabled") || bodyInFileDeltaSettingsEnabled != "" {
 						parsedInFileDeltaSettingsEnabled, err := strconv.ParseBool(bodyInFileDeltaSettingsEnabled)
 						if err != nil {
 							return fmt.Errorf("parsing --in-file-delta-settings-enabled as bool: %w", err)
 						}
 						nestedInFileDeltaSettings["Enabled"] = parsedInFileDeltaSettingsEnabled
 					}
-					if bodyInFileDeltaSettingsMaxDeltaRatio != 0 {
+					if cmd.Flags().Changed("in-file-delta-settings-max-delta-ratio") || bodyInFileDeltaSettingsMaxDeltaRatio != 0 {
 						nestedInFileDeltaSettings["MaxDeltaRatio"] = bodyInFileDeltaSettingsMaxDeltaRatio
 					}
-					if bodyInFileDeltaSettingsMaxNumOfDelta != 0 {
+					if cmd.Flags().Changed("in-file-delta-settings-max-num-of-delta") || bodyInFileDeltaSettingsMaxNumOfDelta != 0 {
 						nestedInFileDeltaSettings["MaxNumOfDelta"] = bodyInFileDeltaSettingsMaxNumOfDelta
 					}
-					if bodyInFileDeltaSettingsMinDeltaFileSize != 0 {
+					if cmd.Flags().Changed("in-file-delta-settings-min-delta-file-size") || bodyInFileDeltaSettingsMinDeltaFileSize != 0 {
 						nestedInFileDeltaSettings["MinDeltaFileSize"] = bodyInFileDeltaSettingsMinDeltaFileSize
 					}
 					{
 						nestedInFileDeltaSettingsMonthlyInFileDeltaSchedule := map[string]any{}
-						if bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleCriteria != "" {
+						if cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-criteria") || bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleCriteria != "" {
 							nestedInFileDeltaSettingsMonthlyInFileDeltaSchedule["Criteria"] = bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleCriteria
 						}
-						if bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleDate != 0 {
+						if cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-date") || bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleDate != 0 {
 							nestedInFileDeltaSettingsMonthlyInFileDeltaSchedule["Date"] = bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleDate
 						}
-						if bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleMonth != "" {
-							nestedInFileDeltaSettingsMonthlyInFileDeltaSchedule["Month"] = cliutil.SplitCSV(bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleMonth)
+						if cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-month") {
+							parsedInFileDeltaSettingsMonthlyInFileDeltaScheduleMonth, parseErr := cliutil.ParseStringList(bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleMonth)
+							if parseErr != nil {
+								return fmt.Errorf("parsing --in-file-delta-settings-monthly-in-file-delta-schedule-month list: %w", parseErr)
+							}
+							nestedInFileDeltaSettingsMonthlyInFileDeltaSchedule["Month"] = parsedInFileDeltaSettingsMonthlyInFileDeltaScheduleMonth
 						}
-						if bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleOccurrence != "" {
+						if cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-occurrence") || bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleOccurrence != "" {
 							nestedInFileDeltaSettingsMonthlyInFileDeltaSchedule["Occurrence"] = bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleOccurrence
 						}
-						if bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleReadOnly != "" {
+						if cmd.Flags().Changed("in-file-delta-settings-monthly-in-file-delta-schedule-read-only") || bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleReadOnly != "" {
 							parsedInFileDeltaSettingsMonthlyInFileDeltaScheduleReadOnly, err := strconv.ParseBool(bodyInFileDeltaSettingsMonthlyInFileDeltaScheduleReadOnly)
 							if err != nil {
 								return fmt.Errorf("parsing --in-file-delta-settings-monthly-in-file-delta-schedule-read-only as bool: %w", err)
@@ -754,7 +835,7 @@ func newBackupSetsUpdateCmd(flags *rootFlags) *cobra.Command {
 							nestedInFileDeltaSettings["MonthlyInFileDeltaSchedule"] = nestedInFileDeltaSettingsMonthlyInFileDeltaSchedule
 						}
 					}
-					if bodyInFileDeltaSettingsReadOnly != "" {
+					if cmd.Flags().Changed("in-file-delta-settings-read-only") || bodyInFileDeltaSettingsReadOnly != "" {
 						parsedInFileDeltaSettingsReadOnly, err := strconv.ParseBool(bodyInFileDeltaSettingsReadOnly)
 						if err != nil {
 							return fmt.Errorf("parsing --in-file-delta-settings-read-only as bool: %w", err)
@@ -763,10 +844,14 @@ func newBackupSetsUpdateCmd(flags *rootFlags) *cobra.Command {
 					}
 					{
 						nestedInFileDeltaSettingsWeeklyInFileDeltaSchedule := map[string]any{}
-						if bodyInFileDeltaSettingsWeeklyInFileDeltaScheduleDay != "" {
-							nestedInFileDeltaSettingsWeeklyInFileDeltaSchedule["Day"] = cliutil.SplitCSV(bodyInFileDeltaSettingsWeeklyInFileDeltaScheduleDay)
+						if cmd.Flags().Changed("in-file-delta-settings-weekly-in-file-delta-schedule-day") {
+							parsedInFileDeltaSettingsWeeklyInFileDeltaScheduleDay, parseErr := cliutil.ParseStringList(bodyInFileDeltaSettingsWeeklyInFileDeltaScheduleDay)
+							if parseErr != nil {
+								return fmt.Errorf("parsing --in-file-delta-settings-weekly-in-file-delta-schedule-day list: %w", parseErr)
+							}
+							nestedInFileDeltaSettingsWeeklyInFileDeltaSchedule["Day"] = parsedInFileDeltaSettingsWeeklyInFileDeltaScheduleDay
 						}
-						if bodyInFileDeltaSettingsWeeklyInFileDeltaScheduleReadOnly != "" {
+						if cmd.Flags().Changed("in-file-delta-settings-weekly-in-file-delta-schedule-read-only") || bodyInFileDeltaSettingsWeeklyInFileDeltaScheduleReadOnly != "" {
 							parsedInFileDeltaSettingsWeeklyInFileDeltaScheduleReadOnly, err := strconv.ParseBool(bodyInFileDeltaSettingsWeeklyInFileDeltaScheduleReadOnly)
 							if err != nil {
 								return fmt.Errorf("parsing --in-file-delta-settings-weekly-in-file-delta-schedule-read-only as bool: %w", err)
@@ -778,21 +863,21 @@ func newBackupSetsUpdateCmd(flags *rootFlags) *cobra.Command {
 						}
 					}
 					if len(nestedInFileDeltaSettings) > 0 {
-						body["InFileDeltaSettings"] = nestedInFileDeltaSettings
+						bodyMap["InFileDeltaSettings"] = nestedInFileDeltaSettings
 					}
 				}
-				if bodyLanDomain != "" {
-					body["LanDomain"] = bodyLanDomain
+				if cmd.Flags().Changed("lan-domain") || bodyLanDomain != "" {
+					bodyMap["LanDomain"] = bodyLanDomain
 				}
-				if bodyLanPassword != "" {
-					body["LanPassword"] = bodyLanPassword
+				if cmd.Flags().Changed("lan-password") || bodyLanPassword != "" {
+					bodyMap["LanPassword"] = bodyLanPassword
 				}
-				if bodyLanUsername != "" {
-					body["LanUsername"] = bodyLanUsername
+				if cmd.Flags().Changed("lan-username") || bodyLanUsername != "" {
+					bodyMap["LanUsername"] = bodyLanUsername
 				}
 				{
 					nestedLocalCopySettings := map[string]any{}
-					if bodyLocalCopySettingsReadOnly != "" {
+					if cmd.Flags().Changed("local-copy-settings-read-only") || bodyLocalCopySettingsReadOnly != "" {
 						parsedLocalCopySettingsReadOnly, err := strconv.ParseBool(bodyLocalCopySettingsReadOnly)
 						if err != nil {
 							return fmt.Errorf("parsing --local-copy-settings-read-only as bool: %w", err)
@@ -800,42 +885,50 @@ func newBackupSetsUpdateCmd(flags *rootFlags) *cobra.Command {
 						nestedLocalCopySettings["ReadOnly"] = parsedLocalCopySettingsReadOnly
 					}
 					if len(nestedLocalCopySettings) > 0 {
-						body["LocalCopySettings"] = nestedLocalCopySettings
+						bodyMap["LocalCopySettings"] = nestedLocalCopySettings
 					}
 				}
-				if bodyLogRetentionDays != 0 {
-					body["LogRetentionDays"] = bodyLogRetentionDays
+				if cmd.Flags().Changed("log-retention-days") || bodyLogRetentionDays != 0 {
+					bodyMap["LogRetentionDays"] = bodyLogRetentionDays
 				}
-				if bodyName != "" {
-					body["Name"] = bodyName
+				if cmd.Flags().Changed("name") || bodyName != "" {
+					bodyMap["Name"] = bodyName
 				}
-				if bodyPostCommandList != "" {
+				if cmd.Flags().Changed("post-command-list") || bodyPostCommandList != "" {
 					var parsedPostCommandList any
 					if err := json.Unmarshal([]byte(bodyPostCommandList), &parsedPostCommandList); err != nil {
 						return fmt.Errorf("parsing --post-command-list JSON: %w", err)
 					}
-					body["PostCommandList"] = parsedPostCommandList
+					asMap, ok := parsedPostCommandList.(map[string]any)
+					if !ok {
+						return fmt.Errorf("--post-command-list must be a JSON object, got JSON %T", parsedPostCommandList)
+					}
+					bodyMap["PostCommandList"] = asMap
 				}
-				if bodyPreCommandList != "" {
+				if cmd.Flags().Changed("pre-command-list") || bodyPreCommandList != "" {
 					var parsedPreCommandList any
 					if err := json.Unmarshal([]byte(bodyPreCommandList), &parsedPreCommandList); err != nil {
 						return fmt.Errorf("parsing --pre-command-list JSON: %w", err)
 					}
-					body["PreCommandList"] = parsedPreCommandList
+					asMap, ok := parsedPreCommandList.(map[string]any)
+					if !ok {
+						return fmt.Errorf("--pre-command-list must be a JSON object, got JSON %T", parsedPreCommandList)
+					}
+					bodyMap["PreCommandList"] = asMap
 				}
 				if cmd.Flags().Changed("read-only") {
-					body["ReadOnly"] = bodyReadOnly
+					bodyMap["ReadOnly"] = bodyReadOnly
 				}
 				{
 					nestedReminderSettings := map[string]any{}
-					if bodyReminderSettingsLogoutBackupReminderEnabled != "" {
+					if cmd.Flags().Changed("reminder-settings-logout-backup-reminder-enabled") || bodyReminderSettingsLogoutBackupReminderEnabled != "" {
 						parsedReminderSettingsLogoutBackupReminderEnabled, err := strconv.ParseBool(bodyReminderSettingsLogoutBackupReminderEnabled)
 						if err != nil {
 							return fmt.Errorf("parsing --reminder-settings-logout-backup-reminder-enabled as bool: %w", err)
 						}
 						nestedReminderSettings["LogoutBackupReminderEnabled"] = parsedReminderSettingsLogoutBackupReminderEnabled
 					}
-					if bodyReminderSettingsReadOnly != "" {
+					if cmd.Flags().Changed("reminder-settings-read-only") || bodyReminderSettingsReadOnly != "" {
 						parsedReminderSettingsReadOnly, err := strconv.ParseBool(bodyReminderSettingsReadOnly)
 						if err != nil {
 							return fmt.Errorf("parsing --reminder-settings-read-only as bool: %w", err)
@@ -843,116 +936,140 @@ func newBackupSetsUpdateCmd(flags *rootFlags) *cobra.Command {
 						nestedReminderSettings["ReadOnly"] = parsedReminderSettingsReadOnly
 					}
 					if len(nestedReminderSettings) > 0 {
-						body["ReminderSettings"] = nestedReminderSettings
+						bodyMap["ReminderSettings"] = nestedReminderSettings
 					}
 				}
 				{
 					nestedRetentionPolicySettings := map[string]any{}
-					if bodyRetentionPolicySettingsAdvancedRetentionPolicyList != "" {
+					if cmd.Flags().Changed("retention-policy-settings-advanced-retention-policy-list") || bodyRetentionPolicySettingsAdvancedRetentionPolicyList != "" {
 						var parsedRetentionPolicySettingsAdvancedRetentionPolicyList any
 						if err := json.Unmarshal([]byte(bodyRetentionPolicySettingsAdvancedRetentionPolicyList), &parsedRetentionPolicySettingsAdvancedRetentionPolicyList); err != nil {
 							return fmt.Errorf("parsing --retention-policy-settings-advanced-retention-policy-list JSON: %w", err)
 						}
-						nestedRetentionPolicySettings["AdvancedRetentionPolicyList"] = parsedRetentionPolicySettingsAdvancedRetentionPolicyList
+						asArray, ok := parsedRetentionPolicySettingsAdvancedRetentionPolicyList.([]any)
+						if !ok {
+							return fmt.Errorf("--retention-policy-settings-advanced-retention-policy-list must be a JSON array, got JSON %T", parsedRetentionPolicySettingsAdvancedRetentionPolicyList)
+						}
+						nestedRetentionPolicySettings["AdvancedRetentionPolicyList"] = asArray
 					}
-					if bodyRetentionPolicySettingsOverlapSensitive != "" {
+					if cmd.Flags().Changed("retention-policy-settings-overlap-sensitive") || bodyRetentionPolicySettingsOverlapSensitive != "" {
 						parsedRetentionPolicySettingsOverlapSensitive, err := strconv.ParseBool(bodyRetentionPolicySettingsOverlapSensitive)
 						if err != nil {
 							return fmt.Errorf("parsing --retention-policy-settings-overlap-sensitive as bool: %w", err)
 						}
 						nestedRetentionPolicySettings["OverlapSensitive"] = parsedRetentionPolicySettingsOverlapSensitive
 					}
-					if bodyRetentionPolicySettingsPeriod != 0 {
+					if cmd.Flags().Changed("retention-policy-settings-period") || bodyRetentionPolicySettingsPeriod != 0 {
 						nestedRetentionPolicySettings["Period"] = bodyRetentionPolicySettingsPeriod
 					}
-					if bodyRetentionPolicySettingsReadOnly != "" {
+					if cmd.Flags().Changed("retention-policy-settings-read-only") || bodyRetentionPolicySettingsReadOnly != "" {
 						parsedRetentionPolicySettingsReadOnly, err := strconv.ParseBool(bodyRetentionPolicySettingsReadOnly)
 						if err != nil {
 							return fmt.Errorf("parsing --retention-policy-settings-read-only as bool: %w", err)
 						}
 						nestedRetentionPolicySettings["ReadOnly"] = parsedRetentionPolicySettingsReadOnly
 					}
-					if bodyRetentionPolicySettingsType != "" {
+					if cmd.Flags().Changed("retention-policy-settings-type") || bodyRetentionPolicySettingsType != "" {
 						nestedRetentionPolicySettings["Type"] = bodyRetentionPolicySettingsType
 					}
-					if bodyRetentionPolicySettingsUnit != "" {
+					if cmd.Flags().Changed("retention-policy-settings-unit") || bodyRetentionPolicySettingsUnit != "" {
 						nestedRetentionPolicySettings["Unit"] = bodyRetentionPolicySettingsUnit
 					}
 					if len(nestedRetentionPolicySettings) > 0 {
-						body["RetentionPolicySettings"] = nestedRetentionPolicySettings
+						bodyMap["RetentionPolicySettings"] = nestedRetentionPolicySettings
 					}
 				}
 				{
 					nestedScheduleSettings := map[string]any{}
-					if bodyScheduleSettingsComputerName != "" {
+					if cmd.Flags().Changed("schedule-settings-computer-name") || bodyScheduleSettingsComputerName != "" {
 						nestedScheduleSettings["ComputerName"] = bodyScheduleSettingsComputerName
 					}
-					if bodyScheduleSettingsCustomScheduleList != "" {
+					if cmd.Flags().Changed("schedule-settings-custom-schedule-list") || bodyScheduleSettingsCustomScheduleList != "" {
 						var parsedScheduleSettingsCustomScheduleList any
 						if err := json.Unmarshal([]byte(bodyScheduleSettingsCustomScheduleList), &parsedScheduleSettingsCustomScheduleList); err != nil {
 							return fmt.Errorf("parsing --schedule-settings-custom-schedule-list JSON: %w", err)
 						}
-						nestedScheduleSettings["CustomScheduleList"] = parsedScheduleSettingsCustomScheduleList
+						asArray, ok := parsedScheduleSettingsCustomScheduleList.([]any)
+						if !ok {
+							return fmt.Errorf("--schedule-settings-custom-schedule-list must be a JSON array, got JSON %T", parsedScheduleSettingsCustomScheduleList)
+						}
+						nestedScheduleSettings["CustomScheduleList"] = asArray
 					}
-					if bodyScheduleSettingsDailyScheduleList != "" {
+					if cmd.Flags().Changed("schedule-settings-daily-schedule-list") || bodyScheduleSettingsDailyScheduleList != "" {
 						var parsedScheduleSettingsDailyScheduleList any
 						if err := json.Unmarshal([]byte(bodyScheduleSettingsDailyScheduleList), &parsedScheduleSettingsDailyScheduleList); err != nil {
 							return fmt.Errorf("parsing --schedule-settings-daily-schedule-list JSON: %w", err)
 						}
-						nestedScheduleSettings["DailyScheduleList"] = parsedScheduleSettingsDailyScheduleList
+						asArray, ok := parsedScheduleSettingsDailyScheduleList.([]any)
+						if !ok {
+							return fmt.Errorf("--schedule-settings-daily-schedule-list must be a JSON array, got JSON %T", parsedScheduleSettingsDailyScheduleList)
+						}
+						nestedScheduleSettings["DailyScheduleList"] = asArray
 					}
-					if bodyScheduleSettingsEnable != "" {
+					if cmd.Flags().Changed("schedule-settings-enable") || bodyScheduleSettingsEnable != "" {
 						parsedScheduleSettingsEnable, err := strconv.ParseBool(bodyScheduleSettingsEnable)
 						if err != nil {
 							return fmt.Errorf("parsing --schedule-settings-enable as bool: %w", err)
 						}
 						nestedScheduleSettings["Enable"] = parsedScheduleSettingsEnable
 					}
-					if bodyScheduleSettingsMonthlyScheduleList != "" {
+					if cmd.Flags().Changed("schedule-settings-monthly-schedule-list") || bodyScheduleSettingsMonthlyScheduleList != "" {
 						var parsedScheduleSettingsMonthlyScheduleList any
 						if err := json.Unmarshal([]byte(bodyScheduleSettingsMonthlyScheduleList), &parsedScheduleSettingsMonthlyScheduleList); err != nil {
 							return fmt.Errorf("parsing --schedule-settings-monthly-schedule-list JSON: %w", err)
 						}
-						nestedScheduleSettings["MonthlyScheduleList"] = parsedScheduleSettingsMonthlyScheduleList
+						asArray, ok := parsedScheduleSettingsMonthlyScheduleList.([]any)
+						if !ok {
+							return fmt.Errorf("--schedule-settings-monthly-schedule-list must be a JSON array, got JSON %T", parsedScheduleSettingsMonthlyScheduleList)
+						}
+						nestedScheduleSettings["MonthlyScheduleList"] = asArray
 					}
-					if bodyScheduleSettingsReadOnly != "" {
+					if cmd.Flags().Changed("schedule-settings-read-only") || bodyScheduleSettingsReadOnly != "" {
 						parsedScheduleSettingsReadOnly, err := strconv.ParseBool(bodyScheduleSettingsReadOnly)
 						if err != nil {
 							return fmt.Errorf("parsing --schedule-settings-read-only as bool: %w", err)
 						}
 						nestedScheduleSettings["ReadOnly"] = parsedScheduleSettingsReadOnly
 					}
-					if bodyScheduleSettingsWeeklyScheduleList != "" {
+					if cmd.Flags().Changed("schedule-settings-weekly-schedule-list") || bodyScheduleSettingsWeeklyScheduleList != "" {
 						var parsedScheduleSettingsWeeklyScheduleList any
 						if err := json.Unmarshal([]byte(bodyScheduleSettingsWeeklyScheduleList), &parsedScheduleSettingsWeeklyScheduleList); err != nil {
 							return fmt.Errorf("parsing --schedule-settings-weekly-schedule-list JSON: %w", err)
 						}
-						nestedScheduleSettings["WeeklyScheduleList"] = parsedScheduleSettingsWeeklyScheduleList
+						asArray, ok := parsedScheduleSettingsWeeklyScheduleList.([]any)
+						if !ok {
+							return fmt.Errorf("--schedule-settings-weekly-schedule-list must be a JSON array, got JSON %T", parsedScheduleSettingsWeeklyScheduleList)
+						}
+						nestedScheduleSettings["WeeklyScheduleList"] = asArray
 					}
 					if len(nestedScheduleSettings) > 0 {
-						body["ScheduleSettings"] = nestedScheduleSettings
+						bodyMap["ScheduleSettings"] = nestedScheduleSettings
 					}
 				}
-				if bodySelectedSourceList != "" {
+				if cmd.Flags().Changed("selected-source-list") || bodySelectedSourceList != "" {
 					var parsedSelectedSourceList any
 					if err := json.Unmarshal([]byte(bodySelectedSourceList), &parsedSelectedSourceList); err != nil {
 						return fmt.Errorf("parsing --selected-source-list JSON: %w", err)
 					}
-					body["SelectedSourceList"] = parsedSelectedSourceList
+					asMap, ok := parsedSelectedSourceList.(map[string]any)
+					if !ok {
+						return fmt.Errorf("--selected-source-list must be a JSON object, got JSON %T", parsedSelectedSourceList)
+					}
+					bodyMap["SelectedSourceList"] = asMap
 				}
 				if cmd.Flags().Changed("shadow-copy-enabled") {
-					body["ShadowCopyEnabled"] = bodyShadowCopyEnabled
+					bodyMap["ShadowCopyEnabled"] = bodyShadowCopyEnabled
 				}
 				if cmd.Flags().Changed("upload-permission") {
-					body["UploadPermission"] = bodyUploadPermission
+					bodyMap["UploadPermission"] = bodyUploadPermission
 				}
-				if bodyWorkingDir != "" {
-					body["WorkingDir"] = bodyWorkingDir
+				if cmd.Flags().Changed("working-dir") || bodyWorkingDir != "" {
+					bodyMap["WorkingDir"] = bodyWorkingDir
 				}
 			}
 			data, statusCode, err := c.PutWithParams(cmd.Context(), path, params, body)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			// Inspect the mutate response body for a partial-failure-shaped
 			// field (e.g. Google Ads `partialFailureError`). Several Google
@@ -1017,6 +1134,9 @@ func newBackupSetsUpdateCmd(flags *rootFlags) *cobra.Command {
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -1050,19 +1170,31 @@ func newBackupSetsUpdateCmd(flags *rootFlags) *cobra.Command {
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"AllowedIPList": true, "ApplicationSettings": true, "BandwidthControlSettings": true, "CdpSettingsV7": true, "CompressType": true, "DeleteTempFile": true, "DeselectedSourceList": true, "DestinationList": true, "DestinationSettings": true, "EnableOpenDirect": true, "FilterSettings": true, "FollowLink": true, "InFileDeltaSettings": true, "LanDomain": true, "LanPassword": true, "LanUsername": true, "LocalCopySettings": true, "LogRetentionDays": true, "Name": true, "PostCommandList": true, "PreCommandList": true, "ReadOnly": true, "ReminderSettings": true, "RetentionPolicySettings": true, "ScheduleSettings": true, "SelectedSourceList": true, "ShadowCopyEnabled": true, "UploadPermission": true, "WorkingDir": true})
 				}
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {
