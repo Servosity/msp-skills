@@ -1,0 +1,124 @@
+{
+  "outcome_intro": "Ask your AI why a client's Cork risk score moved and get the component that actually drove it, not just the number. It reads your whole book of business at once: which clients slipped this week, what to patch first by what is genuinely being exploited, which compliance events have blown their remediation window, and which connector is reporting healthy while its data quietly went stale.",
+  "instead_of_say": [
+    {
+      "instead": "Export two score snapshots from Cork and subtract the four components in a spreadsheet to work out what moved before a QBR",
+      "say": "Why did this client's Cork score drop this month?",
+      "cli": "cork-cli score attribute <client-uuid> --since 30d"
+    },
+    {
+      "instead": "Pull the vulnerability inventory and re-sort it by hand because the API can only sort by vendor and product name",
+      "say": "What should we patch first across all our clients?",
+      "cli": "cork-cli vulnerabilities triage"
+    },
+    {
+      "instead": "Open each integration in the Cork portal and eyeball its last sync time against the clock",
+      "say": "Which of our Cork connectors have quietly stopped syncing?",
+      "cli": "cork-cli integrations health"
+    }
+  ],
+  "pain_points": [
+    "Cork reports a per-client risk score but never differences the four components behind it, so working out why a score moved means exporting two snapshots and subtracting by hand before every QBR.",
+    "There is no cross-client aggregate endpoint in the Cork API at all, so 'which clients got worse this week' needs a fan-out across every client with nothing stored to compare yesterday against - which means in practice nobody asks it, and regressions surface when a client notices.",
+    "A Cork integration can report connection_status ok while its last sync is days old. Both fields ship in the same payload and nothing compares the timestamp to now, so the dashboard stays green while every risk number behind it silently drifts."
+  ],
+  "outcomes": [
+    {
+      "question": "Why did this client's risk score move, and which component drove it?",
+      "command": "cork-cli score attribute <client-uuid> --since 30d"
+    },
+    {
+      "question": "Which clients across the whole book slipped the most this week?",
+      "command": "cork-cli score regressions --since 7d"
+    },
+    {
+      "question": "What should we patch first, ranked by what is actually being exploited?",
+      "command": "cork-cli vulnerabilities triage"
+    },
+    {
+      "question": "An advisory just named a CVE. Are we exposed, and where?",
+      "command": "cork-cli vulnerabilities exposure CVE-2023-21608"
+    },
+    {
+      "question": "Which compliance events have blown their remediation window?",
+      "command": "cork-cli compliance overdue"
+    },
+    {
+      "question": "Which connectors report healthy but stopped syncing?",
+      "command": "cork-cli integrations health"
+    },
+    {
+      "question": "Did this client get fully monitored after onboarding, or did an endpoint fall through?",
+      "command": "cork-cli coverage gaps --client <client-uuid>"
+    },
+    {
+      "question": "Which unwarranted clients are carrying the most risk right now?",
+      "command": "cork-cli warranties exposure"
+    }
+  ],
+  "different_vs_wrappers": "A stateless API mirror can answer one client at a time, right now. Every question an MSP actually asks of Cork is cross-client, cross-time, or both, and the API exposes no cross-client aggregate endpoint to build them from. This skill syncs Cork into a local SQLite mirror and answers those questions as one offline join: score attribution across a window, regression ranking over the whole book, exploitability-first triage, and a compliance join the API leaves in two separate endpoints.",
+  "different_vs_vendor": "The Cork portal shows one client's score, one client's compliance feed, one connector's status. This skill answers the questions that span all of them at once - who regressed, what to patch first, which connector went stale, who has no warranty - and it explains a score move by differencing its components instead of just reporting the new number.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Cork MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Cork API key once."
+    },
+    {
+      "q": "Is my Cork data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the MCP server speaks stdio only so it opens no network listener. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Will this hit my Cork API rate limits?",
+      "a": "`sync` fills a local SQLite mirror, and search and score regressions answer from it without touching the API. export is NOT one of them - it paginates the live API and is one of the heaviest readers here, so pass --limit unless you mean to pull everything. The other seven analysis commands fetch live on every run, and two of them fan out (coverage gaps per connector, compliance overdue per client), so those are the ones to watch. Each caps its own scan and tells you when it truncated."
+    },
+    {
+      "q": "Why does my Cork key get a 403 on some commands?",
+      "a": "A Cork API key inherits the permissions of the user who created it. A 403 on the distributor or integration endpoints usually means the key was minted by an operator without that scope, not that the key is wrong. That property is also your best control: mint a read-only key for read-only work."
+    },
+    {
+      "q": "Will this replace the Cork portal?",
+      "a": "No, it complements it. The portal is still where you configure integrations and watch a single client. This skill answers the cross-client questions the portal makes you click through - score attribution, regression ranking, exploitability triage, stale connectors, coverage gaps - from your AI."
+    }
+  ],
+  "governance_summary": "The skill reads your Cork clients, devices, risk scores, compliance events, vulnerabilities, integrations, warranties, and invoices, and it can connect, update, resync, or delete integrations, install a software package on a mapped device through that device's RMM integration, and provision a partner account. Reads and sync are always safe to allow. Routine integration writes should be previewed with --dry-run, then approved. Deleting an integration, reading or replacing connector credentials, installing software on a customer endpoint, and provisioning a partner are human-in-the-loop only. The strongest control is the credential itself: a Cork API key inherits the permissions of the user who created it, so a key minted by a read-only user makes the destructive tiers unreachable.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "score attribute, score regressions, vulnerabilities triage, vulnerabilities exposure, compliance overdue, integrations health, coverage gaps, warranties exposure, sync, search, export, and every list/get command except the secret-returning reads in the Credential row",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "integrations connect, integrations update, integrations resync integration",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Credential / security",
+      "examples": "integrations credentials, integrations credentials get-integration (printed verbatim, not redacted), integrations raw-data get-integration (returns a presigned URL that downloads the connector's full raw data with no further auth), the credential fields of integrations update",
+      "policy": "Human-in-the-loop only, never in a blanket allow-all-reads policy"
+    },
+    {
+      "tier": "Destructive / endpoint-affecting",
+      "examples": "integrations delete, software install (installs a package on a real customer device through its RMM integration)",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    },
+    {
+      "tier": "Admin",
+      "examples": "distributor provision-partner",
+      "policy": "Operator-only, not for agents"
+    },
+    {
+      "tier": "Bulk write",
+      "examples": "import <resource> --input file.jsonl - one POST per line into the write endpoints above, continuing past failures",
+      "policy": "Human-in-the-loop only, explicit confirmation. Never unattended"
+    }
+  ]
+}

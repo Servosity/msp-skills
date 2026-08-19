@@ -650,6 +650,42 @@ A: Yes. CW_SITE accepts your own server's hostname as well as the cloud region h
 
 Governance: The skill drives the connectwise-manage-cli and connectwise-manage-mcp binaries, authenticating with API Member keys read from the environment (CW_COMPANY_ID, CW_PUBLIC_KEY, CW_PRIVATE_KEY, CW_CLIENT_ID) - never logged and never sent anywhere except your ConnectWise Manage instance. Read commands (boards, cross-entity views, search, reports) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep delete and member-administration commands human-only. The strongest control is the security role on the API Member you create.
 
+### Cork (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/cork/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cork/install.sh)
+
+Ask your AI why a client's Cork risk score moved and get the component that actually drove it, not just the number. It reads your whole book of business at once: which clients slipped this week, what to patch first by what is genuinely being exploited, which compliance events have blown their remediation window, and which connector is reporting healthy while its data quietly went stale.
+
+Outcomes (question -> command your AI agent runs):
+- Why did this client's risk score move, and which component drove it? -> cork-cli score attribute <client-uuid> --since 30d
+- Which clients across the whole book slipped the most this week? -> cork-cli score regressions --since 7d
+- What should we patch first, ranked by what is actually being exploited? -> cork-cli vulnerabilities triage
+- An advisory just named a CVE. Are we exposed, and where? -> cork-cli vulnerabilities exposure CVE-2023-21608
+- Which compliance events have blown their remediation window? -> cork-cli compliance overdue
+- Which connectors report healthy but stopped syncing? -> cork-cli integrations health
+- Did this client get fully monitored after onboarding, or did an endpoint fall through? -> cork-cli coverage gaps --client <client-uuid>
+- Which unwarranted clients are carrying the most risk right now? -> cork-cli warranties exposure
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Cork MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Cork API key once.
+Q: Is my Cork data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the MCP server speaks stdio only so it opens no network listener. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Will this hit my Cork API rate limits?
+A: `sync` fills a local SQLite mirror, and search and score regressions answer from it without touching the API. export is NOT one of them - it paginates the live API and is one of the heaviest readers here, so pass --limit unless you mean to pull everything. The other seven analysis commands fetch live on every run, and two of them fan out (coverage gaps per connector, compliance overdue per client), so those are the ones to watch. Each caps its own scan and tells you when it truncated.
+Q: Why does my Cork key get a 403 on some commands?
+A: A Cork API key inherits the permissions of the user who created it. A 403 on the distributor or integration endpoints usually means the key was minted by an operator without that scope, not that the key is wrong. That property is also your best control: mint a read-only key for read-only work.
+Q: Will this replace the Cork portal?
+A: No, it complements it. The portal is still where you configure integrations and watch a single client. This skill answers the cross-client questions the portal makes you click through - score attribution, regression ranking, exploitability triage, stale connectors, coverage gaps - from your AI.
+
+Governance: The skill reads your Cork clients, devices, risk scores, compliance events, vulnerabilities, integrations, warranties, and invoices, and it can connect, update, resync, or delete integrations, install a software package on a mapped device through that device's RMM integration, and provision a partner account. Reads and sync are always safe to allow. Routine integration writes should be previewed with --dry-run, then approved. Deleting an integration, reading or replacing connector credentials, installing software on a customer endpoint, and provisioning a partner are human-in-the-loop only. The strongest control is the credential itself: a Cork API key inherits the permissions of the user who created it, so a key minted by a read-only user makes the destructive tiers unreachable.
+
 ### Cove Data Protection (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/cove/
