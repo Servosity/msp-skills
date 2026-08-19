@@ -178,7 +178,9 @@ jobs:
           # Guard: the derived slug must exist in skills.json, else skip. This
           # keeps an arbitrary "*-v*.*.*" tag from trying to build a nonexistent
           # skill. The whole release run no-ops cleanly for an unknown slug.
-          if ! python3 -c "import json,sys; reg=json.load(open('tools/maintainer/skills.json')); sys.exit(0 if '$tag_skill' in reg.get('skills',{}) else 1)"; then
+          # argv, never program text: $tag_skill comes from the pushed tag, so
+          # interpolating it into a `python3 -c` string let a tag execute code.
+          if ! python3 tools/maintainer/is_registered_slug.py --slug "$tag_skill"; then
             echo "Tag $TAG: derived slug '$tag_skill' is not in skills.json; skipping."
             exit 0
           fi
