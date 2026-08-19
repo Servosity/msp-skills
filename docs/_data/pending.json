@@ -168,9 +168,9 @@
     "released_hash": "sha256:4ff2c6903bd19c1ef62cb39efa861570ccce90dc20a2cac715974a1db621ff91"
   },
   "halopsa": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.8",
-    "latest_tag": "halopsa-v0.2.7",
+    "latest_tag": "halopsa-v0.2.8",
     "current_hash": "sha256:adb4118ad30d7247b293329c0ba1d5ddeba4fc87aeffd99137899ab3317faf95",
     "released_hash": "sha256:adb4118ad30d7247b293329c0ba1d5ddeba4fc87aeffd99137899ab3317faf95"
   },
