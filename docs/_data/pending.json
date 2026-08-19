@@ -143,7 +143,7 @@
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "datto-rmm-v0.1.0",
-    "current_hash": "sha256:f22742b6a880ff47451dd4aed706dd39f16bc6ad18c842e1b521e416e035e85e",
+    "current_hash": "sha256:5509d6964e171be0ee35028c1dcd98aad789c30d06db38d1f8f74dd7f50660dd",
     "released_hash": "sha256:92a5147de7eca212243b233b8cfd9be4cbbcdbc2ae84e454ecf9b0e9ee8f08b0"
   },
   "domotz": {
