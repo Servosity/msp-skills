@@ -36,6 +36,17 @@
         {"file": "cli/internal/cli/job.go", "contains": "Use:         \"job\"", "min_count": 1},
         {"file": "cli/internal/cli/root.go", "not_contains": "TODO: implement"}
       ]
+    },
+    {
+      "id": "env-oauth-secrets-not-persisted",
+      "summary": "SaveTokens keeps the env-override marker on ClientID/ClientSecret, so env-supplied OAuth credentials are never written to config.toml (issue #266)",
+      "why": "Load() marks ClientID/ClientSecret as env overrides and configForSave() restores the file value for any field still marked -- the mechanism that keeps env-supplied secrets off disk. SaveTokens() cleared both markers on every save, so each token mint (an ordinary authenticated command, no `auth login` step needed) rewrote the live client_id and client_secret into ~/.config/<tool>-cli/config.toml in cleartext, defeating Keychain/Credential-Manager setups that inject the secret as an env var at process launch. SaveTokens now leaves those two markers alone; only MarkCredentialsExplicit clears them, and only `auth login` calls it, passing whether each value came from a flag rather than from the env fallback. Provenance must be declared, not inferred: comparing the incoming value against the loaded one cannot tell an explicit flag from the env value it duplicates, and `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and leaks. Reported by @Xenith-B against halopsa-cli/ninjaone-cli. GENERATOR-class defect (the press emits the unconditional deletes) tracked for an upstream retro; until the press is fixed, a reprint reintroduces the leak and these markers guard the connector. Bug-fix-only: no new flag, command, or output.",
+      "status": "active",
+      "spec_encode_followup": "cli-printing-press: SaveTokens must not clear an env override unless the caller supplied a different value.",
+      "asserts": [
+        {"file": "cli/internal/config/config.go", "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {", "min_count": 1},
+        {"file": "cli/internal/cli/auth.go", "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)", "min_count": 1}
+      ]
     }
   ]
 }

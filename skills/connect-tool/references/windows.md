@@ -61,19 +61,38 @@ assumed to work with shell-free process spawning.
 
 Verified on macOS: all 13 helper self-checks, including a live Keychain round-trip.
 
+**Reported failing in the field:**
+
+1. `opencli browser <slug> bind` driving the tab you already had focused. Issue
+   [#266](https://github.com/Servosity/msp-skills/issues/266) (reporter @Xenith-B, Windows 11,
+   rotating a HaloPSA client secret): a new blank Chrome window opened instead of the
+   signed-in tab, and the run was abandoned. **This one is not Windows-specific and not ours**
+   - the bridge extension manages its own container windows by design
+   (<https://github.com/jackwener/opencli/issues/2202>, observed on macOS). The mechanism, the
+   reassurance to give the user, and the recovery order are in
+   `references/browser-and-keychain.md`. Still open on Windows: whether `bind` works *at all*
+   there once the container-window behavior is accounted for.
+
+**Also worth knowing before you debug a Windows bridge failure:** if OpenCLI was installed as
+the **OpenCLIApp desktop** app rather than via `npm install -g @jackwener/opencli`, every
+`opencli` command can return **silently with no output and no error** while `opencli doctor`
+reports the runtime healthy - the `opencli.cmd` stub under `WindowsApps` fails to forward to
+the app-managed Node runtime (<https://github.com/jackwener/opencli/issues/2102>, open). A
+silent zero-output CLI looks exactly like "the skill is broken." Check
+`Get-Command opencli` and prefer the npm global install this skill documents.
+
 **Not yet verified on Windows** (needs a real Windows box; do not claim these work):
 
-1. `opencli browser <slug> bind` actually driving Chrome on Windows.
-2. A Git-less `/plugin marketplace add https://github.com/servosity/msp-skills.git`.
+1. A Git-less `/plugin marketplace add https://github.com/servosity/msp-skills.git`.
    Claude Code's marketplace install is described as a clone/pull; whether it works with no
    Git installed is untested. `bootstrap.ps1` exists as the no-Git path.
-3. `CredWriteW` / `CredReadW` round-trip, and the entry appearing in the Credential Manager
+2. `CredWriteW` / `CredReadW` round-trip, and the entry appearing in the Credential Manager
    UI.
-4. Whether the detached OAuth child survives the Claude Code tool call. Windows job objects
+3. Whether the detached OAuth child survives the Claude Code tool call. Windows job objects
    can terminate descendants; `CREATE_BREAKAWAY_FROM_JOB` may be required and can be denied
    by policy. If Lane A fails this way, Lane B and Lane C are unaffected.
-5. All self-checks under the PowerShell tool with no Git Bash present.
-6. Behavior under Constrained Language Mode or WDAC. `ctypes` sidesteps the PowerShell
+4. All self-checks under the PowerShell tool with no Git Bash present.
+5. Behavior under Constrained Language Mode or WDAC. `ctypes` sidesteps the PowerShell
    restriction, but a policy that blocks uv's downloaded Python or Node entirely is an
    administrator conversation, not something to work around.
 

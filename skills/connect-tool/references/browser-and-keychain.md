@@ -13,6 +13,26 @@ Use a per-target session `<slug>` (e.g. `halopsa`, `ninjaone`). Drive `--window 
 so the user watches live. `scripts/preflight.py` does doctor+bind+state and refuses to run
 if the bridge is down (it never falls back to a spawned browser).
 
+**What `bind` actually does, and what to tell the user (issue #266).** The bridge extension
+does not always drive the tab you had focused. It manages its own "owned container" windows
+and reuses a persistent `about:blank` placeholder, so a **new, apparently blank Chrome window
+can appear** instead of your existing tab. Running `opencli doctor` can create one by itself.
+Upstream: <https://github.com/jackwener/opencli/issues/2202> (open; observed on macOS, so this
+is the bridge's design, not a Windows problem).
+
+This is cosmetically alarming and easy to read as "it opened a browser I am not logged into,"
+which is the exact fear this skill exists to avoid. It is not that: the extension creates that
+window **inside your existing Chrome profile**, which is where your cookies and sessions live,
+so it carries your logins. Say so out loud when a new window appears rather than letting the
+user assume the run went wrong. What would be wrong is a *separate browser* (Playwright,
+Puppeteer, a headless Chromium) - still forbidden, see the hard guardrail in SKILL.md.
+
+If the container window stays blank and never navigates, in order:
+1. Reload the OpenCLI card in `chrome://extensions/` (dormant MV3 worker; a daemon restart
+   does not wake it).
+2. Focus the real tab and `opencli browser <slug> bind` again.
+3. Last resort, the `--remote-debugging-port=9222` CDP path in `references/opencli-bootstrap.md`.
+
 ## Navigation / interaction (non-secret values only)
 
 ```bash

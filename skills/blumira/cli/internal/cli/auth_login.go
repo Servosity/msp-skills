@@ -66,10 +66,14 @@ from the BLUMIRA_CLIENT_ID / BLUMIRA_CLIENT_SECRET environment variables.
 			if clientID == "" {
 				clientID = os.Getenv("BLUMIRA_CLIENT_ID")
 			}
+			// issue #266: only a credential the caller typed may be written to
+			// disk; one inherited from the environment must not be.
+			explicitClientID := flagClientID != ""
 			clientSecret := flagClientSecret
 			if clientSecret == "" {
 				clientSecret = os.Getenv("BLUMIRA_CLIENT_SECRET")
 			}
+			explicitClientSecret := flagClientSecret != ""
 			authURL := flagAuthURL
 			if authURL == "" {
 				authURL = defaultBlumiraAuthURL
@@ -119,6 +123,7 @@ from the BLUMIRA_CLIENT_ID / BLUMIRA_CLIENT_SECRET environment variables.
 			if tok.ExpiresIn > 0 {
 				expiry = time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second)
 			}
+			cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)
 			if err := cfg.SaveTokens(clientID, clientSecret, tok.AccessToken, "", expiry); err != nil {
 				return configErr(fmt.Errorf("saving token: %w", err))
 			}

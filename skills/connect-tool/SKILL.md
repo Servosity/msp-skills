@@ -61,6 +61,14 @@ cookie-import helper, no other browser-driving skill.** They open a *separate* b
 catch yourself about to launch a browser any other way, **STOP, wrong tool.** The only
 browser entry point in this skill is `scripts/preflight.py` (which binds your real Chrome).
 
+**A new blank Chrome window is NOT this bug.** OpenCLI's extension manages its own container
+windows, so `bind` may surface a fresh `about:blank` window instead of the tab you focused
+(upstream `jackwener/opencli#2202`; issue #266 was filed over exactly this). That window is in
+the user's **own Chrome profile**, so it carries their logins - **say that out loud** instead
+of letting them conclude the run went wrong, and follow the recovery order in
+`references/browser-and-keychain.md`. What IS the bug is a *separate browser*, which is what
+the paragraph above forbids.
+
 If the separate **`opencli-browser`** skill is also installed, **this skill's rules win**
 for anything in a connect-tool run. That skill teaches free use of `eval`, `network`,
 `console`, and `extract`, which is exactly what section 2 forbids around a secret.

@@ -6,6 +6,23 @@ All notable changes to this skill are documented here. Format follows
 
 ## [0.1.1] - unreleased
 
+### Fixed
+- OAuth client credentials supplied through the environment (`NERDIO_CLIENT_ID` and
+  `NERDIO_CLIENT_SECRET`) are no longer written to
+  `~/.config/nerdio-cli/config.toml`. `Load()` marks env-supplied values so
+  `configForSave()` can keep them off disk, but `SaveTokens()` cleared those
+  markers before saving, so every token mint - including the automatic one on an ordinary
+  authenticated command, with no `auth login` step involved - rewrote the live client ID and secret into
+  the config file in cleartext. That defeats the setups this is meant to
+  support, where the secret lives only in the OS credential store (Keychain,
+  Windows Credential Manager) and reaches the process as an environment
+  variable at launch. The minted access token is still cached there, and an
+  explicit `auth login --client-id <id> --client-secret <secret>` still stores
+  what you passed it. **Deliberate behaviour change:** credentials that came
+  from the environment are no longer persisted by `auth login` either, so a
+  shell that later drops those variables must set them again or pass the flags.
+  Thanks to @Xenith-B for the report (#266).
+
 ### Changed
 - Regenerated on the printing-press 4.24.0 engine: more reliable fleet sync, corrected pagination across large result sets, robust numeric-ID handling, and dependency security updates. Same commands and workflows, sturdier local mirror.
 

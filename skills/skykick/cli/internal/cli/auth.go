@@ -67,6 +67,10 @@ Credentials default to SKYKICK_CLIENT_ID (Client ID) and SKYKICK_CLIENT_SECRET (
 				return nil
 			}
 
+			// issue #266: remember whether these came from a flag BEFORE the env
+			// fallback overwrites them. Only a credential the caller typed may be
+			// written to disk; one inherited from the environment must not be.
+			explicitClientID, explicitClientSecret := clientID != "", clientSecret != ""
 			if clientID == "" {
 				clientID = strings.TrimSpace(os.Getenv("SKYKICK_CLIENT_ID"))
 			}
@@ -99,6 +103,7 @@ Credentials default to SKYKICK_CLIENT_ID (Client ID) and SKYKICK_CLIENT_SECRET (
 			if tok.ExpiresIn > 0 {
 				expiry = time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second)
 			}
+			cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)
 			if err := cfg.SaveTokens(clientID, clientSecret, tok.AccessToken, "", expiry); err != nil {
 				return configErr(fmt.Errorf("saving token: %w", err))
 			}
