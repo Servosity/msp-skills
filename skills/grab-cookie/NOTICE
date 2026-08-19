@@ -1,0 +1,55 @@
+grab-cookie
+===========
+
+`scripts/credstore.py` is a copy of the credential-store backend from the
+sibling `connect-tool` Skill in this repository:
+
+    skills/connect-tool/scripts/credstore.py
+    Copyright (c) Servosity, Inc.  Author: Damien Stevens.
+    Licensed under the Apache License, Version 2.0.
+
+It has diverged from that file in more than the namespace, so read it as a
+fork rather than a copy. The differences, so a reviewer does not have to
+assume a one-line edit:
+
+- **Credential-store namespace** in `target_name()`: `credgrab/<service>/<account>`
+  instead of `Servosity/connect-tool/<service>/<account>`, so the two Skills do
+  not write over each other's entries. This is also the prefix to search for in
+  the Windows Credential Manager UI when you want to find or revoke an entry,
+  and the entry's `Comment` field carries the bare literal `credgrab`.
+- **`_selfcheck(live=False)`**: the round-trip against the real credential store
+  is opt-in here via `--selfcheck --live`, where connect-tool's always ran it.
+  The reason is that a live check can raise a macOS Keychain access prompt,
+  which should not happen behind a check documented as touching no credentials.
+- **A randomized live-self-check target.** connect-tool round-trips a fixed
+  account name; this uses `selfcheck-<random>` so the check can only ever create
+  and delete its own entry. A fixed target could collide with a real credential
+  a user happened to store under that name and, via `-U` on macOS, overwrite
+  then delete it.
+- **A `_mac_only` platform guard**, so the macOS helpers refuse rather than
+  misbehave when called on another platform.
+- **An ERROR_NOT_FOUND branch** that returns `None` for a genuinely absent
+  credential while every OTHER Win32 error raises `CredError`, so "not stored
+  yet" is distinguishable from "the read failed".
+- **A third `backend()` return value** (`unsupported`) for platforms with
+  neither store.
+- **A hardened `receipt()`**: for a secret under twelve characters the sha256
+  prefix is withheld along with the last four. Publishing an exact length beside
+  an unsalted digest is a verification oracle that recovers a short secret by
+  brute force, so withholding only the last four was not enough. The upstream
+  copy still publishes the digest.
+
+`scripts/ctplatform.py` is a minimal shim providing the `WINDOWS` and `MACOS`
+flags that `credstore.py` imports. The `connect-tool` module of the same name also
+carries browser and process helpers that this Skill does not use, so only the
+flag is shipped here.
+
+Maintainers: if you would rather these two Skills share one copy of
+`credstore.py` than carry near-duplicates, say so on the pull request and it
+will be reworked. The duplicate is here only so the Skill stays self-contained
+for a plugin install.
+
+A copy of the Apache 2.0 license is at https://www.apache.org/licenses/LICENSE-2.0
+
+All other files in this directory are original work contributed under the same
+Apache 2.0 license.

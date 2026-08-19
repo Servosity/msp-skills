@@ -1,0 +1,846 @@
+# /// script
+# requires-python = ">=3.12"
+# dependencies = []
+# ///
+"""credgrab - refresh browser-session credentials for sites with no API path.
+
+Some vendors issue no API key and no OAuth for the surface an agent needs: the
+web app authenticates with an httpOnly session cookie or an opaque token in
+localStorage. That credential expires and must be re-captured by hand. credgrab
+automates everything AROUND that one manual Copy-as-cURL step:
+
+  extract (curlparse) -> store (OS credential store, credstore) ->
+  wire (regenerate the tool's consumer file from the store) -> verify (live call)
+
+The credential value never enters model-visible output: seed/wire print only a
+redacted receipt (len / sha256[:8] / last4). The credential store is canonical;
+consumer files (credentials.toml, .env) are DERIVED artifacts rebuilt from it
+via each profile's template, so their exact format is always correct. A
+mis-quoted or double-wrapped hand edit cannot recur, because the file is never
+hand-written.
+
+Commands:
+  seed   --profile NAME [--curl FILE]   parse a capture -> store -> wire -> verify
+  wire   --profile NAME                 rebuild the consumer file from the store
+  verify --profile NAME                 run the profile's live health check
+  doctor [--all | --profile NAME]       health-check; exit != 0 if any expired/expiring
+  list                                  show profiles + last-seed + status
+  --selfcheck [--live]                  curlparse + credstore + render tests. Offline by
+                                        default; --live adds a real credential-store
+                                        round trip (creates and deletes one entry, and
+                                        can raise a Keychain prompt on macOS).
+
+Profiles live in profiles/<name>.json; the two annotated example-*.json
+files in that directory are the schema reference.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+import credstore
+import curlparse
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+# Everything anchors on the SKILL directory, never on a repo root: a Skill is
+# installed wherever the host puts it, so `../..` is not a meaningful location.
+# profiles/ and captures/ are siblings of scripts/, as SKILL.md describes them.
+SKILL_DIR = SCRIPT_DIR.parent
+PROFILES_DIR = SKILL_DIR / "profiles"
+STATE_PATH = SKILL_DIR / "state.json"
+VERIFY_TIMEOUT = 90
+
+# doctor / verify exit codes. A profile's verify command signals a dead
+# credential either by exit code (expired_exit) or by output text (expired_on).
+OK, ERROR, EXPIRED = 0, 1, 2
+
+
+# --------------------------------------------------------------------------- #
+# profiles + paths
+# --------------------------------------------------------------------------- #
+
+def load_profile(name: str) -> dict:
+    path = PROFILES_DIR / f"{name}.json"
+    if not path.exists():
+        avail = ", ".join(p.stem for p in sorted(PROFILES_DIR.glob("*.json"))) or "(none)"
+        raise SystemExit(f"FAIL: no profile '{name}'. Available: {avail}")
+    with open(path, "r", encoding="utf-8") as fh:
+        prof = json.load(fh)
+    prof.setdefault("name", name)
+    return prof
+
+
+def all_profiles() -> list[str]:
+    return sorted(p.stem for p in PROFILES_DIR.glob("*.json"))
+
+
+_HOME_VAR = re.compile(r"\$\{HOME\}|\$HOME(?![A-Za-z0-9_])")
+
+
+def resolve_path(p: str, base: Path) -> Path:
+    """Expand ${VARS}; resolve a relative path against `base` (absolute stays).
+
+    $HOME is not set on Windows outside a POSIX-style shell, and expandvars
+    leaves an unknown variable in place verbatim -- so `${HOME}/.config/x` would
+    silently resolve to `<base>/${HOME}/.config/x` and write the consumer file
+    into the repo. Substitute the platform home first. The negative lookahead
+    keeps $HOMEDRIVE and $HOMEPATH intact for expandvars to handle.
+    """
+    p = _HOME_VAR.sub(lambda _: str(Path.home()), p) if "HOME" not in os.environ else p
+    expanded = os.path.expandvars(p)
+    q = Path(expanded)
+    return q if q.is_absolute() else (base / q)
+
+
+def capture_path(prof: dict, override: str | None) -> Path:
+    if override:
+        return resolve_path(override, Path.cwd())
+    return resolve_path(prof["capture_file"], SKILL_DIR)
+
+
+# --------------------------------------------------------------------------- #
+# state (timestamps + receipts only -- NEVER values)
+# --------------------------------------------------------------------------- #
+
+def read_state() -> dict:
+    # The fourth exists() gate, and the one with the worst consequence: an
+    # un-stat-able state.json reported "nothing is seeded", record_seed then
+    # rebuilt it, and every OTHER profile's seed record was destroyed during a
+    # completely successful seed -- no backup, no warning, and the expiry alarm
+    # silently off for them. Same rule as the consumer file: only "it is not
+    # there" is safe to answer False to.
+    if not _dest_present(STATE_PATH, "read the state file"):
+        return {"profiles": {}}
+    try:
+        with open(STATE_PATH, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError) as exc:
+        # Never degrade a corrupt state file into "nothing is seeded" -- that is
+        # byte-identical to all-healthy and turns the expiry alarm off silently.
+        raise SystemExit(
+            f"FAIL: state file unreadable: {STATE_PATH}: {exc}\n"
+            f"  Re-seed each profile to rebuild it: credgrab.py seed --profile <name> ..."
+        ) from exc
+
+
+def write_state(state: dict) -> None:
+    # state.json holds a receipt per seeded profile (len + digest + last4 of a
+    # LIVE credential), so it is secret-adjacent and goes through the same
+    # 0600 atomic path as the consumer file -- not a bare open() at the umask
+    # default, which lands 0644 and world-readable.
+    atomic_write(STATE_PATH, json.dumps(state, indent=2) + "\n", 0o600)
+
+
+def record_seed(name: str, receipts: dict[str, str]) -> None:
+    # The seed has already succeeded and verified by the time this runs, so a
+    # corrupt state file must not turn a good outcome into a non-zero exit. The
+    # strict read stays on the paths that REPORT health (doctor, list), where
+    # silently reading an empty state is the dangerous failure.
+    try:
+        state = read_state()
+    except SystemExit:
+        # Do NOT silently rebuild: the unreadable file may be intact and hold
+        # other profiles, and dropping them turns the next `doctor --all` into a
+        # one-line all-clear that checked one of three. Move it aside first, name
+        # the backup, and say what was lost.
+        stamp = int(time.time())
+        backup = STATE_PATH.with_name(f"{STATE_PATH.name}.unreadable-{stamp}")
+        n = 1
+        while _dest_present(backup, "use as a backup name"):  # never overwrite a real backup
+            backup = STATE_PATH.with_name(f"{STATE_PATH.name}.unreadable-{stamp}.{n}")
+            n += 1
+        saved = False
+        try:
+            os.replace(STATE_PATH, backup)
+            saved = True
+            print(f"  warning: state file was unreadable; moved to {backup.name}")
+        except OSError as exc:
+            print(f"  warning: state file is unreadable and could not be moved aside ({exc})")
+        print("  warning: any OTHER profile's recorded seed time is no longer tracked, so "
+              "`doctor --all` will check only what is re-recorded from here. Re-seed them"
+              + (f", or restore {backup.name}." if saved else "."))
+        state = {"profiles": {}}
+    state.setdefault("profiles", {})[name] = {
+        "last_seed": int(time.time()),
+        "receipts": receipts,  # already redacted (len/sha8/last4 lines)
+    }
+    write_state(state)
+
+
+# --------------------------------------------------------------------------- #
+# extract
+# --------------------------------------------------------------------------- #
+
+def extract_values(prof: dict, headers: dict[str, str]) -> dict[str, str]:
+    """Pull each profile-declared credential out of the parsed headers.
+
+    Returns {store_as: value}. Raises SystemExit on a missing required field.
+    Values are never printed here.
+    """
+    out: dict[str, str] = {}
+    for item in prof["extract"]:
+        store_as = item["store_as"]
+        required = item.get("required", False)
+        src = item.get("from", "header")
+        value = ""
+        if src == "header":
+            value = headers.get(item["name"].lower(), "")
+        elif src == "cookie":
+            cookie = headers.get("cookie", "")
+            m = re.search(item["pattern"], cookie)
+            value = m.group(1) if m else ""
+        else:
+            raise SystemExit(f"FAIL: profile extract 'from' must be header|cookie, got {src!r}")
+        if not value:
+            if required:
+                where = item.get("name") or item.get("pattern")
+                raise SystemExit(
+                    f"FAIL: required credential '{store_as}' not found in the capture "
+                    f"(looked for {src}: {where}). Wrong request captured, or expired session? "
+                    f"Re-capture from an authenticated request."
+                )
+            continue
+        out[store_as] = value
+    if not out:
+        raise SystemExit("FAIL: no credentials extracted from the capture.")
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# wire (render the consumer file from stored values)
+# --------------------------------------------------------------------------- #
+
+def render_wire(wire: dict, values: dict[str, str]) -> str:
+    """Pure render: substitute {STORE_AS} placeholders. Value braces are safe
+    (literal replace, not str.format). Missing keys render as empty string."""
+    def sub(template: str) -> str:
+        out = template
+        for key in _placeholders(template):
+            out = out.replace("{" + key + "}", values.get(key, ""))
+        return out
+
+    wtype = wire["type"]
+    if wtype == "template-file":
+        return sub(wire["template"])
+    if wtype == "env-file":
+        # Deliberately a from-scratch render, not a merge. This module's contract
+        # (see the header) is that a consumer file is a DERIVED artifact rebuilt
+        # from the credential store, so its format is always correct and a
+        # mis-quoted hand edit cannot recur. do_wire refuses to overwrite a file
+        # that carries foreign settings, so pointing this at a shared .env fails
+        # loudly instead of quietly destroying the other keys.
+        body = ""
+        if wire.get("header_comment"):
+            body += wire["header_comment"].rstrip("\n") + "\n"
+        for line in wire["lines"]:
+            body += sub(line) + "\n"
+        return body
+
+    raise SystemExit(f"FAIL: unknown wire type {wtype!r}")
+
+
+def _placeholders(template: str) -> list[str]:
+    return re.findall(r"\{([A-Z0-9_]+)\}", template)
+
+
+
+def _dest_present(path: Path, what: str) -> bool:
+    """True if `path` exists, False if it definitively does not -- and refuse if
+    we cannot tell.
+
+    `Path.exists()` is `os.path.exists()`, which swallows EVERY OSError, so an
+    ACL-denied or EIO-failing destination reports False. Every caller then treats
+    it as "no file here": the ownership guard is skipped entirely, atomic_write's
+    os.replace succeeds (rename needs only the parent directory), and another
+    tool's credential file is destroyed. The rollback path has the mirror bug --
+    it unlinks a file it believes absent while printing "left unchanged". Only
+    "it is not there" is safe to answer False to.
+    """
+    try:
+        path.lstat()
+        return True
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    except OSError as exc:
+        raise SystemExit(
+            f"FAIL: refusing to {what} {path} -- it could not be checked "
+            f"({exc.__class__.__name__}), so this profile cannot tell whether a "
+            f"file it does not own is sitting there.\n"
+            f"  Fix the permissions, or remove it if it is a broken symlink, or "
+            f"point this profile's wire.path at a file it owns exclusively."
+        ) from exc
+
+
+def atomic_write(path: Path, content: str, mode: int) -> None:
+    """Write `content` to `path` atomically, never world-readable in between.
+
+    The temp file carries the credential, so it is created with mkstemp -- a
+    unique, O_EXCL, mode-0600 file in the destination directory. That closes two
+    holes a fixed `<dest>.tmp` name leaves open: a concurrent seed/wire writing
+    the same profile through the same inode, and a symlink pre-planted at the tmp
+    name redirecting the credential write when the parent dir is shared-writable.
+    `mode` is still applied before the rename, since mkstemp forces 0600 and the
+    consumer file may legitimately want something else.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
+            fh.write(content)
+        try:
+            os.chmod(tmp, mode)
+        except OSError:
+            pass  # best effort on Windows
+        os.replace(tmp, path)
+    finally:
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass  # already renamed into place
+
+
+def do_wire(prof: dict, values: dict[str, str] | None = None) -> Path:
+    """Rebuild the consumer file. If `values` is None, fetch from the store."""
+    wire = prof["wire"]
+    if values is None:
+        values = {}
+        for item in prof["extract"]:
+            store_as = item["store_as"]
+            v = credstore.fetch(store_as, prof["name"])
+            if v is None:
+                if item.get("required", False):
+                    raise SystemExit(
+                        f"FAIL: '{store_as}' is not in the credential store yet. "
+                        f"Run: credgrab seed --profile {prof['name']}"
+                    )
+                continue
+            values[store_as] = v
+
+    content = render_wire(wire, values)
+
+    guard = wire.get("guard_startswith")
+    if guard and not content.startswith(guard):
+        # Refuse to write a mis-shaped consumer file. This is the anti-double-wrap
+        # gate: the rendered file must begin exactly as the template dictates.
+        raise SystemExit(
+            f"FAIL: refusing to write {wire['path']} -- rendered content did not start "
+            f"with the required guard. Stored value is likely malformed; re-seed."
+        )
+
+    dest = resolve_path(wire["path"], SKILL_DIR)
+
+    # An env-file is regenerated from scratch, so any setting in it that this
+    # profile does not own would be destroyed. Refuse instead: a shared .env is
+    # a misconfiguration, not something to silently overwrite. Detecting foreign
+    # keys is a whole-line comparison, deliberately not an .env parser -- the
+    # goal is "is anything here that I did not write", not "merge it".
+    if wire["type"] == "env-file" and _dest_present(dest, "overwrite"):
+        # Compare the destination against exactly what THIS render would write:
+        # an assignment is ours if we own its key (the value rotates), and any
+        # other line is ours only if it is byte-identical to a line we emit. That
+        # covers a multi-line header_comment and comments inside `lines` without
+        # a special case, and it needs no .env parser.
+        owned_keys, owned_literals = set(), set()
+        for ln in content.splitlines():
+            bare = ln.strip()
+            if not bare:
+                continue
+            if "=" in bare:
+                owned_keys.add(bare.split("=", 1)[0].strip().removeprefix("export ").strip())
+            else:
+                owned_literals.add(bare)
+        try:
+            existing = dest.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            # Fail CLOSED. Treating an unreadable file as empty let this fall
+            # through to atomic_write, and os.replace needs only the parent
+            # directory to be writable -- so a root-owned or ACL-denied config in
+            # a user-writable dir got silently destroyed by the guard that exists
+            # to protect it. A file we cannot read is a file we cannot prove we own.
+            raise SystemExit(
+                f"FAIL: refusing to overwrite {wire['path']} -- it exists but could "
+                f"not be read ({exc.__class__.__name__}), so this profile cannot "
+                f"prove the file is its own to regenerate.\n"
+                f"  Fix the permissions, or point this profile's wire.path at a file "
+                f"it owns exclusively.\n"
+                f"  If the file is stale and safe to discard, delete it and re-run."
+            ) from exc
+        existing = existing.lstrip("\ufeff")  # a Windows editor's BOM is not content
+        foreign = []
+        for n, ln in enumerate(existing.split("\n"), start=1):
+            bare = ln.strip()
+            if not bare or bare in owned_literals:
+                continue
+            if "=" in bare and bare.split("=", 1)[0].strip().removeprefix("export ").strip() in owned_keys:
+                continue
+            foreign.append(n)
+        if foreign:
+            # Report LINE NUMBERS, never content. Any line here is by definition
+            # something this profile did not write, so it can be another tool's
+            # secret -- and this message is model-visible. A line number cannot
+            # leak a value; a "redacted" label still has to decide what is safe
+            # to print, and that decision is what leaked.
+            shown = ", ".join(str(n) for n in foreign[:10])
+            more = f", and {len(foreign) - 10} more" if len(foreign) > 10 else ""
+            raise SystemExit(
+                f"FAIL: refusing to overwrite {wire['path']} -- {len(foreign)} line(s) in it "
+                f"were not written by this profile (line {shown}{more}).\n"
+                f"  This file is REGENERATED from the credential store on every wire, so "
+                f"anything else in it would be lost. Open it and look at those lines.\n"
+                f"  If they matter, point this profile's wire.path at a file it owns "
+                f"exclusively and have your tool read both.\n"
+                f"  If they are stale -- a key or header this profile no longer writes -- "
+                f"delete the file and re-run the command you just ran (a refusal during "
+                f"seed rolls the credential back, so re-run seed, not wire)."
+            )
+
+    mode = int(wire.get("mode", "0600"), 8) if isinstance(wire.get("mode"), str) else wire.get("mode", 0o600)
+    atomic_write(dest, content, mode)
+    return dest
+
+
+# --------------------------------------------------------------------------- #
+# verify
+# --------------------------------------------------------------------------- #
+
+def run_verify(prof: dict) -> tuple[int, str]:
+    """Run the profile's live health check. Returns (code, detail_line)."""
+    vr = prof.get("verify")
+    if not vr:
+        return ERROR, "no verify command configured for this profile"
+    cmd = list(vr["cmd"])
+    # A bare executable name is a PATH lookup and must stay untouched: sending
+    # it through resolve_path would join it onto SKILL_DIR, so `example-cli`
+    # becomes `<SKILL_DIR>/example-cli`, which does not exist, and every verify
+    # fails with "binary not found". Only resolve values that are actually
+    # path-like -- containing a separator, or naming a variable to expand.
+    head = cmd[0]
+    if any(sep in head for sep in (os.sep, "/", "\\")) or "$" in head:
+        head = str(resolve_path(head, SKILL_DIR))
+    cmd[0] = head
+    cwd = str(resolve_path(vr["cwd"], SKILL_DIR)) if vr.get("cwd") else str(SKILL_DIR)
+    try:
+        r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=VERIFY_TIMEOUT)
+    except FileNotFoundError:
+        return ERROR, f"verify binary not found: {cmd[0]}"
+    except subprocess.TimeoutExpired:
+        return ERROR, "verify timed out"
+
+    combined = ((r.stdout or "") + "\n" + (r.stderr or "")).strip()
+    first = combined.splitlines()[0] if combined else f"exit {r.returncode}"
+
+    if "expired_exit" in vr:
+        # exit-code based (reliable when you control the verify command).
+        if r.returncode == 0:
+            return OK, first
+        if r.returncode == vr["expired_exit"]:
+            return EXPIRED, first
+        return ERROR, first
+    # substring based: check failure markers FIRST, regardless of exit code --
+    # some generated CLIs print an auth error but still exit 0. Markers must be
+    # specific enough not to appear in healthy output (e.g. "http 401", not "session").
+    low = combined.lower()
+    if any(s.lower() in low for s in vr.get("expired_on", [])):
+        return EXPIRED, first
+    if r.returncode == 0:
+        return OK, "live authed read OK"
+    return ERROR, first
+
+
+VERDICT = {OK: "OK", ERROR: "ERROR", EXPIRED: "EXPIRED"}
+
+
+# --------------------------------------------------------------------------- #
+# commands
+# --------------------------------------------------------------------------- #
+
+def _rollback_seed(prof: dict, prior_values: dict[str, str | None],
+                   dest_path: Path, prior_consumer: bytes | None,
+                   prior_mode: int | None = None) -> None:
+    """Undo a seed whose verify did not pass: restore the prior credential and
+    consumer file so a wrong or expired capture never destroys a known-good one."""
+    for store_as, prior in prior_values.items():
+        if prior is not None:
+            credstore.store(store_as, prof["name"], prior)
+        else:
+            # There was nothing before; remove what this seed added.
+            try:
+                credstore.delete(store_as, prof["name"])
+            except Exception:
+                pass
+    if prior_consumer is not None:
+        # Only touch the file if this seed actually changed it. do_wire can refuse
+        # before writing (the env-file ownership guard), and restoring identical
+        # bytes there would still chmod a file we were told not to touch -- which
+        # is how a shared 0644 .env silently became owner-only.
+        try:
+            # Dropping the exists() short-circuit covers the stat-denied-but-
+            # readable case. A read failure still lands in `unchanged = False`
+            # below and still rewrites -- restoring the snapshot is the safer of
+            # the two guesses when we cannot see the current bytes, but it is a
+            # guess, not a protection.
+            unchanged = dest_path.read_bytes() == prior_consumer
+        except OSError:
+            unchanged = False
+        if not unchanged:
+            dest_path.write_bytes(prior_consumer)
+            # Restore the mode the file actually had. Hardcoding 0600 turned a
+            # profile's declared 0644 consumer owner-only during a rollback that
+            # reports the file as left unchanged.
+            try:
+                os.chmod(dest_path, prior_mode if prior_mode is not None else 0o600)
+            except OSError:
+                pass
+    else:
+        # Only remove a file this seed actually created. exists() answering False
+        # for an unreadable file made this delete someone else's config while the
+        # caller printed "left unchanged".
+        try:
+            if _dest_present(dest_path, "remove"):
+                dest_path.unlink()
+        except (OSError, SystemExit):
+            pass
+
+
+def cmd_seed(args) -> int:
+    prof = load_profile(args.profile)
+    cap = capture_path(prof, args.curl)
+    if not cap.exists():
+        raise SystemExit(
+            f"FAIL: capture file not found: {cap}\n"
+            f"  Copy-as-cURL an authenticated request into that file, then re-run.\n"
+            f"  (the /grab-cookie skill walks you through it)"
+        )
+    headers = curlparse.parse_headers_from_file(str(cap))
+    values = extract_values(prof, headers)
+
+    # Snapshot everything this seed is about to overwrite. The credential store is
+    # canonical, so a failed verify must not leave it holding a bad value or the
+    # consumer file wired to one. We commit only after run_verify passes.
+    prior_values: dict[str, str | None] = {
+        store_as: credstore.fetch(store_as, prof["name"]) for store_as in values
+    }
+    dest_path = resolve_path(prof["wire"]["path"], SKILL_DIR)
+    try:
+        present = _dest_present(dest_path, "seed over")
+        prior_consumer = dest_path.read_bytes() if present else None
+        prior_mode = (dest_path.stat().st_mode & 0o777) if present else None
+    except OSError as exc:
+        # Nothing has been stored yet, so this is a clean abort -- but it must read
+        # like every other failure here, not like a crash.
+        raise SystemExit(
+            f"FAIL: cannot read the existing consumer file {dest_path} "
+            f"({exc.__class__.__name__}), so this seed cannot be rolled back safely "
+            f"if it fails.\n"
+            f"  Fix the permissions, or remove it if it is a leftover directory or a "
+            f"broken symlink, and re-run."
+        ) from exc
+
+    receipts: dict[str, str] = {}
+    for store_as, value in values.items():
+        credstore.store(store_as, prof["name"], value)
+        receipts[store_as] = credstore.receipt(value, store_as, prof["name"])
+
+    # Roll back on ANY failure between here and a passing verify, not just a
+    # non-OK verify code. The credential store is canonical and has already been
+    # written above, so an exception out of do_wire (a guard refusal, a bad path,
+    # a full disk) would otherwise leave it holding a value nothing ever checked.
+    try:
+        dest = do_wire(prof)  # rebuild from the store we just wrote
+        code, detail = run_verify(prof)
+    except BaseException:
+        _rollback_seed(prof, prior_values, dest_path, prior_consumer, prior_mode)
+        print(f"  rolled back: '{prof['name']}' credential and consumer file left unchanged")
+        raise
+
+    if code != OK:
+        # Wrong or expired capture: roll back to the previous known state.
+        _rollback_seed(prof, prior_values, dest_path, prior_consumer, prior_mode)
+        print(f"verify: {VERDICT[code]} - {detail}")
+        print(f"  rolled back: '{prof['name']}' credential and consumer file left unchanged "
+              f"(the new capture did not verify)")
+        return code
+
+    # Verified good -- now it is safe to publish receipts and record the seed.
+    print(f"seeded '{prof['name']}' ({len(values)} credential(s)); wired -> {dest}")
+    for store_as, rc in receipts.items():
+        print(f"  {store_as}: {rc}")
+    record_seed(prof["name"], receipts)
+    print(f"verify: {VERDICT[code]} - {detail}")
+    return code
+
+
+def cmd_wire(args) -> int:
+    prof = load_profile(args.profile)
+    dest = do_wire(prof)
+    print(f"wired '{prof['name']}' from the credential store -> {dest}")
+    return OK
+
+
+def cmd_verify(args) -> int:
+    prof = load_profile(args.profile)
+    code, detail = run_verify(prof)
+    print(f"{VERDICT[code]}: {prof['name']} - {detail}")
+    return code
+
+
+def _expiring(prof: dict, state: dict) -> bool:
+    ttl = prof.get("ttl_days")
+    warn = prof.get("warn_days")
+    if not ttl or not warn:
+        return False
+    entry = state.get("profiles", {}).get(prof["name"], {})
+    last = entry.get("last_seed")
+    if not last:
+        return False
+    age_days = (time.time() - last) / 86400.0
+    return age_days > (ttl - warn)
+
+
+def cmd_doctor(args) -> int:
+    state = read_state()
+    # --all checks SEEDED profiles only. all_profiles() would include the shipped
+    # example-* profiles that were never seeded and report false failures for
+    # credentials that do not exist.
+    if args.all or not args.profile:
+        names = sorted(state.get("profiles", {}))
+        if not names:
+            # Zero lines + exit 0 is what an all-healthy run looks like, so a
+            # scheduled doctor whose state was lost would report "fine" forever.
+            print("FAIL: no seeded profiles to check "
+                  f"(nothing recorded in {STATE_PATH}).")
+            print("  If you expected profiles here, the state file was lost -- "
+                  "re-seed: credgrab.py seed --profile <name> --curl <capture>")
+            return ERROR
+    else:
+        names = [args.profile]
+    worst = OK
+    for name in names:
+        prof = load_profile(name)
+        code, detail = run_verify(prof)
+        status = VERDICT[code]
+        if code == OK and _expiring(prof, state):
+            status = "EXPIRING"
+            detail = "cookie nearing its ~%sd TTL; refresh soon" % prof.get("ttl_days")
+            worst = max(worst, EXPIRED)
+        else:
+            worst = max(worst, code)
+        print(f"PROFILE {name} STATUS {status} :: {detail}")
+    return worst
+
+
+def cmd_list(args) -> int:
+    state = read_state().get("profiles", {})
+    for name in all_profiles():
+        prof = load_profile(name)
+        entry = state.get(name, {})
+        last = entry.get("last_seed")
+        when = time.strftime("%Y-%m-%d", time.localtime(last)) if last else "never"
+        ttl = prof.get("ttl_days")
+        ttl_s = f"ttl={ttl}d" if ttl else "ttl=probe-only"
+        print(f"  {name:12} last-seed={when:11} {ttl_s}")
+    return OK
+
+
+def cmd_selfcheck(live: bool = False) -> int:
+    import tempfile
+    curlparse._selfcheck()
+    credstore._selfcheck(live=live)
+    # render + guard, with no live creds
+    wire_tmpl = {
+        "type": "template-file",
+        "template": "access_token = 'example_session={EXAMPLE_SESSION}'\n",
+        "guard_startswith": "access_token = 'example_session=",
+    }
+    rendered = render_wire(wire_tmpl, {"EXAMPLE_SESSION": "s%3Aabc{}def"})  # braces in value are safe
+    assert rendered == "access_token = 'example_session=s%3Aabc{}def'\n", rendered
+    assert rendered.startswith(wire_tmpl["guard_startswith"])
+    wire_env = {
+        "type": "env-file",
+        "header_comment": "# test",
+        "lines": ["A={A}", "B={B}"],
+    }
+    assert render_wire(wire_env, {"A": "1"}) == "# test\nA=1\nB=\n", render_wire(wire_env, {"A": "1"})
+    # An env-file is regenerated from scratch, so do_wire must REFUSE to
+    # overwrite a file holding settings this profile does not own rather than
+    # silently destroying them.
+    with tempfile.TemporaryDirectory() as td:
+        envp = os.path.join(td, ".env")
+        with open(envp, "w", encoding="utf-8") as fh:
+            fh.write("# comment is fine\nOTHER_SETTING=keepme\nA=stale\nDB_URL=postgres://x\n")
+        prof_env = {"name": "sc", "extract": [], "wire": {**wire_env, "path": envp}}
+        try:
+            do_wire(prof_env, values={"A": "1", "B": "2"})
+            raise AssertionError("do_wire overwrote a .env holding foreign settings")
+        except SystemExit as exc:
+            msg = str(exc)
+            assert "refusing to overwrite" in msg, msg
+            # Line numbers, never content: a foreign line is by definition
+            # something another tool wrote, so it can be another tool's secret.
+            assert "line " in msg, msg
+            assert "OTHER_SETTING" not in msg and "keepme" not in msg, "LEAKED destination content"
+            assert "DB_URL" not in msg and "postgres" not in msg, "LEAKED destination content"
+        # the foreign settings are still on disk, untouched
+        after = open(envp, encoding="utf-8").read()
+        assert "OTHER_SETTING=keepme" in after and "DB_URL=postgres://x" in after, after
+        # A destination with no "=" at all -- a YAML/JSON/INI config -- must also be
+        # refused. A key-only scan waved these straight through and destroyed them.
+        for body, what in (('database:\n  password_file: /etc/secret\n', "yaml"),
+                           ('{"apiKey": "live_abc"}\n', "json"),
+                           ("# DB_URL=postgres://x  (disabled)\n", "commented setting")):
+            with open(envp, "w", encoding="utf-8") as fh:
+                fh.write(body)
+            try:
+                do_wire(prof_env, values={"A": "1", "B": "2"})
+                raise AssertionError(f"do_wire destroyed a {what} destination")
+            except SystemExit:
+                pass
+            assert open(envp, encoding="utf-8").read() == body, what
+        # A destination we cannot READ must refuse, not fall through: os.replace
+        # needs only the parent dir, so failing open destroys the very file the
+        # guard exists to protect.
+        with open(envp, "w", encoding="utf-8") as fh:
+            fh.write("FOREIGN_SETTING=keepme\n")
+        os.chmod(envp, 0o000)
+        try:
+            open(envp, encoding="utf-8").read()
+            denied = False   # root, or a platform where chmod does not deny reads
+        except OSError:
+            denied = True
+        if not denied:
+            os.chmod(envp, 0o600)
+            os.unlink(envp)
+        elif True:
+            try:
+                do_wire(prof_env, values={"A": "1", "B": "2"})
+                os.chmod(envp, 0o600)
+                raise AssertionError("do_wire overwrote a destination it could not read")
+            except SystemExit as exc:
+                assert "could not be read" in str(exc), str(exc)
+            os.chmod(envp, 0o600)
+            assert "FOREIGN_SETTING=keepme" in open(envp, encoding="utf-8").read()
+            os.unlink(envp)
+
+        # _dest_present must fail CLOSED on a path it cannot stat. An
+        # unsearchable PARENT directory makes lstat raise EACCES portably on
+        # POSIX, which chmod-000 on the file itself cannot express (lstat still
+        # works there). Without this case, reverting _dest_present to a bare
+        # exists() leaves the selfcheck green -- and that revert destroyed a
+        # foreign credential file AND every other profile's seed record.
+        locked = os.path.join(td, "locked")
+        os.mkdir(locked)
+        hidden = os.path.join(locked, ".env")
+        with open(hidden, "w", encoding="utf-8") as fh:
+            fh.write("FOREIGN=keepme\n")
+        os.chmod(locked, 0o000)
+        try:
+            open(hidden, encoding="utf-8").read()
+            stat_denied = False   # root, or a platform that does not enforce it
+        except OSError:
+            stat_denied = True
+        if stat_denied:
+            try:
+                _dest_present(Path(hidden), "overwrite")
+                raise AssertionError("_dest_present answered for a path it cannot stat")
+            except SystemExit as exc:
+                assert "could not be checked" in str(exc), str(exc)
+        os.chmod(locked, 0o700)
+        os.unlink(hidden)
+        os.rmdir(locked)
+
+        # A secret sitting on its own line must not be echoed into the message.
+        with open(envp, "w", encoding="utf-8") as fh:
+            fh.write("eyJhbGciOiJIUzI1NiJ9.SUPERSECRETPAYLOAD==\n")
+        try:
+            do_wire(prof_env, values={"A": "1", "B": "2"})
+            raise AssertionError("do_wire overwrote a secret-bearing destination")
+        except SystemExit as exc:
+            assert "SUPERSECRETPAYLOAD" not in str(exc), "SECRET LEAKED into the refusal message"
+        # A multi-line header_comment must round-trip: comparing the header as one
+        # physical line refused the profile's OWN output forever, and inside seed
+        # that rollback meant a site could never be re-authed.
+        os.unlink(envp)  # previous case left a foreign file here
+        multi = {"type": "env-file",
+                 "header_comment": "# Regenerated by grab-cookie.\n# Do not edit: rebuilt from the store.",
+                 "lines": ["A={A}", "B={B}"], "path": envp}
+        prof_multi = {"name": "sc", "extract": [], "wire": multi}
+        do_wire(prof_multi, values={"A": "1", "B": "2"})
+        do_wire(prof_multi, values={"A": "9", "B": "8"})  # re-wire its own output
+        again = open(envp, encoding="utf-8").read()
+        assert "A=9" in again and "Do not edit" in again, again
+        # a file this profile DOES own exclusively is rewritten normally
+        with open(envp, "w", encoding="utf-8") as fh:
+            fh.write("# test\nA=stale\nB=stale\n")
+        do_wire(prof_env, values={"A": "1", "B": "2"})
+        owned_after = open(envp, encoding="utf-8").read()
+        assert "A=1" in owned_after and "B=2" in owned_after and "stale" not in owned_after, owned_after
+    # do_wire round-trip + anti-double-wrap guard, against a temp file (no live creds)
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        good_path = os.path.join(td, "credentials.toml")
+        dest = do_wire(
+            {"name": "x", "extract": [], "wire": {**wire_tmpl, "path": good_path}},
+            values={"EXAMPLE_SESSION": "s%3Agoodvalue"},
+        )
+        with open(dest, encoding="utf-8") as fh:
+            assert fh.read() == "access_token = 'example_session=s%3Agoodvalue'\n"
+        # a mis-shaped render must be refused, not written
+        bad = {"type": "template-file", "template": "access_token = 'WRONG'\n",
+               "guard_startswith": "access_token = 'example_session=",
+               "path": os.path.join(td, "should-not-exist.toml")}
+        try:
+            do_wire({"name": "x", "extract": [], "wire": bad}, values={})
+            raise AssertionError("guard did not block a mis-shaped render")
+        except SystemExit:
+            pass
+        assert not os.path.exists(bad["path"]), "guard-blocked write still created the file"
+    scope = "live credstore round-trip" if live else "no live creds"
+    print(f"credgrab.py selfcheck OK (curlparse + credstore + render/guard, {scope})")
+    return OK
+
+
+# --------------------------------------------------------------------------- #
+# main
+# --------------------------------------------------------------------------- #
+
+def main() -> int:
+    if "--selfcheck" in sys.argv:
+        return cmd_selfcheck(live="--live" in sys.argv)
+    ap = argparse.ArgumentParser(prog="credgrab", description="refresh browser-session credentials")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("seed", help="parse a capture -> store -> wire -> verify")
+    p.add_argument("--profile", required=True)
+    p.add_argument("--curl", help="override the capture file path")
+    p.set_defaults(fn=cmd_seed)
+
+    p = sub.add_parser("wire", help="rebuild the consumer file from the store")
+    p.add_argument("--profile", required=True)
+    p.set_defaults(fn=cmd_wire)
+
+    p = sub.add_parser("verify", help="run the profile's live health check")
+    p.add_argument("--profile", required=True)
+    p.set_defaults(fn=cmd_verify)
+
+    p = sub.add_parser("doctor", help="health-check one or all profiles")
+    p.add_argument("--profile")
+    p.add_argument("--all", action="store_true")
+    p.set_defaults(fn=cmd_doctor)
+
+    p = sub.add_parser("list", help="show profiles + last-seed + status")
+    p.set_defaults(fn=lambda a: cmd_list(a))
+
+    args = ap.parse_args()
+    return args.fn(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

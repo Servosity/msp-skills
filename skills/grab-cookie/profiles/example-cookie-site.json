@@ -1,0 +1,45 @@
+{
+  "_comment": "EXAMPLE profile: a site whose session lives in an httpOnly cookie. Copy this file, rename it to your service, and edit. Nothing here is specific to any vendor.",
+
+  "name": "example-cookie-site",
+  "site": "Example SaaS with a session cookie and no API key path",
+
+  "capture_hint": "Be logged into the site in Chrome. Press F12, open Network, click any request to the site's API, right-click it, choose Copy as cURL (bash), and paste into the capture file below.",
+  "capture_file": "captures/example-cookie-site.curl.txt",
+
+  "_extract_note": "Pull the session value out of the Cookie header the browser actually sent. A bookmarklet cannot do this: the cookie is httpOnly, so document.cookie never sees it.",
+  "extract": [
+    {
+      "from": "cookie",
+      "pattern": "example_session=([^;\\s]+)",
+      "store_as": "EXAMPLE_SESSION",
+      "required": true
+    }
+  ],
+
+  "_wire_note": "The consumer file is regenerated FROM the credential store, so it can be deleted at any time and rebuilt with `python scripts/credgrab.py wire --profile <name>`. The stored secret is the source of truth.",
+  "wire": {
+    "type": "template-file",
+    "path": "${HOME}/.config/example-cli/credentials.toml",
+    "template": "access_token = 'example_session={EXAMPLE_SESSION}'\n",
+    "guard_startswith": "access_token = 'example_session=",
+    "mode": "0600"
+  },
+
+  "_verify_note": "Point this at any command that makes a real authenticated call and fails loudly when the credential is dead. A vendor CLI, a curl invocation, or a one-line script all work. The command receives NO placeholder substitution, so it must read the credential from the consumer file this profile wires (or from the credential store) - never paste the secret into this profile, which is a plaintext file the agent reads on every run. Verification is what makes a reseed provable rather than hopeful.",
+  "verify": {
+    "cmd": ["example-cli", "whoami"],
+    "expired_on": [
+      "http 401",
+      "http 403",
+      "unauthorized",
+      "not logged in",
+      "invalid token",
+      "session expired"
+    ]
+  },
+
+  "_ttl_note": "ttl_days is the vendor's session lifetime if you know it, so the doctor can warn before expiry rather than after. Set it to null when the lifetime is opaque, and the doctor will fall back to probing.",
+  "ttl_days": 30,
+  "warn_days": 5
+}

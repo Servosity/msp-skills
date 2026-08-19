@@ -1,0 +1,16 @@
+# A capture file is the whole DevTools request: every cookie for that origin,
+# every auth header, the URL and its query string. It is live credential
+# material until you delete it, and it must never be committed.
+captures/
+*.curl.txt
+
+# state.json records a receipt per seeded profile (length, digest, last4 of a
+# live credential). Secret-adjacent, machine-local, never shared.
+state.json
+state.json.unreadable-*
+.state.json.*
+
+# Your own site profiles may name internal hosts and paths. The two shipped
+# example-*.json files are tracked; anything else you write is yours.
+profiles/*.json
+!profiles/example-*.json
