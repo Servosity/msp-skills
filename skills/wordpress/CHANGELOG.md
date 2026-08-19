@@ -15,11 +15,9 @@ All notable changes to this skill are documented here. Format follows
   resolves to the latest patched Go, so the security gate scanned a patched
   toolchain while the build honoured the pinned one. See issue #210.
 
-## [0.0.0]
+## [0.1.0] - 2026-07-01
 
-### Added
-- Initial msp-skills release: `wordpress-cli` plus the `wordpress-mcp` MCP server.
-- Pages, posts, media, categories, tags, users, and settings over the WordPress REST API.
-- `media upload` for binary multipart uploads (images, video, audio, PDF), returning the media id.
-- Local SQLite mirror via `workflow archive` / `sync` with full-text `search` for offline cross-content queries.
-- Agent surface: `--agent`, `--dry-run`, `--select`, named profiles, and `--deliver` output sinks.
+### Changed
+
+- feat(wordpress): add WordPress pages/posts/media connector (#171)
+

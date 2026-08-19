@@ -31,10 +31,12 @@ All notable changes to this skill are documented here. Format follows
   assets, even though `manifest.json` declared `win32` support. Split on
   `//go:build`, with `LockFileEx` on Windows.
 
-## [0.1.1] - unreleased
+## [0.1.1] - 2026-08-17
 
 ### Changed
-- Describe the changes in this release.
+
+- fix(mcp): stop the tenant gate default-denying every non-mirror tool (#249) (#250)
+- skill(auvik): Auvik network-monitoring connector (CLI + MCP) (#238)
 
 ## [0.1.0]
 

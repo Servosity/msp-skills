@@ -20,10 +20,13 @@ All notable changes to this skill are documented here. Format follows
 ### Changed
 - Regenerated on the printing-press 4.24.0 engine: more reliable fleet sync, corrected pagination across large result sets, robust numeric-ID handling, and dependency security updates. Same commands and workflows, sturdier local mirror.
 
-## [0.1.1] - unreleased
+## [0.1.1] - 2026-06-06
 
 ### Changed
-- Maintenance and packaging updates.
+
+- skill: hubspot - UPDATE to 4.22.0 reprint (zero-review pipeline) (#37)
+- fix(install): honor GITHUB_TOKEN/GH_TOKEN in fetch_stdout across all skills (#31)
+- feat(surfaces): generate every skill-enumerating surface; media on GitHub; Servosity live-verified (#21)
 
 ## [0.1.0]
 
