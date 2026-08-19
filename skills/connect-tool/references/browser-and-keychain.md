@@ -21,13 +21,19 @@ Upstream: <https://github.com/jackwener/opencli/issues/2202> (open; observed on 
 is the bridge's design, not a Windows problem).
 
 This is cosmetically alarming and easy to read as "it opened a browser I am not logged into,"
-which is the exact fear this skill exists to avoid. It is not that: the extension creates that
-window **inside your existing Chrome profile**, which is where your cookies and sessions live,
-so it carries your logins. Say so out loud when a new window appears rather than letting the
-user assume the run went wrong. What would be wrong is a *separate browser* (Playwright,
-Puppeteer, a headless Chromium) - still forbidden, see the hard guardrail in SKILL.md.
+which is the exact fear this skill exists to avoid. When the window really is OpenCLI's own
+container, it is not that: the extension creates it **inside your existing Chrome profile**,
+which is where your cookies and sessions live, so it carries your logins.
 
-If the container window stays blank and never navigates, in order:
+**Confirm that before you rely on it.** A blank window is not evidence of anything - it does not
+tell you which profile you are driving. `open` the vendor page and read `state`: you want an
+authenticated URL and the user's own identity on the page, not a login form. Once that passes,
+say out loud that the new window is their session rather than letting them assume the run went
+wrong. **Until it passes, treat the window exactly like the *separate browser* the SKILL.md
+guardrail forbids** (Playwright, Puppeteer, a headless Chromium): no secret capture, no secret
+entry, no `guard_click` on a consent screen.
+
+If the check fails, or the container window stays blank and never navigates, in order:
 1. Reload the OpenCLI card in `chrome://extensions/` (dormant MV3 worker; a daemon restart
    does not wake it).
 2. Focus the real tab and `opencli browser <slug> bind` again.

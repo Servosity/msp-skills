@@ -70,8 +70,11 @@ Verified on macOS: all 13 helper self-checks, including a live Keychain round-tr
    - the bridge extension manages its own container windows by design
    (<https://github.com/jackwener/opencli/issues/2202>, observed on macOS). The mechanism, the
    reassurance to give the user, and the recovery order are in
-   `references/browser-and-keychain.md`. Still open on Windows: whether `bind` works *at all*
-   there once the container-window behavior is accounted for.
+   `references/browser-and-keychain.md` - including the signed-in check that has to pass before
+   the window is trusted with a secret, since on Windows nothing here is verified yet and a
+   blank window is not evidence of which profile you are driving. If it does not pass, stop
+   rather than proceed. Still open on Windows: whether `bind` works *at all* there once the
+   container-window behavior is accounted for.
 
 **Also worth knowing before you debug a Windows bridge failure:** if OpenCLI was installed as
 the **OpenCLIApp desktop** app rather than via `npm install -g @jackwener/opencli`, every
