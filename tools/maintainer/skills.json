@@ -506,8 +506,8 @@
       "tagline": "Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask.",
       "cli_hash": "sha256:92a5147de7eca212243b233b8cfd9be4cbbcdbc2ae84e454ecf9b0e9ee8f08b0",
       "template_version": 3,
-      "version": "0.1.1",
-      "cli_hash_at_release": "sha256:92a5147de7eca212243b233b8cfd9be4cbbcdbc2ae84e454ecf9b0e9ee8f08b0",
+      "version": "0.1.2",
+      "cli_hash_at_release": "sha256:5509d6964e171be0ee35028c1dcd98aad789c30d06db38d1f8f74dd7f50660dd",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
