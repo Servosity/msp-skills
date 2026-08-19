@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-17",
+  "generated_at": "2026-08-19",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -427,7 +427,7 @@
       "skill_path": "skills/datto-rmm",
       "cli_binary": "datto-rmm-cli",
       "mcp_binary": "datto-rmm-mcp",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "printing_press_version": "4.24.0",
       "license": "Apache-2.0",
       "vendor": "Datto RMM",
