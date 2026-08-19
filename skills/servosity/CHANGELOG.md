@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.5.0] - unreleased
+## [0.5.0] - 2026-08-17
 
 Regenerated the vendored `servosity-cli` / `servosity-mcp` source from
 cli-printing-press 4.24.0 to 4.30.3 (engine swap). This release carries five
