@@ -36,11 +36,17 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
 
-# Text release.py stamps into a fresh section. If it survives to release time,
-# nobody filled the section in.
+# Text release.py stamps into a fresh section BODY. If it survives to release
+# time, nobody filled the section in.
+#
+# Deliberately body-only. An "unreleased" HEADING is a dating problem, not a
+# content problem: a section can carry real, hand-written notes under a heading
+# nobody dated. Treating that as a placeholder is a false-RED - it refuses to
+# build notes that are perfectly good, and (measured) it caused a backfill
+# script to overwrite hand-written prose with generated bullets. release.py
+# stamps the date at release time; that is where undated headings get fixed.
 PLACEHOLDERS = (
     "describe the changes in this release",
-    "- unreleased",
 )
 
 
@@ -65,9 +71,9 @@ def section(slug: str, version: str) -> tuple[str | None, str]:
     if not body:
         return None, f"section '## [{version}]' is empty"
 
-    blob = (heading + "\n" + body).lower()
+    # Body only - see PLACEHOLDERS. The heading is not evidence about content.
     for ph in PLACEHOLDERS:
-        if ph in blob:
+        if ph in body.lower():
             return None, (
                 f"section '## [{version}]' for {slug} still carries the release.py "
                 f"placeholder ({ph!r}). Write what actually changed, and date the "
