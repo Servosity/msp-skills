@@ -118,6 +118,13 @@
     "current_hash": "sha256:4fa986626d09fdcfedca62f3fbc0820867cf0ec60bdaec53e4c257a5fc2b944e",
     "released_hash": "sha256:55e01e4ffc3ee08e48f93b6d283c797b163fe85c76144332deb0247c4961da2c"
   },
+  "cork": {
+    "state": "up-to-date",
+    "version": "0.1.0",
+    "latest_tag": "cork-v0.1.0",
+    "current_hash": "sha256:7700d37fcfecc6622c0c5f59ce9a5ef041329411a1db91a01b8fb009a9e042a9",
+    "released_hash": "sha256:7700d37fcfecc6622c0c5f59ce9a5ef041329411a1db91a01b8fb009a9e042a9"
+  },
   "cove": {
     "state": "up-to-date",
     "version": "0.1.4",
