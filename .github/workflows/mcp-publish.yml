@@ -49,7 +49,9 @@ jobs:
           # The tag must actually contain "-v" (so slug/version both parsed) and
           # the semver portion must look like N.N.N.
           if [ "$tag" != "$skill" ] && printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            if python3 -c "import json,sys; reg=json.load(open('tools/maintainer/skills.json')); sys.exit(0 if '$skill' in reg.get('skills',{}) else 1)"; then
+            # argv, never program text - see release.yml and
+            # tools/maintainer/is_registered_slug.py.
+            if python3 tools/maintainer/is_registered_slug.py --slug "$skill"; then
               proceed=true
             fi
           fi

@@ -97,7 +97,7 @@ for friendly names (otherwise "(unknown)" is shown).`,
 			path := fmt.Sprintf("/resellers/%d/agents/unprovisioned/", resellerID)
 			data, err := c.Get(cmd.Context(), path, nil)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 
 			// Step 3: parse list items + apply --age and --company filters.

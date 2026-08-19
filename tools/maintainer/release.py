@@ -31,7 +31,9 @@ Pure stdlib. Run locally:
 
 from __future__ import annotations
 
+import datetime
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -72,12 +74,44 @@ def bump_version(version: str, kind: str) -> str:
 
 
 def changelog_section(version: str) -> str:
-    """A new Keep-a-Changelog section with a placeholder bullet."""
+    """A new Keep-a-Changelog section, dated today, with a placeholder bullet.
+
+    Dated, not "unreleased": this section is created BY a release, for the
+    version being released right now, so "unreleased" is wrong the moment it is
+    written. It also used to survive into the shipped GitHub release notes -
+    every tag in the 2026-08-17 fleet batch went out headed "unreleased".
+
+    The placeholder bullet stays. changelog_section.py refuses to build release
+    notes from it, which is the forcing function to write what actually changed
+    while someone still remembers.
+    """
     return (
-        f"## [{version}] - unreleased\n\n"
+        f"## [{version}] - {_today()}\n\n"
         "### Changed\n"
         "- Describe the changes in this release.\n\n"
     )
+
+
+def _today() -> str:
+    return datetime.date.today().isoformat()
+
+
+def _date_existing_heading(content: str, version: str) -> str | None:
+    """Stamp today's date on an existing '## [version]' heading that is undated
+    or still says "unreleased". Returns None when nothing needs changing.
+
+    A hand-written section prepared ahead of the release carries no date (or
+    says "unreleased"); the release is the moment that becomes knowable, so
+    stamp it here rather than asking a human to remember.
+    """
+    pat = re.compile(r"^##\s*\[" + re.escape(version) + r"\]([^\n]*)$", re.M)
+    m = pat.search(content)
+    if not m:
+        return None
+    tail = m.group(1).strip()
+    if re.fullmatch(r"-\s*\d{4}-\d{2}-\d{2}", tail):
+        return None  # already dated
+    return content[:m.start()] + f"## [{version}] - {_today()}" + content[m.end():]
 
 
 class Planner:
@@ -162,6 +196,11 @@ def propagate(slug: str, new_version: str, bumped: bool, planner: Planner) -> No
             if heading not in cl:
                 new_cl = _insert_changelog(cl, new_version)
                 planner.write_text(cl_path, new_cl, f'insert section [{new_version}]')
+            else:
+                # Section written ahead of the release: stamp the date now.
+                dated = _date_existing_heading(cl, new_version)
+                if dated is not None:
+                    planner.write_text(cl_path, dated, f'date section [{new_version}]')
 
     # tools/maintainer/skills.json (version + cli_hash_at_release)
     reg = _read_json(REGISTRY)

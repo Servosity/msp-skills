@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "zammad-pp-mcp",
   "display_name": "Zammad",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
   "author": {
     "name": "Servosity Inc."

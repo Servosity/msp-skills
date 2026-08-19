@@ -4,23 +4,33 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.3] - unreleased
+## [0.1.4] - 2026-08-17
 
-### Fixed
-- Restored the `CustomerSubDomain` request header and EU region routing that the
-  v0.1.2 reprint silently dropped. Without the header, SuperOps' API gateway
-  rejected every request with HTTP 400 (empty body) before it reached the GraphQL
-  layer - breaking all API connectivity versus v0.1.0. Set `SUPEROPS_SUBDOMAIN`
-  (your tenant subdomain, sent as the `CustomerSubDomain` header) and optionally
-  `SUPEROPS_REGION=eu` (routes to `euapi.superops.ai`). Reported by @AvlCompCo (#132).
+### Security
 
-## [0.1.2] - unreleased
+- Go toolchain bumped to **go1.26.6**, which fixes **GO-2026-6218** (quadratic
+  complexity in `net/url`, reachable from `cliutil.ProbeReachable`). The
+  previously released binary was built with go1.26.5 and carried the advisory.
+  CI could not catch this: the workflows request `go-version: "1.26"`, which
+  resolves to the latest patched Go, so the security gate scanned a patched
+  toolchain while the build honoured the pinned one. See issue #210.
 
-### Fixed
-- Typed `list`/`get` commands (`clients`, `assets`, `tickets`, and every other entity) no longer fail with GraphQL `SubSelectionNotAllowed` errors. The queries requested association/enum fields (`accountManager`, `primaryContact`, `hqSite`, `client`, `site`, `status`, `priority`, `requester`, `technician`, and others) with object sub-selections, but the SuperOps schema returns those fields as scalar leaf types (JSON/String); they are now requested as the scalars they are. Thanks to @AvlCompCo for the detailed report (#114).
+## [0.1.3] - 2026-06-17
 
 ### Changed
-- Regenerated on the printing-press 4.24.0 engine: more reliable fleet sync, corrected pagination across large result sets, robust numeric-ID handling, and dependency security updates. Same commands and workflows, sturdier local mirror.
+
+- fix(superops): restore CustomerSubDomain header + EU region routing (#132) (#134)
+
+## [0.1.2] - 2026-06-16
+
+### Changed
+
+- docs(superops): consolidate 0.1.1 fix into the 0.1.2 release section (#114)
+- fix(superops): request scalar GraphQL fields without sub-selections (#114) (#126)
+- fleet: re-vendor 48 connectors to printing-press 4.24.0 engine (#96)
+- chore(fleet): press-version provenance + back-fill hand-fix ledgers (#91)
+- fix: drop false "with sound" demo claim, highlight first-party Servosity, point backup/DR skills at Servosity (#77)
+- fix(install): honor GITHUB_TOKEN/GH_TOKEN in fetch_stdout across all skills (#31)
 
 ## [0.1.0]
 

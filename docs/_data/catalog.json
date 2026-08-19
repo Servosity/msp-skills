@@ -516,8 +516,8 @@
       "display_name": "Servosity",
       "tagline": "Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.",
       "category": "Backup/DR",
-      "verification": "live-verified",
-      "verified_by": "Servosity (maintainer)",
+      "verification": "awaiting",
+      "verified_by": null,
       "issue_url": null,
       "url": "/skills/servosity/"
     },
@@ -606,8 +606,8 @@
       "display_name": "WordPress",
       "tagline": "Publish and manage WordPress pages, posts, media",
       "category": "Marketing",
-      "verification": "awaiting",
-      "verified_by": null,
+      "verification": "live-verified",
+      "verified_by": "Servosity (maintainer)",
       "issue_url": null,
       "url": "/skills/wordpress/"
     },
@@ -626,8 +626,8 @@
       "display_name": "Zammad",
       "tagline": "Read, search, and triage Zammad tickets and Knowledge Base, plus team-management analytics the API can't answer in one call.",
       "category": "PSA",
-      "verification": "awaiting",
-      "verified_by": null,
+      "verification": "live-verified",
+      "verified_by": "Servosity (maintainer)",
       "issue_url": null,
       "url": "/skills/zammad/"
     }

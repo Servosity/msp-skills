@@ -70,6 +70,40 @@ if human_files | xargs grep -nIE "$counts" 2>/dev/null; then
   fail=1
 fi
 
+echo "==> 6. No connector selects a Go toolchain below the fleet floor"
+# The floor exists because a stdlib advisory is fixed by the toolchain that
+# BUILDS the binary, and CI cannot see a regression here: the workflows request
+# `go-version: "1.26"`, which resolves to the latest patched Go, so the security
+# gate scans a patched toolchain while `build` honours whatever `go.mod` pins.
+# A green gate is not evidence the shipped binary is patched (this is how
+# GO-2026-6218 rode the whole fleet; see #210).
+#
+# A reprint regenerates `go.mod`, so the floor is exactly the kind of edit that
+# gets silently reverted. One guard covers all 58 connectors, which is why this
+# is not 58 entries in 58 handfixes.json files: the press emits go1.26.6 from
+# 4.30.2 onward, so a reprint at the current press satisfies this by
+# construction and only a reprint at an OLDER press can trip it.
+#
+# Raising the floor is a deliberate act: bump GO_FLOOR here in the same PR that
+# sweeps go.mod, so the guard and the fleet move together.
+GO_FLOOR="1.26.6"
+floor_bad=0
+while IFS= read -r gomod; do
+  # The effective toolchain is the `toolchain` line when present, else the `go`
+  # directive. A bare `go 1.26` (no patch) defers to the toolchain line.
+  sel=$(awk '/^toolchain go/ {print substr($2,3); found=1} END {if (!found) exit 1}' "$gomod" 2>/dev/null) \
+    || sel=$(awk '/^go / {print $2}' "$gomod" 2>/dev/null)
+  # Sort -V puts the lower version first; if that is not the floor, sel is below it.
+  if [ "$(printf '%s\n%s\n' "$GO_FLOOR" "$sel" | sort -V | head -1)" != "$GO_FLOOR" ]; then
+    echo "$gomod selects go$sel, below the go$GO_FLOOR floor"
+    floor_bad=1
+  fi
+done < <(git ls-files 'skills/*/cli/go.mod')
+if [ "$floor_bad" -ne 0 ]; then
+  note "a connector selects a Go toolchain below go$GO_FLOOR; bump it, or raise GO_FLOOR here if the floor itself is moving"
+  fail=1
+fi
+
 if [ "$fail" -eq 0 ]; then
   echo "All CI guards passed."
 else

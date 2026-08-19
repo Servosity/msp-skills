@@ -11,8 +11,7 @@ func newDrBackupsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "dr-backups",
 		Short:       "List, get, create, update, and delete dr backups",
-		Hidden:      true,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 

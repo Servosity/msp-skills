@@ -57,6 +57,19 @@
       "asserts": [
         {"file": "cli/internal/cli/novel_shared.go", "contains": "math.MaxInt32", "min_count": 1}
       ]
+    },
+    {
+      "id": "sync-post-query-requires-seeded-filter",
+      "summary": "POST-query sync seeds the id-walk filter on the FIRST page (`id gte 0`) and coerces array/CSV body params, so page 1 is never sent filterless",
+      "why": "Autotask's query endpoints require a filter: a filterless body answers HTTP 500 \"Value cannot be null. Parameter name: filters\", so every POST sync resource failed on its first page and synced nothing (issue #257). The press emits syncResourceStaticBody entries only for body fields carrying an OpenAPI `default`, and Autotask's `filter` declares none, so the generated static body is empty and appendIDWalkFilter ran only once a cursor already existed. The seed is the walk's own `id gte 0` condition, NOT an empty array: Autotask matches records against the filter conditions, so `filter: []` returns HTTP 200 with zero rows and turns a loud failure into a silent empty sync. coerceSyncBodyParam also gained the array/string_csv_array cases the generated query commands already had, so a --param override reaches the wire as JSON instead of the literal string \"[...]\".",
+      "status": "active",
+      "spec_encode_followup": "Press should seed the id-walk filter param on the first page of any POST-query sync whose body declares a required filter array (or emit a static body for required array params with no default), and coerceSyncBodyParam should decode array/string_csv_array the way the generated query commands do (filed via printing-press-retro).",
+      "asserts": [
+        {"file": "cli/internal/cli/sync.go", "contains": "\"op\":    \"gte\"", "min_count": 1},
+        {"file": "cli/internal/cli/sync.go", "contains": "case \"string_csv_array\":", "min_count": 1},
+        {"file": "cli/internal/cli/sync.go", "contains": "empty id-walk filter", "min_count": 1},
+        {"file": "cli/internal/cli/sync_post_filter_test.go", "contains": "TestSyncPostFirstPageSeedsIDWalkFilter", "min_count": 1}
+      ]
     }
   ]
 }

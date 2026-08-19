@@ -4,11 +4,524 @@
 package cli
 
 import (
+	"bytes"
+
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
+
+	"servosity-msp-pp-cli/internal/cliutil"
+
+	"github.com/spf13/cobra"
 )
+
+func TestDeclaredAPISurfaceReachable(t *testing.T) {
+	expected := []string{
+		"agent-login",
+		"agent-login create",
+		"agent-login list",
+		"agent-sessions",
+		"agent-sessions agent-logs",
+		"agent-sessions agent-logs agent-sessions-request",
+		"agent-sessions install-imagemanager",
+		"agent-sessions install-imagemanager agent-sessions",
+		"agent-sessions install-spx",
+		"agent-sessions install-spx agent-sessions",
+		"agent-sessions restart-imagemanager",
+		"agent-sessions restart-imagemanager agent-sessions",
+		"agent-sessions restart-spx",
+		"agent-sessions restart-spx agent-sessions",
+		"agent-sessions spx-activate",
+		"agent-sessions spx-activate agent-sessions",
+		"agent-sessions update-beta",
+		"agent-sessions update-beta agent-sessions",
+		"agent-sessions update-latest",
+		"agent-sessions update-latest agent-sessions",
+		"backup-job-report",
+		"backup-job-report-summary",
+		"backup-job-status",
+		"backup-jobs",
+		"backup-plans",
+		"backup-plans list",
+		"backup-plans read",
+		"backup-search",
+		"backup-sets",
+		"backup-sets create",
+		"backup-sets delete",
+		"backup-sets list",
+		"backup-sets read",
+		"backup-sets update",
+		"backups",
+		"backups config-ini",
+		"backups config-ini backups",
+		"backups create",
+		"backups delete",
+		"backups encryption-key",
+		"backups encryption-key backups-read",
+		"backups encryption-key backups-update",
+		"backups encryption-key-versions",
+		"backups encryption-key-versions backups",
+		"backups guarantee-eligible",
+		"backups guarantee-eligible backups-set",
+		"backups guaranteed-recovery-point",
+		"backups guaranteed-recovery-point backups",
+		"backups list",
+		"backups login",
+		"backups login backups",
+		"backups mfa-codes",
+		"backups migrate-dr",
+		"backups migrate-dr backups",
+		"backups partial-update",
+		"backups password",
+		"backups password backups-change",
+		"backups read",
+		"backups reissue-spx-key",
+		"backups reissue-spx-key backups",
+		"backups unlock",
+		"backups unlock backups",
+		"backups update",
+		"companies",
+		"companies agent-session",
+		"companies agent-session companies",
+		"companies agents",
+		"companies agents companies-update-latest",
+		"companies backup-set-templates",
+		"companies backup-set-templates companies",
+		"companies backup-stores",
+		"companies backup-stores companies-read",
+		"companies backup-stores companies-update",
+		"companies c2c",
+		"companies c2c companies",
+		"companies c2c companies-delete",
+		"companies cloud-to-cloud-dashboard",
+		"companies cloud-to-cloud-dashboard companies",
+		"companies connectwise-download-url",
+		"companies connectwise-download-url companies",
+		"companies create",
+		"companies delete",
+		"companies dr-snapshots",
+		"companies dr-snapshots companies",
+		"companies dr-upload",
+		"companies dr-upload companies",
+		"companies draas",
+		"companies draas companies-attach-volumes",
+		"companies draas companies-client-vpn-config",
+		"companies draas companies-client-vpn-endpoint-associate",
+		"companies draas companies-client-vpn-endpoint-disassociate",
+		"companies draas companies-create",
+		"companies draas companies-create-client-vpn-endpoint",
+		"companies draas companies-create-instances",
+		"companies draas companies-create-volumes",
+		"companies draas companies-create-vpn-ca",
+		"companies draas companies-destroy-spinup",
+		"companies draas companies-eligibility",
+		"companies draas companies-events",
+		"companies draas companies-extra-instance",
+		"companies draas companies-extra-instance-create-image",
+		"companies draas companies-extra-instance-password",
+		"companies draas companies-extra-instance-terminate",
+		"companies draas companies-finalize-spinup",
+		"companies draas companies-images-delete",
+		"companies draas companies-images-read",
+		"companies draas companies-instance-actions",
+		"companies draas companies-new-spinup",
+		"companies draas companies-pause",
+		"companies draas companies-read",
+		"companies draas companies-spx-restore-override-success",
+		"companies draas companies-spx-restore-retry",
+		"companies draas companies-start-spx",
+		"companies draas companies-unpause",
+		"companies draas companies-windows-helper",
+		"companies draas companies-windows-helper-password",
+		"companies email-report-subscription-delete",
+		"companies email-report-subscription-delete companies-email-report-sub-delete",
+		"companies email-report-subscriptions",
+		"companies email-report-subscriptions companies-read",
+		"companies email-report-subscriptions companies-update",
+		"companies fully-managed",
+		"companies fully-managed-ng",
+		"companies fully-managed-ng companies-fully-managed-retrieve",
+		"companies fully-managed-setup-stage",
+		"companies fully-managed-setup-stage companies",
+		"companies fully-managed-status",
+		"companies fully-managed-status companies-clear",
+		"companies imagemanager-info",
+		"companies imagemanager-info companies",
+		"companies issues",
+		"companies issues companies",
+		"companies issues companies-archive",
+		"companies list",
+		"companies log-upload",
+		"companies log-upload companies-read",
+		"companies log-upload companies-update",
+		"companies log-upload-list",
+		"companies log-upload-list companies",
+		"companies notes",
+		"companies notes companies",
+		"companies other-info",
+		"companies other-info companies",
+		"companies partial-update",
+		"companies read",
+		"companies recent-success",
+		"companies recent-success companies",
+		"companies restic-backup-failures",
+		"companies restic-backup-failures companies",
+		"companies restic-snapshots",
+		"companies restic-snapshots companies",
+		"companies restore-queues",
+		"companies restore-queues companies-create",
+		"companies restore-queues companies-delete",
+		"companies restore-queues companies-jobs-create",
+		"companies restore-queues companies-jobs-delete",
+		"companies restore-queues companies-jobs-list",
+		"companies restore-queues companies-jobs-order-first",
+		"companies restore-queues companies-jobs-order-last",
+		"companies restore-queues companies-jobs-partial-update",
+		"companies restore-queues companies-jobs-update",
+		"companies restore-queues companies-list",
+		"companies restore-queues companies-partial-update",
+		"companies restore-queues companies-read",
+		"companies restore-queues companies-update",
+		"companies servosity-one",
+		"companies servosity-one companies-download-windows-download-windows-latest",
+		"companies servosity-one-conversion-request",
+		"companies servosity-one-conversion-request companies",
+		"companies spx-backup-failures",
+		"companies spx-backup-failures companies",
+		"companies summary",
+		"companies summary-ng",
+		"companies update",
+		"company-notes",
+		"company-notes create",
+		"company-notes delete",
+		"company-notes list",
+		"company-notes partial-update",
+		"company-notes read",
+		"company-notes update",
+		"components",
+		"contracts",
+		"contracts create",
+		"contracts finalize",
+		"contracts finalize contracts",
+		"contracts get-by-token",
+		"contracts list",
+		"contracts partial-update",
+		"contracts read",
+		"contracts signatures",
+		"contracts update",
+		"credentials",
+		"credentials create",
+		"credentials delete",
+		"credentials list",
+		"credentials partial-update",
+		"credentials read",
+		"credentials rotate",
+		"credentials rotate credentials",
+		"credentials update",
+		"credentials versions",
+		"credentials versions credentials",
+		"current-user",
+		"current-user api-token-delete",
+		"current-user api-token-list",
+		"current-user create",
+		"current-user groups-list",
+		"current-user helpjuice-sso-create",
+		"current-user hubspot-sso-create",
+		"current-user list",
+		"current-user mfa-backup-codes-list",
+		"current-user mfa-backup-codes-update",
+		"current-user notifications-delete",
+		"current-user notifications-list",
+		"current-user profile-create",
+		"current-user profile-list",
+		"current-user start-mfa-create",
+		"current-user start-mfa-list",
+		"current-user start-mfa-verify-create",
+		"current-user verified-mfa-delete",
+		"current-user verified-mfa-list",
+		"current-user verified-mfa-send-code-create",
+		"download",
+		"dr-backups",
+		"dr-backups agent-session",
+		"dr-backups agent-session dr-backups",
+		"dr-backups agent-token",
+		"dr-backups agent-token dr-backups",
+		"dr-backups create",
+		"dr-backups delete",
+		"dr-backups encryption-key",
+		"dr-backups encryption-key dr-backups-read",
+		"dr-backups encryption-key dr-backups-update",
+		"dr-backups encryption-key-versions",
+		"dr-backups encryption-key-versions dr-backups",
+		"dr-backups failures",
+		"dr-backups failures dr-backups",
+		"dr-backups guarantee-eligible",
+		"dr-backups guarantee-eligible dr-backups-set",
+		"dr-backups guaranteed-recovery-point",
+		"dr-backups guaranteed-recovery-point dr-backups",
+		"dr-backups issues",
+		"dr-backups issues dr-backups",
+		"dr-backups latest-offsite",
+		"dr-backups latest-offsite dr-backups",
+		"dr-backups latest-success",
+		"dr-backups latest-success dr-backups",
+		"dr-backups list",
+		"dr-backups partial-update",
+		"dr-backups read",
+		"dr-backups reboot-events",
+		"dr-backups reboot-events dr-backups-cancel",
+		"dr-backups reboot-events dr-backups-get",
+		"dr-backups reboot-events dr-backups-schedule-reboot",
+		"dr-backups reissue-spx-key",
+		"dr-backups reissue-spx-key dr-backups",
+		"dr-backups selected-volumes",
+		"dr-backups selected-volumes dr-backups-get",
+		"dr-backups snapshot",
+		"dr-backups snapshot dr-backups",
+		"dr-backups snapshot-chkdsk-results",
+		"dr-backups snapshot-chkdsk-results dr-backups",
+		"dr-backups snapshots",
+		"dr-backups snapshots dr-backups",
+		"dr-backups snapshots dr-backups-fail",
+		"dr-backups snapshots dr-backups-reverify",
+		"dr-backups snapshots dr-backups-upload",
+		"dr-backups tunnel",
+		"dr-backups tunnel dr-backups-delete",
+		"dr-backups tunnel dr-backups-update",
+		"dr-backups update",
+		"fully-managed-companies",
+		"issue-comments",
+		"issue-comments delete",
+		"issue-comments update",
+		// `issues archived` / `issues ignored` intentionally absent: admin-scoped,
+		// 403 for the partner token. See docs/reprint-survival.md.
+		"issues",
+		"issues archive",
+		"issues archive issues",
+		"issues comments",
+		"issues comments issues-add",
+		"issues events",
+		"issues events issues",
+		"issues ignore",
+		"issues ignore issues",
+		"issues list",
+		"issues reactivate",
+		"issues reactivate issues",
+		"issues read",
+		"report-subscriptions",
+		"report-subscriptions read",
+		"report-subscriptions reverify",
+		"report-subscriptions reverify report-subscriptions",
+		"report-subscriptions unsubscribe",
+		"report-subscriptions verify",
+		"reports",
+		"reports account-list",
+		"reports classic-usage-list",
+		"reports clients-list",
+		"reports dr-from-email-list",
+		"reports maxio-price-points-list",
+		"reports product-list",
+		"reports stale-backup-sets-list",
+		"reports usage-list",
+		"reports user-profiles-list",
+		"resellers",
+		"resellers agent-install-token",
+		"resellers agent-install-token resellers",
+		"resellers agents",
+		"resellers agents resellers-unprovisioned",
+		"resellers agents resellers-update-latest",
+		"resellers bill",
+		"resellers bill resellers",
+		"resellers bill resellers-xlsx",
+		"resellers billing-info",
+		"resellers billing-info resellers-read",
+		"resellers billing-info resellers-update",
+		"resellers contracts",
+		"resellers contracts resellers",
+		"resellers contracts resellers-sign",
+		"resellers email-report-subscription-delete",
+		"resellers email-report-subscription-delete resellers-email-report-sub-delete",
+		"resellers email-report-subscriptions",
+		"resellers email-report-subscriptions resellers-read",
+		"resellers email-report-subscriptions resellers-update",
+		"resellers issues",
+		"resellers issues resellers",
+		"resellers notes",
+		"resellers notes resellers",
+		"resellers partial-update",
+		"resellers postmark-rotate",
+		"resellers postmark-rotate resellers",
+		"resellers prices",
+		"resellers prices resellers",
+		"resellers read",
+		"resellers subscriptions",
+		"resellers subscriptions resellers",
+		"resellers update",
+		"restic-backups",
+		"restic-backups agent-service-stop",
+		"restic-backups agent-service-stop restic-backups",
+		"restic-backups agent-service-stop-error",
+		"restic-backups agent-service-stop-error restic-backups",
+		"restic-backups agent-session",
+		"restic-backups agent-session restic-backups",
+		"restic-backups agent-token",
+		"restic-backups agent-token restic-backups",
+		"restic-backups backup-sets",
+		"restic-backups backup-sets restic-backups-create",
+		"restic-backups backup-sets restic-backups-delete",
+		"restic-backups backup-sets restic-backups-exclude-paths-create",
+		"restic-backups backup-sets restic-backups-exclude-paths-delete",
+		"restic-backups backup-sets restic-backups-exclude-paths-toggle-case-sensitive",
+		"restic-backups backup-sets restic-backups-list",
+		"restic-backups backup-sets restic-backups-partial-update",
+		"restic-backups backup-sets restic-backups-read",
+		"restic-backups backup-sets restic-backups-source-paths-create",
+		"restic-backups backup-sets restic-backups-source-paths-delete",
+		"restic-backups backup-sets restic-backups-update",
+		"restic-backups create",
+		"restic-backups delete",
+		"restic-backups encryption-key",
+		"restic-backups encryption-key restic-backups-read",
+		"restic-backups encryption-key restic-backups-update",
+		"restic-backups encryption-key-versions",
+		"restic-backups encryption-key-versions restic-backups",
+		"restic-backups failures",
+		"restic-backups failures restic-backups",
+		"restic-backups guarantee-eligible",
+		"restic-backups guarantee-eligible restic-backups-set",
+		"restic-backups guaranteed-recovery-point",
+		"restic-backups guaranteed-recovery-point restic-backups",
+		"restic-backups issues",
+		"restic-backups issues restic-backups",
+		"restic-backups latest-success",
+		"restic-backups latest-success restic-backups",
+		"restic-backups list",
+		"restic-backups partial-update",
+		"restic-backups read",
+		"restic-backups restic-check",
+		"restic-backups restic-check restic-backups",
+		"restic-backups restic-env",
+		"restic-backups restic-env restic-backups",
+		"restic-backups restic-interrupt",
+		"restic-backups restic-interrupt restic-backups",
+		"restic-backups restic-migrate",
+		"restic-backups restic-migrate restic-backups",
+		"restic-backups restic-prune",
+		"restic-backups restic-prune restic-backups",
+		"restic-backups restic-repair-index",
+		"restic-backups restic-repair-index restic-backups",
+		"restic-backups restic-repair-snapshots",
+		"restic-backups restic-repair-snapshots restic-backups",
+		"restic-backups restic-unlock",
+		"restic-backups restic-unlock restic-backups",
+		"restic-backups snapshot-ls",
+		"restic-backups snapshot-ls restic-backups",
+		"restic-backups snapshots",
+		"restic-backups snapshots restic-backups",
+		"restic-backups start-backup",
+		"restic-backups start-backup restic-backups",
+		"restic-backups start-restore",
+		"restic-backups start-restore restic-backups",
+		"restic-backups tunnel",
+		"restic-backups tunnel restic-backups-delete",
+		"restic-backups tunnel restic-backups-update",
+		"restic-backups update",
+		"screenshot",
+		"stats",
+		"stats list",
+		"stats live-list",
+		"stats user-list",
+		"users",
+		"users create",
+		"users delete",
+		"users list",
+		"users request-password-recovery-create",
+		"users reset-password-create",
+	}
+	actual := make(map[string]struct{}, len(expected))
+	type pendingCommand struct {
+		command *cobra.Command
+		path    string
+	}
+	queue := make([]pendingCommand, 0, len(expected))
+	for _, child := range RootCmd().Commands() {
+		queue = append(queue, pendingCommand{command: child, path: child.Name()})
+	}
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		actual[current.path] = struct{}{}
+		for _, child := range current.command.Commands() {
+			queue = append(queue, pendingCommand{
+				command: child,
+				path:    strings.TrimSpace(current.path + " " + child.Name()),
+			})
+		}
+	}
+
+	var missing []string
+	for _, commandPath := range expected {
+		if _, ok := actual[commandPath]; !ok {
+			missing = append(missing, commandPath)
+		}
+	}
+	if len(missing) > 0 {
+		t.Fatalf("declared API command paths missing from generated Cobra tree: %s", strings.Join(missing, ", "))
+	}
+}
+
+func TestNoDuplicateCommandNames(t *testing.T) {
+	type pendingCommand struct {
+		command *cobra.Command
+		path    string
+	}
+	queue := []pendingCommand{}
+	queue = append(queue, pendingCommand{command: RootCmd(), path: ""})
+	var duplicates []string
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		seen := map[string]struct{}{}
+		for _, child := range current.command.Commands() {
+			childPath := strings.TrimSpace(current.path + " " + child.Name())
+			if _, exists := seen[child.Name()]; exists {
+				duplicates = append(duplicates, childPath)
+			} else {
+				seen[child.Name()] = struct{}{}
+			}
+			queue = append(queue, pendingCommand{command: child, path: childPath})
+		}
+	}
+	if len(duplicates) > 0 {
+		t.Fatalf("generated Cobra tree contains duplicate sibling command names: %s", strings.Join(duplicates, ", "))
+	}
+}
+func TestWriteCredentialSaveErrorEnvelope(t *testing.T) {
+	var out bytes.Buffer
+	cause := &cliutil.CredentialsPermissionError{
+		Path: "/tmp/credentials.toml",
+		Err:  errors.New("unsafe permissions"),
+	}
+	if !writeCredentialSaveErrorEnvelope(&out, &rootFlags{asJSON: true}, fmt.Errorf("saving token: %w", cause)) {
+		t.Fatal("permission failure envelope was not written")
+	}
+
+	var payload struct {
+		Saved               bool   `json:"saved"`
+		CredentialsPath     string `json:"credentials_path"`
+		PermissionsVerified bool   `json:"permissions_verified"`
+		Error               string `json:"error"`
+		Code                int    `json:"code"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("permission failure envelope must be valid JSON: %v\n%s", err, out.String())
+	}
+	if !payload.Saved || payload.CredentialsPath != cause.Path || payload.PermissionsVerified || payload.Error == "" || payload.Code == 0 {
+		t.Fatalf("permission failure envelope = %+v, want saved path, unsafe permissions, error, and non-zero code", payload)
+	}
+}
 
 // TestIsCobraUsageError covers the six pre-RunE error shapes Cobra and
 // pflag can produce before any user RunE runs. Each must be detected so
@@ -135,10 +648,16 @@ func TestFilterFields(t *testing.T) {
 			want:   `{"projects":[{"id":"a"}]}`,
 		},
 		{
-			name:   "flat object no match returns empty (no array fallback)",
+			name:   "flat object no match preserves input",
 			input:  `{"a":1,"b":2}`,
 			fields: "c",
-			want:   `{}`,
+			want:   `{"a":1,"b":2}`,
+		},
+		{
+			name:   "unknown selector preserves nested array objects",
+			input:  `{"items":[{"id":"a","name":"Alpha"},{"id":"b","name":"Beta"}]}`,
+			fields: "missing",
+			want:   `{"items":[{"id":"a","name":"Alpha"},{"id":"b","name":"Beta"}]}`,
 		},
 		{
 			// Null pagination cursors are common envelope metadata.
@@ -152,12 +671,11 @@ func TestFilterFields(t *testing.T) {
 		},
 		{
 			// Without a real array sibling the envelope fallback does not
-			// fire, so a flat object whose only "extra" key is null still
-			// returns {} for a non-matching selector.
-			name:   "flat object with null sibling no match returns empty",
+			// fire, but an invalid selector still preserves the input.
+			name:   "flat object with null sibling no match preserves input",
 			input:  `{"a":1,"b":null}`,
 			fields: "c",
-			want:   `{}`,
+			want:   `{"a":1,"b":null}`,
 		},
 		{
 			// Multiple array siblings at the same level each receive the
@@ -169,16 +687,13 @@ func TestFilterFields(t *testing.T) {
 			want:   `{"events":[{"id":"e1"}],"speakers":[{"id":"s1"}]}`,
 		},
 		{
-			// Envelope fallback is intentionally one level deep. A nested
-			// object envelope like {"data":{"items":[...]}} surfaces no
-			// array at the outer level, so the fallback does not fire and
-			// the result is the empty-object that flat-no-match would
-			// produce. Pins the boundary so a future deeper-walk change
-			// is an explicit decision, not an accident.
-			name:   "nested object envelope returns empty (one-level only)",
+			// Generic object descent supports type-keyed envelopes such as
+			// {"data":{"items":[...]}} while keeping the fail-closed
+			// behavior for objects with no collection below them.
+			name:   "nested object envelope descends into collection",
 			input:  `{"data":{"items":[{"id":"a","other":"y"}]}}`,
 			fields: "id",
-			want:   `{}`,
+			want:   `{"data":{"items":[{"id":"a"}]}}`,
 		},
 	}
 	for _, tc := range cases {

@@ -13,6 +13,7 @@ import (
 )
 
 func newUsersCreateCmd(flags *rootFlags) *cobra.Command {
+	var flagXServosityMfa string
 	var bodyCompany int
 	var bodyEmail string
 	var bodyFirstName string
@@ -29,7 +30,19 @@ func newUsersCreateCmd(flags *rootFlags) *cobra.Command {
 			// Bare invocation of a command with required input prints help
 			// instead of pflag's terse "required flag not set" error. Optional-
 			// only read commands fall through so a bare call still executes.
-			if cmd.Flags().NFlag() == 0 && len(args) == 0 && !flags.dryRun {
+			// Machine callers (--json/--agent, which sets asJSON) get a usage
+			// error + exit 2 instead of silent exit-0 help, so an incomplete
+			// invocation is never mistaken for success.
+			if !hasChangedLocalFlags(cmd) && len(args) == 0 && !flags.dryRun {
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "requires input",
+						"usage": cmd.CommandPath() + " --help",
+					}, flags); printErr != nil {
+						return printErr
+					}
+					return usageErr(fmt.Errorf("%q requires input; run %q for usage", cmd.CommandPath(), cmd.CommandPath()+" --help"))
+				}
 				return cmd.Help()
 			}
 			if !stdinBody {
@@ -37,14 +50,19 @@ func newUsersCreateCmd(flags *rootFlags) *cobra.Command {
 					return fmt.Errorf("required flag \"%s\" not set", "email")
 				}
 			}
+			path := "/users/"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
+			headerOverrides := map[string]string{}
 
-			path := "/users/"
+			if cmd.Flags().Changed("x-servosity-mfa") || flagXServosityMfa != "" {
+				headerOverrides["X-Servosity-Mfa"] = formatCLIParamValue(flagXServosityMfa)
+			}
+
 			params := map[string]string{}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -56,26 +74,27 @@ func newUsersCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
-				if bodyCompany != 0 {
-					body["company"] = bodyCompany
+				bodyMap := map[string]any{}
+				body = bodyMap
+				if cmd.Flags().Changed("company") || bodyCompany != 0 {
+					bodyMap["company"] = bodyCompany
 				}
-				if bodyEmail != "" {
-					body["email"] = bodyEmail
+				if cmd.Flags().Changed("email") || bodyEmail != "" {
+					bodyMap["email"] = bodyEmail
 				}
-				if bodyFirstName != "" {
-					body["first_name"] = bodyFirstName
+				if cmd.Flags().Changed("first-name") || bodyFirstName != "" {
+					bodyMap["first_name"] = bodyFirstName
 				}
-				if bodyLastName != "" {
-					body["last_name"] = bodyLastName
+				if cmd.Flags().Changed("last-name") || bodyLastName != "" {
+					bodyMap["last_name"] = bodyLastName
 				}
-				if bodyReseller != 0 {
-					body["reseller"] = bodyReseller
+				if cmd.Flags().Changed("reseller") || bodyReseller != 0 {
+					bodyMap["reseller"] = bodyReseller
 				}
 			}
-			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
+			data, statusCode, err := c.PostWithParamsAndHeaders(cmd.Context(), path, params, body, headerOverrides)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			// Inspect the mutate response body for a partial-failure-shaped
 			// field (e.g. Google Ads `partialFailureError`). Several Google
@@ -140,6 +159,9 @@ func newUsersCreateCmd(flags *rootFlags) *cobra.Command {
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -173,19 +195,31 @@ func newUsersCreateCmd(flags *rootFlags) *cobra.Command {
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"company": true, "email": true, "first_name": true, "last_name": true, "reseller": true})
 				}
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {
@@ -209,6 +243,7 @@ func newUsersCreateCmd(flags *rootFlags) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&flagXServosityMfa, "x-servosity-mfa", "", "X servosity mfa")
 	cmd.Flags().IntVar(&bodyCompany, "company", 0, "Company")
 	cmd.Flags().StringVar(&bodyEmail, "email", "", "Email")
 	cmd.Flags().StringVar(&bodyFirstName, "first-name", "", "First name")

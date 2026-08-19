@@ -3,14 +3,15 @@
 
 // Package mcp — code-orchestration thin surface.
 //
-// Two tools cover the entire API: <api>_search to discover endpoints, and
-// <api>_execute to invoke one. This collapses a large API (50+ endpoints)
+// Three tools cover the entire API: <api>_search to discover endpoints,
+// <api>_get to inspect one GET endpoint, and <api>_execute to invoke one.
+// This collapses a large API (50+ endpoints)
 // to ~1K tokens of tool definitions while preserving full coverage — the
 // agent writes the composition logic in its own sandbox.
 //
 // Pattern source: Anthropic 2026-04-22 "Building agents that reach
 // production systems with MCP" — Cloudflare's MCP server covers ~2,500
-// endpoints in roughly 1K tokens via the same search+execute shape.
+// endpoints in roughly 1K tokens via the same search, get, and execute shape.
 
 package mcp
 
@@ -24,19 +25,35 @@ import (
 
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"servosity-msp-pp-cli/internal/cli"
+	"servosity-msp-pp-cli/internal/mcp/bound"
 )
 
-// RegisterCodeOrchestrationTools registers the two agent-facing tools that
-// cover the whole API surface. Called from RegisterTools in place of the
-// per-endpoint registrations when MCP.Orchestration is "code".
+// RegisterCodeOrchestrationTools registers the agent-facing tools that cover
+// the whole API surface. Called from RegisterTools in place of the per-endpoint
+// registrations when MCP.Orchestration is "code".
 func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("servosity-msp_search",
 			mcplib.WithDescription("Search the servosity-msp API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to execute."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Natural-language description of what you want to do.")),
-			mcplib.WithNumber("limit", mcplib.Description("Max endpoints to return (default 10).")),
+			mcplib.WithNumber("limit", mcplib.Description("Max endpoints to return (default 10, max 100).")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(false),
 		),
 		handleCodeOrchSearch,
+	)
+
+	s.AddTool(
+		mcplib.NewTool("servosity-msp_get",
+			mcplib.WithDescription("Get metadata for one GET endpoint by its endpoint_id (from servosity-msp_search). This registry-only lookup never calls the API."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("GET endpoint identifier returned by servosity-msp_search (e.g., \"users.list\").")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(false),
+		),
+		handleCodeOrchGet,
 	)
 
 	s.AddTool(
@@ -50,7 +67,7 @@ func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 }
 
 // codeOrchEndpoint captures the small slice of endpoint metadata the
-// search+execute pair needs at runtime. `keywords` is a precomputed
+// registry tools need at runtime. `keywords` is a precomputed
 // lowercase stream of description + path tokens used for naive ranking;
 // anything more sophisticated belongs on the agent side.
 type codeOrchEndpoint struct {
@@ -69,6 +86,9 @@ type codeOrchEndpoint struct {
 	// string instead of dumping them into the JSON body. Derived from the
 	// same mcpParamBindings location data the per-endpoint tools use.
 	QueryParams []codeOrchParamBinding
+	// Keep declared headers out of query/body routing so execution sends them
+	// through the request-header map.
+	HeaderParams []codeOrchParamBinding
 	// HeaderOverrides carries per-endpoint request headers (e.g. an
 	// Accept override for binary-only response endpoints). Without
 	// threading these through, the code-orchestration execute path
@@ -80,12 +100,14 @@ type codeOrchEndpoint struct {
 	// params object; a strict-mapping API rejects an object at the body
 	// root with HTTP 422 "Invalid json".
 	BodyIsArray bool
+	Mutating    bool
 	keywords    []string
 }
 
 type codeOrchParamBinding struct {
 	PublicName string
 	WireName   string
+	Default    string
 }
 
 // codeOrchEndpoints is the generator-populated registry covering every
@@ -100,6 +122,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("agent-login", "create", "Create", "/agent-login/"),
 	},
 	{
@@ -110,6 +134,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "token", WireName: "token"}, {PublicName: "agent_session_id", WireName: "agent_session_id"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("agent-login", "list", "List", "/agent-login/"),
 	},
 	{
@@ -120,6 +146,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"agent_session_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("agent-sessions", "read", "Read", "/agent-sessions/{agent_session_id}/"),
 	},
 	{
@@ -130,6 +158,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"agent_session_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("agent-sessions", "agent-sessions-request", "Agent sessions request", "/agent-sessions/{agent_session_id}/agent-logs/"),
 	},
 	{
@@ -140,6 +170,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"agent_session_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("agent-sessions", "agent-sessions", "Agent sessions", "/agent-sessions/{agent_session_id}/install-imagemanager/"),
 	},
 	{
@@ -150,6 +182,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"agent_session_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("agent-sessions", "agent-sessions", "Agent sessions", "/agent-sessions/{agent_session_id}/install-spx/"),
 	},
 	{
@@ -160,6 +194,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"agent_session_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("agent-sessions", "agent-sessions", "Agent sessions", "/agent-sessions/{agent_session_id}/restart-imagemanager/"),
 	},
 	{
@@ -170,6 +206,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"agent_session_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("agent-sessions", "agent-sessions", "Agent sessions", "/agent-sessions/{agent_session_id}/restart-spx/"),
 	},
 	{
@@ -180,6 +218,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"agent_session_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("agent-sessions", "agent-sessions", "Agent sessions", "/agent-sessions/{agent_session_id}/spx-activate/"),
 	},
 	{
@@ -190,6 +230,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"agent_session_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("agent-sessions", "agent-sessions", "Agent sessions", "/agent-sessions/{agent_session_id}/update-beta/"),
 	},
 	{
@@ -200,6 +242,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"agent_session_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("agent-sessions", "agent-sessions", "Agent sessions", "/agent-sessions/{agent_session_id}/update-latest/"),
 	},
 	{
@@ -210,6 +254,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"backup_destination_id", "backup_id", "backup_job_id", "backup_set_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backup-job-report", "read", "View detailed backup report for a backup job and destination.", "/backup-job-report/{backup_id}/{backup_set_id}/{backup_job_id}/{backup_destination_id}/"),
 	},
 	{
@@ -220,6 +266,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"backup_destination_id", "backup_id", "backup_job_id", "backup_set_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backup-job-report-summary", "read", "View summary backup report for a backup job and destination.", "/backup-job-report-summary/{backup_id}/{backup_set_id}/{backup_job_id}/{backup_destination_id}/"),
 	},
 	{
@@ -230,6 +278,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"backup_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backup-job-status", "list", "List backup job status for a backup account on a specific date.", "/backup-job-status/{backup_id}/{backup_date}/"),
 	},
 	{
@@ -240,6 +290,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"backup_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backup-jobs", "list", "List backup jobs for a backup account.", "/backup-jobs/{backup_id}/"),
 	},
 	{
@@ -250,6 +302,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backup-plans", "list", "List backup plans.", "/backup-plans/"),
 	},
 	{
@@ -260,6 +314,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backup-plans", "read", "View a backup plan.", "/backup-plans/{id}/"),
 	},
 	{
@@ -269,7 +325,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "List",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "company__reseller", WireName: "company__reseller"}, {PublicName: "search", WireName: "search"}, {PublicName: "page", WireName: "page"}, {PublicName: "page_size", WireName: "page_size"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "company__reseller", WireName: "company__reseller"}, {PublicName: "search", WireName: "search"}, {PublicName: "page_size", WireName: "page_size"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backup-search", "list", "List", "/backup-search/"),
 	},
 	{
@@ -280,6 +338,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"backup_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backup-sets", "create", "Create a backup-set for a backup account.", "/backup-sets/{backup_id}/"),
 	},
 	{
@@ -290,6 +350,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"backup_id", "backup_set_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backup-sets", "delete", "Delete a backup-set for a backup account.", "/backup-sets/{backup_id}/{backup_set_id}/"),
 	},
 	{
@@ -300,6 +362,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"backup_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backup-sets", "list", "List backup-sets for a backup account.", "/backup-sets/{backup_id}/"),
 	},
 	{
@@ -310,6 +374,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"backup_id", "backup_set_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backup-sets", "read", "View a backup-set for a backup account.", "/backup-sets/{backup_id}/{backup_set_id}/"),
 	},
 	{
@@ -320,6 +386,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"backup_id", "backup_set_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backup-sets", "update", "Accepts a json body with the following optional parameters.", "/backup-sets/{backup_id}/{backup_set_id}/"),
 	},
 	{
@@ -330,6 +398,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "create", "Create a backup account.", "/backups/"),
 	},
 	{
@@ -340,6 +410,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "delete", "Delete a backup account, also deleting all backup data.", "/backups/{id}/"),
 	},
 	{
@@ -349,7 +421,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "List backup accounts.",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "company", WireName: "company"}, {PublicName: "company__reseller", WireName: "company__reseller"}, {PublicName: "search", WireName: "search"}, {PublicName: "ordering", WireName: "ordering"}, {PublicName: "page", WireName: "page"}, {PublicName: "page_size", WireName: "page_size"}, {PublicName: "include_reseller", WireName: "include_reseller"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "company", WireName: "company"}, {PublicName: "company__reseller", WireName: "company__reseller"}, {PublicName: "search", WireName: "search"}, {PublicName: "ordering", WireName: "ordering"}, {PublicName: "page_size", WireName: "page_size"}, {PublicName: "include_reseller", WireName: "include_reseller"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "list", "List backup accounts.", "/backups/"),
 	},
 	{
@@ -359,7 +433,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "Mfa codes",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "company", WireName: "company"}, {PublicName: "company__reseller", WireName: "company__reseller"}, {PublicName: "search", WireName: "search"}, {PublicName: "ordering", WireName: "ordering"}, {PublicName: "page", WireName: "page"}, {PublicName: "page_size", WireName: "page_size"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "company", WireName: "company"}, {PublicName: "company__reseller", WireName: "company__reseller"}, {PublicName: "search", WireName: "search"}, {PublicName: "ordering", WireName: "ordering"}, {PublicName: "page_size", WireName: "page_size"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "mfa-codes", "Mfa codes", "/backups/mfa_codes/"),
 	},
 	{
@@ -370,6 +446,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "partial-update", "Partial update", "/backups/{id}/"),
 	},
 	{
@@ -380,6 +458,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "read", "View a backup account.", "/backups/{id}/"),
 	},
 	{
@@ -390,6 +470,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "update", "Update a backup account.", "/backups/{id}/"),
 	},
 	{
@@ -400,6 +482,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "backups", "Backups", "/backups/{id}/config.ini/"),
 	},
 	{
@@ -410,6 +494,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "version", WireName: "version"}},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "backups-read", "Backups read", "/backups/{id}/encryption-key/"),
 	},
 	{
@@ -420,6 +506,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "backups-update", "Backups update", "/backups/{id}/encryption-key/"),
 	},
 	{
@@ -430,6 +518,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "backups", "Backups", "/backups/{id}/encryption-key-versions/"),
 	},
 	{
@@ -440,6 +530,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "backups-set", "Backups set", "/backups/{id}/guarantee_eligible/"),
 	},
 	{
@@ -450,6 +542,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "backups", "Backups", "/backups/{id}/guaranteed-recovery-point/"),
 	},
 	{
@@ -460,6 +554,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "backups", "Backups", "/backups/{id}/login/"),
 	},
 	{
@@ -470,6 +566,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "backups", "Migrate a DR Classic account to new DR account type.", "/backups/{id}/migrate-dr/"),
 	},
 	{
@@ -480,6 +578,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "backups-change", "Backups change", "/backups/{id}/password/"),
 	},
 	{
@@ -490,6 +590,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "backups", "Backups", "/backups/{id}/reissue-spx-key/"),
 	},
 	{
@@ -500,6 +602,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("backups", "backups", "Backups", "/backups/{id}/unlock/"),
 	},
 	{
@@ -510,6 +614,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "create", "Create a company.", "/companies/"),
 	},
 	{
@@ -520,6 +626,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "delete", "Delete a company, also deleting all backup accounts and backup data.", "/companies/{id}/"),
 	},
 	{
@@ -529,18 +637,10 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "List fully-managed companies.",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "reseller", WireName: "reseller"}, {PublicName: "reseller__dedicated_support_staff__username", WireName: "reseller__dedicated_support_staff__username"}, {PublicName: "support_tier", WireName: "support_tier"}, {PublicName: "search", WireName: "search"}, {PublicName: "page", WireName: "page"}, {PublicName: "page_size", WireName: "page_size"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "reseller", WireName: "reseller"}, {PublicName: "reseller__dedicated_support_staff__username", WireName: "reseller__dedicated_support_staff__username"}, {PublicName: "support_tier", WireName: "support_tier"}, {PublicName: "search", WireName: "search"}, {PublicName: "page_size", WireName: "page_size"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "fully-managed", "List fully-managed companies.", "/companies/fully-managed/"),
-	},
-	{
-		ID:             "companies.fully-managed-ng",
-		Method:         "GET",
-		Path:           "/companies/fully-managed-ng/",
-		Summary:        "List fully-managed companies.",
-		Positional:     []string{},
-		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "reseller", WireName: "reseller"}, {PublicName: "reseller__dedicated_support_staff__username", WireName: "reseller__dedicated_support_staff__username"}, {PublicName: "support_tier", WireName: "support_tier"}, {PublicName: "search", WireName: "search"}},
-		keywords:       codeOrchKeywords("companies", "fully-managed-ng", "List fully-managed companies.", "/companies/fully-managed-ng/"),
 	},
 	{
 		ID:             "companies.list",
@@ -549,7 +649,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "List companies.",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "reseller", WireName: "reseller"}, {PublicName: "reseller__dedicated_support_staff__username", WireName: "reseller__dedicated_support_staff__username"}, {PublicName: "support_tier", WireName: "support_tier"}, {PublicName: "search", WireName: "search"}, {PublicName: "page", WireName: "page"}, {PublicName: "page_size", WireName: "page_size"}, {PublicName: "include_reseller", WireName: "include_reseller"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "reseller", WireName: "reseller"}, {PublicName: "reseller__dedicated_support_staff__username", WireName: "reseller__dedicated_support_staff__username"}, {PublicName: "support_tier", WireName: "support_tier"}, {PublicName: "search", WireName: "search"}, {PublicName: "page_size", WireName: "page_size"}, {PublicName: "include_reseller", WireName: "include_reseller"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "list", "List companies.", "/companies/"),
 	},
 	{
@@ -560,6 +662,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "partial-update", "Partial update", "/companies/{id}/"),
 	},
 	{
@@ -570,6 +674,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "include_reseller", WireName: "include_reseller"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "read", "View a company.", "/companies/{id}/"),
 	},
 	{
@@ -579,7 +685,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "List companies with account summaries.",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "reseller", WireName: "reseller"}, {PublicName: "reseller__dedicated_support_staff__username", WireName: "reseller__dedicated_support_staff__username"}, {PublicName: "support_tier", WireName: "support_tier"}, {PublicName: "search", WireName: "search"}, {PublicName: "page", WireName: "page"}, {PublicName: "page_size", WireName: "page_size"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "reseller", WireName: "reseller"}, {PublicName: "reseller__dedicated_support_staff__username", WireName: "reseller__dedicated_support_staff__username"}, {PublicName: "support_tier", WireName: "support_tier"}, {PublicName: "search", WireName: "search"}, {PublicName: "page_size", WireName: "page_size"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "summary", "List companies with account summaries.", "/companies/summary/"),
 	},
 	{
@@ -589,7 +697,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "Summary ng",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "reseller", WireName: "reseller"}, {PublicName: "reseller__dedicated_support_staff__username", WireName: "reseller__dedicated_support_staff__username"}, {PublicName: "support_tier", WireName: "support_tier"}, {PublicName: "search", WireName: "search"}, {PublicName: "page", WireName: "page"}, {PublicName: "page_size", WireName: "page_size"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "reseller", WireName: "reseller"}, {PublicName: "reseller__dedicated_support_staff__username", WireName: "reseller__dedicated_support_staff__username"}, {PublicName: "support_tier", WireName: "support_tier"}, {PublicName: "search", WireName: "search"}, {PublicName: "page_size", WireName: "page_size"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "summary-ng", "Summary ng", "/companies/summary-ng/"),
 	},
 	{
@@ -600,6 +710,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "update", "Update a company.", "/companies/{id}/"),
 	},
 	{
@@ -610,6 +722,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/agent-session/"),
 	},
 	{
@@ -620,6 +734,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-update-latest", "Companies update latest", "/companies/{id}/agents/update-latest/"),
 	},
 	{
@@ -630,6 +746,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/backup-set-templates/"),
 	},
 	{
@@ -640,6 +758,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-read", "Companies read", "/companies/{id}/backup-stores/"),
 	},
 	{
@@ -650,6 +770,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-update", "Companies update", "/companies/{id}/backup-stores/"),
 	},
 	{
@@ -660,6 +782,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/c2c/"),
 	},
 	{
@@ -670,6 +794,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"backup_type", "id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-delete", "Companies delete", "/companies/{id}/c2c/{backup_type}/"),
 	},
 	{
@@ -680,6 +806,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/cloud-to-cloud-dashboard/"),
 	},
 	{
@@ -690,6 +818,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/connectwise-download-url/"),
 	},
 	{
@@ -700,6 +830,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "month", WireName: "month"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/dr-snapshots/"),
 	},
 	{
@@ -710,6 +842,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/dr-upload/"),
 	},
 	{
@@ -720,6 +854,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-attach-volumes", "Companies attach volumes", "/companies/{id}/draas/attach-volumes/"),
 	},
 	{
@@ -730,6 +866,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-client-vpn-config", "Companies client vpn config", "/companies/{id}/draas/client-vpn-config/"),
 	},
 	{
@@ -740,6 +878,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-client-vpn-endpoint-associate", "Companies client vpn endpoint associate", "/companies/{id}/draas/client-vpn-endpoint-associate/"),
 	},
 	{
@@ -750,6 +890,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-client-vpn-endpoint-disassociate", "Companies client vpn endpoint disassociate", "/companies/{id}/draas/client-vpn-endpoint-disassociate/"),
 	},
 	{
@@ -760,6 +902,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-create", "Companies create", "/companies/{id}/draas/"),
 	},
 	{
@@ -770,6 +914,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-create-client-vpn-endpoint", "Companies create client vpn endpoint", "/companies/{id}/draas/client-vpn-endpoint/"),
 	},
 	{
@@ -780,6 +926,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-create-instances", "Companies create instances", "/companies/{id}/draas/instances/"),
 	},
 	{
@@ -790,6 +938,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-create-volumes", "Companies create volumes", "/companies/{id}/draas/volumes/"),
 	},
 	{
@@ -800,6 +950,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-create-vpn-ca", "Companies create vpn ca", "/companies/{id}/draas/vpn-ca/"),
 	},
 	{
@@ -810,6 +962,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-destroy-spinup", "Companies destroy spinup", "/companies/{id}/draas/destroy-spinup/"),
 	},
 	{
@@ -820,6 +974,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-eligibility", "Companies eligibility", "/companies/{id}/draas/eligibility/"),
 	},
 	{
@@ -830,6 +986,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-events", "Companies events", "/companies/{id}/draas/events/"),
 	},
 	{
@@ -840,6 +998,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-extra-instance", "Companies extra instance", "/companies/{id}/draas/extra-instance/"),
 	},
 	{
@@ -850,6 +1010,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-extra-instance-create-image", "Companies extra instance create image", "/companies/{id}/draas/extra-instance-create-image/"),
 	},
 	{
@@ -860,6 +1022,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "instance_id", WireName: "instance_id"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-extra-instance-password", "Companies extra instance password", "/companies/{id}/draas/extra-instance-password/"),
 	},
 	{
@@ -870,6 +1034,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-extra-instance-terminate", "Companies extra instance terminate", "/companies/{id}/draas/extra-instance-terminate/"),
 	},
 	{
@@ -880,6 +1046,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-finalize-spinup", "Companies finalize spinup", "/companies/{id}/draas/finalize-spinup/"),
 	},
 	{
@@ -890,6 +1058,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-images-delete", "Companies images delete", "/companies/{id}/draas/images/"),
 	},
 	{
@@ -900,6 +1070,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-images-read", "Companies images read", "/companies/{id}/draas/images/"),
 	},
 	{
@@ -910,6 +1082,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-instance-actions", "Companies instance actions", "/companies/{id}/draas/instance-actions/"),
 	},
 	{
@@ -920,6 +1094,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-new-spinup", "Companies new spinup", "/companies/{id}/draas/new-spinup/"),
 	},
 	{
@@ -930,6 +1106,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-pause", "Companies pause", "/companies/{id}/draas/pause/"),
 	},
 	{
@@ -940,6 +1118,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-read", "Companies read", "/companies/{id}/draas/"),
 	},
 	{
@@ -950,6 +1130,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-spx-restore-override-success", "Companies spx restore override success", "/companies/{id}/draas/spx-restore-override-success/"),
 	},
 	{
@@ -960,6 +1142,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-spx-restore-retry", "Companies spx restore retry", "/companies/{id}/draas/spx-restore-retry/"),
 	},
 	{
@@ -970,6 +1154,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-start-spx", "Companies start spx", "/companies/{id}/draas/start-spx/"),
 	},
 	{
@@ -980,6 +1166,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-unpause", "Companies unpause", "/companies/{id}/draas/unpause/"),
 	},
 	{
@@ -990,6 +1178,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-windows-helper", "Companies windows helper", "/companies/{id}/draas/windows-helper/"),
 	},
 	{
@@ -1000,6 +1190,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-windows-helper-password", "Companies windows helper password", "/companies/{id}/draas/windows-helper-password/"),
 	},
 	{
@@ -1010,6 +1202,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-email-report-sub-delete", "Companies email report sub delete", "/companies/{id}/email-report-subscription-delete/"),
 	},
 	{
@@ -1020,6 +1214,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-read", "Companies read", "/companies/{id}/email-report-subscriptions/"),
 	},
 	{
@@ -1030,6 +1226,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-update", "Companies update", "/companies/{id}/email-report-subscriptions/"),
 	},
 	{
@@ -1040,6 +1238,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-fully-managed-retrieve", "Get a fully-managed company.", "/companies/{id}/fully-managed-ng/"),
 	},
 	{
@@ -1050,6 +1250,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/fully-managed-setup-stage/"),
 	},
 	{
@@ -1060,6 +1262,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-clear", "Companies clear", "/companies/{id}/fully-managed-status/"),
 	},
 	{
@@ -1070,6 +1274,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/imagemanager-info/"),
 	},
 	{
@@ -1080,6 +1286,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "month", WireName: "month"}, {PublicName: "audience", WireName: "audience"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/issues/"),
 	},
 	{
@@ -1090,6 +1298,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-archive", "Archives all issues for the specified company.", "/companies/{id}/issues/archive/"),
 	},
 	{
@@ -1100,6 +1310,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-read", "Companies read", "/companies/{id}/log-upload/"),
 	},
 	{
@@ -1110,6 +1322,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-update", "Companies update", "/companies/{id}/log-upload/"),
 	},
 	{
@@ -1120,6 +1334,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/log-upload-list/"),
 	},
 	{
@@ -1130,6 +1346,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/notes/"),
 	},
 	{
@@ -1140,6 +1358,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/other-info/"),
 	},
 	{
@@ -1150,6 +1370,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/recent-success/"),
 	},
 	{
@@ -1160,6 +1382,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "month", WireName: "month"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/restic-backup-failures/"),
 	},
 	{
@@ -1170,6 +1394,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "month", WireName: "month"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/restic-snapshots/"),
 	},
 	{
@@ -1180,6 +1406,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"company_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-create", "Companies create", "/companies/{company_pk}/restore-queues/"),
 	},
 	{
@@ -1190,6 +1418,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"company_pk", "id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-delete", "Companies delete", "/companies/{company_pk}/restore-queues/{id}/"),
 	},
 	{
@@ -1200,6 +1430,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"company_pk", "resticrestorequeue_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-jobs-create", "Companies jobs create", "/companies/{company_pk}/restore-queues/{resticrestorequeue_pk}/jobs/"),
 	},
 	{
@@ -1210,6 +1442,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"company_pk", "id", "resticrestorequeue_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-jobs-delete", "Companies jobs delete", "/companies/{company_pk}/restore-queues/{resticrestorequeue_pk}/jobs/{id}/"),
 	},
 	{
@@ -1220,6 +1454,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"company_pk", "resticrestorequeue_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-jobs-list", "Companies jobs list", "/companies/{company_pk}/restore-queues/{resticrestorequeue_pk}/jobs/"),
 	},
 	{
@@ -1230,6 +1466,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"company_pk", "id", "resticrestorequeue_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-jobs-order-first", "Companies jobs order first", "/companies/{company_pk}/restore-queues/{resticrestorequeue_pk}/jobs/{id}/order-first/"),
 	},
 	{
@@ -1240,6 +1478,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"company_pk", "id", "resticrestorequeue_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-jobs-order-last", "Companies jobs order last", "/companies/{company_pk}/restore-queues/{resticrestorequeue_pk}/jobs/{id}/order-last/"),
 	},
 	{
@@ -1250,6 +1490,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"company_pk", "id", "resticrestorequeue_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-jobs-partial-update", "Companies jobs partial update", "/companies/{company_pk}/restore-queues/{resticrestorequeue_pk}/jobs/{id}/"),
 	},
 	{
@@ -1260,6 +1502,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"company_pk", "id", "resticrestorequeue_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-jobs-update", "Companies jobs update", "/companies/{company_pk}/restore-queues/{resticrestorequeue_pk}/jobs/{id}/"),
 	},
 	{
@@ -1270,6 +1514,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"company_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-list", "Companies list", "/companies/{company_pk}/restore-queues/"),
 	},
 	{
@@ -1280,6 +1526,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"company_pk", "id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-partial-update", "Companies partial update", "/companies/{company_pk}/restore-queues/{id}/"),
 	},
 	{
@@ -1290,6 +1538,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"company_pk", "id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-read", "Companies read", "/companies/{company_pk}/restore-queues/{id}/"),
 	},
 	{
@@ -1300,6 +1550,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"company_pk", "id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-update", "Companies update", "/companies/{company_pk}/restore-queues/{id}/"),
 	},
 	{
@@ -1310,6 +1562,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies-download-windows-download-windows-latest", "Companies download windows download windows latest", "/companies/{id}/servosity-one/download/windows/latest/"),
 	},
 	{
@@ -1320,6 +1574,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/servosity-one-conversion-request/"),
 	},
 	{
@@ -1330,6 +1586,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "month", WireName: "month"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "companies", "Companies", "/companies/{id}/spx-backup-failures/"),
 	},
 	{
@@ -1340,6 +1598,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("company-notes", "create", "Create", "/company-notes/"),
 	},
 	{
@@ -1350,6 +1610,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("company-notes", "delete", "Delete", "/company-notes/{id}/"),
 	},
 	{
@@ -1359,7 +1621,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "List",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "page", WireName: "page"}, {PublicName: "page_size", WireName: "page_size"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "page_size", WireName: "page_size"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("company-notes", "list", "List", "/company-notes/"),
 	},
 	{
@@ -1370,6 +1634,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("company-notes", "partial-update", "Partial update", "/company-notes/{id}/"),
 	},
 	{
@@ -1380,6 +1646,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("company-notes", "read", "Read", "/company-notes/{id}/"),
 	},
 	{
@@ -1390,6 +1658,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("company-notes", "update", "Update", "/company-notes/{id}/"),
 	},
 	{
@@ -1400,6 +1670,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("components", "list", "List", "/components/"),
 	},
 	{
@@ -1410,6 +1682,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("contracts", "create", "Create", "/contracts/"),
 	},
 	{
@@ -1419,7 +1693,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "Get by token",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "page", WireName: "page"}, {PublicName: "page_size", WireName: "page_size"}, {PublicName: "token", WireName: "token"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "page_size", WireName: "page_size"}, {PublicName: "token", WireName: "token"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("contracts", "get-by-token", "Get by token", "/contracts/get-by-token/"),
 	},
 	{
@@ -1429,7 +1705,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "List",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "page", WireName: "page"}, {PublicName: "page_size", WireName: "page_size"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "page_size", WireName: "page_size"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("contracts", "list", "List", "/contracts/"),
 	},
 	{
@@ -1440,6 +1718,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"identifier"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("contracts", "partial-update", "Partial update", "/contracts/{identifier}/"),
 	},
 	{
@@ -1450,6 +1730,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"identifier"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("contracts", "read", "Read", "/contracts/{identifier}/"),
 	},
 	{
@@ -1459,7 +1741,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "Signatures",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "page", WireName: "page"}, {PublicName: "page_size", WireName: "page_size"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "page_size", WireName: "page_size"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("contracts", "signatures", "Signatures", "/contracts/signatures/"),
 	},
 	{
@@ -1470,6 +1754,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"identifier"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("contracts", "update", "Update", "/contracts/{identifier}/"),
 	},
 	{
@@ -1480,6 +1766,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"identifier"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("contracts", "contracts", "Contracts", "/contracts/{identifier}/finalize/"),
 	},
 	{
@@ -1490,6 +1778,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("credentials", "create", "Create", "/credentials/"),
 	},
 	{
@@ -1500,6 +1790,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("credentials", "delete", "Delete", "/credentials/{id}/"),
 	},
 	{
@@ -1509,7 +1801,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "List",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "company", WireName: "company"}, {PublicName: "page", WireName: "page"}, {PublicName: "page_size", WireName: "page_size"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "company", WireName: "company"}, {PublicName: "page_size", WireName: "page_size"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("credentials", "list", "List", "/credentials/"),
 	},
 	{
@@ -1520,6 +1814,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("credentials", "partial-update", "Partial update", "/credentials/{id}/"),
 	},
 	{
@@ -1530,6 +1826,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "version", WireName: "version"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("credentials", "read", "Read", "/credentials/{id}/"),
 	},
 	{
@@ -1540,6 +1838,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("credentials", "update", "Update", "/credentials/{id}/"),
 	},
 	{
@@ -1550,6 +1850,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("credentials", "credentials", "Rotate a credential.", "/credentials/{id}/rotate/"),
 	},
 	{
@@ -1560,6 +1862,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("credentials", "credentials", "Credentials", "/credentials/{id}/versions/"),
 	},
 	{
@@ -1570,6 +1874,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "api-token-delete", "Delete the current user's API token. A new one will be generated when requested.", "/current-user/api-token/"),
 	},
 	{
@@ -1580,6 +1886,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "api-token-list", "You will receive JSON response with `token`.", "/current-user/api-token/"),
 	},
 	{
@@ -1590,6 +1898,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "create", "Change the password of the current logged in user.", "/current-user/"),
 	},
 	{
@@ -1600,6 +1910,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "groups-list", "Groups list", "/current-user/groups/"),
 	},
 	{
@@ -1610,6 +1922,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "helpjuice-sso-create", "Helpjuice sso create", "/current-user/helpjuice-sso/"),
 	},
 	{
@@ -1620,6 +1934,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "hubspot-sso-create", "Hubspot sso create", "/current-user/hubspot-sso/"),
 	},
 	{
@@ -1630,6 +1946,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "list", "Get information about the current logged in user.", "/current-user/"),
 	},
 	{
@@ -1640,6 +1958,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "mfa-backup-codes-list", "Get unused backup codes. If no unused codes are left, remove all and generate new codes.", "/current-user/mfa-backup-codes/"),
 	},
 	{
@@ -1650,6 +1970,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "mfa-backup-codes-update", "Remove all backup codes and generate new codes.", "/current-user/mfa-backup-codes/"),
 	},
 	{
@@ -1660,6 +1982,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"notification_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "notifications-delete", "Notifications delete", "/current-user/notifications/{notification_id}/"),
 	},
 	{
@@ -1670,6 +1994,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "include_deleted", WireName: "include_deleted"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "notifications-list", "Get current user notifications", "/current-user/notifications/"),
 	},
 	{
@@ -1680,6 +2006,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "profile-create", "Profile create", "/current-user/profile/"),
 	},
 	{
@@ -1690,6 +2018,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "profile-list", "Profile list", "/current-user/profile/"),
 	},
 	{
@@ -1700,6 +2030,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "start-mfa-create", "Start mfa create", "/current-user/start-mfa/"),
 	},
 	{
@@ -1710,6 +2042,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       true,
 		keywords:       codeOrchKeywords("current-user", "start-mfa-list", "Start mfa list", "/current-user/start-mfa/"),
 	},
 	{
@@ -1720,6 +2054,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"enrollment_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "start-mfa-verify-create", "Start mfa verify create", "/current-user/start-mfa/{enrollment_id}/verify/"),
 	},
 	{
@@ -1730,6 +2066,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"enrollment_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "verified-mfa-delete", "Verified mfa delete", "/current-user/verified-mfa/{enrollment_id}/"),
 	},
 	{
@@ -1740,6 +2078,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "verified-mfa-list", "Verified mfa list", "/current-user/verified-mfa/"),
 	},
 	{
@@ -1750,6 +2090,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"enrollment_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("current-user", "verified-mfa-send-code-create", "Verified mfa send code create", "/current-user/verified-mfa/{enrollment_id}/send-code/"),
 	},
 	{
@@ -1760,6 +2102,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("download", "servosity-one-windows-list", "Servosity one windows list", "/download/servosity-one-windows/"),
 	},
 	{
@@ -1770,6 +2114,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "create", "Create a DR backup account.", "/dr-backups/"),
 	},
 	{
@@ -1780,6 +2126,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "delete", "Delete a DR backup account.", "/dr-backups/{id}/"),
 	},
 	{
@@ -1789,7 +2137,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "List",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "company", WireName: "company"}, {PublicName: "company__reseller", WireName: "company__reseller"}, {PublicName: "search", WireName: "search"}, {PublicName: "ordering", WireName: "ordering"}, {PublicName: "page", WireName: "page"}, {PublicName: "page_size", WireName: "page_size"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "company", WireName: "company"}, {PublicName: "company__reseller", WireName: "company__reseller"}, {PublicName: "search", WireName: "search"}, {PublicName: "ordering", WireName: "ordering"}, {PublicName: "page_size", WireName: "page_size"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "list", "List", "/dr-backups/"),
 	},
 	{
@@ -1800,6 +2150,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "partial-update", "Update a DR backup account.", "/dr-backups/{id}/"),
 	},
 	{
@@ -1810,6 +2162,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "read", "Read", "/dr-backups/{id}/"),
 	},
 	{
@@ -1820,6 +2174,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "update", "Update a DR backup account.", "/dr-backups/{id}/"),
 	},
 	{
@@ -1830,6 +2186,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups", "Dr backups", "/dr-backups/{id}/agent-session/"),
 	},
 	{
@@ -1840,6 +2198,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups", "Dr backups", "/dr-backups/{id}/agent-token/"),
 	},
 	{
@@ -1850,6 +2210,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "version", WireName: "version"}},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups-read", "Dr backups read", "/dr-backups/{id}/encryption-key/"),
 	},
 	{
@@ -1860,6 +2222,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups-update", "Dr backups update", "/dr-backups/{id}/encryption-key/"),
 	},
 	{
@@ -1870,6 +2234,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups", "Dr backups", "/dr-backups/{id}/encryption-key-versions/"),
 	},
 	{
@@ -1880,6 +2246,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "month", WireName: "month"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups", "Dr backups", "/dr-backups/{id}/failures/"),
 	},
 	{
@@ -1890,6 +2258,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups-set", "Dr backups set", "/dr-backups/{id}/guarantee_eligible/"),
 	},
 	{
@@ -1900,6 +2270,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups", "Dr backups", "/dr-backups/{id}/guaranteed-recovery-point/"),
 	},
 	{
@@ -1910,6 +2282,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "month", WireName: "month"}, {PublicName: "audience", WireName: "audience"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups", "Dr backups", "/dr-backups/{id}/issues/"),
 	},
 	{
@@ -1920,6 +2294,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups", "Get the date of the latest set of selected volumes in the cloud.", "/dr-backups/{id}/latest-offsite/"),
 	},
 	{
@@ -1930,6 +2306,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups", "Get the date of the latest successful set of selected volumes.", "/dr-backups/{id}/latest-success/"),
 	},
 	{
@@ -1940,6 +2318,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "reboot_event_id", WireName: "reboot_event_id"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups-cancel", "Dr backups cancel", "/dr-backups/{id}/reboot-events/cancel/"),
 	},
 	{
@@ -1950,6 +2330,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups-get", "Dr backups get", "/dr-backups/{id}/reboot-events/"),
 	},
 	{
@@ -1960,6 +2342,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups-schedule-reboot", "Dr backups schedule reboot", "/dr-backups/{id}/reboot-events/schedule/"),
 	},
 	{
@@ -1970,6 +2354,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups", "Dr backups", "/dr-backups/{id}/reissue-spx-key/"),
 	},
 	{
@@ -1980,6 +2366,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups-get", "Dr backups get", "/dr-backups/{id}/selected-volumes/"),
 	},
 	{
@@ -1990,6 +2378,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "snapshot_id", WireName: "snapshot_id"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups", "Dr backups", "/dr-backups/{id}/snapshot/"),
 	},
 	{
@@ -2000,6 +2390,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "snapshot_id", WireName: "snapshot_id"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups", "Dr backups", "/dr-backups/{id}/snapshot-chkdsk-results/"),
 	},
 	{
@@ -2010,6 +2402,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "month", WireName: "month"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups", "Dr backups", "/dr-backups/{id}/snapshots/"),
 	},
 	{
@@ -2020,6 +2414,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "snapshot_id", WireName: "snapshot_id"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups-fail", "Dr backups fail", "/dr-backups/{id}/snapshots/fail/"),
 	},
 	{
@@ -2030,6 +2426,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "snapshot_id", WireName: "snapshot_id"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups-reverify", "Dr backups reverify", "/dr-backups/{id}/snapshots/reverify/"),
 	},
 	{
@@ -2040,6 +2438,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "snapshot_id", WireName: "snapshot_id"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups-upload", "Dr backups upload", "/dr-backups/{id}/snapshots/upload/"),
 	},
 	{
@@ -2050,6 +2450,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups-delete", "Dr backups delete", "/dr-backups/{id}/tunnel/"),
 	},
 	{
@@ -2060,7 +2462,21 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("dr-backups", "dr-backups-update", "Dr backups update", "/dr-backups/{id}/tunnel/"),
+	},
+	{
+		ID:             "fully_managed_companies.companies-fully-managed-ng",
+		Method:         "GET",
+		Path:           "/companies/fully-managed-ng/",
+		Summary:        "List fully-managed companies.",
+		Positional:     []string{},
+		TemplateParams: []codeOrchParamBinding{},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "reseller", WireName: "reseller"}, {PublicName: "reseller__dedicated_support_staff__username", WireName: "reseller__dedicated_support_staff__username"}, {PublicName: "support_tier", WireName: "support_tier"}, {PublicName: "search", WireName: "search"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
+		keywords:       codeOrchKeywords("fully_managed_companies", "companies-fully-managed-ng", "List fully-managed companies.", "/companies/fully-managed-ng/"),
 	},
 	{
 		ID:             "issue-comments.delete",
@@ -2070,6 +2486,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("issue-comments", "delete", "Delete", "/issue-comments/{id}/"),
 	},
 	{
@@ -2080,11 +2498,12 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("issue-comments", "update", "Update", "/issue-comments/{id}/"),
 	},
-	// issues.archived (/issues/archived/) and issues.ignored (/issues/ignored/) removed:
-	// admin-scoped endpoints that 403 for the partner token this connector ships.
-	// See ../../docs/reprint-survival.md (admin-only-endpoints).
+	// `/issues/archived/` and `/issues/ignored/` removed: admin-scoped, 403 for
+	// the reseller partner token this connector ships. See docs/reprint-survival.md.
 	{
 		ID:             "issues.list",
 		Method:         "GET",
@@ -2092,7 +2511,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "List",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "audience", WireName: "audience"}, {PublicName: "backup", WireName: "backup"}, {PublicName: "drbackup", WireName: "drbackup"}, {PublicName: "resticbackup", WireName: "resticbackup"}, {PublicName: "company", WireName: "company"}, {PublicName: "reseller", WireName: "reseller"}, {PublicName: "cursor", WireName: "cursor"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "audience", WireName: "audience"}, {PublicName: "backup", WireName: "backup"}, {PublicName: "drbackup", WireName: "drbackup"}, {PublicName: "resticbackup", WireName: "resticbackup"}, {PublicName: "company", WireName: "company"}, {PublicName: "reseller", WireName: "reseller"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("issues", "list", "List", "/issues/"),
 	},
 	{
@@ -2103,6 +2524,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("issues", "read", "Read", "/issues/{id}/"),
 	},
 	{
@@ -2113,6 +2536,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("issues", "issues", "Issues", "/issues/{id}/archive/"),
 	},
 	{
@@ -2123,6 +2548,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("issues", "issues-add", "Issues add", "/issues/{id}/comments/"),
 	},
 	{
@@ -2133,6 +2560,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("issues", "issues", "Issues", "/issues/{id}/events/"),
 	},
 	{
@@ -2143,6 +2572,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("issues", "issues", "Issues", "/issues/{id}/ignore/"),
 	},
 	{
@@ -2153,6 +2584,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("issues", "issues", "Issues", "/issues/{id}/reactivate/"),
 	},
 	{
@@ -2163,6 +2596,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("report-subscriptions", "read", "Read", "/report-subscriptions/{id}/"),
 	},
 	{
@@ -2173,6 +2608,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("report-subscriptions", "unsubscribe", "Unsubscribe", "/report-subscriptions/unsubscribe/"),
 	},
 	{
@@ -2183,6 +2620,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("report-subscriptions", "verify", "Verify", "/report-subscriptions/verify/"),
 	},
 	{
@@ -2193,6 +2632,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("report-subscriptions", "report-subscriptions", "Report subscriptions", "/report-subscriptions/{id}/reverify/"),
 	},
 	{
@@ -2203,6 +2644,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "send_email", WireName: "send_email"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("reports", "account-list", "Get a report of backup account types for each company and reseller in CSV format.", "/reports/account/"),
 	},
 	{
@@ -2213,6 +2656,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "send_email", WireName: "send_email"}, {PublicName: "compressed", WireName: "compressed"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("reports", "classic-usage-list", "Get a usage report for all backup accounts in CSV format.", "/reports/classic-usage/"),
 	},
 	{
@@ -2223,6 +2668,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "send_email", WireName: "send_email"}, {PublicName: "reseller_id", WireName: "reseller_id"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("reports", "clients-list", "Get a report of backup account client versions.", "/reports/clients/"),
 	},
 	{
@@ -2233,6 +2680,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "send_email", WireName: "send_email"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("reports", "dr-from-email-list", "Get a report of user profiles.", "/reports/dr-from-email/"),
 	},
 	{
@@ -2243,6 +2692,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("reports", "maxio-price-points-list", "Get CSV with all Maxio price points.", "/reports/maxio-price-points/"),
 	},
 	{
@@ -2253,6 +2704,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("reports", "product-list", "Product list", "/reports/product/"),
 	},
 	{
@@ -2263,6 +2716,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "send_email", WireName: "send_email"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("reports", "stale-backup-sets-list", "Get a report of all backup set last backup complete times.", "/reports/stale-backup-sets/"),
 	},
 	{
@@ -2273,6 +2728,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("reports", "usage-list", "Usage list", "/reports/usage/"),
 	},
 	{
@@ -2283,6 +2740,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "only_resellers", WireName: "only_resellers"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("reports", "user-profiles-list", "Get a report of user profiles.", "/reports/user-profiles/"),
 	},
 	{
@@ -2293,6 +2752,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "partial-update", "Partial update", "/resellers/{id}/"),
 	},
 	{
@@ -2303,6 +2764,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "read", "View a reseller.", "/resellers/{id}/"),
 	},
 	{
@@ -2313,6 +2776,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "update", "Update a reseller.", "/resellers/{id}/"),
 	},
 	{
@@ -2323,6 +2788,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers", "Resellers", "/resellers/{id}/agent-install-token/"),
 	},
 	{
@@ -2333,6 +2800,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers-unprovisioned", "Resellers unprovisioned", "/resellers/{id}/agents/unprovisioned/"),
 	},
 	{
@@ -2343,6 +2812,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers-update-latest", "Resellers update latest", "/resellers/{id}/agents/update-latest/"),
 	},
 	{
@@ -2353,6 +2824,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers", "Resellers", "/resellers/{id}/bill/"),
 	},
 	{
@@ -2363,6 +2836,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers-xlsx", "Resellers xlsx", "/resellers/{id}/bill/xlsx/"),
 	},
 	{
@@ -2373,6 +2848,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers-read", "Resellers read", "/resellers/{id}/billing-info/"),
 	},
 	{
@@ -2383,6 +2860,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers-update", "Resellers update", "/resellers/{id}/billing-info/"),
 	},
 	{
@@ -2393,6 +2872,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers", "Resellers", "/resellers/{id}/contracts/"),
 	},
 	{
@@ -2403,6 +2884,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers-sign", "Resellers sign", "/resellers/{id}/contracts/sign/"),
 	},
 	{
@@ -2413,6 +2896,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers-email-report-sub-delete", "Resellers email report sub delete", "/resellers/{id}/email-report-subscription-delete/"),
 	},
 	{
@@ -2423,6 +2908,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers-read", "Resellers read", "/resellers/{id}/email-report-subscriptions/"),
 	},
 	{
@@ -2433,6 +2920,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers-update", "Resellers update", "/resellers/{id}/email-report-subscriptions/"),
 	},
 	{
@@ -2443,6 +2932,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers", "Resellers", "/resellers/{id}/issues/"),
 	},
 	{
@@ -2453,6 +2944,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers", "Resellers", "/resellers/{id}/notes/"),
 	},
 	{
@@ -2463,6 +2956,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers", "Resellers", "/resellers/{id}/postmark-rotate/"),
 	},
 	{
@@ -2473,6 +2968,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers", "Resellers", "/resellers/{id}/prices/"),
 	},
 	{
@@ -2483,6 +2980,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("resellers", "resellers", "Resellers", "/resellers/{id}/subscriptions/"),
 	},
 	{
@@ -2493,6 +2992,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "create", "Create a restic backup account.", "/restic-backups/"),
 	},
 	{
@@ -2503,6 +3004,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "delete", "Delete a restic backup account.", "/restic-backups/{id}/"),
 	},
 	{
@@ -2512,7 +3015,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Summary:        "List",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "company", WireName: "company"}, {PublicName: "company__reseller", WireName: "company__reseller"}, {PublicName: "search", WireName: "search"}, {PublicName: "ordering", WireName: "ordering"}, {PublicName: "page", WireName: "page"}, {PublicName: "page_size", WireName: "page_size"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "company", WireName: "company"}, {PublicName: "company__reseller", WireName: "company__reseller"}, {PublicName: "search", WireName: "search"}, {PublicName: "ordering", WireName: "ordering"}, {PublicName: "page_size", WireName: "page_size"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "list", "List", "/restic-backups/"),
 	},
 	{
@@ -2523,6 +3028,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "partial-update", "Update a restic backup account.", "/restic-backups/{id}/"),
 	},
 	{
@@ -2533,6 +3040,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "read", "Read", "/restic-backups/{id}/"),
 	},
 	{
@@ -2543,6 +3052,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "update", "Update a restic backup account.", "/restic-backups/{id}/"),
 	},
 	{
@@ -2553,6 +3064,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/agent-service-stop/"),
 	},
 	{
@@ -2563,6 +3076,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/agent-service-stop-error/"),
 	},
 	{
@@ -2573,6 +3088,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/agent-session/"),
 	},
 	{
@@ -2583,6 +3100,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/agent-token/"),
 	},
 	{
@@ -2593,6 +3112,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"resticbackup_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups-create", "Restic backups create", "/restic-backups/{resticbackup_pk}/backup-sets/"),
 	},
 	{
@@ -2603,6 +3124,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id", "resticbackup_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups-delete", "Restic backups delete", "/restic-backups/{resticbackup_pk}/backup-sets/{id}/"),
 	},
 	{
@@ -2613,6 +3136,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"resticbackup_pk", "resticbackupset_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups-exclude-paths-create", "Restic backups exclude paths create", "/restic-backups/{resticbackup_pk}/backup-sets/{resticbackupset_pk}/exclude-paths/"),
 	},
 	{
@@ -2623,6 +3148,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id", "resticbackup_pk", "resticbackupset_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups-exclude-paths-delete", "Restic backups exclude paths delete", "/restic-backups/{resticbackup_pk}/backup-sets/{resticbackupset_pk}/exclude-paths/{id}/"),
 	},
 	{
@@ -2633,6 +3160,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id", "resticbackup_pk", "resticbackupset_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups-exclude-paths-toggle-case-sensitive", "Restic backups exclude paths toggle case sensitive", "/restic-backups/{resticbackup_pk}/backup-sets/{resticbackupset_pk}/exclude-paths/{id}/toggle-case-sensitive/"),
 	},
 	{
@@ -2643,6 +3172,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"resticbackup_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups-list", "Restic backups list", "/restic-backups/{resticbackup_pk}/backup-sets/"),
 	},
 	{
@@ -2653,6 +3184,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id", "resticbackup_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups-partial-update", "Restic backups partial update", "/restic-backups/{resticbackup_pk}/backup-sets/{id}/"),
 	},
 	{
@@ -2663,6 +3196,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id", "resticbackup_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups-read", "Restic backups read", "/restic-backups/{resticbackup_pk}/backup-sets/{id}/"),
 	},
 	{
@@ -2673,6 +3208,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"resticbackup_pk", "resticbackupset_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups-source-paths-create", "Restic backups source paths create", "/restic-backups/{resticbackup_pk}/backup-sets/{resticbackupset_pk}/source-paths/"),
 	},
 	{
@@ -2683,6 +3220,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id", "resticbackup_pk", "resticbackupset_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups-source-paths-delete", "Restic backups source paths delete", "/restic-backups/{resticbackup_pk}/backup-sets/{resticbackupset_pk}/source-paths/{id}/"),
 	},
 	{
@@ -2693,6 +3232,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id", "resticbackup_pk"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups-update", "Restic backups update", "/restic-backups/{resticbackup_pk}/backup-sets/{id}/"),
 	},
 	{
@@ -2703,6 +3244,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "version", WireName: "version"}},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups-read", "Restic backups read", "/restic-backups/{id}/encryption-key/"),
 	},
 	{
@@ -2713,6 +3256,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups-update", "Restic backups update", "/restic-backups/{id}/encryption-key/"),
 	},
 	{
@@ -2723,6 +3268,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/encryption-key-versions/"),
 	},
 	{
@@ -2733,6 +3280,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "month", WireName: "month"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/failures/"),
 	},
 	{
@@ -2743,6 +3292,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups-set", "Restic backups set", "/restic-backups/{id}/guarantee_eligible/"),
 	},
 	{
@@ -2753,6 +3304,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/guaranteed-recovery-point/"),
 	},
 	{
@@ -2763,6 +3316,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "month", WireName: "month"}, {PublicName: "audience", WireName: "audience"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/issues/"),
 	},
 	{
@@ -2773,6 +3328,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Get the date of the latest successful snapshot within the last two weeks", "/restic-backups/{id}/latest-success/"),
 	},
 	{
@@ -2783,6 +3340,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/restic-check/"),
 	},
 	{
@@ -2793,6 +3352,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/restic-env/"),
 	},
 	{
@@ -2803,6 +3364,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/restic-interrupt/"),
 	},
 	{
@@ -2813,6 +3376,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/restic-migrate/"),
 	},
 	{
@@ -2823,6 +3388,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/restic-prune/"),
 	},
 	{
@@ -2833,6 +3400,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/restic-repair-index/"),
 	},
 	{
@@ -2843,6 +3412,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/restic-repair-snapshots/"),
 	},
 	{
@@ -2853,6 +3424,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/restic-unlock/"),
 	},
 	{
@@ -2863,6 +3436,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "snapshot_id", WireName: "snapshot_id"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/snapshot-ls/"),
 	},
 	{
@@ -2873,6 +3448,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "month", WireName: "month"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/snapshots/"),
 	},
 	{
@@ -2883,6 +3460,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/start-backup/"),
 	},
 	{
@@ -2893,6 +3472,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups", "Restic backups", "/restic-backups/{id}/start-restore/"),
 	},
 	{
@@ -2903,6 +3484,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups-delete", "Restic backups delete", "/restic-backups/{id}/tunnel/"),
 	},
 	{
@@ -2913,6 +3496,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("restic-backups", "restic-backups-update", "Restic backups update", "/restic-backups/{id}/tunnel/"),
 	},
 	{
@@ -2923,6 +3508,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"key"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("screenshot", "read", "Read", "/screenshot/{key}/"),
 	},
 	{
@@ -2933,6 +3520,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("stats", "list", "List", "/stats/"),
 	},
 	{
@@ -2943,6 +3532,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("stats", "live-list", "Live list", "/stats/live/"),
 	},
 	{
@@ -2953,6 +3544,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("stats", "user-list", "User list", "/stats/user/"),
 	},
 	{
@@ -2963,6 +3556,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "create", "Create", "/users/"),
 	},
 	{
@@ -2973,6 +3568,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"user_id"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "reseller", WireName: "reseller"}, {PublicName: "company", WireName: "company"}},
+		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "delete", "Remove a user from a reseller or company group.", "/users/{user_id}/"),
 	},
 	{
@@ -2983,6 +3580,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "reseller", WireName: "reseller"}, {PublicName: "company", WireName: "company"}},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "list", "List", "/users/"),
 	},
 	{
@@ -2993,6 +3592,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "request-password-recovery-create", "Request password recovery for a user.", "/users/request-password-recovery/"),
 	},
 	{
@@ -3003,6 +3604,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
+		HeaderParams:   []codeOrchParamBinding{},
+		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "reset-password-create", "Pass only `token` to confirm the token is valid. Pass `token` and `password` to set the user's password.", "/users/reset-password/"),
 	},
 }
@@ -3045,16 +3648,47 @@ func codeOrchKeywords(resource, endpoint, summary, path string) []string {
 	return out
 }
 
+func codeOrchEndpointMetadata(ep *codeOrchEndpoint) map[string]any {
+	out := map[string]any{
+		"endpoint_id": ep.ID,
+		"method":      ep.Method,
+		"path":        ep.Path,
+		"summary":     ep.Summary,
+	}
+	return out
+}
+
+func findCodeOrchEndpoint(id string) *codeOrchEndpoint {
+	for i := range codeOrchEndpoints {
+		if codeOrchEndpoints[i].ID == id {
+			return &codeOrchEndpoints[i]
+		}
+	}
+	return nil
+}
+
+const (
+	codeOrchSearchDefaultLimit = 10
+	codeOrchSearchMaxLimit     = 100
+)
+
+func codeOrchSearchLimit(args map[string]any) int {
+	if v, ok := args["limit"].(float64); ok && v > 0 {
+		if v > float64(codeOrchSearchMaxLimit) {
+			return codeOrchSearchMaxLimit
+		}
+		return int(v)
+	}
+	return codeOrchSearchDefaultLimit
+}
+
 func handleCodeOrchSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
 	query, ok := args["query"].(string)
 	if !ok || strings.TrimSpace(query) == "" {
 		return mcplib.NewToolResultError("query is required"), nil
 	}
-	limit := 10
-	if v, ok := args["limit"].(float64); ok && v > 0 {
-		limit = int(v)
-	}
+	limit := codeOrchSearchLimit(args)
 
 	terms := codeOrchKeywords("", "", query, "")
 	type scored struct {
@@ -3085,16 +3719,35 @@ func handleCodeOrchSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcp
 
 	out := make([]map[string]any, 0, len(results))
 	for _, r := range results {
-		out = append(out, map[string]any{
-			"endpoint_id": r.ep.ID,
-			"method":      r.ep.Method,
-			"path":        r.ep.Path,
-			"summary":     r.ep.Summary,
-			"score":       r.score,
-		})
+		item := codeOrchEndpointMetadata(r.ep)
+		item["score"] = r.score
+		out = append(out, item)
 	}
-	data, _ := json.Marshal(map[string]any{"count": len(out), "results": out})
-	return mcplib.NewToolResultText(string(data)), nil
+	text, err := bound.JSON(map[string]any{"count": len(out), "results": out})
+	if err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("encoding search results: %v", err)), nil
+	}
+	return mcplib.NewToolResultText(text), nil
+}
+
+func handleCodeOrchGet(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	args := req.GetArguments()
+	id, ok := args["endpoint_id"].(string)
+	if !ok || id == "" {
+		return mcplib.NewToolResultError("endpoint_id is required (call servosity-msp_search first)"), nil
+	}
+	ep := findCodeOrchEndpoint(id)
+	if ep == nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call servosity-msp_search to discover valid ids", id)), nil
+	}
+	if ep.Method != "GET" {
+		return mcplib.NewToolResultError(fmt.Sprintf("endpoint_id %q is %s, but servosity-msp_get only permits GET endpoints", id, ep.Method)), nil
+	}
+	text, err := bound.JSON(codeOrchEndpointMetadata(ep))
+	if err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("encoding endpoint metadata: %v", err)), nil
+	}
+	return mcplib.NewToolResultText(text), nil
 }
 
 func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -3104,13 +3757,7 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		return mcplib.NewToolResultError("endpoint_id is required (call servosity-msp_search first)"), nil
 	}
 
-	var ep *codeOrchEndpoint
-	for i := range codeOrchEndpoints {
-		if codeOrchEndpoints[i].ID == id {
-			ep = &codeOrchEndpoints[i]
-			break
-		}
-	}
+	ep := findCodeOrchEndpoint(id)
 	if ep == nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call servosity-msp_search to discover valid ids", id)), nil
 	}
@@ -3120,17 +3767,44 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		params = map[string]any{}
 	}
 
-	c, err := newMCPClient()
+	c, platformSession, err := newMCPClient(ctx)
 	if err != nil {
+		return mcplib.NewToolResultError(err.Error()), nil
+	}
+
+	if platformSession != nil {
+		defer platformSession.ZeroCredentials()
+	}
+	if err := cli.AdoptMCPOutputSemantics(platformSession, params); err != nil {
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
 
 	path := ep.Path
 	for _, p := range ep.Positional {
-		if v, ok := params[p]; ok {
-			path = strings.ReplaceAll(path, "{"+p+"}", formatMCPParamValue(v))
+		if v, ok := params[p]; ok && strings.Contains(path, "{"+p+"}") {
+			path = strings.ReplaceAll(path, "{"+p+"}", mcpPathValue(v))
 			delete(params, p)
 		}
+	}
+
+	hdrs := make(map[string]string, len(ep.HeaderOverrides)+len(ep.HeaderParams))
+	for k, v := range ep.HeaderOverrides {
+		hdrs[k] = v
+	}
+	for _, binding := range ep.HeaderParams {
+		if binding.Default != "" {
+			hdrs[binding.WireName] = binding.Default
+		}
+		for _, key := range []string{binding.PublicName, binding.WireName} {
+			if v, ok := params[key]; ok {
+				hdrs[binding.WireName] = formatMCPParamValue(v)
+				delete(params, key)
+				break
+			}
+		}
+	}
+	if len(hdrs) == 0 {
+		hdrs = nil
 	}
 
 	// Route params to their runtime slots. GET/DELETE params are query
@@ -3156,7 +3830,6 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		}
 	}
 
-	hdrs := ep.HeaderOverrides
 	writeBody := func() any {
 		if ep.BodyIsArray {
 			return codeOrchArrayBody(params)
@@ -3167,9 +3840,17 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	switch ep.Method {
 	case "GET":
 		if len(hdrs) > 0 {
-			data, err = c.GetWithHeaders(ctx, path, query, hdrs)
+			if ep.Mutating {
+				data, err = c.GetMutatingWithHeaders(ctx, path, query, hdrs)
+			} else {
+				data, err = c.GetWithHeaders(ctx, path, query, hdrs)
+			}
 		} else {
-			data, err = c.Get(ctx, path, query)
+			if ep.Mutating {
+				data, err = c.GetMutating(ctx, path, query)
+			} else {
+				data, err = c.Get(ctx, path, query)
+			}
 		}
 	case "DELETE":
 		if len(hdrs) > 0 {
@@ -3204,7 +3885,11 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if err != nil {
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
-	return mcplib.NewToolResultText(string(data)), nil
+	text := bound.EndpointResponse(ep.Method, data)
+	if platformSession != nil {
+		text = bound.WithMetadata(text, platformSession.OutputMetadata())
+	}
+	return mcplib.NewToolResultText(text), nil
 }
 
 // codeOrchWriteBody returns the value handed to the client layer as the

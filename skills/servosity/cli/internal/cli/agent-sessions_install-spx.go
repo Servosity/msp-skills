@@ -11,7 +11,7 @@ func newAgentSessionsInstallSpxCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "install-spx",
 		Short:       "Update install spx for agent sessions",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 

@@ -1928,7 +1928,7 @@ Governance: The skill drives the sentinelone-cli and sentinelone-mcp binaries, a
 ### Servosity (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/servosity/
-Verification: Live-verified by Servosity (maintainer) (2026-06-05)
+Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
 
 MSPs run Servosity as the backup and DR platform - M365, DR Server, and DR Desktop protection across a whole book of clients. Ask your AI "where is my attention needed today", "which backups went stale this week", or "build Acme's QBR backup section" and get fleet-wide answers the per-client dashboard can't compose: ranked attention sweeps, day-over-day drift, ready-to-send stale-backup follow-ups, and the whole book's QBR reports in one pass.
@@ -2258,7 +2258,7 @@ Governance: The skill is read-first: cross-tenant health, stale-backup and at-ri
 ### WordPress (Marketing)
 
 Page: https://msp-skills.compoundingteams.com/skills/wordpress/
-Verification: Awaiting live verification
+Verification: Live-verified by Servosity (maintainer) (2026-08-16)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/wordpress/install.sh)
 
 Ask your AI to "publish this landing page as a draft" or "find every page still mentioning the old pricing" and it happens from the terminal - no wp-admin clicking, no SSH for WP-CLI. This skill drives the WordPress REST API to create, update, search, and delete pages, posts, and media, and syncs the whole site into a local mirror so cross-content questions become one instant offline query.
@@ -2331,7 +2331,7 @@ Governance: Everything analytical reads from a local mirror - aging, exposure, r
 ### Zammad (PSA)
 
 Page: https://msp-skills.compoundingteams.com/skills/zammad/
-Verification: Awaiting live verification
+Verification: Live-verified by Servosity (maintainer) (2026-08-16)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zammad/install.sh)
 
 Ask your AI who on the support team is overloaded, which customers are aging out, who sounds ready to churn, and what customers keep asking for - and get an answer built from every ticket at once. Zammad's portal shows one ticket at a time; this reads, searches, and changes tickets and the Knowledge Base, then answers the team-management questions the API can't return in a single call.

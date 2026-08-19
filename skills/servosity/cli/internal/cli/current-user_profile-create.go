@@ -37,7 +37,19 @@ func newCurrentUserProfileCreateCmd(flags *rootFlags) *cobra.Command {
 			// Bare invocation of a command with required input prints help
 			// instead of pflag's terse "required flag not set" error. Optional-
 			// only read commands fall through so a bare call still executes.
-			if cmd.Flags().NFlag() == 0 && len(args) == 0 && !flags.dryRun {
+			// Machine callers (--json/--agent, which sets asJSON) get a usage
+			// error + exit 2 instead of silent exit-0 help, so an incomplete
+			// invocation is never mistaken for success.
+			if !hasChangedLocalFlags(cmd) && len(args) == 0 && !flags.dryRun {
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "requires input",
+						"usage": cmd.CommandPath() + " --help",
+					}, flags); printErr != nil {
+						return printErr
+					}
+					return usageErr(fmt.Errorf("%q requires input; run %q for usage", cmd.CommandPath(), cmd.CommandPath()+" --help"))
+				}
 				return cmd.Help()
 			}
 			if !stdinBody {
@@ -48,14 +60,13 @@ func newCurrentUserProfileCreateCmd(flags *rootFlags) *cobra.Command {
 					return fmt.Errorf("required flag \"%s\" not set", "last-name")
 				}
 			}
+			path := "/current-user/profile/"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/current-user/profile/"
 			params := map[string]string{}
-			var body map[string]any
+			var body any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
 				if err != nil {
@@ -67,50 +78,51 @@ func newCurrentUserProfileCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				body = jsonBody
 			} else {
-				body = map[string]any{}
-				if bodyAddress != "" {
-					body["address"] = bodyAddress
+				bodyMap := map[string]any{}
+				body = bodyMap
+				if cmd.Flags().Changed("address") || bodyAddress != "" {
+					bodyMap["address"] = bodyAddress
 				}
-				if bodyAddress2 != "" {
-					body["address2"] = bodyAddress2
+				if cmd.Flags().Changed("address2") || bodyAddress2 != "" {
+					bodyMap["address2"] = bodyAddress2
 				}
-				if bodyCity != "" {
-					body["city"] = bodyCity
+				if cmd.Flags().Changed("city") || bodyCity != "" {
+					bodyMap["city"] = bodyCity
 				}
-				if bodyCountry != "" {
-					body["country"] = bodyCountry
+				if cmd.Flags().Changed("country") || bodyCountry != "" {
+					bodyMap["country"] = bodyCountry
 				}
-				if bodyFirstName != "" {
-					body["first_name"] = bodyFirstName
+				if cmd.Flags().Changed("first-name") || bodyFirstName != "" {
+					bodyMap["first_name"] = bodyFirstName
 				}
 				if cmd.Flags().Changed("is-email-verified") {
-					body["is_email_verified"] = bodyIsEmailVerified
+					bodyMap["is_email_verified"] = bodyIsEmailVerified
 				}
-				if bodyJobTitle != "" {
-					body["job_title"] = bodyJobTitle
+				if cmd.Flags().Changed("job-title") || bodyJobTitle != "" {
+					bodyMap["job_title"] = bodyJobTitle
 				}
-				if bodyLastName != "" {
-					body["last_name"] = bodyLastName
+				if cmd.Flags().Changed("last-name") || bodyLastName != "" {
+					bodyMap["last_name"] = bodyLastName
 				}
-				if bodyMobilePhone != "" {
-					body["mobile_phone"] = bodyMobilePhone
+				if cmd.Flags().Changed("mobile-phone") || bodyMobilePhone != "" {
+					bodyMap["mobile_phone"] = bodyMobilePhone
 				}
-				if bodyPhone != "" {
-					body["phone"] = bodyPhone
+				if cmd.Flags().Changed("phone") || bodyPhone != "" {
+					bodyMap["phone"] = bodyPhone
 				}
-				if bodyState != "" {
-					body["state"] = bodyState
+				if cmd.Flags().Changed("state") || bodyState != "" {
+					bodyMap["state"] = bodyState
 				}
-				if bodySupportCode != "" {
-					body["support_code"] = bodySupportCode
+				if cmd.Flags().Changed("support-code") || bodySupportCode != "" {
+					bodyMap["support_code"] = bodySupportCode
 				}
-				if bodyZipCode != "" {
-					body["zip_code"] = bodyZipCode
+				if cmd.Flags().Changed("zip-code") || bodyZipCode != "" {
+					bodyMap["zip_code"] = bodyZipCode
 				}
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			// Inspect the mutate response body for a partial-failure-shaped
 			// field (e.g. Google Ads `partialFailureError`). Several Google
@@ -175,6 +187,9 @@ func newCurrentUserProfileCreateCmd(flags *rootFlags) *cobra.Command {
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure),
 				}
+				if flags.agent {
+					envelope["meta"] = map[string]any{"source": "live"}
+				}
 				if partialFailure != nil {
 					envelope["partial_failure"] = partialFailure
 				}
@@ -208,19 +223,31 @@ func newCurrentUserProfileCreateCmd(flags *rootFlags) *cobra.Command {
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"address": true, "address2": true, "city": true, "country": true, "first_name": true, "is_email_verified": true, "job_title": true, "last_name": true, "mobile_phone": true, "phone": true, "state": true, "support_code": true, "zip_code": true})
 				}
 				if len(filtered) > 0 {
 					var parsed any
 					if err := json.Unmarshal(filtered, &parsed); err == nil {
-						envelope["data"] = parsed
+						if flags.agent {
+							envelope["results"] = parsed
+						} else {
+							envelope["data"] = parsed
+						}
 					}
 				}
 				envelopeJSON, err := json.Marshal(envelope)
 				if err != nil {
 					return err
 				}
-				if perr := printOutput(cmd.OutOrStdout(), json.RawMessage(envelopeJSON), true); perr != nil {
+				resultKey := "data"
+				if flags.agent {
+					resultKey = "results"
+				}
+				structured, err := wrapPlatformStructuredOutput(json.RawMessage(envelopeJSON), flags, resultKey, true)
+				if err != nil {
+					return err
+				}
+				if perr := printOutput(cmd.OutOrStdout(), structured, true); perr != nil {
 					return perr
 				}
 				if partialFailure != nil && !flags.allowPartialFailure {

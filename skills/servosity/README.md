@@ -209,7 +209,7 @@ Free. Apache-2.0 licensed. Servosity does not charge for the API access required
 
 ## Safety model
 
-The skill authenticates with one partner token, scoped to **your reseller account only** (no cross-reseller access). Know how writes are gated - the binary does NOT gate them for you: `--dry-run` is an **opt-in** preview, and where a command prompts interactively, `--yes` (and `--agent`, which implies `--yes`) skips the prompt. The gate lives in your agent's policy: preview with `--dry-run`, show the exact command, get approval, then run.
+The skill authenticates with one partner token, scoped to **your reseller account only** (no cross-reseller access). Know how writes are gated - the binary does NOT gate them for you: `--dry-run` is an **opt-in** preview, and where a command prompts interactively, only an explicit `--yes` skips the prompt - `--agent` does not imply `--yes`. The gate lives in your agent's policy: preview with `--dry-run`, show the exact command, get approval, then run.
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |

@@ -11,7 +11,7 @@ func newDrBackupsSnapshotsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "snapshots",
 		Short:       "Get and update snapshots for dr backups",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 

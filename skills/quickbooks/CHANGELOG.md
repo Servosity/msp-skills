@@ -4,17 +4,23 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.4] - unreleased
+## [0.1.5] - 2026-08-17
 
-### Added
-- `report pnl` and `report balance-sheet` pull QuickBooks' financial statements
-  straight from the Reports API (`/reports/ProfitAndLoss`, `/reports/BalanceSheet`),
-  which the `/query` endpoint the rest of this skill rides cannot reach. `report
-  pnl` returns recognized revenue, COGS, gross and operating margin, and net
-  income for a period (default: last closed month); `report balance-sheet` returns
-  every account and summary as of a date, with an opt-in repeatable `--highlight
-  <substring>` flag that totals any account or group by name. Both are read-only.
-  Recorded as hand-fix `qbo-report-reports-api`.
+### Security
+
+- Go toolchain bumped to **go1.26.6**, which fixes **GO-2026-6218** (quadratic
+  complexity in `net/url`, reachable from `cliutil.ProbeReachable`). The
+  previously released binary was built with go1.26.5 and carried the advisory.
+  CI could not catch this: the workflows request `go-version: "1.26"`, which
+  resolves to the latest patched Go, so the security gate scanned a patched
+  toolchain while the build honoured the pinned one. See issue #210.
+
+## [0.1.4] - 2026-06-26
+
+### Changed
+
+- feat(quickbooks): report pnl + report balance-sheet (v0.1.4) (#163)
+- chore(quickbooks): redact real tenant transaction counts + add CI guard (#162)
 
 ## [0.1.3] - 2026-06-16
 
@@ -45,23 +51,12 @@ All notable changes to this skill are documented here. Format follows
 ### Changed
 - Regenerated on the printing-press 4.24.0 engine: more reliable fleet sync, corrected pagination across large result sets, robust numeric-ID handling, and dependency security updates. Same commands and workflows, sturdier local mirror.
 
-## [0.1.1] - unreleased
+## [0.1.1] - 2026-06-13
 
-### Fixed
-- `sync` now stores rows. It was sending a bare `/query` with no SQL, which
-  QuickBooks Online answers with an HTTP 200 `SystemFault` envelope, so every
-  resource failed with `missing id for <resource>` and the offline mirror stayed
-  empty (`ar-aging`, `ap-aging`, `dso`, `balances`, `reconcile` all returned
-  zeros). `sync` now injects `select * from <Entity>` plus `minorversion` per
-  resource and unwraps QuickBooks' `QueryResponse.<Entity>` envelope. Verified
-  live against a sandbox tenant: 227 records across 8 resources. Recorded as
-  hand-fixes `qbo-query-injection` and `qbo-queryresponse-envelope` so a
-  cli-printing-press reprint cannot silently revert it.
+### Changed
 
-### Note
-- This release caps `sync` at 1000 rows per entity (no STARTPOSITION paging).
-  Large production books need press-side pagination; tracked in the hand-fix
-  ledger's `spec_encode_followup`.
+- fix(quickbooks): sync injects /query SQL so the offline mirror hydrates (v0.1.1) (#90)
+- fix: drop false "with sound" demo claim, highlight first-party Servosity, point backup/DR skills at Servosity (#77)
 
 ## [0.1.0]
 

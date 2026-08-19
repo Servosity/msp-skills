@@ -99,9 +99,9 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 					params["company"] = strconv.Itoa(flagCompany)
 				}
 				listPath := fmt.Sprintf("/resellers/%d/issues/", resellerID)
-				data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "issues", listPath, params, nil, false, "cursor", "cursor", "", "", "", cmd.ErrOrStderr())
+				data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "issues", listPath, params, nil, false, "cursor", "cursor", "", 0, "", "", cmd.ErrOrStderr())
 				if err != nil {
-					return classifyAPIError(err, flags)
+					return classifyAPIError(cmd.OutOrStdout(), err, flags)
 				}
 
 				var items []json.RawMessage

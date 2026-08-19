@@ -1,0 +1,46 @@
+{
+  "slug": "datto-rmm",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one.",
+  "handfixes": [
+    {
+      "id": "alert-uid-resource-id-override",
+      "summary": "account-alerts-open / account-alerts-resolved key on `alert_uid` (the API's camelCase `alertUid`) in resourceIDFieldOverrides, in BOTH the sync extractor and the store extractor",
+      "why": "Datto RMM alert objects carry no id/uid/uuid/name/slug/key/code field -- `alertUid` is the only identifier (see internal/types.Alert). Every entry in genericIDFieldFallbacks therefore misses, and suffixIDFieldFallback cannot help either: it derives probes from the RESOURCE name (\"account-alerts-open\" -> \"account-alerts-open_id\"), never the \"alert\" stem, and matches by direct snake_case map lookup so it would never see camelCase `alertUid` regardless. Result before this override: sync consumed every alert and stored zero, emitting sync_anomaly all_items_failed_id_extraction (250/0), leaving local alert search and fleet analytics silently blind. Reported by @zendzipr in #258. The override map is duplicated in internal/cli/sync.go and internal/store/store.go -- both must carry it; fixing only one restores the silent drop.",
+      "status": "active",
+      "spec_encode_followup": "The durable fix is upstream: the press profiler should set IDField from the response-item schema when the item declares exactly one identifier-shaped field (`<stem>Uid`/`<stem>Id`) and no generic id. Filed as a /printing-press-retro item. Until the press emits it, or the Datto spec carries x-resource-id on /v2/account/alerts/{open,resolved}, this ledger entry is what survives a reprint.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\"account-alerts-open\":     \"alert_uid\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\"account-alerts-resolved\": \"alert_uid\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"account-alerts-open\":     \"alert_uid\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"account-alerts-resolved\": \"alert_uid\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/alert_id_override_test.go",
+          "contains": "TestUpsertBatch_AlertsStoreEveryRow",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync_alert_id_test.go",
+          "contains": "TestAlertOverridesMatchSyncResourceNames",
+          "min_count": 1
+        }
+      ]
+    }
+  ]
+}

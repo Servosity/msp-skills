@@ -27,12 +27,11 @@ func newBackupsListCmd(flags *rootFlags) *cobra.Command {
 		Example:     "  servosity-cli backups list",
 		Annotations: map[string]string{"pp:endpoint": "backups.list", "pp:method": "GET", "pp:path": "/backups/", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			path := "/backups/"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-
-			path := "/backups/"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "backups", path, map[string]string{
 				"company":           formatCLIParamValue(flagCompany),
 				"company__reseller": formatCLIParamValue(flagCompanyReseller),
@@ -41,10 +40,11 @@ func newBackupsListCmd(flags *rootFlags) *cobra.Command {
 				"page":              formatCLIParamValue(flagPage),
 				"page_size":         formatCLIParamValue(flagPageSize),
 				"include_reseller":  formatCLIParamValue(flagIncludeReseller),
-			}, nil, flagAll, "page", "page", "page_size", "", "", cmd.ErrOrStderr())
+			}, nil, flagAll, "page", "page", "page_size", 0, "", "", "results", cmd.ErrOrStderr())
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
+			outputData := collectionItemsForOutput(data, path)
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope
@@ -52,7 +52,7 @@ func newBackupsListCmd(flags *rootFlags) *cobra.Command {
 			// SYNC: keep this gate aligned with command_promoted.go.tmpl.
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var countItems []json.RawMessage
-				_ = json.Unmarshal(data, &countItems)
+				_ = json.Unmarshal(outputData, &countItems)
 				printProvenance(cmd, len(countItems), prov)
 			}
 			// For JSON output, wrap with provenance envelope before passing through flags.
@@ -65,9 +65,13 @@ func newBackupsListCmd(flags *rootFlags) *cobra.Command {
 				if flags.selectFields != "" {
 					filtered = filterFields(filtered, flags.selectFields)
 				} else if flags.compact {
-					filtered = compactFields(filtered)
+					filtered = compactFields(filtered, map[string]bool{"backup_plan": true, "backup_set_id": true, "cbs_server": true, "checkcentral_check_id": true, "checkcentral_check_status": true, "company": true, "contact": true, "created_at": true, "display_name": true, "encryption_key": true, "exchange_mbox_quota": true, "guarantee_eligible": true, "id": true, "login": true, "o365_quota": true, "retention": true, "shadowprotect_keys": true, "state": true, "suspended": true, "url": true, "vm_quota": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
+				if wrapErr != nil {
+					return wrapErr
+				}
+				wrapped, wrapErr = wrapPlatformStructuredOutput(wrapped, flags, "results", true)
 				if wrapErr != nil {
 					return wrapErr
 				}
@@ -76,7 +80,7 @@ func newBackupsListCmd(flags *rootFlags) *cobra.Command {
 			// For all other output modes (table, csv, plain, quiet), use the standard pipeline
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var items []map[string]any
-				if json.Unmarshal(data, &items) == nil && len(items) > 0 {
+				if json.Unmarshal(outputData, &items) == nil && len(items) > 0 {
 					if err := printAutoTable(cmd.OutOrStdout(), items); err != nil {
 						return err
 					}
@@ -86,7 +90,11 @@ func newBackupsListCmd(flags *rootFlags) *cobra.Command {
 					return nil
 				}
 			}
-			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
+			formatData := data
+			if flags.csv || flags.plain {
+				formatData = outputData
+			}
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"backup_plan": true, "backup_set_id": true, "cbs_server": true, "checkcentral_check_id": true, "checkcentral_check_status": true, "company": true, "contact": true, "created_at": true, "display_name": true, "encryption_key": true, "exchange_mbox_quota": true, "guarantee_eligible": true, "id": true, "login": true, "o365_quota": true, "retention": true, "shadowprotect_keys": true, "state": true, "suspended": true, "url": true, "vm_quota": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagCompany, "company", "", "Company")

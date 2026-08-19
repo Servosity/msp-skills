@@ -11,22 +11,43 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
+	"servosity-msp-pp-cli/internal/cliutil"
 )
 
 type Config struct {
-	BaseURL           string            `toml:"base_url"`
-	AuthHeaderVal     string            `toml:"auth_header"`
-	Headers           map[string]string `toml:"headers,omitempty"`
-	AuthSource        string            `toml:"-"`
-	AccessToken       string            `toml:"access_token"`
-	RefreshToken      string            `toml:"refresh_token"`
-	TokenExpiry       time.Time         `toml:"token_expiry"`
-	ClientID          string            `toml:"client_id"`
-	ClientSecret      string            `toml:"client_secret"`
-	Path              string            `toml:"-"`
-	envOverrides      map[string]bool   `toml:"-"`
-	fileConfig        *Config           `toml:"-"`
-	ServosityMspToken string            `toml:"msp_token"`
+	BaseURL            string                      `toml:"base_url"`
+	AuthHeaderVal      string                      `toml:"auth_header"`
+	Headers            map[string]string           `toml:"headers,omitempty"`
+	AuthSource         string                      `toml:"-"`
+	CredentialSource   string                      `toml:"-"`
+	AgentcookieManaged bool                        `toml:"-"`
+	CredentialRefusals []cliutil.CredentialRefusal `toml:"-"`
+	// configOwner records which on-disk file parseConfigData populated this
+	// config from ("config-kind path" or "legacy config path") so the
+	// credential-source fallback below reports where config-stored
+	// credentials actually live. Unexported: never persisted.
+	configOwner string
+	// legacySourcePath records the legacy config path when Load fell
+	// back to it. Used by save() to scrub credential fields from the
+	// old location after relocation. Unexported: never persisted.
+	legacySourcePath string
+	// explicitConfigFile records that Load resolved Path from --config or
+	// SERVOSITY_MSP_CONFIG rather than from the standard config directory.
+	// Reads already honor that choice by preferring the credentials store
+	// colocated with the file (see LoadCredentialsForConfigWithStatus), so
+	// writes and deletes must honor it too or `auth set-token` and
+	// `auth logout` operate on a store the read path never consults.
+	// Unexported: never persisted.
+	explicitConfigFile bool
+	AccessToken        string          `toml:"access_token"`
+	RefreshToken       string          `toml:"refresh_token"`
+	TokenExpiry        time.Time       `toml:"token_expiry"`
+	ClientID           string          `toml:"client_id"`
+	ClientSecret       string          `toml:"client_secret"`
+	Path               string          `toml:"-"`
+	envOverrides       map[string]bool `toml:"-"`
+	fileConfig         *Config         `toml:"-"`
+	ServosityMspToken  string          `toml:"msp_token"`
 }
 
 func Load(configPath string) (*Config, error) {
@@ -35,21 +56,115 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	// Resolve config path
-	path := configPath
-	if path == "" {
-		path = os.Getenv("SERVOSITY_MSP_CONFIG")
-	}
-	if path == "" {
-		home, _ := os.UserHomeDir()
-		path = filepath.Join(home, ".config", "servosity-cli", "config.toml")
+	path, explicitConfigFile, err := resolveConfigPath(configPath)
+	if err != nil {
+		return nil, err
 	}
 	cfg.Path = path
+	cfg.explicitConfigFile = explicitConfigFile
 
-	// Try to load config file
-	data, err := os.ReadFile(path)
-	if err == nil {
-		if err := toml.Unmarshal(data, cfg); err != nil {
-			return nil, fmt.Errorf("parsing config %s: %w", path, err)
+	if explicitConfigFile {
+		// Keep non-secret settings from a readable config even when its permissions
+		// have drifted, but never trust credentials from that file. Canonicalizing
+		// first also makes a symlink inherit the target's permission verdict.
+		if real, evalErr := filepath.EvalSymlinks(path); evalErr == nil {
+			credentialPermErr := cliutil.VerifyCredsPerms(real)
+			parsed := *cfg
+			if err := readConfigFile(path, &parsed, "config-kind path"); err != nil {
+				if !os.IsNotExist(err) {
+					return nil, err
+				}
+			} else {
+				if credentialPermErr != nil && parsed.hasCredentialFields() {
+					parsed.addCredentialRefusal(cliutil.CredentialRefusal{
+						Source:             "config-kind path",
+						Path:               path,
+						Err:                credentialPermErr,
+						CredentialsPresent: true,
+					})
+					parsed.clearCredentialFields()
+				}
+				*cfg = parsed
+			}
+		}
+	} else {
+		legacyPath, err := LegacyConfigPath()
+		if err != nil {
+			return nil, err
+		}
+		data, sourcePath, err := cliutil.ReadFileWithLegacyFallback(path, legacyPath)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return nil, err
+			}
+		} else if real, evalErr := filepath.EvalSymlinks(sourcePath); evalErr == nil {
+			credentialPermErr := cliutil.VerifyCredsPerms(real)
+			owner := "config-kind path"
+			if sourcePath == legacyPath {
+				owner = "legacy config path"
+			}
+			parsed := *cfg
+			if err := parseConfigData(data, &parsed, sourcePath, owner); err != nil {
+				if sourcePath == legacyPath {
+					fmt.Fprintf(os.Stderr, "warning: legacy config parse skipped for %s: %v\n", sourcePath, err)
+				} else {
+					return nil, err
+				}
+			} else {
+				if credentialPermErr != nil && parsed.hasCredentialFields() {
+					parsed.addCredentialRefusal(cliutil.CredentialRefusal{
+						Source:             owner,
+						Path:               sourcePath,
+						Err:                credentialPermErr,
+						CredentialsPresent: true,
+					})
+					parsed.clearCredentialFields()
+				}
+				*cfg = parsed
+				if sourcePath == legacyPath {
+					cfg.legacySourcePath = legacyPath
+				}
+			}
+		}
+	}
+	cfg.Path = path
+	if cfg.AgentcookieManagedByExternalStore() {
+		cfg.markAgentcookieManaged()
+	} else {
+		var creds *cliutil.Credentials
+		var ok bool
+		credentialsRefused := false
+		if !cfg.hasCompleteCredentialFields() {
+			if explicitConfigFile {
+				var status cliutil.CredentialLoadStatus
+				creds, status, err = cliutil.LoadCredentialsForConfigWithStatus(path)
+				if err != nil {
+					return nil, err
+				}
+				ok = status.Loaded
+				if status.Refusal != nil {
+					cfg.addCredentialRefusal(*status.Refusal)
+					credentialsRefused = status.Refusal.CredentialsPresent
+				}
+			}
+			if (!ok || creds == nil || !creds.HasValues()) && !credentialsRefused {
+				var status cliutil.CredentialLoadStatus
+				creds, status, err = cliutil.LoadCredentialsWithStatus()
+				if err != nil {
+					return nil, err
+				}
+				ok = status.Loaded
+				if status.Refusal != nil {
+					cfg.addCredentialRefusal(*status.Refusal)
+				}
+			}
+			if ok && creds.HasValues() {
+				cfg.applyCredentials(creds)
+				if cfg.hasCredentialFields() {
+					cfg.AuthSource = "config"
+					cfg.CredentialSource = "credentials file"
+				}
+			}
 		}
 	}
 
@@ -60,8 +175,8 @@ func Load(configPath string) (*Config, error) {
 		cfg.ServosityMspToken = v
 		cfg.markEnvOverride("ServosityMspToken")
 		cfg.AuthSource = "env:SERVOSITY_MSP_TOKEN"
+		cfg.CredentialSource = "env:SERVOSITY_MSP_TOKEN"
 	}
-
 	// Label config-file-derived credentials so doctor can distinguish
 	// "credentials persisted on disk" from "no credentials at all" — without
 	// this, users who saved via set-token without an env var see a blank
@@ -70,11 +185,18 @@ func Load(configPath string) (*Config, error) {
 	// config file path is exposed separately as report["config_path"], and
 	// embedding it in auth_source leaks the user's home directory through
 	// doctor's JSON envelope.
-	if cfg.AuthSource == "" && (cfg.AuthHeaderVal != "" || cfg.AccessToken != "") {
+	if cfg.AuthSource == "" && cfg.hasCredentialFields() {
 		cfg.AuthSource = "config"
 	}
-	if cfg.AuthSource == "" && cfg.ServosityMspToken != "" {
-		cfg.AuthSource = "config"
+	if cfg.CredentialSource == "" && cfg.AuthSource == "config" {
+		// Label config-stored credentials with the file they were parsed
+		// from: the resolved config-kind path (covers --home and per-kind
+		// env relocation as well as explicit --config files) or the legacy
+		// config path when the read fell back to the pre-paths layout.
+		cfg.CredentialSource = cfg.configOwner
+		if cfg.CredentialSource == "" {
+			cfg.CredentialSource = "legacy config path"
+		}
 	}
 
 	// Soft agentcookie integration: if the agentcookie daemon manages this
@@ -89,6 +211,7 @@ func Load(configPath string) (*Config, error) {
 		marker := filepath.Join(filepath.Dir(cfg.Path), ".agentcookie-managed")
 		if _, err := os.Stat(marker); err == nil {
 			cfg.AuthSource = "agentcookie"
+			cfg.markAgentcookieManaged()
 		}
 	}
 
@@ -99,6 +222,82 @@ func Load(configPath string) (*Config, error) {
 	return cfg, nil
 }
 
+func resolveConfigPath(configPath string) (string, bool, error) {
+	if strings.TrimSpace(configPath) != "" {
+		return configPath, true, nil
+	}
+	if path := os.Getenv("SERVOSITY_MSP_CONFIG"); path != "" {
+		return path, true, nil
+	}
+	dir, err := cliutil.ConfigDir()
+	if err != nil {
+		return "", false, err
+	}
+	return filepath.Join(dir, "config.toml"), false, nil
+}
+
+func LegacyConfigPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve legacy config path: %w", err)
+	}
+	return filepath.Join(home, ".config", "servosity-cli", "config.toml"), nil
+}
+
+func readConfigFile(path string, cfg *Config, owner string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	return parseConfigData(data, cfg, path, owner)
+}
+
+func parseConfigData(data []byte, cfg *Config, path string, owner string) error {
+	if err := toml.Unmarshal(data, cfg); err != nil {
+		return fmt.Errorf("parsing %s %s: %w", owner, path, err)
+	}
+	cfg.configOwner = owner
+	return nil
+}
+func FileHasCredentialFields(path string) (bool, error) {
+	var cfg Config
+	if err := readConfigFile(path, &cfg, "credential probe"); err != nil {
+		return false, err
+	}
+	return cfg.hasCredentialFields(), nil
+}
+
+func (c *Config) addCredentialRefusal(refusal cliutil.CredentialRefusal) {
+	if c == nil || !refusal.CredentialsPresent {
+		return
+	}
+	c.CredentialRefusals = append(c.CredentialRefusals, refusal)
+	cliutil.ReportCredentialRefusal(refusal)
+}
+
+func (c *Config) HasCredentialRefusals() bool {
+	return c != nil && len(c.CredentialRefusals) > 0
+}
+
+func (c *Config) CredentialRefusalSummaries() []string {
+	if c == nil || len(c.CredentialRefusals) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(c.CredentialRefusals))
+	for _, refusal := range c.CredentialRefusals {
+		out = append(out, refusal.Error())
+	}
+	return out
+}
+
+func (c *Config) CredentialRefusalError() error {
+	summaries := c.CredentialRefusalSummaries()
+	if len(summaries) == 0 {
+		return nil
+	}
+	return fmt.Errorf("stored credentials refused: %s", strings.Join(summaries, "; "))
+}
+
 func (c *Config) AuthHeader() string {
 	if c.AuthHeaderVal != "" {
 		return c.AuthHeaderVal
@@ -107,11 +306,12 @@ func (c *Config) AuthHeader() string {
 	if token == "" {
 		return ""
 	}
-	// The Servosity API authenticates the MSP partner token via Django REST
-	// Framework's TokenAuthentication, which requires the "Token " scheme on
-	// the Authorization header; a bare value is rejected with HTTP 403 on every
-	// data endpoint. The MSP partner token is always a DRF token, so normalize
-	// to the "Token " scheme: strip any scheme the user may have prefixed (the
+	// Hand-wired (issue #78; see skills/servosity/handfixes.json): the Servosity
+	// API authenticates the MSP partner token via Django REST Framework's
+	// TokenAuthentication, which requires the "Token " scheme on the
+	// Authorization header; a bare value is rejected with HTTP 403 on every data
+	// endpoint. The MSP partner token is always a DRF token, so normalize to the
+	// "Token " scheme: strip any scheme the user may have prefixed (the
 	// documented SERVOSITY_MSP_TOKEN="Token <token>" workaround, or a mistaken
 	// "Bearer " that the API would otherwise route to OAuth2 introspection) and
 	// re-apply "Token ". A caller needing a different scheme sets the
@@ -131,6 +331,48 @@ func stripAuthScheme(v string) string {
 	return v
 }
 
+func (c *Config) StoreScopeCredential() string {
+	if c == nil {
+		return ""
+	}
+	if header := c.AuthHeader(); header != "" {
+		return header
+	}
+
+	var parts []string
+	if c.AuthHeaderVal != "" {
+		parts = append(parts, "auth_header="+c.AuthHeaderVal)
+	}
+	if c.RefreshToken != "" {
+		parts = append(parts, "refresh_token="+c.RefreshToken)
+	}
+	if c.AccessToken != "" {
+		parts = append(parts, "access_token="+c.AccessToken)
+	}
+	if c.ClientID != "" {
+		parts = append(parts, "client_id="+c.ClientID)
+	}
+	if c.ClientSecret != "" {
+		parts = append(parts, "client_secret="+c.ClientSecret)
+	}
+	if c.ServosityMspToken != "" {
+		parts = append(parts, "msp_token="+c.ServosityMspToken)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, "\n")
+}
+
+// Raw browser-session values count as credentials even when no header
+// representation exists; hand-coded flows may also preserve a working header.
+func (c *Config) CredentialConfigured() bool {
+	if c == nil {
+		return false
+	}
+	return c.AuthHeader() != ""
+}
+
 func applyAuthFormat(format string, replacements map[string]string) string {
 	if format == "" {
 		return ""
@@ -142,6 +384,140 @@ func applyAuthFormat(format string, replacements map[string]string) string {
 		return ""
 	}
 	return format
+}
+
+func (c *Config) AgentcookieManagedByExternalStore() bool {
+	if c.AgentcookieManaged || c.AuthSource == "agentcookie" || c.CredentialSource == "agentcookie" {
+		return true
+	}
+	if c.Path == "" {
+		return false
+	}
+	marker := filepath.Join(filepath.Dir(c.Path), ".agentcookie-managed")
+	if _, err := os.Stat(marker); err == nil {
+		return true
+	}
+	return false
+}
+
+func (c *Config) markAgentcookieManaged() {
+	c.AgentcookieManaged = true
+	c.CredentialSource = "agentcookie"
+}
+
+func (c *Config) hasCredentialFields() bool {
+	if c.AuthHeaderVal != "" ||
+		c.AccessToken != "" ||
+		c.RefreshToken != "" ||
+		c.ClientID != "" ||
+		c.ClientSecret != "" {
+		return true
+	}
+	if c.ServosityMspToken != "" {
+		return true
+	}
+	return false
+}
+
+func (c *Config) hasCompleteCredentialFields() bool {
+	if c.AuthHeaderVal != "" {
+		return true
+	}
+	if c.ServosityMspToken == "" {
+		return false
+	}
+	if c.ServosityMspToken == "" {
+		return false
+	}
+	return true
+}
+
+func (c *Config) clearCredentialFields() {
+	c.AuthHeaderVal = ""
+	c.AccessToken = ""
+	c.RefreshToken = ""
+	c.TokenExpiry = time.Time{}
+	c.ClientID = ""
+	c.ClientSecret = ""
+	c.ServosityMspToken = ""
+}
+
+func (c *Config) credentials() *cliutil.Credentials {
+	return &cliutil.Credentials{
+		AuthHeaderVal:     c.AuthHeaderVal,
+		AccessToken:       c.AccessToken,
+		RefreshToken:      c.RefreshToken,
+		TokenExpiry:       c.TokenExpiry,
+		ClientID:          c.ClientID,
+		ClientSecret:      c.ClientSecret,
+		ServosityMspToken: c.ServosityMspToken,
+	}
+}
+
+func (c *Config) applyCredentials(creds *cliutil.Credentials) {
+	if creds == nil {
+		return
+	}
+	if c.AuthHeaderVal == "" {
+		c.AuthHeaderVal = creds.AuthHeaderVal
+	}
+	if c.AccessToken == "" {
+		c.AccessToken = creds.AccessToken
+	}
+	if c.RefreshToken == "" {
+		c.RefreshToken = creds.RefreshToken
+	}
+	if c.TokenExpiry.IsZero() {
+		c.TokenExpiry = creds.TokenExpiry
+	}
+	if c.ClientID == "" {
+		c.ClientID = creds.ClientID
+	}
+	if c.ClientSecret == "" {
+		c.ClientSecret = creds.ClientSecret
+	}
+	if c.ServosityMspToken == "" {
+		c.ServosityMspToken = creds.ServosityMspToken
+	}
+}
+
+// usesColocatedCredentials reports whether this config's credentials live in the
+// store colocated with an explicitly selected config file rather than in the
+// default data directory.
+func (c *Config) usesColocatedCredentials() bool {
+	return c != nil && c.explicitConfigFile && strings.TrimSpace(c.Path) != ""
+}
+
+// CredentialsPath reports the credentials store this config actually reads and
+// writes, so `auth set-token` can name the file it wrote instead of the default
+// store it did not touch.
+func (c *Config) CredentialsPath() (string, error) {
+	if c.usesColocatedCredentials() {
+		return cliutil.CredentialsFilePathForConfig(c.Path)
+	}
+	return cliutil.CredentialsFilePath()
+}
+
+func (c *Config) saveCredentialsFirst() error {
+	if c.AgentcookieManagedByExternalStore() {
+		c.markAgentcookieManaged()
+		return nil
+	}
+	persisted := c.configForSave()
+	// Route the write to the same store the read path prefers. With an
+	// explicit --config / SERVOSITY_MSP_CONFIG the colocated sibling store
+	// wins on load, so saving to the default store would persist the new
+	// token somewhere Load never reaches while the sibling kept serving the
+	// old one - a rotation that silently keeps the superseded credential.
+	if c.usesColocatedCredentials() {
+		if err := cliutil.SaveCredentialsForConfig(c.Path, persisted.credentials()); err != nil {
+			return err
+		}
+	} else if err := cliutil.SaveCredentials(persisted.credentials()); err != nil {
+		return err
+	}
+	c.CredentialSource = "credentials file"
+	return nil
 }
 
 func (c *Config) SaveTokens(clientID, clientSecret, accessToken, refreshToken string, expiry time.Time) error {
@@ -160,6 +536,9 @@ func (c *Config) SaveTokens(clientID, clientSecret, accessToken, refreshToken st
 	c.updateFileConfigField("AccessToken")
 	c.updateFileConfigField("RefreshToken")
 	c.updateFileConfigField("TokenExpiry")
+	if err := c.saveCredentialsFirst(); err != nil {
+		return err
+	}
 	return c.save()
 }
 
@@ -185,6 +564,9 @@ func (c *Config) SaveCredential(token string) error {
 	c.ServosityMspToken = token
 	delete(c.envOverrides, "ServosityMspToken")
 	c.updateFileConfigField("ServosityMspToken")
+	if err := c.saveCredentialsFirst(); err != nil {
+		return err
+	}
 	return c.save()
 }
 
@@ -215,6 +597,27 @@ func (c *Config) ClearTokens() error {
 	c.updateFileConfigField("ClientSecret")
 	c.ServosityMspToken = ""
 	delete(c.envOverrides, "ServosityMspToken")
+	c.updateFileConfigField("ServosityMspToken")
+	if c.AgentcookieManagedByExternalStore() {
+		c.markAgentcookieManaged()
+		// save() persists the full config (credential fields included) for
+		// agentcookie-managed stores, so the zeroed fields must be written
+		// back; returning early would leave the secrets on disk.
+		return c.save()
+	}
+	// With an explicit --config / SERVOSITY_MSP_CONFIG, Load reads the
+	// colocated sibling store first and only falls back to the default store
+	// when the sibling holds nothing, so BOTH can authenticate this config.
+	// Logout must clear both or it reports "Credentials cleared" while a live
+	// token remains usable.
+	if c.usesColocatedCredentials() {
+		if err := cliutil.RemoveCredentialsForConfig(c.Path); err != nil {
+			return err
+		}
+	}
+	if err := cliutil.RemoveCredentials(); err != nil {
+		return err
+	}
 	return c.save()
 }
 
@@ -285,17 +688,21 @@ func (c *Config) updateFileConfigField(field string) {
 }
 
 func (c *Config) save() error {
-	dir := filepath.Dir(c.Path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("creating config dir: %w", err)
-	}
 	persisted := c.configForSave()
-	data, err := toml.Marshal(persisted)
+	var persist any = persisted
+	if !c.AgentcookieManagedByExternalStore() {
+		persist = persisted.persisted()
+	}
+	data, err := toml.Marshal(persist)
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
-	if err := os.WriteFile(c.Path, data, 0o600); err != nil {
+	if err := cliutil.AtomicWritePrivateFile(c.Path, data, 0o600, 0o700); err != nil {
 		return err
+	}
+	c.scrubLegacyCredentials()
+	if !c.AgentcookieManagedByExternalStore() {
+		persisted.clearCredentialFields()
 	}
 	c.fileConfig = &persisted
 	c.fileConfig.envOverrides = nil
@@ -305,6 +712,48 @@ func (c *Config) save() error {
 	// otherwise later mutations to c's maps leak into the on-disk snapshot.
 	c.fileConfig.Headers = cloneStringMap(c.fileConfig.Headers)
 	return nil
+}
+func (c *Config) scrubLegacyCredentials() {
+	if c.legacySourcePath == "" || c.legacySourcePath == c.Path {
+		return
+	}
+	if c.AgentcookieManagedByExternalStore() {
+		return
+	}
+	data, err := os.ReadFile(c.legacySourcePath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "warning: cannot read legacy config to scrub credentials: %v\n", err)
+		}
+		return
+	}
+	var legacy Config
+	if err := toml.Unmarshal(data, &legacy); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: cannot parse legacy config to scrub credentials: %v\n", err)
+		return
+	}
+	legacy.clearCredentialFields()
+	scrubbed := legacy.persisted()
+	scrubbedData, err := toml.Marshal(scrubbed)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: cannot marshal scrubbed legacy config: %v\n", err)
+		return
+	}
+	if err := cliutil.AtomicWritePrivateFile(c.legacySourcePath, scrubbedData, 0o600, 0o700); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: cannot write scrubbed legacy config: %v\n", err)
+	}
+}
+
+type persistedConfig struct {
+	BaseURL string            `toml:"base_url"`
+	Headers map[string]string `toml:"headers,omitempty"`
+}
+
+func (c *Config) persisted() persistedConfig {
+	return persistedConfig{
+		BaseURL: c.BaseURL,
+		Headers: c.Headers,
+	}
 }
 
 // Ensure strings import is used
