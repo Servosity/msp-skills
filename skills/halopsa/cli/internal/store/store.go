@@ -50,7 +50,7 @@ func IsUUID(s string) bool {
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
 // checked on every open. Non-learn CLIs advance to v4 for the
 // resources_fts content extraction.
-const StoreSchemaVersion = 5
+const StoreSchemaVersion = 6
 
 // resourcesFTSContentSchemaVersion pins the schema bump that rewrote
 // resources_fts content from raw JSON to searchable leaf values. Keep this
@@ -13590,6 +13590,11 @@ func (s *Store) migrate(ctx context.Context) error {
 				return fmt.Errorf("purging legacy action keys: %w", err)
 			}
 		}
+		if current < 6 {
+			if err := s.migratePurgeLegacyParentScopedKeys(ctx, conn); err != nil {
+				return fmt.Errorf("purging legacy parent-scoped keys: %w", err)
+			}
+		}
 		if current < resourcesFTSContentSchemaVersion {
 			if err := s.migrateResourcesFTSContent(ctx, conn); err != nil {
 				return fmt.Errorf("migrating resources FTS content: %w", err)
@@ -13664,6 +13669,74 @@ func (s *Store) migratePurgeLegacyActionKeys(ctx context.Context, conn *sql.Conn
 		}
 		if _, err := conn.ExecContext(ctx, step.stmt); err != nil {
 			return fmt.Errorf("purging %s: %w", step.table, err)
+		}
+	}
+	return nil
+}
+
+// migratePurgeLegacyParentScopedKeys clears the cached rows of the five
+// resources that gained a corrected storage key in #264, for exactly the
+// reason migratePurgeLegacyActionKeys clears actions: qualifying the key
+// governs only NEW writes. Rows already in the cache keep their old keys, a
+// resync adds the corrected rows alongside them, and every reader then sees
+// stale duplicates on top of the correct set.
+//
+// lookup, asset-type-info, workflowstep and timesheet were keyed on an id
+// that is only unique within a parent (or, for timesheet, on a literal 0 that
+// every record shares), so their cached rows are a lossy fraction of what the
+// tenant holds. online-status stored nothing at all — its records failed id
+// extraction outright — so it has no stale rows to clear, but its sync cursor
+// still points mid-walk and is reset here with the others.
+//
+// resources_fts is purged alongside resources because it is a plain fts5 table
+// maintained by hand on upsert (delete by rowid, then insert) rather than a
+// content-linked one with delete triggers. A corrected composite key hashes to
+// a different rowid, so the legacy index entry would otherwise survive the
+// resync forever. Search joins back to resources and so never returned the
+// orphans, which is why they went unnoticed after the #203 purge, but they
+// still occupy space and skew FTS ranking statistics.
+//
+// Version-gated so it runs exactly once per database, and deliberately does
+// NOT skip user_version == 0: a cache written by a binary old enough never to
+// have stamped a version is precisely the one holding collapsed rows. On a
+// fresh database every statement is a no-op. Each table is existence-checked
+// because a store can be opened purely to read schema state, and the
+// resources/sync_state deletes are column-qualified for the reason spelled
+// out on the #203 purge: "sync_state" is both this store's own cursor
+// bookkeeping and a HaloPSA resource name.
+func (s *Store) migratePurgeLegacyParentScopedKeys(ctx context.Context, conn *sql.Conn) error {
+	// Only lookup has a domain table of its own; the rest live solely in the
+	// generic resources mirror.
+	resources := []string{"lookup", "asset-type-info", "workflowstep", "timesheet", "online-status"}
+
+	if exists, err := tableExists(ctx, conn, "lookup"); err != nil {
+		return err
+	} else if exists {
+		if _, err := conn.ExecContext(ctx, `DELETE FROM "lookup"`); err != nil {
+			return fmt.Errorf("purging lookup: %w", err)
+		}
+	}
+
+	for _, table := range []string{"resources", "sync_state", "resources_fts"} {
+		exists, err := tableExists(ctx, conn, table)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			continue
+		}
+		ok, err := tableHasColumn(ctx, conn, table, "resource_type")
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+		for _, resource := range resources {
+			stmt := fmt.Sprintf(`DELETE FROM %q WHERE resource_type = ?`, table)
+			if _, err := conn.ExecContext(ctx, stmt, resource); err != nil {
+				return fmt.Errorf("purging %s rows for %s: %w", table, resource, err)
+			}
 		}
 	}
 	return nil
@@ -21688,6 +21761,26 @@ var resourceIDFieldOverrides = map[string]string{
 	"service":         "id",
 	"site-stock-bins": "id",
 	"users-me":        "id",
+
+	// Hand-wired (#264). Neither resource carries a field the generic
+	// fallback list can find, and the spec annotates no x-resource-id for
+	// either, so both fell through it entirely.
+	//
+	// workflowstep has no `id` at all: its own row identifier is `step_id`,
+	// which restarts at 1 for every `fdid` (flow definition). Falling through
+	// to `name` — the exact hazard the fallback ordering warns about in
+	// #1394 — keyed 211 fetched steps on their display name and stored 144,
+	// silently dropping every step whose name repeated across flows. Pairing
+	// this override with the fdid parent key below makes the key
+	// (step_id, fdid), which is what Halo actually guarantees unique.
+	//
+	// online-status names its identifier `techID`. LookupFieldValue matches a
+	// snake key against its own camel and Pascal spellings, and none of them
+	// reach `techID` from `id`, so every record failed extraction and the
+	// resource stored zero rows behind an all_items_failed_id_extraction
+	// anomaly.
+	"workflowstep":  "step_id",
+	"online-status": "techID",
 }
 
 // genericIDFieldFallbacks is the runtime safety net for resources that did
@@ -21702,9 +21795,16 @@ var genericIDFieldFallbacks = []string{"id", "ID", "gid", "sid", "uid", "uuid", 
 // local mirror rows need the parent context in the storage key. Without this,
 // many-to-many sub-collections collapse every parent association onto the
 // child's bare id and silently keep only the last synced parent.
-var resourceParentKeyColumns = map[string]string{
-	"void":             "invoice_id",
-	"outlook_contacts": "mailbox_id",
+//
+// The value is a list because a resource's real key is not always a single
+// parent: HaloPSA's /Timesheet returns `"id": 0` on every record, so the only
+// thing identifying a row is the (agent_id, date) pair (#264). Columns are
+// appended in the order given, and an absent column is skipped rather than
+// padded, which keeps a single-column key byte-identical to the pre-#264 form
+// and leaves rows written under it addressable.
+var resourceParentKeyColumns = map[string][]string{
+	"void":             {"invoice_id"},
+	"outlook_contacts": {"mailbox_id"},
 	// Hand-wired: Halo numbers ticket actions per ticket, so every ticket has
 	// an action 1, an action 2, and so on. Keying on the bare id made action 1
 	// of each ticket overwrite action 1 of the previous, collapsing 8185
@@ -21715,7 +21815,32 @@ var resourceParentKeyColumns = map[string]string{
 	// The generator cannot derive this: /Actions is a flat top-level resource,
 	// not a dependent one, and nothing in the OpenAPI spec says its ids are
 	// only unique within a parent. Reported in #203.
-	"actions": "ticket_id",
+	"actions": {"ticket_id"},
+
+	// Hand-wired (#264): the same defect class as actions above, found on a
+	// live tenant once #203 made the loss visible as a sync_anomaly instead of
+	// a silent one. Each of these numbers its rows within a parent, so the
+	// bare id collides across parents and the last writer wins.
+	//
+	//   lookup           `id` restarts per `lookupid` (list group): the rows
+	//                    {lookupid 153, id 1} and {lookupid 149, id 1} are
+	//                    different entries. 1020 fetched -> 269 stored.
+	//   asset-type-info  `id` is a field-row index scoped to `typeinfo_id`,
+	//                    not a global id. 129 fetched -> 18 stored.
+	//   workflowstep     `step_id` (see the override above) restarts per
+	//                    `fdid`. 211 fetched -> 144 stored.
+	//   timesheet        every record carries `"id": 0`, so there is no
+	//                    per-record id to scope at all and all 108 fetched
+	//                    rows collapsed onto one. The natural key is the
+	//                    agent and the day.
+	//
+	// None of these is derivable from the spec: all four are flat top-level
+	// resources, and the schema documents the parent column as an ordinary
+	// integer field with no statement that the id is unique only within it.
+	"lookup":          {"lookupid"},
+	"asset-type-info": {"typeinfo_id"},
+	"workflowstep":    {"fdid"},
+	"timesheet":       {"agent_id", "date"},
 }
 
 // ExtractResourceID resolves the bare resource id field that UpsertBatch
@@ -21841,15 +21966,15 @@ func scalarIDString(value any) string {
 }
 
 func resourceStorageID(resourceType, id string, obj map[string]any) string {
-	parentKey := resourceParentKeyColumns[resourceType]
-	if parentKey == "" {
-		return id
+	key := id
+	for _, parentKey := range resourceParentKeyColumns[resourceType] {
+		parentValue := ResourceIDString(lookupFieldValue(obj, parentKey))
+		if parentValue == "" || parentValue == "<nil>" {
+			continue
+		}
+		key += string([]byte{0}) + parentValue
 	}
-	parentValue := ResourceIDString(lookupFieldValue(obj, parentKey))
-	if parentValue == "" || parentValue == "<nil>" {
-		return id
-	}
-	return id + string([]byte{0}) + parentValue
+	return key
 }
 
 // UpsertBatch inserts or replaces multiple records in a single transaction

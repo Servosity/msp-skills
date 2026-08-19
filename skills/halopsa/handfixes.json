@@ -1,6 +1,6 @@
 {
   "slug": "halopsa",
-  "doc": "CHANGELOG.md (#147, #203, #211, #213, #218)",
+  "doc": "CHANGELOG.md (#147, #203, #211, #213, #218, #264, #265)",
   "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #147 (reporter @Xenith-B), fixed 2026-06-20. The OAuth2 token-mint/refresh paths assembled the token URL ('https://{tenant}.{domain}/auth/token') outside the normal request flow and POSTed it WITHOUT substituting the {tenant}/{domain} placeholders that buildURL resolves for ordinary requests -- so every `auth login`, auto-mint, and refresh failed with `invalid character \"{\" in host name`, even when HALOPSA_TENANT/HALOPSA_DOMAIN were set correctly. Fix routes the token URL through a new exported ResolveTemplateURL helper (wrapping the existing buildURL substitution). This is a GENERATOR-class defect (the press emits token-URL literals it never resolves) tracked for an upstream retro; until the press is fixed, a reprint regenerates the unresolved literals and these markers guard the connector. No new flag/command/output; bug-fix-only.",
   "handfixes": [
     {
@@ -125,7 +125,7 @@
       "asserts": [
         {
           "file": "cli/internal/store/store.go",
-          "contains": "\"actions\": \"ticket_id\"",
+          "contains": "\"actions\": {\"ticket_id\"}",
           "min_count": 1
         },
         {
@@ -247,6 +247,94 @@
         {
           "file": "cli/internal/cli/reopen_sql_test.go",
           "contains": "TestReopenDetectsCustomerEmailReopen",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "halo-envelope-declared-items-key",
+      "summary": "list responses are unwrapped via a spec-derived per-resource items key rather than by counting arrays, so a populated sidecar array no longer aborts the resource (issue #265)",
+      "why": "HaloPSA answers a list endpoint with a `<Entity>_View` object that carries the rows next to sidecar arrays: `columns` on most views, `statuses`/`priorities`/`agents` on the ticket views, `folders` on /Attachment, `actionsdetails` on /Actions. None of the generic extraction strategies can resolve that, because the wrapper key is the resource's own name rather than data/results/items, and extractSingleObjectArraySibling deliberately gives up when more than one array is populated since it cannot tell rows from sidecar. Until this was reported the ambiguity was invisible: Halo omits or empties the sidecars unless they are asked for, leaving exactly one array and letting the sibling scan land on it by luck. /Attachment is the endpoint that always ships its sidecar, so `folders` arrived populated, the scan counted two arrays, gave up, and the entire envelope fell through to the single-object path, which failed the whole resource with `missing id for attachment` and stored nothing. The all-empty envelope an unscoped /Attachment returns on a tenant with no attachments took the same path and failed identically, which is why the reporter saw it on 3 of 4 runs regardless of content. The regression test proves the other sidecar-heavy views (tickets, clients, asset, actions, users) break the same way the moment their second array is populated, so the fix is a table covering all 23 list resources rather than a special case for attachments. The two single-object endpoints, Client/me and Users/me, are deliberately absent from the table: they return an entity rather than a `_View`, and their nested arrays are fields of that entity, so unwrapping one would break a resource that works today.",
+      "status": "active",
+      "spec_encode_followup": "Teach cli-printing-press to emit the response envelope's items key from the declared OpenAPI response schema instead of inferring it at runtime by counting populated arrays. The count heuristic is silently wrong for any API whose list envelope carries a sidecar array, and 61 generated connectors share this extractor.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "var resourceEnvelopeItemsKeys = map[string]string{",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "func envelopeDeclaredItems(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\"attachment\":        \"attachments\",",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/attachment_envelope_test.go",
+          "contains": "TestAttachmentEnvelopeUnwrapsRowsBesideFolders",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/attachment_envelope_test.go",
+          "contains": "TestSingleObjectEndpointsAreNotUnwrapped",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "parent-scoped-keys-lookup-typeinfo-workflowstep-timesheet",
+      "summary": "lookup, asset-type-info, workflowstep and timesheet rows are keyed by their parent as well as their id, workflowstep and online-status resolve their real id fields, and legacy rows are purged on upgrade (issue #264)",
+      "why": "The same defect class as the actions fix in #203, found on a live tenant once that fix made the loss visible as a sync_anomaly instead of a silent one. Each resource numbers its rows within a parent, so the bare id collides across parents and the last writer wins: lookup restarts `id` per `lookupid` and stored 269 of 1020 fetched rows; asset-type-info's `id` is a field-row index scoped to `typeinfo_id` and stored 18 of 129; workflowstep restarts `step_id` per `fdid` and stored 144 of 211; timesheet returns a literal `\"id\": 0` on every record, so all 108 fetched rows collapsed onto a single key and its real key is the (agent_id, date) pair. workflowstep needs both halves of its fix and not just the parent key: it carries no `id` at all, so the generic fallback list reached `name` (the hazard the fallback ordering warns about in #1394) and two steps sharing a name inside one flow would still collide even once fdid qualified the key. online-status is the extraction-failure member of the family rather than a collision: it names its identifier `techID`, which no spelling of `id` reaches through LookupFieldValue, so every record failed extraction and the resource stored zero rows behind an all_items_failed_id_extraction anomaly. resourceParentKeyColumns became a list per resource to carry timesheet's two-column key; a single-column key stays byte-identical to the pre-#264 form and an absent column is skipped rather than padded, so rows written by 0.2.7 stay addressable. Cached rows are purged once on upgrade at schema 6 for the reason the #203 purge exists: qualifying the key governs only new writes, so without the purge a resync would leave stale collapsed rows sitting alongside the corrected set. Four further resources the reporter observed losing rows (feed, team-tree, integration-runbook-variable-group, timesheet-forecasting) are NOT addressed here: their payload shape could not be confirmed from the spec, which declares no response schema for any of them, and guessing a key would risk keying rows on the wrong column.",
+      "status": "active",
+      "spec_encode_followup": "Same upstream ask as #203, now with five more instances: teach cli-printing-press to derive parent-qualified storage keys for flat resources whose ids are only unique within a parent, to recognise a constant or zero id as unusable, and to fall back to a declared natural key instead of reaching for `name`.",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"lookup\":          {\"lookupid\"}",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"asset-type-info\": {\"typeinfo_id\"}",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"workflowstep\":    {\"fdid\"}",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"timesheet\":       {\"agent_id\", \"date\"}",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"workflowstep\":  \"step_id\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"online-status\": \"techID\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "func (s *Store) migratePurgeLegacyParentScopedKeys",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/parent_scoped_keys_test.go",
+          "contains": "TestWorkflowStepKeyedByStepIDWithinFlow",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/parent_scoped_keys_test.go",
+          "contains": "TestSingleParentKeyFormIsUnchanged",
           "min_count": 1
         }
       ]
