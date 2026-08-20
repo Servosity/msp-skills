@@ -168,9 +168,9 @@
     "released_hash": "sha256:4ff2c6903bd19c1ef62cb39efa861570ccce90dc20a2cac715974a1db621ff91"
   },
   "halopsa": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.9",
-    "latest_tag": "halopsa-v0.2.8",
+    "latest_tag": "halopsa-v0.2.9",
     "current_hash": "sha256:c564025c8ec25950604a6f42dba200c6df13d35f889d0c3a6ee04436fa2d5b98",
     "released_hash": "sha256:c564025c8ec25950604a6f42dba200c6df13d35f889d0c3a6ee04436fa2d5b98"
   },
@@ -273,9 +273,9 @@
     "released_hash": "sha256:9ee5ea50f4e76eaf7eb8fb13c6b0ac3df7f3e5a9425e3e1945220fb731c7c9d5"
   },
   "ninjaone": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "ninjaone-v0.1.7",
+    "latest_tag": "ninjaone-v0.1.8",
     "current_hash": "sha256:772769846c72fd36f414c88856dea9150806d3b952bdb19a55dbd156c5f6edbc",
     "released_hash": "sha256:772769846c72fd36f414c88856dea9150806d3b952bdb19a55dbd156c5f6edbc"
   },
