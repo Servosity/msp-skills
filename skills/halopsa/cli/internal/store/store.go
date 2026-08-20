@@ -50,7 +50,7 @@ func IsUUID(s string) bool {
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
 // checked on every open. Non-learn CLIs advance to v4 for the
 // resources_fts content extraction.
-const StoreSchemaVersion = 6
+const StoreSchemaVersion = 7
 
 // resourcesFTSContentSchemaVersion pins the schema bump that rewrote
 // resources_fts content from raw JSON to searchable leaf values. Keep this
@@ -13595,6 +13595,11 @@ func (s *Store) migrate(ctx context.Context) error {
 				return fmt.Errorf("purging legacy parent-scoped keys: %w", err)
 			}
 		}
+		if current < 7 {
+			if err := s.migratePurgeLegacyRound2Keys(ctx, conn); err != nil {
+				return fmt.Errorf("purging legacy round-2 keys: %w", err)
+			}
+		}
 		if current < resourcesFTSContentSchemaVersion {
 			if err := s.migrateResourcesFTSContent(ctx, conn); err != nil {
 				return fmt.Errorf("migrating resources FTS content: %w", err)
@@ -13716,6 +13721,57 @@ func (s *Store) migratePurgeLegacyParentScopedKeys(ctx context.Context, conn *sq
 			return fmt.Errorf("purging lookup: %w", err)
 		}
 	}
+
+	for _, table := range []string{"resources", "sync_state", "resources_fts"} {
+		exists, err := tableExists(ctx, conn, table)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			continue
+		}
+		ok, err := tableHasColumn(ctx, conn, table, "resource_type")
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+		for _, resource := range resources {
+			stmt := fmt.Sprintf(`DELETE FROM %q WHERE resource_type = ?`, table)
+			if _, err := conn.ExecContext(ctx, stmt, resource); err != nil {
+				return fmt.Errorf("purging %s rows for %s: %w", table, resource, err)
+			}
+		}
+	}
+	return nil
+}
+
+// migratePurgeLegacyRound2Keys clears the cached rows of the three resources
+// that gained a corrected storage key in the second round of #264, for the
+// same reason the schema-6 purge exists: a corrected key governs only NEW
+// writes, so a resync would add the corrected rows alongside the old ones and
+// every reader would see stale duplicates on top of the correct set.
+//
+// team-tree was keyed on an id unique only within a node type and
+// timesheet-forecasting on a literal 0 shared by every record, so both hold a
+// lossy fraction of the tenant's rows. integration-runbook-variable-group
+// stored nothing at all (its records failed id extraction outright) so it has
+// no stale rows, but its sync cursor still points mid-walk and is reset with
+// the others.
+//
+// Version-gated to run exactly once, existence-checked per table, and
+// column-qualified on resources/sync_state for the reason spelled out on the
+// #203 purge: "sync_state" is both this store's own cursor bookkeeping and a
+// HaloPSA resource name. resources_fts is purged alongside resources because
+// it is a plain fts5 table maintained by hand on upsert rather than a
+// content-linked one with delete triggers, so a corrected key would otherwise
+// strand its legacy index entry forever.
+func (s *Store) migratePurgeLegacyRound2Keys(ctx context.Context, conn *sql.Conn) error {
+	// timesheet is included even though it was rekeyed in 0.2.8: parentKeyDay
+	// now truncates its date component, so any row a 0.2.8/0.2.9 sync stored
+	// under a full-timestamp key is unreachable under the new one.
+	resources := []string{"team-tree", "timesheet-forecasting", "integration-runbook-variable-group", "timesheet"}
 
 	for _, table := range []string{"resources", "sync_state", "resources_fts"} {
 		exists, err := tableExists(ctx, conn, table)
@@ -21781,6 +21837,30 @@ var resourceIDFieldOverrides = map[string]string{
 	// anomaly.
 	"workflowstep":  "step_id",
 	"online-status": "techID",
+
+	// Hand-wired (#264, second round). Both were reported alongside the five
+	// above; their payload shape could only be confirmed once the reporter
+	// supplied sample records, which is why they land a release later.
+	//
+	// team-tree's `id` is unique only within a node `type`: two tree nodes
+	// both carry id 16, one under type 1 (Opportunities) and one under type 2
+	// (Projects), so the generic `id` fallback merged them and 45 fetched rows
+	// stored 44. Every row also carries a `guid`, which is unique by
+	// construction; the fallback list reaches `guid` only after `id`, so it
+	// never got there. Keying on the guid is right whichever way the duplicate
+	// arose: distinct nodes stay distinct, and a genuinely repeated node
+	// still collapses to one row as it should.
+	//
+	// integration-runbook-variable-group carries NO id-shaped field at all.
+	// Its rows are {"label": ..., "value": ...} pairs, where `value` is the
+	// stable key (`runbook<uuid>` for a runbook, `integration<n>` for an
+	// integration, and short constants like `faults` for the fixed
+	// categories) and `label` is display text. Neither name is in the generic
+	// fallback list, so all 39 rows failed extraction and the resource stored
+	// nothing behind an all_items_failed_id_extraction anomaly. A string key
+	// needs no special handling: ResourceIDString returns it unchanged.
+	"team-tree":                          "guid",
+	"integration-runbook-variable-group": "value",
 }
 
 // genericIDFieldFallbacks is the runtime safety net for resources that did
@@ -21841,6 +21921,17 @@ var resourceParentKeyColumns = map[string][]string{
 	"asset-type-info": {"typeinfo_id"},
 	"workflowstep":    {"fdid"},
 	"timesheet":       {"agent_id", "date"},
+
+	// Hand-wired (#264, second round). /Timesheet/forecasting has the same
+	// shape as /Timesheet: `"id": 0` on every record, with agent_id, date,
+	// target_hours, actual_hours and workdayid carrying the content. The
+	// reporter confirmed no `forecasting_id` field exists on the rows, so the
+	// agent and the day are the key here too, and 132 fetched rows had been
+	// collapsing onto one. workdayid is deliberately NOT part of the key: it
+	// would only matter if one agent had two forecasts for the same day, and
+	// over-keying turns a legitimate update into a duplicate row, which is a
+	// worse failure than the one it would guard against.
+	"timesheet-forecasting": {"agent_id", "date"},
 }
 
 // ExtractResourceID resolves the bare resource id field that UpsertBatch
@@ -21972,9 +22063,43 @@ func resourceStorageID(resourceType, id string, obj map[string]any) string {
 		if parentValue == "" || parentValue == "<nil>" {
 			continue
 		}
-		key += string([]byte{0}) + parentValue
+		key += string([]byte{0}) + parentKeyValue(parentKey, parentValue)
 	}
 	return key
+}
+
+// parentKeyValue renders one parent column for the storage key. Only the
+// `date` column is normalised, to its calendar day; every other column is
+// returned byte-for-byte.
+//
+// HAND-FIX (handfixes.json:
+// parent-scoped-keys-round2-teamtree-forecasting-runbookvars). The two
+// timesheet resources are keyed by (agent_id, date) because HaloPSA gives
+// their records no usable id of their own, and Halo declares `date` as a
+// DATETIME: /Timesheet/forecasting returns values like
+// 2026-10-25T19:13:41.4892555+00:00, a forecast DAY carrying a meaningless
+// time of day. If that time component is recomputed per request rather than
+// stored (a forecast built as "now plus N days" would be), the raw string
+// changes on every sync while the row it identifies does not, so each sync
+// would insert a fresh copy instead of updating and the table would grow
+// without bound. That failure is worse than the collapse it replaces, so the
+// key deliberately depends only on the part that carries meaning.
+//
+// Merging is correct rather than lossy here: one timesheet or forecast row
+// per agent per day is the contract, which is exactly why the pair is the key.
+//
+// The normalisation is keyed on the COLUMN NAME rather than on the value
+// looking date-shaped, so a future parent column carrying an opaque id that
+// happens to start with a date-like prefix cannot be silently truncated into
+// a collision.
+func parentKeyValue(parentKey, v string) string {
+	if parentKey != "date" {
+		return v
+	}
+	if len(v) >= 11 && v[4] == '-' && v[7] == '-' && (v[10] == 'T' || v[10] == ' ') {
+		return v[:10]
+	}
+	return v
 }
 
 // UpsertBatch inserts or replaces multiple records in a single transaction
