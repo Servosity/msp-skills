@@ -169,10 +169,10 @@
   },
   "halopsa": {
     "state": "up-to-date",
-    "version": "0.2.10",
-    "latest_tag": "halopsa-v0.2.10",
-    "current_hash": "sha256:7bd1c8dfe44931a0f468e0fa2fed9dd8409d969109425b9f9ee479ce9b9d55a2",
-    "released_hash": "sha256:7bd1c8dfe44931a0f468e0fa2fed9dd8409d969109425b9f9ee479ce9b9d55a2"
+    "version": "0.2.11",
+    "latest_tag": "halopsa-v0.2.11",
+    "current_hash": "sha256:eb3b8005334a1e8507915a5d38a2ad06291c5f9882e39f56972d1e36b5558258",
+    "released_hash": "sha256:eb3b8005334a1e8507915a5d38a2ad06291c5f9882e39f56972d1e36b5558258"
   },
   "hubspot": {
     "state": "up-to-date",
