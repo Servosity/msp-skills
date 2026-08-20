@@ -415,6 +415,35 @@
           "min_count": 1
         }
       ]
+    },
+    {
+      "id": "feed-is-not-page-walkable",
+      "summary": "feed is excluded from the page-number walk and asks for one window via count, because /Feed is a keyset activity stream with no page_no (issue #273)",
+      "why": "determinePaginationDefaults describes ONE paging contract for the whole connector - pageinate=true plus page_size and an incrementing page_no - because that is what Halo's list endpoints honour (#203). /Feed is not one of those: it is a time-ordered activity stream whose own parameters are count for the window size and newer_than_id/older_than_id for position. Page numbers are the wrong shape for it twice over. Halo has no page_no to honour there, and paging a live stream by ordinal re-reads rows regardless, because new events arrive between requests and shift the ones already seen across the page boundary. Reported in #264 as feed fetching 100 rows and storing 62, which looked like the parent-scoped-id family the rest of that issue was about but is not: /Feed identifies rows with a globally unique id, so the repeats were one row fetched twice and the mirror collapsed them correctly. The defect was the walk, not the key, which is why feed is deliberately absent from resourceParentKeyColumns and a regression test pins it there - adding a parent key would have converted honest dedup into duplicate rows. A second, worse failure rides along: the page-int cursor is computed client-side, so the sticky-cursor guard cannot fire, and a full window returned to every request keeps pageLooksFull true, leaving the loop with no termination condition under the default --max-pages 0. A fixture that always fills the window reproduces a non-terminating walk. Excluding feed from resourceSupportsPagination removes both problems, and resourceFixedParams supplies the count the endpoint actually takes, applied before user --param so an operator can still widen the window. NOT extended to the other endpoints that expose count rather than page numbers (address, crmnote, version-info-*): /Actions also documents no page_no yet demonstrably honours it, so Halo's parameter lists are not evidence of what it ignores, and depaginating a resource that currently walks correctly would truncate it. Those need a live tenant to settle.",
+      "status": "active",
+      "spec_encode_followup": "Teach cli-printing-press that one paging contract per API is not always right: an endpoint exposing keyset parameters (newer_than/older_than plus a count) alongside the API's normal page parameters needs its own contract, and the generic page-int fallback should not advance a client-side cursor on an endpoint that never returns one. The unbounded case is the sharper ask: a walk whose cursor the client invents has no natural termination when the API keeps answering with a full page.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "var resourceFixedParams = map[string]map[string]string{",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\"feed\": {\"count\": \"100\"}",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/feed_walk_test.go",
+          "contains": "TestFeedIsFetchedInOneWindow",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/feed_walk_test.go",
+          "contains": "TestFeedWindowIsUserOverridable",
+          "min_count": 1
+        }
+      ]
     }
   ]
 }

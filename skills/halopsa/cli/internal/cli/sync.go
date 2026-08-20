@@ -468,13 +468,13 @@ func syncResource(ctx context.Context, c interface {
 		effectiveSince = lastSynced.Format(time.RFC3339)
 	}
 	// Resources whose list endpoint declares no temporal-filter parameter
-	// fall back to plain pagination — sending a synthetic since=... would
+	// fall back to an unfiltered sync — sending a synthetic since=... would
 	// reach the API as an unknown query param and (for strict APIs like
 	// Notion) fail the whole resource with a 400. Warn once per resource
 	// when the user expected incremental behavior.
 	if effectiveSince != "" && sinceParam == "" {
 		if humanFriendly {
-			fmt.Fprintf(os.Stderr, "  %s: incremental sync ignored (endpoint declares no temporal filter; falling back to full pagination)\n", resource)
+			fmt.Fprintf(os.Stderr, "  %s: incremental sync ignored (endpoint declares no temporal filter; falling back to an unfiltered sync)\n", resource)
 		} else {
 			fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"resource_not_incremental","message":"endpoint does not declare a temporal filter parameter; incremental sync has no effect for this resource"}`+"\n", resource)
 		}
@@ -535,6 +535,11 @@ func syncResource(ctx context.Context, c interface {
 		// Set since filter
 		if effectiveSince != "" {
 			params[sinceParam] = effectiveSince
+		}
+		// Hand-wired: a resource whose endpoint takes its own size parameter
+		// instead of the generic paging trio. See resourceFixedParams.
+		for k, v := range resourceFixedParams[resource] {
+			params[k] = v
 		}
 		// Apply user-supplied --param / --resource-param overrides last so they
 		// win over spec-derived defaults (e.g. forcing mine=true on a list
@@ -864,6 +869,33 @@ func syncResource(ctx context.Context, c interface {
 	return syncResult{Resource: resource, Count: totalCount, Duration: time.Since(started)}
 }
 
+// resourceFixedParams carries query parameters a resource always needs but
+// that the generic paging machinery cannot supply.
+//
+// HAND-FIX (handfixes.json: feed-is-not-page-walkable). determinePaginationDefaults
+// describes ONE contract for the whole connector - pageinate=true plus a
+// page_size and an incrementing page_no - because that is what Halo's list
+// endpoints honour. /Feed is not one of those. It is a time-ordered activity
+// stream whose own parameters are `count` for the window size and
+// `newer_than_id`/`older_than_id` for position, and page numbers are the wrong
+// shape for it twice over: Halo has no page_no to honour there, and paging a
+// live stream by ordinal re-reads rows anyway, because new events arrive
+// between requests and shift the ones already seen across the page boundary.
+//
+// That is what #273 reported as 100 rows fetched and 62 stored. Nothing was
+// dropped: /Feed identifies rows with a globally unique id, so the repeats were
+// one row fetched twice and the local mirror collapsed them correctly. The
+// defect was the walk, which spent a request per page re-reading a window it
+// already had. feed is therefore no longer page-walked at all (see
+// resourceSupportsPagination) and asks for one window of `count` rows per sync,
+// which is what an activity-feed mirror wants: the newest entries, refreshed.
+//
+// A user who wants a different window still wins, because --param is applied
+// after this map.
+var resourceFixedParams = map[string]map[string]string{
+	"feed": {"count": "100"},
+}
+
 // paginationDefaults holds the resolved pagination parameter names and page size.
 type paginationDefaults struct {
 	cursorParam string
@@ -957,8 +989,6 @@ func resourceSupportsPagination(resource string) bool {
 	case "email-address-book":
 		return true
 	case "external-link":
-		return true
-	case "feed":
 		return true
 	case "incomingemail":
 		return true

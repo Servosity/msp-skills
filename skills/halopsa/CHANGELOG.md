@@ -4,6 +4,29 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.11] - unreleased
+
+### Fixed
+- `sync` no longer page-walks `feed`. HaloPSA's `/Feed` is a time-ordered
+  activity stream whose own parameters are `count` for the window size and
+  `newer_than_id`/`older_than_id` for position; it has no page number to
+  honour. The connector sent it the paging trio every other list endpoint
+  gets (`pageinate=true`, `page_size`, an incrementing `page_no`), which the
+  endpoint ignores, so each request returned a window overlapping the last and
+  the walk re-read rows it already had. That is what #264 recorded for `feed`
+  as 100 rows fetched and 62 stored. Nothing was being dropped: `/Feed`
+  identifies its rows with a globally unique id, so the repeats were one row
+  fetched twice and the local mirror collapsed them correctly. `feed` now asks
+  for a single window of `count` rows per sync, which is what an activity-feed
+  mirror wants, and a `--param count=<n>` override still wins. Reported by
+  @Xenith-B (#273).
+- The same walk could fail to terminate. Because the cursor it advances is
+  computed client-side, the sticky-cursor guard never fires, and a full window
+  returned to every request keeps the more-pages heuristic true, so under the
+  default `--max-pages 0` the loop had no way to stop. A tenant whose feed
+  always filled the window would have kept requesting pages until the sync was
+  interrupted. `feed` no longer enters that loop at all.
+
 ## [0.2.10] - 2026-08-20
 
 ### Fixed
