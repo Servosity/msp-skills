@@ -11,7 +11,7 @@
     {
       "name": "abnormal",
       "source": "./skills/abnormal",
-      "description": "The full Abnormal Security REST API as an agent-native CLI \u2014 with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.",
+      "description": "The full Abnormal Security REST API as an agent-native CLI — with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.",
       "version": "0.1.1",
       "category": "security",
       "tags": [
@@ -27,7 +27,7 @@
     {
       "name": "acronis",
       "source": "./skills/acronis",
-      "description": "The first real CLI for the Acronis Cyber Protect Cloud platform \u2014 every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
+      "description": "The first real CLI for the Acronis Cyber Protect Cloud platform — every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
       "version": "0.1.1",
       "category": "backup-dr",
       "tags": [
@@ -57,7 +57,7 @@
     {
       "name": "afi",
       "source": "./skills/afi",
-      "description": "The first CLI for Afi SaaS backup \u2014 full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
+      "description": "The first CLI for Afi SaaS backup — full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
       "version": "0.1.1",
       "category": "backup-dr",
       "tags": [
@@ -130,6 +130,23 @@
       ]
     },
     {
+      "name": "avanan",
+      "source": "./skills/avanan",
+      "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "avanan",
+        "email security",
+        "phishing",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "aws-billing",
       "source": "./skills/aws-billing",
       "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call.",
@@ -148,7 +165,7 @@
     {
       "name": "axcient",
       "source": "./skills/axcient",
-      "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give \u2014 offline, joined, and agent-ready.",
+      "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give — offline, joined, and agent-ready.",
       "version": "0.2.9",
       "category": "backup-dr",
       "tags": [
@@ -163,7 +180,7 @@
     {
       "name": "betterstack",
       "source": "./skills/betterstack",
-      "description": "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics \u2014 what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift \u2014 that the API alone can't answer.",
+      "description": "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics — what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift — that the API alone can't answer.",
       "version": "0.1.1",
       "category": "monitoring",
       "tags": [
@@ -194,7 +211,7 @@
     {
       "name": "cipp",
       "source": "./skills/cipp",
-      "description": "First single-binary CLI for CIPP \u2014 offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.",
+      "description": "First single-binary CLI for CIPP — offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.",
       "version": "0.1.2",
       "category": "security",
       "tags": [
@@ -261,7 +278,7 @@
     {
       "name": "connectwise-manage",
       "source": "./skills/connectwise-manage",
-      "description": "Every ConnectWise PSA workflow from the terminal \u2014 with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.",
+      "description": "Every ConnectWise PSA workflow from the terminal — with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.",
       "version": "0.1.4",
       "category": "psa",
       "tags": [
@@ -292,7 +309,7 @@
     {
       "name": "cove",
       "source": "./skills/cove",
-      "description": "The first CLI and MCP server for Cove Data Protection \u2014 fleet-wide backup health, billing usage, and storage trends from a terminal, with the local history the vendor console doesn't keep.",
+      "description": "The first CLI and MCP server for Cove Data Protection — fleet-wide backup health, billing usage, and storage trends from a terminal, with the local history the vendor console doesn't keep.",
       "version": "0.1.4",
       "category": "backup-dr",
       "tags": [
@@ -308,7 +325,7 @@
     {
       "name": "crowdstrike",
       "source": "./skills/crowdstrike",
-      "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once \u2014 something no other Falcon tool (including the official MCP server) does.",
+      "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once — something no other Falcon tool (including the official MCP server) does.",
       "version": "0.1.1",
       "category": "security",
       "tags": [
@@ -539,7 +556,7 @@
     {
       "name": "microsoft-graph",
       "source": "./skills/microsoft-graph",
-      "description": "The maintained single-binary successor to the retiring mgc \u2014 every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can.",
+      "description": "The maintained single-binary successor to the retiring mgc — every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can.",
       "version": "0.2.0",
       "category": "security",
       "tags": [
@@ -573,7 +590,7 @@
     {
       "name": "mspbots",
       "source": "./skills/mspbots",
-      "description": "The first MSPbots tool anywhere \u2014 readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
+      "description": "The first MSPbots tool anywhere — readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
       "version": "0.1.1",
       "category": "analytics",
       "tags": [
@@ -635,7 +652,7 @@
     {
       "name": "pagerduty",
       "source": "./skills/pagerduty",
-      "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions \u2014 MTTA/MTTR, on-call coverage gaps, responder load \u2014 that neither the API nor the web UI can.",
+      "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions — MTTA/MTTR, on-call coverage gaps, responder load — that neither the API nor the web UI can.",
       "version": "0.1.1",
       "category": "incident-response",
       "tags": [
@@ -650,7 +667,7 @@
     {
       "name": "pandadoc",
       "source": "./skills/pandadoc",
-      "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has \u2014 stalled deals, aging, recipient engagement, and open quote value from a local store.",
+      "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has — stalled deals, aging, recipient engagement, and open quote value from a local store.",
       "version": "0.1.1",
       "category": "documentation",
       "tags": [
@@ -695,7 +712,7 @@
     {
       "name": "proofpoint",
       "source": "./skills/proofpoint",
-      "description": "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions \u2014 who is both attacked and clicking, what touched this user \u2014 inside Proofpoint's punishing daily quotas.",
+      "description": "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions — who is both attacked and clicking, what touched this user — inside Proofpoint's punishing daily quotas.",
       "version": "0.1.1",
       "category": "security",
       "tags": [
@@ -816,7 +833,7 @@
     {
       "name": "sentinelone",
       "source": "./skills/sentinelone",
-      "description": "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics \u2014 fleet health, threat triage, blast radius, drift \u2014 that no console view offers.",
+      "description": "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics — fleet health, threat triage, blast radius, drift — that no console view offers.",
       "version": "0.1.2",
       "category": "security",
       "tags": [
@@ -831,7 +848,7 @@
     {
       "name": "servosity",
       "source": "./skills/servosity",
-      "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
+      "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't — across your whole book of clients.",
       "version": "0.5.0",
       "category": "backup-dr",
       "tags": [
@@ -982,7 +999,7 @@
     {
       "name": "xero",
       "source": "./skills/xero",
-      "description": "Every Xero Accounting read plus a local SQLite ledger \u2014 aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
+      "description": "Every Xero Accounting read plus a local SQLite ledger — aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
       "version": "0.1.1",
       "category": "billing",
       "tags": [
