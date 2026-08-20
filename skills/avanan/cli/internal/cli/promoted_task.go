@@ -42,12 +42,6 @@ func newTaskPromotedCmd(flags *rootFlags) *cobra.Command {
 				}
 				return cmd.Help()
 			}
-			if !cmd.Flags().Changed("scopes") && !flags.dryRun {
-				return fmt.Errorf("required flag \"%s\" not set", "scopes")
-			}
-			if !cmd.Flags().Changed("x-av-req-id") && !flags.dryRun {
-				return fmt.Errorf("required flag \"%s\" not set", "x-av-req-id")
-			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err

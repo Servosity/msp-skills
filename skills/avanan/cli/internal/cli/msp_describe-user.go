@@ -57,9 +57,6 @@ func newMspDescribeUserCmd(flags *rootFlags) *cobra.Command {
 			if !cmd.Flags().Changed("msp-name") && !flags.dryRun {
 				return fmt.Errorf("required flag \"%s\" not set", "msp-name")
 			}
-			if !cmd.Flags().Changed("x-av-req-id") && !flags.dryRun {
-				return fmt.Errorf("required flag \"%s\" not set", "x-av-req-id")
-			}
 			path := "/v1.0/msp/users/{user_id}"
 			if len(args) < 1 || args[0] == "" {
 				return usageErr(fmt.Errorf("user_id is required\nUsage: %s <%s>", cmd.CommandPath(), "user_id"))

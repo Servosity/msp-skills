@@ -60,3 +60,10 @@ All notable changes to this skill are documented here. Format follows
   unprovisioned credential. The new layout matches Avanan's own MSP sample
   client (`datetime.datetime.utcnow().isoformat()`) and is recorded in
   `handfixes.json` so a reprint cannot silently revert it.
+- Commands no longer refuse to run without `--x-av-req-id` or `--scopes`. The
+  press had promoted both to required flags on 32 commands: `x-av-req-id` is a
+  transport header the client already generates per request, and `--scopes` was
+  required on the `scopes` command itself, so listing your scopes required
+  already knowing one. The API remains the enforcement point and answers a
+  multi-scope client with an HTTP 400 that names the requirement. Both flags
+  are still available for pinning a scope or correlating a request id.

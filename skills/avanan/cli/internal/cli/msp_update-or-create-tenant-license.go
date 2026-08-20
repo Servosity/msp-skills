@@ -62,9 +62,6 @@ func newMspUpdateOrCreateTenantLicenseCmd(flags *rootFlags) *cobra.Command {
 			if !cmd.Flags().Changed("msp-name") && !flags.dryRun {
 				return fmt.Errorf("required flag \"%s\" not set", "msp-name")
 			}
-			if !cmd.Flags().Changed("x-av-req-id") && !flags.dryRun {
-				return fmt.Errorf("required flag \"%s\" not set", "x-av-req-id")
-			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("request-data-license-code-name") && !flags.dryRun {
 					return fmt.Errorf("required flag \"%s\" not set", "request-data-license-code-name")

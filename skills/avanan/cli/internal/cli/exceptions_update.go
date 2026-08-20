@@ -79,12 +79,6 @@ func newExceptionsUpdateCmd(flags *rootFlags) *cobra.Command {
 				}
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <exc_id>"))
 			}
-			if !cmd.Flags().Changed("scopes") && !flags.dryRun {
-				return fmt.Errorf("required flag \"%s\" not set", "scopes")
-			}
-			if !cmd.Flags().Changed("x-av-req-id") && !flags.dryRun {
-				return fmt.Errorf("required flag \"%s\" not set", "x-av-req-id")
-			}
 			if !stdinBody {
 			}
 			path := "/v1.0/exceptions/blacklist/{exc_id}"

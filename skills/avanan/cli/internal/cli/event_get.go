@@ -55,12 +55,6 @@ func newEventGetCmd(flags *rootFlags) *cobra.Command {
 				}
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <event_id>"))
 			}
-			if !cmd.Flags().Changed("scopes") && !flags.dryRun {
-				return fmt.Errorf("required flag \"%s\" not set", "scopes")
-			}
-			if !cmd.Flags().Changed("x-av-req-id") && !flags.dryRun {
-				return fmt.Errorf("required flag \"%s\" not set", "x-av-req-id")
-			}
 			path := "/v1.0/event/{event_id}"
 			if len(args) < 1 || args[0] == "" {
 				return usageErr(fmt.Errorf("event_id is required\nUsage: %s <%s>", cmd.CommandPath(), "event_id"))

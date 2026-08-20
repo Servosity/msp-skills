@@ -57,9 +57,6 @@ func newMspDeleteCmd(flags *rootFlags) *cobra.Command {
 			if !cmd.Flags().Changed("msp-name") && !flags.dryRun {
 				return fmt.Errorf("required flag \"%s\" not set", "msp-name")
 			}
-			if !cmd.Flags().Changed("x-av-req-id") && !flags.dryRun {
-				return fmt.Errorf("required flag \"%s\" not set", "x-av-req-id")
-			}
 			path := "/v1.0/msp/msp-partners/{msp_id}"
 			if len(args) < 1 || args[0] == "" {
 				return usageErr(fmt.Errorf("msp_id is required\nUsage: %s <%s>", cmd.CommandPath(), "msp_id"))

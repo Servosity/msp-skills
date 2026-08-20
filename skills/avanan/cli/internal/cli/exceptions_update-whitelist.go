@@ -79,12 +79,6 @@ func newExceptionsUpdateWhitelistCmd(flags *rootFlags) *cobra.Command {
 				}
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <exc_id>"))
 			}
-			if !cmd.Flags().Changed("scopes") && !flags.dryRun {
-				return fmt.Errorf("required flag \"%s\" not set", "scopes")
-			}
-			if !cmd.Flags().Changed("x-av-req-id") && !flags.dryRun {
-				return fmt.Errorf("required flag \"%s\" not set", "x-av-req-id")
-			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("request-data-recipient") && !flags.dryRun {
 					return fmt.Errorf("required flag \"%s\" not set", "request-data-recipient")

@@ -51,9 +51,6 @@ func newMspCreateTenantsCmd(flags *rootFlags) *cobra.Command {
 			if !cmd.Flags().Changed("msp-name") && !flags.dryRun {
 				return fmt.Errorf("required flag \"%s\" not set", "msp-name")
 			}
-			if !cmd.Flags().Changed("x-av-req-id") && !flags.dryRun {
-				return fmt.Errorf("required flag \"%s\" not set", "x-av-req-id")
-			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("request-data-admin-email") && !flags.dryRun {
 					return fmt.Errorf("required flag \"%s\" not set", "request-data-admin-email")

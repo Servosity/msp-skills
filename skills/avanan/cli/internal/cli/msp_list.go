@@ -42,9 +42,6 @@ func newMspListCmd(flags *rootFlags) *cobra.Command {
 			if !cmd.Flags().Changed("msp-name") && !flags.dryRun {
 				return fmt.Errorf("required flag \"%s\" not set", "msp-name")
 			}
-			if !cmd.Flags().Changed("x-av-req-id") && !flags.dryRun {
-				return fmt.Errorf("required flag \"%s\" not set", "x-av-req-id")
-			}
 			path := "/v1.0/msp/msp-partners"
 			c, err := flags.newClient()
 			if err != nil {

@@ -67,6 +67,27 @@
           "min_count": 1
         }
       ]
+    },
+    {
+      "id": "no-required-transport-or-scope-flags",
+      "summary": "the generated commands no longer refuse to run without --x-av-req-id or --scopes; both are supplied by the transport or decided by the API",
+      "why": "The press promoted two parameters to required CLI flags on 32 commands. x-av-req-id is a per-request transport header that AvananTransport already generates and sets (avanan_transport.go), so demanding it from the caller asks for a value the client is about to overwrite. --scopes is worse: it was required on the `scopes` command itself, whose entire job is to discover which scopes a credential reaches, so the only way to list your scopes was to already know one. The API is the correct enforcement point and answers a multi-scope client with HTTP 400 naming the requirement, which the connector already surfaces. 47 enforcement blocks were removed across 32 files; the flags themselves remain available for callers who want to pin a scope or correlate a request id.",
+      "status": "active",
+      "spec_encode_followup": "Press should not promote a security-scheme or transport-generated header to a required command flag, and should not mark a discovery endpoint's own filter parameter required.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/promoted_scopes.go",
+          "not_contains": "required flag \\\"%s\\\" not set\", \"scopes\""
+        },
+        {
+          "file": "cli/internal/cli/promoted_scopes.go",
+          "not_contains": "required flag \\\"%s\\\" not set\", \"x-av-req-id\""
+        },
+        {
+          "file": "cli/internal/cli/event_query.go",
+          "not_contains": "required flag \\\"%s\\\" not set\", \"x-av-req-id\""
+        }
+      ]
     }
   ]
 }
