@@ -1,5 +1,5 @@
 {
-  "count": 63,
+  "count": 64,
   "connectors": [
     {
       "slug": "abnormal",
@@ -80,6 +80,16 @@
       "verified_by": null,
       "issue_url": null,
       "url": "/skills/auvik/"
+    },
+    {
+      "slug": "avanan",
+      "display_name": "Avanan",
+      "tagline": "Triage today's phishing across every Avanan tenant, tell one campaign from forty problems, and prove what actually happened to a quarantined message.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "issue_url": null,
+      "url": "/skills/avanan/"
     },
     {
       "slug": "aws-billing",
