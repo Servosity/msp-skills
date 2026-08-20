@@ -132,3 +132,46 @@ func TestFeedWindowIsUserOverridable(t *testing.T) {
 		t.Errorf("--param count=250 was overridden to %q; user params must win", got)
 	}
 }
+
+// feed declares no temporal filter, so an incremental sync (full=false with a
+// recorded last-sync time) falls through the not-incremental warning path.
+// That path must still produce exactly one unfiltered window rather than
+// re-entering a walk, and the warning it prints must not promise pagination
+// feed no longer does.
+func TestFeedIncrementalSyncStillFetchesOneWindow(t *testing.T) {
+	api := &fakeFeed{total: 60, pageCap: 60}
+	db, err := store.Open(filepath.Join(t.TempDir(), "data.db"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer db.Close()
+
+	// First pass records a last-synced timestamp.
+	if res := syncResource(context.Background(), api, db, "feed", "", true, 0, false,
+		&syncUserParams{}, nil); res.Err != nil {
+		t.Fatalf("seed sync: %v", res.Err)
+	}
+	// Second pass is incremental: full=false, and the store now has a
+	// last-synced time, so effectiveSince is set and sinceParam is empty.
+	var events strings.Builder
+	res := syncResource(context.Background(), api, db, "feed", "", false, 0, false,
+		&syncUserParams{}, &events)
+	if res.Err != nil {
+		t.Fatalf("incremental sync: %v", res.Err)
+	}
+	if len(api.calls) != 2 {
+		t.Fatalf("two syncs made %d requests, want 2 (one window each)", len(api.calls))
+	}
+	last := api.calls[1]
+	if last["count"] != "100" {
+		t.Errorf("incremental feed sync sent count=%q, want 100", last["count"])
+	}
+	for _, banned := range []string{"page_no", "page_size", "pageinate"} {
+		if _, ok := last[banned]; ok {
+			t.Errorf("incremental feed sync sent %s; feed is not page-walked", banned)
+		}
+	}
+	if out := events.String(); strings.Contains(out, "full pagination") {
+		t.Errorf("warning still promises pagination feed does not do: %s", out)
+	}
+}

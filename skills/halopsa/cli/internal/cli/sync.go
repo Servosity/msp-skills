@@ -468,13 +468,13 @@ func syncResource(ctx context.Context, c interface {
 		effectiveSince = lastSynced.Format(time.RFC3339)
 	}
 	// Resources whose list endpoint declares no temporal-filter parameter
-	// fall back to plain pagination — sending a synthetic since=... would
+	// fall back to an unfiltered sync — sending a synthetic since=... would
 	// reach the API as an unknown query param and (for strict APIs like
 	// Notion) fail the whole resource with a 400. Warn once per resource
 	// when the user expected incremental behavior.
 	if effectiveSince != "" && sinceParam == "" {
 		if humanFriendly {
-			fmt.Fprintf(os.Stderr, "  %s: incremental sync ignored (endpoint declares no temporal filter; falling back to full pagination)\n", resource)
+			fmt.Fprintf(os.Stderr, "  %s: incremental sync ignored (endpoint declares no temporal filter; falling back to an unfiltered sync)\n", resource)
 		} else {
 			fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"resource_not_incremental","message":"endpoint does not declare a temporal filter parameter; incremental sync has no effect for this resource"}`+"\n", resource)
 		}
