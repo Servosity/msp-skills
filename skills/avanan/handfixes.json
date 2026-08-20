@@ -1,0 +1,72 @@
+{
+  "slug": "avanan",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. status: active = connector-only, a reprint would clobber it; upstreamed = also fixed in the press, a reprint from a fixed press regenerates it, but the back-port must still be present today.",
+  "handfixes": [
+    {
+      "id": "x-text-above-go-2026-5970",
+      "summary": "`golang.org/x/text` is pinned at v0.41.0, above the v0.39.0 fix for GO-2026-5970",
+      "why": "The press emits `golang.org/x/text v0.14.0` as an indirect dependency of modernc.org/sqlite. Every version below v0.39.0 carries GO-2026-5970 (CVE-2026-56852): a norm.Iter infinite loop on input containing invalid UTF-8 bytes. Because a new connector's go.mod counts as introducing every version in it, the repo security gate scores that advisory P1 and blocks the merge. A reprint from a press that still emits v0.14.0 reintroduces the P1.",
+      "status": "active",
+      "spec_encode_followup": "Raise the floor on golang.org/x/text in the press module template so generated go.mod files ship above the GO-2026-5970 fix by construction (filed as a retro item against the generator).",
+      "asserts": [
+        {
+          "file": "cli/go.mod",
+          "contains": "golang.org/x/text v0.41.0",
+          "min_count": 1
+        },
+        {
+          "file": "cli/go.mod",
+          "not_contains": "golang.org/x/text v0.14.0"
+        }
+      ]
+    },
+    {
+      "id": "mcp-tenant-gate-allows-ungated-invocation",
+      "summary": "the MCP tenant gate falls through to the tool handler when no platform source is registered, instead of default-denying every non-mirror tool",
+      "why": "cli.VerifyMCPInvocation returns (nil, nil) when registeredPlatformSource is nil, which means 'there is nothing to gate' - and no connector in this repo registers a platform source (registerPlatformSource has zero callers outside internal/cli/platform_client.go). The 4.30.1/4.30.2 gate read that nil session as a failure and answered 'MCP tenant gate is not configured' for every tool that is not a Cobra mirror. Cobra mirrors carry pp:tenant-gate = \"child-cli\" and pass through, so the damage was invisible in a tool count: 5 tools on this connector were dead while the server still listed them. Those 5 are the entire offline-mirror surface (context, search, sql) plus the code-orchestration surface (avanan_search, avanan_get) - exactly the capabilities this connector's own description says a plain read-only MCP does not ship. Measured with check_mcp_gate.py before the fix: all 5 were reported DEFAULT-DENIED; after, none are. Fixed upstream in cli-printing-press 4.30.3 (issue #4157, PR #4171); this is the surgical back-port, byte-identical to what 4.30.3 emits and to the same back-port already merged on cork. TestMCPUngatedInvocationUsesRealVerifier is the regression test that ships with the 4.30.3 template: it drives the wrapper with the REAL verifier (not the fake the other two tests install) and fails if the handler is blocked. Reverting either the fall-through or the test fails check_handfixes.py.",
+      "status": "upstreamed",
+      "spec_encode_followup": "Already fixed in the press at 4.30.3 (mvanhorn/cli-printing-press#4171). A reprint on 4.30.3 or later regenerates both the fall-through and the conformance test, so this entry exists to keep the back-port from being dropped by a reprint on an older engine or by a regen-merge that resurrects the 4.30.2 body.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/platform_gate.go",
+          "not_contains": "NewToolResultError(\"MCP tenant gate is not configured\")"
+        },
+        {
+          "file": "cli/internal/mcp/platform_gate.go",
+          "contains": "return next(ctx, request)",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/mcp/platform_gate_test.go",
+          "contains": "func TestMCPUngatedInvocationUsesRealVerifier(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/platform_gate_test.go",
+          "contains": "verifyFreshMCPInvocation = cli.VerifyMCPInvocation",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "x-av-date-no-zone-suffix",
+      "summary": "x-av-date is sent as microsecond precision with no zone suffix, because the server parses the value and returns HTTP 500 on a trailing Z",
+      "why": "avanansig.DateFormat originally used \"2006-01-02T15:04:05.000Z\" on the reasoning that the vendor's samples are inconsistent and any format works so long as the header and the signed preimage are byte-identical. That reasoning is wrong: the server parses x-av-date rather than echoing it, and a trailing Z makes the parse fail. The API then answers HTTP 500 for every request, including one carrying a deliberately fabricated app id, so the failure presents as a vendor outage or an unprovisioned credential rather than a client bug. Verified live against smart-api-production-1-us on 2026-08-20: microsecond precision with no zone suffix returns a JWT, millisecond precision with Z returns 500, and x-av-token is irrelevant in both cases. This matches Avanan's own MSP sample client, which sends datetime.datetime.utcnow().isoformat(). The \"2021-04-10T00:00:00.000Z\" literal in the API Reference Guide is the input to the guide's worked signature example, not an accepted x-av-date value.",
+      "status": "active",
+      "spec_encode_followup": "Press has no way to express \"this header is parsed by the server, so the layout is load-bearing\". If a date-format annotation is ever added, encode it on the security scheme rather than leaving it to a hand-fix.",
+      "asserts": [
+        {
+          "file": "cli/internal/avanansig/avanansig.go",
+          "contains": "const DateFormat = \"2006-01-02T15:04:05.000000\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/avanansig/avanansig_test.go",
+          "contains": "2021-04-10T00:00:00.000000",
+          "min_count": 1
+        }
+      ]
+    }
+  ]
+}
