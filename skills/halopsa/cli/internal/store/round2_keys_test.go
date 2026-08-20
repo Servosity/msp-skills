@@ -172,18 +172,25 @@ func TestTimesheetKeyIsStableAcrossTimestampDrift(t *testing.T) {
 	}
 }
 
-// Numeric parent columns must pass through parentKeyDay untouched, so the
-// day-truncation cannot disturb the resources keyed on an ordinary id.
-func TestParentKeyDayLeavesNonDatesAlone(t *testing.T) {
+// Only the `date` column is normalised. Every other parent column passes
+// through byte-for-byte, so a future column carrying an opaque id that merely
+// starts with a date-like prefix cannot be truncated into a collision.
+func TestParentKeyValueNormalisesOnlyTheDateColumn(t *testing.T) {
 	for _, v := range []string{"42", "0", "runbookc9f1a2b3-45de-6f78-9a01-bcdef2345678", "", "2026", "a3b34d24-e2c5"} {
-		if got := parentKeyDay(v); got != v {
-			t.Errorf("parentKeyDay(%q) = %q, want it unchanged", v, got)
+		if got := parentKeyValue("date", v); got != v {
+			t.Errorf("parentKeyValue(date, %q) = %q, want it unchanged", v, got)
 		}
 	}
-	if got := parentKeyDay("2026-10-25T19:13:41Z"); got != "2026-10-25" {
-		t.Errorf("parentKeyDay truncation = %q, want %q", got, "2026-10-25")
+	if got := parentKeyValue("date", "2026-10-25T19:13:41Z"); got != "2026-10-25" {
+		t.Errorf("date truncation = %q, want %q", got, "2026-10-25")
 	}
-	if got := parentKeyDay("2026-10-25 19:13:41"); got != "2026-10-25" {
-		t.Errorf("parentKeyDay space-separated = %q, want %q", got, "2026-10-25")
+	if got := parentKeyValue("date", "2026-10-25 19:13:41"); got != "2026-10-25" {
+		t.Errorf("space-separated date = %q, want %q", got, "2026-10-25")
+	}
+	// The same timestamp-shaped value under any other column is untouched.
+	for _, col := range []string{"ticket_id", "agent_id", "lookupid", "fdid", "typeinfo_id", "invoice_id"} {
+		if got := parentKeyValue(col, "2026-10-25T19:13:41Z"); got != "2026-10-25T19:13:41Z" {
+			t.Errorf("parentKeyValue(%s, timestamp) = %q, want it unchanged", col, got)
+		}
 	}
 }

@@ -22063,13 +22063,14 @@ func resourceStorageID(resourceType, id string, obj map[string]any) string {
 		if parentValue == "" || parentValue == "<nil>" {
 			continue
 		}
-		key += string([]byte{0}) + parentKeyDay(parentValue)
+		key += string([]byte{0}) + parentKeyValue(parentKey, parentValue)
 	}
 	return key
 }
 
-// parentKeyDay truncates a timestamp used as part of a storage key to its
-// calendar day, and returns anything else unchanged.
+// parentKeyValue renders one parent column for the storage key. Only the
+// `date` column is normalised, to its calendar day; every other column is
+// returned byte-for-byte.
 //
 // HAND-FIX (handfixes.json:
 // parent-scoped-keys-round2-teamtree-forecasting-runbookvars). The two
@@ -22086,9 +22087,15 @@ func resourceStorageID(resourceType, id string, obj map[string]any) string {
 //
 // Merging is correct rather than lossy here: one timesheet or forecast row
 // per agent per day is the contract, which is exactly why the pair is the key.
-// Every other parent column in resourceParentKeyColumns is a numeric id and
-// is returned untouched.
-func parentKeyDay(v string) string {
+//
+// The normalisation is keyed on the COLUMN NAME rather than on the value
+// looking date-shaped, so a future parent column carrying an opaque id that
+// happens to start with a date-like prefix cannot be silently truncated into
+// a collision.
+func parentKeyValue(parentKey, v string) string {
+	if parentKey != "date" {
+		return v
+	}
 	if len(v) >= 11 && v[4] == '-' && v[7] == '-' && (v[10] == 'T' || v[10] == ' ') {
 		return v[:10]
 	}
