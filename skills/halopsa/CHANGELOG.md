@@ -4,6 +4,47 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.10] - unreleased
+
+### Fixed
+- `sync` no longer silently drops rows from `team-tree`,
+  `timesheet-forecasting` and `integration-runbook-variable-group`. These are
+  the last three of the nine resources reported in #264; the other five were
+  fixed in 0.2.8, and these needed sample records to confirm their key before
+  it was safe to change. `team-tree` numbers its nodes within a node type, so
+  two nodes both carry id 16 and 45 fetched rows stored 44; every row also
+  carries a `guid`, which is unique by construction and is now the key.
+  `timesheet-forecasting` has the same shape as `timesheet`, returning
+  `"id": 0` on every record, so all 132 fetched rows collapsed onto one; it is
+  keyed by the agent and the day. `integration-runbook-variable-group` carries
+  no id-shaped field at all, only a `label` and a `value`, so all 39 rows
+  failed extraction and the resource stored nothing; `value` is the stable key
+  and is now used. Thanks to @Xenith-B for the sanitized sample records that
+  made all three confirmable (#264).
+- Rows cached under the old keys are cleared automatically on first open, so a
+  resync repopulates them under the corrected keys rather than leaving stale
+  rows alongside the new ones.
+- `timesheet` and `timesheet-forecasting` rows no longer risk accumulating a
+  duplicate on every sync. Both are keyed by the agent and the day because
+  their records carry no usable id, and HaloPSA declares `date` as a DATETIME,
+  returning values such as `2026-10-25T19:13:41.4892555+00:00`: a forecast day
+  carrying a meaningless time. Had that time component been recomputed per
+  request rather than stored, the key would have changed on every sync while
+  the row it identifies did not, inserting a fresh copy each time. The key now
+  depends only on the calendar day, which is the contract these rows actually
+  have. `timesheet` is purged along with the others so any row 0.2.8 or 0.2.9
+  stored under a full-timestamp key is repopulated cleanly.
+
+### Notes
+- `feed` was reported in #264 as part of the same family and is deliberately
+  unchanged. Its 100 fetched to 62 stored is not row loss: `/Feed` identifies
+  its rows with a globally unique `id` (its own `newer_than_id`/`older_than_id`
+  paging contract depends on that), so two rows sharing an id are one row
+  fetched twice, and collapsing them is correct. Walking a live activity feed
+  by page number re-reads rows as new events shift the window, which is what
+  the duplicate count reflects. That is a separate defect with a separate fix
+  and is tracked on its own.
+
 ## [0.2.9] - 2026-08-19
 
 ### Fixed

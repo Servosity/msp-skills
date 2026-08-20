@@ -346,10 +346,74 @@
       "status": "active",
       "spec_encode_followup": "cli-printing-press#4283: SaveTokens must not clear the ClientID/ClientSecret env-override markers. Only a credential the caller supplied through an explicit command-line flag may clear them, and the flag's provenance must be passed in by the caller -- NOT inferred by comparing the incoming value against the loaded one. An explicit flag whose value equals the environment's is still explicit and must persist; conversely `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and a value-based rule leaks it.",
       "asserts": [
-        {"file": "cli/internal/config/config.go", "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {", "min_count": 1},
-        {"file": "cli/internal/cli/auth.go", "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)", "min_count": 1},
-        {"file": "cli/internal/config/config.go", "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.", "min_count": 1},
-        {"file": "cli/internal/config/config.go", "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"}
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"
+        }
+      ]
+    },
+    {
+      "id": "parent-scoped-keys-round2-teamtree-forecasting-runbookvars",
+      "summary": "team-tree keys on its guid, timesheet-forecasting on (agent_id, date), and integration-runbook-variable-group on its value; both timesheet resources key on the calendar day so a drifting DATETIME cannot duplicate rows; legacy rows purged at schema 7 (issue #264, second round)",
+      "why": "The last three of the nine resources reported in #264. The other five shipped in 0.2.8; these three could not be keyed safely until the reporter supplied sanitized sample records, because the spec declares no response schema for any of them and a guessed key would have traded a visible sync_anomaly for a different silent loss. team-tree numbers its nodes within a node type, so two nodes both carry id 16 (one under type 1 Opportunities, one under type 2 Projects) and 45 fetched rows stored 44; every row also carries a guid, unique by construction, which the generic fallback list reaches only after `id` and so never used. Keying on the guid is correct whichever way the duplicate arose: distinct nodes stay distinct, and a genuinely re-fetched node still collapses to one row. timesheet-forecasting mirrors timesheet exactly, returning a literal `\"id\": 0` on every record with agent_id, date, target_hours, actual_hours and workdayid carrying the content, and the reporter confirmed no forecasting_id field exists, so all 132 fetched rows collapsed onto a single key; workdayid is deliberately excluded from the key because over-keying turns a legitimate update into a duplicate row. integration-runbook-variable-group carries no id-shaped field at all: its rows are {label, value} pairs where value is the stable key (runbook<uuid>, integration<n>, or a short constant such as faults) and label is display text, so all 39 rows failed extraction and the resource stored nothing behind an all_items_failed_id_extraction anomaly. A string key needs no special handling since ResourceIDString returns it unchanged, so the reporter's suggestion of a dedicated code path was not needed. feed was reported in the same family and is deliberately NOT rekeyed: its id is globally unique (the endpoint's own newer_than_id/older_than_id paging contract depends on that), so its 100-fetched/62-stored gap is honest dedup of rows re-read by a page-number walk over a live activity stream, not row loss; a regression test pins feed out of resourceParentKeyColumns so a future reader cannot 'fix' it into storing duplicates.",
+      "status": "active",
+      "spec_encode_followup": "Same upstream ask as #203 and the first #264 round: teach cli-printing-press to derive parent-qualified storage keys, to recognise a constant or zero id as unusable, and to prefer a declared unique field (a guid, or a documented natural key) over the positional `id` fallback. Additionally: the generic page-number walk is wrong for time-ordered feed endpoints that expose keyset parameters, which is the separate feed defect.",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"team-tree\":                          \"guid\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"integration-runbook-variable-group\": \"value\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"timesheet-forecasting\": {\"agent_id\", \"date\"}",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "func (s *Store) migratePurgeLegacyRound2Keys",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/round2_keys_test.go",
+          "contains": "TestTeamTreeKeyedByGUID",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/round2_keys_test.go",
+          "contains": "TestFeedIsNotParentScoped",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "func parentKeyDay(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/round2_keys_test.go",
+          "contains": "TestTimesheetKeyIsStableAcrossTimestampDrift",
+          "min_count": 1
+        }
       ]
     }
   ]
