@@ -151,8 +151,13 @@ func (c *Config) SaveTokens(clientID, clientSecret, accessToken, refreshToken st
 	c.AccessToken = accessToken
 	c.RefreshToken = refreshToken
 	c.TokenExpiry = expiry
-	delete(c.envOverrides, "ClientID")
-	delete(c.envOverrides, "ClientSecret")
+	// issue #266: ClientID/ClientSecret supplied through the environment must
+	// never be copied to the on-disk config. Load() marks them as env overrides
+	// and configForSave() restores the file value for any field still marked --
+	// clearing those two markers here defeated that, so every token mint,
+	// including the automatic one on an ordinary authenticated command, rewrote
+	// the live secret into ~/.config/<tool>-cli/config.toml in cleartext. The
+	// markers now survive a save; only MarkCredentialsExplicit clears them.
 	delete(c.envOverrides, "AccessToken")
 	delete(c.envOverrides, "RefreshToken")
 	delete(c.envOverrides, "TokenExpiry")
@@ -162,6 +167,23 @@ func (c *Config) SaveTokens(clientID, clientSecret, accessToken, refreshToken st
 	c.updateFileConfigField("RefreshToken")
 	c.updateFileConfigField("TokenExpiry")
 	return c.save()
+}
+
+// MarkCredentialsExplicit records that the caller supplied these credentials
+// deliberately -- `auth login --client-id/--client-secret` -- rather than
+// inheriting them from the environment, which permits the next SaveTokens to
+// write them to disk. Provenance has to be declared by the caller: comparing
+// the incoming value against the loaded one cannot tell an explicit flag from
+// the environment value it happens to duplicate, and any normalisation on the
+// way in (`auth login` trims its env fallback, Load does not) makes such a
+// comparison wrong outright. See issue #266.
+func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {
+	if clientID {
+		delete(c.envOverrides, "ClientID")
+	}
+	if clientSecret {
+		delete(c.envOverrides, "ClientSecret")
+	}
 }
 
 func (c *Config) ClearTokens() error {

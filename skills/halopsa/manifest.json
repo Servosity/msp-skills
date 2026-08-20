@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "halopsa-mcp",
   "display_name": "HaloPSA",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
   "author": {
     "name": "Servosity Inc."

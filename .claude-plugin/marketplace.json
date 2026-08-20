@@ -387,7 +387,7 @@
       "name": "halopsa",
       "source": "./skills/halopsa",
       "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
-      "version": "0.2.8",
+      "version": "0.2.9",
       "category": "psa",
       "tags": [
         "halopsa",
@@ -621,7 +621,7 @@
       "name": "ninjaone",
       "source": "./skills/ninjaone",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "rmm",
       "tags": [
         "ninjaone",

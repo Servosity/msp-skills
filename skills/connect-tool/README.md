@@ -6,7 +6,7 @@ Every connector you install has the same last mile: get a credential out of a ve
 
 connect-tool does that last mile for CLIs, MCP servers, and Skills that are not already built-in Claude connectors, by driving the Chrome you are already logged into. You watch it happen. A displayed key or a pasted secret goes to your operating system's credential store without the complete value ever passing through the agent's context. And for a new or changed connection it will not report success until a real authenticated read returns real data from the vendor.
 
-**Runs on Windows and macOS.**
+**Runs on Windows and macOS.** Windows is the less-exercised of the two - `references/windows.md` names exactly what is proven, what is unproven, and the one upstream Windows install trap ([opencli#2102](https://github.com/jackwener/opencli/issues/2102)) that makes `opencli` exit silently with no output.
 
 ## Why this over just asking your agent to "connect X for me"
 
@@ -29,6 +29,7 @@ This audience checks claims rather than trusting them, which is the whole point,
 
 - It needs OpenCLI and its Chrome extension: a third-party npm package and a Chrome Web Store extension sit in your credential path. Pin the versions you review.
 - The browser bridge has a documented, recoverable failure where its background worker goes to sleep (you reload the extension's card in `chrome://extensions/`). Test the reliability in your own environment before you lean on it.
+- "Drives the Chrome you are already logged into" means your Chrome **profile**, not necessarily the tab you had focused. OpenCLI's extension manages its own container windows, so a new, apparently blank Chrome window can appear instead ([opencli#2202](https://github.com/jackwener/opencli/issues/2202)) - which is why issue [#266](https://github.com/Servosity/msp-skills/issues/266) was filed. When that window really is OpenCLI's container it is the same profile and your logins apply, but the skill is required to prove that by confirming a signed-in vendor session before it reassures you or touches a secret, because a blank window on its own does not establish which profile is being driven. `references/browser-and-keychain.md` has the check and the recovery order.
 - Apache-2.0 and inspectable, with a `--selfcheck` on every helper, so you can verify these properties instead of taking them on faith. Real assurance is the whole helper chain plus OpenCLI and the consuming CLI, not one file. `references/security-model.md` states plainly what the model does and does not claim.
 - Windows support is new and still being verified on real Windows hardware (`references/windows.md` lists exactly what is unproven). On macOS, every helper's `--selfcheck` passes, including a live credential-store round-trip.
 

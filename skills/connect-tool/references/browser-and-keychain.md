@@ -13,6 +13,32 @@ Use a per-target session `<slug>` (e.g. `halopsa`, `ninjaone`). Drive `--window 
 so the user watches live. `scripts/preflight.py` does doctor+bind+state and refuses to run
 if the bridge is down (it never falls back to a spawned browser).
 
+**What `bind` actually does, and what to tell the user (issue #266).** The bridge extension
+does not always drive the tab you had focused. It manages its own "owned container" windows
+and reuses a persistent `about:blank` placeholder, so a **new, apparently blank Chrome window
+can appear** instead of your existing tab. Running `opencli doctor` can create one by itself.
+Upstream: <https://github.com/jackwener/opencli/issues/2202> (open; observed on macOS, so this
+is the bridge's design, not a Windows problem).
+
+This is cosmetically alarming and easy to read as "it opened a browser I am not logged into,"
+which is the exact fear this skill exists to avoid. When the window really is OpenCLI's own
+container, it is not that: the extension creates it **inside your existing Chrome profile**,
+which is where your cookies and sessions live, so it carries your logins.
+
+**Confirm that before you rely on it.** A blank window is not evidence of anything - it does not
+tell you which profile you are driving. `open` the vendor page and read `state`: you want an
+authenticated URL and the user's own identity on the page, not a login form. Once that passes,
+say out loud that the new window is their session rather than letting them assume the run went
+wrong. **Until it passes, treat the window exactly like the *separate browser* the SKILL.md
+guardrail forbids** (Playwright, Puppeteer, a headless Chromium): no secret capture, no secret
+entry, no `guard_click` on a consent screen.
+
+If the check fails, or the container window stays blank and never navigates, in order:
+1. Reload the OpenCLI card in `chrome://extensions/` (dormant MV3 worker; a daemon restart
+   does not wake it).
+2. Focus the real tab and `opencli browser <slug> bind` again.
+3. Last resort, the `--remote-debugging-port=9222` CDP path in `references/opencli-bootstrap.md`.
+
 ## Navigation / interaction (non-secret values only)
 
 ```bash
