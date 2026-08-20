@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	"avanan-pp-cli/internal/cliutil"
 )
@@ -290,5 +291,86 @@ func TestIsRateLimited(t *testing.T) {
 				t.Errorf("IsRateLimited(%v) = %v, want %v", tt.err, got, tt.want)
 			}
 		})
+	}
+}
+
+// The entity search is not the event query with a different path. It requires
+// requestData.entityFilter carrying a saas value and reads the window from
+// inside that filter. Sending the flat shape returns HTTP 422 and mirrors
+// nothing, which is what this endpoint did before.
+func TestEntitiesSendsEntityFilterPerSaaS(t *testing.T) {
+	empty := `{"responseEnvelope":{"responseCode":200,"scrollId":""},"responseData":[]}`
+	responses := make([]string, len(EntitySaaS))
+	for i := range responses {
+		responses[i] = empty
+	}
+	p := &fakePoster{responses: responses}
+
+	since := time.Date(2026, 8, 13, 0, 0, 0, 0, time.UTC)
+	if _, err := Entities(context.Background(), p, nil, Options{Since: since}); err != nil {
+		t.Fatalf("Entities() error = %v", err)
+	}
+
+	if len(p.bodies) != len(EntitySaaS) {
+		t.Fatalf("sent %d queries, want one per platform (%d); the endpoint takes exactly one saas per call", len(p.bodies), len(EntitySaaS))
+	}
+
+	seen := make(map[string]bool, len(EntitySaaS))
+	for _, rd := range p.bodies {
+		if _, flat := rd["startDate"]; flat {
+			t.Error("startDate sent at requestData level; the entity search reads it from entityFilter")
+		}
+		filter, ok := rd["entityFilter"].(map[string]any)
+		if !ok {
+			t.Fatal("requestData.entityFilter missing; the endpoint answers HTTP 422 Field required")
+		}
+		saas, _ := filter["saas"].(string)
+		if saas == "" {
+			t.Error("entityFilter.saas empty; the endpoint requires one platform per query")
+		}
+		seen[saas] = true
+		if got := filter["startDate"]; got != since.Format(time.RFC3339) {
+			t.Errorf("entityFilter.startDate = %v, want %v", got, since.Format(time.RFC3339))
+		}
+	}
+	for _, platform := range EntitySaaS {
+		if !seen[platform] {
+			t.Errorf("no query issued for platform %q; its entities would never mirror", platform)
+		}
+	}
+}
+
+// Options.Scopes documents empty as "every scope the credential can reach".
+// A multi-scope client cannot express that in one unscoped call, so the caller
+// resolves it through DiscoverScopes first.
+func TestDiscoverScopesReturnsEveryReachableScope(t *testing.T) {
+	p := &fakePoster{getResp: map[string]string{
+		"/v1.0/scopes": `{"responseEnvelope":{"responseCode":200},"responseData":["mt-prod-3:alpha","mt-prod-3:beta","  "]}`,
+	}}
+
+	got, err := DiscoverScopes(context.Background(), p)
+	if err != nil {
+		t.Fatalf("DiscoverScopes() error = %v", err)
+	}
+	want := []string{"mt-prod-3:alpha", "mt-prod-3:beta"}
+	if len(got) != len(want) {
+		t.Fatalf("DiscoverScopes() = %v, want %v (blank entries must be dropped, not sent as a scope param)", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("scope[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+	if len(p.getPaths) != 1 || p.getPaths[0] != "/v1.0/scopes" {
+		t.Errorf("requested %v, want exactly [/v1.0/scopes]", p.getPaths)
+	}
+}
+
+func TestDiscoverScopesSurfacesEnvelopeFailure(t *testing.T) {
+	p := &fakePoster{getResp: map[string]string{
+		"/v1.0/scopes": `{"responseEnvelope":{"responseCode":403,"responseText":"forbidden"}}`,
+	}}
+	if _, err := DiscoverScopes(context.Background(), p); err == nil {
+		t.Fatal("DiscoverScopes() returned no error for a 403 envelope; the caller would mirror unscoped and get a 400 per exception path")
 	}
 }

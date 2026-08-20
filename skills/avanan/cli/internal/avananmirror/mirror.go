@@ -126,6 +126,10 @@ type Options struct {
 	MaxPages int
 	// PageSize overrides MaxPageSize.
 	PageSize int
+	// SaaS narrows the entity search to specific platforms. Empty means every
+	// platform in EntitySaaS. The entity endpoint rejects a query with no
+	// saas value, so there is no "all platforms in one call" option.
+	SaaS []string
 }
 
 func (o Options) pageSize() int {
@@ -170,20 +174,57 @@ func recordID(raw json.RawMessage) string {
 	return ""
 }
 
+// EntitySaaS lists the platform identifiers the entity search accepts. The
+// endpoint requires exactly one per query, so a full entity mirror is one pass
+// per platform rather than a single call.
+var EntitySaaS = []string{
+	"office365_emails",
+	"google_mail",
+	"office365_onedrive",
+	"office365_sharepoint",
+	"google_drive",
+	"ms_teams",
+	"slack",
+	"box2",
+	"dropbox2",
+}
+
+// DiscoverScopes asks the API which {farm}:{tenant} scopes the credential can
+// reach.
+//
+// A multi-scope app client rejects an unscoped request on the exception and
+// sectool paths with HTTP 400 "Must provide a single scope in as \"scope\" in
+// query string due to multi scope app client". Options.Scopes documents empty
+// as "every scope the credential can reach", so the caller resolves it to the
+// real list rather than sending one unscoped call that a multi-scope tenant
+// cannot answer.
+func DiscoverScopes(ctx context.Context, c Poster) ([]string, error) {
+	raw, err := c.Get(ctx, "/v1.0/scopes", nil)
+	if err != nil {
+		return nil, fmt.Errorf("discovering scopes: %w", err)
+	}
+	env, err := Decode(raw)
+	if err != nil {
+		return nil, fmt.Errorf("discovering scopes: %w", err)
+	}
+	if len(env.ResponseData) == 0 {
+		return nil, nil
+	}
+	var scopes []string
+	if err := json.Unmarshal(env.ResponseData, &scopes); err != nil {
+		return nil, fmt.Errorf("parsing scopes: %w", err)
+	}
+	out := scopes[:0]
+	for _, sc := range scopes {
+		if sc = strings.TrimSpace(sc); sc != "" {
+			out = append(out, sc)
+		}
+	}
+	return out, nil
+}
+
 // Events ingests security events for the requested window.
 func Events(ctx context.Context, c Poster, db *store.Store, opts Options) (Result, error) {
-	return ingestQuery(ctx, c, db, "/v1.0/event/query", ResourceEvents, opts)
-}
-
-// Entities ingests SaaS entities (emails, files, messages) for the window.
-func Entities(ctx context.Context, c Poster, db *store.Store, opts Options) (Result, error) {
-	return ingestQuery(ctx, c, db, "/v1.0/search/query", ResourceEntities, opts)
-}
-
-// ingestQuery walks one query endpoint's scrollId pages into the store.
-func ingestQuery(ctx context.Context, c Poster, db *store.Store, path, resource string, opts Options) (Result, error) {
-	res := Result{Resource: resource}
-
 	requestData := map[string]any{}
 	if !opts.Since.IsZero() {
 		requestData["startDate"] = opts.Since.UTC().Format(time.RFC3339)
@@ -191,6 +232,67 @@ func ingestQuery(ctx context.Context, c Poster, db *store.Store, path, resource 
 	if len(opts.Scopes) > 0 {
 		requestData["scopes"] = opts.Scopes
 	}
+	return ingestQuery(ctx, c, db, "/v1.0/event/query", ResourceEvents, requestData, opts)
+}
+
+// Entities ingests SaaS entities (emails, files, messages) for the window.
+//
+// Unlike the event query, /v1.0/search/query requires requestData.entityFilter
+// carrying a saas value, and reads the window from inside that filter rather
+// than from requestData. Sending the flat {startDate, pageSize} shape the event
+// query accepts returns HTTP 422 "entityFilter Field required" and mirrors
+// nothing, which is what this endpoint did before.
+func Entities(ctx context.Context, c Poster, db *store.Store, opts Options) (Result, error) {
+	platforms := opts.SaaS
+	if len(platforms) == 0 {
+		platforms = EntitySaaS
+	}
+
+	total := Result{Resource: ResourceEntities}
+	var firstErr error
+	succeeded := 0
+
+	for _, saas := range platforms {
+		if err := ctx.Err(); err != nil {
+			return total, err
+		}
+
+		entityFilter := map[string]any{"saas": saas}
+		if !opts.Since.IsZero() {
+			entityFilter["startDate"] = opts.Since.UTC().Format(time.RFC3339)
+		}
+		requestData := map[string]any{"entityFilter": entityFilter}
+		if len(opts.Scopes) > 0 {
+			requestData["scopes"] = opts.Scopes
+		}
+
+		res, err := ingestQuery(ctx, c, db, "/v1.0/search/query", ResourceEntities, requestData, opts)
+		total.Fetched += res.Fetched
+		total.Stored += res.Stored
+		total.Skipped += res.Skipped
+		total.Pages += res.Pages
+		total.Capped = total.Capped || res.Capped
+		if err != nil {
+			// A tenant that does not license a platform answers with an error
+			// for that platform only. Keep going so one unlicensed SaaS does
+			// not empty the whole entity mirror.
+			if firstErr == nil {
+				firstErr = fmt.Errorf("%s: %w", saas, err)
+			}
+			continue
+		}
+		succeeded++
+	}
+
+	if succeeded == 0 && firstErr != nil {
+		return total, firstErr
+	}
+	return total, nil
+}
+
+// ingestQuery walks one query endpoint's scrollId pages into the store.
+func ingestQuery(ctx context.Context, c Poster, db *store.Store, path, resource string, requestData map[string]any, opts Options) (Result, error) {
+	res := Result{Resource: resource}
 
 	scrollID := ""
 	for {

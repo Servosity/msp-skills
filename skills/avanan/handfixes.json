@@ -88,6 +88,54 @@
           "not_contains": "required flag \\\"%s\\\" not set\", \"x-av-req-id\""
         }
       ]
+    },
+    {
+      "id": "entity-search-requires-entity-filter",
+      "summary": "the entity mirror sends requestData.entityFilter with a saas value and the window inside it, one pass per platform",
+      "why": "Entities and Events shared one request builder that sent a flat {startDate, scopes, pageSize} requestData. That is correct for /v1.0/event/query and wrong for /v1.0/search/query, which requires requestData.entityFilter and reads the window from inside it. The endpoint answered HTTP 422 with 'entityFilter Field required' and the entity mirror stored zero rows on every run while the command still reported success. The endpoint also accepts exactly one saas per query, so a full entity mirror is one pass per platform rather than a single call; EntitySaaS carries the nine platform identifiers and a per-platform failure no longer empties the whole mirror.",
+      "status": "active",
+      "spec_encode_followup": "Press generated the correct nested entityFilter for the query-saas-entity command from the spec but the hand-written mirror did not reuse it. If the mirror is ever regenerated, take the body shape from the generated command rather than from the event query.",
+      "asserts": [
+        {
+          "file": "cli/internal/avananmirror/mirror.go",
+          "contains": "requestData := map[string]any{\"entityFilter\": entityFilter}",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/avananmirror/mirror.go",
+          "contains": "var EntitySaaS = []string{",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/avananmirror/mirror_test.go",
+          "contains": "func TestEntitiesSendsEntityFilterPerSaaS(",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "mirror-resolves-scopes-before-fanout",
+      "summary": "mirror resolves an empty --scope to the credential's real scope list instead of issuing one unscoped request",
+      "why": "Options.Scopes documents empty as 'every scope the credential can reach', but Exceptions turned an empty list into a single request carrying no scope param. A multi-scope app client rejects that on all nine exception sub-systems and the sectool paths with HTTP 400 'Must provide a single scope in as scope in query string due to multi scope app client', so the documented behaviour and the implemented behaviour disagreed and the exception mirror stored nothing for a multi-tenant MSP. DiscoverScopes reads GET /v1.0/scopes and the mirror command resolves the list before building Options, so the per-scope fan-out Exceptions already implements is actually reached. Discovery failure warns and continues rather than aborting, because a single-scope credential does not need it.",
+      "status": "active",
+      "spec_encode_followup": "None. This is a behavioural contract between two hand-written pieces, not a spec gap.",
+      "asserts": [
+        {
+          "file": "cli/internal/avananmirror/mirror.go",
+          "contains": "func DiscoverScopes(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/avanan_mirror.go",
+          "contains": "avananmirror.DiscoverScopes(ctx, c)",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/avananmirror/mirror_test.go",
+          "contains": "func TestDiscoverScopesReturnsEveryReachableScope(",
+          "min_count": 1
+        }
+      ]
     }
   ]
 }

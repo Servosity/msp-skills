@@ -67,3 +67,15 @@ All notable changes to this skill are documented here. Format follows
   already knowing one. The API remains the enforcement point and answers a
   multi-scope client with an HTTP 400 that names the requirement. Both flags
   are still available for pinning a scope or correlating a request id.
+- The entity mirror now sends `requestData.entityFilter` with a `saas` value and
+  the window inside it, one pass per platform. It previously reused the event
+  query's flat body, so `/v1.0/search/query` answered HTTP 422 "entityFilter
+  Field required" and entities stored zero rows while the run still reported
+  success. A platform the tenant does not license no longer empties the whole
+  entity mirror.
+- `mirror` resolves an empty `--scope` to the credential's real scope list
+  before fanning out. `Options.Scopes` documented empty as "every scope the
+  credential can reach", but an empty list produced one unscoped request, which
+  a multi-scope app client rejects on all nine exception sub-systems and the
+  sectool paths with HTTP 400. Discovery failure warns and continues, since a
+  single-scope credential does not need it.

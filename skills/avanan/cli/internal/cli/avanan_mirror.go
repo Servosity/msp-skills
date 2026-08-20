@@ -124,6 +124,21 @@ Do NOT use this command to query the API directly; use 'event query' or
 				return err
 			}
 
+			// Options.Scopes documents empty as "every scope the credential
+			// can reach", but the exception and sectool paths cannot express
+			// that in one call: a multi-scope app client answers an unscoped
+			// request with HTTP 400. Resolve it to the real list up front so
+			// the documented behaviour is what actually happens.
+			if len(scopes) == 0 {
+				discovered, err := avananmirror.DiscoverScopes(ctx, c)
+				if err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(),
+						"warning: could not discover scopes (%v); continuing unscoped, which a multi-scope client will reject on the exception paths\n", err)
+				} else if len(discovered) > 0 {
+					scopes = discovered
+				}
+			}
+
 			opts := avananmirror.Options{
 				Since:    time.Now().Add(-window),
 				Scopes:   scopes,
