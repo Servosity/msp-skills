@@ -31,7 +31,7 @@
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "appdirect-v0.1.0",
-    "current_hash": "sha256:7b123a10b22f9adc68834976eeffd251d79116605d1ce3c64f347f70f22b73a2",
+    "current_hash": "sha256:ffa4c7e18b949ede1d3dc7c42a3f67608f1f0afdd2b9f3cb016133b80726aa66",
     "released_hash": "sha256:cb47bbdb5bec3281845dfe9fe3ff67a539eddd1911005fe658763fb14049cdf1"
   },
   "atera": {
@@ -80,7 +80,7 @@
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "blumira-v0.1.0",
-    "current_hash": "sha256:45f8519f0a52a617b7af3a2d588edf2d196affcbf825e7768dcd3e129b25804c",
+    "current_hash": "sha256:cce8515c9ca3932d992d6436a13a0c1b2eea6b9c709417a1f7ddb91b73a3025e",
     "released_hash": "sha256:4489d8227db0a9bb6dd9ea4d6181d5242cf64fa3d024a7195f65d4924f092aed"
   },
   "cipp": {
@@ -136,7 +136,7 @@
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "crowdstrike-v0.1.0",
-    "current_hash": "sha256:acd3ebfe871b6d145f4114353a29c0ea852416c56a682ebc7135f15cf00ba2a0",
+    "current_hash": "sha256:5c1677db877d1a6d6979c65f3f5b5088bc16b563eb2bbe9fc5fa9e01f82d9ae9",
     "released_hash": "sha256:0e629f2563bddfab44bf389a6354e85f760ec38a7bf75eeb38a5524d1d7b7981"
   },
   "datto-bcdr": {
@@ -168,11 +168,11 @@
     "released_hash": "sha256:4ff2c6903bd19c1ef62cb39efa861570ccce90dc20a2cac715974a1db621ff91"
   },
   "halopsa": {
-    "state": "up-to-date",
-    "version": "0.2.8",
+    "state": "version-pending",
+    "version": "0.2.9",
     "latest_tag": "halopsa-v0.2.8",
-    "current_hash": "sha256:adb4118ad30d7247b293329c0ba1d5ddeba4fc87aeffd99137899ab3317faf95",
-    "released_hash": "sha256:adb4118ad30d7247b293329c0ba1d5ddeba4fc87aeffd99137899ab3317faf95"
+    "current_hash": "sha256:c564025c8ec25950604a6f42dba200c6df13d35f889d0c3a6ee04436fa2d5b98",
+    "released_hash": "sha256:c564025c8ec25950604a6f42dba200c6df13d35f889d0c3a6ee04436fa2d5b98"
   },
   "hubspot": {
     "state": "up-to-date",
@@ -269,15 +269,15 @@
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "nerdio-v0.1.0",
-    "current_hash": "sha256:956ae93b889aa074efcff69ffab2df96f04bb71e9daa4bd716ef534511a5f8ff",
+    "current_hash": "sha256:245d7067f2730673b867a980c90ace17f94a55a0f8558f92d3368733681261b9",
     "released_hash": "sha256:9ee5ea50f4e76eaf7eb8fb13c6b0ac3df7f3e5a9425e3e1945220fb731c7c9d5"
   },
   "ninjaone": {
-    "state": "up-to-date",
-    "version": "0.1.7",
+    "state": "version-pending",
+    "version": "0.1.8",
     "latest_tag": "ninjaone-v0.1.7",
-    "current_hash": "sha256:272d4ed4b69319e6a124bd812c36cb0cc7f4843ab8191471e8206bf2d24c9dae",
-    "released_hash": "sha256:272d4ed4b69319e6a124bd812c36cb0cc7f4843ab8191471e8206bf2d24c9dae"
+    "current_hash": "sha256:772769846c72fd36f414c88856dea9150806d3b952bdb19a55dbd156c5f6edbc",
+    "released_hash": "sha256:772769846c72fd36f414c88856dea9150806d3b952bdb19a55dbd156c5f6edbc"
   },
   "pagerduty": {
     "state": "binary-pending",
@@ -297,7 +297,7 @@
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "pax8-v0.1.0",
-    "current_hash": "sha256:646bdfe516286328b7d9177d57cd635df901bea2178fc009786ab68ef9c0958a",
+    "current_hash": "sha256:28e83d297a46200478aec3537717176215a22ea7e9ddfc3e93cbe024361dd24c",
     "released_hash": "sha256:a44f23d843df61747b14c678831fc97fc907e2b096705990d9ea92d6309e2903"
   },
   "pipedrive": {
@@ -381,14 +381,14 @@
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "sherweb-v0.1.0",
-    "current_hash": "sha256:01d312ee998059f98bcc76a14af21b170caa69778fd9a22e35439219a05c1ba4",
+    "current_hash": "sha256:c244e04e769dc95e228dd3553541cf0e7007f508d86c8b5ae7e3ec4e3596af0b",
     "released_hash": "sha256:7863802e3a4396200856a3db1f492c0fd0871731d600250de3646a52ce6fe6c5"
   },
   "skykick": {
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "skykick-v0.1.0",
-    "current_hash": "sha256:d13435565e1e7401e985390eb3cb6446c9250ac1ce329daf908a12495fd86885",
+    "current_hash": "sha256:703178d97861a974d278347d7c1e33548e8875ba5fd6f92889e04c8f24d109bb",
     "released_hash": "sha256:b1770a9f9f1598bab9eb29abb44e137eb45abd5e4801237fc381e3e31e08bf07"
   },
   "superops": {
