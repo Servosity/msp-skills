@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.2.10] - unreleased
+## [0.2.10] - 2026-08-20
 
 ### Fixed
 - `sync` no longer silently drops rows from `team-tree`,
