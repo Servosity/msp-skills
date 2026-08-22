@@ -1,0 +1,50 @@
+{
+  "slug": "immybot",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. status: active = connector-only, a reprint would clobber it; upstreamed = also fixed in the press, a reprint from a fixed press regenerates it, but the back-port must still be present today.",
+  "handfixes": [
+    {
+      "id": "save-tokens-keeps-env-credential-markers",
+      "summary": "`SaveTokens` no longer clears the ClientID and ClientSecret env-override markers, so an env-supplied client secret is never written to the credentials file",
+      "why": "PR #268 established that a credential supplied through the environment is never persisted. It is enforced by two guards that both read Config.envOverrides: configForSave() substitutes the file's value for any env-marked field, and updateFileConfigField() returns early for one. SaveTokens deleted the ClientID and ClientSecret markers before calling either, which defeated both, so `auth login` wrote the operator's long-lived client secret into credentials.toml. Observed live against a real ImmyBot tenant: with IMMYBOT_CLIENT_SECRET set only as a session variable and no --save flag passed, credentials.toml came back containing client_secret in plaintext, while `doctor` still reported credentials_location as env:IMMYBOT_CLIENT_SECRET. That mismatch is the whole danger: an operator who deliberately keeps secrets in session-scoped variables is told the secret is not on disk while a copy of it is. The minted access token, refresh token, and expiry keep their markers cleared, because those values originate in SaveTokens and login is exactly when they should be written. ClearCredentials (logout) also keeps clearing all five deliberately: it zeroes the fields and must overwrite whatever is already on disk, so an early return there would strand the secret. 61 of the 66 skills in this repo emit the same SaveTokens body, so this is an engine-level defect and not an ImmyBot quirk.",
+      "status": "active",
+      "spec_encode_followup": "Fix in the press template so SaveTokens preserves env-override markers for the credential inputs (ClientID, ClientSecret) while still persisting the minted trio. Until then every reprint reintroduces the leak, and the same fix is owed to the other 60 connectors that emit this body.",
+      "asserts": [
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "ClientID and ClientSecret deliberately keep their env-override markers",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/config/config_envcreds_test.go",
+          "contains": "func TestSaveTokens_KeepsEnvSuppliedClientSecretOffDisk(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/config/config_envcreds_test.go",
+          "contains": "func TestSaveTokens_PersistsExplicitlyPassedClientSecret(",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "oauth-scope-derived-from-instance-url",
+      "summary": "the client-credentials scope is derived from the ImmyBot instance URL instead of the generator's `api://{client_id}/.default` default",
+      "why": "ImmyBot's Entra application publishes the tenant's own instance URL as its App ID URI, so the correct client-credentials scope is https://<subdomain>.immy.bot/.default. ImmyBot's published API reference builds exactly that value (scope=$ApiEndpointUri/.default where $ApiEndpointUri is the instance base URL), confirmed against their documentation. The generator's default for any Microsoft Entra token URL is api://{client_id}/.default, which names the caller's own app registration as the resource rather than ImmyBot, and is therefore always wrong here. applyDerivedOAuthScope populates IMMYBOT_OAUTH_SCOPE before any token mint, which is the durable seam because the generated resolveClientCredentialsScope reads that variable first. Verified live: with the derivation in place, `auth login` mints a token against a real tenant and `sync` returns 119,654 records.",
+      "status": "active",
+      "spec_encode_followup": "Teach the press to read a server-URL-derived audience for Entra client-credentials flows so instance-scoped App ID URIs do not need a per-connector hand-fix.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/immybot_scope.go",
+          "contains": "func applyDerivedOAuthScope()",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/immybot_scope.go",
+          "contains": "/.default",
+          "min_count": 1
+        }
+      ]
+    }
+  ]
+}

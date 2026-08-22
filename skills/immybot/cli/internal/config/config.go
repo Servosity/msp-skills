@@ -536,8 +536,17 @@ func (c *Config) SaveTokens(clientID, clientSecret, accessToken, refreshToken st
 	c.AccessToken = accessToken
 	c.RefreshToken = refreshToken
 	c.TokenExpiry = expiry
-	delete(c.envOverrides, "ClientID")
-	delete(c.envOverrides, "ClientSecret")
+	// ClientID and ClientSecret deliberately keep their env-override markers.
+	// An operator who supplies them through the environment has chosen not to
+	// leave a long-lived secret on disk, and #268 made that choice stick by
+	// gating persistence on envOverrides: configForSave substitutes the file's
+	// value and updateFileConfigField returns early. Clearing the markers here
+	// defeated both guards, so `auth login` wrote the env-supplied client
+	// secret into credentials.toml while doctor still reported its source as
+	// env:*_CLIENT_SECRET. The minted trio below is different: those values
+	// originate in this call, so login is exactly when they should be written.
+	// Logout still clears all five on purpose, because it has to overwrite
+	// whatever is already on disk with zeroes.
 	delete(c.envOverrides, "AccessToken")
 	delete(c.envOverrides, "RefreshToken")
 	delete(c.envOverrides, "TokenExpiry")
