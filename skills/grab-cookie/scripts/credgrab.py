@@ -207,6 +207,20 @@ def extract_values(prof: dict, headers: dict[str, str]) -> dict[str, str]:
                     f"Re-capture from an authenticated request."
                 )
             continue
+        # A credential must be ONE line. ANSI-C unescaping ($'...\n...') turns a
+        # pasted \n into a real newline, and render_wire interpolates the value
+        # unvalidated -- so a crafted capture can append whole extra lines to the
+        # wired file (extra .env keys, extra TOML entries). do_wire's foreign-line
+        # guard cannot catch them: they belong to this render. One check here
+        # covers every wire type, because every wire type is line-oriented.
+        bad = next((c for c in ("\r", "\n", "\0") if c in value), None)
+        if bad is not None:
+            raise SystemExit(
+                f"FAIL: credential '{store_as}' contains a control character "
+                f"({bad!r}) and was not stored. A credential is a single line; "
+                f"embedded newlines can inject additional settings into the "
+                f"wired file. Re-capture from a clean authenticated request."
+            )
         out[store_as] = value
     if not out:
         raise SystemExit("FAIL: no credentials extracted from the capture.")
@@ -434,25 +448,28 @@ def run_verify(prof: dict) -> tuple[int, str]:
     except subprocess.TimeoutExpired:
         return ERROR, "verify timed out"
 
+    # The verify command's own output is NEVER returned: a vendor CLI that
+    # echoes the request (or the credential) would put it in the agent's
+    # context and in the scheduled doctor log, inverting the guarantee this
+    # tool makes. Classify here and return a fixed, credential-free string.
     combined = ((r.stdout or "") + "\n" + (r.stderr or "")).strip()
-    first = combined.splitlines()[0] if combined else f"exit {r.returncode}"
 
     if "expired_exit" in vr:
         # exit-code based (reliable when you control the verify command).
         if r.returncode == 0:
-            return OK, first
+            return OK, "live authed read OK"
         if r.returncode == vr["expired_exit"]:
-            return EXPIRED, first
-        return ERROR, first
+            return EXPIRED, "verify reported the credential expired"
+        return ERROR, f"verify failed (exit {r.returncode})"
     # substring based: check failure markers FIRST, regardless of exit code --
     # some generated CLIs print an auth error but still exit 0. Markers must be
     # specific enough not to appear in healthy output (e.g. "http 401", not "session").
     low = combined.lower()
     if any(s.lower() in low for s in vr.get("expired_on", [])):
-        return EXPIRED, first
+        return EXPIRED, "verify output matched an expired marker"
     if r.returncode == 0:
         return OK, "live authed read OK"
-    return ERROR, first
+    return ERROR, f"verify failed (exit {r.returncode})"
 
 
 VERDICT = {OK: "OK", ERROR: "ERROR", EXPIRED: "EXPIRED"}

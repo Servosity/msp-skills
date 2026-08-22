@@ -111,6 +111,95 @@ def _add_header(headers: dict[str, str], raw: str) -> None:
         headers[name] = value
 
 
+_FLAGS = ("--header", "--cookie", "-H", "-b")
+
+
+def _iter_flag_values(text: str):
+    """Yield (flag, unescaped_value) for each -H/--header/-b/--cookie in SOURCE ORDER.
+
+    Walks the blob once, honouring quote state, so a quoted value is consumed
+    whole and its contents can never be re-parsed as another flag. Handles the
+    three quote styles Chrome emits ($'...', '...', "...") plus an unquoted
+    token, and skips over any other quoted run so flags inside it stay inert.
+    """
+    i, n = 0, len(text)
+    while i < n:
+        c = text[i]
+        # Skip a quoted run that is not preceded by one of our flags: whatever
+        # is inside belongs to that value, not to the command line.
+        if c == "'":
+            j = i + 1
+            while j < n and text[j] != "'":
+                j += 1
+            i = j + 1
+            continue
+        if c == '"':
+            j = i + 1
+            while j < n:
+                if text[j] == "\\":
+                    j += 2
+                    continue
+                if text[j] == '"':
+                    break
+                j += 1
+            i = j + 1
+            continue
+        matched = None
+        for flag in _FLAGS:
+            if text.startswith(flag, i):
+                after = i + len(flag)
+                # Require a real boundary so --headerish does not match -H.
+                if after < n and (text[after].isspace() or text[after] in "'\"$"):
+                    matched = (flag, after)
+                    break
+        if matched is None:
+            i += 1
+            continue
+        flag, j = matched
+        while j < n and text[j].isspace():
+            j += 1
+        if j >= n:
+            break
+        if text.startswith("$'", j):  # ANSI-C
+            k = j + 2
+            buf = []
+            while k < n and text[k] != "'":
+                if text[k] == "\\" and k + 1 < n:
+                    buf.append(text[k:k + 2])
+                    k += 2
+                    continue
+                buf.append(text[k])
+                k += 1
+            yield flag, _unescape_ansic("".join(buf))
+            i = k + 1
+        elif text[j] == "'":  # plain single: no escapes inside
+            k = text.find("'", j + 1)
+            if k == -1:
+                break
+            yield flag, text[j + 1:k]
+            i = k + 1
+        elif text[j] == '"':  # double, backslash escapes
+            k = j + 1
+            buf = []
+            while k < n:
+                if text[k] == "\\" and k + 1 < n:
+                    buf.append(text[k:k + 2])
+                    k += 2
+                    continue
+                if text[k] == '"':
+                    break
+                buf.append(text[k])
+                k += 1
+            yield flag, _unescape_double("".join(buf))
+            i = k + 1
+        else:  # bare token
+            k = j
+            while k < n and not text[k].isspace():
+                k += 1
+            yield flag, text[j:k]
+            i = k
+
+
 def parse_headers(text: str) -> dict[str, str]:
     """Parse a Copy-as-cURL blob into a lowercased header map.
 
@@ -119,19 +208,25 @@ def parse_headers(text: str) -> dict[str, str]:
     """
     text = _CONT.sub(" ", text)
     headers: dict[str, str] = {}
+    cookie_flag: str | None = None
 
-    for m in _HDR_ANSIC.finditer(text):
-        _add_header(headers, _unescape_ansic(m.group(1)))
-    for m in _HDR_SINGLE.finditer(text):
-        _add_header(headers, m.group(1))
-    for m in _HDR_DOUBLE.finditer(text):
-        _add_header(headers, _unescape_double(m.group(1)))
+    # Scan ONCE, in source order, tracking quote state -- never three separate
+    # passes over the whole blob. Three passes are quoting-unaware: text that
+    # merely LOOKS like `-H "..."` inside somebody else's quoted value is picked
+    # up as a real header, and because the double-quote pass ran last it also
+    # WINS. That lets any attacker-controlled substring of the victim's own
+    # request (a cookie value, a URL query parameter) choose which credential
+    # gets stored and wired -- and verify still passes, because the injected
+    # session is live. Source order is also what the docstring promises.
+    for flag, value in _iter_flag_values(text):
+        if flag in ("-H", "--header"):
+            _add_header(headers, value)
+        elif flag in ("-b", "--cookie"):
+            # -b / --cookie takes precedence for the cookie value if present.
+            cookie_flag = value
 
-    # -b / --cookie takes precedence for the cookie value if present.
-    for rx, unesc in ((_CK_ANSIC, _unescape_ansic), (_CK_SINGLE, None), (_CK_DOUBLE, _unescape_double)):
-        m = rx.search(text)
-        if m:
-            headers["cookie"] = unesc(m.group(1)) if unesc else m.group(1)
+    if cookie_flag is not None:
+        headers["cookie"] = cookie_flag
 
     return headers
 
