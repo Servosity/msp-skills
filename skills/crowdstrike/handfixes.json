@@ -14,6 +14,47 @@
         {"file": "cli/internal/config/config.go", "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.", "min_count": 1},
         {"file": "cli/internal/config/config.go", "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"}
       ]
+    },
+    {
+      "id": "doctor-auth-hint-names-a-real-command",
+      "summary": "doctor, the CLI error path and the MCP error path all point at `crowdstrike-cli auth login` instead of a nonexistent `auth setup` subcommand (issue #277, #278)",
+      "why": "This CLI's `auth` parent defines login, status, set-token and logout. It has never defined `setup`, yet three generated surfaces told operators to run it: doctor.go's auth_hint (fires when cfg.AuthHeader() is empty), helpers.go's HTTP 400/401/403 remediation, and internal/mcp/tools.go's tool-error text -- 7 occurrences in all. Cobra does not error on an unknown subcommand of a NON-root parent (legacyArgs only rejects unknown args for the root), and the generated parent runs parentNoSubcommandRunE, which returns cmd.Help() -- a nil error. So `crowdstrike-cli auth setup` printed help and exited 0. There was no 'unknown command' error and no non-zero exit anywhere in the journey: an operator saw a success code and was no closer to credentials, and because these are agent-first CLIs with typed exit codes, an agent performing setup read exit 0 as success and carried on unauthenticated. The hint fires exactly when it matters -- fresh install, rotated secret, new machine, expired token. This skill emits no auth_instructions field, so these hints are the only setup guidance it gives. The replacements name the real command and, in doctor, the variables `auth login` actually reads: FALCON_CLIENT_ID and FALCON_CLIENT_SECRET (plus the optional CROWDSTRIKE_OAUTH_SCOPE), taken from the login command's own env fallbacks rather than composed. Reported by @geekbrownbear, who verified halopsa and ninjaone live against an empty config (PR #277) and filed appdirect/crowdstrike as issue #278; the fleet scan that found the other two surfaces and confirmed only these four connectors are affected was done during triage. GENERATOR-class defect: until the press is fixed, a reprint reintroduces all 7 strings and these asserts guard them. Bug-fix-only: no new flag, command, or output field.",
+      "status": "active",
+      "spec_encode_followup": "Derive the auth hint from the subcommand set the connector actually generates instead of the fixed \"Run '<cli> auth setup' for credential setup steps.\" string in internal/generator/generator.go. 52 of 56 connectors do define `auth setup`, which is why the hard-coded string went unnoticed; the four OAuth client-credentials connectors that scaffold `auth login` instead (appdirect, crowdstrike, halopsa, ninjaone) each shipped it 7 times. The same string is emitted into three surfaces -- doctor.go's auth_hint, helpers.go's 400/401/403 remediation, and the MCP server's tool-error text -- so a generator fix must cover all three.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "crowdstrike-cli auth setup"
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "not_contains": "crowdstrike-cli auth setup"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "crowdstrike-cli auth setup"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "Set FALCON_CLIENT_ID and FALCON_CLIENT_SECRET (plus CROWDSTRIKE_OAUTH_SCOPE if your instance needs a scope), then run 'crowdstrike-cli auth login' to mint a token.",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "crowdstrike-cli auth login' to re-authenticate.",
+          "min_count": 3
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "crowdstrike-cli auth login' to re-authenticate.",
+          "min_count": 3
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "cmd.AddCommand(newAuthLoginCmd(flags))",
+          "min_count": 1
+        }
+      ]
     }
   ]
 }
