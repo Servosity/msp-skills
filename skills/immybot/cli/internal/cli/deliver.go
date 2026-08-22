@@ -102,7 +102,7 @@ func deliverWebhook(url string, body []byte, compact bool) error {
 	if ua := os.Getenv("IMMYBOT_USER_AGENT"); ua != "" {
 		req.Header.Set("User-Agent", ua)
 	} else {
-		req.Header.Set("User-Agent", "immybot-pp-cli/deliver")
+		req.Header.Set("User-Agent", "immybot-cli/deliver")
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}

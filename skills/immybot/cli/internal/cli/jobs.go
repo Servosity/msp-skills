@@ -51,7 +51,7 @@ func legacyJobsFilePath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolving home dir: %w", err)
 	}
-	dir := filepath.Join(home, ".immybot-pp-cli")
+	dir := filepath.Join(home, ".immybot-cli")
 	return filepath.Join(dir, "jobs.jsonl"), nil
 }
 
@@ -237,8 +237,8 @@ the CLI state directory's jobs.jsonl. This command lists, inspects, and prunes t
 
 Submit an async endpoint with --wait to block until completion; submit
 without --wait to get the job ID back immediately and track it later.`,
-		Example: `  immybot-pp-cli jobs list --limit 10
-  immybot-pp-cli jobs get example-job-id --json`,
+		Example: `  immybot-cli jobs list --limit 10
+  immybot-cli jobs get example-job-id --json`,
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
@@ -254,7 +254,7 @@ func newJobsListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List recent async jobs",
-		Example:     `  immybot-pp-cli jobs list --limit 10 --json`,
+		Example:     `  immybot-cli jobs list --limit 10 --json`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			rows, err := readJobRows()
@@ -293,7 +293,7 @@ func newJobsGetCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:         "get <job-id>",
 		Short:       "Show the latest state row for a job",
-		Example:     `  immybot-pp-cli jobs get example-job-id --json`,
+		Example:     `  immybot-cli jobs get example-job-id --json`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -325,7 +325,7 @@ func newJobsPruneCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "prune",
 		Short:   "Remove job rows older than --older-than",
-		Example: `  immybot-pp-cli jobs prune --older-than 168h --json`,
+		Example: `  immybot-cli jobs prune --older-than 168h --json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			rows, err := readJobRows()
 			if err != nil {

@@ -16,7 +16,7 @@ func newTargetAssignmentsGetChangeRequestsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-change-requests",
 		Short:       "Get change requests",
-		Example:     "  immybot-pp-cli target-assignments get-change-requests",
+		Example:     "  immybot-cli target-assignments get-change-requests",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.get-change-requests", "pp:method": "GET", "pp:path": "/api/v1/target-assignments/change-requests", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/target-assignments/change-requests"

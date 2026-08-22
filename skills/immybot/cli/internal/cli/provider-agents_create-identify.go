@@ -20,7 +20,7 @@ func newProviderAgentsCreateIdentifyCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-identify",
 		Short:       "Identify agents that are marked with requiring manual identification",
-		Example:     "  immybot-pp-cli provider-agents create-identify",
+		Example:     "  immybot-cli provider-agents create-identify",
 		Annotations: map[string]string{"pp:endpoint": "provider-agents.create-identify", "pp:method": "POST", "pp:path": "/api/v1/provider-agents/identify"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

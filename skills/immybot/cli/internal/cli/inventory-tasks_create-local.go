@@ -21,7 +21,7 @@ func newInventoryTasksCreateLocalCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-local",
 		Aliases:     []string{"create"},
 		Short:       "Create local",
-		Example:     "  immybot-pp-cli inventory-tasks create-local",
+		Example:     "  immybot-cli inventory-tasks create-local",
 		Annotations: map[string]string{"pp:endpoint": "inventory-tasks.create-local", "pp:method": "POST", "pp:path": "/api/v1/inventory-tasks/local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

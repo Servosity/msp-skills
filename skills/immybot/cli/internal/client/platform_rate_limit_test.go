@@ -105,7 +105,7 @@ func platformRateLimitTestClient(t *testing.T, server *httptest.Server) (*Client
 		Sources: map[string]platform.SourceProfile{
 			"immybot": {CredentialRef: "fixture://Test/Synthetic/token", ExpectedAccountID: "acct-a", ExpectedOrgName: "Tenant A", ExpectedStoreID: "store-a", ExpectedStoreDomain: "tenant-a.example.test", ExpectedPropertyID: "123", ExpectedBaseURL: "https://tenant-a.example.test"},
 		},
-	}, "immybot-pp-cli", "immybot")
+	}, "immybot-cli", "immybot")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -17,7 +17,7 @@ func newPreferencesGetTenantsByTenantIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-tenants-by-tenant-id <tenantId>",
 		Aliases:     []string{"get"},
 		Short:       "Get tenants by tenant id",
-		Example:     "  immybot-pp-cli preferences get-tenants-by-tenant-id 42",
+		Example:     "  immybot-cli preferences get-tenants-by-tenant-id 42",
 		Annotations: map[string]string{"pp:endpoint": "preferences.get-tenants-by-tenant-id", "pp:method": "GET", "pp:path": "/api/v1/preferences/tenants/{tenantId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

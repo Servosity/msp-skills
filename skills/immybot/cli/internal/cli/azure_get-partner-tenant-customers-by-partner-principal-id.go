@@ -17,7 +17,7 @@ func newAzureGetPartnerTenantCustomersByPartnerPrincipalIdCmd(flags *rootFlags) 
 		Use:         "get-partner-tenant-customers-by-partner-principal-id <partnerPrincipalId>",
 		Aliases:     []string{"get"},
 		Short:       "Get partner tenant customers by partner principal id",
-		Example:     "  immybot-pp-cli azure get-partner-tenant-customers-by-partner-principal-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli azure get-partner-tenant-customers-by-partner-principal-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "azure.get-partner-tenant-customers-by-partner-principal-id", "pp:method": "GET", "pp:path": "/api/v1/azure/partner-tenant-customers/{partnerPrincipalId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

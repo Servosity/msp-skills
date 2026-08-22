@@ -19,7 +19,7 @@ func newUserSessionGetLoginCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-login",
 		Aliases:     []string{"list"},
 		Short:       "Get login",
-		Example:     "  immybot-pp-cli user_session get-login",
+		Example:     "  immybot-cli user_session get-login",
 		Annotations: map[string]string{"pp:endpoint": "user_session.get-login", "pp:method": "GET", "pp:path": "/auth/login", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/auth/login"

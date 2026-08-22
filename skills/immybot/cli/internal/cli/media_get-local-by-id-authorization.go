@@ -16,7 +16,7 @@ func newMediaGetLocalByIdAuthorizationCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-local-by-id-authorization <id>",
 		Short:       "Get local by id authorization",
-		Example:     "  immybot-pp-cli media get-local-by-id-authorization 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli media get-local-by-id-authorization 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "media.get-local-by-id-authorization", "pp:method": "GET", "pp:path": "/api/v1/media/local/{id}/authorization", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

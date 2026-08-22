@@ -16,7 +16,7 @@ func newScriptsDeleteLocalByIdCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete-local-by-id <scriptId>",
 		Short:       "Delete local by id",
-		Example:     "  immybot-pp-cli scripts delete-local-by-id 42",
+		Example:     "  immybot-cli scripts delete-local-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "scripts.delete-local-by-id", "pp:method": "DELETE", "pp:path": "/api/v1/scripts/local/{scriptId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -19,7 +19,7 @@ func newUserRoleAssignmentsCreateMspCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-msp-create",
 		Short:       "Create msp create",
-		Example:     "  immybot-pp-cli user-role-assignments create-msp-create",
+		Example:     "  immybot-cli user-role-assignments create-msp-create",
 		Annotations: map[string]string{"pp:endpoint": "user-role-assignments.create-msp-create", "pp:method": "POST", "pp:path": "/api/v1/user-role-assignments/msp/create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

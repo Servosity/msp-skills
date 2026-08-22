@@ -94,9 +94,9 @@ func newNovelFleetDiffCmd(flags *rootFlags) *cobra.Command {
 			"command for grouping the failures a maintenance window produced; use " +
 			"'session-triage' instead.",
 		Example: strings.Trim(`
-  immybot-pp-cli fleet-diff --snapshot
-  immybot-pp-cli fleet-diff --since 24h
-  immybot-pp-cli fleet-diff --since 7d --agent
+  immybot-cli fleet-diff --snapshot
+  immybot-cli fleet-diff --since 24h
+  immybot-cli fleet-diff --since 7d --agent
 `, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only": "true",
@@ -181,7 +181,7 @@ func newNovelFleetDiffCmd(flags *rootFlags) *cobra.Command {
 			}
 			if len(times) == 0 {
 				view.Compared = "none"
-				view.Note = "no fleet snapshots recorded yet; run 'immybot-pp-cli fleet-diff --snapshot' after a sync to establish a baseline"
+				view.Note = "no fleet snapshots recorded yet; run 'immybot-cli fleet-diff --snapshot' after a sync to establish a baseline"
 				if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 					return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 				}

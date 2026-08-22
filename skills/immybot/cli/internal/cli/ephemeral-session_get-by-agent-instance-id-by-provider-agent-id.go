@@ -17,7 +17,7 @@ func newEphemeralSessionGetByAgentInstanceIdByProviderAgentIdCmd(flags *rootFlag
 		Use:         "get-by-agent-instance-id-by-provider-agent-id <ephemeralSessionId> <agentInstanceId> <providerAgentId>",
 		Aliases:     []string{"get"},
 		Short:       "Get by agent instance id by provider agent id",
-		Example:     "  immybot-pp-cli ephemeral-session get-by-agent-instance-id-by-provider-agent-id 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 42",
+		Example:     "  immybot-cli ephemeral-session get-by-agent-instance-id-by-provider-agent-id 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 42",
 		Annotations: map[string]string{"pp:endpoint": "ephemeral-session.get-by-agent-instance-id-by-provider-agent-id", "pp:method": "GET", "pp:path": "/api/v1/ephemeral-session/{ephemeralSessionId}/{agentInstanceId}/{providerAgentId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

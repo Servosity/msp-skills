@@ -17,7 +17,7 @@ func newComputersInventoryScriptResultsGetByInventoryKeyCmd(flags *rootFlags) *c
 		Use:         "get-by-inventory-key <computerId> <inventoryKey>",
 		Aliases:     []string{"get"},
 		Short:       "Get by inventory key",
-		Example:     "  immybot-pp-cli computers inventory-script-results get-by-inventory-key 42 your-token-here",
+		Example:     "  immybot-cli computers inventory-script-results get-by-inventory-key 42 your-token-here",
 		Annotations: map[string]string{"pp:endpoint": "inventory-script-results.get-by-inventory-key", "pp:method": "GET", "pp:path": "/api/v1/computers/{computerId}/inventory-script-results/{inventoryKey}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

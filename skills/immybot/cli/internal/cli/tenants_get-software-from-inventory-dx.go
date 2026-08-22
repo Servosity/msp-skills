@@ -18,7 +18,7 @@ func newTenantsGetSoftwareFromInventoryDxCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-software-from-inventory-dx",
 		Short:       "Get software from inventory dx",
-		Example:     "  immybot-pp-cli tenants get-software-from-inventory-dx",
+		Example:     "  immybot-cli tenants get-software-from-inventory-dx",
 		Annotations: map[string]string{"pp:endpoint": "tenants.get-software-from-inventory-dx", "pp:method": "GET", "pp:path": "/api/v1/tenants/software-from-inventory/dx", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/tenants/software-from-inventory/dx"

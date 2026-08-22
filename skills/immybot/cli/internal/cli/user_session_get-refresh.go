@@ -16,7 +16,7 @@ func newUserSessionGetRefreshCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-refresh",
 		Short:       "Get refresh",
-		Example:     "  immybot-pp-cli user_session get-refresh",
+		Example:     "  immybot-cli user_session get-refresh",
 		Annotations: map[string]string{"pp:endpoint": "user_session.get-refresh", "pp:method": "GET", "pp:path": "/auth/refresh", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/auth/refresh"

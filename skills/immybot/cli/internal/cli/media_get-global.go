@@ -19,7 +19,7 @@ func newMediaGetGlobalCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-global",
 		Aliases:     []string{"list"},
 		Short:       "Get global",
-		Example:     "  immybot-pp-cli media get-global",
+		Example:     "  immybot-cli media get-global",
 		Annotations: map[string]string{"pp:endpoint": "media.get-global", "pp:method": "GET", "pp:path": "/api/v1/media/global", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("category") {

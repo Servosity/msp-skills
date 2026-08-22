@@ -17,7 +17,7 @@ func newChocolateyGetSearchCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-search",
 		Short:       "Get search",
-		Example:     "  immybot-pp-cli chocolatey get-search",
+		Example:     "  immybot-cli chocolatey get-search",
 		Annotations: map[string]string{"pp:endpoint": "chocolatey.get-search", "pp:method": "GET", "pp:path": "/api/v1/chocolatey/search", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/chocolatey/search"

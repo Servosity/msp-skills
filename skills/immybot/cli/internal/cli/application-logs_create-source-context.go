@@ -21,7 +21,7 @@ func newApplicationLogsCreateSourceContextCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-source-context",
 		Aliases:     []string{"create"},
 		Short:       "Create source context",
-		Example:     "  immybot-pp-cli application-logs create-source-context",
+		Example:     "  immybot-cli application-logs create-source-context",
 		Annotations: map[string]string{"pp:endpoint": "application-logs.create-source-context", "pp:method": "POST", "pp:path": "/api/v1/application-logs/source-context"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

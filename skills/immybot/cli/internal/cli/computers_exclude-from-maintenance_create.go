@@ -19,7 +19,7 @@ func newComputersExcludeFromMaintenanceCreateCmd(flags *rootFlags) *cobra.Comman
 	cmd := &cobra.Command{
 		Use:         "create <computerId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli computers exclude-from-maintenance create 42",
+		Example:     "  immybot-cli computers exclude-from-maintenance create 42",
 		Annotations: map[string]string{"pp:endpoint": "exclude-from-maintenance.create", "pp:method": "POST", "pp:path": "/api/v1/computers/{computerId}/exclude-from-maintenance"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

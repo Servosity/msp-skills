@@ -18,7 +18,7 @@ func newMaintenanceTasksGetReferenceCountCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-reference-count",
 		Short:       "Get reference count",
-		Example:     "  immybot-pp-cli maintenance-tasks get-reference-count",
+		Example:     "  immybot-cli maintenance-tasks get-reference-count",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-tasks.get-reference-count", "pp:method": "GET", "pp:path": "/api/v1/maintenance-tasks/reference-count", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("maintenance-task-type") {

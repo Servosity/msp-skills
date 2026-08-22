@@ -20,7 +20,7 @@ func newTenantsCreateRemoveTagsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-remove-tags",
 		Short:       "Create remove tags",
-		Example:     "  immybot-pp-cli tenants create-remove-tags",
+		Example:     "  immybot-cli tenants create-remove-tags",
 		Annotations: map[string]string{"pp:endpoint": "tenants.create-remove-tags", "pp:method": "POST", "pp:path": "/api/v1/tenants/remove-tags"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

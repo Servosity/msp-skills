@@ -16,7 +16,7 @@ func newUserSessionGetLogoutCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-logout",
 		Short:       "Get logout",
-		Example:     "  immybot-pp-cli user_session get-logout",
+		Example:     "  immybot-cli user_session get-logout",
 		Annotations: map[string]string{"pp:endpoint": "user_session.get-logout", "pp:method": "GET", "pp:path": "/auth/logout", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/auth/logout"

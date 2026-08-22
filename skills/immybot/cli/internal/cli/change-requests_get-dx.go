@@ -18,7 +18,7 @@ func newChangeRequestsGetDxCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-dx",
 		Aliases:     []string{"list"},
 		Short:       "Get dx",
-		Example:     "  immybot-pp-cli change-requests get-dx",
+		Example:     "  immybot-cli change-requests get-dx",
 		Annotations: map[string]string{"pp:endpoint": "change-requests.get-dx", "pp:method": "GET", "pp:path": "/api/v1/change-requests/dx", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/change-requests/dx"

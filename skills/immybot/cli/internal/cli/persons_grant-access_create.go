@@ -19,7 +19,7 @@ func newPersonsGrantAccessCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <personId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli persons grant-access create 42",
+		Example:     "  immybot-cli persons grant-access create 42",
 		Annotations: map[string]string{"pp:endpoint": "grant-access.create", "pp:method": "POST", "pp:path": "/api/v1/persons/{personId}/grant-access"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

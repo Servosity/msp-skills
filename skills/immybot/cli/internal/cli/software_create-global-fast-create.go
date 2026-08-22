@@ -94,7 +94,7 @@ func newSoftwareCreateGlobalFastCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-global-fast-create",
 		Short:       "Create global fast create",
-		Example:     "  immybot-pp-cli software create-global-fast-create",
+		Example:     "  immybot-cli software create-global-fast-create",
 		Annotations: map[string]string{"pp:endpoint": "software.create-global-fast-create", "pp:method": "POST", "pp:path": "/api/v1/software/global/fast-create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

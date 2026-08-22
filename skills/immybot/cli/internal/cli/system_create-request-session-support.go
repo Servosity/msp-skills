@@ -23,7 +23,7 @@ func newSystemCreateRequestSessionSupportCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-request-session-support",
 		Short:       "Create request session support",
-		Example:     "  immybot-pp-cli system create-request-session-support",
+		Example:     "  immybot-cli system create-request-session-support",
 		Annotations: map[string]string{"pp:endpoint": "system.create-request-session-support", "pp:method": "POST", "pp:path": "/api/v1/system/request-session-support"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

@@ -20,7 +20,7 @@ func newProviderLinksClientsCreateUnlinkFromTenantsCmd(flags *rootFlags) *cobra.
 	cmd := &cobra.Command{
 		Use:         "create-unlink-from-tenants <id>",
 		Short:       "Create unlink from tenants",
-		Example:     "  immybot-pp-cli provider-links clients create-unlink-from-tenants 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli provider-links clients create-unlink-from-tenants 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "clients.create-unlink-from-tenants", "pp:method": "POST", "pp:path": "/api/v1/provider-links/{id}/clients/unlink-from-tenants"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

@@ -494,16 +494,16 @@ func TestTeachLookup_RejectsComputedKind(t *testing.T) {
 
 func TestSkipLearnHook_FrameworkCommandsSkipped(t *testing.T) {
 	cases := []string{
-		"immybot-pp-cli auth login",
-		"immybot-pp-cli doctor",
-		"immybot-pp-cli help items",
-		"immybot-pp-cli sync",
-		"immybot-pp-cli profile list",
-		"immybot-pp-cli feedback list",
-		"immybot-pp-cli which",
-		"immybot-pp-cli agent-context",
-		"immybot-pp-cli completion bash",
-		"immybot-pp-cli version",
+		"immybot-cli auth login",
+		"immybot-cli doctor",
+		"immybot-cli help items",
+		"immybot-cli sync",
+		"immybot-cli profile list",
+		"immybot-cli feedback list",
+		"immybot-cli which",
+		"immybot-cli agent-context",
+		"immybot-cli completion bash",
+		"immybot-cli version",
 	}
 	for _, commandPath := range cases {
 		if !shouldSkipLearnHook(commandPath) {
@@ -514,12 +514,12 @@ func TestSkipLearnHook_FrameworkCommandsSkipped(t *testing.T) {
 
 func TestSkipLearnHook_NovelCommandsNotSkipped(t *testing.T) {
 	novel := []string{
-		"immybot-pp-cli teach",
-		"immybot-pp-cli recall",
-		"immybot-pp-cli learnings",
-		"immybot-pp-cli teach-pattern",
-		"immybot-pp-cli teach-lookup",
-		"immybot-pp-cli items list",
+		"immybot-cli teach",
+		"immybot-cli recall",
+		"immybot-cli learnings",
+		"immybot-cli teach-pattern",
+		"immybot-cli teach-lookup",
+		"immybot-cli items list",
 	}
 	for _, commandPath := range novel {
 		if shouldSkipLearnHook(commandPath) {
@@ -541,7 +541,7 @@ func TestSkipLearnHook_FrameworkCommandsDoNotCreateDefaultDB(t *testing.T) {
 	}
 	for _, args := range cases {
 		_, _, _ = runRootArgs(t, args...)
-		dbPath := defaultDBPath("immybot-pp-cli")
+		dbPath := defaultDBPath("immybot-cli")
 		if _, err := os.Stat(dbPath); err == nil {
 			t.Fatalf("%s created default DB at %s", strings.Join(args, " "), dbPath)
 		} else if !os.IsNotExist(err) {

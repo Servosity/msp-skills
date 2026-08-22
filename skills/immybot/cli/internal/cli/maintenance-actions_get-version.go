@@ -19,7 +19,7 @@ func newMaintenanceActionsGetVersionCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-version",
 		Short:       "Get version",
-		Example:     "  immybot-pp-cli maintenance-actions get-version",
+		Example:     "  immybot-cli maintenance-actions get-version",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-actions.get-version", "pp:method": "GET", "pp:path": "/api/v1/maintenance-actions/version", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("software-type") {

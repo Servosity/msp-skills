@@ -21,7 +21,7 @@ func newBillingCreateUpdateAddonCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-update-addon",
 		Short:       "Create update addon",
-		Example:     "  immybot-pp-cli billing create-update-addon",
+		Example:     "  immybot-cli billing create-update-addon",
 		Annotations: map[string]string{"pp:endpoint": "billing.create-update-addon", "pp:method": "POST", "pp:path": "/api/v1/billing/update-addon"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

@@ -21,7 +21,7 @@ func newGroupsCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli groups create",
+		Example:     "  immybot-cli groups create",
 		Annotations: map[string]string{"pp:endpoint": "groups.create", "pp:method": "POST", "pp:path": "/api/v1/groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

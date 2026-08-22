@@ -19,7 +19,7 @@ func newProviderTypesGetClientGroupTypesByClientGroupTypeIdClientGroupsCmd(flags
 		Use:         "get-client-group-types-by-client-group-type-id-client-groups <clientGroupTypeId>",
 		Aliases:     []string{"get"},
 		Short:       "Get client group types by client group type id client groups",
-		Example:     "  immybot-pp-cli provider-types get-client-group-types-by-client-group-type-id-client-groups 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli provider-types get-client-group-types-by-client-group-type-id-client-groups 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "provider-types.get-client-group-types-by-client-group-type-id-client-groups", "pp:method": "GET", "pp:path": "/api/v1/provider-types/client-group-types/{clientGroupTypeId}/client-groups", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

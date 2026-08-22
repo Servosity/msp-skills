@@ -18,7 +18,7 @@ func newTenantsUpdateDeactivateByIdCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update-deactivate-by-id <id>",
 		Short:       "Update deactivate by id",
-		Example:     "  immybot-pp-cli tenants update-deactivate-by-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli tenants update-deactivate-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "tenants.update-deactivate-by-id", "pp:method": "PATCH", "pp:path": "/api/v1/tenants/deactivate/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

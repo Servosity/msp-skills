@@ -1,30 +1,49 @@
 {
   "manifest_version": "0.3",
-  "name": "immybot-pp-mcp",
+  "name": "immybot-mcp",
   "display_name": "ImmyBot",
-  "version": "4.31.1",
+  "version": "0.1.0",
   "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
   "author": {
-    "name": "CLI Printing Press"
+    "name": "Servosity Inc."
   },
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/immybot-pp-mcp",
+    "entry_point": "bin/immybot-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/immybot-pp-mcp",
+      "command": "${__dirname}/bin/immybot-mcp",
       "args": [],
       "env": {
-        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+        "IMMYBOT_SUBDOMAIN": "${user_config.immybot_subdomain}",
+        "IMMYBOT_TENANT_ID": "${user_config.immybot_tenant_id}",
+        "IMMYBOT_CLIENT_ID": "${user_config.immybot_client_id}",
+        "IMMYBOT_CLIENT_SECRET": "${user_config.immybot_client_secret}"
       }
     }
   },
   "user_config": {
-    "printing_press_client_profile": {
+    "immybot_subdomain": {
       "type": "string",
-      "title": "Client profile",
-      "description": "Binds the MCP server to an existing tenant-gated Printing Press client profile.",
-      "required": true
+      "title": "IMMYBOT_SUBDOMAIN",
+      "description": "Your ImmyBot instance subdomain - the \"acme\" in acme.immy.bot. Required: it derives the OAuth scope, and without it the token request falls back to a scope naming your own app registration and Entra rejects it."
+    },
+    "immybot_tenant_id": {
+      "type": "string",
+      "title": "IMMYBOT_TENANT_ID",
+      "description": "Directory (tenant) ID of the Microsoft Entra tenant your ImmyBot instance trusts."
+    },
+    "immybot_client_id": {
+      "type": "string",
+      "title": "IMMYBOT_CLIENT_ID",
+      "description": "Application (client) ID of the Entra app registration. Add that app's Enterprise Application object ID as an admin person in ImmyBot (Show More > People > New > AD External ID).",
+      "sensitive": true
+    },
+    "immybot_client_secret": {
+      "type": "string",
+      "title": "IMMYBOT_CLIENT_SECRET",
+      "description": "Client secret paired with IMMYBOT_CLIENT_ID, from the Entra app registration.",
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -34,5 +53,12 @@
       "linux",
       "win32"
     ]
+  },
+  "printing_press_version": null,
+  "press_provenance": {
+    "printing_press_version": null,
+    "generated_at": null,
+    "spec_checksum": null,
+    "spec_format": null
   }
 }

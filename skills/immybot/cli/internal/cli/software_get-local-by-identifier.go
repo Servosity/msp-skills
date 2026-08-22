@@ -18,7 +18,7 @@ func newSoftwareGetLocalByIdentifierCmd(flags *rootFlags) *cobra.Command {
 		Use:   "get-local-by-identifier <softwareIdentifier>",
 		Short: "Get local by identifier",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli software get-local-by-identifier example-value",
+		Example:     "  immybot-cli software get-local-by-identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "software.get-local-by-identifier", "pp:method": "GET", "pp:path": "/api/v1/software/local/{softwareIdentifier}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

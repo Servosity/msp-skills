@@ -19,7 +19,7 @@ func newScriptsGetLocalNamesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-local-names",
 		Short:       "Get local names",
-		Example:     "  immybot-pp-cli scripts get-local-names",
+		Example:     "  immybot-cli scripts get-local-names",
 		Annotations: map[string]string{"pp:endpoint": "scripts.get-local-names", "pp:method": "GET", "pp:path": "/api/v1/scripts/local/names", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("script-category") {

@@ -21,7 +21,7 @@ func newInventoryTasksCreateLocalByIdScriptsCmd(flags *rootFlags) *cobra.Command
 	cmd := &cobra.Command{
 		Use:         "create-local-by-id-scripts <id>",
 		Short:       "Create local by id scripts",
-		Example:     "  immybot-pp-cli inventory-tasks create-local-by-id-scripts 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli inventory-tasks create-local-by-id-scripts 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "inventory-tasks.create-local-by-id-scripts", "pp:method": "POST", "pp:path": "/api/v1/inventory-tasks/local/{id}/scripts"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

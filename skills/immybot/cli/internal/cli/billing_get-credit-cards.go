@@ -17,7 +17,7 @@ func newBillingGetCreditCardsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-credit-cards",
 		Aliases:     []string{"list"},
 		Short:       "Get credit cards",
-		Example:     "  immybot-pp-cli billing get-credit-cards",
+		Example:     "  immybot-cli billing get-credit-cards",
 		Annotations: map[string]string{"pp:endpoint": "billing.get-credit-cards", "pp:method": "GET", "pp:path": "/api/v1/billing/credit-cards", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/billing/credit-cards"

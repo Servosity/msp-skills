@@ -18,7 +18,7 @@ func newChocolateyGetFindPackagesByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-find-packages-by-id",
 		Aliases:     []string{"list"},
 		Short:       "Get find packages by id",
-		Example:     "  immybot-pp-cli chocolatey get-find-packages-by-id",
+		Example:     "  immybot-cli chocolatey get-find-packages-by-id",
 		Annotations: map[string]string{"pp:endpoint": "chocolatey.get-find-packages-by-id", "pp:method": "GET", "pp:path": "/api/v1/chocolatey/find-packages-by-id", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/chocolatey/find-packages-by-id"

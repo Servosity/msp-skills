@@ -17,7 +17,7 @@ func newMetricsGetProviderLinksByProviderLinkIdRateLimitStatisticsCmd(flags *roo
 		Use:         "get-provider-links-by-provider-link-id-rate-limit-statistics <providerLinkId>",
 		Aliases:     []string{"get"},
 		Short:       "Returns the current rate limiter statistics for a provider link. 200: stats available. 204: provider not initialized.",
-		Example:     "  immybot-pp-cli metrics get-provider-links-by-provider-link-id-rate-limit-statistics https://example.com/resource",
+		Example:     "  immybot-cli metrics get-provider-links-by-provider-link-id-rate-limit-statistics https://example.com/resource",
 		Annotations: map[string]string{"pp:endpoint": "metrics.get-provider-links-by-provider-link-id-rate-limit-statistics", "pp:method": "GET", "pp:path": "/api/v1/metrics/provider-links/{providerLinkId}/rate-limit-statistics", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

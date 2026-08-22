@@ -17,7 +17,7 @@ func newSchedulesGetByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-by-id <scheduleId>",
 		Aliases:     []string{"get"},
 		Short:       "Get by id",
-		Example:     "  immybot-pp-cli schedules get-by-id 42",
+		Example:     "  immybot-cli schedules get-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "schedules.get-by-id", "pp:method": "GET", "pp:path": "/api/v1/schedules/{scheduleId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

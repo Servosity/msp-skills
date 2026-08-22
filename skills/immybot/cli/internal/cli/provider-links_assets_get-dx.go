@@ -17,7 +17,7 @@ func newProviderLinksAssetsGetDxCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-dx <id>",
 		Short:       "Get dx",
-		Example:     "  immybot-pp-cli provider-links assets get-dx 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli provider-links assets get-dx 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "assets.get-dx", "pp:method": "GET", "pp:path": "/api/v1/provider-links/{id}/assets/dx", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

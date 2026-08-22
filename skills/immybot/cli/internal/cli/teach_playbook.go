@@ -59,7 +59,7 @@ notes verbatim.
 At least one of --playbook-json/--playbook-file and --notes/--notes-file
 must be set. --playbook-json takes the playbook body inline so MCP-only
 agents can record playbooks without a file on disk.`,
-		Example: `  immybot-pp-cli teach-playbook --query "<question that anchors the family>" --playbook-file ~/playbooks/recipe.json --notes-file ~/playbooks/recipe-notes.md`,
+		Example: `  immybot-cli teach-playbook --query "<question that anchors the family>" --playbook-file ~/playbooks/recipe.json --notes-file ~/playbooks/recipe-notes.md`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
@@ -197,7 +197,7 @@ drift). Same fire-and-forget posture as teach: silent on success,
 errors to teach.log, safe to background with &.
 
 Disabling: pass --no-learn or set ` + noLearnEnvVar + `=true.`,
-		Example: `  immybot-pp-cli playbook amend --query "<exact recall query>" --add-note "summary endpoint envelope: data lives at .results.header, not .header"`,
+		Example: `  immybot-cli playbook amend --query "<exact recall query>" --add-note "summary endpoint envelope: data lives at .results.header, not .header"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
@@ -283,7 +283,7 @@ func newPlaybookListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List stored playbooks (query_family, content presence, last observed)",
-		Example:     `  immybot-pp-cli playbook list --agent`,
+		Example:     `  immybot-cli playbook list --agent`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {

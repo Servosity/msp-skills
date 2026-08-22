@@ -17,7 +17,7 @@ func newComputersGetUserAffinitiesExportCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-user-affinities-export",
 		Short:       "Get user affinities export",
-		Example:     "  immybot-pp-cli computers get-user-affinities-export",
+		Example:     "  immybot-cli computers get-user-affinities-export",
 		Annotations: map[string]string{"pp:endpoint": "computers.get-user-affinities-export", "pp:method": "GET", "pp:path": "/api/v1/computers/user-affinities/export", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/computers/user-affinities/export"

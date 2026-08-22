@@ -17,7 +17,7 @@ func newSystemGetImmySupportAccessGrantDetailsCmd(flags *rootFlags) *cobra.Comma
 		Use:         "get-immy-support-access-grant-details",
 		Aliases:     []string{"list"},
 		Short:       "Get immy support access grant details",
-		Example:     "  immybot-pp-cli system get-immy-support-access-grant-details",
+		Example:     "  immybot-cli system get-immy-support-access-grant-details",
 		Annotations: map[string]string{"pp:endpoint": "system.get-immy-support-access-grant-details", "pp:method": "GET", "pp:path": "/api/v1/system/immy-support-access-grant-details", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/system/immy-support-access-grant-details"

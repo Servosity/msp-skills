@@ -20,7 +20,7 @@ func newTargetAssignmentsCreateDuplicateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-duplicate",
 		Short:       "Create duplicate",
-		Example:     "  immybot-pp-cli target-assignments create-duplicate",
+		Example:     "  immybot-cli target-assignments create-duplicate",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.create-duplicate", "pp:method": "POST", "pp:path": "/api/v1/target-assignments/duplicate"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

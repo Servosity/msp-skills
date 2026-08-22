@@ -18,7 +18,7 @@ func newBrandingsCreateValidateTimeFormatByTimeFormatCmd(flags *rootFlags) *cobr
 	cmd := &cobra.Command{
 		Use:         "create-validate-time-format-by-time-format <timeFormat>",
 		Short:       "Create validate time format by time format",
-		Example:     "  immybot-pp-cli brandings create-validate-time-format-by-time-format 2026-01-15T09:00:00Z",
+		Example:     "  immybot-cli brandings create-validate-time-format-by-time-format 2026-01-15T09:00:00Z",
 		Annotations: map[string]string{"pp:endpoint": "brandings.create-validate-time-format-by-time-format", "pp:method": "POST", "pp:path": "/api/v1/brandings/validate-time-format/{timeFormat}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

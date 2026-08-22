@@ -20,7 +20,7 @@ func newAccessCreateDeleteAzureTenantAuthDetailsCmd(flags *rootFlags) *cobra.Com
 		Use:         "create-delete-azure-tenant-auth-details",
 		Aliases:     []string{"create"},
 		Short:       "Create delete azure tenant auth details",
-		Example:     "  immybot-pp-cli access create-delete-azure-tenant-auth-details",
+		Example:     "  immybot-cli access create-delete-azure-tenant-auth-details",
 		Annotations: map[string]string{"pp:endpoint": "access.create-delete-azure-tenant-auth-details", "pp:method": "POST", "pp:path": "/api/v1/auth/delete-azure-tenant-auth-details"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

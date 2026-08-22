@@ -30,7 +30,7 @@ func newScriptsCreateLocalByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:   "create-local-by-id <scriptId>",
 		Short: "Create local by id",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli scripts create-local-by-id 42 --action example-value",
+		Example:     "  immybot-cli scripts create-local-by-id 42 --action example-value",
 		Annotations: map[string]string{"pp:endpoint": "scripts.create-local-by-id", "pp:method": "POST", "pp:path": "/api/v1/scripts/local/{scriptId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

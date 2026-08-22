@@ -17,7 +17,7 @@ func newMePromotedCmd(flags *rootFlags) *cobra.Command {
 		Use:         "me",
 		Short:       "Gets all role assignments and groups for the current user",
 		Long:        "Gets all role assignments and groups for the current user",
-		Example:     "  immybot-pp-cli me",
+		Example:     "  immybot-cli me",
 		Annotations: map[string]string{"pp:endpoint": "me.get-permissions", "pp:method": "GET", "pp:path": "/api/v1/me/permissions", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()

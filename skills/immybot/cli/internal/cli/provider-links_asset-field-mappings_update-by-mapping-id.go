@@ -25,7 +25,7 @@ func newProviderLinksAssetFieldMappingsUpdateByMappingIdCmd(flags *rootFlags) *c
 		Use:         "update-by-mapping-id <id> <mappingId>",
 		Aliases:     []string{"update"},
 		Short:       "Update by mapping id",
-		Example:     "  immybot-pp-cli provider-links asset-field-mappings update-by-mapping-id 550e8400-e29b-41d4-a716-446655440000 42",
+		Example:     "  immybot-cli provider-links asset-field-mappings update-by-mapping-id 550e8400-e29b-41d4-a716-446655440000 42",
 		Annotations: map[string]string{"pp:endpoint": "asset-field-mappings.update-by-mapping-id", "pp:method": "PUT", "pp:path": "/api/v1/provider-links/{id}/asset-field-mappings/{mappingId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

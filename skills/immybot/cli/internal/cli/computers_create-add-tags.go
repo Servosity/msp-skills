@@ -21,7 +21,7 @@ func newComputersCreateAddTagsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-add-tags",
 		Aliases:     []string{"create"},
 		Short:       "Create add tags",
-		Example:     "  immybot-pp-cli computers create-add-tags",
+		Example:     "  immybot-cli computers create-add-tags",
 		Annotations: map[string]string{"pp:endpoint": "computers.create-add-tags", "pp:method": "POST", "pp:path": "/api/v1/computers/add-tags"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

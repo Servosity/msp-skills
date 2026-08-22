@@ -21,7 +21,7 @@ func newProviderTypesBindParametersCreateCmd(flags *rootFlags) *cobra.Command {
 		Use:   "create <providerType>",
 		Short: "Create",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli provider-types bind-parameters create example-value",
+		Example:     "  immybot-cli provider-types bind-parameters create example-value",
 		Annotations: map[string]string{"pp:endpoint": "bind-parameters.create", "pp:method": "POST", "pp:path": "/api/v1/provider-types/{providerType}/bind-parameters"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -16,7 +16,7 @@ func newBillingGetFeatureUsageCountsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-feature-usage-counts",
 		Short:       "Get feature usage counts",
-		Example:     "  immybot-pp-cli billing get-feature-usage-counts",
+		Example:     "  immybot-cli billing get-feature-usage-counts",
 		Annotations: map[string]string{"pp:endpoint": "billing.get-feature-usage-counts", "pp:method": "GET", "pp:path": "/api/v1/billing/feature-usage-counts", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/billing/feature-usage-counts"

@@ -21,7 +21,7 @@ func newPersonsListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List",
-		Example:     "  immybot-pp-cli persons list",
+		Example:     "  immybot-cli persons list",
 		Annotations: map[string]string{"pp:endpoint": "persons.list", "pp:method": "GET", "pp:path": "/api/v1/persons", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/persons"

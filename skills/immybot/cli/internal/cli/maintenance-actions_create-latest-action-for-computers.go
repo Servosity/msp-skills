@@ -24,7 +24,7 @@ func newMaintenanceActionsCreateLatestActionForComputersCmd(flags *rootFlags) *c
 		Aliases: []string{"create"},
 		Short:   "Create latest action for computers",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli maintenance-actions create-latest-action-for-computers --maintenance-identifier example-value",
+		Example:     "  immybot-cli maintenance-actions create-latest-action-for-computers --maintenance-identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-actions.create-latest-action-for-computers", "pp:method": "POST", "pp:path": "/api/v1/maintenance-actions/latest-action-for-computers"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

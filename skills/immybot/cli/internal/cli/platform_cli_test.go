@@ -876,7 +876,7 @@ func TestPlatformMigrationAdoptsOnlyVerifiedTenantDatabase(t *testing.T) {
 	if err := repeatCleanup.Execute(); err != nil {
 		t.Fatalf("idempotent cleanup = %v", err)
 	}
-	paths, err := platform.PathsFor("tenant-adopt", "immybot-pp-cli", "test-source")
+	paths, err := platform.PathsFor("tenant-adopt", "immybot-cli", "test-source")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -926,7 +926,7 @@ func TestPlatformMigrationWrongTenantCannotCreateProfile(t *testing.T) {
 	if _, err := platform.LoadProfile("tenant-rejected"); !os.IsNotExist(err) {
 		t.Fatalf("wrong-tenant migration created a profile: %v", err)
 	}
-	paths, err := platform.PathsFor("tenant-rejected", "immybot-pp-cli", "test-source")
+	paths, err := platform.PathsFor("tenant-rejected", "immybot-cli", "test-source")
 	if err != nil {
 		t.Fatal(err)
 	}

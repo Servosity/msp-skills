@@ -19,7 +19,7 @@ func newUsersImpersonateCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <userId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli users impersonate create 42",
+		Example:     "  immybot-cli users impersonate create 42",
 		Annotations: map[string]string{"pp:endpoint": "impersonate.create", "pp:method": "POST", "pp:path": "/api/v1/users/{userId}/impersonate"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

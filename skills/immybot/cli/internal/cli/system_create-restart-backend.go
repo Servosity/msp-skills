@@ -18,7 +18,7 @@ func newSystemCreateRestartBackendCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-restart-backend",
 		Short:       "Create restart backend",
-		Example:     "  immybot-pp-cli system create-restart-backend",
+		Example:     "  immybot-cli system create-restart-backend",
 		Annotations: map[string]string{"pp:endpoint": "system.create-restart-backend", "pp:method": "POST", "pp:path": "/api/v1/system/restart-backend"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

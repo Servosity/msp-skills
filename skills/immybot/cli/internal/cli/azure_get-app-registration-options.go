@@ -17,7 +17,7 @@ func newAzureGetAppRegistrationOptionsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-app-registration-options",
 		Aliases:     []string{"list"},
 		Short:       "Get app registration options",
-		Example:     "  immybot-pp-cli azure get-app-registration-options",
+		Example:     "  immybot-cli azure get-app-registration-options",
 		Annotations: map[string]string{"pp:endpoint": "azure.get-app-registration-options", "pp:method": "GET", "pp:path": "/api/v1/azure/app-registration-options", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/azure/app-registration-options"

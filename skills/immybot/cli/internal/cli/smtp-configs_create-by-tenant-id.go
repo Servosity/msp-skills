@@ -27,7 +27,7 @@ func newSmtpConfigsCreateByTenantIdCmd(flags *rootFlags) *cobra.Command {
 		Use:   "create-by-tenant-id <tenantId>",
 		Short: "Create by tenant id",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli smtp-configs create-by-tenant-id 42 --host example-value",
+		Example:     "  immybot-cli smtp-configs create-by-tenant-id 42 --host example-value",
 		Annotations: map[string]string{"pp:endpoint": "smtp-configs.create-by-tenant-id", "pp:method": "POST", "pp:path": "/api/v1/smtp-configs/{tenantId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

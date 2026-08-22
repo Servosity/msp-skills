@@ -19,7 +19,7 @@ func newComputersEphemeralAgentCircuitBreakerCreateResetCmd(flags *rootFlags) *c
 		Use:         "create-reset <computerId>",
 		Aliases:     []string{"create"},
 		Short:       "Create reset",
-		Example:     "  immybot-pp-cli computers ephemeral-agent-circuit-breaker create-reset 42",
+		Example:     "  immybot-cli computers ephemeral-agent-circuit-breaker create-reset 42",
 		Annotations: map[string]string{"pp:endpoint": "ephemeral-agent-circuit-breaker.create-reset", "pp:method": "POST", "pp:path": "/api/v1/computers/{computerId}/ephemeral-agent-circuit-breaker/reset"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

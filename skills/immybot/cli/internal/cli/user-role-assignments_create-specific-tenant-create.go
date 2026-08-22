@@ -19,7 +19,7 @@ func newUserRoleAssignmentsCreateSpecificTenantCreateCmd(flags *rootFlags) *cobr
 	cmd := &cobra.Command{
 		Use:         "create-specific-tenant-create",
 		Short:       "Create specific tenant create",
-		Example:     "  immybot-pp-cli user-role-assignments create-specific-tenant-create",
+		Example:     "  immybot-cli user-role-assignments create-specific-tenant-create",
 		Annotations: map[string]string{"pp:endpoint": "user-role-assignments.create-specific-tenant-create", "pp:method": "POST", "pp:path": "/api/v1/user-role-assignments/specific-tenant/create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

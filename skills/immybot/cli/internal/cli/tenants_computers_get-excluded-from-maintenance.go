@@ -17,7 +17,7 @@ func newTenantsComputersGetExcludedFromMaintenanceCmd(flags *rootFlags) *cobra.C
 		Use:         "get-excluded-from-maintenance <id>",
 		Aliases:     []string{"get"},
 		Short:       "Get excluded from maintenance",
-		Example:     "  immybot-pp-cli tenants computers get-excluded-from-maintenance 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli tenants computers get-excluded-from-maintenance 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "computers.get-excluded-from-maintenance", "pp:method": "GET", "pp:path": "/api/v1/tenants/{id}/computers/excluded-from-maintenance", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

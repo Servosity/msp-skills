@@ -243,7 +243,7 @@ func isCobraUsageError(err error) bool {
 
 func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "immybot-pp-cli",
+		Use:   "immybot-cli",
 		Short: `Immybot CLI — Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.`,
 		Long: `Immybot CLI — Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.
 
@@ -257,12 +257,12 @@ Highlights (not in the official API docs):
   • psa-reconcile   Diff the ImmyBot roster against a linked PSA or RMM asset roster to find unlinked computers and orphaned assets.
 
 Agent mode: add --agent to any command for JSON output + non-interactive mode.
-Health check: run 'immybot-pp-cli doctor' to verify auth and connectivity.
+Health check: run 'immybot-cli doctor' to verify auth and connectivity.
 See README.md or the bundled SKILL.md for recipes.`,
 		SilenceUsage: true,
 		Version:      version,
 	}
-	rootCmd.SetVersionTemplate("immybot-pp-cli {{ .Version }}\n")
+	rootCmd.SetVersionTemplate("immybot-cli {{ .Version }}\n")
 
 	rootCmd.PersistentFlags().BoolVar(&flags.asJSON, "json", false, "Output as JSON")
 	rootCmd.PersistentFlags().BoolVar(&flags.compact, "compact", false, "Return only key fields (id, name, status, timestamps) for minimal token usage")
@@ -289,7 +289,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.PersistentFlags().BoolVar(&flags.allowPartialFailure, "allow-partial-failure", false, "Downgrade response-body partial-failure (e.g. partialFailureError) to a warning instead of a non-zero exit")
 	rootCmd.PersistentFlags().StringVar(&flags.dataSource, "data-source", "auto", "Data source for read commands: auto (live with local fallback), live (API only), local (synced data only)")
 	rootCmd.PersistentFlags().DurationVar(&flags.maxAge, "max-age", 30*time.Minute, "Maximum acceptable age of local-store data before a stderr hint suggests sync; 0 disables")
-	rootCmd.PersistentFlags().StringVar(&flags.runProfileName, "profile", "", "Apply values from a saved run profile; this does not select a client (see 'immybot-pp-cli profile list')")
+	rootCmd.PersistentFlags().StringVar(&flags.runProfileName, "profile", "", "Apply values from a saved run profile; this does not select a client (see 'immybot-cli profile list')")
 	rootCmd.PersistentFlags().StringVar(&flags.clientProfileName, "client-profile", "", "Select the tenant-gated client profile (env: PRINTING_PRESS_CLIENT_PROFILE)")
 	if strings.TrimSpace(os.Getenv(mcpBoundProfileEnv)) != "" {
 		if flag := rootCmd.PersistentFlags().Lookup("client-profile"); flag != nil {

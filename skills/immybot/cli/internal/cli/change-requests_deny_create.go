@@ -18,7 +18,7 @@ func newChangeRequestsDenyCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <id>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli change-requests deny create 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli change-requests deny create 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "deny.create", "pp:method": "POST", "pp:path": "/api/v1/change-requests/{id}/deny"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

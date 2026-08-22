@@ -25,7 +25,7 @@ func newDynamicProviderTypesCreateLocalCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-local",
 		Short:       "Create local",
-		Example:     "  immybot-pp-cli dynamic-provider-types create-local",
+		Example:     "  immybot-cli dynamic-provider-types create-local",
 		Annotations: map[string]string{"pp:endpoint": "dynamic-provider-types.create-local", "pp:method": "POST", "pp:path": "/api/v1/dynamic-provider-types/local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

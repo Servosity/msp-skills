@@ -19,7 +19,7 @@ func newWebhooksCreateByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-by-id <id>",
 		Aliases:     []string{"create"},
 		Short:       "Create by id",
-		Example:     "  immybot-pp-cli webhooks create-by-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli webhooks create-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "webhooks.create-by-id", "pp:method": "POST", "pp:path": "/api/v1/webhooks/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

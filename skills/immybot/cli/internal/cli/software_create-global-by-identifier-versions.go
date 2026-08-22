@@ -60,7 +60,7 @@ func newSoftwareCreateGlobalByIdentifierVersionsCmd(flags *rootFlags) *cobra.Com
 		Use:   "create-global-by-identifier-versions <softwareIdentifier>",
 		Short: "Create global by identifier versions",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli software create-global-by-identifier-versions example-value",
+		Example:     "  immybot-cli software create-global-by-identifier-versions example-value",
 		Annotations: map[string]string{"pp:endpoint": "software.create-global-by-identifier-versions", "pp:method": "POST", "pp:path": "/api/v1/software/global/{softwareIdentifier}/versions"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -16,7 +16,7 @@ func newScriptsGetGlobalByIdReferencesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-global-by-id-references <scriptId>",
 		Short:       "Get global by id references",
-		Example:     "  immybot-pp-cli scripts get-global-by-id-references 42",
+		Example:     "  immybot-cli scripts get-global-by-id-references 42",
 		Annotations: map[string]string{"pp:endpoint": "scripts.get-global-by-id-references", "pp:method": "GET", "pp:path": "/api/v1/scripts/global/{scriptId}/references", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

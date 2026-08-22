@@ -21,7 +21,7 @@ func newTargetAssignmentsCreateMigrateToSupersedingAssignmentCmd(flags *rootFlag
 	cmd := &cobra.Command{
 		Use:         "create-migrate-to-superseding-assignment",
 		Short:       "Create migrate to superseding assignment",
-		Example:     "  immybot-pp-cli target-assignments create-migrate-to-superseding-assignment",
+		Example:     "  immybot-cli target-assignments create-migrate-to-superseding-assignment",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.create-migrate-to-superseding-assignment", "pp:method": "POST", "pp:path": "/api/v1/target-assignments/migrate-to-superseding-assignment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

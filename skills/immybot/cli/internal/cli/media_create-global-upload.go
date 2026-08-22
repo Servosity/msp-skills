@@ -20,7 +20,7 @@ func newMediaCreateGlobalUploadCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-global-upload",
 		Short:       "Create global upload",
-		Example:     "  immybot-pp-cli media create-global-upload",
+		Example:     "  immybot-cli media create-global-upload",
 		Annotations: map[string]string{"pp:endpoint": "media.create-global-upload", "pp:method": "POST", "pp:path": "/api/v1/media/global/upload"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/media/global/upload"

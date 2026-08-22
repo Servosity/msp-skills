@@ -327,10 +327,10 @@ func newWhichCmd(flags *rootFlags) *cobra.Command {
 Exit codes:
   0  at least one match found
   2  no confident match - the query did not score against any indexed capability; fall back to '--help' or 'search' if this CLI has one`,
-		Example: `  immybot-pp-cli which "stale tickets"
-  immybot-pp-cli which "bottleneck"
-  immybot-pp-cli which --limit 1 "send message"
-  immybot-pp-cli which                                # list the full capability index`,
+		Example: `  immybot-cli which "stale tickets"
+  immybot-cli which "bottleneck"
+  immybot-cli which --limit 1 "send message"
+  immybot-cli which                                # list the full capability index`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(whichIndex) == 0 {
 				return usageErr(fmt.Errorf("this CLI has no curated capability index; run '--help' to see every command"))

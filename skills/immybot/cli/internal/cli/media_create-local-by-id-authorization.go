@@ -23,7 +23,7 @@ func newMediaCreateLocalByIdAuthorizationCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-local-by-id-authorization <id>",
 		Short:       "Create local by id authorization",
-		Example:     "  immybot-pp-cli media create-local-by-id-authorization 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli media create-local-by-id-authorization 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "media.create-local-by-id-authorization", "pp:method": "POST", "pp:path": "/api/v1/media/local/{id}/authorization"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

@@ -24,7 +24,7 @@ func immyMirrorPath(dbPath string) string {
 	if strings.TrimSpace(dbPath) != "" {
 		return dbPath
 	}
-	return defaultDBPath("immybot-pp-cli")
+	return defaultDBPath("immybot-cli")
 }
 
 // immyMirrorMissing reports whether the local mirror is absent and, when it is,
@@ -34,7 +34,7 @@ func immyMirrorPath(dbPath string) string {
 func immyMirrorMissing(cmd *cobra.Command, dbPath, syncResources string) bool {
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		fmt.Fprintf(cmd.ErrOrStderr(),
-			"no local mirror at %s\nrun: immybot-pp-cli sync --resources %s --db %s\n",
+			"no local mirror at %s\nrun: immybot-cli sync --resources %s --db %s\n",
 			dbPath, syncResources, dbPath)
 		return true
 	}

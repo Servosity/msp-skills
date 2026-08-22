@@ -55,7 +55,7 @@ func newSoftwareUpdateGlobalByIdentifierCmd(flags *rootFlags) *cobra.Command {
 		Aliases: []string{"update"},
 		Short:   "Update global by identifier",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli software update-global-by-identifier example-value",
+		Example:     "  immybot-cli software update-global-by-identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "software.update-global-by-identifier", "pp:method": "PATCH", "pp:path": "/api/v1/software/global/{softwareIdentifier}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

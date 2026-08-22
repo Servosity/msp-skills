@@ -18,7 +18,7 @@ func newMaintenanceSessionsRerunCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <sessionId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli maintenance-sessions rerun create 42",
+		Example:     "  immybot-cli maintenance-sessions rerun create 42",
 		Annotations: map[string]string{"pp:endpoint": "rerun.create", "pp:method": "POST", "pp:path": "/api/v1/maintenance-sessions/{sessionId}/rerun"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -31,7 +31,7 @@ func newComputersGetPagedCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-paged",
 		Short:       "TODO: Move this to V2 api routes or make the existing GetAll rely on this",
-		Example:     "  immybot-pp-cli computers get-paged",
+		Example:     "  immybot-cli computers get-paged",
 		Annotations: map[string]string{"pp:endpoint": "computers.get-paged", "pp:method": "GET", "pp:path": "/api/v1/computers/paged", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/computers/paged"

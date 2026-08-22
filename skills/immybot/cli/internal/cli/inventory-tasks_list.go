@@ -16,7 +16,7 @@ func newInventoryTasksListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List",
-		Example:     "  immybot-pp-cli inventory-tasks list",
+		Example:     "  immybot-cli inventory-tasks list",
 		Annotations: map[string]string{"pp:endpoint": "inventory-tasks.list", "pp:method": "GET", "pp:path": "/api/v1/inventory-tasks", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/inventory-tasks"

@@ -19,7 +19,7 @@ func newProviderAgentsCreateResolveFailureByFailureIdCmd(flags *rootFlags) *cobr
 	cmd := &cobra.Command{
 		Use:         "create-resolve-failure-by-failure-id <failureId>",
 		Short:       "Create resolve failure by failure id",
-		Example:     "  immybot-pp-cli provider-agents create-resolve-failure-by-failure-id 42",
+		Example:     "  immybot-cli provider-agents create-resolve-failure-by-failure-id 42",
 		Annotations: map[string]string{"pp:endpoint": "provider-agents.create-resolve-failure-by-failure-id", "pp:method": "POST", "pp:path": "/api/v1/provider-agents/resolve-failure/{failureId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

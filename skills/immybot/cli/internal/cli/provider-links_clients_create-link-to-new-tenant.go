@@ -20,7 +20,7 @@ func newProviderLinksClientsCreateLinkToNewTenantCmd(flags *rootFlags) *cobra.Co
 	cmd := &cobra.Command{
 		Use:         "create-link-to-new-tenant <id>",
 		Short:       "Create link to new tenant",
-		Example:     "  immybot-pp-cli provider-links clients create-link-to-new-tenant 550e8400-e29b-41d4-a716-446655440000 --external-client-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli provider-links clients create-link-to-new-tenant 550e8400-e29b-41d4-a716-446655440000 --external-client-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "clients.create-link-to-new-tenant", "pp:method": "POST", "pp:path": "/api/v1/provider-links/{id}/clients/link-to-new-tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

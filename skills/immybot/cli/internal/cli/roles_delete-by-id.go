@@ -17,7 +17,7 @@ func newRolesDeleteByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "delete-by-id <roleId>",
 		Aliases:     []string{"delete"},
 		Short:       "Delete by id",
-		Example:     "  immybot-pp-cli roles delete-by-id 42",
+		Example:     "  immybot-cli roles delete-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "roles.delete-by-id", "pp:method": "DELETE", "pp:path": "/api/v1/roles/{roleId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

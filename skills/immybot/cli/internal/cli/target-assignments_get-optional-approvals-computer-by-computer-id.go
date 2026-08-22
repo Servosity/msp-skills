@@ -16,7 +16,7 @@ func newTargetAssignmentsGetOptionalApprovalsComputerByComputerIdCmd(flags *root
 	cmd := &cobra.Command{
 		Use:         "get-optional-approvals-computer-by-computer-id <computerId>",
 		Short:       "Get optional approvals computer by computer id",
-		Example:     "  immybot-pp-cli target-assignments get-optional-approvals-computer-by-computer-id 42",
+		Example:     "  immybot-cli target-assignments get-optional-approvals-computer-by-computer-id 42",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.get-optional-approvals-computer-by-computer-id", "pp:method": "GET", "pp:path": "/api/v1/target-assignments/optional-target-assignment-approvals/computer/{computerId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

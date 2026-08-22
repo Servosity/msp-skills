@@ -47,7 +47,7 @@ func newMaintenanceTasksCreateLocalCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-local",
 		Short:       "Create local",
-		Example:     "  immybot-pp-cli maintenance-tasks create-local --name example-resource",
+		Example:     "  immybot-cli maintenance-tasks create-local --name example-resource",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-tasks.create-local", "pp:method": "POST", "pp:path": "/api/v1/maintenance-tasks/local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

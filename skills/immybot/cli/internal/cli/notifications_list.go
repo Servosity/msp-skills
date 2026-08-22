@@ -16,7 +16,7 @@ func newNotificationsListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List",
-		Example:     "  immybot-pp-cli notifications list",
+		Example:     "  immybot-cli notifications list",
 		Annotations: map[string]string{"pp:endpoint": "notifications.list", "pp:method": "GET", "pp:path": "/api/v1/notifications", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/notifications"

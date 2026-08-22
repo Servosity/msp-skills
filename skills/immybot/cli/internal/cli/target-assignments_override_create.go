@@ -22,7 +22,7 @@ func newTargetAssignmentsOverrideCreateCmd(flags *rootFlags) *cobra.Command {
 		Use:   "create <id>",
 		Short: "Create",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli target-assignments override create 550e8400-e29b-41d4-a716-446655440000 --target example-value",
+		Example:     "  immybot-cli target-assignments override create 550e8400-e29b-41d4-a716-446655440000 --target example-value",
 		Annotations: map[string]string{"pp:endpoint": "override.create", "pp:method": "POST", "pp:path": "/api/v1/target-assignments/{id}/override"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

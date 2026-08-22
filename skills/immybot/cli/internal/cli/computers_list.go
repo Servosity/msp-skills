@@ -21,7 +21,7 @@ func newComputersListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List",
-		Example:     "  immybot-pp-cli computers list --page-size 20",
+		Example:     "  immybot-cli computers list --page-size 20",
 		Annotations: map[string]string{"pp:endpoint": "computers.list", "pp:method": "GET", "pp:path": "/api/v1/computers", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/computers"

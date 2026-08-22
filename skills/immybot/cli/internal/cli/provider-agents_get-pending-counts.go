@@ -16,7 +16,7 @@ func newProviderAgentsGetPendingCountsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-pending-counts",
 		Short:       "Get pending counts",
-		Example:     "  immybot-pp-cli provider-agents get-pending-counts",
+		Example:     "  immybot-cli provider-agents get-pending-counts",
 		Annotations: map[string]string{"pp:endpoint": "provider-agents.get-pending-counts", "pp:method": "GET", "pp:path": "/api/v1/provider-agents/pending-counts", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/provider-agents/pending-counts"

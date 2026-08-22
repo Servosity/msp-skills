@@ -22,7 +22,7 @@ func newComputersCreateBulkDeleteCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-bulk-delete",
 		Short:       "Create bulk delete",
-		Example:     "  immybot-pp-cli computers create-bulk-delete",
+		Example:     "  immybot-cli computers create-bulk-delete",
 		Annotations: map[string]string{"pp:endpoint": "computers.create-bulk-delete", "pp:method": "POST", "pp:path": "/api/v1/computers/bulk-delete"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

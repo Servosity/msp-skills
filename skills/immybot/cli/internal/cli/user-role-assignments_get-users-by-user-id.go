@@ -40,7 +40,7 @@ func newUserRoleAssignmentsGetUsersByUserIdCmd(flags *rootFlags) *cobra.Command 
 		Use:         "get-users-by-user-id <userId>",
 		Aliases:     []string{"get"},
 		Short:       "Get users by user id",
-		Example:     "  immybot-pp-cli user-role-assignments get-users-by-user-id 42",
+		Example:     "  immybot-cli user-role-assignments get-users-by-user-id 42",
 		Annotations: map[string]string{"pp:endpoint": "user-role-assignments.get-users-by-user-id", "pp:method": "GET", "pp:path": "/api/v1/user-role-assignments/users/{userId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

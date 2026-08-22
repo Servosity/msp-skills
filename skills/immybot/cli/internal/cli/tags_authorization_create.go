@@ -23,7 +23,7 @@ func newTagsAuthorizationCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <tagId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli tags authorization create 42",
+		Example:     "  immybot-cli tags authorization create 42",
 		Annotations: map[string]string{"pp:endpoint": "authorization.create", "pp:method": "POST", "pp:path": "/api/v1/tags/{tagId}/authorization"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

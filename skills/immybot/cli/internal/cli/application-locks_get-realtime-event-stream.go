@@ -16,7 +16,7 @@ func newApplicationLocksGetRealtimeEventStreamCmd(flags *rootFlags) *cobra.Comma
 	cmd := &cobra.Command{
 		Use:         "get-realtime-event-stream",
 		Short:       "Get realtime event stream",
-		Example:     "  immybot-pp-cli application-locks get-realtime-event-stream",
+		Example:     "  immybot-cli application-locks get-realtime-event-stream",
 		Annotations: map[string]string{"pp:endpoint": "application-locks.get-realtime-event-stream", "pp:method": "GET", "pp:path": "/api/v1/application-locks/realtime-event-stream", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/application-locks/realtime-event-stream"

@@ -25,7 +25,7 @@ func newRolesUpdateByIdCmd(flags *rootFlags) *cobra.Command {
 		Aliases: []string{"update"},
 		Short:   "Update by id",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli roles update-by-id 42 --description example-value",
+		Example:     "  immybot-cli roles update-by-id 42 --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "roles.update-by-id", "pp:method": "PUT", "pp:path": "/api/v1/roles/{roleId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

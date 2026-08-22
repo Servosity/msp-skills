@@ -17,7 +17,7 @@ func newScriptsGetDisabledPreflightCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-disabled-preflight",
 		Aliases:     []string{"list"},
 		Short:       "Get disabled preflight",
-		Example:     "  immybot-pp-cli scripts get-disabled-preflight",
+		Example:     "  immybot-cli scripts get-disabled-preflight",
 		Annotations: map[string]string{"pp:endpoint": "scripts.get-disabled-preflight", "pp:method": "GET", "pp:path": "/api/v1/scripts/disabled-preflight-scripts", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/scripts/disabled-preflight-scripts"

@@ -21,7 +21,7 @@ func newTargetAssignmentsCreateUpdateMaintenanceItemOrderCmd(flags *rootFlags) *
 	cmd := &cobra.Command{
 		Use:         "create-update-maintenance-item-order",
 		Short:       "Create update maintenance item order",
-		Example:     "  immybot-pp-cli target-assignments create-update-maintenance-item-order",
+		Example:     "  immybot-cli target-assignments create-update-maintenance-item-order",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.create-update-maintenance-item-order", "pp:method": "POST", "pp:path": "/api/v1/target-assignments/update-maintenance-item-order"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

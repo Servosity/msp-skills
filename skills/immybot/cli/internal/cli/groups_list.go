@@ -16,7 +16,7 @@ func newGroupsListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List",
-		Example:     "  immybot-pp-cli groups list",
+		Example:     "  immybot-cli groups list",
 		Annotations: map[string]string{"pp:endpoint": "groups.list", "pp:method": "GET", "pp:path": "/api/v1/groups", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/groups"

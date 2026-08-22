@@ -26,7 +26,7 @@ func newScriptsCreateDefaultVariablesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-default-variables",
 		Short:       "Create default variables",
-		Example:     "  immybot-pp-cli scripts create-default-variables",
+		Example:     "  immybot-cli scripts create-default-variables",
 		Annotations: map[string]string{"pp:endpoint": "scripts.create-default-variables", "pp:method": "POST", "pp:path": "/api/v1/scripts/default-variables"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

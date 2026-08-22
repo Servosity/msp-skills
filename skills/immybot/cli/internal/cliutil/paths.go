@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const appName = "immybot-pp-cli"
+const appName = "immybot-cli"
 const envPrefix = "IMMYBOT"
 
 type PathKind int

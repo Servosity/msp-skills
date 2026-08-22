@@ -17,7 +17,7 @@ func newSoftwareGetGlobalByIdentifierLatestCmd(flags *rootFlags) *cobra.Command 
 		Use:   "get-global-by-identifier-latest <softwareIdentifier>",
 		Short: "Get global by identifier latest",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli software get-global-by-identifier-latest example-value",
+		Example:     "  immybot-cli software get-global-by-identifier-latest example-value",
 		Annotations: map[string]string{"pp:endpoint": "software.get-global-by-identifier-latest", "pp:method": "GET", "pp:path": "/api/v1/software/global/{softwareIdentifier}/latest", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

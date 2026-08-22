@@ -19,7 +19,7 @@ func newScriptsCreateDoesHaveParamBlockCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-does-have-param-block",
 		Short:       "Create does have param block",
-		Example:     "  immybot-pp-cli scripts create-does-have-param-block",
+		Example:     "  immybot-cli scripts create-does-have-param-block",
 		Annotations: map[string]string{"pp:endpoint": "scripts.create-does-have-param-block", "pp:method": "POST", "pp:path": "/api/v1/scripts/does-script-have-param-block"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

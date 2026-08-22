@@ -16,7 +16,7 @@ func newSchedulesGetRunningIdsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-running-ids",
 		Short:       "Get running ids",
-		Example:     "  immybot-pp-cli schedules get-running-ids",
+		Example:     "  immybot-cli schedules get-running-ids",
 		Annotations: map[string]string{"pp:endpoint": "schedules.get-running-ids", "pp:method": "GET", "pp:path": "/api/v1/schedules/running-schedule-ids", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/schedules/running-schedule-ids"

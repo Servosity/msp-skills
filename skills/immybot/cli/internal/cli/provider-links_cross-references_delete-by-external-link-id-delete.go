@@ -17,7 +17,7 @@ func newProviderLinksCrossReferencesDeleteByExternalLinkIdDeleteCmd(flags *rootF
 		Use:         "delete-by-external-link-id-delete <id> <externalLinkId>",
 		Aliases:     []string{"delete"},
 		Short:       "Delete by external link id delete",
-		Example:     "  immybot-pp-cli provider-links cross-references delete-by-external-link-id-delete 550e8400-e29b-41d4-a716-446655440000 https://example.com/resource",
+		Example:     "  immybot-cli provider-links cross-references delete-by-external-link-id-delete 550e8400-e29b-41d4-a716-446655440000 https://example.com/resource",
 		Annotations: map[string]string{"pp:endpoint": "cross-references.delete-by-external-link-id-delete", "pp:method": "DELETE", "pp:path": "/api/v1/provider-links/{id}/cross-references/{externalLinkId}/delete"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

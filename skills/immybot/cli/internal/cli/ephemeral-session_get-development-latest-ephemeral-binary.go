@@ -17,7 +17,7 @@ func newEphemeralSessionGetDevelopmentLatestEphemeralBinaryCmd(flags *rootFlags)
 		Use:         "get-development-latest-ephemeral-binary",
 		Aliases:     []string{"list"},
 		Short:       "Get development latest ephemeral binary",
-		Example:     "  immybot-pp-cli ephemeral-session get-development-latest-ephemeral-binary",
+		Example:     "  immybot-cli ephemeral-session get-development-latest-ephemeral-binary",
 		Annotations: map[string]string{"pp:endpoint": "ephemeral-session.get-development-latest-ephemeral-binary", "pp:method": "GET", "pp:path": "/api/v1/ephemeral-session/development/latest-ephemeral-binary", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/ephemeral-session/development/latest-ephemeral-binary"

@@ -23,7 +23,7 @@ func newSoftwareCreateLocalByIdentifierAuthorizationCmd(flags *rootFlags) *cobra
 	cmd := &cobra.Command{
 		Use:         "create-local-by-identifier-authorization <softwareIdentifier>",
 		Short:       "Create local by identifier authorization",
-		Example:     "  immybot-pp-cli software create-local-by-identifier-authorization 42",
+		Example:     "  immybot-cli software create-local-by-identifier-authorization 42",
 		Annotations: map[string]string{"pp:endpoint": "software.create-local-by-identifier-authorization", "pp:method": "POST", "pp:path": "/api/v1/software/local/{softwareIdentifier}/authorization"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

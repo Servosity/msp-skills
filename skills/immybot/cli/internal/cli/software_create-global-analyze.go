@@ -21,7 +21,7 @@ func newSoftwareCreateGlobalAnalyzeCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-global-analyze",
 		Short:       "Create global analyze",
-		Example:     "  immybot-pp-cli software create-global-analyze",
+		Example:     "  immybot-cli software create-global-analyze",
 		Annotations: map[string]string{"pp:endpoint": "software.create-global-analyze", "pp:method": "POST", "pp:path": "/api/v1/software/global/analyze"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

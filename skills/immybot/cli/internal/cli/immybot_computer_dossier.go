@@ -55,8 +55,8 @@ func newNovelComputerDossierCmd(flags *rootFlags) *cobra.Command {
 			"computer, assembled from the local mirror in a single pass instead of one API call " +
 			"per section.",
 		Example: strings.Trim(`
-  immybot-pp-cli computer-dossier 4821
-  immybot-pp-cli computer-dossier WS-01 --agent
+  immybot-cli computer-dossier 4821
+  immybot-cli computer-dossier WS-01 --agent
 `, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only": "true",

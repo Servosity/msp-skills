@@ -18,7 +18,7 @@ func newSoftwareDeleteGlobalByIdentifierCmd(flags *rootFlags) *cobra.Command {
 		Aliases: []string{"delete"},
 		Short:   "Delete global by identifier",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli software delete-global-by-identifier example-value",
+		Example:     "  immybot-cli software delete-global-by-identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "software.delete-global-by-identifier", "pp:method": "DELETE", "pp:path": "/api/v1/software/global/{softwareIdentifier}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

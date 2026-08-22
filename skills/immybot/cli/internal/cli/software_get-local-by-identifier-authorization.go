@@ -16,7 +16,7 @@ func newSoftwareGetLocalByIdentifierAuthorizationCmd(flags *rootFlags) *cobra.Co
 	cmd := &cobra.Command{
 		Use:         "get-local-by-identifier-authorization <softwareIdentifier>",
 		Short:       "Get local by identifier authorization",
-		Example:     "  immybot-pp-cli software get-local-by-identifier-authorization 42",
+		Example:     "  immybot-cli software get-local-by-identifier-authorization 42",
 		Annotations: map[string]string{"pp:endpoint": "software.get-local-by-identifier-authorization", "pp:method": "GET", "pp:path": "/api/v1/software/local/{softwareIdentifier}/authorization", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

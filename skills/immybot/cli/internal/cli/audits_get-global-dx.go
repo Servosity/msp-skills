@@ -18,7 +18,7 @@ func newAuditsGetGlobalDxCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-global-dx",
 		Aliases:     []string{"list"},
 		Short:       "Get global dx",
-		Example:     "  immybot-pp-cli audits get-global-dx",
+		Example:     "  immybot-cli audits get-global-dx",
 		Annotations: map[string]string{"pp:endpoint": "audits.get-global-dx", "pp:method": "GET", "pp:path": "/api/v1/audits/global/dx", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/audits/global/dx"

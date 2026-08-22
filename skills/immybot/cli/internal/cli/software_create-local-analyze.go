@@ -21,7 +21,7 @@ func newSoftwareCreateLocalAnalyzeCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-local-analyze",
 		Short:       "Create local analyze",
-		Example:     "  immybot-pp-cli software create-local-analyze",
+		Example:     "  immybot-cli software create-local-analyze",
 		Annotations: map[string]string{"pp:endpoint": "software.create-local-analyze", "pp:method": "POST", "pp:path": "/api/v1/software/local/analyze"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

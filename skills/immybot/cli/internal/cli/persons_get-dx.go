@@ -21,7 +21,7 @@ func newPersonsGetDxCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-dx",
 		Short:       "Get dx",
-		Example:     "  immybot-pp-cli persons get-dx",
+		Example:     "  immybot-cli persons get-dx",
 		Annotations: map[string]string{"pp:endpoint": "persons.get-dx", "pp:method": "GET", "pp:path": "/api/v1/persons/dx", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("person-type") {

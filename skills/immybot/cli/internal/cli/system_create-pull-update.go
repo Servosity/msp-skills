@@ -18,7 +18,7 @@ func newSystemCreatePullUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-pull-update",
 		Short:       "Create pull update",
-		Example:     "  immybot-pp-cli system create-pull-update",
+		Example:     "  immybot-cli system create-pull-update",
 		Annotations: map[string]string{"pp:endpoint": "system.create-pull-update", "pp:method": "POST", "pp:path": "/api/v1/system/pull-update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

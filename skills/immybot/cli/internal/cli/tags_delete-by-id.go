@@ -17,7 +17,7 @@ func newTagsDeleteByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "delete-by-id <tagId>",
 		Aliases:     []string{"delete"},
 		Short:       "Delete by id",
-		Example:     "  immybot-pp-cli tags delete-by-id 42",
+		Example:     "  immybot-cli tags delete-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "tags.delete-by-id", "pp:method": "DELETE", "pp:path": "/api/v1/tags/{tagId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

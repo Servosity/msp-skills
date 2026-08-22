@@ -19,7 +19,7 @@ func newGettingStartedCreateChecklistCompleteCmd(flags *rootFlags) *cobra.Comman
 		Use:         "create-checklist-complete",
 		Aliases:     []string{"create"},
 		Short:       "Create checklist complete",
-		Example:     "  immybot-pp-cli getting-started create-checklist-complete",
+		Example:     "  immybot-cli getting-started create-checklist-complete",
 		Annotations: map[string]string{"pp:endpoint": "getting-started.create-checklist-complete", "pp:method": "POST", "pp:path": "/api/v1/getting-started/checklist/complete"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

@@ -19,7 +19,7 @@ func newComputersExcludeFromUserAffinityCreateCmd(flags *rootFlags) *cobra.Comma
 	cmd := &cobra.Command{
 		Use:         "create <computerId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli computers exclude-from-user-affinity create 42",
+		Example:     "  immybot-cli computers exclude-from-user-affinity create 42",
 		Annotations: map[string]string{"pp:endpoint": "exclude-from-user-affinity.create", "pp:method": "POST", "pp:path": "/api/v1/computers/{computerId}/exclude-from-user-affinity"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

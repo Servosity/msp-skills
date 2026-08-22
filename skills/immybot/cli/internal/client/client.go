@@ -1104,7 +1104,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			if ua := os.Getenv("IMMYBOT_USER_AGENT"); ua != "" {
 				req.Header.Set("User-Agent", ua)
 			} else {
-				req.Header.Set("User-Agent", "immybot-pp-cli/v1")
+				req.Header.Set("User-Agent", "immybot-cli/v1")
 			}
 		}
 		// Go's net/http omits Accept by default; browsers, curl, and other
@@ -1422,7 +1422,7 @@ func looksLikeCredentialPlaceholder(value string) bool {
 }
 
 func authPlaceholderCredentialError(cfg *config.Config) error {
-	return authPlaceholderCredentialErrorWithSetup(cfg, "immybot-pp-cli auth login or immybot-pp-cli auth set-token <token>")
+	return authPlaceholderCredentialErrorWithSetup(cfg, "immybot-cli auth login or immybot-cli auth set-token <token>")
 }
 
 func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) error {
@@ -1469,7 +1469,7 @@ func resolveClientCredentialsUserAgent() string {
 	if ua := strings.TrimSpace(os.Getenv("IMMYBOT_USER_AGENT")); ua != "" {
 		return ua
 	}
-	return "immybot-pp-cli/v1"
+	return "immybot-cli/v1"
 }
 func resolveClientCredentialsTokenURL(tokenURL, tenant string) (string, error) {
 	idx := strings.Index(strings.ToLower(tokenURL), "/common/")

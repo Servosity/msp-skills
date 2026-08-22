@@ -17,7 +17,7 @@ func newProviderLinksTicketsGetByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-by-id <id> <ticketId>",
 		Aliases:     []string{"get"},
 		Short:       "Get by id",
-		Example:     "  immybot-pp-cli provider-links tickets get-by-id 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli provider-links tickets get-by-id 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "tickets.get-by-id", "pp:method": "GET", "pp:path": "/api/v1/provider-links/{id}/tickets/{ticketId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

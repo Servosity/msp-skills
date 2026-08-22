@@ -17,7 +17,7 @@ func newLicensesGetByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-by-id <licenseId>",
 		Aliases:     []string{"get"},
 		Short:       "Get by id",
-		Example:     "  immybot-pp-cli licenses get-by-id 42",
+		Example:     "  immybot-cli licenses get-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "licenses.get-by-id", "pp:method": "GET", "pp:path": "/api/v1/licenses/{licenseId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

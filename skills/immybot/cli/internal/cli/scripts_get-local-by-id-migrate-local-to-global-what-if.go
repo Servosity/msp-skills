@@ -16,7 +16,7 @@ func newScriptsGetLocalByIdMigrateLocalToGlobalWhatIfCmd(flags *rootFlags) *cobr
 	cmd := &cobra.Command{
 		Use:         "get-local-by-id-migrate-local-to-global-what-if <scriptId>",
 		Short:       "Get local by id migrate local to global what if",
-		Example:     "  immybot-pp-cli scripts get-local-by-id-migrate-local-to-global-what-if 42",
+		Example:     "  immybot-cli scripts get-local-by-id-migrate-local-to-global-what-if 42",
 		Annotations: map[string]string{"pp:endpoint": "scripts.get-local-by-id-migrate-local-to-global-what-if", "pp:method": "GET", "pp:path": "/api/v1/scripts/local/{scriptId}/migrate-local-to-global-what-if", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

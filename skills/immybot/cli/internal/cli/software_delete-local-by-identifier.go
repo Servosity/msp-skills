@@ -17,7 +17,7 @@ func newSoftwareDeleteLocalByIdentifierCmd(flags *rootFlags) *cobra.Command {
 		Use:   "delete-local-by-identifier <softwareIdentifier>",
 		Short: "Delete local by identifier",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli software delete-local-by-identifier example-value",
+		Example:     "  immybot-cli software delete-local-by-identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "software.delete-local-by-identifier", "pp:method": "DELETE", "pp:path": "/api/v1/software/local/{softwareIdentifier}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

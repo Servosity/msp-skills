@@ -20,7 +20,7 @@ func newDynamicProviderTypesCreateTestEnvironmentByTerminalIdExecuteMethodByMeth
 		Use:   "create-test-environment-by-terminal-id-execute-method-by-method <terminalId> <method>",
 		Short: "Create test environment by terminal id execute method by method",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli dynamic-provider-types create-test-environment-by-terminal-id-execute-method-by-method 550e8400-e29b-41d4-a716-446655440000 example-value",
+		Example:     "  immybot-cli dynamic-provider-types create-test-environment-by-terminal-id-execute-method-by-method 550e8400-e29b-41d4-a716-446655440000 example-value",
 		Annotations: map[string]string{"pp:endpoint": "dynamic-provider-types.create-test-environment-by-terminal-id-execute-method-by-method", "pp:method": "POST", "pp:path": "/api/v1/dynamic-provider-types/test-environment/{terminalId}/execute-method/{method}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

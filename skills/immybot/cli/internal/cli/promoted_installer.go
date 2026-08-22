@@ -17,7 +17,7 @@ func newInstallerPromotedCmd(flags *rootFlags) *cobra.Command {
 		Use:         "installer",
 		Short:       "Create agent rekey request",
 		Long:        "Create agent rekey request",
-		Example:     "  immybot-pp-cli installer",
+		Example:     "  immybot-cli installer",
 		Annotations: map[string]string{"pp:endpoint": "installer.create-agent-rekey-request", "pp:method": "POST", "pp:path": "/installer/agent-rekey/request"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()

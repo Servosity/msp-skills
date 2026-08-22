@@ -17,7 +17,7 @@ func newSoftwareDeleteGlobalByIdentifierVersionsBySemanticVersionCmd(flags *root
 		Use:   "delete-global-by-identifier-versions-by-semantic-version <softwareIdentifier> <semanticVersion>",
 		Short: "Delete global by identifier versions by semantic version",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli software delete-global-by-identifier-versions-by-semantic-version example-value example-value",
+		Example:     "  immybot-cli software delete-global-by-identifier-versions-by-semantic-version example-value example-value",
 		Annotations: map[string]string{"pp:endpoint": "software.delete-global-by-identifier-versions-by-semantic-version", "pp:method": "DELETE", "pp:path": "/api/v1/software/global/{softwareIdentifier}/versions/{semanticVersion}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

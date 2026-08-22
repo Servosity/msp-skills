@@ -85,10 +85,10 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Check CLI health",
-		Example: `  immybot-pp-cli doctor
-  immybot-pp-cli doctor --json
-  immybot-pp-cli doctor --fail-on warn
-  immybot-pp-cli doctor --fail-on stale`,
+		Example: `  immybot-cli doctor
+  immybot-cli doctor --json
+  immybot-cli doctor --fail-on warn
+  immybot-cli doctor --fail-on stale`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if registeredPlatformSource != nil {
 				if flags.platformSession == nil {
@@ -146,7 +146,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					// There is no `auth setup` subcommand, so the previous
 					// hint sent operators to a command that does not exist at
 					// exactly the moment they were stuck.
-					report["auth_hint"] = "Set the four IMMYBOT_* variables, then run 'immybot-pp-cli auth login' to mint a token."
+					report["auth_hint"] = "Set the four IMMYBOT_* variables, then run 'immybot-cli auth login' to mint a token."
 						report["auth_docs_url"] = "https://www.immy.bot"
 						report["auth_instructions"] = "Register an app in Microsoft Entra ID, create a client secret, then in ImmyBot go to Show More > People > New and paste the Enterprise App object ID into \"AD External ID\". Set IMMYBOT_SUBDOMAIN, IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID and IMMYBOT_CLIENT_SECRET."
 					} else {
@@ -274,7 +274,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						// header/query override captured before the refresh.
 						authParams := map[string]string{}
 						authHeaders := map[string]string{}
-						authHeaders["User-Agent"] = "immybot-pp-cli"
+						authHeaders["User-Agent"] = "immybot-cli"
 						verifyPath := "/auth/me"
 						if !strings.HasPrefix(verifyPath, "/") {
 							verifyPath = "/" + verifyPath
@@ -628,14 +628,14 @@ func doctorExitForFailOn(failOn string, report map[string]any) error {
 // because the alternative is no freshness story at all.
 func collectCacheReport(ctx context.Context, staleAfterSpec string) map[string]any {
 	report := map[string]any{}
-	dbPath := defaultDBPath("immybot-pp-cli")
+	dbPath := defaultDBPath("immybot-cli")
 	report["db_path"] = dbPath
 
 	fi, err := os.Stat(dbPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			report["status"] = "unknown"
-			report["hint"] = "Database not created yet; run 'immybot-pp-cli sync' to hydrate."
+			report["hint"] = "Database not created yet; run 'immybot-cli sync' to hydrate."
 			return report
 		}
 		report["status"] = "error"
@@ -668,7 +668,7 @@ func collectCacheReport(ctx context.Context, staleAfterSpec string) map[string]a
 		// sync_state may not exist on a fresh DB that has migrated but not
 		// yet had any sync runs — treat as unknown rather than error.
 		report["status"] = "unknown"
-		report["hint"] = "No sync state recorded; run 'immybot-pp-cli sync' to populate."
+		report["hint"] = "No sync state recorded; run 'immybot-cli sync' to populate."
 		return report
 	}
 	defer rows.Close()
@@ -723,7 +723,7 @@ func collectCacheReport(ctx context.Context, staleAfterSpec string) map[string]a
 		// Only sync-tracked resources are counted here. A store seeded by
 		// other paths (built-in reference data, local writes) can hold rows
 		// while sync_state stays empty, so say what was measured.
-		report["hint"] = "No sync recorded; run 'immybot-pp-cli sync' to hydrate API-backed resources. Rows written by other paths are not tracked in sync_state."
+		report["hint"] = "No sync recorded; run 'immybot-cli sync' to hydrate API-backed resources. Rows written by other paths are not tracked in sync_state."
 	case fresh:
 		report["status"] = "fresh"
 	default:
@@ -740,11 +740,11 @@ func collectCacheReport(ctx context.Context, staleAfterSpec string) map[string]a
 		// operators to re-run a sync that was already current.
 		switch {
 		case oldest > 0 && neverCount > 0:
-			report["hint"] = fmt.Sprintf("Some resources are older than stale_after, and %d have never completed a full sync (a page-capped or truncated run does not advance the watermark). Run 'immybot-pp-cli sync' to refresh.", neverCount)
+			report["hint"] = fmt.Sprintf("Some resources are older than stale_after, and %d have never completed a full sync (a page-capped or truncated run does not advance the watermark). Run 'immybot-cli sync' to refresh.", neverCount)
 		case neverCount > 0:
-			report["hint"] = fmt.Sprintf("%d resource(s) have never completed a full sync; a page-capped or truncated run does not advance the watermark. Run 'immybot-pp-cli sync' without --latest-only to complete a pass.", neverCount)
+			report["hint"] = fmt.Sprintf("%d resource(s) have never completed a full sync; a page-capped or truncated run does not advance the watermark. Run 'immybot-cli sync' without --latest-only to complete a pass.", neverCount)
 		default:
-			report["hint"] = "Some resources are older than stale_after; run 'immybot-pp-cli sync' to refresh."
+			report["hint"] = "Some resources are older than stale_after; run 'immybot-cli sync' to refresh."
 		}
 	}
 	return report

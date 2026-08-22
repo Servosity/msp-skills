@@ -16,7 +16,7 @@ func newComputersEphemeralAgentDeleteCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete <computerId>",
 		Short:       "Delete",
-		Example:     "  immybot-pp-cli computers ephemeral-agent delete 42",
+		Example:     "  immybot-cli computers ephemeral-agent delete 42",
 		Annotations: map[string]string{"pp:endpoint": "ephemeral-agent.delete", "pp:method": "DELETE", "pp:path": "/api/v1/computers/{computerId}/ephemeral-agent"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -29,7 +29,7 @@ func newMaintenanceTasksCreateValidateParamBlockParametersCmd(flags *rootFlags) 
 	cmd := &cobra.Command{
 		Use:         "create-validate-param-block-parameters",
 		Short:       "Create validate param block parameters",
-		Example:     "  immybot-pp-cli maintenance-tasks create-validate-param-block-parameters",
+		Example:     "  immybot-cli maintenance-tasks create-validate-param-block-parameters",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-tasks.create-validate-param-block-parameters", "pp:method": "POST", "pp:path": "/api/v1/maintenance-tasks/validate-param-block-parameters"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

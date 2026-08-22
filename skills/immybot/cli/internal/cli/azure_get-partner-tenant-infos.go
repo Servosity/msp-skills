@@ -16,7 +16,7 @@ func newAzureGetPartnerTenantInfosCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-partner-tenant-infos",
 		Short:       "Get partner tenant infos",
-		Example:     "  immybot-pp-cli azure get-partner-tenant-infos",
+		Example:     "  immybot-cli azure get-partner-tenant-infos",
 		Annotations: map[string]string{"pp:endpoint": "azure.get-partner-tenant-infos", "pp:method": "GET", "pp:path": "/api/v1/azure/partner-tenant-infos", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/azure/partner-tenant-infos"

@@ -18,7 +18,7 @@ func newSoftwareGetGlobalCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-global",
 		Aliases:     []string{"list"},
 		Short:       "Get global",
-		Example:     "  immybot-pp-cli software get-global",
+		Example:     "  immybot-cli software get-global",
 		Annotations: map[string]string{"pp:endpoint": "software.get-global", "pp:method": "GET", "pp:path": "/api/v1/software/global", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/software/global"

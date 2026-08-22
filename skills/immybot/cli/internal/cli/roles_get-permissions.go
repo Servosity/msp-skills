@@ -16,7 +16,7 @@ func newRolesGetPermissionsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-permissions",
 		Short:       "Get permissions",
-		Example:     "  immybot-pp-cli roles get-permissions",
+		Example:     "  immybot-cli roles get-permissions",
 		Annotations: map[string]string{"pp:endpoint": "roles.get-permissions", "pp:method": "GET", "pp:path": "/api/v1/roles/permissions", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/roles/permissions"

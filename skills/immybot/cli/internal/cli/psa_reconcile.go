@@ -68,8 +68,8 @@ func newNovelPsaReconcileCmd(flags *rootFlags) *cobra.Command {
 		Long: "Diff the ImmyBot roster against a linked PSA or RMM asset roster to find unlinked " +
 			"computers, orphaned provider assets, and one-sided tenants.",
 		Example: strings.Trim(`
-  immybot-pp-cli psa-reconcile
-  immybot-pp-cli psa-reconcile --provider 7 --agent
+  immybot-cli psa-reconcile
+  immybot-cli psa-reconcile --provider 7 --agent
 `, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only": "true",
@@ -274,7 +274,7 @@ func newNovelPsaReconcileCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			if view.ProviderLinksSeen == 0 {
-				view.Note = "no provider links matched; run 'immybot-pp-cli sync --resources provider-links' or check --provider"
+				view.Note = "no provider links matched; run 'immybot-cli sync --resources provider-links' or check --provider"
 			}
 
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {

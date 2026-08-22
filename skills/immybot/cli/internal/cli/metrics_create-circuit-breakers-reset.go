@@ -19,7 +19,7 @@ func newMetricsCreateCircuitBreakersResetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-circuit-breakers-reset",
 		Short:       "Create circuit breakers reset",
-		Example:     "  immybot-pp-cli metrics create-circuit-breakers-reset",
+		Example:     "  immybot-cli metrics create-circuit-breakers-reset",
 		Annotations: map[string]string{"pp:endpoint": "metrics.create-circuit-breakers-reset", "pp:method": "POST", "pp:path": "/api/v1/metrics/circuit-breakers/reset"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

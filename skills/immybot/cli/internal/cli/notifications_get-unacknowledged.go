@@ -18,7 +18,7 @@ func newNotificationsGetUnacknowledgedCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-unacknowledged",
 		Short:       "Get unacknowledged",
-		Example:     "  immybot-pp-cli notifications get-unacknowledged",
+		Example:     "  immybot-cli notifications get-unacknowledged",
 		Annotations: map[string]string{"pp:endpoint": "notifications.get-unacknowledged", "pp:method": "GET", "pp:path": "/api/v1/notifications/unacknowledged", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/notifications/unacknowledged"

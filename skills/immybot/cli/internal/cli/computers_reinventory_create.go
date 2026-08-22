@@ -18,7 +18,7 @@ func newComputersReinventoryCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <computerId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli computers reinventory create 42",
+		Example:     "  immybot-cli computers reinventory create 42",
 		Annotations: map[string]string{"pp:endpoint": "reinventory.create", "pp:method": "POST", "pp:path": "/api/v1/computers/{computerId}/reinventory"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

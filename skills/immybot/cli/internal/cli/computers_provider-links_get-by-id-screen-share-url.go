@@ -17,7 +17,7 @@ func newComputersProviderLinksGetByIdScreenShareUrlCmd(flags *rootFlags) *cobra.
 		Use:         "get-by-id-screen-share-url <computerId> <providerLinkId>",
 		Aliases:     []string{"get"},
 		Short:       "Get by id screen share url",
-		Example:     "  immybot-pp-cli computers provider-links get-by-id-screen-share-url 42 https://example.com/resource",
+		Example:     "  immybot-cli computers provider-links get-by-id-screen-share-url 42 https://example.com/resource",
 		Annotations: map[string]string{"pp:endpoint": "provider-links.get-by-id-screen-share-url", "pp:method": "GET", "pp:path": "/api/v1/computers/{computerId}/provider-links/{providerLinkId}/screen-share-url", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

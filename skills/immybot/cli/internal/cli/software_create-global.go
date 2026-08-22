@@ -53,7 +53,7 @@ func newSoftwareCreateGlobalCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-global",
 		Aliases:     []string{"create"},
 		Short:       "Create global",
-		Example:     "  immybot-pp-cli software create-global",
+		Example:     "  immybot-cli software create-global",
 		Annotations: map[string]string{"pp:endpoint": "software.create-global", "pp:method": "POST", "pp:path": "/api/v1/software/global"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

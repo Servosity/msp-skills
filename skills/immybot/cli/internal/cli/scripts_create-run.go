@@ -40,7 +40,7 @@ func newScriptsCreateRunCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-run",
 		Short:       "Create run",
-		Example:     "  immybot-pp-cli scripts create-run",
+		Example:     "  immybot-cli scripts create-run",
 		Annotations: map[string]string{"pp:endpoint": "scripts.create-run", "pp:method": "POST", "pp:path": "/api/v1/scripts/run"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

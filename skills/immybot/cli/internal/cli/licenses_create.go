@@ -36,7 +36,7 @@ func newLicensesCreateCmd(flags *rootFlags) *cobra.Command {
 		Use:   "create",
 		Short: "Create",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli licenses create --license-value example-value",
+		Example:     "  immybot-cli licenses create --license-value example-value",
 		Annotations: map[string]string{"pp:endpoint": "licenses.create", "pp:method": "POST", "pp:path": "/api/v1/licenses"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

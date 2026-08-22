@@ -17,7 +17,7 @@ func newBillingGetDownloadInvoiceCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-download-invoice",
 		Short:       "Get download invoice",
-		Example:     "  immybot-pp-cli billing get-download-invoice",
+		Example:     "  immybot-cli billing get-download-invoice",
 		Annotations: map[string]string{"pp:endpoint": "billing.get-download-invoice", "pp:method": "GET", "pp:path": "/api/v1/billing/download-invoice", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/billing/download-invoice"

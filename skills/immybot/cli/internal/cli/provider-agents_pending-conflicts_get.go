@@ -16,7 +16,7 @@ func newProviderAgentsPendingConflictsGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <computerId>",
 		Short:       "Get",
-		Example:     "  immybot-pp-cli provider-agents pending-conflicts get 42",
+		Example:     "  immybot-cli provider-agents pending-conflicts get 42",
 		Annotations: map[string]string{"pp:endpoint": "pending-conflicts.get", "pp:method": "GET", "pp:path": "/api/v1/provider-agents/{computerId}/pending-conflicts", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

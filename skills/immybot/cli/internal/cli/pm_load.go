@@ -22,22 +22,22 @@ func newLoadCmd(flags *rootFlags) *cobra.Command {
 		Long: `Analyze locally synced data to show how many items are assigned to each
 person. Helps identify overloaded team members and unbalanced workload.`,
 		Example: `  # Show workload distribution
-  immybot-pp-cli load
+  immybot-cli load
 
   # Limit results
-  immybot-pp-cli load --limit 10
+  immybot-cli load --limit 10
 
   # Output as JSON
-  immybot-pp-cli load --json`,
+  immybot-cli load --json`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dbPath == "" {
-				dbPath = defaultDBPath("immybot-pp-cli")
+				dbPath = defaultDBPath("immybot-cli")
 			}
 
 			db, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
-				return fmt.Errorf("opening local database: %w\nRun 'immybot-pp-cli sync' first.", err)
+				return fmt.Errorf("opening local database: %w\nRun 'immybot-cli sync' first.", err)
 			}
 			defer db.Close()
 			maybeEmitSyncHints(cmd, db, "", flags.maxAge)

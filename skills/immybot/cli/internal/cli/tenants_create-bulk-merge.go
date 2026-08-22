@@ -20,7 +20,7 @@ func newTenantsCreateBulkMergeCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-bulk-merge",
 		Short:       "Create bulk merge",
-		Example:     "  immybot-pp-cli tenants create-bulk-merge",
+		Example:     "  immybot-cli tenants create-bulk-merge",
 		Annotations: map[string]string{"pp:endpoint": "tenants.create-bulk-merge", "pp:method": "POST", "pp:path": "/api/v1/tenants/bulk-merge"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

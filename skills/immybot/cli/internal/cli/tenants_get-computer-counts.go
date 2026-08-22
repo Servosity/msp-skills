@@ -16,7 +16,7 @@ func newTenantsGetComputerCountsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-computer-counts",
 		Short:       "Get computer counts",
-		Example:     "  immybot-pp-cli tenants get-computer-counts",
+		Example:     "  immybot-cli tenants get-computer-counts",
 		Annotations: map[string]string{"pp:endpoint": "tenants.get-computer-counts", "pp:method": "GET", "pp:path": "/api/v1/tenants/computer-counts", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/tenants/computer-counts"

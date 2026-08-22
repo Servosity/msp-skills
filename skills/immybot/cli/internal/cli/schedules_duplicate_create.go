@@ -18,7 +18,7 @@ func newSchedulesDuplicateCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <scheduleId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli schedules duplicate create 42",
+		Example:     "  immybot-cli schedules duplicate create 42",
 		Annotations: map[string]string{"pp:endpoint": "duplicate.create", "pp:method": "POST", "pp:path": "/api/v1/schedules/{scheduleId}/duplicate"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

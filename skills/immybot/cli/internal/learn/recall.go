@@ -825,7 +825,7 @@ const candidateScanLimit = 24
 // steps are composed against. Byte-exact by contract: agents copy the
 // steps verbatim, so the confirm step must match the command names
 // registered under the `learnings` group.
-const candidateCommandBinary = "immybot-pp-cli"
+const candidateCommandBinary = "immybot-cli"
 
 // Candidate is one open learn_candidates row surfaced in the recall
 // envelope for judgment. Quarantined knowledge: it sits below the

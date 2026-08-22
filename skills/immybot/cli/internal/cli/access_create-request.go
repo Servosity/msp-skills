@@ -18,7 +18,7 @@ func newAccessCreateRequestCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-request",
 		Short:       "Create request",
-		Example:     "  immybot-pp-cli access create-request",
+		Example:     "  immybot-cli access create-request",
 		Annotations: map[string]string{"pp:endpoint": "access.create-request", "pp:method": "POST", "pp:path": "/api/v1/auth/request-access"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

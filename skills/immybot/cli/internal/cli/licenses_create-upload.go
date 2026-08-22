@@ -18,7 +18,7 @@ func newLicensesCreateUploadCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-upload",
 		Short:       "Create upload",
-		Example:     "  immybot-pp-cli licenses create-upload",
+		Example:     "  immybot-cli licenses create-upload",
 		Annotations: map[string]string{"pp:endpoint": "licenses.create-upload", "pp:method": "POST", "pp:path": "/api/v1/licenses/upload"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/licenses/upload"

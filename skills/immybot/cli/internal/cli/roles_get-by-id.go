@@ -17,7 +17,7 @@ func newRolesGetByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-by-id <roleId>",
 		Aliases:     []string{"get"},
 		Short:       "Get by id",
-		Example:     "  immybot-pp-cli roles get-by-id 42",
+		Example:     "  immybot-cli roles get-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "roles.get-by-id", "pp:method": "GET", "pp:path": "/api/v1/roles/{roleId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

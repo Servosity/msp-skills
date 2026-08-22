@@ -19,7 +19,7 @@ func newMaintenanceActionsGetLatestForTenantByTenantIdCmd(flags *rootFlags) *cob
 	cmd := &cobra.Command{
 		Use:         "get-latest-for-tenant-by-tenant-id <tenantId>",
 		Short:       "Get latest for tenant by tenant id",
-		Example:     "  immybot-pp-cli maintenance-actions get-latest-for-tenant-by-tenant-id 42",
+		Example:     "  immybot-cli maintenance-actions get-latest-for-tenant-by-tenant-id 42",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-actions.get-latest-for-tenant-by-tenant-id", "pp:method": "GET", "pp:path": "/api/v1/maintenance-actions/latest-for-tenant/{tenantId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

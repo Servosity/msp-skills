@@ -17,7 +17,7 @@ func newGroupsMembersDeleteByUserIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "delete-by-user-id <groupId> <userId>",
 		Aliases:     []string{"delete"},
 		Short:       "Delete by user id",
-		Example:     "  immybot-pp-cli groups members delete-by-user-id 42 42",
+		Example:     "  immybot-cli groups members delete-by-user-id 42 42",
 		Annotations: map[string]string{"pp:endpoint": "members.delete-by-user-id", "pp:method": "DELETE", "pp:path": "/api/v1/groups/{groupId}/members/{userId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

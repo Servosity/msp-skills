@@ -16,7 +16,7 @@ func newTenantsGetExcludedFromCrossDeploymentsCmd(flags *rootFlags) *cobra.Comma
 	cmd := &cobra.Command{
 		Use:         "get-excluded-from-cross-deployments",
 		Short:       "Get excluded from cross deployments",
-		Example:     "  immybot-pp-cli tenants get-excluded-from-cross-deployments",
+		Example:     "  immybot-cli tenants get-excluded-from-cross-deployments",
 		Annotations: map[string]string{"pp:endpoint": "tenants.get-excluded-from-cross-deployments", "pp:method": "GET", "pp:path": "/api/v1/tenants/excluded-from-cross-tenant-deployments", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/tenants/excluded-from-cross-tenant-deployments"

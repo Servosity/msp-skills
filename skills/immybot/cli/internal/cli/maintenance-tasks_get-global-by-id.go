@@ -17,7 +17,7 @@ func newMaintenanceTasksGetGlobalByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-global-by-id <id>",
 		Aliases:     []string{"get"},
 		Short:       "Get global by id",
-		Example:     "  immybot-pp-cli maintenance-tasks get-global-by-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli maintenance-tasks get-global-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-tasks.get-global-by-id", "pp:method": "GET", "pp:path": "/api/v1/maintenance-tasks/global/{id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

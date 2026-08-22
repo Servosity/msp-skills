@@ -16,7 +16,7 @@ func newScriptsGetFunctionsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-functions",
 		Short:       "Execute a cloud script that returns results of Get-Command",
-		Example:     "  immybot-pp-cli scripts get-functions",
+		Example:     "  immybot-cli scripts get-functions",
 		Annotations: map[string]string{"pp:endpoint": "scripts.get-functions", "pp:method": "GET", "pp:path": "/api/v1/scripts/functions", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/scripts/functions"

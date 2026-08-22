@@ -20,7 +20,7 @@ func newComputersCreateChangeTenantCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-change-tenant",
 		Short:       "Create change tenant",
-		Example:     "  immybot-pp-cli computers create-change-tenant",
+		Example:     "  immybot-cli computers create-change-tenant",
 		Annotations: map[string]string{"pp:endpoint": "computers.create-change-tenant", "pp:method": "POST", "pp:path": "/api/v1/computers/change-tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

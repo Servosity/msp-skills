@@ -22,19 +22,19 @@ func newOrphansCmd(flags *rootFlags) *cobra.Command {
 		Long: `Scan locally synced data for items that are missing important fields
 such as assignee, project, priority, or labels. Useful for triaging unowned work.`,
 		Example: `  # Find orphaned items
-  immybot-pp-cli orphans
+  immybot-cli orphans
 
   # Output as JSON
-  immybot-pp-cli orphans --json`,
+  immybot-cli orphans --json`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dbPath == "" {
-				dbPath = defaultDBPath("immybot-pp-cli")
+				dbPath = defaultDBPath("immybot-cli")
 			}
 
 			db, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
-				return fmt.Errorf("opening local database: %w\nRun 'immybot-pp-cli sync' first.", err)
+				return fmt.Errorf("opening local database: %w\nRun 'immybot-cli sync' first.", err)
 			}
 			defer db.Close()
 			maybeEmitSyncHints(cmd, db, "", flags.maxAge)

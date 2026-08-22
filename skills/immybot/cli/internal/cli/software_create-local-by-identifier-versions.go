@@ -66,7 +66,7 @@ func newSoftwareCreateLocalByIdentifierVersionsCmd(flags *rootFlags) *cobra.Comm
 		Use:   "create-local-by-identifier-versions <softwareIdentifier>",
 		Short: "Create local by identifier versions",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli software create-local-by-identifier-versions example-value",
+		Example:     "  immybot-cli software create-local-by-identifier-versions example-value",
 		Annotations: map[string]string{"pp:endpoint": "software.create-local-by-identifier-versions", "pp:method": "POST", "pp:path": "/api/v1/software/local/{softwareIdentifier}/versions"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

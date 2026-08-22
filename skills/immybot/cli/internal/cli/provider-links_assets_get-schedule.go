@@ -16,7 +16,7 @@ func newProviderLinksAssetsGetScheduleCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-schedule <id>",
 		Short:       "Get schedule",
-		Example:     "  immybot-pp-cli provider-links assets get-schedule 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli provider-links assets get-schedule 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "assets.get-schedule", "pp:method": "GET", "pp:path": "/api/v1/provider-links/{id}/assets/schedule", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

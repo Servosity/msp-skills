@@ -24,7 +24,7 @@ func newProviderLinksCreateCreateWithExternalProviderReferenceCmd(flags *rootFla
 	cmd := &cobra.Command{
 		Use:         "create-create-with-external-provider-reference",
 		Short:       "Create create with external provider reference",
-		Example:     "  immybot-pp-cli provider-links create-create-with-external-provider-reference",
+		Example:     "  immybot-cli provider-links create-create-with-external-provider-reference",
 		Annotations: map[string]string{"pp:endpoint": "provider-links.create-create-with-external-provider-reference", "pp:method": "POST", "pp:path": "/api/v1/provider-links/create-with-external-provider-reference"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

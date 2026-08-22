@@ -81,7 +81,7 @@ func postFeedback(url string, entry FeedbackEntry) error {
 		return fmt.Errorf("building feedback request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "immybot-pp-cli/feedback")
+	req.Header.Set("User-Agent", "immybot-cli/feedback")
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -131,7 +131,7 @@ maintainer sees it.`,
 
 			entry := FeedbackEntry{
 				Text:      text,
-				CLI:       "immybot-pp-cli",
+				CLI:       "immybot-cli",
 				Version:   version,
 				AgentID:   os.Getenv("AGENT_ID"),
 				Timestamp: time.Now().UTC(),
@@ -187,9 +187,9 @@ func newFeedbackListCmd(flags *rootFlags) *cobra.Command {
 		Annotations: map[string]string{
 			"mcp:read-only": "true",
 		},
-		Example: `  immybot-pp-cli feedback list
-  immybot-pp-cli feedback list --limit 5
-  immybot-pp-cli feedback list --json`,
+		Example: `  immybot-cli feedback list
+  immybot-cli feedback list --limit 5
+  immybot-cli feedback list --json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			p, err := feedbackFilePath()
 			if err != nil {

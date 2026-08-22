@@ -27,7 +27,7 @@ func newOauthCreateBeginAuthCodeFlowCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-begin-auth-code-flow",
 		Short:       "Create begin auth code flow",
-		Example:     "  immybot-pp-cli oauth create-begin-auth-code-flow",
+		Example:     "  immybot-cli oauth create-begin-auth-code-flow",
 		Annotations: map[string]string{"pp:endpoint": "oauth.create-begin-auth-code-flow", "pp:method": "POST", "pp:path": "/api/v1/oauth/begin-auth-code-flow"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

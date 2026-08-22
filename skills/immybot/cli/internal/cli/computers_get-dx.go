@@ -17,7 +17,7 @@ func newComputersGetDxCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-dx",
 		Short:       "Get dx",
-		Example:     "  immybot-pp-cli computers get-dx",
+		Example:     "  immybot-cli computers get-dx",
 		Annotations: map[string]string{"pp:endpoint": "computers.get-dx", "pp:method": "GET", "pp:path": "/api/v1/computers/dx", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/computers/dx"

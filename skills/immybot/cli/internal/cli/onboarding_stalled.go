@@ -74,8 +74,8 @@ func newNovelOnboardingStalledCmd(flags *rootFlags) *cobra.Command {
 		Long: "Computers stuck waiting to onboard, bucketed by age and annotated with whether " +
 			"onboarding was ever attempted and how it ended.",
 		Example: strings.Trim(`
-  immybot-pp-cli onboarding-stalled --older-than 3d
-  immybot-pp-cli onboarding-stalled --older-than 1w --agent
+  immybot-cli onboarding-stalled --older-than 3d
+  immybot-cli onboarding-stalled --older-than 1w --agent
 `, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only": "true",
@@ -213,7 +213,7 @@ func newNovelOnboardingStalledCmd(flags *rootFlags) *cobra.Command {
 				view.Computers = view.Computers[:flagLimit]
 			}
 			if view.ScannedQueued == 0 {
-				view.Note = "no onboarding queue rows in the local mirror; run 'immybot-pp-cli sync --resources computers-onboarding'"
+				view.Note = "no onboarding queue rows in the local mirror; run 'immybot-cli sync --resources computers-onboarding'"
 			} else if view.StalledCount == 0 {
 				view.Note = fmt.Sprintf("scanned %d queued computer(s); none matched the age and tenant filters", view.ScannedQueued)
 			}

@@ -20,7 +20,7 @@ func newScriptsCreateDuplicateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-duplicate",
 		Short:       "Create duplicate",
-		Example:     "  immybot-pp-cli scripts create-duplicate",
+		Example:     "  immybot-cli scripts create-duplicate",
 		Annotations: map[string]string{"pp:endpoint": "scripts.create-duplicate", "pp:method": "POST", "pp:path": "/api/v1/scripts/duplicate"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

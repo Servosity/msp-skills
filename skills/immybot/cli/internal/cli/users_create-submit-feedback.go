@@ -21,7 +21,7 @@ func newUsersCreateSubmitFeedbackCmd(flags *rootFlags) *cobra.Command {
 		Use:   "create-submit-feedback",
 		Short: "Create submit feedback",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli users create-submit-feedback --details example-value",
+		Example:     "  immybot-cli users create-submit-feedback --details example-value",
 		Annotations: map[string]string{"pp:endpoint": "users.create-submit-feedback", "pp:method": "POST", "pp:path": "/api/v1/users/submit-feedback"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

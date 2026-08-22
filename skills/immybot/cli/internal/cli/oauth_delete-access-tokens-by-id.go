@@ -17,7 +17,7 @@ func newOauthDeleteAccessTokensByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "delete-access-tokens-by-id <id>",
 		Aliases:     []string{"delete"},
 		Short:       "Delete access tokens by id",
-		Example:     "  immybot-pp-cli oauth delete-access-tokens-by-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli oauth delete-access-tokens-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "oauth.delete-access-tokens-by-id", "pp:method": "DELETE", "pp:path": "/api/v1/oauth/oauth-access-tokens/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

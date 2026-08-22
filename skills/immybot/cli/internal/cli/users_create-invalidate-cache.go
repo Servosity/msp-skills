@@ -18,7 +18,7 @@ func newUsersCreateInvalidateCacheCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-invalidate-cache <userId>",
 		Short:       "Create invalidate cache",
-		Example:     "  immybot-pp-cli users create-invalidate-cache 42",
+		Example:     "  immybot-cli users create-invalidate-cache 42",
 		Annotations: map[string]string{"pp:endpoint": "users.create-invalidate-cache", "pp:method": "POST", "pp:path": "/api/v1/users/invalidate-cache"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

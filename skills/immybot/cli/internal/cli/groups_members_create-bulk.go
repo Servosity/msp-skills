@@ -19,7 +19,7 @@ func newGroupsMembersCreateBulkCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-bulk <groupId>",
 		Short:       "Create bulk",
-		Example:     "  immybot-pp-cli groups members create-bulk 42",
+		Example:     "  immybot-cli groups members create-bulk 42",
 		Annotations: map[string]string{"pp:endpoint": "members.create-bulk", "pp:method": "POST", "pp:path": "/api/v1/groups/{groupId}/members/bulk"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

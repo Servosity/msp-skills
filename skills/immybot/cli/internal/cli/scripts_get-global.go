@@ -21,7 +21,7 @@ func newScriptsGetGlobalCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-global",
 		Short:       "Get global",
-		Example:     "  immybot-pp-cli scripts get-global",
+		Example:     "  immybot-cli scripts get-global",
 		Annotations: map[string]string{"pp:endpoint": "scripts.get-global", "pp:method": "GET", "pp:path": "/api/v1/scripts/global", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/scripts/global"

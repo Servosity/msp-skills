@@ -18,7 +18,7 @@ func newAzureErrorsGetDxCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-dx",
 		Aliases:     []string{"list"},
 		Short:       "Get dx",
-		Example:     "  immybot-pp-cli azure-errors get-dx",
+		Example:     "  immybot-cli azure-errors get-dx",
 		Annotations: map[string]string{"pp:endpoint": "azure-errors.get-dx", "pp:method": "GET", "pp:path": "/api/v1/azure-errors/dx", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/azure-errors/dx"

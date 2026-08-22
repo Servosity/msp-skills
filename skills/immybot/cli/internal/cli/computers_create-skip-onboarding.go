@@ -19,7 +19,7 @@ func newComputersCreateSkipOnboardingCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-skip-onboarding",
 		Short:       "Create skip onboarding",
-		Example:     "  immybot-pp-cli computers create-skip-onboarding",
+		Example:     "  immybot-cli computers create-skip-onboarding",
 		Annotations: map[string]string{"pp:endpoint": "computers.create-skip-onboarding", "pp:method": "POST", "pp:path": "/api/v1/computers/skip-onboarding"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

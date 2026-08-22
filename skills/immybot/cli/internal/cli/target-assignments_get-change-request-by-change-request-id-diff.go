@@ -16,7 +16,7 @@ func newTargetAssignmentsGetChangeRequestByChangeRequestIdDiffCmd(flags *rootFla
 	cmd := &cobra.Command{
 		Use:         "get-change-request-by-change-request-id-diff <changeRequestId>",
 		Short:       "Get change request by change request id diff",
-		Example:     "  immybot-pp-cli target-assignments get-change-request-by-change-request-id-diff 42",
+		Example:     "  immybot-cli target-assignments get-change-request-by-change-request-id-diff 42",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.get-change-request-by-change-request-id-diff", "pp:method": "GET", "pp:path": "/api/v1/target-assignments/change-request/{changeRequestId}/diff", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

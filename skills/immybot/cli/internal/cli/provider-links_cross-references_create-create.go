@@ -20,7 +20,7 @@ func newProviderLinksCrossReferencesCreateCreateCmd(flags *rootFlags) *cobra.Com
 	cmd := &cobra.Command{
 		Use:         "create-create <id>",
 		Short:       "Create create",
-		Example:     "  immybot-pp-cli provider-links cross-references create-create 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli provider-links cross-references create-create 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "cross-references.create-create", "pp:method": "POST", "pp:path": "/api/v1/provider-links/{id}/cross-references/create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

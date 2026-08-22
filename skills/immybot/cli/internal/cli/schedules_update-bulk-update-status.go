@@ -21,7 +21,7 @@ func newSchedulesUpdateBulkUpdateStatusCmd(flags *rootFlags) *cobra.Command {
 		Use:         "update-bulk-update-status",
 		Aliases:     []string{"update"},
 		Short:       "Update bulk update status",
-		Example:     "  immybot-pp-cli schedules update-bulk-update-status",
+		Example:     "  immybot-cli schedules update-bulk-update-status",
 		Annotations: map[string]string{"pp:endpoint": "schedules.update-bulk-update-status", "pp:method": "PATCH", "pp:path": "/api/v1/schedules/bulk-update-status"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

@@ -22,7 +22,7 @@ func newUsersCreateByIdCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-by-id <userId>",
 		Short:       "Create by id",
-		Example:     "  immybot-pp-cli users create-by-id 42",
+		Example:     "  immybot-cli users create-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "users.create-by-id", "pp:method": "POST", "pp:path": "/api/v1/users/{userId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

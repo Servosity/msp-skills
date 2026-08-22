@@ -16,7 +16,7 @@ func newUsersGroupsGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <userId>",
 		Short:       "Get",
-		Example:     "  immybot-pp-cli users groups get 42",
+		Example:     "  immybot-cli users groups get 42",
 		Annotations: map[string]string{"pp:endpoint": "groups.get", "pp:method": "GET", "pp:path": "/api/v1/users/{userId}/groups", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

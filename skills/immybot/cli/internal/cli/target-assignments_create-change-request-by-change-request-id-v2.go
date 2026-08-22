@@ -52,7 +52,7 @@ func newTargetAssignmentsCreateChangeRequestByChangeRequestIdV2Cmd(flags *rootFl
 		Use:   "create-change-request-by-change-request-id-v2 <changeRequestId>",
 		Short: "Create change request by change request id v2",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli target-assignments create-change-request-by-change-request-id-v2 42 --maintenance-identifier example-value",
+		Example:     "  immybot-cli target-assignments create-change-request-by-change-request-id-v2 42 --maintenance-identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.create-change-request-by-change-request-id-v2", "pp:method": "POST", "pp:path": "/api/v1/target-assignments/change-request/{changeRequestId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

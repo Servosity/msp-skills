@@ -17,7 +17,7 @@ func newProviderTypesListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List",
-		Example:     "  immybot-pp-cli provider-types list",
+		Example:     "  immybot-cli provider-types list",
 		Annotations: map[string]string{"pp:endpoint": "provider-types.list", "pp:method": "GET", "pp:path": "/api/v1/provider-types", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/provider-types"

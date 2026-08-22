@@ -20,7 +20,7 @@ func newUsersCreateUpdateExpirationCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-update-expiration",
 		Short:       "Create update expiration",
-		Example:     "  immybot-pp-cli users create-update-expiration",
+		Example:     "  immybot-cli users create-update-expiration",
 		Annotations: map[string]string{"pp:endpoint": "users.create-update-expiration", "pp:method": "POST", "pp:path": "/api/v1/users/update-expiration"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

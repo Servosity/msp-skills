@@ -26,7 +26,7 @@ func newTenantsCreateUpdateAzureLinkCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-update-azure-link",
 		Short:       "Create update azure link",
-		Example:     "  immybot-pp-cli tenants create-update-azure-link",
+		Example:     "  immybot-cli tenants create-update-azure-link",
 		Annotations: map[string]string{"pp:endpoint": "tenants.create-update-azure-link", "pp:method": "POST", "pp:path": "/api/v1/tenants/update-azure-tenant-link"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

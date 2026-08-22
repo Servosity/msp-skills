@@ -274,11 +274,11 @@
     {
       "slug": "immybot",
       "display_name": "ImmyBot",
-      "tagline": "Triage a night of failed maintenance by root cause, and rank one software title across every tenant with a real semver comparator.",
+      "tagline": "Triage a night of failed maintenance by root cause, and rank one title across every tenant.",
       "category": "RMM",
-      "verification": "awaiting",
-      "verified_by": null,
-      "issue_url": null,
+      "verification": "live-verified",
+      "verified_by": "@geekbrownbear (MSP)",
+      "issue_url": "https://github.com/Servosity/msp-skills/pull/276",
       "url": "/skills/immybot/"
     },
     {

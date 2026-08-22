@@ -16,7 +16,7 @@ func newProviderAgentsIdentificationLogsGetCmd(flags *rootFlags) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:         "get <agentId>",
 		Short:       "Get",
-		Example:     "  immybot-pp-cli provider-agents identification-logs get 42",
+		Example:     "  immybot-cli provider-agents identification-logs get 42",
 		Annotations: map[string]string{"pp:endpoint": "identification-logs.get", "pp:method": "GET", "pp:path": "/api/v1/provider-agents/{agentId}/identification-logs", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -47,8 +47,8 @@ func newNovelDeploymentHealthCmd(flags *rootFlags) *cobra.Command {
 		Long: "Roll up every recorded maintenance action per target assignment to show which " +
 			"deployments actually land and which have never once succeeded.",
 		Example: strings.Trim(`
-  immybot-pp-cli deployment-health
-  immybot-pp-cli deployment-health --only-failing --agent
+  immybot-cli deployment-health
+  immybot-cli deployment-health --only-failing --agent
 `, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only": "true",
@@ -171,7 +171,7 @@ func newNovelDeploymentHealthCmd(flags *rootFlags) *cobra.Command {
 				view.Deployments = view.Deployments[:flagLimit]
 			}
 			if view.ScannedActions == 0 {
-				view.Note = "no maintenance actions in the local mirror; run 'immybot-pp-cli sync --resources maintenance-actions'"
+				view.Note = "no maintenance actions in the local mirror; run 'immybot-cli sync --resources maintenance-actions'"
 			}
 
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {

@@ -17,7 +17,7 @@ func newLicensesDeleteByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "delete-by-id <licenseId>",
 		Aliases:     []string{"delete"},
 		Short:       "Delete by id",
-		Example:     "  immybot-pp-cli licenses delete-by-id 42",
+		Example:     "  immybot-cli licenses delete-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "licenses.delete-by-id", "pp:method": "DELETE", "pp:path": "/api/v1/licenses/{licenseId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

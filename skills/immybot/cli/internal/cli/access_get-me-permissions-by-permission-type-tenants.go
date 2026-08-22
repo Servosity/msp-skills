@@ -17,7 +17,7 @@ func newAccessGetMePermissionsByPermissionTypeTenantsCmd(flags *rootFlags) *cobr
 		Use:   "get-me-permissions-by-permission-type-tenants <permissionType>",
 		Short: "Get me permissions by permission type tenants",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli access get-me-permissions-by-permission-type-tenants example-value",
+		Example:     "  immybot-cli access get-me-permissions-by-permission-type-tenants example-value",
 		Annotations: map[string]string{"pp:endpoint": "access.get-me-permissions-by-permission-type-tenants", "pp:method": "GET", "pp:path": "/api/v1/auth/me/permissions/{permissionType}/tenants", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

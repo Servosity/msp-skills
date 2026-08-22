@@ -16,7 +16,7 @@ func newTargetAssignmentsGetMaintenanceItemOrdersCmd(flags *rootFlags) *cobra.Co
 	cmd := &cobra.Command{
 		Use:         "get-maintenance-item-orders",
 		Short:       "Get maintenance item orders",
-		Example:     "  immybot-pp-cli target-assignments get-maintenance-item-orders",
+		Example:     "  immybot-cli target-assignments get-maintenance-item-orders",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.get-maintenance-item-orders", "pp:method": "GET", "pp:path": "/api/v1/target-assignments/maintenance-item-orders", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/target-assignments/maintenance-item-orders"

@@ -21,7 +21,7 @@ func newScriptsGetLocalCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-local",
 		Short:       "Get local",
-		Example:     "  immybot-pp-cli scripts get-local",
+		Example:     "  immybot-cli scripts get-local",
 		Annotations: map[string]string{"pp:endpoint": "scripts.get-local", "pp:method": "GET", "pp:path": "/api/v1/scripts/local", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/scripts/local"

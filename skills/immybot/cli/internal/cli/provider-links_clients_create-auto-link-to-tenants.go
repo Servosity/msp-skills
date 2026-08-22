@@ -21,7 +21,7 @@ func newProviderLinksClientsCreateAutoLinkToTenantsCmd(flags *rootFlags) *cobra.
 		Use:         "create-auto-link-to-tenants <id>",
 		Aliases:     []string{"create"},
 		Short:       "Create auto link to tenants",
-		Example:     "  immybot-pp-cli provider-links clients create-auto-link-to-tenants 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli provider-links clients create-auto-link-to-tenants 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "clients.create-auto-link-to-tenants", "pp:method": "POST", "pp:path": "/api/v1/provider-links/{id}/clients/auto-link-to-tenants"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

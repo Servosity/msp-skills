@@ -19,7 +19,7 @@ func newProviderAgentsResolveFailuresCreateByAgentIdCmd(flags *rootFlags) *cobra
 		Use:         "create-by-agent-id <agentId>",
 		Aliases:     []string{"create"},
 		Short:       "Create by agent id",
-		Example:     "  immybot-pp-cli provider-agents resolve-failures create-by-agent-id 42",
+		Example:     "  immybot-cli provider-agents resolve-failures create-by-agent-id 42",
 		Annotations: map[string]string{"pp:endpoint": "resolve-failures.create-by-agent-id", "pp:method": "POST", "pp:path": "/api/v1/provider-agents/{agentId}/resolve-failures"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

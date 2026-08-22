@@ -21,7 +21,7 @@ func newMaintenanceTasksCreateDuplicateCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-duplicate",
 		Aliases:     []string{"create"},
 		Short:       "Create duplicate",
-		Example:     "  immybot-pp-cli maintenance-tasks create-duplicate",
+		Example:     "  immybot-cli maintenance-tasks create-duplicate",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-tasks.create-duplicate", "pp:method": "POST", "pp:path": "/api/v1/maintenance-tasks/duplicate"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

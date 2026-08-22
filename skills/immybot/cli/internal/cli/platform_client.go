@@ -54,7 +54,7 @@ func preparePlatformSession(flags *rootFlags) error {
 	if registeredPlatformSource == nil || flags.platformSession != nil {
 		return nil
 	}
-	session, err := platform.PrepareProfileSource(flags.clientProfileName, "immybot-pp-cli", registeredPlatformSource.Source)
+	session, err := platform.PrepareProfileSource(flags.clientProfileName, "immybot-cli", registeredPlatformSource.Source)
 	if err != nil {
 		return err
 	}
@@ -259,7 +259,7 @@ func BindMCPServerProfile() error {
 	if registeredPlatformSource == nil {
 		return nil
 	}
-	session, err := platform.PrepareProfileSource("", "immybot-pp-cli", registeredPlatformSource.Source)
+	session, err := platform.PrepareProfileSource("", "immybot-cli", registeredPlatformSource.Source)
 	if err != nil {
 		return err
 	}
@@ -288,7 +288,7 @@ func VerifyMCPInvocation(ctx context.Context) (*platform.Session, error) {
 		}
 		return session, nil
 	}
-	session, err := platform.PrepareProfileSource(bound, "immybot-pp-cli", registeredPlatformSource.Source)
+	session, err := platform.PrepareProfileSource(bound, "immybot-cli", registeredPlatformSource.Source)
 	if err != nil {
 		return nil, err
 	}
@@ -561,7 +561,7 @@ func newPlatformClientValidateCmd(flags *rootFlags) *cobra.Command {
 		if registeredPlatformSource == nil {
 			return errors.New("this CLI has no registered tenant identity adapter")
 		}
-		session, err := platform.PrepareProfileSource(args[0], "immybot-pp-cli", registeredPlatformSource.Source)
+		session, err := platform.PrepareProfileSource(args[0], "immybot-cli", registeredPlatformSource.Source)
 		if err != nil {
 			return err
 		}
@@ -620,7 +620,7 @@ func newPlatformClientMigrateCmd(flags *rootFlags) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		session, err := platform.PrepareProfileSourceFromConfig(profile, "immybot-pp-cli", registeredPlatformSource.Source)
+		session, err := platform.PrepareProfileSourceFromConfig(profile, "immybot-cli", registeredPlatformSource.Source)
 		if err != nil {
 			return err
 		}
@@ -679,7 +679,7 @@ func newPlatformClientCacheCmd(flags *rootFlags) *cobra.Command {
 		if registeredPlatformSource == nil {
 			return errors.New("this CLI has no registered tenant identity adapter")
 		}
-		session, err := platform.PrepareProfileSource(args[0], "immybot-pp-cli", registeredPlatformSource.Source)
+		session, err := platform.PrepareProfileSource(args[0], "immybot-cli", registeredPlatformSource.Source)
 		if err != nil {
 			return err
 		}
@@ -730,7 +730,7 @@ func initializePlatformReceipt(cmd *cobra.Command, flags *rootFlags) error {
 		return nil
 	}
 	writer, err := platform.NewReceiptWriter(flags.platformSession, platform.ReceiptOptions{
-		CLI:  platform.ReceiptCLI{Name: "immybot-pp-cli", Version: version},
+		CLI:  platform.ReceiptCLI{Name: "immybot-cli", Version: version},
 		Argv: append([]string(nil), os.Args...), ReceiptFile: flags.receiptFile, AuditDir: flags.auditDir,
 	})
 	if err != nil {

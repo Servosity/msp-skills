@@ -24,7 +24,7 @@ func newPersonsCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli persons create",
+		Example:     "  immybot-cli persons create",
 		Annotations: map[string]string{"pp:endpoint": "persons.create", "pp:method": "POST", "pp:path": "/api/v1/persons"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

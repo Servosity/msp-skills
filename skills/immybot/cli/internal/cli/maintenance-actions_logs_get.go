@@ -16,7 +16,7 @@ func newMaintenanceActionsLogsGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <actionId>",
 		Short:       "Get",
-		Example:     "  immybot-pp-cli maintenance-actions logs get 42",
+		Example:     "  immybot-cli maintenance-actions logs get 42",
 		Annotations: map[string]string{"pp:endpoint": "logs.get", "pp:method": "GET", "pp:path": "/api/v1/maintenance-actions/{actionId}/logs", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

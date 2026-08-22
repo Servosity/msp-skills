@@ -44,7 +44,7 @@ func newMaintenanceTasksCreateGlobalCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-global",
 		Short:       "Create global",
-		Example:     "  immybot-pp-cli maintenance-tasks create-global --name example-resource",
+		Example:     "  immybot-cli maintenance-tasks create-global --name example-resource",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-tasks.create-global", "pp:method": "POST", "pp:path": "/api/v1/maintenance-tasks/global"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

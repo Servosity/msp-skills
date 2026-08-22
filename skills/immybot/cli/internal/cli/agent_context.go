@@ -120,6 +120,19 @@ reading source. Schema is versioned via schema_version.`,
 func buildAgentContext(rootCmd *cobra.Command) agentContext {
 	envVars := []agentContextAuthEnvVar{
 		{
+			Name:      "IMMYBOT_SUBDOMAIN",
+			Kind:      "auth_flow_input",
+			Required:  true,
+			Sensitive: false,
+			// Required, and the one whose absence fails worst: it derives the
+			// OAuth scope (https://<subdomain>.immy.bot/.default). Without it the
+			// scope falls back to api://{client_id}/.default, which names the
+			// caller's own app registration rather than ImmyBot, and Entra
+			// rejects the token opaquely. doctor reports it; agent-context
+			// omitted it, so an agent reading "runtime truth" saw only 3 of 4.
+			Description: "ImmyBot instance subdomain (the \"acme\" in acme.immy.bot). Derives the OAuth scope.",
+		},
+		{
 			Name:        "IMMYBOT_TENANT_ID",
 			Kind:        "auth_flow_input",
 			Required:    true,
@@ -138,7 +151,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 			Kind:        "auth_flow_input",
 			Required:    true,
 			Sensitive:   true,
-			Description: "Set during initial auth setup.",
+			Description: "Client secret paired with IMMYBOT_CLIENT_ID, from the Entra app registration.",
 		},
 	}
 	authMode := "bearer_token"
@@ -152,7 +165,7 @@ func buildAgentContext(rootCmd *cobra.Command) agentContext {
 	return agentContext{
 		SchemaVersion: agentContextSchemaVersion,
 		CLI: agentContextCLI{
-			Name:        "immybot-pp-cli",
+			Name:        "immybot-cli",
 			Description: "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
 			Version:     rootCmd.Version,
 		},

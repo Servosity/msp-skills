@@ -22,7 +22,7 @@ func newAccessCreateUpdateAzureTenantAuthDetailsCmd(flags *rootFlags) *cobra.Com
 	cmd := &cobra.Command{
 		Use:         "create-update-azure-tenant-auth-details",
 		Short:       "Create update azure tenant auth details",
-		Example:     "  immybot-pp-cli access create-update-azure-tenant-auth-details",
+		Example:     "  immybot-cli access create-update-azure-tenant-auth-details",
 		Annotations: map[string]string{"pp:endpoint": "access.create-update-azure-tenant-auth-details", "pp:method": "POST", "pp:path": "/api/v1/auth/update-azure-tenant-auth-details"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

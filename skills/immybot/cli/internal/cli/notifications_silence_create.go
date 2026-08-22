@@ -20,7 +20,7 @@ func newNotificationsSilenceCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli notifications silence create --type ProviderHealth",
+		Example:     "  immybot-cli notifications silence create --type ProviderHealth",
 		Annotations: map[string]string{"pp:endpoint": "silence.create", "pp:method": "POST", "pp:path": "/api/v1/notifications/{type}/silence"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("type") {

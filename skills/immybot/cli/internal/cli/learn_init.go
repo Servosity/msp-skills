@@ -85,15 +85,15 @@ var learnInitOnce sync.Once
 // same behavior an opt-out CLI sees.
 func runLearnInitOnce(ctx context.Context) {
 	learnInitOnce.Do(func() {
-		dbPath := defaultDBPath("immybot-pp-cli")
+		dbPath := defaultDBPath("immybot-cli")
 		s, err := store.OpenWithContext(ctx, dbPath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: immybot-pp-cli: learn init: open store: %v\n", err)
+			fmt.Fprintf(os.Stderr, "warning: immybot-cli: learn init: open store: %v\n", err)
 			return
 		}
 		defer s.Close()
 		if err := initLearn(ctx, s.DB()); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: immybot-pp-cli: learn init: %v\n", err)
+			fmt.Fprintf(os.Stderr, "warning: immybot-cli: learn init: %v\n", err)
 		}
 	})
 }

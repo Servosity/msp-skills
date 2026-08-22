@@ -16,7 +16,7 @@ func newTargetAssignmentsTypeGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <id>",
 		Short:       "Get",
-		Example:     "  immybot-pp-cli target-assignments type get 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli target-assignments type get 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "type.get", "pp:method": "GET", "pp:path": "/api/v1/target-assignments/{id}/type", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

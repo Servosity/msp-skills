@@ -18,7 +18,7 @@ func newUsersCreateStopImpersonatingCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-stop-impersonating",
 		Short:       "Create stop impersonating",
-		Example:     "  immybot-pp-cli users create-stop-impersonating",
+		Example:     "  immybot-cli users create-stop-impersonating",
 		Annotations: map[string]string{"pp:endpoint": "users.create-stop-impersonating", "pp:method": "POST", "pp:path": "/api/v1/users/stop-impersonating"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

@@ -19,7 +19,7 @@ func newProviderLinksAssetsCreateTriggerCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-trigger <id>",
 		Aliases:     []string{"create"},
 		Short:       "Create trigger",
-		Example:     "  immybot-pp-cli provider-links assets create-trigger 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli provider-links assets create-trigger 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "assets.create-trigger", "pp:method": "POST", "pp:path": "/api/v1/provider-links/{id}/assets/trigger"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

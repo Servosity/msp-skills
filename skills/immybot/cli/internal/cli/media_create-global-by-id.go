@@ -27,7 +27,7 @@ func newMediaCreateGlobalByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-global-by-id <id>",
 		Aliases:     []string{"create"},
 		Short:       "Create global by id",
-		Example:     "  immybot-pp-cli media create-global-by-id 550e8400-e29b-41d4-a716-446655440000 --file-name example-resource",
+		Example:     "  immybot-cli media create-global-by-id 550e8400-e29b-41d4-a716-446655440000 --file-name example-resource",
 		Annotations: map[string]string{"pp:endpoint": "media.create-global-by-id", "pp:method": "POST", "pp:path": "/api/v1/media/global/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

@@ -19,7 +19,7 @@ func newTargetAssignmentsCreateRecommendedApprovalsUpdateCmd(flags *rootFlags) *
 	cmd := &cobra.Command{
 		Use:         "create-recommended-approvals-update",
 		Short:       "Create recommended approvals update",
-		Example:     "  immybot-pp-cli target-assignments create-recommended-approvals-update",
+		Example:     "  immybot-cli target-assignments create-recommended-approvals-update",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.create-recommended-approvals-update", "pp:method": "POST", "pp:path": "/api/v1/target-assignments/recommended-approvals/update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

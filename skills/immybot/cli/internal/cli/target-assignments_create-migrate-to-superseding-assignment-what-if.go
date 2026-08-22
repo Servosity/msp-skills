@@ -21,7 +21,7 @@ func newTargetAssignmentsCreateMigrateToSupersedingAssignmentWhatIfCmd(flags *ro
 	cmd := &cobra.Command{
 		Use:         "create-migrate-to-superseding-assignment-what-if",
 		Short:       "Create migrate to superseding assignment what if",
-		Example:     "  immybot-pp-cli target-assignments create-migrate-to-superseding-assignment-what-if",
+		Example:     "  immybot-cli target-assignments create-migrate-to-superseding-assignment-what-if",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.create-migrate-to-superseding-assignment-what-if", "pp:method": "POST", "pp:path": "/api/v1/target-assignments/migrate-to-superseding-assignment-what-if"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

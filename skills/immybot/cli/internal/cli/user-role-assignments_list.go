@@ -39,7 +39,7 @@ func newUserRoleAssignmentsListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List",
-		Example:     "  immybot-pp-cli user-role-assignments list",
+		Example:     "  immybot-cli user-role-assignments list",
 		Annotations: map[string]string{"pp:endpoint": "user-role-assignments.list", "pp:method": "GET", "pp:path": "/api/v1/user-role-assignments", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/user-role-assignments"

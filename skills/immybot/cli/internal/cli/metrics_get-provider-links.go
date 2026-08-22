@@ -16,7 +16,7 @@ func newMetricsGetProviderLinksCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-provider-links",
 		Short:       "Get provider links",
-		Example:     "  immybot-pp-cli metrics get-provider-links",
+		Example:     "  immybot-cli metrics get-provider-links",
 		Annotations: map[string]string{"pp:endpoint": "metrics.get-provider-links", "pp:method": "GET", "pp:path": "/api/v1/metrics/provider-links", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/metrics/provider-links"

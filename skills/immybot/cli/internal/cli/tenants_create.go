@@ -27,7 +27,7 @@ func newTenantsCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli tenants create",
+		Example:     "  immybot-cli tenants create",
 		Annotations: map[string]string{"pp:endpoint": "tenants.create", "pp:method": "POST", "pp:path": "/api/v1/tenants"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

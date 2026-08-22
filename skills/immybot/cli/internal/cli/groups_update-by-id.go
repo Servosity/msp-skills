@@ -23,7 +23,7 @@ func newGroupsUpdateByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "update-by-id <groupId>",
 		Aliases:     []string{"update"},
 		Short:       "Update by id",
-		Example:     "  immybot-pp-cli groups update-by-id 42",
+		Example:     "  immybot-cli groups update-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "groups.update-by-id", "pp:method": "PUT", "pp:path": "/api/v1/groups/{groupId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

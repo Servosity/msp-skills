@@ -16,7 +16,7 @@ func newUserRoleAssignmentsGetUsersByUserIdCountCmd(flags *rootFlags) *cobra.Com
 	cmd := &cobra.Command{
 		Use:         "get-users-by-user-id-count <userId>",
 		Short:       "Get users by user id count",
-		Example:     "  immybot-pp-cli user-role-assignments get-users-by-user-id-count 42",
+		Example:     "  immybot-cli user-role-assignments get-users-by-user-id-count 42",
 		Annotations: map[string]string{"pp:endpoint": "user-role-assignments.get-users-by-user-id-count", "pp:method": "GET", "pp:path": "/api/v1/user-role-assignments/users/{userId}/count", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

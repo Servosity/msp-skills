@@ -39,7 +39,7 @@ func newRolesAssignmentsGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <roleId>",
 		Short:       "Get",
-		Example:     "  immybot-pp-cli roles assignments get 42",
+		Example:     "  immybot-cli roles assignments get 42",
 		Annotations: map[string]string{"pp:endpoint": "assignments.get", "pp:method": "GET", "pp:path": "/api/v1/roles/{roleId}/assignments", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

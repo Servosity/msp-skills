@@ -18,7 +18,7 @@ func newProviderLinksAgentsCreateByComputerIdExternalUrlCmd(flags *rootFlags) *c
 	cmd := &cobra.Command{
 		Use:         "create-by-computer-id-external-url <id> <computerId>",
 		Short:       "Create by computer id external url",
-		Example:     "  immybot-pp-cli provider-links agents create-by-computer-id-external-url 550e8400-e29b-41d4-a716-446655440000 42",
+		Example:     "  immybot-cli provider-links agents create-by-computer-id-external-url 550e8400-e29b-41d4-a716-446655440000 42",
 		Annotations: map[string]string{"pp:endpoint": "agents.create-by-computer-id-external-url", "pp:method": "POST", "pp:path": "/api/v1/provider-links/{id}/agents/{computerId}/external-agent-url"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

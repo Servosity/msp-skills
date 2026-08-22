@@ -17,7 +17,7 @@ func newOauthGetAccessTokensCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-access-tokens",
 		Aliases:     []string{"list"},
 		Short:       "Get access tokens",
-		Example:     "  immybot-pp-cli oauth get-access-tokens",
+		Example:     "  immybot-cli oauth get-access-tokens",
 		Annotations: map[string]string{"pp:endpoint": "oauth.get-access-tokens", "pp:method": "GET", "pp:path": "/api/v1/oauth/oauth-access-tokens", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/oauth/oauth-access-tokens"

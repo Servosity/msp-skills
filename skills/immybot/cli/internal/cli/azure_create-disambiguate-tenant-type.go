@@ -20,7 +20,7 @@ func newAzureCreateDisambiguateTenantTypeCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-disambiguate-tenant-type",
 		Aliases:     []string{"create"},
 		Short:       "Create disambiguate tenant type",
-		Example:     "  immybot-pp-cli azure create-disambiguate-tenant-type",
+		Example:     "  immybot-cli azure create-disambiguate-tenant-type",
 		Annotations: map[string]string{"pp:endpoint": "azure.create-disambiguate-tenant-type", "pp:method": "POST", "pp:path": "/api/v1/azure/disambiguate-azure-tenant-type"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

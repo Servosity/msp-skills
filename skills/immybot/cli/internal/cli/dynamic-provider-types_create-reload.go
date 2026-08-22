@@ -18,7 +18,7 @@ func newDynamicProviderTypesCreateReloadCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-reload",
 		Short:       "Create reload",
-		Example:     "  immybot-pp-cli dynamic-provider-types create-reload",
+		Example:     "  immybot-cli dynamic-provider-types create-reload",
 		Annotations: map[string]string{"pp:endpoint": "dynamic-provider-types.create-reload", "pp:method": "POST", "pp:path": "/api/v1/dynamic-provider-types/reload"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

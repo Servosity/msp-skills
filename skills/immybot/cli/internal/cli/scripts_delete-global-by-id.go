@@ -17,7 +17,7 @@ func newScriptsDeleteGlobalByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "delete-global-by-id <scriptId>",
 		Aliases:     []string{"delete"},
 		Short:       "Delete global by id",
-		Example:     "  immybot-pp-cli scripts delete-global-by-id 42",
+		Example:     "  immybot-cli scripts delete-global-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "scripts.delete-global-by-id", "pp:method": "DELETE", "pp:path": "/api/v1/scripts/global/{scriptId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

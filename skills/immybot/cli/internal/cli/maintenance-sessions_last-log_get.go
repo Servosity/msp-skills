@@ -16,7 +16,7 @@ func newMaintenanceSessionsLastLogGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <sessionId>",
 		Short:       "Get",
-		Example:     "  immybot-pp-cli maintenance-sessions last-log get 42",
+		Example:     "  immybot-cli maintenance-sessions last-log get 42",
 		Annotations: map[string]string{"pp:endpoint": "last-log.get", "pp:method": "GET", "pp:path": "/api/v1/maintenance-sessions/{sessionId}/last-log", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

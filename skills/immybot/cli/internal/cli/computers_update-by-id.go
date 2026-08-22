@@ -24,7 +24,7 @@ func newComputersUpdateByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "update-by-id <computerId>",
 		Aliases:     []string{"update"},
 		Short:       "Update by id",
-		Example:     "  immybot-pp-cli computers update-by-id 42",
+		Example:     "  immybot-cli computers update-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "computers.update-by-id", "pp:method": "PUT", "pp:path": "/api/v1/computers/{computerId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

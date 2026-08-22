@@ -17,7 +17,7 @@ func newMaintenanceActionsGetLatestNonCompliantActionsForTenantByTenantIdCmd(fla
 	cmd := &cobra.Command{
 		Use:         "get-latest-non-compliant-actions-for-tenant-by-tenant-id <tenantId>",
 		Short:       "Get latest non compliant actions for tenant by tenant id",
-		Example:     "  immybot-pp-cli maintenance-actions get-latest-non-compliant-actions-for-tenant-by-tenant-id 42",
+		Example:     "  immybot-cli maintenance-actions get-latest-non-compliant-actions-for-tenant-by-tenant-id 42",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-actions.get-latest-non-compliant-actions-for-tenant-by-tenant-id", "pp:method": "GET", "pp:path": "/api/v1/maintenance-actions/latest-non-compliant-actions-for-tenant/{tenantId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -16,7 +16,7 @@ func newUserSessionGetMeCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-me",
 		Short:       "Get me",
-		Example:     "  immybot-pp-cli user_session get-me",
+		Example:     "  immybot-cli user_session get-me",
 		Annotations: map[string]string{"pp:endpoint": "user_session.get-me", "pp:method": "GET", "pp:path": "/auth/me", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/auth/me"

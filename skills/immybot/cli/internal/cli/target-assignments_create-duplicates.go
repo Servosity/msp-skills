@@ -50,7 +50,7 @@ func newTargetAssignmentsCreateDuplicatesCmd(flags *rootFlags) *cobra.Command {
 		Use:   "create-duplicates",
 		Short: "Create duplicates",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli target-assignments create-duplicates --maintenance-identifier example-value",
+		Example:     "  immybot-cli target-assignments create-duplicates --maintenance-identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.create-duplicates", "pp:method": "POST", "pp:path": "/api/v1/target-assignments/duplicates"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

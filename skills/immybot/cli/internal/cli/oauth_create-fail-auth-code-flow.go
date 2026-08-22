@@ -22,7 +22,7 @@ func newOauthCreateFailAuthCodeFlowCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-fail-auth-code-flow",
 		Short:       "Create fail auth code flow",
-		Example:     "  immybot-pp-cli oauth create-fail-auth-code-flow",
+		Example:     "  immybot-cli oauth create-fail-auth-code-flow",
 		Annotations: map[string]string{"pp:endpoint": "oauth.create-fail-auth-code-flow", "pp:method": "POST", "pp:path": "/api/v1/oauth/fail-auth-code-flow"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

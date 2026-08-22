@@ -17,7 +17,7 @@ func newProviderTypesGetFormDropdownOptionsByKeyCmd(flags *rootFlags) *cobra.Com
 	cmd := &cobra.Command{
 		Use:         "get-form-dropdown-options-by-key <key>",
 		Short:       "Get form dropdown options by key",
-		Example:     "  immybot-pp-cli provider-types get-form-dropdown-options-by-key your-token-here",
+		Example:     "  immybot-cli provider-types get-form-dropdown-options-by-key your-token-here",
 		Annotations: map[string]string{"pp:endpoint": "provider-types.get-form-dropdown-options-by-key", "pp:method": "GET", "pp:path": "/api/v1/provider-types/form-dropdown-options/{key}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

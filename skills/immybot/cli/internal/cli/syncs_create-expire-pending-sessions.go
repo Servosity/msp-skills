@@ -18,7 +18,7 @@ func newSyncsCreateExpirePendingSessionsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-expire-pending-sessions",
 		Short:       "Create expire pending sessions",
-		Example:     "  immybot-pp-cli syncs create-expire-pending-sessions",
+		Example:     "  immybot-cli syncs create-expire-pending-sessions",
 		Annotations: map[string]string{"pp:endpoint": "syncs.create-expire-pending-sessions", "pp:method": "POST", "pp:path": "/api/v1/syncs/expire-pending-sessions"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

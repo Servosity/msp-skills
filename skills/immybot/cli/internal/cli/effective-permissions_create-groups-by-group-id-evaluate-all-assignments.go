@@ -21,7 +21,7 @@ func newEffectivePermissionsCreateGroupsByGroupIdEvaluateAllAssignmentsCmd(flags
 		Use:         "create-groups-by-group-id-evaluate-all-assignments <groupId>",
 		Aliases:     []string{"create"},
 		Short:       "Returns all role assignments for a group grouped by permission without evaluation context.",
-		Example:     "  immybot-pp-cli effective-permissions create-groups-by-group-id-evaluate-all-assignments 42",
+		Example:     "  immybot-cli effective-permissions create-groups-by-group-id-evaluate-all-assignments 42",
 		Annotations: map[string]string{"pp:endpoint": "effective-permissions.create-groups-by-group-id-evaluate-all-assignments", "pp:method": "POST", "pp:path": "/api/v1/effective-permissions/groups/{groupId}/evaluate/all-assignments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

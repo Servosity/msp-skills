@@ -27,7 +27,7 @@ func newScriptsCreateValidateParamBlockParametersCmd(flags *rootFlags) *cobra.Co
 	cmd := &cobra.Command{
 		Use:         "create-validate-param-block-parameters",
 		Short:       "Create validate param block parameters",
-		Example:     "  immybot-pp-cli scripts create-validate-param-block-parameters",
+		Example:     "  immybot-cli scripts create-validate-param-block-parameters",
 		Annotations: map[string]string{"pp:endpoint": "scripts.create-validate-param-block-parameters", "pp:method": "POST", "pp:path": "/api/v1/scripts/validate-param-block-parameters"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

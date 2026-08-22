@@ -21,7 +21,7 @@ func newNotificationsCreateAcknowledgeCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-acknowledge",
 		Aliases:     []string{"create"},
 		Short:       "Create acknowledge",
-		Example:     "  immybot-pp-cli notifications create-acknowledge",
+		Example:     "  immybot-cli notifications create-acknowledge",
 		Annotations: map[string]string{"pp:endpoint": "notifications.create-acknowledge", "pp:method": "POST", "pp:path": "/api/v1/notifications/acknowledge"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

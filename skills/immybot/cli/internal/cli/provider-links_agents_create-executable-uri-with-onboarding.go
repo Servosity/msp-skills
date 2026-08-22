@@ -30,7 +30,7 @@ func newProviderLinksAgentsCreateExecutableUriWithOnboardingCmd(flags *rootFlags
 	cmd := &cobra.Command{
 		Use:         "create-executable-uri-with-onboarding <id>",
 		Short:       "Create executable uri with onboarding",
-		Example:     "  immybot-pp-cli provider-links agents create-executable-uri-with-onboarding 550e8400-e29b-41d4-a716-446655440000 --target-external-client-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli provider-links agents create-executable-uri-with-onboarding 550e8400-e29b-41d4-a716-446655440000 --target-external-client-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "agents.create-executable-uri-with-onboarding", "pp:method": "POST", "pp:path": "/api/v1/provider-links/{id}/agents/executable-uri-with-onboarding"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

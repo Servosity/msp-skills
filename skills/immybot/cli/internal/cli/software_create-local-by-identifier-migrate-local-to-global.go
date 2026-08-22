@@ -18,7 +18,7 @@ func newSoftwareCreateLocalByIdentifierMigrateLocalToGlobalCmd(flags *rootFlags)
 	cmd := &cobra.Command{
 		Use:         "create-local-by-identifier-migrate-local-to-global <softwareIdentifier>",
 		Short:       "Create local by identifier migrate local to global",
-		Example:     "  immybot-pp-cli software create-local-by-identifier-migrate-local-to-global 42",
+		Example:     "  immybot-cli software create-local-by-identifier-migrate-local-to-global 42",
 		Annotations: map[string]string{"pp:endpoint": "software.create-local-by-identifier-migrate-local-to-global", "pp:method": "POST", "pp:path": "/api/v1/software/local/{softwareIdentifier}/migrate-local-to-global"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

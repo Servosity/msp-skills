@@ -58,8 +58,8 @@ metrics:
 
 Rates are null until their denominator is non-zero. Everything is
 local-only: events never leave this machine.`,
-		Example: `  immybot-pp-cli learnings stats
-  immybot-pp-cli learnings stats --json`,
+		Example: `  immybot-cli learnings stats
+  immybot-cli learnings stats --json`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {

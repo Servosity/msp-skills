@@ -16,7 +16,7 @@ func newMaintenanceSessionsGetCancelForScheduleByScheduleIdCmd(flags *rootFlags)
 	cmd := &cobra.Command{
 		Use:         "get-cancel-for-schedule-by-schedule-id <scheduleId>",
 		Short:       "Get cancel for schedule by schedule id",
-		Example:     "  immybot-pp-cli maintenance-sessions get-cancel-for-schedule-by-schedule-id 42",
+		Example:     "  immybot-cli maintenance-sessions get-cancel-for-schedule-by-schedule-id 42",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-sessions.get-cancel-for-schedule-by-schedule-id", "pp:method": "GET", "pp:path": "/api/v1/maintenance-sessions/cancel-for-schedule/{scheduleId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

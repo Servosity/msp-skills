@@ -19,7 +19,7 @@ func newSyncsCreateAzureUserCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-azure-user",
 		Aliases:     []string{"create"},
 		Short:       "Create azure user",
-		Example:     "  immybot-pp-cli syncs create-azure-user",
+		Example:     "  immybot-cli syncs create-azure-user",
 		Annotations: map[string]string{"pp:endpoint": "syncs.create-azure-user", "pp:method": "POST", "pp:path": "/api/v1/syncs/azure-user-sync"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

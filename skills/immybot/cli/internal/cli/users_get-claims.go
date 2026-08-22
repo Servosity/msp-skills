@@ -16,7 +16,7 @@ func newUsersGetClaimsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-claims",
 		Short:       "Get claims",
-		Example:     "  immybot-pp-cli users get-claims",
+		Example:     "  immybot-cli users get-claims",
 		Annotations: map[string]string{"pp:endpoint": "users.get-claims", "pp:method": "GET", "pp:path": "/api/v1/users/claims", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/users/claims"

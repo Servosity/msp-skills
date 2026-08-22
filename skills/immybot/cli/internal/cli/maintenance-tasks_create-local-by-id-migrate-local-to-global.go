@@ -18,7 +18,7 @@ func newMaintenanceTasksCreateLocalByIdMigrateLocalToGlobalCmd(flags *rootFlags)
 	cmd := &cobra.Command{
 		Use:         "create-local-by-id-migrate-local-to-global <id>",
 		Short:       "Create local by id migrate local to global",
-		Example:     "  immybot-pp-cli maintenance-tasks create-local-by-id-migrate-local-to-global 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli maintenance-tasks create-local-by-id-migrate-local-to-global 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-tasks.create-local-by-id-migrate-local-to-global", "pp:method": "POST", "pp:path": "/api/v1/maintenance-tasks/local/{id}/migrate-local-to-global"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

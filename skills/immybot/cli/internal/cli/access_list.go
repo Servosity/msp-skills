@@ -16,7 +16,7 @@ func newAccessListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List",
-		Example:     "  immybot-pp-cli access list",
+		Example:     "  immybot-cli access list",
 		Annotations: map[string]string{"pp:endpoint": "access.list", "pp:method": "GET", "pp:path": "/api/v1/auth", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/auth"

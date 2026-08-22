@@ -18,7 +18,7 @@ func newMediaGetLocalCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-local",
 		Short:       "Get local",
-		Example:     "  immybot-pp-cli media get-local",
+		Example:     "  immybot-cli media get-local",
 		Annotations: map[string]string{"pp:endpoint": "media.get-local", "pp:method": "GET", "pp:path": "/api/v1/media/local", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("category") {

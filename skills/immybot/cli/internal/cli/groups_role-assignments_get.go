@@ -39,7 +39,7 @@ func newGroupsRoleAssignmentsGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <groupId>",
 		Short:       "Get",
-		Example:     "  immybot-pp-cli groups role-assignments get 42",
+		Example:     "  immybot-cli groups role-assignments get 42",
 		Annotations: map[string]string{"pp:endpoint": "role-assignments.get", "pp:method": "GET", "pp:path": "/api/v1/groups/{groupId}/role-assignments", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

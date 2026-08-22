@@ -21,7 +21,7 @@ func newTargetAssignmentsGetGlobalCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-global",
 		Short:       "Get global",
-		Example:     "  immybot-pp-cli target-assignments get-global",
+		Example:     "  immybot-cli target-assignments get-global",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.get-global", "pp:method": "GET", "pp:path": "/api/v1/target-assignments/global", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/target-assignments/global"

@@ -17,7 +17,7 @@ func newComputersGetInventorySoftwareSearchByUpgradeCodeCmd(flags *rootFlags) *c
 	cmd := &cobra.Command{
 		Use:         "get-inventory-software-search-by-upgrade-code",
 		Short:       "Get inventory software search by upgrade code",
-		Example:     "  immybot-pp-cli computers get-inventory-software-search-by-upgrade-code",
+		Example:     "  immybot-cli computers get-inventory-software-search-by-upgrade-code",
 		Annotations: map[string]string{"pp:endpoint": "computers.get-inventory-software-search-by-upgrade-code", "pp:method": "GET", "pp:path": "/api/v1/computers/inventory-software/search-by-upgrade-code", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/computers/inventory-software/search-by-upgrade-code"

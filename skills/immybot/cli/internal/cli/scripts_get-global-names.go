@@ -19,7 +19,7 @@ func newScriptsGetGlobalNamesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-global-names",
 		Short:       "Get global names",
-		Example:     "  immybot-pp-cli scripts get-global-names",
+		Example:     "  immybot-cli scripts get-global-names",
 		Annotations: map[string]string{"pp:endpoint": "scripts.get-global-names", "pp:method": "GET", "pp:path": "/api/v1/scripts/global/names", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("script-category") {

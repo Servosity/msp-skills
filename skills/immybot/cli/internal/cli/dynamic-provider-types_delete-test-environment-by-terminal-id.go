@@ -16,7 +16,7 @@ func newDynamicProviderTypesDeleteTestEnvironmentByTerminalIdCmd(flags *rootFlag
 	cmd := &cobra.Command{
 		Use:         "delete-test-environment-by-terminal-id <terminalId>",
 		Short:       "Delete test environment by terminal id",
-		Example:     "  immybot-pp-cli dynamic-provider-types delete-test-environment-by-terminal-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli dynamic-provider-types delete-test-environment-by-terminal-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "dynamic-provider-types.delete-test-environment-by-terminal-id", "pp:method": "DELETE", "pp:path": "/api/v1/dynamic-provider-types/test-environment/{terminalId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

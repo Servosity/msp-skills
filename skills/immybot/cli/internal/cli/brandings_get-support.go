@@ -16,7 +16,7 @@ func newBrandingsGetSupportCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-support",
 		Short:       "Fetches support related branding changes to be used in the Support Sidebar, Session Support Request",
-		Example:     "  immybot-pp-cli brandings get-support",
+		Example:     "  immybot-cli brandings get-support",
 		Annotations: map[string]string{"pp:endpoint": "brandings.get-support", "pp:method": "GET", "pp:path": "/api/v1/brandings/support-branding", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/brandings/support-branding"

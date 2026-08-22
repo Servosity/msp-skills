@@ -17,7 +17,7 @@ func newTargetAssignmentsChangeRequestsGetByDeploymentIdCmd(flags *rootFlags) *c
 		Use:         "get-by-deployment-id <deploymentId>",
 		Aliases:     []string{"get"},
 		Short:       "Get by deployment id",
-		Example:     "  immybot-pp-cli target-assignments change-requests get-by-deployment-id 42",
+		Example:     "  immybot-cli target-assignments change-requests get-by-deployment-id 42",
 		Annotations: map[string]string{"pp:endpoint": "change-requests.get-by-deployment-id", "pp:method": "GET", "pp:path": "/api/v1/target-assignments/{deploymentId}/change-requests", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

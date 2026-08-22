@@ -58,9 +58,9 @@ func newNovelSessionTriageCmd(flags *rootFlags) *cobra.Command {
 			"and tenants. Do NOT use this command for explaining which deployments apply to one " +
 			"computer; use 'assignment-explain' instead.",
 		Example: strings.Trim(`
-  immybot-pp-cli session-triage --since 24h
-  immybot-pp-cli session-triage --since 7d --tenant "Contoso" --agent
-  immybot-pp-cli session-triage --since 24h --agent --select clusters.reason,clusters.computer_count
+  immybot-cli session-triage --since 24h
+  immybot-cli session-triage --since 7d --tenant "Contoso" --agent
+  immybot-cli session-triage --since 24h --agent --select clusters.reason,clusters.computer_count
 `, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only": "true",
@@ -237,7 +237,7 @@ func newNovelSessionTriageCmd(flags *rootFlags) *cobra.Command {
 				view.Clusters = view.Clusters[:flagLimit]
 			}
 			if view.ScannedActions == 0 {
-				view.Note = "no maintenance actions in the local mirror; run 'immybot-pp-cli sync --resources maintenance-actions'"
+				view.Note = "no maintenance actions in the local mirror; run 'immybot-cli sync --resources maintenance-actions'"
 			} else if view.FailedActions == 0 {
 				view.Note = fmt.Sprintf("scanned %d maintenance actions and found no failures matching the filters", view.ScannedActions)
 			}

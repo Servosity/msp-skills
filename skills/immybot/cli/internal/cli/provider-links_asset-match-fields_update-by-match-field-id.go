@@ -24,7 +24,7 @@ func newProviderLinksAssetMatchFieldsUpdateByMatchFieldIdCmd(flags *rootFlags) *
 		Use:         "update-by-match-field-id <id> <matchFieldId>",
 		Aliases:     []string{"update"},
 		Short:       "Update by match field id",
-		Example:     "  immybot-pp-cli provider-links asset-match-fields update-by-match-field-id 550e8400-e29b-41d4-a716-446655440000 42",
+		Example:     "  immybot-cli provider-links asset-match-fields update-by-match-field-id 550e8400-e29b-41d4-a716-446655440000 42",
 		Annotations: map[string]string{"pp:endpoint": "asset-match-fields.update-by-match-field-id", "pp:method": "PUT", "pp:path": "/api/v1/provider-links/{id}/asset-match-fields/{matchFieldId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

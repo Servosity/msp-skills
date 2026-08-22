@@ -24,7 +24,7 @@ func newSystemCreateRequestFormSupportCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-request-form-support",
 		Short:       "Create request form support",
-		Example:     "  immybot-pp-cli system create-request-form-support",
+		Example:     "  immybot-cli system create-request-form-support",
 		Annotations: map[string]string{"pp:endpoint": "system.create-request-form-support", "pp:method": "POST", "pp:path": "/api/v1/system/request-form-support"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

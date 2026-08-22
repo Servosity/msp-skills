@@ -65,7 +65,7 @@ func newSoftwareUpdateLocalByIdentifierCmd(flags *rootFlags) *cobra.Command {
 		Use:   "update-local-by-identifier <softwareIdentifier>",
 		Short: "Update local by identifier",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli software update-local-by-identifier example-value",
+		Example:     "  immybot-cli software update-local-by-identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "software.update-local-by-identifier", "pp:method": "PATCH", "pp:path": "/api/v1/software/local/{softwareIdentifier}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

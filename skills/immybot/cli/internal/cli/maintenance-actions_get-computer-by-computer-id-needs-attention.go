@@ -17,7 +17,7 @@ func newMaintenanceActionsGetComputerByComputerIdNeedsAttentionCmd(flags *rootFl
 		Use:         "get-computer-by-computer-id-needs-attention <computerId>",
 		Aliases:     []string{"get"},
 		Short:       "Get computer by computer id needs attention",
-		Example:     "  immybot-pp-cli maintenance-actions get-computer-by-computer-id-needs-attention 42",
+		Example:     "  immybot-cli maintenance-actions get-computer-by-computer-id-needs-attention 42",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-actions.get-computer-by-computer-id-needs-attention", "pp:method": "GET", "pp:path": "/api/v1/maintenance-actions/computer/{computerId}/needs-attention", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

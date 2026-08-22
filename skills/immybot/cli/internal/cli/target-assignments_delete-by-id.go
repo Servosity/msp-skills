@@ -17,7 +17,7 @@ func newTargetAssignmentsDeleteByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "delete-by-id <id>",
 		Aliases:     []string{"delete"},
 		Short:       "Delete by id",
-		Example:     "  immybot-pp-cli target-assignments delete-by-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli target-assignments delete-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.delete-by-id", "pp:method": "DELETE", "pp:path": "/api/v1/target-assignments/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

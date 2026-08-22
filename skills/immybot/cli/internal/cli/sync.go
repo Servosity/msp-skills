@@ -106,21 +106,21 @@ Resource scoping:
   the dependent by name; the parent table must already be populated
   from a prior sync.`,
 		Example: `  # Sync all resources
-  immybot-pp-cli sync
+  immybot-cli sync
   # Sync specific resources only
-  immybot-pp-cli sync --resources groups,access
+  immybot-cli sync --resources groups,access
 
   # Full resync (ignore previous checkpoint)
-  immybot-pp-cli sync --full
+  immybot-cli sync --full
 
   # Incremental sync: only records from the last 7 days
-  immybot-pp-cli sync --since 7d
+  immybot-cli sync --since 7d
 
   # Parallel sync with 8 workers
-  immybot-pp-cli sync --concurrency 8
+  immybot-cli sync --concurrency 8
 
   # Latest-only: refresh head of each resource, no historical backfill
-  immybot-pp-cli sync --latest-only`,
+  immybot-cli sync --latest-only`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			userParams, err := parseSyncUserParams(paramFlags, resourceParamFlags, globalParamFlags)
 			if err != nil {
@@ -164,7 +164,7 @@ Resource scoping:
 			}
 
 			if dbPath == "" {
-				dbPath = defaultDBPath("immybot-pp-cli")
+				dbPath = defaultDBPath("immybot-cli")
 			}
 
 			db, err := store.OpenWithContext(cmd.Context(), dbPath)

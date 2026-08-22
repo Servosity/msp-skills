@@ -59,9 +59,9 @@ func newNovelVersionSpreadCmd(flags *rootFlags) *cobra.Command {
 			"tenant. Do NOT use this command for a whole-tenant compliance posture across all " +
 			"titles; use 'drift' instead.",
 		Example: strings.Trim(`
-  immybot-pp-cli version-spread "Google Chrome" --min-version 140
-  immybot-pp-cli version-spread "7-Zip" --agent
-  immybot-pp-cli version-spread "Google Chrome" --min-version 140 --tenant Contoso --agent
+  immybot-cli version-spread "Google Chrome" --min-version 140
+  immybot-cli version-spread "7-Zip" --agent
+  immybot-cli version-spread "Google Chrome" --min-version 140 --tenant Contoso --agent
 `, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only": "true",
@@ -232,10 +232,10 @@ func newNovelVersionSpreadCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			if view.ScannedInstalls == 0 {
-				view.Note = "no software inventory in the local mirror; run 'immybot-pp-cli sync --resources tenants-software-from-inventory-dx'"
+				view.Note = "no software inventory in the local mirror; run 'immybot-cli sync --resources tenants-software-from-inventory-dx'"
 			} else if view.MatchedInstalls == 0 {
 				view.Note = fmt.Sprintf("scanned %d inventory rows without matching software title %q; "+
-					"re-run 'immybot-pp-cli sync --resources tenants-software-from-inventory-dx' if the mirror is stale",
+					"re-run 'immybot-cli sync --resources tenants-software-from-inventory-dx' if the mirror is stale",
 					view.ScannedInstalls, title)
 			}
 

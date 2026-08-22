@@ -20,7 +20,7 @@ func newMetricsCreateCircuitBreakersIsolateCmd(flags *rootFlags) *cobra.Command 
 		Use:         "create-circuit-breakers-isolate",
 		Aliases:     []string{"create"},
 		Short:       "Create circuit breakers isolate",
-		Example:     "  immybot-pp-cli metrics create-circuit-breakers-isolate",
+		Example:     "  immybot-cli metrics create-circuit-breakers-isolate",
 		Annotations: map[string]string{"pp:endpoint": "metrics.create-circuit-breakers-isolate", "pp:method": "POST", "pp:path": "/api/v1/metrics/circuit-breakers/isolate"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

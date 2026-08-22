@@ -18,7 +18,7 @@ func newSyncsCreateTriggerUserAffinityCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-trigger-user-affinity",
 		Short:       "Create trigger user affinity",
-		Example:     "  immybot-pp-cli syncs create-trigger-user-affinity",
+		Example:     "  immybot-cli syncs create-trigger-user-affinity",
 		Annotations: map[string]string{"pp:endpoint": "syncs.create-trigger-user-affinity", "pp:method": "POST", "pp:path": "/api/v1/syncs/trigger-user-affinity-sync"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

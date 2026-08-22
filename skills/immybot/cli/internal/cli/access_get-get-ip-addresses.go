@@ -16,7 +16,7 @@ func newAccessGetGetIpAddressesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-get-ip-addresses",
 		Short:       "Get get ip addresses",
-		Example:     "  immybot-pp-cli access get-get-ip-addresses",
+		Example:     "  immybot-cli access get-get-ip-addresses",
 		Annotations: map[string]string{"pp:endpoint": "access.get-get-ip-addresses", "pp:method": "GET", "pp:path": "/api/v1/auth/get-ip-addresses", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/auth/get-ip-addresses"

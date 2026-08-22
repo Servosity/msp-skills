@@ -17,7 +17,7 @@ func newSmtpConfigsGetByTenantIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-by-tenant-id <tenantId>",
 		Aliases:     []string{"get"},
 		Short:       "Get by tenant id",
-		Example:     "  immybot-pp-cli smtp-configs get-by-tenant-id 42",
+		Example:     "  immybot-cli smtp-configs get-by-tenant-id 42",
 		Annotations: map[string]string{"pp:endpoint": "smtp-configs.get-by-tenant-id", "pp:method": "GET", "pp:path": "/api/v1/smtp-configs/{tenantId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

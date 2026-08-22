@@ -16,7 +16,7 @@ func newProviderLinksAssetMatchFieldsGetRecommendedCmd(flags *rootFlags) *cobra.
 	cmd := &cobra.Command{
 		Use:         "get-recommended <id>",
 		Short:       "Get recommended",
-		Example:     "  immybot-pp-cli provider-links asset-match-fields get-recommended 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli provider-links asset-match-fields get-recommended 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "asset-match-fields.get-recommended", "pp:method": "GET", "pp:path": "/api/v1/provider-links/{id}/asset-match-fields/recommended", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

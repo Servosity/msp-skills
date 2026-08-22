@@ -19,7 +19,7 @@ func newComputersUpdatePrimaryPersonCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <computerId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli computers update-primary-person create 42",
+		Example:     "  immybot-cli computers update-primary-person create 42",
 		Annotations: map[string]string{"pp:endpoint": "update-primary-person.create", "pp:method": "POST", "pp:path": "/api/v1/computers/{computerId}/update-primary-person"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

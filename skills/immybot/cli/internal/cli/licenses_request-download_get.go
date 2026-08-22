@@ -16,7 +16,7 @@ func newLicensesRequestDownloadGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <licenseId>",
 		Short:       "Get",
-		Example:     "  immybot-pp-cli licenses request-download get 42",
+		Example:     "  immybot-cli licenses request-download get 42",
 		Annotations: map[string]string{"pp:endpoint": "request-download.get", "pp:method": "GET", "pp:path": "/api/v1/licenses/{licenseId}/request-download", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

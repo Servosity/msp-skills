@@ -16,7 +16,7 @@ func newMaintenanceTasksDeleteLocalByIdCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete-local-by-id <id>",
 		Short:       "Delete local by id",
-		Example:     "  immybot-pp-cli maintenance-tasks delete-local-by-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli maintenance-tasks delete-local-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-tasks.delete-local-by-id", "pp:method": "DELETE", "pp:path": "/api/v1/maintenance-tasks/local/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

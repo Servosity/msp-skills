@@ -28,7 +28,7 @@ func SiblingCLIPath() (string, error) {
 
 func siblingCLICandidates(goos, exePath string) []string {
 	dir := filepath.Dir(exePath)
-	name := "immybot-pp-cli"
+	name := "immybot-cli"
 	if goos == "windows" {
 		return []string{filepath.Join(dir, name+".exe"), filepath.Join(dir, name)}
 	}
@@ -36,7 +36,7 @@ func siblingCLICandidates(goos, exePath string) []string {
 }
 
 func cliExecutableName(goos string) string {
-	name := "immybot-pp-cli"
+	name := "immybot-cli"
 	if goos == "windows" {
 		return name + ".exe"
 	}

@@ -18,7 +18,7 @@ func newProviderLinksCrossReferencesCreateByExternalLinkIdEnableClientLinkingCmd
 	cmd := &cobra.Command{
 		Use:         "create-by-external-link-id-enable-client-linking <id> <externalLinkId>",
 		Short:       "Create by external link id enable client linking",
-		Example:     "  immybot-pp-cli provider-links cross-references create-by-external-link-id-enable-client-linking 550e8400-e29b-41d4-a716-446655440000 https://example.com/resource",
+		Example:     "  immybot-cli provider-links cross-references create-by-external-link-id-enable-client-linking 550e8400-e29b-41d4-a716-446655440000 https://example.com/resource",
 		Annotations: map[string]string{"pp:endpoint": "cross-references.create-by-external-link-id-enable-client-linking", "pp:method": "POST", "pp:path": "/api/v1/provider-links/{id}/cross-references/{externalLinkId}/enable-client-linking"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

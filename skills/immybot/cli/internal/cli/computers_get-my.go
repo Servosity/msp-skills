@@ -16,7 +16,7 @@ func newComputersGetMyCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-my",
 		Short:       "Get my",
-		Example:     "  immybot-pp-cli computers get-my",
+		Example:     "  immybot-cli computers get-my",
 		Annotations: map[string]string{"pp:endpoint": "computers.get-my", "pp:method": "GET", "pp:path": "/api/v1/computers/my", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/computers/my"

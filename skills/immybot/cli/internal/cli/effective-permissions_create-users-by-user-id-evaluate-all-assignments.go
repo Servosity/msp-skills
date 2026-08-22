@@ -20,7 +20,7 @@ func newEffectivePermissionsCreateUsersByUserIdEvaluateAllAssignmentsCmd(flags *
 	cmd := &cobra.Command{
 		Use:         "create-users-by-user-id-evaluate-all-assignments <userId>",
 		Short:       "Returns all role assignments for a user grouped by permission without evaluation context.",
-		Example:     "  immybot-pp-cli effective-permissions create-users-by-user-id-evaluate-all-assignments 42",
+		Example:     "  immybot-cli effective-permissions create-users-by-user-id-evaluate-all-assignments 42",
 		Annotations: map[string]string{"pp:endpoint": "effective-permissions.create-users-by-user-id-evaluate-all-assignments", "pp:method": "POST", "pp:path": "/api/v1/effective-permissions/users/{userId}/evaluate/all-assignments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -18,7 +18,7 @@ func newScriptsGetLocalByIdAuditCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-local-by-id-audit <scriptId>",
 		Short:       "Get local by id audit",
-		Example:     "  immybot-pp-cli scripts get-local-by-id-audit 42",
+		Example:     "  immybot-cli scripts get-local-by-id-audit 42",
 		Annotations: map[string]string{"pp:endpoint": "scripts.get-local-by-id-audit", "pp:method": "GET", "pp:path": "/api/v1/scripts/local/{scriptId}/audit", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

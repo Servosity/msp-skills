@@ -38,7 +38,7 @@ func newLicensesUpdateByIdCmd(flags *rootFlags) *cobra.Command {
 		Aliases: []string{"update"},
 		Short:   "Update by id",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli licenses update-by-id 42 --license-value example-value",
+		Example:     "  immybot-cli licenses update-by-id 42 --license-value example-value",
 		Annotations: map[string]string{"pp:endpoint": "licenses.update-by-id", "pp:method": "PUT", "pp:path": "/api/v1/licenses/{licenseId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

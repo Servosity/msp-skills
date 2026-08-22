@@ -21,7 +21,7 @@ func newTargetAssignmentsUpdateBatchUpdateCmd(flags *rootFlags) *cobra.Command {
 		Use:         "update-batch-update",
 		Aliases:     []string{"update"},
 		Short:       "Update batch update",
-		Example:     "  immybot-pp-cli target-assignments update-batch-update",
+		Example:     "  immybot-cli target-assignments update-batch-update",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.update-batch-update", "pp:method": "PATCH", "pp:path": "/api/v1/target-assignments/batch-update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

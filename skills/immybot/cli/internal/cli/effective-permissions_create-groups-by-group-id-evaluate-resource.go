@@ -23,7 +23,7 @@ func newEffectivePermissionsCreateGroupsByGroupIdEvaluateResourceCmd(flags *root
 		Use:   "create-groups-by-group-id-evaluate-resource <groupId>",
 		Short: "Evaluates permissions for a group against a specific resource.",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli effective-permissions create-groups-by-group-id-evaluate-resource 42 --resource-type example-value",
+		Example:     "  immybot-cli effective-permissions create-groups-by-group-id-evaluate-resource 42 --resource-type example-value",
 		Annotations: map[string]string{"pp:endpoint": "effective-permissions.create-groups-by-group-id-evaluate-resource", "pp:method": "POST", "pp:path": "/api/v1/effective-permissions/groups/{groupId}/evaluate/resource"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

@@ -20,7 +20,7 @@ func newTenantsCreateSetParentCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-set-parent",
 		Short:       "Create set parent",
-		Example:     "  immybot-pp-cli tenants create-set-parent",
+		Example:     "  immybot-cli tenants create-set-parent",
 		Annotations: map[string]string{"pp:endpoint": "tenants.create-set-parent", "pp:method": "POST", "pp:path": "/api/v1/tenants/set-parent-tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

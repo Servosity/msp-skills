@@ -17,7 +17,7 @@ func newComputersGetExportCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-export",
 		Short:       "Get export",
-		Example:     "  immybot-pp-cli computers get-export",
+		Example:     "  immybot-cli computers get-export",
 		Annotations: map[string]string{"pp:endpoint": "computers.get-export", "pp:method": "GET", "pp:path": "/api/v1/computers/export", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/computers/export"

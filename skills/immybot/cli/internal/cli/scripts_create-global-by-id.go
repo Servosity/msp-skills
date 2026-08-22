@@ -29,7 +29,7 @@ func newScriptsCreateGlobalByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:   "create-global-by-id <scriptId>",
 		Short: "Create global by id",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli scripts create-global-by-id 42 --action example-value",
+		Example:     "  immybot-cli scripts create-global-by-id 42 --action example-value",
 		Annotations: map[string]string{"pp:endpoint": "scripts.create-global-by-id", "pp:method": "POST", "pp:path": "/api/v1/scripts/global/{scriptId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

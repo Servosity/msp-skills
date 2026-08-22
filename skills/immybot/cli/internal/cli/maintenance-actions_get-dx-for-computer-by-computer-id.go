@@ -17,7 +17,7 @@ func newMaintenanceActionsGetDxForComputerByComputerIdCmd(flags *rootFlags) *cob
 	cmd := &cobra.Command{
 		Use:         "get-dx-for-computer-by-computer-id <computerId>",
 		Short:       "Get dx for computer by computer id",
-		Example:     "  immybot-pp-cli maintenance-actions get-dx-for-computer-by-computer-id 42",
+		Example:     "  immybot-cli maintenance-actions get-dx-for-computer-by-computer-id 42",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-actions.get-dx-for-computer-by-computer-id", "pp:method": "GET", "pp:path": "/api/v1/maintenance-actions/dx-for-computer/{computerId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

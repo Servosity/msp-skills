@@ -16,7 +16,7 @@ func newTenantsAzureGroupsGetByGroupIdCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-by-group-id <id> <groupId>",
 		Short:       "Get by group id",
-		Example:     "  immybot-pp-cli tenants azure-groups get-by-group-id 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli tenants azure-groups get-by-group-id 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "azure-groups.get-by-group-id", "pp:method": "GET", "pp:path": "/api/v1/tenants/{id}/azure-groups/{groupId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

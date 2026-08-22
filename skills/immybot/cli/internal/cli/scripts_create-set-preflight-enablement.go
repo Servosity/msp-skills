@@ -21,7 +21,7 @@ func newScriptsCreateSetPreflightEnablementCmd(flags *rootFlags) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:         "create-set-preflight-enablement",
 		Short:       "Create set preflight enablement",
-		Example:     "  immybot-pp-cli scripts create-set-preflight-enablement",
+		Example:     "  immybot-cli scripts create-set-preflight-enablement",
 		Annotations: map[string]string{"pp:endpoint": "scripts.create-set-preflight-enablement", "pp:method": "POST", "pp:path": "/api/v1/scripts/set-preflight-script-enablement"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh - install immybot-pp-cli and immybot-pp-mcp on macOS / Linux.
+# install.sh - install immybot-cli and immybot-mcp on macOS / Linux.
 #
 # Pulls prebuilt binaries from this skill's latest GitHub Release (immybot-v*).
 # Both the CLI and the MCP server are installed in one shot.
@@ -12,8 +12,8 @@
 set -euo pipefail
 
 SKILL="immybot"
-CLI_BIN="immybot-pp-cli"
-MCP_BIN="immybot-pp-mcp"
+CLI_BIN="immybot-cli"
+MCP_BIN="immybot-mcp"
 
 OWNER="${MSP_SKILLS_OWNER:-servosity}"
 REPO="${MSP_SKILLS_REPO:-msp-skills}"

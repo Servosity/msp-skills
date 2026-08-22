@@ -45,7 +45,7 @@ func legacyProfileStorePath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolving home dir: %w", err)
 	}
-	dir := filepath.Join(home, ".immybot-pp-cli")
+	dir := filepath.Join(home, ".immybot-cli")
 	return filepath.Join(dir, "profiles.json"), nil
 }
 
@@ -201,8 +201,8 @@ entry is replaced.
 To avoid creating empty profiles, at least one non-default flag must be
 present (other than --profile, --config, and --home, which are never
 captured: they control profile/config resolution and would never apply).`,
-		Example: `  immybot-pp-cli profile save my-defaults --json --compact
-  immybot-pp-cli profile save tonight-defaults --region US`,
+		Example: `  immybot-cli profile save my-defaults --json --compact
+  immybot-cli profile save tonight-defaults --region US`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
@@ -257,8 +257,8 @@ func newProfileUseCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:   "use <name>",
 		Short: "Print the flag values a profile will apply (does not execute anything)",
-		Example: `  immybot-pp-cli profile use my-defaults
-  immybot-pp-cli profile use tonight-defaults --json`,
+		Example: `  immybot-cli profile use my-defaults
+  immybot-cli profile use tonight-defaults --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			p, err := GetProfile(args[0])
@@ -295,8 +295,8 @@ func newProfileListCmd(flags *rootFlags) *cobra.Command {
 		Annotations: map[string]string{
 			"mcp:read-only": "true",
 		},
-		Example: `  immybot-pp-cli profile list
-  immybot-pp-cli profile list --json`,
+		Example: `  immybot-cli profile list
+  immybot-cli profile list --json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			s, err := loadProfileStore()
 			if err != nil {
@@ -337,8 +337,8 @@ func newProfileShowCmd(flags *rootFlags) *cobra.Command {
 		Annotations: map[string]string{
 			"mcp:read-only": "true",
 		},
-		Example: `  immybot-pp-cli profile show my-defaults
-  immybot-pp-cli profile show tonight-defaults --json`,
+		Example: `  immybot-cli profile show my-defaults
+  immybot-cli profile show tonight-defaults --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			p, err := GetProfile(args[0])
@@ -357,8 +357,8 @@ func newProfileDeleteCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <name>",
 		Short: "Remove a profile",
-		Example: `  immybot-pp-cli profile delete my-defaults --yes
-  immybot-pp-cli profile delete old-profile --yes --json`,
+		Example: `  immybot-cli profile delete my-defaults --yes
+  immybot-cli profile delete old-profile --yes --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]

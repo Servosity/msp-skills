@@ -16,7 +16,7 @@ func newTenantsGetSoftwareFromInventoryByIdCmd(flags *rootFlags) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:         "get-software-from-inventory-by-id <id>",
 		Short:       "Get software from inventory by id",
-		Example:     "  immybot-pp-cli tenants get-software-from-inventory-by-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli tenants get-software-from-inventory-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "tenants.get-software-from-inventory-by-id", "pp:method": "GET", "pp:path": "/api/v1/tenants/software-from-inventory/{id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -55,7 +55,7 @@ func newSchedulesUpdateByIdCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update-by-id <scheduleId>",
 		Short:       "Update by id",
-		Example:     "  immybot-pp-cli schedules update-by-id 42",
+		Example:     "  immybot-cli schedules update-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "schedules.update-by-id", "pp:method": "PUT", "pp:path": "/api/v1/schedules/{scheduleId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

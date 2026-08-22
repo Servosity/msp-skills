@@ -16,7 +16,7 @@ func newScriptsGetLocalByIdAuthorizationCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-local-by-id-authorization <scriptId>",
 		Short:       "Get local by id authorization",
-		Example:     "  immybot-pp-cli scripts get-local-by-id-authorization 42",
+		Example:     "  immybot-cli scripts get-local-by-id-authorization 42",
 		Annotations: map[string]string{"pp:endpoint": "scripts.get-local-by-id-authorization", "pp:method": "GET", "pp:path": "/api/v1/scripts/local/{scriptId}/authorization", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

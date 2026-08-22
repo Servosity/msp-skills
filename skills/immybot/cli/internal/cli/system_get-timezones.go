@@ -16,7 +16,7 @@ func newSystemGetTimezonesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-timezones",
 		Short:       "Get timezones",
-		Example:     "  immybot-pp-cli system get-timezones",
+		Example:     "  immybot-cli system get-timezones",
 		Annotations: map[string]string{"pp:endpoint": "system.get-timezones", "pp:method": "GET", "pp:path": "/api/v1/system/timezones", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/system/timezones"

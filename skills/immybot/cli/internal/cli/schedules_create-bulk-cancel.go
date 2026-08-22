@@ -19,7 +19,7 @@ func newSchedulesCreateBulkCancelCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-bulk-cancel",
 		Short:       "Create bulk cancel",
-		Example:     "  immybot-pp-cli schedules create-bulk-cancel",
+		Example:     "  immybot-cli schedules create-bulk-cancel",
 		Annotations: map[string]string{"pp:endpoint": "schedules.create-bulk-cancel", "pp:method": "POST", "pp:path": "/api/v1/schedules/bulk-cancel"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

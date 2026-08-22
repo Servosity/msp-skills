@@ -19,7 +19,7 @@ func newScriptsCreateFunctionsSyntaxCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-functions-syntax",
 		Short:       "Execute a cloud script that returns the syntax for a specific command",
-		Example:     "  immybot-pp-cli scripts create-functions-syntax",
+		Example:     "  immybot-cli scripts create-functions-syntax",
 		Annotations: map[string]string{"pp:endpoint": "scripts.create-functions-syntax", "pp:method": "POST", "pp:path": "/api/v1/scripts/functions/syntax"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

@@ -16,7 +16,7 @@ func newBillingGetPlatformDetailsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-platform-details",
 		Short:       "Get platform details",
-		Example:     "  immybot-pp-cli billing get-platform-details",
+		Example:     "  immybot-cli billing get-platform-details",
 		Annotations: map[string]string{"pp:endpoint": "billing.get-platform-details", "pp:method": "GET", "pp:path": "/api/v1/billing/billing-platform-details", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/billing/billing-platform-details"

@@ -16,7 +16,7 @@ func newTagsAuthorizationGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <tagId>",
 		Short:       "Get",
-		Example:     "  immybot-pp-cli tags authorization get 42",
+		Example:     "  immybot-cli tags authorization get 42",
 		Annotations: map[string]string{"pp:endpoint": "authorization.get", "pp:method": "GET", "pp:path": "/api/v1/tags/{tagId}/authorization", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

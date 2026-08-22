@@ -16,7 +16,7 @@ func newSoftwareGetLocalByIdentifierMigrateLocalToGlobalWhatIfCmd(flags *rootFla
 	cmd := &cobra.Command{
 		Use:         "get-local-by-identifier-migrate-local-to-global-what-if <softwareIdentifier>",
 		Short:       "Get local by identifier migrate local to global what if",
-		Example:     "  immybot-pp-cli software get-local-by-identifier-migrate-local-to-global-what-if 42",
+		Example:     "  immybot-cli software get-local-by-identifier-migrate-local-to-global-what-if 42",
 		Annotations: map[string]string{"pp:endpoint": "software.get-local-by-identifier-migrate-local-to-global-what-if", "pp:method": "GET", "pp:path": "/api/v1/software/local/{softwareIdentifier}/migrate-local-to-global-what-if", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -19,7 +19,7 @@ func newComputersNotesCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <computerId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli computers notes create 42",
+		Example:     "  immybot-cli computers notes create 42",
 		Annotations: map[string]string{"pp:endpoint": "notes.create", "pp:method": "POST", "pp:path": "/api/v1/computers/{computerId}/notes"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

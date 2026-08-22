@@ -20,7 +20,7 @@ func newAzureCreateTenantConsentedCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-tenant-consented",
 		Short:       "Create tenant consented",
-		Example:     "  immybot-pp-cli azure create-tenant-consented",
+		Example:     "  immybot-cli azure create-tenant-consented",
 		Annotations: map[string]string{"pp:endpoint": "azure.create-tenant-consented", "pp:method": "POST", "pp:path": "/api/v1/azure/tenant-consented"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

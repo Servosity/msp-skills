@@ -21,7 +21,7 @@ func newTagsListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List",
-		Example:     "  immybot-pp-cli tags list",
+		Example:     "  immybot-cli tags list",
 		Annotations: map[string]string{"pp:endpoint": "tags.list", "pp:method": "GET", "pp:path": "/api/v1/tags", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/tags"

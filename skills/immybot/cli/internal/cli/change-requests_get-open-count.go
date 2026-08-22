@@ -16,7 +16,7 @@ func newChangeRequestsGetOpenCountCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-open-count",
 		Short:       "Get open count",
-		Example:     "  immybot-pp-cli change-requests get-open-count",
+		Example:     "  immybot-cli change-requests get-open-count",
 		Annotations: map[string]string{"pp:endpoint": "change-requests.get-open-count", "pp:method": "GET", "pp:path": "/api/v1/change-requests/open-count", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/change-requests/open-count"

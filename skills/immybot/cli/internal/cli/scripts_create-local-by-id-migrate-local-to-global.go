@@ -18,7 +18,7 @@ func newScriptsCreateLocalByIdMigrateLocalToGlobalCmd(flags *rootFlags) *cobra.C
 	cmd := &cobra.Command{
 		Use:         "create-local-by-id-migrate-local-to-global <scriptId>",
 		Short:       "Create local by id migrate local to global",
-		Example:     "  immybot-pp-cli scripts create-local-by-id-migrate-local-to-global 42",
+		Example:     "  immybot-cli scripts create-local-by-id-migrate-local-to-global 42",
 		Annotations: map[string]string{"pp:endpoint": "scripts.create-local-by-id-migrate-local-to-global", "pp:method": "POST", "pp:path": "/api/v1/scripts/local/{scriptId}/migrate-local-to-global"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

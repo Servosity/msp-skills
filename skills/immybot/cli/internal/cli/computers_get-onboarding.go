@@ -16,7 +16,7 @@ func newComputersGetOnboardingCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-onboarding",
 		Short:       "Get onboarding",
-		Example:     "  immybot-pp-cli computers get-onboarding",
+		Example:     "  immybot-cli computers get-onboarding",
 		Annotations: map[string]string{"pp:endpoint": "computers.get-onboarding", "pp:method": "GET", "pp:path": "/api/v1/computers/onboarding", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/computers/onboarding"

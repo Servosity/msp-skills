@@ -16,7 +16,7 @@ func newInventoryTasksDeleteLocalByTaskIdScriptsByInventoryKeyCmd(flags *rootFla
 	cmd := &cobra.Command{
 		Use:         "delete-local-by-task-id-scripts-by-inventory-key <taskId> <inventoryKey>",
 		Short:       "Delete local by task id scripts by inventory key",
-		Example:     "  immybot-pp-cli inventory-tasks delete-local-by-task-id-scripts-by-inventory-key 42 your-token-here",
+		Example:     "  immybot-cli inventory-tasks delete-local-by-task-id-scripts-by-inventory-key 42 your-token-here",
 		Annotations: map[string]string{"pp:endpoint": "inventory-tasks.delete-local-by-task-id-scripts-by-inventory-key", "pp:method": "DELETE", "pp:path": "/api/v1/inventory-tasks/local/{taskId}/scripts/{inventoryKey}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

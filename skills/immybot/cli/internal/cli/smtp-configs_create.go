@@ -27,7 +27,7 @@ func newSmtpConfigsCreateCmd(flags *rootFlags) *cobra.Command {
 		Use:   "create",
 		Short: "Create",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli smtp-configs create --host example-value",
+		Example:     "  immybot-cli smtp-configs create --host example-value",
 		Annotations: map[string]string{"pp:endpoint": "smtp-configs.create", "pp:method": "POST", "pp:path": "/api/v1/smtp-configs"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

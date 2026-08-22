@@ -114,7 +114,7 @@ func newSoftwareCreateLocalFastCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-local-fast-create",
 		Short:       "Create local fast create",
-		Example:     "  immybot-pp-cli software create-local-fast-create",
+		Example:     "  immybot-cli software create-local-fast-create",
 		Annotations: map[string]string{"pp:endpoint": "software.create-local-fast-create", "pp:method": "POST", "pp:path": "/api/v1/software/local/fast-create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

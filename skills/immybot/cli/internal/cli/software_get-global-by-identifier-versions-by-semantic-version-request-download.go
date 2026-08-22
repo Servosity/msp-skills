@@ -17,7 +17,7 @@ func newSoftwareGetGlobalByIdentifierVersionsBySemanticVersionRequestDownloadCmd
 		Use:   "get-global-by-identifier-versions-by-semantic-version-request-download <softwareIdentifier> <semanticVersion>",
 		Short: "Get global by identifier versions by semantic version request download",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli software get-global-by-identifier-versions-by-semantic-version-request-download example-value example-value",
+		Example:     "  immybot-cli software get-global-by-identifier-versions-by-semantic-version-request-download example-value example-value",
 		Annotations: map[string]string{"pp:endpoint": "software.get-global-by-identifier-versions-by-semantic-version-request-download", "pp:method": "GET", "pp:path": "/api/v1/software/global/{softwareIdentifier}/versions/{semanticVersion}/request-download", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

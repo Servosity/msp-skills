@@ -68,7 +68,7 @@ func newSoftwareUpdateGlobalByIdentifierVersionsBySemanticVersionCmd(flags *root
 		Use:   "update-global-by-identifier-versions-by-semantic-version <softwareIdentifier> <semanticVersion>",
 		Short: "Update global by identifier versions by semantic version",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli software update-global-by-identifier-versions-by-semantic-version example-value example-value",
+		Example:     "  immybot-cli software update-global-by-identifier-versions-by-semantic-version example-value example-value",
 		Annotations: map[string]string{"pp:endpoint": "software.update-global-by-identifier-versions-by-semantic-version", "pp:method": "PATCH", "pp:path": "/api/v1/software/global/{softwareIdentifier}/versions/{semanticVersion}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

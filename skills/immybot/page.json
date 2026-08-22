@@ -4,17 +4,17 @@
     {
       "instead": "Open last night's maintenance session and scroll failed actions machine by machine to work out how many real problems you have.",
       "say": "What failed in last night's maintenance window, grouped by root cause?",
-      "cli": "immybot-pp-cli session-triage --since 24h"
+      "cli": "immybot-cli session-triage --since 24h"
     },
     {
       "instead": "Check each tenant's software inventory one at a time to find who is still below the version you are trying to standardise on.",
       "say": "Which tenants are still running Chrome below 140?",
-      "cli": "immybot-pp-cli version-spread \"Google Chrome\" --min-version 140"
+      "cli": "immybot-cli version-spread \"Google Chrome\" --min-version 140"
     },
     {
       "instead": "Read through target assignments, filters, and exceptions by hand to guess why one machine did not get a deployment.",
       "say": "Why didn't this computer get the deployment?",
-      "cli": "immybot-pp-cli assignment-explain 4821"
+      "cli": "immybot-cli assignment-explain 4821"
     }
   ],
   "pain_points": [
@@ -26,43 +26,43 @@
   "outcomes": [
     {
       "question": "What failed in last night's maintenance window, by root cause?",
-      "command": "immybot-pp-cli session-triage --since 24h"
+      "command": "immybot-cli session-triage --since 24h"
     },
     {
       "question": "Which tenants are still below a patched version of a title?",
-      "command": "immybot-pp-cli version-spread \"Google Chrome\" --min-version 140"
+      "command": "immybot-cli version-spread \"Google Chrome\" --min-version 140"
     },
     {
       "question": "Why did this computer not get the deployment?",
-      "command": "immybot-pp-cli assignment-explain 4821"
+      "command": "immybot-cli assignment-explain 4821"
     },
     {
       "question": "What changed across the fleet since yesterday?",
-      "command": "immybot-pp-cli fleet-diff --since 24h"
+      "command": "immybot-cli fleet-diff --snapshot   # once, then: fleet-diff --since 24h"
     },
     {
       "question": "Which computers are stuck part way through onboarding?",
-      "command": "immybot-pp-cli onboarding-stalled --older-than 3d"
+      "command": "immybot-cli onboarding-stalled --older-than 3d"
     },
     {
       "question": "Which deployments have never actually worked?",
-      "command": "immybot-pp-cli deployment-health --only-failing"
+      "command": "immybot-cli deployment-health --only-failing"
     },
     {
       "question": "What does this script reach before I edit it?",
-      "command": "immybot-pp-cli script-blast-radius \"Install Chrome\""
+      "command": "immybot-cli script-blast-radius \"Install Chrome\""
     },
     {
       "question": "Where does ImmyBot disagree with my linked PSA or RMM roster?",
-      "command": "immybot-pp-cli psa-reconcile"
+      "command": "immybot-cli psa-reconcile"
     },
     {
       "question": "Everything known about one computer, in one view?",
-      "command": "immybot-pp-cli computer-dossier 4821"
+      "command": "immybot-cli computer-dossier 4821"
     },
     {
       "question": "Which tenants are drifting on software compliance?",
-      "command": "immybot-pp-cli drift"
+      "command": "immybot-cli drift"
     }
   ],
   "different_vs_wrappers": "Most ImmyBot integrations proxy each question straight to the live API, one tenant and one record at a time. This skill syncs the whole instance into a local SQLite mirror, so cross-tenant questions resolve as a single local join: instant, offline, and the agent sees an answer rather than pages of raw inventory. It also retains history the API discards, which is what makes fleet-diff and deployment-health possible at all.",
@@ -82,7 +82,7 @@
     },
     {
       "q": "What credentials do I need?",
-      "a": "An app registration in Microsoft Entra ID. ImmyBot issues no API key of its own: you register an app, create a client secret, then add that Enterprise Application's object ID as an admin person inside ImmyBot. The CLI needs four values, IMMYBOT_SUBDOMAIN, IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID and IMMYBOT_CLIENT_SECRET. Run `immybot-pp-cli doctor` to confirm."
+      "a": "An app registration in Microsoft Entra ID. ImmyBot issues no API key of its own: you register an app, create a client secret, then add that Enterprise Application's object ID as an admin person inside ImmyBot. The CLI needs four values, IMMYBOT_SUBDOMAIN, IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID and IMMYBOT_CLIENT_SECRET. Run `immybot-cli doctor` to confirm."
     },
     {
       "q": "Is my ImmyBot data safe?",
@@ -105,13 +105,23 @@
       "policy": "Allow"
     },
     {
+      "tier": "Endpoint and fleet execution",
+      "examples": "scripts create-run-adhoc-metascript, maintenance-actions create-latest-action-for-tenants, schedules create-bulk-run-now, maintenance-sessions rerun create, computers registry create-keys, target-assignments create, software create-global-upload",
+      "policy": "Human-in-the-loop, explicit confirmation. These run code or deploy software on real client machines."
+    },
+    {
       "tier": "Write (routine)",
-      "examples": "computers update, tenants update, persons update, preferences update, tags create, target-assignments update",
+      "examples": "tenants create, persons create, tags create, groups create, preferences update, import",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {
-      "tier": "Destructive or endpoint-affecting",
-      "examples": "scripts delete, software delete, target-assignments delete, roles delete, run-immy-service, maintenance-sessions create",
+      "tier": "Credential / security",
+      "examples": "auth login, oauth get-access-tokens, access get-get-azure-tenant-auth-details-by-azure-tenant-principal-id, roles create",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Destructive",
+      "examples": "computers create-bulk-delete, scripts delete-global-by-id, software delete-global-by-identifier, brandings delete-by-id",
       "policy": "Require explicit human approval; never autonomous"
     }
   ]

@@ -20,7 +20,7 @@ func newUserRoleAssignmentsCreateCategoryResourceCreateCmd(flags *rootFlags) *co
 		Use:         "create-category-resource-create",
 		Aliases:     []string{"create"},
 		Short:       "Create category resource create",
-		Example:     "  immybot-pp-cli user-role-assignments create-category-resource-create",
+		Example:     "  immybot-cli user-role-assignments create-category-resource-create",
 		Annotations: map[string]string{"pp:endpoint": "user-role-assignments.create-category-resource-create", "pp:method": "POST", "pp:path": "/api/v1/user-role-assignments/category-resource/create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

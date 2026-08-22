@@ -25,7 +25,7 @@ func newMaintenanceSessionsGetBySessionIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-by-session-id <sessionId>",
 		Aliases:     []string{"get"},
 		Short:       "Get by session id",
-		Example:     "  immybot-pp-cli maintenance-sessions get-by-session-id 42",
+		Example:     "  immybot-cli maintenance-sessions get-by-session-id 42",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-sessions.get-by-session-id", "pp:method": "GET", "pp:path": "/api/v1/maintenance-sessions/{sessionId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

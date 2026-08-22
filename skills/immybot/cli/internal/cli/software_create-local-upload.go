@@ -18,7 +18,7 @@ func newSoftwareCreateLocalUploadCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-local-upload",
 		Short:       "Create local upload",
-		Example:     "  immybot-pp-cli software create-local-upload",
+		Example:     "  immybot-cli software create-local-upload",
 		Annotations: map[string]string{"pp:endpoint": "software.create-local-upload", "pp:method": "POST", "pp:path": "/api/v1/software/local/upload"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/software/local/upload"

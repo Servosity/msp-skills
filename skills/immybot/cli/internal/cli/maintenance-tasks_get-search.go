@@ -23,7 +23,7 @@ func newMaintenanceTasksGetSearchCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-search",
 		Short:       "Get search",
-		Example:     "  immybot-pp-cli maintenance-tasks get-search",
+		Example:     "  immybot-cli maintenance-tasks get-search",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-tasks.get-search", "pp:method": "GET", "pp:path": "/api/v1/maintenance-tasks/search", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/maintenance-tasks/search"

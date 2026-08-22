@@ -18,7 +18,7 @@ func newProviderLinksClientsCreateLinkExactMatchCmd(flags *rootFlags) *cobra.Com
 	cmd := &cobra.Command{
 		Use:         "create-link-exact-match <id>",
 		Short:       "Create link exact match",
-		Example:     "  immybot-pp-cli provider-links clients create-link-exact-match 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli provider-links clients create-link-exact-match 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "clients.create-link-exact-match", "pp:method": "POST", "pp:path": "/api/v1/provider-links/{id}/clients/link-exact-match-clients"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -41,13 +41,13 @@ func newWorkflowArchiveCmd(flags *rootFlags) *cobra.Command {
 local SQLite database. Supports incremental sync (only new data since last run)
 and full resync. After archiving, use 'search' for instant full-text search.`,
 		Example: `  # Archive all resources
-  immybot-pp-cli workflow archive
+  immybot-cli workflow archive
 
   # Full re-archive (ignore previous sync state)
-  immybot-pp-cli workflow archive --full
+  immybot-cli workflow archive --full
 
   # Archive without a wall-clock timeout
-  immybot-pp-cli workflow archive --timeout 0`,
+  immybot-cli workflow archive --timeout 0`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if maxPages < 0 {
 				return fmt.Errorf("--max-pages must be greater than or equal to 0 (0 = unlimited)")
@@ -79,7 +79,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			c.NoCache = true
 
 			if dbPath == "" {
-				dbPath = defaultDBPath("immybot-pp-cli")
+				dbPath = defaultDBPath("immybot-cli")
 			}
 			s, err := store.OpenWithContext(archiveCtx, dbPath)
 			if err != nil {
@@ -172,13 +172,13 @@ func newWorkflowStatusCmd(flags *rootFlags) *cobra.Command {
 		Short:       "Show local archive status and sync state for all resources",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Example: `  # Show archive status
-  immybot-pp-cli workflow status
+  immybot-cli workflow status
 
   # Show status as JSON
-  immybot-pp-cli workflow status --json`,
+  immybot-cli workflow status --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dbPath == "" {
-				dbPath = defaultDBPath("immybot-pp-cli")
+				dbPath = defaultDBPath("immybot-cli")
 			}
 
 			status := map[string]int{}

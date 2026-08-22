@@ -19,7 +19,7 @@ func newUserRoleAssignmentsCreateOwnerCreateCmd(flags *rootFlags) *cobra.Command
 	cmd := &cobra.Command{
 		Use:         "create-owner-create",
 		Short:       "Create owner create",
-		Example:     "  immybot-pp-cli user-role-assignments create-owner-create",
+		Example:     "  immybot-cli user-role-assignments create-owner-create",
 		Annotations: map[string]string{"pp:endpoint": "user-role-assignments.create-owner-create", "pp:method": "POST", "pp:path": "/api/v1/user-role-assignments/owner/create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

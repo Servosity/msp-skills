@@ -19,7 +19,7 @@ func newApplicationLogsCreateSourceContextClearCmd(flags *rootFlags) *cobra.Comm
 	cmd := &cobra.Command{
 		Use:         "create-source-context-clear",
 		Short:       "Create source context clear",
-		Example:     "  immybot-pp-cli application-logs create-source-context-clear",
+		Example:     "  immybot-cli application-logs create-source-context-clear",
 		Annotations: map[string]string{"pp:endpoint": "application-logs.create-source-context-clear", "pp:method": "POST", "pp:path": "/api/v1/application-logs/source-context/clear"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

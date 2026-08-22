@@ -21,7 +21,7 @@ func newUsersCreateBulkCreateCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-bulk-create",
 		Aliases:     []string{"create"},
 		Short:       "Create bulk create",
-		Example:     "  immybot-pp-cli users create-bulk-create",
+		Example:     "  immybot-cli users create-bulk-create",
 		Annotations: map[string]string{"pp:endpoint": "users.create-bulk-create", "pp:method": "POST", "pp:path": "/api/v1/users/bulk-create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

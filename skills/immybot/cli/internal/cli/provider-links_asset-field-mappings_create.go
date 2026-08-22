@@ -24,7 +24,7 @@ func newProviderLinksAssetFieldMappingsCreateCmd(flags *rootFlags) *cobra.Comman
 	cmd := &cobra.Command{
 		Use:         "create <id>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli provider-links asset-field-mappings create 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli provider-links asset-field-mappings create 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "asset-field-mappings.create", "pp:method": "POST", "pp:path": "/api/v1/provider-links/{id}/asset-field-mappings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

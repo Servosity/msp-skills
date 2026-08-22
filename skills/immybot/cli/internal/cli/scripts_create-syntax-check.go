@@ -21,7 +21,7 @@ func newScriptsCreateSyntaxCheckCmd(flags *rootFlags) *cobra.Command {
 		Use:   "create-syntax-check",
 		Short: "Create syntax check",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli scripts create-syntax-check --script example-value",
+		Example:     "  immybot-cli scripts create-syntax-check --script example-value",
 		Annotations: map[string]string{"pp:endpoint": "scripts.create-syntax-check", "pp:method": "POST", "pp:path": "/api/v1/scripts/syntax-check"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

@@ -17,7 +17,7 @@ func newSmtpConfigsDeleteByTenantIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "delete-by-tenant-id <tenantId>",
 		Aliases:     []string{"delete"},
 		Short:       "Delete by tenant id",
-		Example:     "  immybot-pp-cli smtp-configs delete-by-tenant-id 42",
+		Example:     "  immybot-cli smtp-configs delete-by-tenant-id 42",
 		Annotations: map[string]string{"pp:endpoint": "smtp-configs.delete-by-tenant-id", "pp:method": "DELETE", "pp:path": "/api/v1/smtp-configs/{tenantId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

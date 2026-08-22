@@ -32,7 +32,7 @@ func newScriptsCreateLocalCmd(flags *rootFlags) *cobra.Command {
 		Use:   "create-local",
 		Short: "Create local",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli scripts create-local --action example-value",
+		Example:     "  immybot-cli scripts create-local --action example-value",
 		Annotations: map[string]string{"pp:endpoint": "scripts.create-local", "pp:method": "POST", "pp:path": "/api/v1/scripts/local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

@@ -23,7 +23,7 @@ func newScriptsCreateLocalByIdAuthorizationCmd(flags *rootFlags) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:         "create-local-by-id-authorization <scriptId>",
 		Short:       "Create local by id authorization",
-		Example:     "  immybot-pp-cli scripts create-local-by-id-authorization 42",
+		Example:     "  immybot-cli scripts create-local-by-id-authorization 42",
 		Annotations: map[string]string{"pp:endpoint": "scripts.create-local-by-id-authorization", "pp:method": "POST", "pp:path": "/api/v1/scripts/local/{scriptId}/authorization"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

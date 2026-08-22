@@ -16,7 +16,7 @@ func newMaintenanceSessionsGetStatusCountsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-status-counts",
 		Short:       "Get status counts",
-		Example:     "  immybot-pp-cli maintenance-sessions get-status-counts",
+		Example:     "  immybot-cli maintenance-sessions get-status-counts",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-sessions.get-status-counts", "pp:method": "GET", "pp:path": "/api/v1/maintenance-sessions/status-counts", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/maintenance-sessions/status-counts"

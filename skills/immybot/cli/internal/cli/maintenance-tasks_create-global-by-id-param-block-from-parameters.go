@@ -18,7 +18,7 @@ func newMaintenanceTasksCreateGlobalByIdParamBlockFromParametersCmd(flags *rootF
 	cmd := &cobra.Command{
 		Use:         "create-global-by-id-param-block-from-parameters <id>",
 		Short:       "Create global by id param block from parameters",
-		Example:     "  immybot-pp-cli maintenance-tasks create-global-by-id-param-block-from-parameters 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli maintenance-tasks create-global-by-id-param-block-from-parameters 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-tasks.create-global-by-id-param-block-from-parameters", "pp:method": "POST", "pp:path": "/api/v1/maintenance-tasks/global/{id}/param-block-from-parameters"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

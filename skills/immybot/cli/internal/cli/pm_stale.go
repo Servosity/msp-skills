@@ -90,25 +90,25 @@ func newStaleCmd(flags *rootFlags) *cobra.Command {
 		Long: `Scan locally synced data for items that have not been updated within
 the specified number of days. Useful for identifying forgotten or blocked work.`,
 		Example: `  # Find items not updated in 30 days (default)
-  immybot-pp-cli stale
+  immybot-cli stale
 
   # Find items not updated in 14 days
-  immybot-pp-cli stale --days 14
+  immybot-cli stale --days 14
 
   # Filter by team
-  immybot-pp-cli stale --days 7 --team backend
+  immybot-cli stale --days 7 --team backend
 
   # Output as JSON
-  immybot-pp-cli stale --days 30 --json`,
+  immybot-cli stale --days 30 --json`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dbPath == "" {
-				dbPath = defaultDBPath("immybot-pp-cli")
+				dbPath = defaultDBPath("immybot-cli")
 			}
 
 			db, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
-				return fmt.Errorf("opening local database: %w\nRun 'immybot-pp-cli sync' first.", err)
+				return fmt.Errorf("opening local database: %w\nRun 'immybot-cli sync' first.", err)
 			}
 			defer db.Close()
 			maybeEmitSyncHints(cmd, db, "", flags.maxAge)

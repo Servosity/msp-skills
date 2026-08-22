@@ -20,7 +20,7 @@ func newMediaCreateRequestFileDownloadUrlCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-request-file-download-url",
 		Short:       "Create request file download url",
-		Example:     "  immybot-pp-cli media create-request-file-download-url --blob-name example-resource",
+		Example:     "  immybot-cli media create-request-file-download-url --blob-name example-resource",
 		Annotations: map[string]string{"pp:endpoint": "media.create-request-file-download-url", "pp:method": "POST", "pp:path": "/api/v1/media/requestFileDownloadUrl"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

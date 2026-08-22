@@ -22,7 +22,7 @@ func newProviderLinksCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli provider-links create --name example-resource",
+		Example:     "  immybot-cli provider-links create --name example-resource",
 		Annotations: map[string]string{"pp:endpoint": "provider-links.create", "pp:method": "POST", "pp:path": "/api/v1/provider-links"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

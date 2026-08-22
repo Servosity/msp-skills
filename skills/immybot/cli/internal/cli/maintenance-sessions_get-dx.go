@@ -25,7 +25,7 @@ func newMaintenanceSessionsGetDxCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-dx",
 		Aliases:     []string{"list"},
 		Short:       "Get dx",
-		Example:     "  immybot-pp-cli maintenance-sessions get-dx",
+		Example:     "  immybot-cli maintenance-sessions get-dx",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-sessions.get-dx", "pp:method": "GET", "pp:path": "/api/v1/maintenance-sessions/dx", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("session-type") {

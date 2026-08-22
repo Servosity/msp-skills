@@ -19,7 +19,7 @@ func newRolesCloneCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <roleId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli roles clone create 42 --new-name example-resource",
+		Example:     "  immybot-cli roles clone create 42 --new-name example-resource",
 		Annotations: map[string]string{"pp:endpoint": "clone.create", "pp:method": "POST", "pp:path": "/api/v1/roles/{roleId}/clone"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

@@ -19,7 +19,7 @@ func newMaintenanceSessionsCreateRerunV2Cmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-rerun-v2",
 		Short:       "Create rerun v2",
-		Example:     "  immybot-pp-cli maintenance-sessions create-rerun-v2",
+		Example:     "  immybot-cli maintenance-sessions create-rerun-v2",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-sessions.create-rerun-v2", "pp:method": "POST", "pp:path": "/api/v1/maintenance-sessions/rerun"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

@@ -22,7 +22,7 @@ func newTenantsCreateBulkDeleteCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-bulk-delete",
 		Short:       "Create bulk delete",
-		Example:     "  immybot-pp-cli tenants create-bulk-delete",
+		Example:     "  immybot-cli tenants create-bulk-delete",
 		Annotations: map[string]string{"pp:endpoint": "tenants.create-bulk-delete", "pp:method": "POST", "pp:path": "/api/v1/tenants/bulk-delete"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

@@ -17,7 +17,7 @@ func newProviderLinksAssetMatchFieldsDeleteByMatchFieldIdCmd(flags *rootFlags) *
 		Use:         "delete-by-match-field-id <id> <matchFieldId>",
 		Aliases:     []string{"delete"},
 		Short:       "Delete by match field id",
-		Example:     "  immybot-pp-cli provider-links asset-match-fields delete-by-match-field-id 550e8400-e29b-41d4-a716-446655440000 42",
+		Example:     "  immybot-cli provider-links asset-match-fields delete-by-match-field-id 550e8400-e29b-41d4-a716-446655440000 42",
 		Annotations: map[string]string{"pp:endpoint": "asset-match-fields.delete-by-match-field-id", "pp:method": "DELETE", "pp:path": "/api/v1/provider-links/{id}/asset-match-fields/{matchFieldId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

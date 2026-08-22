@@ -17,7 +17,7 @@ func newMetricsGetCircuitBreakersCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-circuit-breakers",
 		Aliases:     []string{"list"},
 		Short:       "Get circuit breakers",
-		Example:     "  immybot-pp-cli metrics get-circuit-breakers",
+		Example:     "  immybot-cli metrics get-circuit-breakers",
 		Annotations: map[string]string{"pp:endpoint": "metrics.get-circuit-breakers", "pp:method": "GET", "pp:path": "/api/v1/metrics/circuit-breakers", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/metrics/circuit-breakers"

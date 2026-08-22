@@ -18,7 +18,7 @@ func newAzureErrorsGetForTenantByTenantPrincipalIdDxCmd(flags *rootFlags) *cobra
 		Use:         "get-for-tenant-by-tenant-principal-id-dx <tenantPrincipalId>",
 		Aliases:     []string{"get"},
 		Short:       "Get for tenant by tenant principal id dx",
-		Example:     "  immybot-pp-cli azure-errors get-for-tenant-by-tenant-principal-id-dx 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli azure-errors get-for-tenant-by-tenant-principal-id-dx 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "azure-errors.get-for-tenant-by-tenant-principal-id-dx", "pp:method": "GET", "pp:path": "/api/v1/azure-errors/for-tenant/{tenantPrincipalId}/dx", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

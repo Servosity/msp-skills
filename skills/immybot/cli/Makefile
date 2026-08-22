@@ -3,7 +3,7 @@
 BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
 
 build:
-	go build -o bin/immybot-pp-cli$(BIN_EXT) ./cmd/immybot-pp-cli
+	go build -o bin/immybot-cli$(BIN_EXT) ./cmd/immybot-cli
 
 test:
 	go test ./...
@@ -12,15 +12,15 @@ lint:
 	golangci-lint run
 
 install:
-	go install ./cmd/immybot-pp-cli
+	go install ./cmd/immybot-cli
 
 clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/immybot-pp-mcp$(BIN_EXT) ./cmd/immybot-pp-mcp
+	go build -o bin/immybot-mcp$(BIN_EXT) ./cmd/immybot-mcp
 
 install-mcp:
-	go install ./cmd/immybot-pp-mcp
+	go install ./cmd/immybot-mcp
 
 build-all: build build-mcp

@@ -17,7 +17,7 @@ func newImmyAgentMetadataPromotedCmd(flags *rootFlags) *cobra.Command {
 		Use:         "immy-agent-metadata",
 		Short:       "Get agent hash",
 		Long:        "Get agent hash",
-		Example:     "  immybot-pp-cli immy-agent-metadata",
+		Example:     "  immybot-cli immy-agent-metadata",
 		Annotations: map[string]string{"pp:endpoint": "immy-agent-metadata.get-agent-hash", "pp:method": "GET", "pp:path": "/api/v1/immy-agent-metadata/agent-hash", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()

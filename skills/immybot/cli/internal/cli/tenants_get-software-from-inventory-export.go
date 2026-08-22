@@ -18,7 +18,7 @@ func newTenantsGetSoftwareFromInventoryExportCmd(flags *rootFlags) *cobra.Comman
 	cmd := &cobra.Command{
 		Use:         "get-software-from-inventory-export",
 		Short:       "Streams the contents of the detected computer software table as a CSV file to the client",
-		Example:     "  immybot-pp-cli tenants get-software-from-inventory-export",
+		Example:     "  immybot-cli tenants get-software-from-inventory-export",
 		Annotations: map[string]string{"pp:endpoint": "tenants.get-software-from-inventory-export", "pp:method": "GET", "pp:path": "/api/v1/tenants/software-from-inventory/export", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/tenants/software-from-inventory/export"

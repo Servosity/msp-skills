@@ -18,7 +18,7 @@ func newScriptsGetDxCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-dx",
 		Short:       "Get dx",
-		Example:     "  immybot-pp-cli scripts get-dx",
+		Example:     "  immybot-cli scripts get-dx",
 		Annotations: map[string]string{"pp:endpoint": "scripts.get-dx", "pp:method": "GET", "pp:path": "/api/v1/scripts/dx", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("database-type") {

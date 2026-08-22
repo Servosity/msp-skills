@@ -17,7 +17,7 @@ func newPluginsGetApiV1ByProviderLinkIdByCatchAllV2Cmd(flags *rootFlags) *cobra.
 		Use:   "get-api-v1-by-provider-link-id-by-catch-all-v2 <providerLinkId> <catchAll>",
 		Short: "Get api v1 by provider link id by catch all v2",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli plugins get-api-v1-by-provider-link-id-by-catch-all-v2 https://example.com/resource example-value",
+		Example:     "  immybot-cli plugins get-api-v1-by-provider-link-id-by-catch-all-v2 https://example.com/resource example-value",
 		Annotations: map[string]string{"pp:endpoint": "plugins.get-api-v1-by-provider-link-id-by-catch-all-v2", "pp:method": "HEAD", "pp:path": "/plugins/api/v1/{providerLinkId}/{catchAll}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

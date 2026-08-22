@@ -17,7 +17,7 @@ func newMaintenanceEmailsJobsGetNowCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-now <emailGuid>",
 		Aliases:     []string{"get"},
 		Short:       "Get now",
-		Example:     "  immybot-pp-cli maintenance-emails jobs get-now 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli maintenance-emails jobs get-now 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "jobs.get-now", "pp:method": "GET", "pp:path": "/api/v1/maintenance-emails/{emailGuid}/jobs/now", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

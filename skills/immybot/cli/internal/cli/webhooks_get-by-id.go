@@ -17,7 +17,7 @@ func newWebhooksGetByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-by-id <id>",
 		Aliases:     []string{"get"},
 		Short:       "Get by id",
-		Example:     "  immybot-pp-cli webhooks get-by-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli webhooks get-by-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "webhooks.get-by-id", "pp:method": "GET", "pp:path": "/api/v1/webhooks/{id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

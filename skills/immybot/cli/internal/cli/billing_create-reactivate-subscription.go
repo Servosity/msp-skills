@@ -18,7 +18,7 @@ func newBillingCreateReactivateSubscriptionCmd(flags *rootFlags) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:         "create-reactivate-subscription",
 		Short:       "Create reactivate subscription",
-		Example:     "  immybot-pp-cli billing create-reactivate-subscription",
+		Example:     "  immybot-cli billing create-reactivate-subscription",
 		Annotations: map[string]string{"pp:endpoint": "billing.create-reactivate-subscription", "pp:method": "POST", "pp:path": "/api/v1/billing/reactivate-subscription"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

@@ -26,7 +26,7 @@ func newDynamicProviderTypesCreateGlobalCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-global",
 		Aliases:     []string{"create"},
 		Short:       "Create global",
-		Example:     "  immybot-pp-cli dynamic-provider-types create-global",
+		Example:     "  immybot-cli dynamic-provider-types create-global",
 		Annotations: map[string]string{"pp:endpoint": "dynamic-provider-types.create-global", "pp:method": "POST", "pp:path": "/api/v1/dynamic-provider-types/global"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

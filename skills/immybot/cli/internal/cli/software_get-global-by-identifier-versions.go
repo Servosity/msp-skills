@@ -17,7 +17,7 @@ func newSoftwareGetGlobalByIdentifierVersionsCmd(flags *rootFlags) *cobra.Comman
 		Use:   "get-global-by-identifier-versions <softwareIdentifier>",
 		Short: "Get global by identifier versions",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli software get-global-by-identifier-versions example-value",
+		Example:     "  immybot-cli software get-global-by-identifier-versions example-value",
 		Annotations: map[string]string{"pp:endpoint": "software.get-global-by-identifier-versions", "pp:method": "GET", "pp:path": "/api/v1/software/global/{softwareIdentifier}/versions", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

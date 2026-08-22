@@ -18,7 +18,7 @@ func newComputersGetAgentStatusCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-agent-status",
 		Short:       "Get agent status",
-		Example:     "  immybot-pp-cli computers get-agent-status",
+		Example:     "  immybot-cli computers get-agent-status",
 		Annotations: map[string]string{"pp:endpoint": "computers.get-agent-status", "pp:method": "GET", "pp:path": "/api/v1/computers/agent-status", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/computers/agent-status"

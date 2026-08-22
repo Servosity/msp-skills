@@ -18,7 +18,7 @@ func newMaintenanceActionsGetMaintenanceItemCmd(flags *rootFlags) *cobra.Command
 	cmd := &cobra.Command{
 		Use:         "get-maintenance-item",
 		Short:       "Get maintenance item",
-		Example:     "  immybot-pp-cli maintenance-actions get-maintenance-item",
+		Example:     "  immybot-cli maintenance-actions get-maintenance-item",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-actions.get-maintenance-item", "pp:method": "GET", "pp:path": "/api/v1/maintenance-actions/maintenance-item", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("maintenance-type") {

@@ -18,7 +18,7 @@ func newProviderLinksAgentsCreateByIdDeleteOfflineFromComputerCmd(flags *rootFla
 	cmd := &cobra.Command{
 		Use:         "create-by-id-delete-offline-from-computer <id> <agentId>",
 		Short:       "Create by id delete offline from computer",
-		Example:     "  immybot-pp-cli provider-links agents create-by-id-delete-offline-from-computer 550e8400-e29b-41d4-a716-446655440000 42",
+		Example:     "  immybot-cli provider-links agents create-by-id-delete-offline-from-computer 550e8400-e29b-41d4-a716-446655440000 42",
 		Annotations: map[string]string{"pp:endpoint": "agents.create-by-id-delete-offline-from-computer", "pp:method": "POST", "pp:path": "/api/v1/provider-links/{id}/agents/{agentId}/delete-offline-agent-from-computer"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -5,17 +5,17 @@ Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.
 it's simpler. Everyone else: pick your agent below.
 
 **Two install classes.** *Local* agents (Claude Desktop, GitHub Copilot, Gemini CLI)
-launch `immybot-pp-mcp` directly on your machine - no hosting. *Remote* agents (ChatGPT,
+launch `immybot-mcp` directly on your machine - no hosting. *Remote* agents (ChatGPT,
 Microsoft 365 Copilot / Copilot Studio, the Gemini app) only talk to an HTTPS
-endpoint, so you expose `immybot-pp-mcp` over HTTPS first.
+endpoint, so you expose `immybot-mcp` over HTTPS first.
 
 ## Prerequisite: install the MCP binary
 
-Run the install command from [README.md](./README.md). It drops both `immybot-pp-cli`
-and `immybot-pp-mcp` on your PATH. `immybot-pp-mcp` is what the agents talk to.
+Run the install command from [README.md](./README.md). It drops both `immybot-cli`
+and `immybot-mcp` on your PATH. `immybot-mcp` is what the agents talk to.
 
 ```bash
-immybot-pp-mcp --help
+immybot-mcp --help
 ```
 
 ---
@@ -35,12 +35,12 @@ Add (or merge with your existing `mcpServers` block):
 {
   "mcpServers": {
     "immybot": {
-      "command": "immybot-pp-mcp",
+      "command": "immybot-mcp",
       "env": {
-        "IMMYBOT_SUBDOMAIN": "<your-instance-name-without-.immy.bot>",
-        "IMMYBOT_TENANT_ID": "<your-entra-directory-tenant-id>",
-        "IMMYBOT_CLIENT_ID": "<your-entra-application-client-id>",
-        "IMMYBOT_CLIENT_SECRET": "<your-entra-client-secret-value>"
+        "IMMYBOT_SUBDOMAIN": "<your-immybot-subdomain>",
+        "IMMYBOT_TENANT_ID": "<your-entra-tenant-id>",
+        "IMMYBOT_CLIENT_ID": "<your-entra-client-id>",
+        "IMMYBOT_CLIENT_SECRET": "<your-entra-client-secret>"
       }
     }
   }
@@ -63,12 +63,12 @@ Configuration**) and add:
   "servers": {
     "immybot": {
       "type": "stdio",
-      "command": "immybot-pp-mcp",
+      "command": "immybot-mcp",
       "env": {
-        "IMMYBOT_SUBDOMAIN": "<your-instance-name-without-.immy.bot>",
-        "IMMYBOT_TENANT_ID": "<your-entra-directory-tenant-id>",
-        "IMMYBOT_CLIENT_ID": "<your-entra-application-client-id>",
-        "IMMYBOT_CLIENT_SECRET": "<your-entra-client-secret-value>"
+        "IMMYBOT_SUBDOMAIN": "<your-immybot-subdomain>",
+        "IMMYBOT_TENANT_ID": "<your-entra-tenant-id>",
+        "IMMYBOT_CLIENT_ID": "<your-entra-client-id>",
+        "IMMYBOT_CLIENT_SECRET": "<your-entra-client-secret>"
       }
     }
   }
@@ -87,12 +87,12 @@ Claude Desktop:
 {
   "mcpServers": {
     "immybot": {
-      "command": "immybot-pp-mcp",
+      "command": "immybot-mcp",
       "env": {
-        "IMMYBOT_SUBDOMAIN": "<your-instance-name-without-.immy.bot>",
-        "IMMYBOT_TENANT_ID": "<your-entra-directory-tenant-id>",
-        "IMMYBOT_CLIENT_ID": "<your-entra-application-client-id>",
-        "IMMYBOT_CLIENT_SECRET": "<your-entra-client-secret-value>"
+        "IMMYBOT_SUBDOMAIN": "<your-immybot-subdomain>",
+        "IMMYBOT_TENANT_ID": "<your-entra-tenant-id>",
+        "IMMYBOT_CLIENT_ID": "<your-entra-client-id>",
+        "IMMYBOT_CLIENT_SECRET": "<your-entra-client-secret>"
       }
     }
   }
@@ -106,11 +106,12 @@ web** is remote-only - see the remote section below.)
 
 # Remote agents (expose the binary over HTTPS first)
 
-All remote agents need `immybot-pp-mcp` reachable as a public **HTTPS** endpoint. Run it
+All remote agents need `immybot-mcp` reachable as a public **HTTPS** endpoint. Run it
 in HTTP mode with your credentials in the environment:
 
 ```bash
-IMMYBOT_SUBDOMAIN=<value> IMMYBOT_TENANT_ID=<value> IMMYBOT_CLIENT_ID=<value> IMMYBOT_CLIENT_SECRET=<value> immybot-pp-mcp --transport http --addr :7777
+IMMYBOT_SUBDOMAIN=<value> IMMYBOT_TENANT_ID=<value> IMMYBOT_CLIENT_ID=<value> IMMYBOT_CLIENT_SECRET=<value> \
+  immybot-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel
@@ -130,11 +131,11 @@ Official OpenAI guidance (beta, plan-dependent): https://help.openai.com/en/arti
 
 **Honest heads-up:** there is no local path. Microsoft 365 Copilot, Copilot Studio,
 and Security Copilot all consume MCP over **remote Streamable-HTTP only** - the local
-`immybot-pp-mcp` you installed is not enough on its own. You also need a **Copilot Studio
+`immybot-mcp` you installed is not enough on its own. You also need a **Copilot Studio
 license** and a **tenant admin** to enable it. This is a build-and-host task, not a
 self-serve install.
 
-Once `immybot-pp-mcp` is hosted over HTTPS (above), the lowest-code route:
+Once `immybot-mcp` is hosted over HTTPS (above), the lowest-code route:
 
 1. In **Copilot Studio**, open your agent > **Tools** > **Add a tool** > **Model
    Context Protocol**.
@@ -163,10 +164,10 @@ endpoint. For a local, no-hosting path on Google, use **Gemini CLI** (above) ins
 
 ```bash
 # Hermes (also supports `hermes skills install ...` - see README.md)
-hermes mcp add immybot -- immybot-pp-mcp
+hermes mcp add immybot -- immybot-mcp
 
 # OpenClaw
-openclaw mcp set immybot '{"command":"immybot-pp-mcp"}'
+openclaw mcp set immybot '{"command":"immybot-mcp"}'
 ```
 
 Same env vars as the blocks above. For the Skill-install path (no MCP wiring), see
@@ -176,9 +177,9 @@ For the simplest path overall, use Claude Desktop or the Claude Code / Codex Ski
 
 ## Troubleshooting
 
-- `immybot-pp-mcp: command not found`: the install dir is not on your PATH (the
+- `immybot-mcp: command not found`: the install dir is not on your PATH (the
   installer prints the line to add).
 - Claude Desktop does not see the MCP after restart: the JSON config has a syntax
   error. Validate it, fix, restart.
 
-For the full CLI command reference, see [README.md](./README.md).
+For the full CLI command reference, see [guide.md](./guide.md).

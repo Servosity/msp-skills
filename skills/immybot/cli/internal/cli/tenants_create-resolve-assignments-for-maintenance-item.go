@@ -21,7 +21,7 @@ func newTenantsCreateResolveAssignmentsForMaintenanceItemCmd(flags *rootFlags) *
 	cmd := &cobra.Command{
 		Use:         "create-resolve-assignments-for-maintenance-item",
 		Short:       "Create resolve assignments for maintenance item",
-		Example:     "  immybot-pp-cli tenants create-resolve-assignments-for-maintenance-item",
+		Example:     "  immybot-cli tenants create-resolve-assignments-for-maintenance-item",
 		Annotations: map[string]string{"pp:endpoint": "tenants.create-resolve-assignments-for-maintenance-item", "pp:method": "POST", "pp:path": "/api/v1/tenants/resolve-assignments-for-maintenance-item"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

@@ -16,7 +16,7 @@ func newUsersDeleteByIdCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete-by-id <userId>",
 		Short:       "Delete by id",
-		Example:     "  immybot-pp-cli users delete-by-id 42",
+		Example:     "  immybot-cli users delete-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "users.delete-by-id", "pp:method": "DELETE", "pp:path": "/api/v1/users/{userId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -17,7 +17,7 @@ func newApplicationLogsGetSourceContextsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-source-contexts",
 		Aliases:     []string{"list"},
 		Short:       "Get source contexts",
-		Example:     "  immybot-pp-cli application-logs get-source-contexts",
+		Example:     "  immybot-cli application-logs get-source-contexts",
 		Annotations: map[string]string{"pp:endpoint": "application-logs.get-source-contexts", "pp:method": "GET", "pp:path": "/api/v1/application-logs/source-contexts", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/application-logs/source-contexts"

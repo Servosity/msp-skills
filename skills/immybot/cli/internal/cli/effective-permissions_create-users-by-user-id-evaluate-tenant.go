@@ -21,7 +21,7 @@ func newEffectivePermissionsCreateUsersByUserIdEvaluateTenantCmd(flags *rootFlag
 	cmd := &cobra.Command{
 		Use:         "create-users-by-user-id-evaluate-tenant <userId>",
 		Short:       "Evaluates permissions for a user against a specific tenant.",
-		Example:     "  immybot-pp-cli effective-permissions create-users-by-user-id-evaluate-tenant 42",
+		Example:     "  immybot-cli effective-permissions create-users-by-user-id-evaluate-tenant 42",
 		Annotations: map[string]string{"pp:endpoint": "effective-permissions.create-users-by-user-id-evaluate-tenant", "pp:method": "POST", "pp:path": "/api/v1/effective-permissions/users/{userId}/evaluate/tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

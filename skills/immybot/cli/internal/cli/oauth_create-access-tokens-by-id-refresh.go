@@ -19,7 +19,7 @@ func newOauthCreateAccessTokensByIdRefreshCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-access-tokens-by-id-refresh <id>",
 		Aliases:     []string{"create"},
 		Short:       "Create access tokens by id refresh",
-		Example:     "  immybot-pp-cli oauth create-access-tokens-by-id-refresh 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli oauth create-access-tokens-by-id-refresh 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "oauth.create-access-tokens-by-id-refresh", "pp:method": "POST", "pp:path": "/api/v1/oauth/oauth-access-tokens/{id}/refresh"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -16,7 +16,7 @@ func newComputersResolveOnboardingOverridableTargetAssignmentsGetCmd(flags *root
 	cmd := &cobra.Command{
 		Use:         "get <computerId>",
 		Short:       "Get",
-		Example:     "  immybot-pp-cli computers resolve-onboarding-overridable-target-assignments get 42",
+		Example:     "  immybot-cli computers resolve-onboarding-overridable-target-assignments get 42",
 		Annotations: map[string]string{"pp:endpoint": "resolve-onboarding-overridable-target-assignments.get", "pp:method": "GET", "pp:path": "/api/v1/computers/{computerId}/resolve-onboarding-overridable-target-assignments", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -29,7 +29,7 @@ func newSmtpConfigsCreateSendTestEmailCmd(flags *rootFlags) *cobra.Command {
 		Use:   "create-send-test-email",
 		Short: "Create send test email",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli smtp-configs create-send-test-email --from example-value",
+		Example:     "  immybot-cli smtp-configs create-send-test-email --from example-value",
 		Annotations: map[string]string{"pp:endpoint": "smtp-configs.create-send-test-email", "pp:method": "POST", "pp:path": "/api/v1/smtp-configs/send-test-email"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

@@ -22,7 +22,7 @@ func newMaintenanceTasksGetGlobalCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-global",
 		Aliases:     []string{"list"},
 		Short:       "Get global",
-		Example:     "  immybot-pp-cli maintenance-tasks get-global",
+		Example:     "  immybot-cli maintenance-tasks get-global",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-tasks.get-global", "pp:method": "GET", "pp:path": "/api/v1/maintenance-tasks/global", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/maintenance-tasks/global"

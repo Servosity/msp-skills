@@ -22,7 +22,7 @@ func newRmmLinksCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli rmm-links create --name example-resource",
+		Example:     "  immybot-cli rmm-links create --name example-resource",
 		Annotations: map[string]string{"pp:endpoint": "rmm-links.create", "pp:method": "POST", "pp:path": "/api/v1/rmm-links"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

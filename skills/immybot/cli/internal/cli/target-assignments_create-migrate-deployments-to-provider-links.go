@@ -18,7 +18,7 @@ func newTargetAssignmentsCreateMigrateDeploymentsToProviderLinksCmd(flags *rootF
 	cmd := &cobra.Command{
 		Use:         "create-migrate-deployments-to-provider-links",
 		Short:       "Create migrate deployments to provider links",
-		Example:     "  immybot-pp-cli target-assignments create-migrate-deployments-to-provider-links",
+		Example:     "  immybot-cli target-assignments create-migrate-deployments-to-provider-links",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.create-migrate-deployments-to-provider-links", "pp:method": "POST", "pp:path": "/api/v1/target-assignments/migrate-deployments-to-provider-links"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

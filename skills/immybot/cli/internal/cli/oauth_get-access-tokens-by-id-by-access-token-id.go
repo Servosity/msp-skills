@@ -17,7 +17,7 @@ func newOauthGetAccessTokensByIdByAccessTokenIdCmd(flags *rootFlags) *cobra.Comm
 		Use:         "get-access-tokens-by-id-by-access-token-id <id> <accessTokenId>",
 		Aliases:     []string{"get"},
 		Short:       "Get access tokens by id by access token id",
-		Example:     "  immybot-pp-cli oauth get-access-tokens-by-id-by-access-token-id 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli oauth get-access-tokens-by-id-by-access-token-id 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "oauth.get-access-tokens-by-id-by-access-token-id", "pp:method": "GET", "pp:path": "/api/v1/oauth/oauth-access-tokens/{id}/{accessTokenId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

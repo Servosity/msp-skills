@@ -19,7 +19,7 @@ func newApplicationLogsCreateStreamingCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-streaming",
 		Short:       "Create streaming",
-		Example:     "  immybot-pp-cli application-logs create-streaming",
+		Example:     "  immybot-cli application-logs create-streaming",
 		Annotations: map[string]string{"pp:endpoint": "application-logs.create-streaming", "pp:method": "POST", "pp:path": "/api/v1/application-logs/streaming"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

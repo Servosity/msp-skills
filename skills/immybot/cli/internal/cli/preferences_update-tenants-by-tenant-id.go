@@ -19,7 +19,7 @@ func newPreferencesUpdateTenantsByTenantIdCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update-tenants-by-tenant-id <tenantId>",
 		Short:       "Update tenants by tenant id",
-		Example:     "  immybot-pp-cli preferences update-tenants-by-tenant-id 42",
+		Example:     "  immybot-cli preferences update-tenants-by-tenant-id 42",
 		Annotations: map[string]string{"pp:endpoint": "preferences.update-tenants-by-tenant-id", "pp:method": "PATCH", "pp:path": "/api/v1/preferences/tenants/{tenantId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

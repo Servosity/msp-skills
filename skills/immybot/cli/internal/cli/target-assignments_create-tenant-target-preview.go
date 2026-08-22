@@ -28,7 +28,7 @@ func newTargetAssignmentsCreateTenantTargetPreviewCmd(flags *rootFlags) *cobra.C
 	cmd := &cobra.Command{
 		Use:         "create-tenant-target-preview",
 		Short:       "Create tenant target preview",
-		Example:     "  immybot-pp-cli target-assignments create-tenant-target-preview",
+		Example:     "  immybot-cli target-assignments create-tenant-target-preview",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.create-tenant-target-preview", "pp:method": "POST", "pp:path": "/api/v1/target-assignments/tenant-target-preview"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

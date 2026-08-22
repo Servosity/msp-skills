@@ -28,13 +28,13 @@ func newExportCmd(flags *rootFlags) *cobra.Command {
 per line, streaming-friendly) and JSON (array). JSONL is recommended for
 large datasets as it has no memory pressure.`,
 		Example: `  # Export all items as JSONL (streaming, recommended for large datasets)
-  immybot-pp-cli export <resource> --format jsonl --output data.jsonl
+  immybot-cli export <resource> --format jsonl --output data.jsonl
 
   # Export with limit
-  immybot-pp-cli export <resource> --format jsonl --limit 1000
+  immybot-cli export <resource> --format jsonl --limit 1000
 
   # Pipe to another tool
-  immybot-pp-cli export <resource> --format jsonl | jq '.id'`,
+  immybot-cli export <resource> --format jsonl | jq '.id'`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			validResources := map[string]bool{

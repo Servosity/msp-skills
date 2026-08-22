@@ -18,7 +18,7 @@ func newUsersDeleteBulkDeleteCmd(flags *rootFlags) *cobra.Command {
 		Use:         "delete-bulk-delete",
 		Aliases:     []string{"delete"},
 		Short:       "Delete bulk delete",
-		Example:     "  immybot-pp-cli users delete-bulk-delete",
+		Example:     "  immybot-cli users delete-bulk-delete",
 		Annotations: map[string]string{"pp:endpoint": "users.delete-bulk-delete", "pp:method": "DELETE", "pp:path": "/api/v1/users/bulk-delete"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/users/bulk-delete"

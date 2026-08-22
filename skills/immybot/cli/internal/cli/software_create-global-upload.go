@@ -18,7 +18,7 @@ func newSoftwareCreateGlobalUploadCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-global-upload",
 		Short:       "Create global upload",
-		Example:     "  immybot-pp-cli software create-global-upload",
+		Example:     "  immybot-cli software create-global-upload",
 		Annotations: map[string]string{"pp:endpoint": "software.create-global-upload", "pp:method": "POST", "pp:path": "/api/v1/software/global/upload"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/software/global/upload"

@@ -84,8 +84,8 @@ func newNovelAssignmentExplainCmd(flags *rootFlags) *cobra.Command {
 			"this command for finding every computer a script or package reaches; use " +
 			"'script-blast-radius' instead.",
 		Example: strings.Trim(`
-  immybot-pp-cli assignment-explain 4821
-  immybot-pp-cli assignment-explain 4821 --agent
+  immybot-cli assignment-explain 4821
+  immybot-cli assignment-explain 4821 --agent
 `, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only": "true",
@@ -168,7 +168,7 @@ func newNovelAssignmentExplainCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if match == nil {
-					view.Note = fmt.Sprintf("no computer with id or name %q in the local mirror; run 'immybot-pp-cli sync --resources computers'", needle)
+					view.Note = fmt.Sprintf("no computer with id or name %q in the local mirror; run 'immybot-cli sync --resources computers'", needle)
 					if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 						return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 					}

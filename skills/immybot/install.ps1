@@ -1,4 +1,4 @@
-# install.ps1 - install immybot-pp-cli and immybot-pp-mcp on Windows.
+# install.ps1 - install immybot-cli and immybot-mcp on Windows.
 #
 # Pulls prebuilt binaries from this skill's latest GitHub Release (immybot-v*).
 # Both the CLI and the MCP server are installed in one shot.
@@ -11,8 +11,8 @@
 $ErrorActionPreference = "Stop"
 
 $Skill   = "immybot"
-$CliBin  = "immybot-pp-cli.exe"
-$McpBin  = "immybot-pp-mcp.exe"
+$CliBin  = "immybot-cli.exe"
+$McpBin  = "immybot-mcp.exe"
 
 $Owner = if ($env:MSP_SKILLS_OWNER) { $env:MSP_SKILLS_OWNER } else { "servosity" }
 $Repo  = if ($env:MSP_SKILLS_REPO)  { $env:MSP_SKILLS_REPO }  else { "msp-skills" }
@@ -79,7 +79,7 @@ Write-Host "  $InstallDir\$CliBin"
 Write-Host "  $InstallDir\$McpBin"
 Write-Host ""
 Write-Host "Verify (in a new terminal):"
-Write-Host "  immybot-pp-cli --version"
+Write-Host "  immybot-cli --version"
 Write-Host ""
 Write-Host "Next:"
 Write-Host "  First command + auth: https://github.com/$Owner/$Repo/tree/main/skills/immybot#readme"

@@ -22,7 +22,7 @@ func newMediaGetSearchCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-search",
 		Short:       "Get search",
-		Example:     "  immybot-pp-cli media get-search",
+		Example:     "  immybot-cli media get-search",
 		Annotations: map[string]string{"pp:endpoint": "media.get-search", "pp:method": "GET", "pp:path": "/api/v1/media/search", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/media/search"

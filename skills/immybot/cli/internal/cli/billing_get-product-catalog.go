@@ -16,7 +16,7 @@ func newBillingGetProductCatalogCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-product-catalog",
 		Short:       "Get product catalog",
-		Example:     "  immybot-pp-cli billing get-product-catalog",
+		Example:     "  immybot-cli billing get-product-catalog",
 		Annotations: map[string]string{"pp:endpoint": "billing.get-product-catalog", "pp:method": "GET", "pp:path": "/api/v1/billing/product-catalog", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/billing/product-catalog"

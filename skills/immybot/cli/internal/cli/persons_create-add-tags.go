@@ -20,7 +20,7 @@ func newPersonsCreateAddTagsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-add-tags",
 		Short:       "Create add tags",
-		Example:     "  immybot-pp-cli persons create-add-tags",
+		Example:     "  immybot-cli persons create-add-tags",
 		Annotations: map[string]string{"pp:endpoint": "persons.create-add-tags", "pp:method": "POST", "pp:path": "/api/v1/persons/add-tags"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

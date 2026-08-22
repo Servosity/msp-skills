@@ -18,7 +18,7 @@ func newMaintenanceSessionsResumeCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <sessionId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli maintenance-sessions resume create 42",
+		Example:     "  immybot-cli maintenance-sessions resume create 42",
 		Annotations: map[string]string{"pp:endpoint": "resume.create", "pp:method": "POST", "pp:path": "/api/v1/maintenance-sessions/{sessionId}/resume"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

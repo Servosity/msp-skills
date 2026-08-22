@@ -18,7 +18,7 @@ func newSchedulesRunNowCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <scheduleId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli schedules run-now create 42",
+		Example:     "  immybot-cli schedules run-now create 42",
 		Annotations: map[string]string{"pp:endpoint": "run-now.create", "pp:method": "POST", "pp:path": "/api/v1/schedules/{scheduleId}/run-now"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

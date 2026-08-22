@@ -27,7 +27,7 @@ func newBillingCreateInformationCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-information",
 		Short:       "Create information",
-		Example:     "  immybot-pp-cli billing create-information",
+		Example:     "  immybot-cli billing create-information",
 		Annotations: map[string]string{"pp:endpoint": "billing.create-information", "pp:method": "POST", "pp:path": "/api/v1/billing/billing-information"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

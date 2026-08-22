@@ -18,7 +18,7 @@ func newUserRoleAssignmentsDeleteDeleteCmd(flags *rootFlags) *cobra.Command {
 		Use:         "delete-delete",
 		Aliases:     []string{"delete"},
 		Short:       "Delete delete",
-		Example:     "  immybot-pp-cli user-role-assignments delete-delete",
+		Example:     "  immybot-cli user-role-assignments delete-delete",
 		Annotations: map[string]string{"pp:endpoint": "user-role-assignments.delete-delete", "pp:method": "DELETE", "pp:path": "/api/v1/user-role-assignments/delete"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/user-role-assignments/delete"

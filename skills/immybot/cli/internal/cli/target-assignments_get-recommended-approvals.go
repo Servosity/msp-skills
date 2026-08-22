@@ -16,7 +16,7 @@ func newTargetAssignmentsGetRecommendedApprovalsCmd(flags *rootFlags) *cobra.Com
 	cmd := &cobra.Command{
 		Use:         "get-recommended-approvals",
 		Short:       "Get recommended approvals",
-		Example:     "  immybot-pp-cli target-assignments get-recommended-approvals",
+		Example:     "  immybot-cli target-assignments get-recommended-approvals",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.get-recommended-approvals", "pp:method": "GET", "pp:path": "/api/v1/target-assignments/recommended-approvals", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/target-assignments/recommended-approvals"

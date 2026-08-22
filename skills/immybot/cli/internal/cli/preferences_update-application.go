@@ -20,7 +20,7 @@ func newPreferencesUpdateApplicationCmd(flags *rootFlags) *cobra.Command {
 		Use:         "update-application",
 		Aliases:     []string{"update"},
 		Short:       "Update application",
-		Example:     "  immybot-pp-cli preferences update-application",
+		Example:     "  immybot-cli preferences update-application",
 		Annotations: map[string]string{"pp:endpoint": "preferences.update-application", "pp:method": "PATCH", "pp:path": "/api/v1/preferences/application"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

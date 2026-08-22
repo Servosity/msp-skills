@@ -17,7 +17,7 @@ import (
 )
 
 // teachLogStateDirName is the per-user state directory name.
-const teachLogStateDirName = "immybot-pp-cli"
+const teachLogStateDirName = "immybot-cli"
 
 // teachLogFileName is the on-disk log name. Shared with any plain-text
 // error log written by the CLI side — the JSONL reader skips non-JSON

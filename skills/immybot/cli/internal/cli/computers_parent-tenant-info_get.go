@@ -16,7 +16,7 @@ func newComputersParentTenantInfoGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <computerId>",
 		Short:       "Get",
-		Example:     "  immybot-pp-cli computers parent-tenant-info get 42",
+		Example:     "  immybot-cli computers parent-tenant-info get 42",
 		Annotations: map[string]string{"pp:endpoint": "parent-tenant-info.get", "pp:method": "GET", "pp:path": "/api/v1/computers/{computerId}/parent-tenant-info", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

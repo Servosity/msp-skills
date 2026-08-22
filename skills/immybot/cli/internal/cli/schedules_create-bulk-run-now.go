@@ -19,7 +19,7 @@ func newSchedulesCreateBulkRunNowCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-bulk-run-now",
 		Short:       "Create bulk run now",
-		Example:     "  immybot-pp-cli schedules create-bulk-run-now",
+		Example:     "  immybot-cli schedules create-bulk-run-now",
 		Annotations: map[string]string{"pp:endpoint": "schedules.create-bulk-run-now", "pp:method": "POST", "pp:path": "/api/v1/schedules/bulk-run-now"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

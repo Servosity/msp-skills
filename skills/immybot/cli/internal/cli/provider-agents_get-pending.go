@@ -27,7 +27,7 @@ func newProviderAgentsGetPendingCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-pending",
 		Aliases:     []string{"list"},
 		Short:       "Get pending",
-		Example:     "  immybot-pp-cli provider-agents get-pending",
+		Example:     "  immybot-cli provider-agents get-pending",
 		Annotations: map[string]string{"pp:endpoint": "provider-agents.get-pending", "pp:method": "GET", "pp:path": "/api/v1/provider-agents/pending", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("agent-filter") {

@@ -18,7 +18,7 @@ func newSchedulesCancelCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <scheduleId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli schedules cancel create 42",
+		Example:     "  immybot-cli schedules cancel create 42",
 		Annotations: map[string]string{"pp:endpoint": "cancel.create", "pp:method": "POST", "pp:path": "/api/v1/schedules/{scheduleId}/cancel"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

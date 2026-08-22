@@ -28,7 +28,7 @@ func newScriptsCreateRunAdhocMetascriptCmd(flags *rootFlags) *cobra.Command {
 		Use:   "create-run-adhoc-metascript",
 		Short: "Create run adhoc metascript",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli scripts create-run-adhoc-metascript --script-body example-value",
+		Example:     "  immybot-cli scripts create-run-adhoc-metascript --script-body example-value",
 		Annotations: map[string]string{"pp:endpoint": "scripts.create-run-adhoc-metascript", "pp:method": "POST", "pp:path": "/api/v1/scripts/run-adhoc-metascript"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

@@ -21,7 +21,7 @@ func newAzureCreatePreconsentCustomerTenantsCmd(flags *rootFlags) *cobra.Command
 	cmd := &cobra.Command{
 		Use:         "create-preconsent-customer-tenants",
 		Short:       "Create preconsent customer tenants",
-		Example:     "  immybot-pp-cli azure create-preconsent-customer-tenants",
+		Example:     "  immybot-cli azure create-preconsent-customer-tenants",
 		Annotations: map[string]string{"pp:endpoint": "azure.create-preconsent-customer-tenants", "pp:method": "POST", "pp:path": "/api/v1/azure/preconsent-customer-tenants"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

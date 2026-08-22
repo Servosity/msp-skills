@@ -16,7 +16,7 @@ func newDynamicProviderTypesListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List",
-		Example:     "  immybot-pp-cli dynamic-provider-types list",
+		Example:     "  immybot-cli dynamic-provider-types list",
 		Annotations: map[string]string{"pp:endpoint": "dynamic-provider-types.list", "pp:method": "GET", "pp:path": "/api/v1/dynamic-provider-types", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/dynamic-provider-types"

@@ -19,7 +19,7 @@ func newRmmLinksListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List",
-		Example:     "  immybot-pp-cli rmm-links list",
+		Example:     "  immybot-cli rmm-links list",
 		Annotations: map[string]string{"pp:endpoint": "rmm-links.list", "pp:method": "GET", "pp:path": "/api/v1/rmm-links", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/rmm-links"

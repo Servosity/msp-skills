@@ -32,7 +32,7 @@ func twoPlaybookFS() fstest.MapFS {
 		"alpha.json": &fstest.MapFile{
 			Data: []byte(`{
   "query_family_examples": ["alpha example query", "alpha second phrasing"],
-  "steps": [{"cmd": "immybot-pp-cli --help", "purpose": "noop"}],
+  "steps": [{"cmd": "immybot-cli --help", "purpose": "noop"}],
   "entity_slots": [],
   "expected_tool_calls": 1
 }`),
@@ -43,7 +43,7 @@ func twoPlaybookFS() fstest.MapFS {
 		"beta.json": &fstest.MapFile{
 			Data: []byte(`{
   "query_family_examples": ["beta example query", "beta second phrasing"],
-  "steps": [{"cmd": "immybot-pp-cli --help", "purpose": "noop"}],
+  "steps": [{"cmd": "immybot-cli --help", "purpose": "noop"}],
   "entity_slots": [],
   "expected_tool_calls": 1
 }`),
@@ -436,7 +436,7 @@ func TestPlaybookInit_SkipsPlaybookWithoutExamples(t *testing.T) {
 	noExamplesFS := fstest.MapFS{
 		"empty_examples.json": &fstest.MapFile{
 			Data: []byte(`{
-  "steps": [{"cmd": "immybot-pp-cli --help", "purpose": "no-op"}],
+  "steps": [{"cmd": "immybot-cli --help", "purpose": "no-op"}],
   "entity_slots": [],
   "expected_tool_calls": 1
 }`),
@@ -479,7 +479,7 @@ func TestPlaybookInit_FailureLeavesSentinelStale(t *testing.T) {
 		"valid.json": &fstest.MapFile{
 			Data: []byte(`{
   "query_family_examples": ["valid query family example"],
-  "steps": [{"cmd": "immybot-pp-cli --help", "purpose": "noop"}],
+  "steps": [{"cmd": "immybot-cli --help", "purpose": "noop"}],
   "entity_slots": [],
   "expected_tool_calls": 1
 }`),

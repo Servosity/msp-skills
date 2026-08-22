@@ -23,7 +23,7 @@ func newScriptsGetSearchCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-search",
 		Short:       "Get search",
-		Example:     "  immybot-pp-cli scripts get-search",
+		Example:     "  immybot-cli scripts get-search",
 		Annotations: map[string]string{"pp:endpoint": "scripts.get-search", "pp:method": "GET", "pp:path": "/api/v1/scripts/search", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/scripts/search"

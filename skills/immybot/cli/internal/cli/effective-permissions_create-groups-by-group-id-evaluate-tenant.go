@@ -21,7 +21,7 @@ func newEffectivePermissionsCreateGroupsByGroupIdEvaluateTenantCmd(flags *rootFl
 	cmd := &cobra.Command{
 		Use:         "create-groups-by-group-id-evaluate-tenant <groupId>",
 		Short:       "Evaluates permissions for a group against a specific tenant.",
-		Example:     "  immybot-pp-cli effective-permissions create-groups-by-group-id-evaluate-tenant 42",
+		Example:     "  immybot-cli effective-permissions create-groups-by-group-id-evaluate-tenant 42",
 		Annotations: map[string]string{"pp:endpoint": "effective-permissions.create-groups-by-group-id-evaluate-tenant", "pp:method": "POST", "pp:path": "/api/v1/effective-permissions/groups/{groupId}/evaluate/tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

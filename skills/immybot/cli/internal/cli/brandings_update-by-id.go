@@ -37,7 +37,7 @@ func newBrandingsUpdateByIdCmd(flags *rootFlags) *cobra.Command {
 		Aliases: []string{"update"},
 		Short:   "Update by id",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli brandings update-by-id 550e8400-e29b-41d4-a716-446655440000 --description example-value",
+		Example:     "  immybot-cli brandings update-by-id 550e8400-e29b-41d4-a716-446655440000 --description example-value",
 		Annotations: map[string]string{"pp:endpoint": "brandings.update-by-id", "pp:method": "PUT", "pp:path": "/api/v1/brandings/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

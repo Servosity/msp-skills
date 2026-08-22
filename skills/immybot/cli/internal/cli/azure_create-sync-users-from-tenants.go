@@ -21,7 +21,7 @@ func newAzureCreateSyncUsersFromTenantsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-sync-users-from-tenants",
 		Short:       "Create sync users from tenants",
-		Example:     "  immybot-pp-cli azure create-sync-users-from-tenants",
+		Example:     "  immybot-cli azure create-sync-users-from-tenants",
 		Annotations: map[string]string{"pp:endpoint": "azure.create-sync-users-from-tenants", "pp:method": "POST", "pp:path": "/api/v1/azure/sync-users-from-azure-tenants"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

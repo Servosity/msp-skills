@@ -20,7 +20,7 @@ func newComputersRegistryCreateKeysCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-keys <computerId>",
 		Aliases:     []string{"create"},
 		Short:       "Create keys",
-		Example:     "  immybot-pp-cli computers registry create-keys 42",
+		Example:     "  immybot-cli computers registry create-keys 42",
 		Annotations: map[string]string{"pp:endpoint": "registry.create-keys", "pp:method": "POST", "pp:path": "/api/v1/computers/{computerId}/registry/keys"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -19,7 +19,7 @@ func newScriptsCreateDebugCancelByCancellationIdCmd(flags *rootFlags) *cobra.Com
 		Use:         "create-debug-cancel-by-cancellation-id <cancellationId>",
 		Aliases:     []string{"create"},
 		Short:       "Create debug cancel by cancellation id",
-		Example:     "  immybot-pp-cli scripts create-debug-cancel-by-cancellation-id 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli scripts create-debug-cancel-by-cancellation-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "scripts.create-debug-cancel-by-cancellation-id", "pp:method": "POST", "pp:path": "/api/v1/scripts/debug/cancel/{cancellationId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -56,10 +56,10 @@ Credentials default to IMMYBOT_CLIENT_ID (Client ID) and IMMYBOT_CLIENT_SECRET (
 `),
 		Example: strings.Trim(`
   # Use env vars
-  immybot-pp-cli auth login
+  immybot-cli auth login
 
   # Explicit credentials
-  immybot-pp-cli auth login --client-id <id> --client-secret <secret>
+  immybot-cli auth login --client-id <id> --client-secret <secret>
 `, "\n"),
 		Annotations: map[string]string{"mcp:hidden": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -139,7 +139,7 @@ func resolveClientCredentialsUserAgent() string {
 	if ua := strings.TrimSpace(os.Getenv("IMMYBOT_USER_AGENT")); ua != "" {
 		return ua
 	}
-	return "immybot-pp-cli/v1"
+	return "immybot-cli/v1"
 }
 func resolveClientCredentialsTokenURL(tokenURL, tenant string) (string, error) {
 	idx := strings.Index(strings.ToLower(tokenURL), "/common/")
@@ -194,7 +194,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:     "status",
 		Short:   "Show authentication status",
-		Example: "  immybot-pp-cli auth status",
+		Example: "  immybot-cli auth status",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load(flags.configPath)
 			if err != nil {
@@ -244,7 +244,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, "Mint a token:")
 				fmt.Fprintln(w, "  export IMMYBOT_CLIENT_ID=\"<client-id>\"")
 				fmt.Fprintln(w, "  export IMMYBOT_CLIENT_SECRET=\"<client-secret>\"")
-				fmt.Fprintf(w, "  immybot-pp-cli auth login\n")
+				fmt.Fprintf(w, "  immybot-cli auth login\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
 
@@ -263,7 +263,7 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:     "set-token <token>",
 		Short:   "Save an API token to the credentials file (override the OAuth flow)",
-		Example: "  immybot-pp-cli auth set-token <bearer-jwt>",
+		Example: "  immybot-cli auth set-token <bearer-jwt>",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load(flags.configPath)
@@ -309,7 +309,7 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:     "logout",
 		Short:   "Clear stored credentials",
-		Example: "  immybot-pp-cli auth logout",
+		Example: "  immybot-cli auth logout",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load(flags.configPath)
 			if err != nil {

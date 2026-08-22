@@ -51,7 +51,7 @@ func newTargetAssignmentsCreateChangeRequestV2Cmd(flags *rootFlags) *cobra.Comma
 	cmd := &cobra.Command{
 		Use:         "create-change-request-v2",
 		Short:       "Create change request v2",
-		Example:     "  immybot-pp-cli target-assignments create-change-request-v2",
+		Example:     "  immybot-cli target-assignments create-change-request-v2",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.create-change-request-v2", "pp:method": "POST", "pp:path": "/api/v1/target-assignments/change-request"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

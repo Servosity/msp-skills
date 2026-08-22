@@ -531,24 +531,24 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcpToolError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Run 'immybot-pp-cli auth setup' for credential setup steps." +
+					"\n      Run 'immybot-cli auth login' to mint a token (or 'immybot-cli auth status' to see what is loaded)." +
 					"\n      See API docs: https://www.immy.bot" +
 					"\n      Register an app in Microsoft Entra ID, create a client secret, then in ImmyBot go to Show More > People > New and paste the Enterprise App object ID into \"AD External ID\". Set IMMYBOT_SUBDOMAIN, IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID and IMMYBOT_CLIENT_SECRET." +
-					"\n      Run 'immybot-pp-cli doctor' to check auth status."), nil
+					"\n      Run 'immybot-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcpToolError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your token." +
-					"\n      Run 'immybot-pp-cli auth setup' for credential setup steps." +
+					"\n      Run 'immybot-cli auth login' to mint a token (or 'immybot-cli auth status' to see what is loaded)." +
 					"\n      See API docs: https://www.immy.bot" +
 					"\n      Register an app in Microsoft Entra ID, create a client secret, then in ImmyBot go to Show More > People > New and paste the Enterprise App object ID into \"AD External ID\". Set IMMYBOT_SUBDOMAIN, IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID and IMMYBOT_CLIENT_SECRET." +
-					"\n      Run 'immybot-pp-cli doctor' to check auth status."), nil
+					"\n      Run 'immybot-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcpToolError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
-					"\n      Run 'immybot-pp-cli auth setup' for credential setup steps." +
+					"\n      Run 'immybot-cli auth login' to mint a token (or 'immybot-cli auth status' to see what is loaded)." +
 					"\n      See API docs: https://www.immy.bot" +
 					"\n      Register an app in Microsoft Entra ID, create a client secret, then in ImmyBot go to Show More > People > New and paste the Enterprise App object ID into \"AD External ID\". Set IMMYBOT_SUBDOMAIN, IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID and IMMYBOT_CLIENT_SECRET." +
-					"\n      Run 'immybot-pp-cli doctor' to check auth status."), nil
+					"\n      Run 'immybot-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
 				if method == "DELETE" {
 					return mcpToolTextWithPlatform("already deleted (no-op)", platformSession), nil
@@ -681,13 +681,13 @@ func openMCPReadOnlyStore(path string) (*store.Store, *mcplib.CallToolResult) {
 	}
 	db, err := store.OpenReadOnly(path)
 	if err != nil {
-		return nil, mcplib.NewToolResultError(fmt.Sprintf("opening local data store %s: %v. Run immybot-pp-cli sync to refresh the store, or use live endpoint MCP tools for unsynced data.", path, err))
+		return nil, mcplib.NewToolResultError(fmt.Sprintf("opening local data store %s: %v. Run immybot-cli sync to refresh the store, or use live endpoint MCP tools for unsynced data.", path, err))
 	}
 	return db, nil
 }
 
 func mcpMissingStoreMessage(path string) string {
-	return fmt.Sprintf("No local data store found at %s. Run immybot-pp-cli sync before using MCP search/sql, or use live endpoint MCP tools for unsynced data.", path)
+	return fmt.Sprintf("No local data store found at %s. Run immybot-cli sync before using MCP search/sql, or use live endpoint MCP tools for unsynced data.", path)
 }
 
 func mcpStoreStatus(db *store.Store) (mcpStoreStatusKind, error) {
@@ -702,7 +702,7 @@ func mcpStoreStatus(db *store.Store) (mcpStoreStatusKind, error) {
 }
 
 func mcpEmptyStoreNextStep() string {
-	return "Run immybot-pp-cli sync to populate the local SQLite store before using MCP search/sql."
+	return "Run immybot-cli sync to populate the local SQLite store before using MCP search/sql."
 }
 
 func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -1029,7 +1029,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"tool_count":  550,
 		"paths":       paths,
 		// tool_surface tells agents which surface a capability lives on.
-		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion immybot-pp-cli binary.",
+		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion immybot-cli binary.",
 		// learn_protocol is generated from the single shared source of
 		// truth (the exported constant internal/learn.RecallFirstProtocol)
 		// also consumed by the CLI agent-context command, so the MCP and

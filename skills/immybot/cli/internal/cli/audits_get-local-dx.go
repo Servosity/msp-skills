@@ -17,7 +17,7 @@ func newAuditsGetLocalDxCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-local-dx",
 		Short:       "Get local dx",
-		Example:     "  immybot-pp-cli audits get-local-dx",
+		Example:     "  immybot-cli audits get-local-dx",
 		Annotations: map[string]string{"pp:endpoint": "audits.get-local-dx", "pp:method": "GET", "pp:path": "/api/v1/audits/local/dx", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/audits/local/dx"

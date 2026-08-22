@@ -16,7 +16,7 @@ func newPersonsGetRequestingAccessCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-requesting-access",
 		Short:       "Get requesting access",
-		Example:     "  immybot-pp-cli persons get-requesting-access",
+		Example:     "  immybot-cli persons get-requesting-access",
 		Annotations: map[string]string{"pp:endpoint": "persons.get-requesting-access", "pp:method": "GET", "pp:path": "/api/v1/persons/requesting-access", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/persons/requesting-access"

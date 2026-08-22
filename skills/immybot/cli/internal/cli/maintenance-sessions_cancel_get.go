@@ -16,7 +16,7 @@ func newMaintenanceSessionsCancelGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <sessionId>",
 		Short:       "Get",
-		Example:     "  immybot-pp-cli maintenance-sessions cancel get 42",
+		Example:     "  immybot-cli maintenance-sessions cancel get 42",
 		Annotations: map[string]string{"pp:endpoint": "cancel.get", "pp:method": "GET", "pp:path": "/api/v1/maintenance-sessions/{sessionId}/cancel", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

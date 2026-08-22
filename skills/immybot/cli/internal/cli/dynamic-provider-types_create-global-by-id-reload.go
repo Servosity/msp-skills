@@ -18,7 +18,7 @@ func newDynamicProviderTypesCreateGlobalByIdReloadCmd(flags *rootFlags) *cobra.C
 	cmd := &cobra.Command{
 		Use:         "create-global-by-id-reload <id>",
 		Short:       "Create global by id reload",
-		Example:     "  immybot-pp-cli dynamic-provider-types create-global-by-id-reload 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli dynamic-provider-types create-global-by-id-reload 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "dynamic-provider-types.create-global-by-id-reload", "pp:method": "POST", "pp:path": "/api/v1/dynamic-provider-types/global/{id}/reload"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

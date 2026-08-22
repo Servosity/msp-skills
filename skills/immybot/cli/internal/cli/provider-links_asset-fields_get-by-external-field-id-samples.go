@@ -17,7 +17,7 @@ func newProviderLinksAssetFieldsGetByExternalFieldIdSamplesCmd(flags *rootFlags)
 	cmd := &cobra.Command{
 		Use:         "get-by-external-field-id-samples <id> <externalFieldId>",
 		Short:       "Get by external field id samples",
-		Example:     "  immybot-pp-cli provider-links asset-fields get-by-external-field-id-samples 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli provider-links asset-fields get-by-external-field-id-samples 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "asset-fields.get-by-external-field-id-samples", "pp:method": "GET", "pp:path": "/api/v1/provider-links/{id}/asset-fields/{externalFieldId}/samples", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

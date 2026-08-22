@@ -18,7 +18,7 @@ func newComputersGetInventorySoftwareSearchByNameCmd(flags *rootFlags) *cobra.Co
 	cmd := &cobra.Command{
 		Use:         "get-inventory-software-search-by-name",
 		Short:       "Get inventory software search by name",
-		Example:     "  immybot-pp-cli computers get-inventory-software-search-by-name",
+		Example:     "  immybot-cli computers get-inventory-software-search-by-name",
 		Annotations: map[string]string{"pp:endpoint": "computers.get-inventory-software-search-by-name", "pp:method": "GET", "pp:path": "/api/v1/computers/inventory-software/search-by-name", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("search-mode") {

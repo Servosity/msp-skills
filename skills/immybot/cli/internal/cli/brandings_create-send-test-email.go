@@ -36,7 +36,7 @@ func newBrandingsCreateSendTestEmailCmd(flags *rootFlags) *cobra.Command {
 		Use:   "create-send-test-email",
 		Short: "Create send test email",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli brandings create-send-test-email --to example-value",
+		Example:     "  immybot-cli brandings create-send-test-email --to example-value",
 		Annotations: map[string]string{"pp:endpoint": "brandings.create-send-test-email", "pp:method": "POST", "pp:path": "/api/v1/brandings/send-test-email"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

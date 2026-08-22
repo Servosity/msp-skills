@@ -21,7 +21,7 @@ func newMaintenanceTasksGetLocalCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-local",
 		Short:       "Get local",
-		Example:     "  immybot-pp-cli maintenance-tasks get-local",
+		Example:     "  immybot-cli maintenance-tasks get-local",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-tasks.get-local", "pp:method": "GET", "pp:path": "/api/v1/maintenance-tasks/local", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/maintenance-tasks/local"

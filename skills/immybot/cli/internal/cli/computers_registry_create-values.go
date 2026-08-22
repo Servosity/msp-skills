@@ -19,7 +19,7 @@ func newComputersRegistryCreateValuesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-values <computerId>",
 		Short:       "Create values",
-		Example:     "  immybot-pp-cli computers registry create-values 42",
+		Example:     "  immybot-cli computers registry create-values 42",
 		Annotations: map[string]string{"pp:endpoint": "registry.create-values", "pp:method": "POST", "pp:path": "/api/v1/computers/{computerId}/registry/values"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

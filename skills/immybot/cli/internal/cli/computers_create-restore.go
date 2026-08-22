@@ -19,7 +19,7 @@ func newComputersCreateRestoreCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-restore",
 		Short:       "Create restore",
-		Example:     "  immybot-pp-cli computers create-restore",
+		Example:     "  immybot-cli computers create-restore",
 		Annotations: map[string]string{"pp:endpoint": "computers.create-restore", "pp:method": "POST", "pp:path": "/api/v1/computers/restore"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

@@ -35,7 +35,7 @@ func resetCredentialEnv(t *testing.T) (home, configPath string) {
 	} {
 		t.Setenv(name, "")
 	}
-	return home, filepath.Join(home, ".config", "immybot-pp-cli", "config.toml")
+	return home, filepath.Join(home, ".config", "immybot-cli", "config.toml")
 }
 
 func TestConfigFileWinsWhenCredentialsFileAlsoHasSecrets(t *testing.T) {
@@ -331,7 +331,7 @@ func TestCorruptCredentialsDoesNotOverrideLegacyConfig(t *testing.T) {
 	if err := os.WriteFile(configPath, legacyConfigData(t, "https://legacy.example", "legacy-secret"), 0o600); err != nil {
 		t.Fatalf("write legacy config: %v", err)
 	}
-	credentialsPath := filepath.Join(home, ".local", "share", "immybot-pp-cli", "credentials.toml")
+	credentialsPath := filepath.Join(home, ".local", "share", "immybot-cli", "credentials.toml")
 	if err := os.MkdirAll(filepath.Dir(credentialsPath), 0o700); err != nil {
 		t.Fatalf("mkdir credentials dir: %v", err)
 	}
@@ -362,7 +362,7 @@ func TestEmptyCredentialsFileDoesNotClearLegacyConfig(t *testing.T) {
 	if err := os.WriteFile(configPath, legacyConfigData(t, "https://legacy.example", "legacy-secret"), 0o600); err != nil {
 		t.Fatalf("write legacy config: %v", err)
 	}
-	credentialsPath := filepath.Join(home, ".local", "share", "immybot-pp-cli", "credentials.toml")
+	credentialsPath := filepath.Join(home, ".local", "share", "immybot-cli", "credentials.toml")
 	if err := os.MkdirAll(filepath.Dir(credentialsPath), 0o700); err != nil {
 		t.Fatalf("mkdir credentials dir: %v", err)
 	}
@@ -450,7 +450,7 @@ func TestAuthWriteScrubsLegacyConfigWhenRelocated(t *testing.T) {
 	}
 
 	// Active config at relocated path should also be secret-free.
-	activeConfigPath := filepath.Join(newConfigDir, "immybot-pp-cli", "config.toml")
+	activeConfigPath := filepath.Join(newConfigDir, "immybot-cli", "config.toml")
 	activeData, err := os.ReadFile(activeConfigPath)
 	if err != nil {
 		t.Fatalf("read active config: %v", err)
@@ -464,7 +464,7 @@ func TestAuthWriteScrubsLegacyConfigWhenRelocated(t *testing.T) {
 	}
 
 	// Credentials file should exist in the new data dir.
-	credsPath := filepath.Join(newDataDir, "immybot-pp-cli", "credentials.toml")
+	credsPath := filepath.Join(newDataDir, "immybot-cli", "credentials.toml")
 	if _, err := os.Stat(credsPath); err != nil {
 		t.Fatalf("credentials file not found at relocated data dir: %v", err)
 	}

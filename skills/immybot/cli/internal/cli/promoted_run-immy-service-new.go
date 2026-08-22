@@ -71,7 +71,7 @@ func newRunImmyServiceNewPromotedCmd(flags *rootFlags) *cobra.Command {
 		Use:         "run-immy-service-new",
 		Short:       "Create",
 		Long:        "Create",
-		Example:     "  immybot-pp-cli run-immy-service-new",
+		Example:     "  immybot-cli run-immy-service-new",
 		Annotations: map[string]string{"pp:endpoint": "run-immy-service-new.create", "pp:method": "POST", "pp:path": "/api/v1/run-immy-service-new"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()

@@ -16,7 +16,7 @@ func newComputersEphemeralAgentCircuitBreakerGetCmd(flags *rootFlags) *cobra.Com
 	cmd := &cobra.Command{
 		Use:         "get <computerId>",
 		Short:       "Get",
-		Example:     "  immybot-pp-cli computers ephemeral-agent-circuit-breaker get 42",
+		Example:     "  immybot-cli computers ephemeral-agent-circuit-breaker get 42",
 		Annotations: map[string]string{"pp:endpoint": "ephemeral-agent-circuit-breaker.get", "pp:method": "GET", "pp:path": "/api/v1/computers/{computerId}/ephemeral-agent-circuit-breaker", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

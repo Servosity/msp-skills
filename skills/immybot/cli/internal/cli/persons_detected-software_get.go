@@ -16,7 +16,7 @@ func newPersonsDetectedSoftwareGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <personId>",
 		Short:       "Get",
-		Example:     "  immybot-pp-cli persons detected-software get 42",
+		Example:     "  immybot-cli persons detected-software get 42",
 		Annotations: map[string]string{"pp:endpoint": "detected-software.get", "pp:method": "GET", "pp:path": "/api/v1/persons/{personId}/detected-software", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

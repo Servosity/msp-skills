@@ -17,7 +17,7 @@ func newSchedulesDeleteByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "delete-by-id <scheduleId>",
 		Aliases:     []string{"delete"},
 		Short:       "Delete by id",
-		Example:     "  immybot-pp-cli schedules delete-by-id 42",
+		Example:     "  immybot-cli schedules delete-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "schedules.delete-by-id", "pp:method": "DELETE", "pp:path": "/api/v1/schedules/{scheduleId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -66,7 +66,7 @@ func newSoftwareCreateLocalCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-local",
 		Short:       "Create local",
-		Example:     "  immybot-pp-cli software create-local",
+		Example:     "  immybot-cli software create-local",
 		Annotations: map[string]string{"pp:endpoint": "software.create-local", "pp:method": "POST", "pp:path": "/api/v1/software/local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

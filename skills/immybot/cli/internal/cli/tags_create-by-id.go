@@ -22,7 +22,7 @@ func newTagsCreateByIdCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-by-id <tagId>",
 		Short:       "Create by id",
-		Example:     "  immybot-pp-cli tags create-by-id 42",
+		Example:     "  immybot-cli tags create-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "tags.create-by-id", "pp:method": "POST", "pp:path": "/api/v1/tags/{tagId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

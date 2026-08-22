@@ -18,7 +18,7 @@ func newSystemCreateIsImmySupportAccessGrantedCmd(flags *rootFlags) *cobra.Comma
 	cmd := &cobra.Command{
 		Use:         "create-is-immy-support-access-granted",
 		Short:       "Create is immy support access granted",
-		Example:     "  immybot-pp-cli system create-is-immy-support-access-granted",
+		Example:     "  immybot-cli system create-is-immy-support-access-granted",
 		Annotations: map[string]string{"pp:endpoint": "system.create-is-immy-support-access-granted", "pp:method": "POST", "pp:path": "/api/v1/system/is-immy-support-access-granted"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

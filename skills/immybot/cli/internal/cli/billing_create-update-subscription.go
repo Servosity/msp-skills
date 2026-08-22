@@ -20,7 +20,7 @@ func newBillingCreateUpdateSubscriptionCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-update-subscription",
 		Short:       "Create update subscription",
-		Example:     "  immybot-pp-cli billing create-update-subscription",
+		Example:     "  immybot-cli billing create-update-subscription",
 		Annotations: map[string]string{"pp:endpoint": "billing.create-update-subscription", "pp:method": "POST", "pp:path": "/api/v1/billing/update-subscription"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

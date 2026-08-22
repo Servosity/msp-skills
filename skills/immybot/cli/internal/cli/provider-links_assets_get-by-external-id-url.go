@@ -17,7 +17,7 @@ func newProviderLinksAssetsGetByExternalIdUrlCmd(flags *rootFlags) *cobra.Comman
 		Use:         "get-by-external-id-url <id> <externalAssetId>",
 		Aliases:     []string{"get"},
 		Short:       "Get by external id url",
-		Example:     "  immybot-pp-cli provider-links assets get-by-external-id-url 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Example:     "  immybot-cli provider-links assets get-by-external-id-url 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "assets.get-by-external-id-url", "pp:method": "GET", "pp:path": "/api/v1/provider-links/{id}/assets/{externalAssetId}/url", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

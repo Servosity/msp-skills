@@ -16,7 +16,7 @@ func newPreferencesListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List",
-		Example:     "  immybot-pp-cli preferences list",
+		Example:     "  immybot-cli preferences list",
 		Annotations: map[string]string{"pp:endpoint": "preferences.list", "pp:method": "GET", "pp:path": "/api/v1/preferences", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/preferences"

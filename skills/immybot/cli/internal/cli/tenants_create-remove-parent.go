@@ -20,7 +20,7 @@ func newTenantsCreateRemoveParentCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-remove-parent",
 		Short:       "Create remove parent",
-		Example:     "  immybot-pp-cli tenants create-remove-parent",
+		Example:     "  immybot-cli tenants create-remove-parent",
 		Annotations: map[string]string{"pp:endpoint": "tenants.create-remove-parent", "pp:method": "POST", "pp:path": "/api/v1/tenants/remove-parent-tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

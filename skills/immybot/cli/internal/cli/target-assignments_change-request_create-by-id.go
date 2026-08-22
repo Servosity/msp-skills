@@ -52,7 +52,7 @@ func newTargetAssignmentsChangeRequestCreateByIdCmd(flags *rootFlags) *cobra.Com
 		Use:   "create-by-id <deploymentId> <changeRequestId>",
 		Short: "Create by id",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli target-assignments change-request create-by-id 42 42 --maintenance-identifier example-value",
+		Example:     "  immybot-cli target-assignments change-request create-by-id 42 42 --maintenance-identifier example-value",
 		Annotations: map[string]string{"pp:endpoint": "change-request.create-by-id", "pp:method": "POST", "pp:path": "/api/v1/target-assignments/{deploymentId}/change-request/{changeRequestId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

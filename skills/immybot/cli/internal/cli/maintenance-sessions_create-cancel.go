@@ -20,7 +20,7 @@ func newMaintenanceSessionsCreateCancelCmd(flags *rootFlags) *cobra.Command {
 		Use:         "create-cancel",
 		Aliases:     []string{"create"},
 		Short:       "Create cancel",
-		Example:     "  immybot-pp-cli maintenance-sessions create-cancel",
+		Example:     "  immybot-cli maintenance-sessions create-cancel",
 		Annotations: map[string]string{"pp:endpoint": "maintenance-sessions.create-cancel", "pp:method": "POST", "pp:path": "/api/v1/maintenance-sessions/cancel"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

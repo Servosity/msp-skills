@@ -23,7 +23,7 @@ func newScriptsCreateLanguageServiceStartCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-language-service-start",
 		Short:       "Create language service start",
-		Example:     "  immybot-pp-cli scripts create-language-service-start",
+		Example:     "  immybot-cli scripts create-language-service-start",
 		Annotations: map[string]string{"pp:endpoint": "scripts.create-language-service-start", "pp:method": "POST", "pp:path": "/api/v1/scripts/language-service/start"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

@@ -18,7 +18,7 @@ func newSystemCreateEnableImmySupportAccessCmd(flags *rootFlags) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:         "create-enable-immy-support-access",
 		Short:       "Create enable immy support access",
-		Example:     "  immybot-pp-cli system create-enable-immy-support-access",
+		Example:     "  immybot-cli system create-enable-immy-support-access",
 		Annotations: map[string]string{"pp:endpoint": "system.create-enable-immy-support-access", "pp:method": "POST", "pp:path": "/api/v1/system/enable-immy-support-access"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

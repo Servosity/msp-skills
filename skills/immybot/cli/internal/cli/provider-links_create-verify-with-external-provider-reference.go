@@ -23,7 +23,7 @@ func newProviderLinksCreateVerifyWithExternalProviderReferenceCmd(flags *rootFla
 	cmd := &cobra.Command{
 		Use:         "create-verify-with-external-provider-reference",
 		Short:       "Create verify with external provider reference",
-		Example:     "  immybot-pp-cli provider-links create-verify-with-external-provider-reference",
+		Example:     "  immybot-cli provider-links create-verify-with-external-provider-reference",
 		Annotations: map[string]string{"pp:endpoint": "provider-links.create-verify-with-external-provider-reference", "pp:method": "POST", "pp:path": "/api/v1/provider-links/verify-with-external-provider-reference"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

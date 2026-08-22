@@ -1,5 +1,5 @@
 ---
-name: pp-immybot
+name: immybot
 description: "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot. Trigger phrases: `what failed in last night's maintenance window`, `which tenants are still on an old version of chrome`, `why didn't this computer get the deployment`, `what changed in the fleet since yesterday`, `which computers does this script reach`, `which machines are stuck onboarding`, `use immybot`, `run immybot`."
 author: "Abhi Saini"
 license: "Apache-2.0"
@@ -10,20 +10,24 @@ metadata:
   openclaw:
     requires:
       bins:
-        - immybot-pp-cli
+        - immybot-cli
+    install:
+      - kind: go
+        bins: [immybot-cli]
+        module: github.com/mvanhorn/printing-press-library/library/rmm/immybot/cmd/immybot-cli
 ---
 
 # ImmyBot - Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
-This skill drives the `immybot-pp-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
+This skill drives the `immybot-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
 1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
    npx -y @mvanhorn/printing-press-library install immybot --cli-only
    ```
-2. Verify: `immybot-pp-cli --version`
+2. Verify: `immybot-cli --version`
 3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
 If the `npx` install fails before this CLI has a public-library category, install Node or use the category-specific Go fallback after publish.
@@ -54,28 +58,28 @@ These capabilities aren't available in any other tool for this API.
   _Reach for this first after any maintenance window: it turns N red machines into the handful of distinct problems actually worth a ticket._
 
   ```bash
-  immybot-pp-cli session-triage --since 24h --agent
+  immybot-cli session-triage --since 24h --agent
   ```
 - **`version-spread`** - Semver-ordered distribution of one software title across every tenant, flagging everything below a floor.
 
   _This is the CVE-response command: one call answers which clients are still exposed on a given title._
 
   ```bash
-  immybot-pp-cli version-spread "Google Chrome" --min-version 140 --agent
+  immybot-cli version-spread "Google Chrome" --min-version 140 --agent
   ```
-- **`fleet-diff`** - What actually changed between two syncs: computers added or removed, software versions moved, assignments modified.
+- **`fleet-diff`** - What actually changed between two syncs: computers added or removed, software versions moved, assignments modified. Requires a local baseline: run `fleet-diff --snapshot` after a sync to record one (there is no updated-since cursor in the API), then compare with `--since`.
 
   _Use this to answer "what changed since last night" without diffing two exports by hand._
 
   ```bash
-  immybot-pp-cli fleet-diff --since 24h --agent
+  immybot-cli fleet-diff --since 24h --agent
   ```
 - **`onboarding-stalled`** - Computers stuck waiting to onboard, bucketed by age and annotated with whether onboarding was ever attempted.
 
   _Surfaces machines that silently never finished onboarding, which is the failure mode clients notice first._
 
   ```bash
-  immybot-pp-cli onboarding-stalled --older-than 3d --agent
+  immybot-cli onboarding-stalled --older-than 3d --agent
   ```
 
 ### Deployment resolution
@@ -84,14 +88,14 @@ These capabilities aren't available in any other tool for this API.
   _Use this for any "why didn't this machine get X" question; it answers what a computer receives and why, which no single endpoint does._
 
   ```bash
-  immybot-pp-cli assignment-explain 4821 --agent
+  immybot-cli assignment-explain 4821 --agent
   ```
 - **`script-blast-radius`** - Every maintenance task, software package, and computer that a script reaches before you edit it.
 
   _Run this before editing any shared script; it is the only way to see downstream reach across tenants._
 
   ```bash
-  immybot-pp-cli script-blast-radius 312 --agent
+  immybot-cli script-blast-radius 312 --agent
   ```
 
 ### Integration hygiene
@@ -100,594 +104,594 @@ These capabilities aren't available in any other tool for this API.
   _Run after each week of onboards and decommissions; mapping gaps otherwise surface as a wrong invoice or a machine that stopped getting maintenance._
 
   ```bash
-  immybot-pp-cli psa-reconcile --provider 7 --agent
+  immybot-cli psa-reconcile --provider 7 --agent
   ```
 
 ## Command Reference
 
 **access** - Manage access
 
-- `immybot-pp-cli access create-delete-azure-tenant-auth-details` - Create delete azure tenant auth details
-- `immybot-pp-cli access create-request` - Create request
-- `immybot-pp-cli access create-update-azure-tenant-auth-details` - Create update azure tenant auth details
-- `immybot-pp-cli access get-get-azure-tenant-auth-details-by-azure-tenant-principal-id` - Get get azure tenant auth details by azure tenant principal id
-- `immybot-pp-cli access get-get-ip-addresses` - Get get ip addresses
-- `immybot-pp-cli access get-me-permissions-by-permission-type-tenants` - Get me permissions by permission type tenants
-- `immybot-pp-cli access list` - List
+- `immybot-cli access create-delete-azure-tenant-auth-details` - Create delete azure tenant auth details
+- `immybot-cli access create-request` - Create request
+- `immybot-cli access create-update-azure-tenant-auth-details` - Create update azure tenant auth details
+- `immybot-cli access get-get-azure-tenant-auth-details-by-azure-tenant-principal-id` - Get get azure tenant auth details by azure tenant principal id
+- `immybot-cli access get-get-ip-addresses` - Get get ip addresses
+- `immybot-cli access get-me-permissions-by-permission-type-tenants` - Get me permissions by permission type tenants
+- `immybot-cli access list` - List
 
 **application-locks** - Manage application locks
 
-- `immybot-pp-cli application-locks create-request-cancellation` - Create request cancellation
-- `immybot-pp-cli application-locks get-realtime-event-stream` - Get realtime event stream
-- `immybot-pp-cli application-locks list` - List
+- `immybot-cli application-locks create-request-cancellation` - Create request cancellation
+- `immybot-cli application-locks get-realtime-event-stream` - Get realtime event stream
+- `immybot-cli application-locks list` - List
 
 **application-logs** - Manage application logs
 
-- `immybot-pp-cli application-logs create-source-context` - Create source context
-- `immybot-pp-cli application-logs create-source-context-clear` - Create source context clear
-- `immybot-pp-cli application-logs create-source-context-clear-all` - Create source context clear all
-- `immybot-pp-cli application-logs create-streaming` - Create streaming
-- `immybot-pp-cli application-logs get-source-contexts` - Get source contexts
+- `immybot-cli application-logs create-source-context` - Create source context
+- `immybot-cli application-logs create-source-context-clear` - Create source context clear
+- `immybot-cli application-logs create-source-context-clear-all` - Create source context clear all
+- `immybot-cli application-logs create-streaming` - Create streaming
+- `immybot-cli application-logs get-source-contexts` - Get source contexts
 
 **audits** - Manage audits
 
-- `immybot-pp-cli audits get-global-dx` - Get global dx
-- `immybot-pp-cli audits get-local-dx` - Get local dx
+- `immybot-cli audits get-global-dx` - Get global dx
+- `immybot-cli audits get-local-dx` - Get local dx
 
 **azure** - Manage azure
 
-- `immybot-pp-cli azure create-disambiguate-tenant-type` - Create disambiguate tenant type
-- `immybot-pp-cli azure create-preconsent-customer-tenants` - Create preconsent customer tenants
-- `immybot-pp-cli azure create-sync-details-from-tenants` - Create sync details from tenants
-- `immybot-pp-cli azure create-sync-users-from-tenants` - Create sync users from tenants
-- `immybot-pp-cli azure create-tenant-consented` - Create tenant consented
-- `immybot-pp-cli azure get-app-registration-options` - Get app registration options
-- `immybot-pp-cli azure get-partner-tenant-customers-by-partner-principal-id` - Get partner tenant customers by partner principal id
-- `immybot-pp-cli azure get-partner-tenant-infos` - Get partner tenant infos
+- `immybot-cli azure create-disambiguate-tenant-type` - Create disambiguate tenant type
+- `immybot-cli azure create-preconsent-customer-tenants` - Create preconsent customer tenants
+- `immybot-cli azure create-sync-details-from-tenants` - Create sync details from tenants
+- `immybot-cli azure create-sync-users-from-tenants` - Create sync users from tenants
+- `immybot-cli azure create-tenant-consented` - Create tenant consented
+- `immybot-cli azure get-app-registration-options` - Get app registration options
+- `immybot-cli azure get-partner-tenant-customers-by-partner-principal-id` - Get partner tenant customers by partner principal id
+- `immybot-cli azure get-partner-tenant-infos` - Get partner tenant infos
 
 **azure-errors** - Manage azure errors
 
-- `immybot-pp-cli azure-errors get-dx` - Get dx
-- `immybot-pp-cli azure-errors get-for-tenant-by-tenant-principal-id-dx` - Get for tenant by tenant principal id dx
+- `immybot-cli azure-errors get-dx` - Get dx
+- `immybot-cli azure-errors get-for-tenant-by-tenant-principal-id-dx` - Get for tenant by tenant principal id dx
 
 **billing** - Manage billing
 
-- `immybot-pp-cli billing create-cancel-subscription` - Create cancel subscription
-- `immybot-pp-cli billing create-information` - Create information
-- `immybot-pp-cli billing create-reactivate-subscription` - Create reactivate subscription
-- `immybot-pp-cli billing create-update-addon` - Create update addon
-- `immybot-pp-cli billing create-update-subscription` - Create update subscription
-- `immybot-pp-cli billing get-credit-cards` - Get credit cards
-- `immybot-pp-cli billing get-download-invoice` - Get download invoice
-- `immybot-pp-cli billing get-feature-usage-counts` - Get feature usage counts
-- `immybot-pp-cli billing get-information` - Get information
-- `immybot-pp-cli billing get-platform-details` - Get platform details
-- `immybot-pp-cli billing get-product-catalog` - Get product catalog
-- `immybot-pp-cli billing get-product-catalog-items` - Get product catalog items
-- `immybot-pp-cli billing get-subscription-details` - Get subscription details
+- `immybot-cli billing create-cancel-subscription` - Create cancel subscription
+- `immybot-cli billing create-information` - Create information
+- `immybot-cli billing create-reactivate-subscription` - Create reactivate subscription
+- `immybot-cli billing create-update-addon` - Create update addon
+- `immybot-cli billing create-update-subscription` - Create update subscription
+- `immybot-cli billing get-credit-cards` - Get credit cards
+- `immybot-cli billing get-download-invoice` - Get download invoice
+- `immybot-cli billing get-feature-usage-counts` - Get feature usage counts
+- `immybot-cli billing get-information` - Get information
+- `immybot-cli billing get-platform-details` - Get platform details
+- `immybot-cli billing get-product-catalog` - Get product catalog
+- `immybot-cli billing get-product-catalog-items` - Get product catalog items
+- `immybot-cli billing get-subscription-details` - Get subscription details
 
 **brandings** - Manage brandings
 
-- `immybot-pp-cli brandings create` - Create
-- `immybot-pp-cli brandings create-global-default-by-id` - Create global default by id
-- `immybot-pp-cli brandings create-send-test-email` - Create send test email
-- `immybot-pp-cli brandings create-validate-time-format-by-time-format` - Create validate time format by time format
-- `immybot-pp-cli brandings delete-by-id` - Delete by id
-- `immybot-pp-cli brandings get-by-id` - Get by id
-- `immybot-pp-cli brandings get-support` - Fetches support related branding changes to be used in the Support Sidebar, Session Support Request
-- `immybot-pp-cli brandings list` - List
-- `immybot-pp-cli brandings update-by-id` - Update by id
+- `immybot-cli brandings create` - Create
+- `immybot-cli brandings create-global-default-by-id` - Create global default by id
+- `immybot-cli brandings create-send-test-email` - Create send test email
+- `immybot-cli brandings create-validate-time-format-by-time-format` - Create validate time format by time format
+- `immybot-cli brandings delete-by-id` - Delete by id
+- `immybot-cli brandings get-by-id` - Get by id
+- `immybot-cli brandings get-support` - Fetches support related branding changes to be used in the Support Sidebar, Session Support Request
+- `immybot-cli brandings list` - List
+- `immybot-cli brandings update-by-id` - Update by id
 
 **change-requests** - Manage change requests
 
-- `immybot-pp-cli change-requests delete-by-id` - Delete by id
-- `immybot-pp-cli change-requests get-dx` - Get dx
-- `immybot-pp-cli change-requests get-open-count` - Get open count
+- `immybot-cli change-requests delete-by-id` - Delete by id
+- `immybot-cli change-requests get-dx` - Get dx
+- `immybot-cli change-requests get-open-count` - Get open count
 
 **chocolatey** - Manage chocolatey
 
-- `immybot-pp-cli chocolatey get-find-packages-by-id` - Get find packages by id
-- `immybot-pp-cli chocolatey get-search` - Get search
+- `immybot-cli chocolatey get-find-packages-by-id` - Get find packages by id
+- `immybot-cli chocolatey get-search` - Get search
 
 **computers** - Manage computers
 
-- `immybot-pp-cli computers create-add-tags` - Create add tags
-- `immybot-pp-cli computers create-bulk-delete` - Create bulk delete
-- `immybot-pp-cli computers create-change-tenant` - Create change tenant
-- `immybot-pp-cli computers create-remove-tags` - Create remove tags
-- `immybot-pp-cli computers create-restore` - Create restore
-- `immybot-pp-cli computers create-set-excluded-from-user-affinity` - Create set excluded from user affinity
-- `immybot-pp-cli computers create-skip-onboarding` - Create skip onboarding
-- `immybot-pp-cli computers get-agent-status` - Get agent status
-- `immybot-pp-cli computers get-by-id` - Get by id
-- `immybot-pp-cli computers get-dx` - Get dx
-- `immybot-pp-cli computers get-export` - Get export
-- `immybot-pp-cli computers get-inventory` - Get inventory
-- `immybot-pp-cli computers get-inventory-export` - Get inventory export
-- `immybot-pp-cli computers get-inventory-software-search-by-name` - Get inventory software search by name
-- `immybot-pp-cli computers get-inventory-software-search-by-upgrade-code` - Get inventory software search by upgrade code
-- `immybot-pp-cli computers get-my` - Get my
-- `immybot-pp-cli computers get-onboarding` - Get onboarding
-- `immybot-pp-cli computers get-paged` - List computers with server-side paging, filtering, and sorting (skip/take)
-- `immybot-pp-cli computers get-user-affinities` - Get user affinities
-- `immybot-pp-cli computers get-user-affinities-export` - Get user affinities export
-- `immybot-pp-cli computers list` - List
-- `immybot-pp-cli computers update-by-id` - Update by id
+- `immybot-cli computers create-add-tags` - Create add tags
+- `immybot-cli computers create-bulk-delete` - Create bulk delete
+- `immybot-cli computers create-change-tenant` - Create change tenant
+- `immybot-cli computers create-remove-tags` - Create remove tags
+- `immybot-cli computers create-restore` - Create restore
+- `immybot-cli computers create-set-excluded-from-user-affinity` - Create set excluded from user affinity
+- `immybot-cli computers create-skip-onboarding` - Create skip onboarding
+- `immybot-cli computers get-agent-status` - Get agent status
+- `immybot-cli computers get-by-id` - Get by id
+- `immybot-cli computers get-dx` - Get dx
+- `immybot-cli computers get-export` - Get export
+- `immybot-cli computers get-inventory` - Get inventory
+- `immybot-cli computers get-inventory-export` - Get inventory export
+- `immybot-cli computers get-inventory-software-search-by-name` - Get inventory software search by name
+- `immybot-cli computers get-inventory-software-search-by-upgrade-code` - Get inventory software search by upgrade code
+- `immybot-cli computers get-my` - Get my
+- `immybot-cli computers get-onboarding` - Get onboarding
+- `immybot-cli computers get-paged` - List computers with server-side paging, filtering, and sorting (skip/take)
+- `immybot-cli computers get-user-affinities` - Get user affinities
+- `immybot-cli computers get-user-affinities-export` - Get user affinities export
+- `immybot-cli computers list` - List
+- `immybot-cli computers update-by-id` - Update by id
 
 **dynamic-provider-types** - Manage dynamic provider types
 
-- `immybot-pp-cli dynamic-provider-types create-global` - Create global
-- `immybot-pp-cli dynamic-provider-types create-global-by-id` - Create global by id
-- `immybot-pp-cli dynamic-provider-types create-global-by-id-reload` - Create global by id reload
-- `immybot-pp-cli dynamic-provider-types create-local` - Create local
-- `immybot-pp-cli dynamic-provider-types create-local-by-id` - Create local by id
-- `immybot-pp-cli dynamic-provider-types create-local-by-id-reload` - Create local by id reload
-- `immybot-pp-cli dynamic-provider-types create-reload` - Create reload
-- `immybot-pp-cli dynamic-provider-types create-test-environment-by-terminal-id` - Create test environment by terminal id
-- `immybot-pp-cli dynamic-provider-types create-test-environment-by-terminal-id-bind-configuration-form` - Create test environment by terminal id bind configuration form
-- `immybot-pp-cli dynamic-provider-types create-test-environment-by-terminal-id-execute-method-by-method` - Create test environment by terminal id execute method by method
-- `immybot-pp-cli dynamic-provider-types delete-global-by-id` - Delete global by id
-- `immybot-pp-cli dynamic-provider-types delete-local-by-id` - Delete local by id
-- `immybot-pp-cli dynamic-provider-types delete-test-environment-by-terminal-id` - Delete test environment by terminal id
-- `immybot-pp-cli dynamic-provider-types get-global-by-id` - Get global by id
-- `immybot-pp-cli dynamic-provider-types get-local-by-id` - Get local by id
-- `immybot-pp-cli dynamic-provider-types list` - List
+- `immybot-cli dynamic-provider-types create-global` - Create global
+- `immybot-cli dynamic-provider-types create-global-by-id` - Create global by id
+- `immybot-cli dynamic-provider-types create-global-by-id-reload` - Create global by id reload
+- `immybot-cli dynamic-provider-types create-local` - Create local
+- `immybot-cli dynamic-provider-types create-local-by-id` - Create local by id
+- `immybot-cli dynamic-provider-types create-local-by-id-reload` - Create local by id reload
+- `immybot-cli dynamic-provider-types create-reload` - Create reload
+- `immybot-cli dynamic-provider-types create-test-environment-by-terminal-id` - Create test environment by terminal id
+- `immybot-cli dynamic-provider-types create-test-environment-by-terminal-id-bind-configuration-form` - Create test environment by terminal id bind configuration form
+- `immybot-cli dynamic-provider-types create-test-environment-by-terminal-id-execute-method-by-method` - Create test environment by terminal id execute method by method
+- `immybot-cli dynamic-provider-types delete-global-by-id` - Delete global by id
+- `immybot-cli dynamic-provider-types delete-local-by-id` - Delete local by id
+- `immybot-cli dynamic-provider-types delete-test-environment-by-terminal-id` - Delete test environment by terminal id
+- `immybot-cli dynamic-provider-types get-global-by-id` - Get global by id
+- `immybot-cli dynamic-provider-types get-local-by-id` - Get local by id
+- `immybot-cli dynamic-provider-types list` - List
 
 **effective-permissions** - Manage effective permissions
 
-- `immybot-pp-cli effective-permissions create-groups-by-group-id-evaluate-all-assignments` - Returns all role assignments for a group grouped by permission without evaluation context.
-- `immybot-pp-cli effective-permissions create-groups-by-group-id-evaluate-resource` - Evaluates permissions for a group against a specific resource.
-- `immybot-pp-cli effective-permissions create-groups-by-group-id-evaluate-tenant` - Evaluates permissions for a group against a specific tenant.
-- `immybot-pp-cli effective-permissions create-users-by-user-id-evaluate-all-assignments` - Returns all role assignments for a user grouped by permission without evaluation context.
-- `immybot-pp-cli effective-permissions create-users-by-user-id-evaluate-resource` - Evaluates permissions for a user against a specific resource.
-- `immybot-pp-cli effective-permissions create-users-by-user-id-evaluate-tenant` - Evaluates permissions for a user against a specific tenant.
+- `immybot-cli effective-permissions create-groups-by-group-id-evaluate-all-assignments` - Returns all role assignments for a group grouped by permission without evaluation context.
+- `immybot-cli effective-permissions create-groups-by-group-id-evaluate-resource` - Evaluates permissions for a group against a specific resource.
+- `immybot-cli effective-permissions create-groups-by-group-id-evaluate-tenant` - Evaluates permissions for a group against a specific tenant.
+- `immybot-cli effective-permissions create-users-by-user-id-evaluate-all-assignments` - Returns all role assignments for a user grouped by permission without evaluation context.
+- `immybot-cli effective-permissions create-users-by-user-id-evaluate-resource` - Evaluates permissions for a user against a specific resource.
+- `immybot-cli effective-permissions create-users-by-user-id-evaluate-tenant` - Evaluates permissions for a user against a specific tenant.
 
 **ephemeral-session** - Manage ephemeral session
 
-- `immybot-pp-cli ephemeral-session get-by-agent-instance-id-by-provider-agent-id` - Get by agent instance id by provider agent id
-- `immybot-pp-cli ephemeral-session get-development-latest-ephemeral-binary` - Get development latest ephemeral binary
-- `immybot-pp-cli ephemeral-session get-development-latest-ephemeral-binary-v2` - Get development latest ephemeral binary v2
+- `immybot-cli ephemeral-session get-by-agent-instance-id-by-provider-agent-id` - Get by agent instance id by provider agent id
+- `immybot-cli ephemeral-session get-development-latest-ephemeral-binary` - Get development latest ephemeral binary
+- `immybot-cli ephemeral-session get-development-latest-ephemeral-binary-v2` - Get development latest ephemeral binary v2
 
 **getting-started** - Manage getting started
 
-- `immybot-pp-cli getting-started create-checklist-complete` - Create checklist complete
-- `immybot-pp-cli getting-started create-checklist-reset` - Create checklist reset
-- `immybot-pp-cli getting-started get-checklist` - Get checklist
+- `immybot-cli getting-started create-checklist-complete` - Create checklist complete
+- `immybot-cli getting-started create-checklist-reset` - Create checklist reset
+- `immybot-cli getting-started get-checklist` - Get checklist
 
 **groups** - Manage groups
 
-- `immybot-pp-cli groups create` - Create
-- `immybot-pp-cli groups delete-by-id` - Delete by id
-- `immybot-pp-cli groups get-by-id` - Get by id
-- `immybot-pp-cli groups list` - List
-- `immybot-pp-cli groups update-by-id` - Update by id
+- `immybot-cli groups create` - Create
+- `immybot-cli groups delete-by-id` - Delete by id
+- `immybot-cli groups get-by-id` - Get by id
+- `immybot-cli groups list` - List
+- `immybot-cli groups update-by-id` - Update by id
 
 **immy-agent-metadata** - Manage immy agent metadata
 
-- `immybot-pp-cli immy-agent-metadata` - Get agent hash
+- `immybot-cli immy-agent-metadata` - Get agent hash
 
 **installer** - Manage installer
 
-- `immybot-pp-cli installer` - Create agent rekey request
+- `immybot-cli installer` - Create agent rekey request
 
 **inventory-tasks** - Manage inventory tasks
 
-- `immybot-pp-cli inventory-tasks create-local` - Create local
-- `immybot-pp-cli inventory-tasks create-local-by-id` - Create local by id
-- `immybot-pp-cli inventory-tasks create-local-by-id-scripts` - Create local by id scripts
-- `immybot-pp-cli inventory-tasks delete-local-by-id` - Delete local by id
-- `immybot-pp-cli inventory-tasks delete-local-by-task-id-scripts-by-inventory-key` - Delete local by task id scripts by inventory key
-- `immybot-pp-cli inventory-tasks list` - List
+- `immybot-cli inventory-tasks create-local` - Create local
+- `immybot-cli inventory-tasks create-local-by-id` - Create local by id
+- `immybot-cli inventory-tasks create-local-by-id-scripts` - Create local by id scripts
+- `immybot-cli inventory-tasks delete-local-by-id` - Delete local by id
+- `immybot-cli inventory-tasks delete-local-by-task-id-scripts-by-inventory-key` - Delete local by task id scripts by inventory key
+- `immybot-cli inventory-tasks list` - List
 
 **licenses** - Manage licenses
 
-- `immybot-pp-cli licenses create` - Create
-- `immybot-pp-cli licenses create-upload` - Create upload
-- `immybot-pp-cli licenses delete-by-id` - Delete by id
-- `immybot-pp-cli licenses get-by-id` - Get by id
-- `immybot-pp-cli licenses get-dx` - Get dx
-- `immybot-pp-cli licenses list` - List
-- `immybot-pp-cli licenses update-by-id` - Update by id
+- `immybot-cli licenses create` - Create
+- `immybot-cli licenses create-upload` - Create upload
+- `immybot-cli licenses delete-by-id` - Delete by id
+- `immybot-cli licenses get-by-id` - Get by id
+- `immybot-cli licenses get-dx` - Get dx
+- `immybot-cli licenses list` - List
+- `immybot-cli licenses update-by-id` - Update by id
 
 **maintenance-actions** - Manage maintenance actions
 
-- `immybot-pp-cli maintenance-actions create-latest-action-for-computers` - Create latest action for computers
-- `immybot-pp-cli maintenance-actions create-latest-action-for-tenants` - Create latest action for tenants
-- `immybot-pp-cli maintenance-actions get-computer-by-computer-id-needs-attention` - Get computer by computer id needs attention
-- `immybot-pp-cli maintenance-actions get-dx` - Get dx
-- `immybot-pp-cli maintenance-actions get-dx-for-computer-by-computer-id` - Get dx for computer by computer id
-- `immybot-pp-cli maintenance-actions get-latest-for-computer-by-computer-id` - Get latest for computer by computer id
-- `immybot-pp-cli maintenance-actions get-latest-for-tenant-by-tenant-id` - Get latest for tenant by tenant id
-- `immybot-pp-cli maintenance-actions get-latest-non-compliant-actions-for-tenant-by-tenant-id` - Get latest non compliant actions for tenant by tenant id
-- `immybot-pp-cli maintenance-actions get-maintenance-item` - Get maintenance item
-- `immybot-pp-cli maintenance-actions get-version` - Get version
+- `immybot-cli maintenance-actions create-latest-action-for-computers` - Create latest action for computers
+- `immybot-cli maintenance-actions create-latest-action-for-tenants` - Create latest action for tenants
+- `immybot-cli maintenance-actions get-computer-by-computer-id-needs-attention` - Get computer by computer id needs attention
+- `immybot-cli maintenance-actions get-dx` - Get dx
+- `immybot-cli maintenance-actions get-dx-for-computer-by-computer-id` - Get dx for computer by computer id
+- `immybot-cli maintenance-actions get-latest-for-computer-by-computer-id` - Get latest for computer by computer id
+- `immybot-cli maintenance-actions get-latest-for-tenant-by-tenant-id` - Get latest for tenant by tenant id
+- `immybot-cli maintenance-actions get-latest-non-compliant-actions-for-tenant-by-tenant-id` - Get latest non compliant actions for tenant by tenant id
+- `immybot-cli maintenance-actions get-maintenance-item` - Get maintenance item
+- `immybot-cli maintenance-actions get-version` - Get version
 
 **maintenance-emails** - Manage maintenance emails
 
 
 **maintenance-sessions** - Manage maintenance sessions
 
-- `immybot-pp-cli maintenance-sessions create-cancel` - Create cancel
-- `immybot-pp-cli maintenance-sessions create-cancel-all` - Create cancel all
-- `immybot-pp-cli maintenance-sessions create-rerun-v2` - Create rerun v2
-- `immybot-pp-cli maintenance-sessions get-by-session-id` - Get by session id
-- `immybot-pp-cli maintenance-sessions get-cancel-for-schedule-by-schedule-id` - Get cancel for schedule by schedule id
-- `immybot-pp-cli maintenance-sessions get-dx` - Get dx
-- `immybot-pp-cli maintenance-sessions get-status-counts` - Get status counts
+- `immybot-cli maintenance-sessions create-cancel` - Create cancel
+- `immybot-cli maintenance-sessions create-cancel-all` - Create cancel all
+- `immybot-cli maintenance-sessions create-rerun-v2` - Create rerun v2
+- `immybot-cli maintenance-sessions get-by-session-id` - Get by session id
+- `immybot-cli maintenance-sessions get-cancel-for-schedule-by-schedule-id` - Get cancel for schedule by schedule id
+- `immybot-cli maintenance-sessions get-dx` - Get dx
+- `immybot-cli maintenance-sessions get-status-counts` - Get status counts
 
 **maintenance-tasks** - Manage maintenance tasks
 
-- `immybot-pp-cli maintenance-tasks create-duplicate` - Create duplicate
-- `immybot-pp-cli maintenance-tasks create-global` - Create global
-- `immybot-pp-cli maintenance-tasks create-global-by-id` - Create global by id
-- `immybot-pp-cli maintenance-tasks create-global-by-id-param-block-from-parameters` - Create global by id param block from parameters
-- `immybot-pp-cli maintenance-tasks create-local` - Create local
-- `immybot-pp-cli maintenance-tasks create-local-by-id` - Create local by id
-- `immybot-pp-cli maintenance-tasks create-local-by-id-migrate-local-to-global` - Create local by id migrate local to global
-- `immybot-pp-cli maintenance-tasks create-local-by-id-param-block-from-parameters` - Create local by id param block from parameters
-- `immybot-pp-cli maintenance-tasks create-validate-param-block-parameters` - Create validate param block parameters
-- `immybot-pp-cli maintenance-tasks delete-global-by-id` - Delete global by id
-- `immybot-pp-cli maintenance-tasks delete-local-by-id` - Delete local by id
-- `immybot-pp-cli maintenance-tasks get-global` - Get global
-- `immybot-pp-cli maintenance-tasks get-global-by-id` - Get global by id
-- `immybot-pp-cli maintenance-tasks get-local` - Get local
-- `immybot-pp-cli maintenance-tasks get-local-by-id` - Get local by id
-- `immybot-pp-cli maintenance-tasks get-local-by-id-migrate-local-to-global-what-if` - Get local by id migrate local to global what if
-- `immybot-pp-cli maintenance-tasks get-reference-count` - Get reference count
-- `immybot-pp-cli maintenance-tasks get-search` - Get search
+- `immybot-cli maintenance-tasks create-duplicate` - Create duplicate
+- `immybot-cli maintenance-tasks create-global` - Create global
+- `immybot-cli maintenance-tasks create-global-by-id` - Create global by id
+- `immybot-cli maintenance-tasks create-global-by-id-param-block-from-parameters` - Create global by id param block from parameters
+- `immybot-cli maintenance-tasks create-local` - Create local
+- `immybot-cli maintenance-tasks create-local-by-id` - Create local by id
+- `immybot-cli maintenance-tasks create-local-by-id-migrate-local-to-global` - Create local by id migrate local to global
+- `immybot-cli maintenance-tasks create-local-by-id-param-block-from-parameters` - Create local by id param block from parameters
+- `immybot-cli maintenance-tasks create-validate-param-block-parameters` - Create validate param block parameters
+- `immybot-cli maintenance-tasks delete-global-by-id` - Delete global by id
+- `immybot-cli maintenance-tasks delete-local-by-id` - Delete local by id
+- `immybot-cli maintenance-tasks get-global` - Get global
+- `immybot-cli maintenance-tasks get-global-by-id` - Get global by id
+- `immybot-cli maintenance-tasks get-local` - Get local
+- `immybot-cli maintenance-tasks get-local-by-id` - Get local by id
+- `immybot-cli maintenance-tasks get-local-by-id-migrate-local-to-global-what-if` - Get local by id migrate local to global what if
+- `immybot-cli maintenance-tasks get-reference-count` - Get reference count
+- `immybot-cli maintenance-tasks get-search` - Get search
 
 **me** - Manage me
 
-- `immybot-pp-cli me` - Gets all role assignments and groups for the current user
+- `immybot-cli me` - Gets all role assignments and groups for the current user
 
 **media** - Manage media
 
-- `immybot-pp-cli media create-global-by-id` - Create global by id
-- `immybot-pp-cli media create-global-upload` - Create global upload
-- `immybot-pp-cli media create-local-by-id` - Create local by id
-- `immybot-pp-cli media create-local-by-id-authorization` - Create local by id authorization
-- `immybot-pp-cli media create-local-upload` - Create local upload
-- `immybot-pp-cli media create-request-file-download-url` - Create request file download url
-- `immybot-pp-cli media create-support-upload` - Create support upload
-- `immybot-pp-cli media delete-global-by-id` - Delete global by id
-- `immybot-pp-cli media delete-local-by-id` - Delete local by id
-- `immybot-pp-cli media get-global` - Get global
-- `immybot-pp-cli media get-global-by-id` - Get global by id
-- `immybot-pp-cli media get-global-by-id-download-url` - Get global by id download url
-- `immybot-pp-cli media get-local` - Get local
-- `immybot-pp-cli media get-local-by-id` - Get local by id
-- `immybot-pp-cli media get-local-by-id-authorization` - Get local by id authorization
-- `immybot-pp-cli media get-local-by-id-download-url` - Get local by id download url
-- `immybot-pp-cli media get-search` - Get search
+- `immybot-cli media create-global-by-id` - Create global by id
+- `immybot-cli media create-global-upload` - Create global upload
+- `immybot-cli media create-local-by-id` - Create local by id
+- `immybot-cli media create-local-by-id-authorization` - Create local by id authorization
+- `immybot-cli media create-local-upload` - Create local upload
+- `immybot-cli media create-request-file-download-url` - Create request file download url
+- `immybot-cli media create-support-upload` - Create support upload
+- `immybot-cli media delete-global-by-id` - Delete global by id
+- `immybot-cli media delete-local-by-id` - Delete local by id
+- `immybot-cli media get-global` - Get global
+- `immybot-cli media get-global-by-id` - Get global by id
+- `immybot-cli media get-global-by-id-download-url` - Get global by id download url
+- `immybot-cli media get-local` - Get local
+- `immybot-cli media get-local-by-id` - Get local by id
+- `immybot-cli media get-local-by-id-authorization` - Get local by id authorization
+- `immybot-cli media get-local-by-id-download-url` - Get local by id download url
+- `immybot-cli media get-search` - Get search
 
 **metrics** - Manage metrics
 
-- `immybot-pp-cli metrics create-circuit-breakers-isolate` - Create circuit breakers isolate
-- `immybot-pp-cli metrics create-circuit-breakers-reset` - Create circuit breakers reset
-- `immybot-pp-cli metrics get-circuit-breakers` - Get circuit breakers
-- `immybot-pp-cli metrics get-provider-links` - Get provider links
-- `immybot-pp-cli metrics get-provider-links-by-provider-link-id-rate-limit-statistics` - Returns the current rate limiter statistics for a provider link. 200: stats available. 204: provider not initialized.
+- `immybot-cli metrics create-circuit-breakers-isolate` - Create circuit breakers isolate
+- `immybot-cli metrics create-circuit-breakers-reset` - Create circuit breakers reset
+- `immybot-cli metrics get-circuit-breakers` - Get circuit breakers
+- `immybot-cli metrics get-provider-links` - Get provider links
+- `immybot-cli metrics get-provider-links-by-provider-link-id-rate-limit-statistics` - Returns the current rate limiter statistics for a provider link. 200: stats available. 204: provider not initialized.
 
 **notifications** - Manage notifications
 
-- `immybot-pp-cli notifications create-acknowledge` - Create acknowledge
-- `immybot-pp-cli notifications get-dx` - Get dx
-- `immybot-pp-cli notifications get-unacknowledged` - Get unacknowledged
-- `immybot-pp-cli notifications list` - List
+- `immybot-cli notifications create-acknowledge` - Create acknowledge
+- `immybot-cli notifications get-dx` - Get dx
+- `immybot-cli notifications get-unacknowledged` - Get unacknowledged
+- `immybot-cli notifications list` - List
 
 **oauth** - Manage oauth
 
-- `immybot-pp-cli oauth create-access-tokens-by-id-refresh` - Create access tokens by id refresh
-- `immybot-pp-cli oauth create-begin-auth-code-flow` - Create begin auth code flow
-- `immybot-pp-cli oauth create-fail-auth-code-flow` - Create fail auth code flow
-- `immybot-pp-cli oauth create-finish-auth-code-flow` - Create finish auth code flow
-- `immybot-pp-cli oauth delete-access-tokens-by-id` - Delete access tokens by id
-- `immybot-pp-cli oauth get-access-tokens` - Get access tokens
-- `immybot-pp-cli oauth get-access-tokens-by-id-by-access-token-id` - Get access tokens by id by access token id
+- `immybot-cli oauth create-access-tokens-by-id-refresh` - Create access tokens by id refresh
+- `immybot-cli oauth create-begin-auth-code-flow` - Create begin auth code flow
+- `immybot-cli oauth create-fail-auth-code-flow` - Create fail auth code flow
+- `immybot-cli oauth create-finish-auth-code-flow` - Create finish auth code flow
+- `immybot-cli oauth delete-access-tokens-by-id` - Delete access tokens by id
+- `immybot-cli oauth get-access-tokens` - Get access tokens
+- `immybot-cli oauth get-access-tokens-by-id-by-access-token-id` - Get access tokens by id by access token id
 
 **persons** - Manage persons
 
-- `immybot-pp-cli persons create` - Create
-- `immybot-pp-cli persons create-add-tags` - Create add tags
-- `immybot-pp-cli persons create-remove-tags` - Create remove tags
-- `immybot-pp-cli persons delete-by-id` - Delete by id
-- `immybot-pp-cli persons get-by-id` - Get by id
-- `immybot-pp-cli persons get-dx` - Get dx
-- `immybot-pp-cli persons get-requesting-access` - Get requesting access
-- `immybot-pp-cli persons list` - List
-- `immybot-pp-cli persons update-by-id` - Update by id
+- `immybot-cli persons create` - Create
+- `immybot-cli persons create-add-tags` - Create add tags
+- `immybot-cli persons create-remove-tags` - Create remove tags
+- `immybot-cli persons delete-by-id` - Delete by id
+- `immybot-cli persons get-by-id` - Get by id
+- `immybot-cli persons get-dx` - Get dx
+- `immybot-cli persons get-requesting-access` - Get requesting access
+- `immybot-cli persons list` - List
+- `immybot-cli persons update-by-id` - Update by id
 
 **plugins** - Manage plugins
 
-- `immybot-pp-cli plugins create-api-v1-by-provider-link-id-by-catch-all` - Create api v1 by provider link id by catch all
-- `immybot-pp-cli plugins get-api-v1-by-provider-link-id-by-catch-all` - Get api v1 by provider link id by catch all
-- `immybot-pp-cli plugins get-api-v1-by-provider-link-id-by-catch-all-v2` - Get api v1 by provider link id by catch all v2
+- `immybot-cli plugins create-api-v1-by-provider-link-id-by-catch-all` - Create api v1 by provider link id by catch all
+- `immybot-cli plugins get-api-v1-by-provider-link-id-by-catch-all` - Get api v1 by provider link id by catch all
+- `immybot-cli plugins get-api-v1-by-provider-link-id-by-catch-all-v2` - Get api v1 by provider link id by catch all v2
 
 **preferences** - Manage preferences
 
-- `immybot-pp-cli preferences get-tenants-by-tenant-id` - Get tenants by tenant id
-- `immybot-pp-cli preferences list` - List
-- `immybot-pp-cli preferences update-application` - Update application
-- `immybot-pp-cli preferences update-my` - Update my
-- `immybot-pp-cli preferences update-tenants-by-tenant-id` - Update tenants by tenant id
+- `immybot-cli preferences get-tenants-by-tenant-id` - Get tenants by tenant id
+- `immybot-cli preferences list` - List
+- `immybot-cli preferences update-application` - Update application
+- `immybot-cli preferences update-my` - Update my
+- `immybot-cli preferences update-tenants-by-tenant-id` - Update tenants by tenant id
 
 **provider-agents** - Manage provider agents
 
-- `immybot-pp-cli provider-agents create-bulk-delete-pending` - Create bulk delete pending
-- `immybot-pp-cli provider-agents create-identify` - Identify agents that are marked with requiring manual identification
-- `immybot-pp-cli provider-agents create-resolve-failure-by-failure-id` - Create resolve failure by failure id
-- `immybot-pp-cli provider-agents create-resolve-failures` - Create resolve failures
-- `immybot-pp-cli provider-agents get-pending` - Get pending
-- `immybot-pp-cli provider-agents get-pending-counts` - Get pending counts
+- `immybot-cli provider-agents create-bulk-delete-pending` - Create bulk delete pending
+- `immybot-cli provider-agents create-identify` - Identify agents that are marked with requiring manual identification
+- `immybot-cli provider-agents create-resolve-failure-by-failure-id` - Create resolve failure by failure id
+- `immybot-cli provider-agents create-resolve-failures` - Create resolve failures
+- `immybot-cli provider-agents get-pending` - Get pending
+- `immybot-cli provider-agents get-pending-counts` - Get pending counts
 
 **provider-links** - Manage provider links
 
-- `immybot-pp-cli provider-links create` - Create
-- `immybot-pp-cli provider-links create-create-with-external-provider-reference` - Create create with external provider reference
-- `immybot-pp-cli provider-links create-verify-with-external-provider-reference` - Create verify with external provider reference
-- `immybot-pp-cli provider-links delete-by-id` - Delete by id
-- `immybot-pp-cli provider-links get-by-id` - Get by id
-- `immybot-pp-cli provider-links list` - List
-- `immybot-pp-cli provider-links update-by-id` - Update by id
+- `immybot-cli provider-links create` - Create
+- `immybot-cli provider-links create-create-with-external-provider-reference` - Create create with external provider reference
+- `immybot-cli provider-links create-verify-with-external-provider-reference` - Create verify with external provider reference
+- `immybot-cli provider-links delete-by-id` - Delete by id
+- `immybot-cli provider-links get-by-id` - Get by id
+- `immybot-cli provider-links list` - List
+- `immybot-cli provider-links update-by-id` - Update by id
 
 **provider-types** - Manage provider types
 
-- `immybot-pp-cli provider-types get-client-group-types-by-client-group-type-id-client-groups` - Get client group types by client group type id client groups
-- `immybot-pp-cli provider-types get-device-group-types-by-device-group-type-id-device-groups` - Get device group types by device group type id device groups
-- `immybot-pp-cli provider-types get-form-dropdown-options-by-key` - Get form dropdown options by key
-- `immybot-pp-cli provider-types list` - List
+- `immybot-cli provider-types get-client-group-types-by-client-group-type-id-client-groups` - Get client group types by client group type id client groups
+- `immybot-cli provider-types get-device-group-types-by-device-group-type-id-device-groups` - Get device group types by device group type id device groups
+- `immybot-cli provider-types get-form-dropdown-options-by-key` - Get form dropdown options by key
+- `immybot-cli provider-types list` - List
 
 **rmm-links** - Manage rmm links
 
-- `immybot-pp-cli rmm-links create` - Create
-- `immybot-pp-cli rmm-links get-by-id` - Get by id
-- `immybot-pp-cli rmm-links list` - List
-- `immybot-pp-cli rmm-links update-by-id` - Update by id
+- `immybot-cli rmm-links create` - Create
+- `immybot-cli rmm-links get-by-id` - Get by id
+- `immybot-cli rmm-links list` - List
+- `immybot-cli rmm-links update-by-id` - Update by id
 
 **roles** - Manage roles
 
-- `immybot-pp-cli roles create` - Create
-- `immybot-pp-cli roles delete-by-id` - Delete by id
-- `immybot-pp-cli roles get-by-id` - Get by id
-- `immybot-pp-cli roles get-permissions` - Get permissions
-- `immybot-pp-cli roles list` - List
-- `immybot-pp-cli roles update-by-id` - Update by id
+- `immybot-cli roles create` - Create
+- `immybot-cli roles delete-by-id` - Delete by id
+- `immybot-cli roles get-by-id` - Get by id
+- `immybot-cli roles get-permissions` - Get permissions
+- `immybot-cli roles list` - List
+- `immybot-cli roles update-by-id` - Update by id
 
 **run-immy-service** - Manage run immy service
 
-- `immybot-pp-cli run-immy-service` - Create
+- `immybot-cli run-immy-service` - Create
 
 **run-immy-service-new** - Manage run immy service new
 
-- `immybot-pp-cli run-immy-service-new` - Create
+- `immybot-cli run-immy-service-new` - Create
 
 **schedules** - Manage schedules
 
-- `immybot-pp-cli schedules create` - Create
-- `immybot-pp-cli schedules create-bulk-cancel` - Create bulk cancel
-- `immybot-pp-cli schedules create-bulk-delete` - Create bulk delete
-- `immybot-pp-cli schedules create-bulk-run-now` - Create bulk run now
-- `immybot-pp-cli schedules delete-by-id` - Delete by id
-- `immybot-pp-cli schedules get-by-id` - Get by id
-- `immybot-pp-cli schedules get-running-ids` - Get running ids
-- `immybot-pp-cli schedules list` - List
-- `immybot-pp-cli schedules update-bulk-update-status` - Update bulk update status
-- `immybot-pp-cli schedules update-by-id` - Update by id
+- `immybot-cli schedules create` - Create
+- `immybot-cli schedules create-bulk-cancel` - Create bulk cancel
+- `immybot-cli schedules create-bulk-delete` - Create bulk delete
+- `immybot-cli schedules create-bulk-run-now` - Create bulk run now
+- `immybot-cli schedules delete-by-id` - Delete by id
+- `immybot-cli schedules get-by-id` - Get by id
+- `immybot-cli schedules get-running-ids` - Get running ids
+- `immybot-cli schedules list` - List
+- `immybot-cli schedules update-bulk-update-status` - Update bulk update status
+- `immybot-cli schedules update-by-id` - Update by id
 
 **scripts** - Manage scripts
 
-- `immybot-pp-cli scripts create-debug-cancel-by-cancellation-id` - Create debug cancel by cancellation id
-- `immybot-pp-cli scripts create-default-variables` - Create default variables
-- `immybot-pp-cli scripts create-does-have-param-block` - Create does have param block
-- `immybot-pp-cli scripts create-duplicate` - Create duplicate
-- `immybot-pp-cli scripts create-functions-syntax` - Execute a cloud script that returns the syntax for a specific command
-- `immybot-pp-cli scripts create-global` - Create global
-- `immybot-pp-cli scripts create-global-by-id` - Create global by id
-- `immybot-pp-cli scripts create-language-service-start` - Create language service start
-- `immybot-pp-cli scripts create-local` - Create local
-- `immybot-pp-cli scripts create-local-by-id` - Create local by id
-- `immybot-pp-cli scripts create-local-by-id-authorization` - Create local by id authorization
-- `immybot-pp-cli scripts create-local-by-id-migrate-local-to-global` - Create local by id migrate local to global
-- `immybot-pp-cli scripts create-run` - Create run
-- `immybot-pp-cli scripts create-run-adhoc-metascript` - Create run adhoc metascript
-- `immybot-pp-cli scripts create-set-preflight-enablement` - Create set preflight enablement
-- `immybot-pp-cli scripts create-syntax-check` - Create syntax check
-- `immybot-pp-cli scripts create-validate-param-block-parameters` - Create validate param block parameters
-- `immybot-pp-cli scripts delete-global-by-id` - Delete global by id
-- `immybot-pp-cli scripts delete-local-by-id` - Delete local by id
-- `immybot-pp-cli scripts get-disabled-preflight` - Get disabled preflight
-- `immybot-pp-cli scripts get-dx` - Get dx
-- `immybot-pp-cli scripts get-functions` - Execute a cloud script that returns results of Get-Command
-- `immybot-pp-cli scripts get-global` - Get global
-- `immybot-pp-cli scripts get-global-by-id` - Get global by id
-- `immybot-pp-cli scripts get-global-by-id-audit` - Get global by id audit
-- `immybot-pp-cli scripts get-global-by-id-references` - Get global by id references
-- `immybot-pp-cli scripts get-global-names` - Get global names
-- `immybot-pp-cli scripts get-language-service-by-terminal-id-language` - Get language service by terminal id language
-- `immybot-pp-cli scripts get-local` - Get local
-- `immybot-pp-cli scripts get-local-by-id` - Get local by id
-- `immybot-pp-cli scripts get-local-by-id-audit` - Get local by id audit
-- `immybot-pp-cli scripts get-local-by-id-authorization` - Get local by id authorization
-- `immybot-pp-cli scripts get-local-by-id-migrate-local-to-global-what-if` - Get local by id migrate local to global what if
-- `immybot-pp-cli scripts get-local-by-id-references` - Get local by id references
-- `immybot-pp-cli scripts get-local-names` - Get local names
-- `immybot-pp-cli scripts get-references-count` - Get references count
-- `immybot-pp-cli scripts get-search` - Get search
+- `immybot-cli scripts create-debug-cancel-by-cancellation-id` - Create debug cancel by cancellation id
+- `immybot-cli scripts create-default-variables` - Create default variables
+- `immybot-cli scripts create-does-have-param-block` - Create does have param block
+- `immybot-cli scripts create-duplicate` - Create duplicate
+- `immybot-cli scripts create-functions-syntax` - Execute a cloud script that returns the syntax for a specific command
+- `immybot-cli scripts create-global` - Create global
+- `immybot-cli scripts create-global-by-id` - Create global by id
+- `immybot-cli scripts create-language-service-start` - Create language service start
+- `immybot-cli scripts create-local` - Create local
+- `immybot-cli scripts create-local-by-id` - Create local by id
+- `immybot-cli scripts create-local-by-id-authorization` - Create local by id authorization
+- `immybot-cli scripts create-local-by-id-migrate-local-to-global` - Create local by id migrate local to global
+- `immybot-cli scripts create-run` - Create run
+- `immybot-cli scripts create-run-adhoc-metascript` - Create run adhoc metascript
+- `immybot-cli scripts create-set-preflight-enablement` - Create set preflight enablement
+- `immybot-cli scripts create-syntax-check` - Create syntax check
+- `immybot-cli scripts create-validate-param-block-parameters` - Create validate param block parameters
+- `immybot-cli scripts delete-global-by-id` - Delete global by id
+- `immybot-cli scripts delete-local-by-id` - Delete local by id
+- `immybot-cli scripts get-disabled-preflight` - Get disabled preflight
+- `immybot-cli scripts get-dx` - Get dx
+- `immybot-cli scripts get-functions` - Execute a cloud script that returns results of Get-Command
+- `immybot-cli scripts get-global` - Get global
+- `immybot-cli scripts get-global-by-id` - Get global by id
+- `immybot-cli scripts get-global-by-id-audit` - Get global by id audit
+- `immybot-cli scripts get-global-by-id-references` - Get global by id references
+- `immybot-cli scripts get-global-names` - Get global names
+- `immybot-cli scripts get-language-service-by-terminal-id-language` - Get language service by terminal id language
+- `immybot-cli scripts get-local` - Get local
+- `immybot-cli scripts get-local-by-id` - Get local by id
+- `immybot-cli scripts get-local-by-id-audit` - Get local by id audit
+- `immybot-cli scripts get-local-by-id-authorization` - Get local by id authorization
+- `immybot-cli scripts get-local-by-id-migrate-local-to-global-what-if` - Get local by id migrate local to global what if
+- `immybot-cli scripts get-local-by-id-references` - Get local by id references
+- `immybot-cli scripts get-local-names` - Get local names
+- `immybot-cli scripts get-references-count` - Get references count
+- `immybot-cli scripts get-search` - Get search
 
 **smtp-configs** - Manage smtp configs
 
-- `immybot-pp-cli smtp-configs create` - Create
-- `immybot-pp-cli smtp-configs create-by-tenant-id` - Create by tenant id
-- `immybot-pp-cli smtp-configs create-send-test-email` - Create send test email
-- `immybot-pp-cli smtp-configs delete-by-tenant-id` - Delete by tenant id
-- `immybot-pp-cli smtp-configs get-by-tenant-id` - Get by tenant id
-- `immybot-pp-cli smtp-configs list` - List
+- `immybot-cli smtp-configs create` - Create
+- `immybot-cli smtp-configs create-by-tenant-id` - Create by tenant id
+- `immybot-cli smtp-configs create-send-test-email` - Create send test email
+- `immybot-cli smtp-configs delete-by-tenant-id` - Delete by tenant id
+- `immybot-cli smtp-configs get-by-tenant-id` - Get by tenant id
+- `immybot-cli smtp-configs list` - List
 
 **software** - Manage software
 
-- `immybot-pp-cli software create-global` - Create global
-- `immybot-pp-cli software create-global-analyze` - Create global analyze
-- `immybot-pp-cli software create-global-by-identifier-versions` - Create global by identifier versions
-- `immybot-pp-cli software create-global-fast-create` - Create global fast create
-- `immybot-pp-cli software create-global-upload` - Create global upload
-- `immybot-pp-cli software create-local` - Create local
-- `immybot-pp-cli software create-local-analyze` - Create local analyze
-- `immybot-pp-cli software create-local-by-identifier-authorization` - Create local by identifier authorization
-- `immybot-pp-cli software create-local-by-identifier-migrate-local-to-global` - Create local by identifier migrate local to global
-- `immybot-pp-cli software create-local-by-identifier-versions` - Create local by identifier versions
-- `immybot-pp-cli software create-local-fast-create` - Create local fast create
-- `immybot-pp-cli software create-local-upload` - Create local upload
-- `immybot-pp-cli software delete-global-by-identifier` - Delete global by identifier
-- `immybot-pp-cli software delete-global-by-identifier-versions-by-semantic-version` - Delete global by identifier versions by semantic version
-- `immybot-pp-cli software delete-local-by-identifier` - Delete local by identifier
-- `immybot-pp-cli software delete-local-by-identifier-versions-by-semantic-version` - Delete local by identifier versions by semantic version
-- `immybot-pp-cli software get-global` - Get global
-- `immybot-pp-cli software get-global-by-identifier` - Get global by identifier
-- `immybot-pp-cli software get-global-by-identifier-latest` - Get global by identifier latest
-- `immybot-pp-cli software get-global-by-identifier-versions` - Get global by identifier versions
-- `immybot-pp-cli software get-global-by-identifier-versions-by-semantic-version` - Get global by identifier versions by semantic version
-- `immybot-pp-cli software get-global-by-identifier-versions-by-semantic-version-request-download` - Get global by identifier versions by semantic version request download
-- `immybot-pp-cli software get-local` - Get local
-- `immybot-pp-cli software get-local-by-identifier` - Get local by identifier
-- `immybot-pp-cli software get-local-by-identifier-authorization` - Get local by identifier authorization
-- `immybot-pp-cli software get-local-by-identifier-latest` - Get local by identifier latest
-- `immybot-pp-cli software get-local-by-identifier-migrate-local-to-global-what-if` - Get local by identifier migrate local to global what if
-- `immybot-pp-cli software get-local-by-identifier-versions` - Get local by identifier versions
-- `immybot-pp-cli software get-local-by-identifier-versions-by-semantic-version` - Get local by identifier versions by semantic version
-- `immybot-pp-cli software get-local-by-identifier-versions-by-semantic-version-request-download` - Get local by identifier versions by semantic version request download
-- `immybot-pp-cli software update-global-by-identifier` - Update global by identifier
-- `immybot-pp-cli software update-global-by-identifier-versions-by-semantic-version` - Update global by identifier versions by semantic version
-- `immybot-pp-cli software update-local-by-identifier` - Update local by identifier
-- `immybot-pp-cli software update-local-by-identifier-versions-by-semantic-version` - Update local by identifier versions by semantic version
+- `immybot-cli software create-global` - Create global
+- `immybot-cli software create-global-analyze` - Create global analyze
+- `immybot-cli software create-global-by-identifier-versions` - Create global by identifier versions
+- `immybot-cli software create-global-fast-create` - Create global fast create
+- `immybot-cli software create-global-upload` - Create global upload
+- `immybot-cli software create-local` - Create local
+- `immybot-cli software create-local-analyze` - Create local analyze
+- `immybot-cli software create-local-by-identifier-authorization` - Create local by identifier authorization
+- `immybot-cli software create-local-by-identifier-migrate-local-to-global` - Create local by identifier migrate local to global
+- `immybot-cli software create-local-by-identifier-versions` - Create local by identifier versions
+- `immybot-cli software create-local-fast-create` - Create local fast create
+- `immybot-cli software create-local-upload` - Create local upload
+- `immybot-cli software delete-global-by-identifier` - Delete global by identifier
+- `immybot-cli software delete-global-by-identifier-versions-by-semantic-version` - Delete global by identifier versions by semantic version
+- `immybot-cli software delete-local-by-identifier` - Delete local by identifier
+- `immybot-cli software delete-local-by-identifier-versions-by-semantic-version` - Delete local by identifier versions by semantic version
+- `immybot-cli software get-global` - Get global
+- `immybot-cli software get-global-by-identifier` - Get global by identifier
+- `immybot-cli software get-global-by-identifier-latest` - Get global by identifier latest
+- `immybot-cli software get-global-by-identifier-versions` - Get global by identifier versions
+- `immybot-cli software get-global-by-identifier-versions-by-semantic-version` - Get global by identifier versions by semantic version
+- `immybot-cli software get-global-by-identifier-versions-by-semantic-version-request-download` - Get global by identifier versions by semantic version request download
+- `immybot-cli software get-local` - Get local
+- `immybot-cli software get-local-by-identifier` - Get local by identifier
+- `immybot-cli software get-local-by-identifier-authorization` - Get local by identifier authorization
+- `immybot-cli software get-local-by-identifier-latest` - Get local by identifier latest
+- `immybot-cli software get-local-by-identifier-migrate-local-to-global-what-if` - Get local by identifier migrate local to global what if
+- `immybot-cli software get-local-by-identifier-versions` - Get local by identifier versions
+- `immybot-cli software get-local-by-identifier-versions-by-semantic-version` - Get local by identifier versions by semantic version
+- `immybot-cli software get-local-by-identifier-versions-by-semantic-version-request-download` - Get local by identifier versions by semantic version request download
+- `immybot-cli software update-global-by-identifier` - Update global by identifier
+- `immybot-cli software update-global-by-identifier-versions-by-semantic-version` - Update global by identifier versions by semantic version
+- `immybot-cli software update-local-by-identifier` - Update local by identifier
+- `immybot-cli software update-local-by-identifier-versions-by-semantic-version` - Update local by identifier versions by semantic version
 
 **syncs** - Manage syncs
 
-- `immybot-pp-cli syncs create-azure-user` - Create azure user
-- `immybot-pp-cli syncs create-expire-pending-sessions` - Create expire pending sessions
-- `immybot-pp-cli syncs create-trigger-user-affinity` - Create trigger user affinity
+- `immybot-cli syncs create-azure-user` - Create azure user
+- `immybot-cli syncs create-expire-pending-sessions` - Create expire pending sessions
+- `immybot-cli syncs create-trigger-user-affinity` - Create trigger user affinity
 
 **system** - Manage system
 
-- `immybot-pp-cli system create-disable-immy-support-access` - Create disable immy support access
-- `immybot-pp-cli system create-enable-immy-support-access` - Create enable immy support access
-- `immybot-pp-cli system create-is-immy-support-access-granted` - Create is immy support access granted
-- `immybot-pp-cli system create-pull-update` - Create pull update
-- `immybot-pp-cli system create-request-form-support` - Create request form support
-- `immybot-pp-cli system create-request-session-support` - Create request session support
-- `immybot-pp-cli system create-restart-backend` - Create restart backend
-- `immybot-pp-cli system create-update-release-channel` - Create update release channel
-- `immybot-pp-cli system get-immy-support-access-grant-details` - Get immy support access grant details
-- `immybot-pp-cli system get-releases` - Get releases
-- `immybot-pp-cli system get-timezones` - Get timezones
+- `immybot-cli system create-disable-immy-support-access` - Create disable immy support access
+- `immybot-cli system create-enable-immy-support-access` - Create enable immy support access
+- `immybot-cli system create-is-immy-support-access-granted` - Create is immy support access granted
+- `immybot-cli system create-pull-update` - Create pull update
+- `immybot-cli system create-request-form-support` - Create request form support
+- `immybot-cli system create-request-session-support` - Create request session support
+- `immybot-cli system create-restart-backend` - Create restart backend
+- `immybot-cli system create-update-release-channel` - Create update release channel
+- `immybot-cli system get-immy-support-access-grant-details` - Get immy support access grant details
+- `immybot-cli system get-releases` - Get releases
+- `immybot-cli system get-timezones` - Get timezones
 
 **tags** - Manage tags
 
-- `immybot-pp-cli tags create` - Create
-- `immybot-pp-cli tags create-by-id` - Create by id
-- `immybot-pp-cli tags delete-by-id` - Delete by id
-- `immybot-pp-cli tags get-by-id` - Get by id
-- `immybot-pp-cli tags list` - List
+- `immybot-cli tags create` - Create
+- `immybot-cli tags create-by-id` - Create by id
+- `immybot-cli tags delete-by-id` - Delete by id
+- `immybot-cli tags get-by-id` - Get by id
+- `immybot-cli tags list` - List
 
 **target-assignments** - Manage target assignments
 
-- `immybot-pp-cli target-assignments create` - Create
-- `immybot-pp-cli target-assignments create-change-request-by-change-request-id-v2` - Create change request by change request id v2
-- `immybot-pp-cli target-assignments create-change-request-v2` - Create change request v2
-- `immybot-pp-cli target-assignments create-duplicate` - Create duplicate
-- `immybot-pp-cli target-assignments create-duplicates` - Create duplicates
-- `immybot-pp-cli target-assignments create-global-by-id-notes` - Create global by id notes
-- `immybot-pp-cli target-assignments create-global-by-id-override` - Create global by id override
-- `immybot-pp-cli target-assignments create-global-create` - Create global create
-- `immybot-pp-cli target-assignments create-migrate-deployments-to-provider-links` - Create migrate deployments to provider links
-- `immybot-pp-cli target-assignments create-migrate-to-superseding-assignment` - Create migrate to superseding assignment
-- `immybot-pp-cli target-assignments create-migrate-to-superseding-assignment-what-if` - Create migrate to superseding assignment what if
-- `immybot-pp-cli target-assignments create-optional-approvals-by-id` - Create optional approvals by id
-- `immybot-pp-cli target-assignments create-persons-target-preview` - Create persons target preview
-- `immybot-pp-cli target-assignments create-recommended-approvals-update` - Create recommended approvals update
-- `immybot-pp-cli target-assignments create-target-preview` - Create target preview
-- `immybot-pp-cli target-assignments create-tenant-target-preview` - Create tenant target preview
-- `immybot-pp-cli target-assignments create-update-maintenance-item-order` - Create update maintenance item order
-- `immybot-pp-cli target-assignments create-visibility` - Create visibility
-- `immybot-pp-cli target-assignments delete-by-id` - Delete by id
-- `immybot-pp-cli target-assignments delete-global-by-id` - Delete global by id
-- `immybot-pp-cli target-assignments get-by-id` - Get by id
-- `immybot-pp-cli target-assignments get-change-request-by-change-request-id` - Get change request by change request id
-- `immybot-pp-cli target-assignments get-change-request-by-change-request-id-diff` - Get change request by change request id diff
-- `immybot-pp-cli target-assignments get-change-requests` - Get change requests
-- `immybot-pp-cli target-assignments get-global` - Get global
-- `immybot-pp-cli target-assignments get-global-by-id` - Get global by id
-- `immybot-pp-cli target-assignments get-global-by-id-type` - Get global by id type
-- `immybot-pp-cli target-assignments get-maintenance-item-orders` - Get maintenance item orders
-- `immybot-pp-cli target-assignments get-optional-approvals-computer-by-computer-id` - Get optional approvals computer by computer id
-- `immybot-pp-cli target-assignments get-recommended-approvals` - Get recommended approvals
-- `immybot-pp-cli target-assignments list` - List
-- `immybot-pp-cli target-assignments update-batch-update` - Update batch update
-- `immybot-pp-cli target-assignments update-by-id` - Update by id
-- `immybot-pp-cli target-assignments update-global-by-id` - Update global by id
+- `immybot-cli target-assignments create` - Create
+- `immybot-cli target-assignments create-change-request-by-change-request-id-v2` - Create change request by change request id v2
+- `immybot-cli target-assignments create-change-request-v2` - Create change request v2
+- `immybot-cli target-assignments create-duplicate` - Create duplicate
+- `immybot-cli target-assignments create-duplicates` - Create duplicates
+- `immybot-cli target-assignments create-global-by-id-notes` - Create global by id notes
+- `immybot-cli target-assignments create-global-by-id-override` - Create global by id override
+- `immybot-cli target-assignments create-global-create` - Create global create
+- `immybot-cli target-assignments create-migrate-deployments-to-provider-links` - Create migrate deployments to provider links
+- `immybot-cli target-assignments create-migrate-to-superseding-assignment` - Create migrate to superseding assignment
+- `immybot-cli target-assignments create-migrate-to-superseding-assignment-what-if` - Create migrate to superseding assignment what if
+- `immybot-cli target-assignments create-optional-approvals-by-id` - Create optional approvals by id
+- `immybot-cli target-assignments create-persons-target-preview` - Create persons target preview
+- `immybot-cli target-assignments create-recommended-approvals-update` - Create recommended approvals update
+- `immybot-cli target-assignments create-target-preview` - Create target preview
+- `immybot-cli target-assignments create-tenant-target-preview` - Create tenant target preview
+- `immybot-cli target-assignments create-update-maintenance-item-order` - Create update maintenance item order
+- `immybot-cli target-assignments create-visibility` - Create visibility
+- `immybot-cli target-assignments delete-by-id` - Delete by id
+- `immybot-cli target-assignments delete-global-by-id` - Delete global by id
+- `immybot-cli target-assignments get-by-id` - Get by id
+- `immybot-cli target-assignments get-change-request-by-change-request-id` - Get change request by change request id
+- `immybot-cli target-assignments get-change-request-by-change-request-id-diff` - Get change request by change request id diff
+- `immybot-cli target-assignments get-change-requests` - Get change requests
+- `immybot-cli target-assignments get-global` - Get global
+- `immybot-cli target-assignments get-global-by-id` - Get global by id
+- `immybot-cli target-assignments get-global-by-id-type` - Get global by id type
+- `immybot-cli target-assignments get-maintenance-item-orders` - Get maintenance item orders
+- `immybot-cli target-assignments get-optional-approvals-computer-by-computer-id` - Get optional approvals computer by computer id
+- `immybot-cli target-assignments get-recommended-approvals` - Get recommended approvals
+- `immybot-cli target-assignments list` - List
+- `immybot-cli target-assignments update-batch-update` - Update batch update
+- `immybot-cli target-assignments update-by-id` - Update by id
+- `immybot-cli target-assignments update-global-by-id` - Update global by id
 
 **tenants** - Manage tenants
 
-- `immybot-pp-cli tenants create` - Create
-- `immybot-pp-cli tenants create-add-tags` - Create add tags
-- `immybot-pp-cli tenants create-bulk-create` - Create bulk create
-- `immybot-pp-cli tenants create-bulk-delete` - Create bulk delete
-- `immybot-pp-cli tenants create-bulk-merge` - Create bulk merge
-- `immybot-pp-cli tenants create-remove-parent` - Create remove parent
-- `immybot-pp-cli tenants create-remove-tags` - Create remove tags
-- `immybot-pp-cli tenants create-resolve-assignments-for-maintenance-item` - Create resolve assignments for maintenance item
-- `immybot-pp-cli tenants create-set-parent` - Create set parent
-- `immybot-pp-cli tenants create-update-azure-link` - Create update azure link
-- `immybot-pp-cli tenants get-by-id` - Get by id
-- `immybot-pp-cli tenants get-computer-counts` - Get computer counts
-- `immybot-pp-cli tenants get-excluded-from-cross-deployments` - Get excluded from cross deployments
-- `immybot-pp-cli tenants get-software-from-inventory-by-id` - Get software from inventory by id
-- `immybot-pp-cli tenants get-software-from-inventory-dx` - Get software from inventory dx
-- `immybot-pp-cli tenants get-software-from-inventory-export` - Streams the contents of the detected computer software table as a CSV file to the client
-- `immybot-pp-cli tenants list` - List
-- `immybot-pp-cli tenants update-activate-by-id` - Update activate by id
-- `immybot-pp-cli tenants update-by-id` - Update by id
-- `immybot-pp-cli tenants update-deactivate-by-id` - Update deactivate by id
+- `immybot-cli tenants create` - Create
+- `immybot-cli tenants create-add-tags` - Create add tags
+- `immybot-cli tenants create-bulk-create` - Create bulk create
+- `immybot-cli tenants create-bulk-delete` - Create bulk delete
+- `immybot-cli tenants create-bulk-merge` - Create bulk merge
+- `immybot-cli tenants create-remove-parent` - Create remove parent
+- `immybot-cli tenants create-remove-tags` - Create remove tags
+- `immybot-cli tenants create-resolve-assignments-for-maintenance-item` - Create resolve assignments for maintenance item
+- `immybot-cli tenants create-set-parent` - Create set parent
+- `immybot-cli tenants create-update-azure-link` - Create update azure link
+- `immybot-cli tenants get-by-id` - Get by id
+- `immybot-cli tenants get-computer-counts` - Get computer counts
+- `immybot-cli tenants get-excluded-from-cross-deployments` - Get excluded from cross deployments
+- `immybot-cli tenants get-software-from-inventory-by-id` - Get software from inventory by id
+- `immybot-cli tenants get-software-from-inventory-dx` - Get software from inventory dx
+- `immybot-cli tenants get-software-from-inventory-export` - Streams the contents of the detected computer software table as a CSV file to the client
+- `immybot-cli tenants list` - List
+- `immybot-cli tenants update-activate-by-id` - Update activate by id
+- `immybot-cli tenants update-by-id` - Update by id
+- `immybot-cli tenants update-deactivate-by-id` - Update deactivate by id
 
 **user-role-assignments** - Manage user role assignments
 
-- `immybot-pp-cli user-role-assignments create-category-resource-create` - Create category resource create
-- `immybot-pp-cli user-role-assignments create-msp-create` - Create msp create
-- `immybot-pp-cli user-role-assignments create-owner-create` - Create owner create
-- `immybot-pp-cli user-role-assignments create-specific-resource-create` - Create specific resource create
-- `immybot-pp-cli user-role-assignments create-specific-tenant-create` - Create specific tenant create
-- `immybot-pp-cli user-role-assignments create-tag-resource-create` - Create tag resource create
-- `immybot-pp-cli user-role-assignments create-tenant-tag-create` - Create tenant tag create
-- `immybot-pp-cli user-role-assignments create-user-tenant-create` - Create user tenant create
-- `immybot-pp-cli user-role-assignments delete-delete` - Delete delete
-- `immybot-pp-cli user-role-assignments get-users-by-user-id` - Get users by user id
-- `immybot-pp-cli user-role-assignments get-users-by-user-id-count` - Get users by user id count
-- `immybot-pp-cli user-role-assignments list` - List
+- `immybot-cli user-role-assignments create-category-resource-create` - Create category resource create
+- `immybot-cli user-role-assignments create-msp-create` - Create msp create
+- `immybot-cli user-role-assignments create-owner-create` - Create owner create
+- `immybot-cli user-role-assignments create-specific-resource-create` - Create specific resource create
+- `immybot-cli user-role-assignments create-specific-tenant-create` - Create specific tenant create
+- `immybot-cli user-role-assignments create-tag-resource-create` - Create tag resource create
+- `immybot-cli user-role-assignments create-tenant-tag-create` - Create tenant tag create
+- `immybot-cli user-role-assignments create-user-tenant-create` - Create user tenant create
+- `immybot-cli user-role-assignments delete-delete` - Delete delete
+- `immybot-cli user-role-assignments get-users-by-user-id` - Get users by user id
+- `immybot-cli user-role-assignments get-users-by-user-id-count` - Get users by user id count
+- `immybot-cli user-role-assignments list` - List
 
 **user_session** - Manage user session
 
-- `immybot-pp-cli user-session get-login` - Get login
-- `immybot-pp-cli user-session get-logout` - Get logout
-- `immybot-pp-cli user-session get-me` - Get me
-- `immybot-pp-cli user-session get-refresh` - Get refresh
+- `immybot-cli user-session get-login` - Get login
+- `immybot-cli user-session get-logout` - Get logout
+- `immybot-cli user-session get-me` - Get me
+- `immybot-cli user-session get-refresh` - Get refresh
 
 **users** - Manage users
 
-- `immybot-pp-cli users create-bulk-create` - Create bulk create
-- `immybot-pp-cli users create-by-id` - Create by id
-- `immybot-pp-cli users create-invalidate-cache` - Create invalidate cache
-- `immybot-pp-cli users create-stop-impersonating` - Create stop impersonating
-- `immybot-pp-cli users create-submit-feedback` - Create submit feedback
-- `immybot-pp-cli users create-update-expiration` - Create update expiration
-- `immybot-pp-cli users delete-bulk-delete` - Delete bulk delete
-- `immybot-pp-cli users delete-by-id` - Delete by id
-- `immybot-pp-cli users get-by-id` - Get by id
-- `immybot-pp-cli users get-claims` - Get claims
-- `immybot-pp-cli users list` - List
+- `immybot-cli users create-bulk-create` - Create bulk create
+- `immybot-cli users create-by-id` - Create by id
+- `immybot-cli users create-invalidate-cache` - Create invalidate cache
+- `immybot-cli users create-stop-impersonating` - Create stop impersonating
+- `immybot-cli users create-submit-feedback` - Create submit feedback
+- `immybot-cli users create-update-expiration` - Create update expiration
+- `immybot-cli users delete-bulk-delete` - Delete bulk delete
+- `immybot-cli users delete-by-id` - Delete by id
+- `immybot-cli users get-by-id` - Get by id
+- `immybot-cli users get-claims` - Get claims
+- `immybot-cli users list` - List
 
 **webhooks** - Manage webhooks
 
-- `immybot-pp-cli webhooks create-by-id` - Create by id
-- `immybot-pp-cli webhooks get-by-id` - Get by id
+- `immybot-cli webhooks create-by-id` - Create by id
+- `immybot-cli webhooks get-by-id` - Get by id
 
 
 ### Finding the right command
@@ -695,7 +699,7 @@ These capabilities aren't available in any other tool for this API.
 When you know what you want to do but not which command does it, ask the CLI directly:
 
 ```bash
-immybot-pp-cli which "<capability in your own words>"
+immybot-cli which "<capability in your own words>"
 ```
 
 `which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match - fall back to `--help` or use a narrower query.
@@ -705,7 +709,7 @@ immybot-pp-cli which "<capability in your own words>"
 ### Morning triage in one call
 
 ```bash
-immybot-pp-cli session-triage --since 24h --agent --select clusters.reason,clusters.action,clusters.computer_count
+immybot-cli session-triage --since 24h --agent --select clusters.reason,clusters.action,clusters.computer_count
 ```
 
 Returns only the distinct failure causes and how many machines each hit, which is the whole decision surface for opening tickets.
@@ -713,7 +717,7 @@ Returns only the distinct failure causes and how many machines each hit, which i
 ### CVE sweep across every client
 
 ```bash
-immybot-pp-cli version-spread "Google Chrome" --min-version 140 --agent
+immybot-cli version-spread "Google Chrome" --min-version 140 --agent
 ```
 
 Ranks installed versions with a real semver comparator and lists the tenants and machines still below the floor.
@@ -721,7 +725,7 @@ Ranks installed versions with a real semver comparator and lists the tenants and
 ### Explain a missed deployment
 
 ```bash
-immybot-pp-cli assignment-explain 4821 --agent
+immybot-cli assignment-explain 4821 --agent
 ```
 
 Shows every target assignment resolving onto that computer, which scope matched, and which rules were shadowed.
@@ -729,7 +733,7 @@ Shows every target assignment resolving onto that computer, which scope matched,
 ### Check reach before editing a shared script
 
 ```bash
-immybot-pp-cli script-blast-radius 312 --agent
+immybot-cli script-blast-radius 312 --agent
 ```
 
 Walks the script to its consuming tasks and packages and out to the computers those assignments resolve onto.
@@ -737,7 +741,7 @@ Walks the script to its consuming tasks and packages and out to the computers th
 ### Find silently stalled onboards
 
 ```bash
-immybot-pp-cli onboarding-stalled --older-than 3d --agent
+immybot-cli onboarding-stalled --older-than 3d --agent
 ```
 
 Buckets the onboarding queue by age and shows whether an onboarding session was ever attempted and how it ended.
@@ -746,7 +750,7 @@ Buckets the onboarding queue by age and shows whether an onboarding session was 
 
 ImmyBot authenticates through Microsoft Entra ID rather than an ImmyBot-issued key. Register an app in Entra ID, create a client secret, then in ImmyBot go to Show More > People > New and paste the Enterprise Application's object ID into the AD External ID field, promoting that person to an admin user. The CLI then needs four values: IMMYBOT_SUBDOMAIN (your instance name without .immy.bot), IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID, and IMMYBOT_CLIENT_SECRET. The client-credentials token is minted against login.microsoftonline.com and cached automatically; the API scope is derived from your instance URL, and IMMYBOT_OAUTH_SCOPE overrides it if your tenant exposes a different App ID URI.
 
-Run `immybot-pp-cli doctor` to verify setup.
+Run `immybot-cli doctor` to verify setup.
 
 ## Agent Mode
 
@@ -756,7 +760,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable** - `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  immybot-pp-cli access list --agent --select addons,backendRegAppId,canManageCrossTenantDeployments
+  immybot-cli access list --agent --select addons,backendRegAppId,canManageCrossTenantDeployments
   ```
 - **Previewable** - `--dry-run` shows the request without sending
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
@@ -786,14 +790,14 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
 - Resolution order is per-kind env var, `--home`, `IMMYBOT_HOME`, XDG (`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`), then platform defaults.
 - `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, `data.db`, cookies, and auth sidecars. `state` contains persisted queries, jobs, and `teach.log`. `cache` contains regenerable HTTP/cache files.
 - Stored secrets live in `credentials.toml` under the data dir. Existing legacy `config.toml` secrets are read for compatibility and leave `config.toml` on the first auth write.
-- Run `immybot-pp-cli doctor --fail-on warn` to surface path and credential-location warnings. `agent-context` exposes a schema v4 `paths` block for agents that need the resolved dirs.
+- Run `immybot-cli doctor --fail-on warn` to surface path and credential-location warnings. `agent-context` exposes a schema v4 `paths` block for agents that need the resolved dirs.
 - For MCP, pass relocation through the MCP host config. The MCP binary does not inherit CLI flags:
 
   ```json
   {
     "mcpServers": {
       "immybot": {
-        "command": "immybot-pp-mcp",
+        "command": "immybot-mcp",
         "env": {
           "IMMYBOT_HOME": "/srv/immybot"
         }
@@ -813,7 +817,7 @@ This CLI ships a self-capturing learning loop. The CLI does its own bookkeeping:
 Before list/search/drill commands on a new user question, run:
 
 ```bash
-immybot-pp-cli recall "<user's question>" --agent
+immybot-cli recall "<user's question>" --agent
 ```
 
 The response envelope:
@@ -836,7 +840,7 @@ The response envelope:
     { "id": 12, "class": "flag_alias | playbook_candidate",
       "summary": "...", "sightings": 3, "last_seen": "...",
       "rationale": "...",
-      "next_action": ["<trial command>", "immybot-pp-cli learnings confirm 12"] }
+      "next_action": ["<trial command>", "immybot-cli learnings confirm 12"] }
   ],
   "playbook": {
     "query_family": "...",
@@ -875,7 +879,7 @@ if Playbook present:
        for the entity slot tokens. If a step's slot is unresolved, fall back to
        discovery for that step only.
     -> the Playbook's expected_tool_calls is a budget; if you find yourself running
-       materially more, record the divergence via `immybot-pp-cli playbook amend`
+       materially more, record the divergence via `immybot-cli playbook amend`
        at end-of-session.
 
 elif Notes present (no Playbook):
@@ -901,7 +905,7 @@ else:  // Found == false, no playbook, no notes
 
 Playbook and Notes are orthogonal to the per-resource path. A recall response can carry both a Playbook AND a `Results[]` hit - use both: the Playbook tells you which choreography to run; the resource hits short-circuit specific steps. Default to skipping `mismatches`; pass `--debug-mismatches` only when investigating cold-start surprises.
 
-Candidate judgment details: `learnings confirm <id>` prints the candidate's full payload before materializing it - check that the printed payload matches the behavior you verified. `learnings reject <id>` tombstones the derivation signature so the same candidate does not resurface. The envelope carries only the few candidates worth acting on now; `immybot-pp-cli learnings candidates` lists the full open set.
+Candidate judgment details: `learnings confirm <id>` prints the candidate's full payload before materializing it - check that the printed payload matches the behavior you verified. `learnings reject <id>` tombstones the derivation signature so the same candidate does not resurface. The envelope carries only the few candidates worth acting on now; `immybot-cli learnings candidates` lists the full open set.
 
 Graceful degradation: if `learnings confirm` is an unknown command, you are driving an older binary - ignore the candidates guidance and follow the rest of the protocol.
 
@@ -913,7 +917,7 @@ Graceful degradation: if `learnings confirm` is an unknown command, you are driv
 - `similar_shape_different_entity:<canonical>` (top-level): a structurally matching row exists but its canonical entity differs from the live query's. Treated as cold start; the warning carries the conflicting canonical as a hint, but the row is NOT promoted into Results.
 - `ambiguous_alias` (top-level): a single query entity resolved to multiple canonicals (e.g., "Cards" → Arizona Cardinals + St. Louis Cardinals). Surface the ambiguity from context before committing to a resource.
 - `candidates_present` (top-level): the envelope carries a `candidates` section. Handle it via the candidates branch in Step 2 before anything else.
-- `lookup_refresh_available` (top-level): an entity in the query has no lookup row yet, but synced data could provide one. Run `immybot-pp-cli sync` to refresh entity lookups.
+- `lookup_refresh_available` (top-level): an entity in the query has no lookup row yet, but synced data could provide one. Run `immybot-cli sync` to refresh entity lookups.
 - Top-level `no_learnings_for_query_family`: the table had no rows above the Jaccard floor. Pure cold start.
 
 ### Step 4: `teach &` after finalizing your response - always
@@ -921,7 +925,7 @@ Graceful degradation: if `learnings confirm` is an unknown command, you are driv
 Teaching is unconditional. After resolving a query the store could not answer, background-teach the final resource mapping - no call-count threshold, no judging whether it was "worth" learning. The teach is the anchor of the loop: it triggers playbook synthesis for a family without a playbook, and same-referent phrasings fold into one family so near-duplicate teaches do not fragment the store. Fire it after assembling your user-facing response but BEFORE emitting it, with a shell `&` so the call returns immediately:
 
 ```bash
-immybot-pp-cli teach --query "<user's question>" --resource-type <type> --resource <id1> --resource <id2>
+immybot-cli teach --query "<user's question>" --resource-type <type> --resource <id1> --resource <id2>
 # (append shell `&` to background it)
 ```
 
@@ -935,7 +939,7 @@ You do not need to decide whether a session "deserves" a playbook: a teach on a 
 
 ```bash
 # Common case: record both the resource learning AND the playbook in one call.
-immybot-pp-cli teach \
+immybot-cli teach \
   --query "<user's question>" \
   --resource <id> \
   --playbook-file ~/playbooks/<shape>.json \
@@ -943,7 +947,7 @@ immybot-pp-cli teach \
 # (append shell `&` to background it)
 
 # Alternate: playbook-only (no resource to record alongside).
-immybot-pp-cli teach-playbook \
+immybot-cli teach-playbook \
   --query "<user's question>" \
   --playbook-file ~/playbooks/<shape>.json \
   --notes-file ~/playbooks/<shape>-notes.md
@@ -958,7 +962,7 @@ When you DO find a playbook on a future recall, treat it as ground truth: replay
 If your debug-protocol response identifies a concrete correction the notes or playbook should know - a workaround, an undocumented endpoint shape, a stale field name, observed schema drift, an empty-payload fallback - fire `playbook amend` BEFORE emitting your user-facing response. Same fire-and-forget posture as `teach`.
 
 ```bash
-immybot-pp-cli playbook amend \
+immybot-cli playbook amend \
   --query "<exact recall query string>" \
   --add-note "<your concrete correction>"
 # (append shell `&` to background it)
@@ -989,7 +993,7 @@ If a correction is only meaningful with user-specific context, it belongs in a p
 
 ### Measuring the loop
 
-`immybot-pp-cli learnings stats` reports recall hit rate, teach-to-reuse, playbook resolution rate, and candidate confirm/reject counts from the local `learn_events` table. Rates are null until they have a denominator; everything stays on this machine. Use it to check whether the loop is earning its keep for this CLI.
+`immybot-cli learnings stats` reports recall hit rate, teach-to-reuse, playbook resolution rate, and candidate confirm/reject counts from the local `learn_events` table. Rates are null until they have a denominator; everything stays on this machine. Use it to check whether the loop is earning its keep for this CLI.
 
 ### Disabling learning
 
@@ -1001,9 +1005,9 @@ If a correction is only meaningful with user-specific context, it belongs in a p
 When you (or the agent) notice something off about this CLI, record it:
 
 ```
-immybot-pp-cli feedback "the --since flag is inclusive but docs say exclusive"
-immybot-pp-cli feedback --stdin < notes.txt
-immybot-pp-cli feedback list --json --limit 10
+immybot-cli feedback "the --since flag is inclusive but docs say exclusive"
+immybot-cli feedback --stdin < notes.txt
+immybot-cli feedback list --json --limit 10
 ```
 
 Entries are stored locally as `feedback.jsonl` under the resolved data dir. They are never POSTed unless `IMMYBOT_FEEDBACK_ENDPOINT` is set AND either `--send` is passed or `IMMYBOT_FEEDBACK_AUTO_SEND=true`. Default behavior is local-only.
@@ -1027,11 +1031,11 @@ Unknown schemes are refused with a structured error naming the supported set. We
 A profile is a saved set of flag values, reused across invocations. Use it when a scheduled or recurring agent reuses the same saved flags while providing different input each run.
 
 ```
-immybot-pp-cli profile save briefing --json
-immybot-pp-cli --profile briefing access list
-immybot-pp-cli profile list --json
-immybot-pp-cli profile show briefing
-immybot-pp-cli profile delete briefing --yes
+immybot-cli profile save briefing --json
+immybot-cli --profile briefing access list
+immybot-cli profile list --json
+immybot-cli profile show briefing
+immybot-cli profile delete briefing --yes
 ```
 
 Explicit flags always win over profile values; profile values win over defaults. `agent-context` lists all available profiles under `available_profiles` so introspecting agents discover them at runtime.
@@ -1064,7 +1068,7 @@ Use async submission without `--wait` when you want to fire-and-forget; use `--w
 
 Parse `$ARGUMENTS`:
 
-1. **Empty, `help`, or `--help`** → show `immybot-pp-cli --help` output
+1. **Empty, `help`, or `--help`** → show `immybot-cli --help` output
 2. **Starts with `install`** → ends with `mcp` → MCP installation; otherwise → see Prerequisites above
 3. **Anything else** → Direct Use (execute as CLI command with `--agent`)
 
@@ -1073,18 +1077,18 @@ Parse `$ARGUMENTS`:
 Install the MCP binary from this CLI's published public-library entry or pre-built release, then register it:
 
 ```bash
-claude mcp add immybot-pp-mcp -- immybot-pp-mcp
+claude mcp add immybot-mcp -- immybot-mcp
 ```
 
 Verify: `claude mcp list`
 
 ## Direct Use
 
-1. Check if installed: `which immybot-pp-cli`
+1. Check if installed: `which immybot-cli`
    If not found, offer to install (see Prerequisites at the top of this skill).
 2. Match the user query to the best command from the Unique Capabilities and Command Reference above.
 3. Execute with the `--agent` flag:
    ```bash
-   immybot-pp-cli <command> [subcommand] [args] --agent
+   immybot-cli <command> [subcommand] [args] --agent
    ```
-4. If ambiguous, drill into subcommand help: `immybot-pp-cli <command> --help`.
+4. If ambiguous, drill into subcommand help: `immybot-cli <command> --help`.

@@ -20,7 +20,7 @@ func newTenantsCreateAddTagsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-add-tags",
 		Short:       "Create add tags",
-		Example:     "  immybot-pp-cli tenants create-add-tags",
+		Example:     "  immybot-cli tenants create-add-tags",
 		Annotations: map[string]string{"pp:endpoint": "tenants.create-add-tags", "pp:method": "POST", "pp:path": "/api/v1/tenants/add-tags"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

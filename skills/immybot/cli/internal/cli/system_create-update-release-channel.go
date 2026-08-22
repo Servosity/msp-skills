@@ -19,7 +19,7 @@ func newSystemCreateUpdateReleaseChannelCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-update-release-channel",
 		Short:       "Create update release channel",
-		Example:     "  immybot-pp-cli system create-update-release-channel",
+		Example:     "  immybot-cli system create-update-release-channel",
 		Annotations: map[string]string{"pp:endpoint": "system.create-update-release-channel", "pp:method": "POST", "pp:path": "/api/v1/system/update-release-channel"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

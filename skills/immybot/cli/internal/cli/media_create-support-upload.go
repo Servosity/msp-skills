@@ -18,7 +18,7 @@ func newMediaCreateSupportUploadCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-support-upload",
 		Short:       "Create support upload",
-		Example:     "  immybot-pp-cli media create-support-upload",
+		Example:     "  immybot-cli media create-support-upload",
 		Annotations: map[string]string{"pp:endpoint": "media.create-support-upload", "pp:method": "POST", "pp:path": "/api/v1/media/support/upload"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/media/support/upload"

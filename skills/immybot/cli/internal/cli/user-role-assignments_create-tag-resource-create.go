@@ -19,7 +19,7 @@ func newUserRoleAssignmentsCreateTagResourceCreateCmd(flags *rootFlags) *cobra.C
 	cmd := &cobra.Command{
 		Use:         "create-tag-resource-create",
 		Short:       "Create tag resource create",
-		Example:     "  immybot-pp-cli user-role-assignments create-tag-resource-create",
+		Example:     "  immybot-cli user-role-assignments create-tag-resource-create",
 		Annotations: map[string]string{"pp:endpoint": "user-role-assignments.create-tag-resource-create", "pp:method": "POST", "pp:path": "/api/v1/user-role-assignments/tag-resource/create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

@@ -17,7 +17,7 @@ func newComputersGetInventoryCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-inventory",
 		Short:       "Get inventory",
-		Example:     "  immybot-pp-cli computers get-inventory",
+		Example:     "  immybot-cli computers get-inventory",
 		Annotations: map[string]string{"pp:endpoint": "computers.get-inventory", "pp:method": "GET", "pp:path": "/api/v1/computers/inventory", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/computers/inventory"

@@ -18,7 +18,7 @@ func newGettingStartedCreateChecklistResetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create-checklist-reset",
 		Short:       "Create checklist reset",
-		Example:     "  immybot-pp-cli getting-started create-checklist-reset",
+		Example:     "  immybot-cli getting-started create-checklist-reset",
 		Annotations: map[string]string{"pp:endpoint": "getting-started.create-checklist-reset", "pp:method": "POST", "pp:path": "/api/v1/getting-started/checklist/reset"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {

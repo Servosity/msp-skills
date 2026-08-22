@@ -33,13 +33,13 @@ Gracefully shuts down on SIGTERM/SIGINT.
 Note: For APIs with WebSocket or SSE support, a future version will use
 native streaming instead of polling.`,
 		Example: `  # Tail all changes every 10 seconds
-  immybot-pp-cli tail --interval 10s
+  immybot-cli tail --interval 10s
 
   # Tail a specific resource
-  immybot-pp-cli tail messages --interval 5s
+  immybot-cli tail messages --interval 5s
 
   # Pipe to jq for filtering
-  immybot-pp-cli tail events --interval 30s | jq 'select(.type == "error")'`,
+  immybot-cli tail events --interval 30s | jq 'select(.type == "error")'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				resource = args[0]

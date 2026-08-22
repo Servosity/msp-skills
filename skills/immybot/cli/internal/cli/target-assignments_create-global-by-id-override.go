@@ -22,7 +22,7 @@ func newTargetAssignmentsCreateGlobalByIdOverrideCmd(flags *rootFlags) *cobra.Co
 		Use:   "create-global-by-id-override <id>",
 		Short: "Create global by id override",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  immybot-pp-cli target-assignments create-global-by-id-override 550e8400-e29b-41d4-a716-446655440000 --target example-value",
+		Example:     "  immybot-cli target-assignments create-global-by-id-override 550e8400-e29b-41d4-a716-446655440000 --target example-value",
 		Annotations: map[string]string{"pp:endpoint": "target-assignments.create-global-by-id-override", "pp:method": "POST", "pp:path": "/api/v1/target-assignments/global/{id}/override"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

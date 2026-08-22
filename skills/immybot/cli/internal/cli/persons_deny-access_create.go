@@ -18,7 +18,7 @@ func newPersonsDenyAccessCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create <personId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli persons deny-access create 42",
+		Example:     "  immybot-cli persons deny-access create 42",
 		Annotations: map[string]string{"pp:endpoint": "deny-access.create", "pp:method": "POST", "pp:path": "/api/v1/persons/{personId}/deny-access"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

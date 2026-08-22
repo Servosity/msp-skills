@@ -18,7 +18,7 @@ func newComputersSetToNeedsOnboardingCreateCmd(flags *rootFlags) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:         "create <computerId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli computers set-to-needs-onboarding create 42",
+		Example:     "  immybot-cli computers set-to-needs-onboarding create 42",
 		Annotations: map[string]string{"pp:endpoint": "set-to-needs-onboarding.create", "pp:method": "POST", "pp:path": "/api/v1/computers/{computerId}/set-to-needs-onboarding"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -18,7 +18,7 @@ func newScriptsGetReferencesCountCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-references-count",
 		Short:       "Get references count",
-		Example:     "  immybot-pp-cli scripts get-references-count",
+		Example:     "  immybot-cli scripts get-references-count",
 		Annotations: map[string]string{"pp:endpoint": "scripts.get-references-count", "pp:method": "GET", "pp:path": "/api/v1/scripts/references/count", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("script-type") {

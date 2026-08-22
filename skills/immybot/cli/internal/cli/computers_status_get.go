@@ -16,7 +16,7 @@ func newComputersStatusGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <computerId>",
 		Short:       "Get",
-		Example:     "  immybot-pp-cli computers status get 42",
+		Example:     "  immybot-cli computers status get 42",
 		Annotations: map[string]string{"pp:endpoint": "status.get", "pp:method": "GET", "pp:path": "/api/v1/computers/{computerId}/status", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

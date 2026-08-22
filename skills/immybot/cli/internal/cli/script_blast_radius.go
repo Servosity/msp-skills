@@ -58,8 +58,8 @@ func newNovelScriptBlastRadiusCmd(flags *rootFlags) *cobra.Command {
 			"this command for the inverse question of what a single computer receives; use " +
 			"'assignment-explain' instead.",
 		Example: strings.Trim(`
-  immybot-pp-cli script-blast-radius 312
-  immybot-pp-cli script-blast-radius "Install Chrome" --agent
+  immybot-cli script-blast-radius 312
+  immybot-cli script-blast-radius "Install Chrome" --agent
 `, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only": "true",
@@ -282,7 +282,7 @@ func newNovelScriptBlastRadiusCmd(flags *rootFlags) *cobra.Command {
 
 			if len(view.Tasks) == 0 {
 				view.Note = fmt.Sprintf("no maintenance task references script %q (scanned %d tasks); "+
-					"the script may be unused, or run 'immybot-pp-cli sync --resources scripts,maintenance-tasks' first",
+					"the script may be unused, or run 'immybot-cli sync --resources scripts,maintenance-tasks' first",
 					needle, view.ScannedTasks)
 			}
 

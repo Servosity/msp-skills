@@ -16,7 +16,7 @@ func newBillingGetSubscriptionDetailsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-subscription-details",
 		Short:       "Get subscription details",
-		Example:     "  immybot-pp-cli billing get-subscription-details",
+		Example:     "  immybot-cli billing get-subscription-details",
 		Annotations: map[string]string{"pp:endpoint": "billing.get-subscription-details", "pp:method": "GET", "pp:path": "/api/v1/billing/subscription-details", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/billing/subscription-details"

@@ -22,7 +22,7 @@ func newComputersGetByIdCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-by-id <computerId>",
 		Aliases:     []string{"get"},
 		Short:       "Get by id",
-		Example:     "  immybot-pp-cli computers get-by-id 42",
+		Example:     "  immybot-cli computers get-by-id 42",
 		Annotations: map[string]string{"pp:endpoint": "computers.get-by-id", "pp:method": "GET", "pp:path": "/api/v1/computers/{computerId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -16,7 +16,7 @@ func newSystemGetReleasesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get-releases",
 		Short:       "Get releases",
-		Example:     "  immybot-pp-cli system get-releases",
+		Example:     "  immybot-cli system get-releases",
 		Annotations: map[string]string{"pp:endpoint": "system.get-releases", "pp:method": "GET", "pp:path": "/api/v1/system/releases", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/system/releases"

@@ -51,7 +51,7 @@ func newTargetAssignmentsChangeRequestCreateCmd(flags *rootFlags) *cobra.Command
 	cmd := &cobra.Command{
 		Use:         "create <deploymentId>",
 		Short:       "Create",
-		Example:     "  immybot-pp-cli target-assignments change-request create 42",
+		Example:     "  immybot-cli target-assignments change-request create 42",
 		Annotations: map[string]string{"pp:endpoint": "change-request.create", "pp:method": "POST", "pp:path": "/api/v1/target-assignments/{deploymentId}/change-request"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help

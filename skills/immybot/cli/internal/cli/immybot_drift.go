@@ -51,8 +51,8 @@ func newNovelDriftCmd(flags *rootFlags) *cobra.Command {
 			"Use this command for a whole-tenant compliance posture across all titles. Do NOT " +
 			"use this command for the version distribution of one title; use 'version-spread' instead.",
 		Example: strings.Trim(`
-  immybot-pp-cli drift
-  immybot-pp-cli drift --tenant Contoso --agent
+  immybot-cli drift
+  immybot-cli drift --tenant Contoso --agent
 `, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only": "true",
@@ -170,7 +170,7 @@ func newNovelDriftCmd(flags *rootFlags) *cobra.Command {
 				view.Tenants = view.Tenants[:flagLimit]
 			}
 			if view.ScannedInstalls == 0 {
-				view.Note = "no software inventory in the local mirror; run 'immybot-pp-cli sync --resources tenants-software-from-inventory-dx'"
+				view.Note = "no software inventory in the local mirror; run 'immybot-cli sync --resources tenants-software-from-inventory-dx'"
 			}
 
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {

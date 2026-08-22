@@ -17,7 +17,7 @@ func newGettingStartedGetChecklistCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get-checklist",
 		Aliases:     []string{"list"},
 		Short:       "Get checklist",
-		Example:     "  immybot-pp-cli getting-started get-checklist",
+		Example:     "  immybot-cli getting-started get-checklist",
 		Annotations: map[string]string{"pp:endpoint": "getting-started.get-checklist", "pp:method": "GET", "pp:path": "/api/v1/getting-started/checklist", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/v1/getting-started/checklist"
