@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.1] - unreleased
+## [0.1.1] - 2026-08-22
 
 ### Fixed
 - `doctor`, the CLI's HTTP 400/401/403 error hints and the MCP server's tool-error
