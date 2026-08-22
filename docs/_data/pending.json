@@ -30,7 +30,7 @@
   "appdirect": {
     "state": "binary-pending",
     "version": "0.1.1",
-    "latest_tag": "appdirect-v0.1.0",
+    "latest_tag": "appdirect-v0.1.1",
     "current_hash": "sha256:52465f2a776817947ae4cabbccd0db1b3d52884a43e8d04b0f0cfb9e689f63e1",
     "released_hash": "sha256:cb47bbdb5bec3281845dfe9fe3ff67a539eddd1911005fe658763fb14049cdf1"
   },
@@ -135,7 +135,7 @@
   "crowdstrike": {
     "state": "binary-pending",
     "version": "0.1.1",
-    "latest_tag": "crowdstrike-v0.1.0",
+    "latest_tag": "crowdstrike-v0.1.1",
     "current_hash": "sha256:2ecaf3db4f31ffecc7b77c8fa0f41a37719e8c5fef4cd9ce9848e8c68b8785ba",
     "released_hash": "sha256:0e629f2563bddfab44bf389a6354e85f760ec38a7bf75eeb38a5524d1d7b7981"
   },
@@ -168,11 +168,11 @@
     "released_hash": "sha256:4ff2c6903bd19c1ef62cb39efa861570ccce90dc20a2cac715974a1db621ff91"
   },
   "halopsa": {
-    "state": "binary-pending",
-    "version": "0.2.11",
-    "latest_tag": "halopsa-v0.2.11",
+    "state": "up-to-date",
+    "version": "0.2.12",
+    "latest_tag": "halopsa-v0.2.12",
     "current_hash": "sha256:1a991cf711c9bb32bb7facaa06aaf966228bc55cc27a0d6e0d1bb423227e5378",
-    "released_hash": "sha256:eb3b8005334a1e8507915a5d38a2ad06291c5f9882e39f56972d1e36b5558258"
+    "released_hash": "sha256:1a991cf711c9bb32bb7facaa06aaf966228bc55cc27a0d6e0d1bb423227e5378"
   },
   "hubspot": {
     "state": "up-to-date",
@@ -273,11 +273,11 @@
     "released_hash": "sha256:9ee5ea50f4e76eaf7eb8fb13c6b0ac3df7f3e5a9425e3e1945220fb731c7c9d5"
   },
   "ninjaone": {
-    "state": "binary-pending",
-    "version": "0.1.8",
-    "latest_tag": "ninjaone-v0.1.8",
+    "state": "up-to-date",
+    "version": "0.1.9",
+    "latest_tag": "ninjaone-v0.1.9",
     "current_hash": "sha256:fd16057802d81035c8a73f635238f59e29dd8b0f5e11b5f5c81a8f2696602437",
-    "released_hash": "sha256:772769846c72fd36f414c88856dea9150806d3b952bdb19a55dbd156c5f6edbc"
+    "released_hash": "sha256:fd16057802d81035c8a73f635238f59e29dd8b0f5e11b5f5c81a8f2696602437"
   },
   "pagerduty": {
     "state": "binary-pending",
