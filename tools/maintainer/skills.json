@@ -211,7 +211,7 @@
       "category": "Security",
       "display_name": "Avanan",
       "tagline": "Triage today's phishing across every Avanan tenant, tell one campaign from forty problems, and prove what actually happened to a quarantined message.",
-      "cli_hash": "sha256:f3031b2c7b921e02fa465516facc7b00fe391269d6cfd8e508e253040e550a24",
+      "cli_hash": "sha256:58e544910985e87d419cecfdced0e2e0e4fd6f325a1c3a00d3ecaab7b5039c74",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

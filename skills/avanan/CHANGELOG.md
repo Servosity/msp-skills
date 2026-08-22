@@ -27,6 +27,19 @@ All notable changes to this skill are documented here. Format follows
   `infinity-us`); a tenant on any other Infinity gateway points `auth login` at
   it with `--base-url` or `AVANAN_BASE_URL`, since guessing an unverified
   gateway host fails identically to a bad credential.
+- The signing transport authenticates only the configured host. It runs once
+  per redirect hop and after `CheckRedirect`, so a cross-host 3xx previously got
+  a freshly signed request even though `CheckRedirect` had just stripped the
+  token - and because the Infinity handshake endpoint was derived from the
+  redirect target and the host test was a `cloudinfra` substring match, a
+  redirect to a lookalike host was POSTed the raw client secret. `IsInfinityHost`
+  is now anchored to `.portal.checkpoint.com`, and a cross-host hop is refused
+  with the target host named rather than followed unauthenticated.
+- `mirror` exits non-zero, and leaves the sync stamp alone, when the credential
+  is rejected or when every requested resource fails and nothing is stored.
+  Previously an expired credential 401'd every call, the command exited 0, and
+  zero rows were stamped as freshly synced - so every offline command answered
+  confidently from an empty mirror.
 - Offline SQLite mirror with `sync`, `mirror`, and full-text `search`, so
   cross-tenant and what-changed questions answer from local data instead of an
   O(tenants) API fan-out against an endpoint that rate-limits and publishes no
