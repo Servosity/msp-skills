@@ -27,6 +27,14 @@ All notable changes to this skill are documented here. Format follows
   `infinity-us`); a tenant on any other Infinity gateway points `auth login` at
   it with `--base-url` or `AVANAN_BASE_URL`, since guessing an unverified
   gateway host fails identically to a bad credential.
+- `remediate --wait` can actually observe the thing it waits for. Both poll
+  loops read through the response cache, which is keyed on path and params, so
+  every iteration after the first saw the pre-action state: an entity that
+  flipped three seconds after submission was still reported unchanged two
+  minutes later. They now bypass the cache.
+- A submission that returns no task id is confirmed against the entity's own
+  state rather than assumed applied. Google Mail applies these actions
+  asynchronously without a task, so a 200 means accepted, not landed.
 - The mirror walks every page instead of stopping at two. Avanan's `scrollId` is
   a stable server-side cursor handle that repeats on every page while the
   records advance, and the walk treated an unchanged value as a looping server.

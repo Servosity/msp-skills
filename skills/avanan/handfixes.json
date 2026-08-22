@@ -334,6 +334,11 @@
           "file": "cli/internal/cli/remediate.go",
           "contains": "the task lags the entity",
           "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/remediate.go",
+          "contains": "func getFresh(",
+          "min_count": 1
         }
       ]
     },
@@ -352,6 +357,35 @@
         {
           "file": "cli/internal/avananmirror/mirror.go",
           "contains": "filter on entityCreated",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "poll-loops-must-bypass-the-response-cache",
+      "summary": "remediate's task and entity poll loops read through GetNoCache, and a null task id is confirmed against the entity rather than assumed applied",
+      "why": "Two faults in one path. First, the response cache is keyed on path plus params, so a loop watching for a value to CHANGE saw the pre-action state on every iteration: measured 2026-08-22, an entity that flipped to quarantined three seconds after submission was still reported unchanged after a full two-minute poll, so the command reported a successful action as unfinished. pollTask had the same defect from the start. Second, a 200 with taskId null means accepted, not landed - Google Mail applies asynchronously without a task - so reporting completed off the back of the response was the same false confidence this command exists to prevent. With --wait and no task, the entity's own isQuarantined/isRestored is now polled, which is the ground truth the task only ever trails. A reprint restores cached reads and the assume-applied shortcut.",
+      "status": "active",
+      "spec_encode_followup": "Teach the press that any poll-for-change loop must bypass the response cache, and that an accepted-but-async action needs confirmation against the resource rather than the submission response (filed as a retro item against the generator).",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/remediate.go",
+          "contains": "func pollEntityApplied(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/remediate.go",
+          "contains": "getFresh(ctx, c, \"/v1.0/search/entity/\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/remediate.go",
+          "contains": "getFresh(ctx, c, \"/v1.0/task/\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/remediate_test.go",
+          "contains": "TestGetFreshBypassesTheResponseCache",
           "min_count": 1
         }
       ]
