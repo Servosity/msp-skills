@@ -1132,12 +1132,30 @@ func cursorPageHasContinuation(cursorType string, hasMore bool, nextCursor strin
 func determinePaginationDefaults(resource string) paginationDefaults {
 	switch resource {
 	case "computers":
+		// GET /api/v1/computers is a capped-limit endpoint, not a paginated
+		// one. Its whole query surface is name, tenantId, orderByUpdatedDate
+		// and pageSize (confirmed against a live instance's swagger.json), so
+		// there is no cursor, page, skip or offset to advance and the empty
+		// cursorParam above is correct. pageSize is a ceiling on a single
+		// response, and the profiler took its spec default of 25 as the page
+		// size. The result was a silent cap: a tenant with 57 computers
+		// mirrored 25 of them, and "computers" is the resource the offline
+		// commands join on most, so every one of them reported on a subset of
+		// the fleet while reporting success. Verified live: pageSize=25 -> 25
+		// rows, pageSize=100 -> 57, pageSize=1000 -> 57.
+		//
+		// Raising the ceiling is the only lever this endpoint offers. It is
+		// still finite, so the existing full-page warning stays the truncation
+		// signal: when a response comes back holding exactly limit rows, sync
+		// emits pagination_cursor_missing rather than pretending it saw
+		// everything. An instance above this ceiling should mirror
+		// "computers-paged" instead, which takes real skip/take pagination.
 		return paginationDefaults{
 			cursorParam:    "",
 			cursorType:     "offset",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
-			limit:          25,
+			limit:          1000,
 		}
 	case "computers-paged":
 		return paginationDefaults{

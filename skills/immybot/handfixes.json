@@ -45,6 +45,24 @@
           "min_count": 1
         }
       ]
+    },
+    {
+      "id": "computers-page-size-ceiling-raised",
+      "summary": "the `computers` resource requests pageSize=1000 instead of the spec default 25, because GET /api/v1/computers is a capped-limit endpoint with no way to fetch a second page",
+      "why": "GET /api/v1/computers declares exactly four query parameters (name, tenantId, orderByUpdatedDate, pageSize), confirmed by reading a live instance's swagger.json. There is no cursor, page, skip or offset, so the empty cursorParam is correct and no pagination fix is possible: probing page=1, page=2, Page=2 and skip=5 against a real tenant returned byte-identical result sets every time. pageSize is a ceiling on a single response, and the profiler mistook its spec default of 25 for a page size. The consequence was a silent cap rather than an error: a tenant holding 57 computers mirrored 25 of them and sync reported success. `computers` is the resource the offline commands join on most (149 references across internal/cli), so every command answered from 44% of the fleet while presenting a complete-looking result. Verified live before and after: pageSize=25 returns 25 rows, pageSize=100 returns 57, pageSize=1000 returns 57; after the change `sync --resources computers` stores 57 and, because a short page proves completeness, last_synced_at advances to a real timestamp instead of the zero value it had been stuck on. Raising the ceiling is the only lever the endpoint offers, so the existing full-page warning stays the truncation signal for an instance larger than the ceiling, and computers-paged (real skip/take pagination) is the alternative source for those.",
+      "status": "active",
+      "spec_encode_followup": "Teach the profiler to distinguish a response-size ceiling from a page size when an endpoint declares a limit parameter but no cursor, page, skip or offset parameter. Emitting the spec default as the page size silently truncates every such resource.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "GET /api/v1/computers is a capped-limit endpoint",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "limit:          25,"
+        }
+      ]
     }
   ]
 }
