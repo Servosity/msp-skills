@@ -125,6 +125,10 @@ huntress:
   vendor: "Huntress"
   example_command: "Which client orgs have active incidents?"
 
+immybot:
+  vendor: "ImmyBot"
+  example_command: "What failed in last night's maintenance window, and why?"
+
 itglue:
   vendor: "IT Glue"
   example_command: "Which clients are under-documented?"

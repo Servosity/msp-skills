@@ -444,6 +444,21 @@
       ]
     },
     {
+      "name": "immybot",
+      "source": "./skills/immybot",
+      "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "immybot",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "itglue",
       "source": "./skills/itglue",
       "description": "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search, and documentation-hygiene analytics no other IT Glue tool offers.",

@@ -89,6 +89,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Huntress (Security) - ask "Which incidents are oldest across every client org?" - Triage Huntress incidents and coverage gaps across every client org from one queue.
   Verification: Live-verified by @Xenith-B (MSP) (2026-06-26). Page: https://msp-skills.compoundingteams.com/skills/huntress/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/huntress/install.sh)
+- ImmyBot (RMM) - ask "What failed in last night's maintenance window, by root cause?" - Triage a night of failed maintenance by root cause, and rank one title across every tenant.
+  Verification: Live-verified by @geekbrownbear (MSP) (2026-08-22). Page: https://msp-skills.compoundingteams.com/skills/immybot/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/immybot/install.sh)
 - IT Glue (Documentation) - ask "Which client owns this device, serial number, or contact?" - Find any device, audit stale passwords, and rank thin client docs by asking.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/itglue/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/install.sh)
