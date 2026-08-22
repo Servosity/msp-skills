@@ -113,6 +113,26 @@ The gate above is the *reactive* half (CI blocks a clobbered merge). The
 regenerate so you know what to preserve. The repo's `AGENTS.md` makes this
 mandatory for any agent.
 
+**First, check for open fleet advisories.** Before any reprint or re-vendor,
+read the findings that apply to *every* connector. They tell you whether a
+reprint is even the right fix, what it will and will not resolve, and what to
+verify afterwards:
+
+```bash
+gh issue list --repo Servosity/msp-skills --state open --label fleet-advisory
+```
+
+These are fleet-scope findings - a generator defect, an MCP boundary gap, a
+security issue inherited by every printed CLI - not per-connector bugs. A
+reprint inherits whatever the engine has already fixed and nothing it has not,
+so the advisory is what tells you which half you are in. Occasionally it will
+also tell you that the obvious hand-patch is the *wrong* fix because the engine
+solved it a different way, in which case patching by hand just creates drift in
+a `DO NOT EDIT` file that the reprint would have resolved for free.
+
+When you file a finding that affects every connector, label it
+`fleet-advisory` so this check keeps working for the next agent.
+
 1. **Before** reprinting / re-onboarding / bulk-overwriting `cli/`, read what
    you must preserve:
 
@@ -142,3 +162,8 @@ home for reprint-survival: not co-located with the code, no mechanical
 enforcement, they close and get buried, and a reprint shouldn't have to parse
 prose from a closed issue. The ledger is versioned with the connector and
 *checked in CI*; issues link to it.
+
+Fleet advisories (above) are not an exception to this. They are not
+per-connector facts a reprint is checked *against* - that is still the ledger's
+job, enforced in CI. They are fleet-scope notices about whether and how to
+reprint at all, which no per-connector ledger can carry.
