@@ -27,6 +27,18 @@ All notable changes to this skill are documented here. Format follows
   `infinity-us`); a tenant on any other Infinity gateway points `auth login` at
   it with `--base-url` or `AVANAN_BASE_URL`, since guessing an unverified
   gateway host fails identically to a bad credential.
+- The mirror walks every page instead of stopping at two. Avanan's `scrollId` is
+  a stable server-side cursor handle that repeats on every page while the
+  records advance, and the walk treated an unchanged value as a looping server.
+  A 24-hour window that previously reported 605 records now stores 3,788.
+- `remediate quarantine` and `remediate restore` work at all. They sent a
+  hardcoded `entityType: "email"`, which the API answers with HTTP 500
+  `internal_error[KeyError]`; the type is per-platform and per-entity, so it is
+  now read from the entity itself (with `--entity-type` to override).
+- `remediate --wait` polls with the scope the task endpoint requires in its
+  query string, reports a poll that could not be made instead of silently
+  timing out, treats a synchronous action that returns no task id as applied,
+  and no longer implies failure when a task lags an entity that already moved.
 - Entity records are stored instead of silently dropped. Their identifier is
   nested at `entityInfo.entityId` and absent from the top level, so the flat
   identifier lookup skipped every one: a live mirror fetched 343 entities,

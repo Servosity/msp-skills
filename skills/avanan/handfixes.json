@@ -256,6 +256,105 @@
           "min_count": 1
         }
       ]
+    },
+    {
+      "id": "scroll-cursor-is-stable-not-per-page",
+      "summary": "the mirror walk continues through an unchanged scrollId and ends on a short page instead",
+      "why": "Avanan returns a STABLE server-side cursor handle: every page of a walk carries the same scrollId while the records advance underneath it. ingestQuery read an unchanged scrollId as a looping server and stopped, capping every resource at 2 pages / 200 records while reporting success - so the offline store, the connector's headline feature, silently held a fraction of the tenant. Verified live 2026-08-22: five consecutive pages returned scrollId 242d8f7d7800 with a different first record each time against an endpoint reporting 10,000 available, and a 24h mirror went from 605 to 3,788 records once fixed. The end-of-walk signal is a short page, since the server honours pageSize. A reprint regenerates the loop-detection form.",
+      "status": "active",
+      "spec_encode_followup": "Teach the press that a cursor token may be stable across pages, so page-walk termination must key on a short or empty page rather than on an unchanged cursor (filed as a retro item against the generator).",
+      "asserts": [
+        {
+          "file": "cli/internal/avananmirror/mirror.go",
+          "contains": "len(records) < opts.pageSize()",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/avananmirror/mirror.go",
+          "contains": "maxScrollPages",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/avananmirror/mirror.go",
+          "not_contains": "next == scrollID"
+        },
+        {
+          "file": "cli/internal/avananmirror/mirror_test.go",
+          "contains": "TestScrollWalkContinuesThroughAStableScrollId",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "action-entity-type-is-per-saas",
+      "summary": "remediate resolves saasEntityType from the entity instead of sending a hardcoded \"email\"",
+      "why": "POST /v1.0/action/entity looks entityType up per SaaS and throws server-side on a miss, returning HTTP 500 internal_error[KeyError] - indistinguishable from a vendor outage. remediate.go hardcoded \"email\", so BOTH remediation commands were unusable on every tenant. The real values are office365_emails_email and google_mail_email, confirmed live against both platforms on 2026-08-22. Resolution reads entityInfo.saasEntityType from GET /v1.0/search/entity/{id}, falls back to the local mirror, and fails closed with instructions rather than guessing; --entity-type overrides. A reprint restores the hardcoded value.",
+      "status": "active",
+      "spec_encode_followup": "Teach the press not to hardcode an enum-like request field whose value is a property of the referenced object (filed as a retro item against the generator).",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/remediate.go",
+          "contains": "func resolveEntityType(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/remediate.go",
+          "contains": "/v1.0/search/entity/",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/remediate.go",
+          "not_contains": "requestData[\"entityType\"] = \"email\""
+        },
+        {
+          "file": "cli/internal/cli/remediate_test.go",
+          "contains": "TestResolveEntityTypeUsesTheEntitysOwnType",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "task-poll-needs-query-string-scope",
+      "summary": "pollTask sends the scope the task endpoint requires, and reports a poll it could not make",
+      "why": "GET /v1.0/task/{id} takes scope as a QUERY-STRING parameter - a third transport, after requestData.scope for actions and requestData.scopes for search. pollTask passed nil params, so every poll on a multi-scope credential returned HTTP 400, and the error was swallowed by an `if err == nil` guard: --wait spun to its timeout and reported the action as not terminal when it had already succeeded. Also: google_mail applies actions synchronously and returns taskId null (not a gap), and an Office 365 task can still read inprogress after the entity reports quarantined - the entity is the ground truth and the task trails it. All verified live 2026-08-22.",
+      "status": "active",
+      "spec_encode_followup": "Teach the press that a tenant/scope selector can differ in transport per endpoint within one API, and that a poll error must be distinguished from a task that is still running (filed as a retro item against the generator).",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/remediate.go",
+          "contains": "params[\"scope\"] = scope",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/remediate.go",
+          "contains": "could not read task status",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/remediate.go",
+          "contains": "the task lags the entity",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "mirror-window-is-ingest-time",
+      "summary": "--since and the Options.Since docs state that the API window filters on ingest time, not the message date",
+      "why": "entityFilter.startDate/endDate match entityCreated - when Avanan scanned the message - not the received header. Measured 2026-08-22: received 19:08:22Z vs entityCreated 20:49:36Z, 1h41m apart, so every window built around the received time returned nothing while the message existed. They usually track within seconds, which is what makes the difference dangerous. The flag help previously read as message age.",
+      "status": "active",
+      "spec_encode_followup": "Teach the press to describe a date-window flag in the API's own terms when the field filters on an ingest timestamp rather than a business date (filed as a retro item against the generator).",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/avanan_mirror.go",
+          "contains": "by Avanan ingest time rather than message date",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/avananmirror/mirror.go",
+          "contains": "filter on entityCreated",
+          "min_count": 1
+        }
+      ]
     }
   ]
 }
