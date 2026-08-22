@@ -676,6 +676,7 @@ func collectCacheReport(ctx context.Context, staleAfterSpec string) map[string]a
 	var resources []map[string]any
 	fresh := true
 	haveAny := false
+	neverCount := 0
 	oldest := time.Duration(0)
 	for rows.Next() {
 		var rtype string
@@ -685,7 +686,17 @@ func collectCacheReport(ctx context.Context, staleAfterSpec string) map[string]a
 			continue
 		}
 		r := map[string]any{"type": rtype, "rows": count}
-		if lastSynced.Valid {
+		// A resource that has never completed a full pass carries the zero
+		// time, not NULL: SaveSyncProgress writes a parseable zero so
+		// GetSyncState can scan without a NULL conversion error, and the
+		// watermark only advances when sync can prove it saw the whole result
+		// set. That makes the zero a sentinel meaning "no completed pass",
+		// not a timestamp. Reading it as one made time.Since saturate
+		// time.Duration at its 292-year maximum, so doctor reported an age of
+		// 2562047h47m0s and status "stale" against data written seconds
+		// earlier, and every offline command repeated it as a staleness
+		// warning. It belongs in the same bucket as NULL below.
+		if lastSynced.Valid && !lastSynced.Time.IsZero() {
 			haveAny = true
 			r["last_synced_at"] = lastSynced.Time.UTC().Format(time.RFC3339)
 			age := time.Since(lastSynced.Time)
@@ -698,6 +709,7 @@ func collectCacheReport(ctx context.Context, staleAfterSpec string) map[string]a
 			}
 		} else {
 			r["staleness"] = "never"
+			neverCount++
 			fresh = false
 		}
 		resources = append(resources, r)
@@ -716,8 +728,24 @@ func collectCacheReport(ctx context.Context, staleAfterSpec string) map[string]a
 		report["status"] = "fresh"
 	default:
 		report["status"] = "stale"
-		report["oldest_age"] = oldest.Round(time.Minute).String()
-		report["hint"] = "Some resources are older than stale_after; run 'immybot-pp-cli sync' to refresh."
+		if oldest > 0 {
+			report["oldest_age"] = oldest.Round(time.Minute).String()
+		}
+		if neverCount > 0 {
+			report["never_synced"] = neverCount
+		}
+		// Separate the two reasons a store is not fresh. "Older than
+		// stale_after" and "has never completed a full pass" call for
+		// different actions, and reporting the second as the first sent
+		// operators to re-run a sync that was already current.
+		switch {
+		case oldest > 0 && neverCount > 0:
+			report["hint"] = fmt.Sprintf("Some resources are older than stale_after, and %d have never completed a full sync (a page-capped or truncated run does not advance the watermark). Run 'immybot-pp-cli sync' to refresh.", neverCount)
+		case neverCount > 0:
+			report["hint"] = fmt.Sprintf("%d resource(s) have never completed a full sync; a page-capped or truncated run does not advance the watermark. Run 'immybot-pp-cli sync' without --latest-only to complete a pass.", neverCount)
+		default:
+			report["hint"] = "Some resources are older than stale_after; run 'immybot-pp-cli sync' to refresh."
+		}
 	}
 	return report
 }

@@ -100,6 +100,34 @@
           "not_contains": "immybot-pp-cli auth setup"
         }
       ]
+    },
+    {
+      "id": "zero-watermark-sentinel-not-an-age",
+      "summary": "the zero last_synced_at is treated as \"never completed a pass\" rather than a timestamp, so staleness stops reporting a 292-year age against fresh data",
+      "why": "A resource that has never completed a full sync pass stores the zero time rather than NULL: SaveSyncProgress writes a parseable zero so GetSyncState can scan without a NULL conversion error, and the watermark only advances when sync can prove it saw the whole result set (a page-capped or truncated run correctly withholds it). That makes the zero a sentinel, not a timestamp. Two places read it as one. sync_hint filtered with `last_synced_at IS NOT NULL`, which does not exclude a non-NULL zero, so ORDER BY last_synced_at ASC LIMIT 1 selected the sentinel as the oldest row every time; doctor gated on lastSynced.Valid, which is likewise true for a zero. time.Since(zero) then saturates time.Duration at its 292-year maximum, so every offline command printed 'local store data is 2562047h47m0s old' against data written seconds earlier and doctor reported status stale with oldest_age 2562047h47m0s on a mirror that had just synced. Measured live on a 64-resource store: before, oldest_age 2562047h47m0s; after, oldest_age 50m0s with never_synced 40 reported separately. doctor now also separates the two reasons a store is not fresh, because 'older than stale_after' and 'never completed a pass' need different actions, and the hint distinguishes an empty store from one holding partial data from a truncated run.",
+      "status": "active",
+      "spec_encode_followup": "In the press: give the never-completed state its own representation rather than overloading the zero time, or make every reader treat a zero watermark as a distinct state. Any connector whose API returns full pages without a usable cursor hits this, so the failure is not ImmyBot-specific.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync_hint.go",
+          "contains": "syncHintHasRealWatermark",
+          "min_count": 3
+        },
+        {
+          "file": "cli/internal/cli/sync_hint.go",
+          "not_contains": "last_synced_at IS NOT NULL`"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "lastSynced.Valid && !lastSynced.Time.IsZero()",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync_hint_sentinel_test.go",
+          "contains": "func TestSyncHintPrefersRealWatermarkOverSentinel(",
+          "min_count": 1
+        }
+      ]
     }
   ]
 }

@@ -18,6 +18,11 @@ import (
 type syncHintState struct {
 	hasState   bool
 	lastSynced time.Time
+	// partial is set when rows were stored but no resource in scope has a
+	// real watermark. That is a truncated or page-capped run: the data is
+	// there but incomplete, which is a different thing to tell an operator
+	// than "nothing has been synced".
+	partial bool
 }
 
 func maybeEmitSyncHints(cmd *cobra.Command, db *store.Store, resourceType string, maxAge time.Duration) {
@@ -54,6 +59,10 @@ func hintIfUnsynced(cmd *cobra.Command, db *store.Store, resourceType string) bo
 	if err != nil || state.hasState {
 		return false
 	}
+	if state.partial {
+		fmt.Fprintf(cmd.ErrOrStderr(), "hint: local store holds data from a sync that did not complete a full pass, so results may be partial. Run 'immybot-pp-cli sync' without --latest-only to complete one.\n")
+		return true
+	}
 	fmt.Fprintf(cmd.ErrOrStderr(), "hint: local store has not been synced yet. Run 'immybot-pp-cli sync' before trusting local results.\n")
 	return true
 }
@@ -74,6 +83,17 @@ func hintIfStale(cmd *cobra.Command, db *store.Store, resourceType string, maxAg
 	return true
 }
 
+// syncHintHasRealWatermark excludes rows that have never completed a full
+// sync pass. Those carry the zero time rather than NULL, because
+// SaveSyncProgress writes a parseable zero so GetSyncState can scan without
+// a NULL conversion error, and the watermark only advances when sync can
+// prove it saw the whole result set. Filtering on IS NOT NULL alone left the
+// sentinel in play: ORDER BY last_synced_at ASC then picked it as the oldest
+// row every time, and time.Since(zero) saturates time.Duration at its
+// 292-year maximum, which is why the hint read "local store data is
+// 2562047h47m0s old" against data written seconds earlier.
+const syncHintHasRealWatermark = `last_synced_at IS NOT NULL AND last_synced_at > '0001-01-01T00:00:00Z'`
+
 func readSyncHintState(db *store.Store, resourceType string) (syncHintState, error) {
 	if db == nil {
 		return syncHintState{}, nil
@@ -81,18 +101,18 @@ func readSyncHintState(db *store.Store, resourceType string) (syncHintState, err
 	query := `SELECT last_synced_at FROM sync_state`
 	args := []any{}
 	if strings.TrimSpace(resourceType) != "" {
-		query += ` WHERE resource_type = ?`
+		query += ` WHERE resource_type = ? AND ` + syncHintHasRealWatermark
 		args = append(args, resourceType)
 	} else {
-		query += ` WHERE last_synced_at IS NOT NULL`
+		query += ` WHERE ` + syncHintHasRealWatermark
 	}
 	query += ` ORDER BY last_synced_at ASC LIMIT 1`
 
 	var lastSynced sql.NullTime
 	err := db.DB().QueryRow(query, args...).Scan(&lastSynced)
 	if err == nil {
-		if !lastSynced.Valid {
-			return syncHintState{}, nil
+		if !lastSynced.Valid || lastSynced.Time.IsZero() {
+			return syncHintState{partial: syncHintHasZeroWatermarkRows(db, resourceType)}, nil
 		}
 		return syncHintState{
 			hasState:   true,
@@ -100,7 +120,13 @@ func readSyncHintState(db *store.Store, resourceType string) (syncHintState, err
 		}, nil
 	}
 	if errors.Is(err, sql.ErrNoRows) || syncHintMissingTable(err) {
-		return syncHintState{}, nil
+		// No row survived the real-watermark filter. That is either a store
+		// with nothing in it, or one holding rows from a run that never
+		// completed a pass. A missing table is always the former.
+		if syncHintMissingTable(err) {
+			return syncHintState{}, nil
+		}
+		return syncHintState{partial: syncHintHasZeroWatermarkRows(db, resourceType)}, nil
 	}
 	return syncHintState{}, err
 }
@@ -120,4 +146,34 @@ func syncHintRoundAge(age time.Duration) time.Duration {
 		return age.Round(time.Second)
 	}
 	return age.Round(time.Minute)
+}
+
+
+// syncHintHasStoredRows answers whether anything landed in the store for this
+// scope even though no watermark advanced. It separates "nothing has been
+// synced" from "a truncated run stored partial data", which need different
+// advice: the first wants any sync, the second wants a sync that completes a
+// pass. Errors resolve to false so a hint can never turn into a failure.
+// syncHintHasZeroWatermarkRows answers whether this scope holds rows that were
+// stored without a completed pass. It matches the zero sentinel specifically,
+// not merely the absence of a watermark: a NULL last_synced_at means the state
+// is unknown and keeps its existing "not synced yet" meaning, while the zero is
+// written deliberately by SaveSyncProgress when a run stored rows but could not
+// prove it saw the whole result set. Only the second is partial data. Errors
+// resolve to false so a hint can never turn into a failure.
+func syncHintHasZeroWatermarkRows(db *store.Store, resourceType string) bool {
+	if db == nil {
+		return false
+	}
+	query := `SELECT COUNT(*) FROM sync_state WHERE last_synced_at = '0001-01-01T00:00:00Z' AND total_count > 0`
+	args := []any{}
+	if strings.TrimSpace(resourceType) != "" {
+		query += ` AND resource_type = ?`
+		args = append(args, resourceType)
+	}
+	var n int64
+	if err := db.DB().QueryRow(query, args...).Scan(&n); err != nil {
+		return false
+	}
+	return n > 0
 }
