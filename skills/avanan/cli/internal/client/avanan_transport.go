@@ -88,10 +88,67 @@ func (t *AvananTransport) credentialsConfigured() bool {
 	return t.cfg != nil && t.cfg.AvananAppId != "" && t.cfg.ClientSecret != ""
 }
 
+// configuredHost returns the host of the configured base URL - the only host
+// this transport will authenticate to.
+func (t *AvananTransport) configuredHost() (string, error) {
+	if t.cfg == nil || strings.TrimSpace(t.cfg.BaseURL) == "" {
+		return "", errors.New("avanan: no base URL configured, so the host a credential would be sent to cannot be verified; set AVANAN_BASE_URL or pass --base-url")
+	}
+	u, err := url.Parse(strings.TrimSpace(t.cfg.BaseURL))
+	if err != nil || u.Host == "" {
+		return "", fmt.Errorf("avanan: configured base URL %q is not a usable absolute URL", t.cfg.BaseURL)
+	}
+	return strings.ToLower(u.Host), nil
+}
+
+// authorizeHost refuses any request bound for a host other than the configured
+// one.
+//
+// This exists because RoundTrip runs once per redirect hop, after
+// CheckRedirect. CheckRedirect deletes x-av-token on a cross-host hop (Go
+// strips standard auth headers but not custom ones), and without this gate the
+// transport re-signed and re-stamped the very next hop, undoing that defense
+// one instruction later. The Infinity branch made it worse than a token leak:
+// the handshake endpoint was derived from the redirect target, so a 302 to an
+// attacker-controlled host got the raw client secret POSTed to it.
+//
+// Refusing outright, rather than proceeding unauthenticated, is deliberate.
+// Avanan serves the legacy *.avanan.net farms and the Infinity Portal as
+// separate endpoints; migrating between them is a support-ticket operation, not
+// a redirect, and no cross-host 3xx appears anywhere in the vendor reference or
+// in the two shipping clients this connector was cross-checked against. So a
+// cross-host hop here is an open redirect or a misconfiguration, and the
+// operator is better served by a named host and a next step than by an
+// unauthenticated retry surfacing as an unexplained 401 from a stranger's
+// server. If Avanan ever does introduce a legitimate cross-host redirect, this
+// fails loudly with the target host in hand rather than silently handing that
+// host a credential.
+func (t *AvananTransport) authorizeHost(u *url.URL) error {
+	want, err := t.configuredHost()
+	if err != nil {
+		return err
+	}
+	got := strings.ToLower(u.Host)
+	if got == want {
+		return nil
+	}
+	return fmt.Errorf(
+		"avanan: refusing to send credentials to %s; this client is configured for %s\n"+
+			"a cross-host redirect is not part of the Avanan API - treat this as an open redirect or a misconfigured base URL\n"+
+			"if the tenant genuinely moved, point the CLI at the new host with --base-url or AVANAN_BASE_URL",
+		got, want)
+}
+
 // RoundTrip signs and dispatches a single request.
 func (t *AvananTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// A RoundTripper must not mutate the request it is handed.
 	r := req.Clone(req.Context())
+
+	// Gate before anything reads the host: the scheme decision, the handshake
+	// endpoint and the signature are all derived from it.
+	if err := t.authorizeHost(r.URL); err != nil {
+		return nil, err
+	}
 
 	infinity := avanansig.IsInfinityHost(r.URL.Host)
 	if infinity {
@@ -244,8 +301,17 @@ func (t *AvananTransport) invalidate(stale string) {
 }
 
 // mint performs the auth handshake appropriate to the host.
+//
+// The handshake endpoint is built from the configured base URL rather than from
+// r.URL. RoundTrip already refuses off-host requests, so the two agree - but a
+// credential-bearing endpoint should not be derived from a URL that request
+// handling can redirect. Defence in depth for the leg that carries the secret.
 func (t *AvananTransport) mint(r *http.Request, infinity bool) (string, time.Time, error) {
-	baseURL := &url.URL{Scheme: r.URL.Scheme, Host: r.URL.Host}
+	cfgURL, err := url.Parse(strings.TrimSpace(t.cfg.BaseURL))
+	if err != nil || cfgURL.Host == "" {
+		return "", time.Time{}, fmt.Errorf("avanan: configured base URL %q is not a usable absolute URL", t.cfg.BaseURL)
+	}
+	baseURL := &url.URL{Scheme: cfgURL.Scheme, Host: cfgURL.Host}
 	httpClient := &http.Client{Transport: t.base, Timeout: 30 * time.Second}
 	if infinity {
 		return t.mintInfinity(r, httpClient, baseURL)

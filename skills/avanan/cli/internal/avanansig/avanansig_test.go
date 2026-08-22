@@ -238,3 +238,45 @@ func TestLegacyAndInfinityRegionCodesDoNotOverlap(t *testing.T) {
 		}
 	}
 }
+
+// TestIsInfinityHostRejectsLookalikeHosts covers the classification leg of the
+// credential-disclosure path. IsInfinityHost decides which handshake runs, and
+// the Infinity handshake POSTs the raw client secret as {"accessKey": ...}. A
+// substring test for "cloudinfra" hands that to any host that merely contains
+// the word, so these are the cases that must come back false.
+func TestIsInfinityHostRejectsLookalikeHosts(t *testing.T) {
+	tests := []struct {
+		host string
+		want bool
+	}{
+		// Real gateways, including the regional forms.
+		{"cloudinfra-gw.portal.checkpoint.com", true},
+		{"cloudinfra-gw-us.portal.checkpoint.com", true},
+		{"cloudinfra-gw.ap.portal.checkpoint.com", true},
+		{"CLOUDINFRA-GW.PORTAL.CHECKPOINT.COM", true},
+		{"cloudinfra-gw.portal.checkpoint.com:443", true},
+		{"cloudinfra-gw.portal.checkpoint.com.", true},
+
+		// The disclosure cases. Every one of these was true under the
+		// substring test.
+		{"cloudinfra.attacker.example", false},
+		{"cloudinfra-gw.portal.checkpoint.com.attacker.example", false},
+		{"attacker-cloudinfra.example", false},
+		{"cloudinfra.portal.checkpoint.com.evil.test", false},
+
+		// Domain-suffix confusion: ends with the right string but is a
+		// different domain.
+		{"evil-portal.checkpoint.com", false},
+		{"notportal.checkpoint.com", false},
+
+		// Legacy hosts must stay legacy, or they get the bearer exchange.
+		{"smart-api-production-1-us.avanan.net", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		if got := IsInfinityHost(tt.host); got != tt.want {
+			t.Errorf("IsInfinityHost(%q) = %v, want %v", tt.host, got, tt.want)
+		}
+	}
+}

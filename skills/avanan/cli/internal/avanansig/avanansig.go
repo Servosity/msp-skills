@@ -29,6 +29,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -89,15 +90,34 @@ func RequestString(u *url.URL) string {
 	return s
 }
 
+// infinityHostSuffix is the only domain that serves the Infinity Portal API.
+const infinityHostSuffix = ".portal.checkpoint.com"
+
 // IsInfinityHost reports whether host uses Infinity Portal bearer auth rather
 // than the legacy signed handshake.
 //
-// Check Point fronts the Infinity Portal at cloudinfra-gw*.portal.checkpoint.com;
-// the XSOAR client makes the same determination by testing for "cloudinfra" in
-// the base URL.
+// Check Point fronts the Infinity Portal at cloudinfra-gw*.portal.checkpoint.com.
+// The XSOAR client decides this with `"cloudinfra" in base_url`, and we followed
+// it - but XSOAR evaluates that once, against a base URL an operator
+// configured. A substring test is only safe under that assumption. Applied to a
+// host we did not choose - a redirect target - it hands
+// "cloudinfra.attacker.example" the Infinity classification, and the Infinity
+// handshake POSTs the raw client secret as {"accessKey": ...}. So the match is
+// anchored: the host must sit under .portal.checkpoint.com AND its leftmost
+// label must start with cloudinfra. The transport gates on the configured host
+// too; this is the second of two locks, not the only one.
 func IsInfinityHost(host string) bool {
-	h := strings.ToLower(host)
-	return strings.Contains(h, "cloudinfra")
+	h := strings.ToLower(strings.TrimSpace(host))
+	if hostOnly, _, err := net.SplitHostPort(h); err == nil {
+		h = hostOnly
+	}
+	// A trailing dot is a legal absolute form of the same name.
+	h = strings.TrimSuffix(h, ".")
+	if !strings.HasSuffix(h, infinityHostSuffix) {
+		return false
+	}
+	label := h[:strings.Index(h, ".")]
+	return strings.HasPrefix(label, "cloudinfra")
 }
 
 // InfinityPathPrefix is prepended to the version segment on Infinity Portal

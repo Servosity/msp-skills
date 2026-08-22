@@ -3,6 +3,7 @@
 package client
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -288,3 +289,130 @@ func TestIsHandshakePath(t *testing.T) {
 }
 
 func timeFarFuture() time.Time { return time.Now().Add(time.Hour) }
+
+// TestCrossHostRedirectNeverReceivesCredentials is the regression guard for the
+// disclosure the host gate exists to stop.
+//
+// The "attacker" server stands in for a redirect target the caller did not
+// choose; the origin server 302s to it. Nothing that identifies or
+// authenticates the caller may arrive there - no signature, no token, no app
+// id, no secret. Before the gate, this test saw x-av-sig, x-av-token,
+// x-av-app-id and x-av-date all delivered to the target.
+//
+// httptest serves on 127.0.0.1, which even the old substring test would not
+// have read as an Infinity host, so this case never reached the handshake that
+// POSTs the raw secret. That leg is covered where the classification itself is
+// decided: TestIsInfinityHostRejectsLookalikeHosts in internal/avanansig.
+func TestCrossHostRedirectNeverReceivesCredentials(t *testing.T) {
+	var leaked []*http.Request
+	var leakedBodies []string
+	attacker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		leaked = append(leaked, r.Clone(r.Context()))
+		body, _ := io.ReadAll(io.LimitReader(r.Body, 1<<16))
+		leakedBodies = append(leakedBodies, string(body))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"token":"attacker-token","expiresIn":3600}}`))
+	}))
+	defer attacker.Close()
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1.0/auth" {
+			_, _ = w.Write([]byte("jwt-token-value"))
+			return
+		}
+		http.Redirect(w, r, attacker.URL+"/v1.0/scopes", http.StatusFound)
+	}))
+	defer origin.Close()
+
+	tr, _ := newTestTransport(t, http.DefaultTransport, origin.URL)
+	httpClient := &http.Client{Transport: tr}
+	resp, err := httpClient.Get(origin.URL + "/v1.0/scopes")
+	if err == nil {
+		defer resp.Body.Close()
+	}
+
+	// The hop must be refused. A nil error here would mean the redirect was
+	// followed and the assertions below are the only thing standing between the
+	// secret and the wire.
+	if err == nil {
+		t.Error("cross-host redirect was followed; want it refused")
+	} else if !strings.Contains(err.Error(), "refusing to send credentials") {
+		t.Errorf("error = %v, want it to name the refusal", err)
+	}
+
+	for i, r := range leaked {
+		for _, h := range []string{"x-av-sig", "x-av-token", "x-av-app-id", "x-av-date", "Authorization", "cloudinfra-external-client-id"} {
+			if v := r.Header.Get(h); v != "" {
+				t.Errorf("redirect target received %s = %q", h, v)
+			}
+		}
+		if body := leakedBodies[i]; strings.Contains(body, "test_secret") {
+			t.Errorf("redirect target received the client secret in a request body: %s", body)
+		}
+	}
+}
+
+// TestOffHostRequestIsRefusedBeforeAnyHandshake guards the ordering. The gate
+// has to run before the scheme decision and before mint, or the handshake fires
+// at the wrong host even when the eventual data request is refused.
+func TestOffHostRequestIsRefusedBeforeAnyHandshake(t *testing.T) {
+	var hits int32
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&hits, 1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer other.Close()
+
+	tr, _ := newTestTransport(t, http.DefaultTransport, "https://smart-api-production-1-us.avanan.net")
+	resp, err := (&http.Client{Transport: tr}).Get(other.URL + "/v1.0/scopes")
+	if err == nil {
+		resp.Body.Close()
+		t.Fatal("off-host request succeeded; want refusal")
+	}
+	if n := atomic.LoadInt32(&hits); n != 0 {
+		t.Errorf("off-host server received %d request(s); want 0 - the gate ran too late", n)
+	}
+}
+
+// TestConfiguredHostRequiresABaseURL keeps the gate fail-closed. With no base
+// URL there is no host to compare against, and guessing would defeat the gate.
+func TestConfiguredHostRequiresABaseURL(t *testing.T) {
+	tr := &AvananTransport{base: http.DefaultTransport, cfg: &config.Config{}}
+	if _, err := tr.configuredHost(); err == nil {
+		t.Error("configuredHost() with an empty base URL returned no error; want fail-closed")
+	}
+}
+
+// TestSameHostRedirectStillAuthenticates makes sure the gate did not break the
+// legitimate case: a redirect that stays on the configured host must still be
+// signed, or every 301 inside the API turns into a hard failure.
+func TestSameHostRedirectStillAuthenticates(t *testing.T) {
+	var final *http.Request
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1.0/auth":
+			_, _ = w.Write([]byte("jwt-token-value"))
+		case "/v1.0/old":
+			http.Redirect(w, r, "/v1.0/new", http.StatusFound)
+		default:
+			final = r.Clone(r.Context())
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"responseData":[]}`))
+		}
+	}))
+	defer srv.Close()
+
+	tr, _ := newTestTransport(t, http.DefaultTransport, srv.URL)
+	resp, err := (&http.Client{Transport: tr}).Get(srv.URL + "/v1.0/old")
+	if err != nil {
+		t.Fatalf("same-host redirect was refused: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if final == nil {
+		t.Fatal("redirect target never reached")
+	}
+	if final.Header.Get("x-av-sig") == "" {
+		t.Error("same-host redirect target got no signature; the gate is too strict")
+	}
+}
