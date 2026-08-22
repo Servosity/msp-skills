@@ -320,7 +320,7 @@ Do NOT use this command to query the API directly; use 'event query' or
 		},
 	}
 
-	cmd.Flags().StringVar(&since, "since", "", "How far back to mirror: 24h, 7d, 4w (default 7d)")
+	cmd.Flags().StringVar(&since, "since", "", "How far back to mirror, by Avanan ingest time rather than message date: 24h, 7d, 4w (default 7d)")
 	cmd.Flags().StringSliceVar(&scopes, "scope", nil, "Limit to specific {farm}:{tenant} scopes (repeatable; default all reachable scopes)")
 	cmd.Flags().StringVar(&resources, "resources", "", "Comma-separated subset to mirror: events, entities, exceptions (default all)")
 	cmd.Flags().IntVar(&maxPages, "max-pages", 0, "Maximum scrollId pages per resource (0 = unlimited)")

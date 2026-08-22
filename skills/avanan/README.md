@@ -140,6 +140,14 @@ avanan-cli doctor
 
 Two properties of Avanan credentials are worth knowing up front:
 
+- **`--since` filters on Avanan's ingest time, not the message date.** The API's
+  `startDate`/`endDate` match `entityCreated` - when Avanan scanned the message -
+  which normally tracks the received header within seconds but can lag it by
+  well over an hour. A window can therefore miss mail that arrived inside it and
+  was scanned after it. Widen the window rather than assuming message age.
+- **Actions need the SaaS entity type, not a generic one.** Quarantine and
+  restore take `office365_emails_email` or `google_mail_email`; `remediate`
+  resolves this from the entity itself, and `--entity-type` overrides it.
 - **Regions are hard-isolated.** Credentials are issued per region and cross-region reads are refused by design, so a USA key returning nothing for an EU tenant is not a broken key. Valid regions: `us`, `eu`, `ca`, `ap`, `uk`, `uae`, `in`, plus `infinity` and `infinity-us` for the Infinity Portal gateways. On any other Infinity Portal gateway there is no region code - point the CLI at it with `--base-url` or `AVANAN_BASE_URL`.
 - **One application credential can reach many tenants.** Run `avanan-cli scopes` to see exactly which `{farm}:{tenant}` scopes yours covers. That is also your best control - a credential bound to one tenant puts the whole fleet out of reach. See [governance.md](./governance.md).
 
