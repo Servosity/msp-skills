@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -52,6 +53,7 @@ type remediateOutcome struct {
 type remediateReport struct {
 	Action     string             `json:"action"`
 	TargetKind string             `json:"target_kind"`
+	EntityType string             `json:"entity_type,omitempty"`
 	Scope      string             `json:"scope,omitempty"`
 	TaskID     string             `json:"task_id,omitempty"`
 	Waited     bool               `json:"waited"`
@@ -62,12 +64,13 @@ type remediateReport struct {
 
 func newNovelRemediateCmd(flags *rootFlags) *cobra.Command {
 	var (
-		entities []string
-		events   []string
-		scope    string
-		wait     bool
-		timeout  string
-		reason   string
+		entities   []string
+		events     []string
+		scope      string
+		entityType string
+		wait       bool
+		timeout    string
+		reason     string
 	)
 
 	cmd := &cobra.Command{
@@ -180,7 +183,12 @@ then 'task <task_id>'.
 				delete(requestData, "entityIds")
 				requestData["eventIds"] = targets
 			} else {
-				requestData["entityType"] = "email"
+				resolved, err := resolveEntityType(ctx, c, entityType, targets, resolvedScope, defaultDBPath("avanan-cli"))
+				if err != nil {
+					return err
+				}
+				report.EntityType = resolved
+				requestData["entityType"] = resolved
 			}
 			if action == "quarantine" {
 				requestData["entityActionName"] = "quarantine"
@@ -209,7 +217,17 @@ then 'task <task_id>'.
 			}
 
 			if report.TaskID == "" {
-				report.Note = "the API accepted the action but returned no task ID, so the outcome cannot be polled"
+				// Not a gap in the response: Google Mail applies these
+				// actions synchronously and returns taskId null, where
+				// Office 365 returns a real task. Verified on both platforms
+				// 2026-08-22. The action was accepted either way, so this
+				// reads as completed rather than as an outcome we failed to
+				// obtain.
+				report.Completed = true
+				for i := range report.Outcomes {
+					report.Outcomes[i].Status = "applied"
+				}
+				report.Note = "the API applied this action synchronously and returned no task ID; confirm with the entity's own state if needed"
 			} else if wait {
 				// Poll on a context derived from the ORIGINAL command context,
 				// not the --timeout-bounded one. --timeout bounds a single
@@ -218,7 +236,7 @@ then 'task <task_id>'.
 				// 2m wait short at the 60s default and then report a duration
 				// that never elapsed.
 				pollCtx, pollCancel := context.WithTimeout(cmd.Context(), waitFor)
-				status, detail, completed := pollTask(pollCtx, c, report.TaskID, waitFor)
+				status, detail, completed := pollTask(pollCtx, c, report.TaskID, resolvedScope, waitFor)
 				pollCancel()
 				report.Completed = completed
 				for i := range report.Outcomes {
@@ -226,9 +244,17 @@ then 'task <task_id>'.
 					report.Outcomes[i].Detail = detail
 				}
 				if !completed {
+					// A task that has not gone terminal does NOT mean the mail
+					// has not moved. Office 365 tasks were observed still
+					// reading inprogress/init after the entity already
+					// reported quarantined - the entity's state is the ground
+					// truth, the task trails it. Say so, rather than implying
+					// the action failed.
 					report.Note = fmt.Sprintf(
-						"task %s had not reached a terminal state after %s; re-check with 'avanan-cli task %s'",
-						report.TaskID, waitFor, report.TaskID)
+						"task %s had not reached a terminal state after %s. The action may already have been applied: "+
+							"the task lags the entity, so check the entity's isQuarantined/isRestored state before resubmitting. "+
+							"Re-check the task with 'avanan-cli task %s --scope %s'",
+						report.TaskID, waitFor, report.TaskID, resolvedScope)
 				}
 			} else {
 				report.Note = fmt.Sprintf("submitted as task %s; pass --wait to poll for the outcome", report.TaskID)
@@ -270,6 +296,7 @@ then 'task <task_id>'.
 	cmd.Flags().BoolVar(&wait, "wait", false, "Poll the resulting task until it reaches a terminal state")
 	cmd.Flags().StringVar(&timeout, "wait-timeout", "", "How long to poll when --wait is set (default 2m)")
 	cmd.Flags().StringVar(&reason, "reason", "", "Decline reason, when restoring a denied restore request")
+	cmd.Flags().StringVar(&entityType, "entity-type", "", "SaaS entity type to act on, e.g. office365_emails_email (default: resolved from the local mirror)")
 	return cmd
 }
 
@@ -369,19 +396,41 @@ var terminalTaskStates = map[string]bool{
 
 // pollTask waits for a task to reach a terminal state, backing off between
 // checks so a slow remediation does not hammer a rate-limited API.
+// pollTask walks a task to a terminal state.
+//
+// scope must be threaded through: the task endpoint takes it as a QUERY-STRING
+// parameter, which is a third transport again - the action endpoint wants it in
+// requestData.scope and the search endpoint wants requestData.scopes as an
+// array. Without it a multi-scope credential gets HTTP 400 on every poll, and
+// because a failed poll used to be swallowed silently, --wait spun to its
+// timeout and reported "not terminal" for an action that had already succeeded.
+// Verified live on 2026-08-22.
 func pollTask(ctx context.Context, c interface {
 	Get(ctx context.Context, path string, params map[string]string) (json.RawMessage, error)
-}, taskID string, within time.Duration) (status, detail string, completed bool) {
+}, taskID, scope string, within time.Duration) (status, detail string, completed bool) {
 	deadline := time.Now().Add(within)
 	backoff := 2 * time.Second
 	status = "pending"
 
+	params := map[string]string{}
+	if strings.TrimSpace(scope) != "" {
+		params["scope"] = scope
+	}
+
+	var lastErr error
 	for time.Now().Before(deadline) {
 		if ctx.Err() != nil {
 			return status, "polling canceled", false
 		}
-		raw, err := c.Get(ctx, "/v1.0/task/"+taskID, nil)
+		raw, err := c.Get(ctx, "/v1.0/task/"+taskID, params)
+		if err != nil {
+			// Report the reason rather than letting the caller conclude the
+			// task simply never finished. A poll that cannot even be made is
+			// a different failure from a task still running.
+			lastErr = err
+		}
 		if err == nil {
+			lastErr = nil
 			if env, derr := avananmirror.Decode(raw); derr == nil {
 				if records, rerr := env.Records(); rerr == nil {
 					for _, r := range records {
@@ -409,6 +458,13 @@ func pollTask(ctx context.Context, c interface {
 		if backoff < 15*time.Second {
 			backoff *= 2
 		}
+	}
+
+	// Distinguish "the task is still running" from "we were never able to ask".
+	// The second used to be indistinguishable from the first, which is how a
+	// missing scope parameter masqueraded as a slow action.
+	if lastErr != nil {
+		return status, fmt.Sprintf("could not read task status: %v", lastErr), false
 	}
 	return status, detail, false
 }
@@ -506,4 +562,138 @@ func writeRemediateDryRun(cmd *cobra.Command, flags *rootFlags, args, entities, 
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), "no changes made")
 	return nil
+}
+
+// resolveEntityType determines the saasEntityType the action endpoint expects.
+//
+// The API does not accept a generic "email": it looks the value up per SaaS and
+// a miss throws server-side, surfacing as HTTP 500 internal_error[KeyError]
+// rather than anything that names the real problem. The correct values are
+// per-platform - office365_emails_email, google_mail_email - and they are a
+// property of the entity, not of the request, so hardcoding one was always
+// going to be wrong for somebody. Confirmed live against both platforms on
+// 2026-08-22.
+//
+// Resolution order:
+//
+//  1. An explicit --entity-type always wins, for an operator who knows the
+//     value or is acting on something this CLI cannot look up.
+//  2. GET /v1.0/search/entity/{id}, which returns the entity's own
+//     entityInfo.saasEntityType. Authoritative and needs no local state.
+//  3. The local mirror, so a --data-source local workflow still resolves.
+//
+// Every target must resolve and all must agree: the endpoint takes one
+// entityType per call, so a mixed batch is a user error worth naming rather
+// than a half-applied action. Failing closed with instructions beats guessing
+// "email" and handing the operator a 500.
+func resolveEntityType(ctx context.Context, c interface {
+	Get(ctx context.Context, path string, params map[string]string) (json.RawMessage, error)
+}, override string, targets []string, scope, dbPath string) (string, error) {
+	if t := strings.TrimSpace(override); t != "" {
+		return t, nil
+	}
+
+	found := map[string][]string{}
+	var unresolved []string
+
+	var db *store.Store
+	if s, err := store.Open(dbPath); err == nil {
+		db = s
+		defer db.Close()
+	}
+
+	for _, id := range targets {
+		if t := entityTypeFromAPI(ctx, c, id, scope); t != "" {
+			found[t] = append(found[t], id)
+			continue
+		}
+		if db != nil {
+			if t := entityTypeFromStore(db, id); t != "" {
+				found[t] = append(found[t], id)
+				continue
+			}
+		}
+		unresolved = append(unresolved, id)
+	}
+
+	if len(unresolved) > 0 {
+		return "", fmt.Errorf(
+			"resolving entity type: could not determine the SaaS entity type for %d of %d target(s) (%s)\n"+
+				"pass --entity-type explicitly (e.g. office365_emails_email or google_mail_email)",
+			len(unresolved), len(targets), strings.Join(truncateIDs(unresolved, 3), ", "))
+	}
+	if len(found) > 1 {
+		types := make([]string, 0, len(found))
+		for t := range found {
+			types = append(types, t)
+		}
+		sort.Strings(types)
+		return "", fmt.Errorf(
+			"resolving entity type: targets span %d entity types (%s)\n"+
+				"the action endpoint takes one type per call; split the batch or pass --entity-type",
+			len(found), strings.Join(types, ", "))
+	}
+	for t := range found {
+		return t, nil
+	}
+	return "", fmt.Errorf("resolving entity type: no targets to resolve")
+}
+
+// entityTypeFromAPI reads saasEntityType off the live entity record. Returns
+// empty on any failure so the caller can fall back rather than abort.
+func entityTypeFromAPI(ctx context.Context, c interface {
+	Get(ctx context.Context, path string, params map[string]string) (json.RawMessage, error)
+}, id, scope string) string {
+	params := map[string]string{}
+	if strings.TrimSpace(scope) != "" {
+		params["scopes"] = scope
+	}
+	raw, err := c.Get(ctx, "/v1.0/search/entity/"+id, params)
+	if err != nil {
+		return ""
+	}
+	env, err := avananmirror.Decode(raw)
+	if err != nil {
+		return ""
+	}
+	records, err := env.Records()
+	if err != nil {
+		return ""
+	}
+	for _, rec := range records {
+		if t := saasEntityTypeOf(rec); t != "" {
+			return t
+		}
+	}
+	return ""
+}
+
+// entityTypeFromStore reads the same field out of the local mirror.
+func entityTypeFromStore(db *store.Store, id string) string {
+	raw, err := db.Get("avanan_entities", id)
+	if err != nil || len(raw) == 0 {
+		return ""
+	}
+	return saasEntityTypeOf(raw)
+}
+
+func saasEntityTypeOf(raw json.RawMessage) string {
+	var rec struct {
+		EntityInfo struct {
+			SaasEntityType string `json:"saasEntityType"`
+		} `json:"entityInfo"`
+	}
+	if err := json.Unmarshal(raw, &rec); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(rec.EntityInfo.SaasEntityType)
+}
+
+// truncateIDs keeps an error message readable when a batch is large.
+func truncateIDs(ids []string, n int) []string {
+	if len(ids) <= n {
+		return ids
+	}
+	out := append([]string{}, ids[:n]...)
+	return append(out, fmt.Sprintf("and %d more", len(ids)-n))
 }
