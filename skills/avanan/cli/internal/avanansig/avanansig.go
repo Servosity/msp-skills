@@ -145,8 +145,35 @@ func RegionBaseURL(region string) (string, bool) {
 	return "https://" + host, true
 }
 
-// Regions returns the recognized canonical region codes, for help text and
-// error messages.
+// Regions returns the recognized canonical legacy region codes, for help text
+// and error messages.
 func Regions() []string {
 	return []string{"us", "eu", "ca", "ap", "uk", "uae", "in"}
+}
+
+// infinityHosts maps a short code to an Infinity Portal gateway host.
+//
+// Only gateways this project has actually reached are listed. Check Point
+// fronts further regional gateways, but their host names are not published in
+// a form we can verify, and a wrong host here fails identically to a wrong
+// credential — so tenants on any other gateway point the CLI at it directly
+// with --base-url or AVANAN_BASE_URL rather than through a guessed code.
+var infinityHosts = map[string]string{
+	"infinity":    "cloudinfra-gw.portal.checkpoint.com",
+	"infinity-us": "cloudinfra-gw-us.portal.checkpoint.com",
+}
+
+// InfinityRegionBaseURL returns the API base URL for an Infinity Portal region
+// code, and reports whether the code was recognized.
+func InfinityRegionBaseURL(region string) (string, bool) {
+	host, ok := infinityHosts[strings.ToLower(strings.TrimSpace(region))]
+	if !ok {
+		return "", false
+	}
+	return "https://" + host, true
+}
+
+// InfinityRegions returns the recognized Infinity Portal region codes.
+func InfinityRegions() []string {
+	return []string{"infinity", "infinity-us"}
 }

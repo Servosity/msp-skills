@@ -140,7 +140,7 @@ avanan-cli doctor
 
 Two properties of Avanan credentials are worth knowing up front:
 
-- **Regions are hard-isolated.** Credentials are issued per region and cross-region reads are refused by design, so a USA key returning nothing for an EU tenant is not a broken key. Valid regions: `us`, `eu`, `ca`, `ap`, `uk`, `uae`, `in`.
+- **Regions are hard-isolated.** Credentials are issued per region and cross-region reads are refused by design, so a USA key returning nothing for an EU tenant is not a broken key. Valid regions: `us`, `eu`, `ca`, `ap`, `uk`, `uae`, `in`, plus `infinity` and `infinity-us` for the Infinity Portal gateways. On any other Infinity Portal gateway there is no region code - point the CLI at it with `--base-url` or `AVANAN_BASE_URL`.
 - **One application credential can reach many tenants.** Run `avanan-cli scopes` to see exactly which `{farm}:{tenant}` scopes yours covers. That is also your best control - a credential bound to one tenant puts the whole fleet out of reach. See [governance.md](./governance.md).
 
 ### Sync before you ask
@@ -217,7 +217,7 @@ Both. The `msp` commands and the fleet rollup need an application credential bou
 
 ### Why does my Avanan credential fail against a different region?
 
-Avanan regions are hard-isolated and credentials are issued per region, so a USA key cannot read EU data by design. Set the region once with `avanan-cli auth login --region <us|eu|ca|ap|uk|uae|in> --save`. `avanan-cli doctor` prints the host it resolved.
+Avanan regions are hard-isolated and credentials are issued per region, so a USA key cannot read EU data by design. Set the region once with `avanan-cli auth login --region <us|eu|ca|ap|uk|uae|in|infinity|infinity-us> --save`. An Infinity Portal tenant on any other gateway has no region code and sets `avanan-cli auth login --base-url https://<your-infinity-gateway> --save` instead. `avanan-cli doctor` prints the host it resolved.
 
 ### Why do quarantine and restore ask for a scope?
 

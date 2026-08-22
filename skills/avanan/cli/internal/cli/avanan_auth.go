@@ -15,6 +15,7 @@ package cli
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -51,10 +52,11 @@ type avananLoginResult struct {
 
 func newAvananAuthLoginCmd(flags *rootFlags) *cobra.Command {
 	var (
-		appID  string
-		secret string
-		region string
-		save   bool
+		appID   string
+		secret  string
+		region  string
+		baseURL string
+		save    bool
 	)
 
 	cmd := &cobra.Command{
@@ -73,12 +75,19 @@ Credentials are region-scoped. A key issued for one region cannot read another
 region's data, so --region must match the region the credentials were issued
 for.
 
+--region covers the legacy *.avanan.net regions plus the two Infinity Portal
+gateways this CLI has confirmed ('infinity' and 'infinity-us'). A tenant on any
+other Infinity gateway sets its URL directly with --base-url or
+AVANAN_BASE_URL; there is no region code for it.
+
 Use this command to verify credentials or pre-warm a token. Do NOT use it to
 inspect existing auth state; use 'auth status' instead.
 `, "\n"),
 		Example: strings.Trim(`
   avanan-cli auth login
   avanan-cli auth login --region eu
+  avanan-cli auth login --region infinity-us
+  avanan-cli auth login --base-url https://<your-infinity-gateway>
   avanan-cli auth login --app-id US:myapp29 --save
 `, "\n"),
 		Annotations: map[string]string{
@@ -103,14 +112,33 @@ inspect existing auth state; use 'auth status' instead.
 				return configErr(err)
 			}
 
+			if region != "" && baseURL != "" {
+				_ = cmd.Usage()
+				return usageErr(fmt.Errorf("--region and --base-url both set; pass one"))
+			}
 			if region != "" {
 				base, ok := avanansig.RegionBaseURL(region)
 				if !ok {
+					base, ok = avanansig.InfinityRegionBaseURL(region)
+				}
+				if !ok {
 					_ = cmd.Usage()
-					return usageErr(fmt.Errorf("unknown region %q; valid regions are %s",
-						region, strings.Join(avanansig.Regions(), ", ")))
+					return usageErr(fmt.Errorf(
+						"unknown region %q\nlegacy regions: %s\nInfinity Portal: %s\n"+
+							"a tenant on any other Infinity Portal gateway sets its URL with --base-url or AVANAN_BASE_URL",
+						region,
+						strings.Join(avanansig.Regions(), ", "),
+						strings.Join(avanansig.InfinityRegions(), ", ")))
 				}
 				cfg.BaseURL = base
+			}
+			if baseURL != "" {
+				parsed, err := url.Parse(baseURL)
+				if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+					_ = cmd.Usage()
+					return usageErr(fmt.Errorf("--base-url %q is not an absolute URL (want e.g. https://cloudinfra-gw.portal.checkpoint.com)", baseURL))
+				}
+				cfg.BaseURL = strings.TrimRight(baseURL, "/")
 			}
 			if appID != "" {
 				cfg.AvananAppId = appID
@@ -179,7 +207,9 @@ inspect existing auth state; use 'auth status' instead.
 
 	cmd.Flags().StringVar(&appID, "app-id", "", "Avanan application ID (defaults to AVANAN_APP_ID)")
 	cmd.Flags().StringVar(&secret, "secret", "", "Avanan client secret (defaults to AVANAN_CLIENT_SECRET)")
-	cmd.Flags().StringVar(&region, "region", "", "Region to authenticate against: "+strings.Join(avanansig.Regions(), ", "))
+	cmd.Flags().StringVar(&region, "region", "", "Region to authenticate against: "+
+		strings.Join(append(avanansig.Regions(), avanansig.InfinityRegions()...), ", "))
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "API base URL to authenticate against, for gateways with no region code (defaults to AVANAN_BASE_URL)")
 	cmd.Flags().BoolVar(&save, "save", false, "Also persist the application ID and secret, not just the session token")
 	return cmd
 }

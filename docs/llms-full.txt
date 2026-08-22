@@ -330,6 +330,47 @@ A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already us
 
 Governance: Auvik's API is read-only in practice and this CLI reflects that: the eight cross-client analysis commands read the local mirror and cannot change anything upstream, and dismissing an alert is the only write the API supports at all. The strongest control is the scope of the API key, which inherits the permissions of the user who created it - mint it as a read-only user for a reporting workflow.
 
+### Avanan (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/avanan/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/avanan/install.sh)
+
+Ask your AI what Avanan caught this morning and get a bucketed digest across every tenant you manage, not a page of raw detections you have to re-query. It reads the whole book of business at once: which sender domains are driving the volume, whether forty detections are one phishing campaign or forty separate problems, exactly what happened to the message a user is disputing, and whether the domain somebody wants allowlisted is already excepted in one of the seven engines nobody remembers to check.
+
+Outcomes (question -> command your AI agent runs):
+- What did Avanan catch across my tenants since the start of my shift? -> avanan-cli triage --since 24h
+- Are these forty detections one phishing campaign or forty problems? -> avanan-cli campaign --since 7d
+- A user says we quarantined a legitimate email. What actually happened to it? -> avanan-cli timeline <entity-id>
+- Is this domain, sender, URL, or hash already excepted anywhere? -> avanan-cli exceptions find example.com
+- Which of our exceptions contradict each other or have never matched real traffic? -> avanan-cli exceptions audit
+- Which tenant is over its seat count or having an unusual detection week? -> avanan-cli msp fleet
+- Quarantine this batch and tell me the real per-message outcome, not just that a task started. -> avanan-cli remediate quarantine --entity <entity-id> --scope <farm:tenant> --wait
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Avanan MCP server via a secure bridge. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Avanan application ID and client secret once.
+Q: Is my Avanan data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the MCP server speaks stdio only so it opens no network listener. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills. Message bodies and raw .eml files are only fetched when you explicitly ask for a named message.
+Q: Will this hit my Avanan API rate limits?
+A: The skill syncs once into a local SQLite mirror, then answers most questions from local data, so repeated questions never touch the API. Avanan publishes no quota numbers but does return HTTP 429, so the client backs off on its own and the offline commands (triage, campaign, timeline, exceptions find, exceptions audit, msp fleet) cost nothing after the sync.
+Q: Do I need an MSP account, or does this work on a single tenant?
+A: Both. The MSP commands and the fleet rollup need an application credential bound to multiple tenants, but triage, campaign, timeline, exception lookup, search, and remediation all work fine against a single-tenant credential.
+Q: Why does my Avanan credential fail against a different region?
+A: Avanan regions are hard-isolated and credentials are issued per region, so a USA key cannot read EU data by design. Set the region once with avanan-cli auth login --region <us|eu|ca|ap|uk|uae|in> --save. avanan-cli doctor prints the host it resolved.
+Q: Why do quarantine and restore ask for a scope?
+A: Avanan's action endpoints accept exactly one scope and reject a multi-tenant credential with a bare HTTP 400 that reads like a bad key. The remediate command turns that into an error naming the scopes your credential actually covers, so a mailbox-affecting write cannot land on a tenant you did not name.
+Q: Does it cover Check Point firewall or endpoint products?
+A: No. This covers Avanan / Harmony Email and Collaboration only: email and SaaS collaboration security. Check Point system and audit logs live on the separate Infinity Portal API and are not part of this one.
+Q: Will this replace the Avanan portal?
+A: No. Security policy rules and engine configuration are portal-only; the API exposes exceptions, not policy. This is for the questions and the batch work the portal makes slow.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: The skill reads your Avanan detections, scanned messages and files, exceptions across all seven security engines, tenants, licenses, and usage, and it can create and delete exceptions, quarantine and restore live mail, report a mis-classification, notify an end user, download the raw .eml for a message, and create, update, or delete MSP tenants, users, and license assignments. Reads and sync are always safe to allow. Exception writes and reclassification should be previewed with --dry-run, then approved. Quarantine and restore reach into a real mailbox and should be human-approved with an explicit scope. Downloading message bodies is a privacy decision, not a lookup. Notifying end users, changing tenants or licenses, and every delete are human-in-the-loop only. The strongest control is the credential itself: Avanan application credentials are region-scoped and tenant-scoped, so a credential bound to one tenant puts the whole fleet out of reach.
+
 ### AWS (Billing)
 
 Page: https://msp-skills.compoundingteams.com/skills/aws-billing/

@@ -188,3 +188,53 @@ func TestRegionsAreAllResolvable(t *testing.T) {
 		}
 	}
 }
+
+func TestInfinityRegionBaseURL(t *testing.T) {
+	tests := []struct {
+		region string
+		want   string
+		wantOK bool
+	}{
+		{region: "infinity", want: "https://cloudinfra-gw.portal.checkpoint.com", wantOK: true},
+		{region: "INFINITY-US", want: "https://cloudinfra-gw-us.portal.checkpoint.com", wantOK: true},
+		{region: " infinity-us ", want: "https://cloudinfra-gw-us.portal.checkpoint.com", wantOK: true},
+		{region: "us", want: "", wantOK: false},
+		{region: "", want: "", wantOK: false},
+	}
+
+	for _, tt := range tests {
+		got, ok := InfinityRegionBaseURL(tt.region)
+		if ok != tt.wantOK || got != tt.want {
+			t.Errorf("InfinityRegionBaseURL(%q) = (%q, %v), want (%q, %v)", tt.region, got, ok, tt.want, tt.wantOK)
+		}
+	}
+}
+
+func TestInfinityRegionsAreAllResolvableAndInfinity(t *testing.T) {
+	for _, r := range InfinityRegions() {
+		base, ok := InfinityRegionBaseURL(r)
+		if !ok {
+			t.Errorf("InfinityRegions() advertises %q but InfinityRegionBaseURL cannot resolve it", r)
+			continue
+		}
+		// A code that resolves to a host the transport does not treat as
+		// Infinity would silently route the bearer exchange through the
+		// signed handshake instead.
+		u, err := url.Parse(base)
+		if err != nil {
+			t.Errorf("InfinityRegionBaseURL(%q) = %q, which does not parse: %v", r, base, err)
+			continue
+		}
+		if !IsInfinityHost(u.Host) {
+			t.Errorf("InfinityRegionBaseURL(%q) = %q, which IsInfinityHost rejects", r, base)
+		}
+	}
+}
+
+func TestLegacyAndInfinityRegionCodesDoNotOverlap(t *testing.T) {
+	for _, r := range Regions() {
+		if _, ok := InfinityRegionBaseURL(r); ok {
+			t.Errorf("region %q resolves as both legacy and Infinity; --region resolution order would decide silently", r)
+		}
+	}
+}

@@ -136,6 +136,35 @@
           "min_count": 1
         }
       ]
+    },
+    {
+      "id": "region-flag-reaches-infinity-portal",
+      "summary": "`auth login --region` resolves the two confirmed Infinity Portal gateways, and `--base-url` reaches any other gateway",
+      "why": "The press emits a single region table built from the eight legacy *.avanan.net farms, so an Infinity Portal tenant has no region code at all and the unknown-region error points them back at --region, which cannot get them there. The only way through was AVANAN_BASE_URL, which nothing in the CLI mentions. The fix adds a separate Infinity table holding only gateways this project has actually reached (a guessed gateway host fails identically to a bad credential), a --base-url flag for every other gateway, and an unknown-region error that names all three routes. A reprint from an unfixed press restores the legacy-only table and drops --base-url.",
+      "status": "active",
+      "spec_encode_followup": "Teach the press that a dual-generation API needs one region table per generation plus an explicit base-URL escape hatch, rather than a single table keyed on the legacy hosts (filed as a retro item against the generator).",
+      "asserts": [
+        {
+          "file": "cli/internal/avanansig/avanansig.go",
+          "contains": "func InfinityRegionBaseURL(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/avanansig/avanansig.go",
+          "contains": "cloudinfra-gw-us.portal.checkpoint.com",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/avanan_auth.go",
+          "contains": "\"base-url\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/avanan_auth.go",
+          "contains": "avanansig.InfinityRegionBaseURL(region)",
+          "min_count": 1
+        }
+      ]
     }
   ]
 }

@@ -22,8 +22,11 @@ All notable changes to this skill are documented here. Format follows
   `*.avanan.net` signed handshake and the Infinity Portal bearer exchange. The
   signed handshake implements the `requestString` term the published docs leave
   out, signing and sending through one code path so a mismatch cannot surface as
-  a 401 that looks like a bad credential. Region selection covers all seven
-  isolated farms.
+  a 401 that looks like a bad credential. `--region` covers all seven isolated
+  legacy farms plus the two confirmed Infinity Portal gateways (`infinity`,
+  `infinity-us`); a tenant on any other Infinity gateway points `auth login` at
+  it with `--base-url` or `AVANAN_BASE_URL`, since guessing an unverified
+  gateway host fails identically to a bad credential.
 - Offline SQLite mirror with `sync`, `mirror`, and full-text `search`, so
   cross-tenant and what-changed questions answer from local data instead of an
   O(tenants) API fan-out against an endpoint that rate-limits and publishes no
