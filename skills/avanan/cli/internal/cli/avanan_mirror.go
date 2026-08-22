@@ -13,11 +13,14 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
 	"avanan-pp-cli/internal/avananmirror"
+	"avanan-pp-cli/internal/client"
 	"avanan-pp-cli/internal/cliutil"
 	"avanan-pp-cli/internal/store"
 
@@ -160,33 +163,67 @@ Do NOT use this command to query the API directly; use 'event query' or
 			// stderr.
 			var throttled error
 
+			// The same reasoning extends past throttling. An expired credential
+			// 401s every call, and every one of those was a warning: the
+			// command exited 0, stamped zero rows as freshly synced, and left
+			// the offline commands answering confidently from an empty mirror.
+			// That is the exact failure this connector exists to prevent, so a
+			// rejected credential and a run where nothing at all landed are
+			// both fatal.
+			//
+			// 401 only. A 403 is routine here — a tenant without a DLP licence
+			// returns it for that engine alone — and treating it as fatal would
+			// lose the other eight exception families to it.
+			var rejected error
+			attempted, failed := 0, 0
+
 			if wanted[avananmirror.ResourceEvents] {
+				attempted++
 				res, err := avananmirror.Events(ctx, c, db, opts)
 				report.Results = append(report.Results, res)
 				if err != nil {
+					failed++
 					report.Warnings = append(report.Warnings, fmt.Sprintf("events: %v", err))
 					if avananmirror.IsRateLimited(err) && throttled == nil {
 						throttled = err
 					}
+					if isCredentialRejection(err) && rejected == nil {
+						rejected = err
+					}
 				}
 			}
 			if wanted[avananmirror.ResourceEntities] {
+				attempted++
 				res, err := avananmirror.Entities(ctx, c, db, opts)
 				report.Results = append(report.Results, res)
 				if err != nil {
+					failed++
 					report.Warnings = append(report.Warnings, fmt.Sprintf("entities: %v", err))
 					if avananmirror.IsRateLimited(err) && throttled == nil {
 						throttled = err
 					}
+					if isCredentialRejection(err) && rejected == nil {
+						rejected = err
+					}
 				}
 			}
 			if wanted[avananmirror.ResourceExceptions] {
+				attempted++
 				res, problems := avananmirror.Exceptions(ctx, c, db, opts)
 				report.Results = append(report.Results, res)
+				// Counted as failed only when nothing came back at all. A
+				// single unlicensed engine reporting a problem while the others
+				// deliver is a healthy run, not a failure.
+				if len(problems) > 0 && res.Fetched == 0 {
+					failed++
+				}
 				for _, p := range problems {
 					report.Warnings = append(report.Warnings, fmt.Sprintf("exceptions: %v", p))
 					if avananmirror.IsRateLimited(p) && throttled == nil {
 						throttled = p
+					}
+					if isCredentialRejection(p) && rejected == nil {
+						rejected = p
 					}
 				}
 			}
@@ -197,13 +234,31 @@ Do NOT use this command to query the API directly; use 'event query' or
 				report.Totals["skipped_no_id"] += r.Skipped
 			}
 
+			// mirrorFailure is the one verdict the exit code and the sync
+			// stamp both read, so a run can never be too broken to report and
+			// still fresh enough to trust.
+			var mirrorFailure error
+			switch {
+			case throttled != nil:
+				mirrorFailure = fmt.Errorf("mirror is incomplete because the API throttled it: %w", throttled)
+			case rejected != nil:
+				mirrorFailure = fmt.Errorf(
+					"mirror stored nothing because the credential was rejected: %w\n"+
+						"run 'avanan-cli auth login' and confirm the region matches where the key was issued", rejected)
+			case attempted > 0 && failed == attempted && report.Totals["stored"] == 0:
+				mirrorFailure = fmt.Errorf(
+					"mirror stored nothing: all %d requested resource(s) failed\n"+
+						"the local store was left untouched rather than stamped as freshly synced; see the warnings above", attempted)
+			}
+
 			// Record sync state per mirrored resource. Without this the
 			// freshness helpers have nothing to read: every offline command
 			// would print "local store has not been synced yet" immediately
 			// after a successful mirror, and --max-age could never fire.
-			// Skipped when throttled, because a partial mirror should not be
-			// stamped as a good one.
-			if throttled == nil {
+			// Skipped on any failure verdict, because a partial or empty
+			// mirror stamped as a good one is what makes the offline commands
+			// lie.
+			if mirrorFailure == nil {
 				for _, r := range report.Results {
 					if err := db.SaveSyncState(r.Resource, "", r.Stored); err != nil {
 						fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not record sync state for %s (%v); freshness hints will be wrong\n", r.Resource, err)
@@ -219,8 +274,8 @@ Do NOT use this command to query the API directly; use 'event query' or
 				if err := printJSONFiltered(cmd.OutOrStdout(), report, flags); err != nil {
 					return err
 				}
-				if throttled != nil {
-					return fmt.Errorf("mirror is incomplete because the API throttled it: %w", throttled)
+				if mirrorFailure != nil {
+					return mirrorFailure
 				}
 				return nil
 			}
@@ -236,8 +291,8 @@ Do NOT use this command to query the API directly; use 'event query' or
 					fmt.Fprintf(cmd.OutOrStdout(), "  (%d records had no usable identifier and were not stored)\n", r.Skipped)
 				}
 			}
-			if throttled != nil {
-				return fmt.Errorf("mirror is incomplete because the API throttled it: %w", throttled)
+			if mirrorFailure != nil {
+				return mirrorFailure
 			}
 			return nil
 		},
@@ -285,4 +340,19 @@ func parseMirrorResources(csv string) (map[string]bool, error) {
 		}
 	}
 	return wanted, nil
+}
+
+// isCredentialRejection reports whether err is the API refusing the credential
+// itself, as opposed to refusing one resource.
+//
+// Only 401. A 403 here means "this credential is real but that engine is not
+// licensed for this tenant", which the exception ingest is deliberately built
+// to tolerate — treating it as fatal would drop the eight families that did
+// answer.
+func isCredentialRejection(err error) bool {
+	var apiErr *client.APIError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	return apiErr.StatusCode == http.StatusUnauthorized
 }

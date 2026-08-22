@@ -3,9 +3,12 @@
 package cli
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
 	"avanan-pp-cli/internal/avananmirror"
+	"avanan-pp-cli/internal/client"
 )
 
 // TestParseMirrorResources guards the flag-vocabulary/store-key split.
@@ -105,5 +108,38 @@ func TestMirrorResourceNamesCoverEveryStoreResource(t *testing.T) {
 		if !found {
 			t.Errorf("store resource %q has no --resources name; users cannot select it", resource)
 		}
+	}
+}
+
+// TestIsCredentialRejection pins the 401/403 split that decides whether a
+// mirror run is fatal.
+//
+// The distinction is not cosmetic. 401 means the credential itself was
+// refused, so every resource is about to return nothing and stamping the store
+// as freshly synced would make every offline command answer from an empty
+// mirror. 403 means this credential is fine but one engine is not licensed for
+// this tenant - the exception ingest is built to tolerate exactly that, and
+// promoting it to fatal would discard the families that did answer.
+func TestIsCredentialRejection(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"401 is the credential being refused", &client.APIError{Method: "GET", Path: "/v1.0/events", StatusCode: 401}, true},
+		{"401 wrapped still counts", fmt.Errorf("events: %w", &client.APIError{StatusCode: 401}), true},
+		{"403 is an unlicensed engine, not a bad credential", &client.APIError{StatusCode: 403}, false},
+		{"429 belongs to the throttle path", &client.APIError{StatusCode: 429}, false},
+		{"500 is the API failing, not the credential", &client.APIError{StatusCode: 500}, false},
+		{"an untyped error is not a rejection", errors.New("connection reset"), false},
+		{"nil is not a rejection", nil, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isCredentialRejection(tt.err); got != tt.want {
+				t.Errorf("isCredentialRejection(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
 	}
 }
