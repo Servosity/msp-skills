@@ -1,5 +1,8 @@
 # ImmyBot CLI
 
+> Unofficial. Community-built Claude Code Skill and MCP server for the ImmyBot
+> API. Not affiliated with, endorsed by, or sponsored by ImmyBot, LLC.
+
 **Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.**
 
 ImmyBot's API is large and entirely per-tenant, so the questions MSPs actually ask span calls the web UI never joins. This CLI types the whole surface, mirrors it into local SQLite with full-text search, and adds commands built on that mirror: session-triage collapses a night of failures into distinct root causes, version-spread ranks one software title across every tenant with a real semver comparator, and assignment-explain shows which deployment rule actually won on a given machine.
@@ -22,13 +25,13 @@ For CLI only (no skill):
 npx -y @mvanhorn/printing-press-library install immybot --cli-only
 ```
 
-For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+For skill only - installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
 npx -y @mvanhorn/printing-press-library install immybot --skill-only
 ```
 
-To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+To constrain the skill install to one or more specific agents (repeatable - agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
 npx -y @mvanhorn/printing-press-library install immybot --agent claude-code
@@ -79,7 +82,7 @@ Restart the OpenClaw session or gateway if the newly installed skill is not visi
 
 ## Use with Claude Desktop
 
-This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle — Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle - Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
 
 To install:
 
@@ -144,28 +147,28 @@ immybot-pp-cli version-spread "Google Chrome" --min-version 140
 These capabilities aren't available in any other tool for this API.
 
 ### Local state that compounds
-- **`session-triage`** — Group last night's failed maintenance actions by root cause instead of reading the same error on forty machines.
+- **`session-triage`** - Group last night's failed maintenance actions by root cause instead of reading the same error on forty machines.
 
   _Reach for this first after any maintenance window: it turns N red machines into the handful of distinct problems actually worth a ticket._
 
   ```bash
   immybot-pp-cli session-triage --since 24h --agent
   ```
-- **`version-spread`** — Semver-ordered distribution of one software title across every tenant, flagging everything below a floor.
+- **`version-spread`** - Semver-ordered distribution of one software title across every tenant, flagging everything below a floor.
 
   _This is the CVE-response command: one call answers which clients are still exposed on a given title._
 
   ```bash
   immybot-pp-cli version-spread "Google Chrome" --min-version 140 --agent
   ```
-- **`fleet-diff`** — What actually changed between two syncs: computers added or removed, software versions moved, assignments modified.
+- **`fleet-diff`** - What actually changed between two syncs: computers added or removed, software versions moved, assignments modified.
 
   _Use this to answer "what changed since last night" without diffing two exports by hand._
 
   ```bash
   immybot-pp-cli fleet-diff --since 24h --agent
   ```
-- **`onboarding-stalled`** — Computers stuck waiting to onboard, bucketed by age and annotated with whether onboarding was ever attempted.
+- **`onboarding-stalled`** - Computers stuck waiting to onboard, bucketed by age and annotated with whether onboarding was ever attempted.
 
   _Surfaces machines that silently never finished onboarding, which is the failure mode clients notice first._
 
@@ -174,14 +177,14 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Deployment resolution
-- **`assignment-explain`** — Show every target assignment that resolves onto one computer, which scope matched, and which rules are shadowed.
+- **`assignment-explain`** - Show every target assignment that resolves onto one computer, which scope matched, and which rules are shadowed.
 
   _Use this for any "why didn't this machine get X" question; it answers what a computer receives and why, which no single endpoint does._
 
   ```bash
   immybot-pp-cli assignment-explain 4821 --agent
   ```
-- **`script-blast-radius`** — Every maintenance task, software package, and computer that a script reaches before you edit it.
+- **`script-blast-radius`** - Every maintenance task, software package, and computer that a script reaches before you edit it.
 
   _Run this before editing any shared script; it is the only way to see downstream reach across tenants._
 
@@ -190,7 +193,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Integration hygiene
-- **`psa-reconcile`** — Diff the ImmyBot roster against a linked PSA or RMM asset roster to find unlinked computers and orphaned assets.
+- **`psa-reconcile`** - Diff the ImmyBot roster against a linked PSA or RMM asset roster to find unlinked computers and orphaned assets.
 
   _Run after each week of onboards and decommissions; mapping gaps otherwise surface as a wrong invoice or a machine that stopped getting maintenance._
 
@@ -421,7 +424,7 @@ Manage computers
 - **`immybot-pp-cli computers get-inventory-software-search-by-upgrade-code`** - Get inventory software search by upgrade code
 - **`immybot-pp-cli computers get-my`** - Get my
 - **`immybot-pp-cli computers get-onboarding`** - Get onboarding
-- **`immybot-pp-cli computers get-paged`** - TODO: Move this to V2 api routes or make the existing GetAll rely on this
+- **`immybot-pp-cli computers get-paged`** - List computers with server-side paging, filtering, and sorting (skip/take)
 - **`immybot-pp-cli computers get-user-affinities`** - Get user affinities
 - **`immybot-pp-cli computers get-user-affinities-export`** - Get user affinities export
 - **`immybot-pp-cli computers list`** - List
@@ -1007,7 +1010,7 @@ This CLI caches per-question discovery so repeat queries skip the walk and struc
 
 Pass `--no-learn` or set `IMMYBOT_NO_LEARN=true` to disable the loop for deterministic flows.
 
-The local store's schema version stamp is one-way: once this version of `immybot-pp-cli` opens the database, older binaries refuse it with a version error — upgrade the binary rather than downgrading.
+The local store's schema version stamp is one-way: once this version of `immybot-pp-cli` opens the database, older binaries refuse it with a version error - upgrade the binary rather than downgrading.
 
 ## Output Formats
 
@@ -1020,10 +1023,10 @@ immybot-pp-cli access list --json
 # Filter to specific fields
 immybot-pp-cli access list --json --select addons,backendRegAppId,canManageCrossTenantDeployments
 
-# Dry run — show the request without sending
+# Dry run - show the request without sending
 immybot-pp-cli access list --dry-run
 
-# Agent mode — JSON + compact + no prompts in one flag
+# Agent mode - JSON + compact + no prompts in one flag
 immybot-pp-cli access list --agent
 ```
 
@@ -1088,24 +1091,24 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Run the `list` command to see available items
 
 ### API-specific
-- **Every request returns 401 Unauthorized** — Confirm the Enterprise Application object ID (not the Application ID) is set as a Person's AD External ID in ImmyBot and that the person is an admin user.
-- **tenant required for token URL** — Set IMMYBOT_TENANT_ID to the Entra directory (tenant) ID that issues the token.
-- **Requests go to your-instance.immy.bot** — Set IMMYBOT_SUBDOMAIN to your instance name without the .immy.bot suffix, or pass --base-url.
-- **Token mints but the API still rejects it** — The scope must match your instance App ID URI; set IMMYBOT_OAUTH_SCOPE to https://<subdomain>.immy.bot/.default.
-- **Cross-tenant commands return nothing** — Run sync --resources tenants,computers,software first; those commands read the local mirror, not the live API.
-- **HTTP 429 Too Many Requests** — Lower sync concurrency by syncing one resource at a time, or re-run with --max-pages to bound the walk.
+- **Every request returns 401 Unauthorized** - Confirm the Enterprise Application object ID (not the Application ID) is set as a Person's AD External ID in ImmyBot and that the person is an admin user.
+- **tenant required for token URL** - Set IMMYBOT_TENANT_ID to the Entra directory (tenant) ID that issues the token.
+- **Requests go to your-instance.immy.bot** - Set IMMYBOT_SUBDOMAIN to your instance name without the .immy.bot suffix, or pass --base-url.
+- **Token mints but the API still rejects it** - The scope must match your instance App ID URI; set IMMYBOT_OAUTH_SCOPE to https://<subdomain>.immy.bot/.default.
+- **Cross-tenant commands return nothing** - Run sync --resources tenants,computers,software first; those commands read the local mirror, not the live API.
+- **HTTP 429 Too Many Requests** - Lower sync concurrency by syncing one resource at a time, or re-run with --max-pages to bound the walk.
 
 ## Sources & Inspiration
 
 This CLI was built by studying these projects and resources:
 
-- [**ImmyBotApiWrapper**](https://github.com/serialscriptr/ImmyBotApiWrapper) — PowerShell (4 stars)
-- [**immybot-vscode**](https://github.com/immense/immybot-vscode) — TypeScript (3 stars)
-- [**claude-immybot-skill**](https://github.com/dillon-LACT/claude-immybot-skill) — PowerShell (2 stars)
-- [**immybot-mcp**](https://github.com/wyre-technology/immybot-mcp) — TypeScript
-- [**SPSImmyBot**](https://github.com/suhsdit/SPSImmyBot) — PowerShell
-- [**n8n-nodes-immybot**](https://github.com/n8layer/n8n-nodes-immybot) — TypeScript
-- [**Bezalu.ImmyBot.Client**](https://github.com/BezaluLLC/Bezalu.ImmyBot.Client) — C#
-- [**Bezalu.ImmyBot.MCP**](https://github.com/BezaluLLC/Bezalu.ImmyBot.MCP) — Dockerfile
+- [**ImmyBotApiWrapper**](https://github.com/serialscriptr/ImmyBotApiWrapper) - PowerShell (4 stars)
+- [**immybot-vscode**](https://github.com/immense/immybot-vscode) - TypeScript (3 stars)
+- [**claude-immybot-skill**](https://github.com/dillon-LACT/claude-immybot-skill) - PowerShell (2 stars)
+- [**immybot-mcp**](https://github.com/wyre-technology/immybot-mcp) - TypeScript
+- [**SPSImmyBot**](https://github.com/suhsdit/SPSImmyBot) - PowerShell
+- [**n8n-nodes-immybot**](https://github.com/n8layer/n8n-nodes-immybot) - TypeScript
+- [**Bezalu.ImmyBot.Client**](https://github.com/BezaluLLC/Bezalu.ImmyBot.Client) - C#
+- [**Bezalu.ImmyBot.MCP**](https://github.com/BezaluLLC/Bezalu.ImmyBot.MCP) - Dockerfile
 
 Generated by [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press)
