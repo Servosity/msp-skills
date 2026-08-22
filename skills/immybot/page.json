@@ -1,0 +1,118 @@
+{
+  "outcome_intro": "Ask \"what failed in last night's maintenance window?\" and get back a handful of distinct root causes instead of the same error read off forty machines. ImmyBot's API is entirely per-tenant, so the questions that matter most span calls the web UI never joins. This skill types every endpoint, mirrors the fleet into local SQLite with full-text search, and adds the joins on top: which deployment rule actually won on a given machine, how one software title is spread across every tenant, what changed since last night, and which computers silently never finished onboarding.",
+  "instead_of_say": [
+    {
+      "instead": "Open last night's maintenance session and scroll failed actions machine by machine to work out how many real problems you have.",
+      "say": "What failed in last night's maintenance window, grouped by root cause?",
+      "cli": "immybot-pp-cli session-triage --since 24h"
+    },
+    {
+      "instead": "Check each tenant's software inventory one at a time to find who is still below the version you are trying to standardise on.",
+      "say": "Which tenants are still running Chrome below 140?",
+      "cli": "immybot-pp-cli version-spread \"Google Chrome\" --min-version 140"
+    },
+    {
+      "instead": "Read through target assignments, filters, and exceptions by hand to guess why one machine did not get a deployment.",
+      "say": "Why didn't this computer get the deployment?",
+      "cli": "immybot-pp-cli assignment-explain 4821"
+    }
+  ],
+  "pain_points": [
+    "ImmyBot scopes to one tenant at a time. Run dozens of clients and nothing answers which of them is still exposed on a software title you are trying to retire.",
+    "A failed maintenance session shows you N red machines, not the handful of distinct causes behind them. Turning forty failures into three real problems is manual every single time.",
+    "Deployment resolution is the hardest thing to answer by hand. Target assignments, filters, and exceptions interact, and the portal shows the result without showing which rule produced it.",
+    "The API reports current state and keeps no history, so \"what changed since yesterday\" cannot be asked at all unless you keep your own copy."
+  ],
+  "outcomes": [
+    {
+      "question": "What failed in last night's maintenance window, by root cause?",
+      "command": "immybot-pp-cli session-triage --since 24h"
+    },
+    {
+      "question": "Which tenants are still below a patched version of a title?",
+      "command": "immybot-pp-cli version-spread \"Google Chrome\" --min-version 140"
+    },
+    {
+      "question": "Why did this computer not get the deployment?",
+      "command": "immybot-pp-cli assignment-explain 4821"
+    },
+    {
+      "question": "What changed across the fleet since yesterday?",
+      "command": "immybot-pp-cli fleet-diff --since 24h"
+    },
+    {
+      "question": "Which computers are stuck part way through onboarding?",
+      "command": "immybot-pp-cli onboarding-stalled --older-than 3d"
+    },
+    {
+      "question": "Which deployments have never actually worked?",
+      "command": "immybot-pp-cli deployment-health --only-failing"
+    },
+    {
+      "question": "What does this script reach before I edit it?",
+      "command": "immybot-pp-cli script-blast-radius \"Install Chrome\""
+    },
+    {
+      "question": "Where does ImmyBot disagree with my linked PSA or RMM roster?",
+      "command": "immybot-pp-cli psa-reconcile"
+    },
+    {
+      "question": "Everything known about one computer, in one view?",
+      "command": "immybot-pp-cli computer-dossier 4821"
+    },
+    {
+      "question": "Which tenants are drifting on software compliance?",
+      "command": "immybot-pp-cli drift"
+    }
+  ],
+  "different_vs_wrappers": "Most ImmyBot integrations proxy each question straight to the live API, one tenant and one record at a time. This skill syncs the whole instance into a local SQLite mirror, so cross-tenant questions resolve as a single local join: instant, offline, and the agent sees an answer rather than pages of raw inventory. It also retains history the API discards, which is what makes fleet-diff and deployment-health possible at all.",
+  "different_vs_vendor": "ImmyBot's portal is built around one tenant at a time, and its API returns current state with no history. This skill adds the rollups the portal never pre-computes: a cross-tenant software version spread, root-cause clustering for a maintenance window, deployment resolution for a single machine, and reconciliation against a linked PSA or RMM. It does not replace the portal you already work in.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local ImmyBot MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "What credentials do I need?",
+      "a": "An app registration in Microsoft Entra ID. ImmyBot issues no API key of its own: you register an app, create a client secret, then add that Enterprise Application's object ID as an admin person inside ImmyBot. The CLI needs four values, IMMYBOT_SUBDOMAIN, IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID and IMMYBOT_CLIENT_SECRET. Run `immybot-pp-cli doctor` to confirm."
+    },
+    {
+      "q": "Is my ImmyBot data safe?",
+      "a": "The mirror is a local SQLite file on your own machine and your credentials stay in your environment. Nothing is sent anywhere except to your own ImmyBot instance and to Microsoft Entra ID to mint the token."
+    },
+    {
+      "q": "Can it change things, or only read?",
+      "a": "Both, but reads are the default and every cross-tenant command is read-only. Writes exist because the API exposes them, and the ones that act on endpoints should sit behind preview-then-approve. Nothing touches a machine unless you ask it to."
+    },
+    {
+      "q": "Will it replace the ImmyBot portal?",
+      "a": "No. Onboarding, script authoring, and remote control stay in the portal. This is for the questions that span tenants or need history, which is where the portal runs out."
+    }
+  ],
+  "governance_summary": "The skill authenticates with a Microsoft Entra ID app registration you control, using the client-credentials flow, and its permissions inside ImmyBot are exactly those you granted the person record you created for it. It is read-first: every cross-tenant rollup, dossier, and reconciliation is non-mutating and safe to let an agent run unattended. Writes and deletes exist because the API exposes them, and the commands that reach an endpoint, in particular run-immy-service and the maintenance session and script paths, should sit behind an agent policy of preview with --dry-run then a reviewed write. Keep autonomous agents to reads.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "session-triage, version-spread, fleet-diff, onboarding-stalled, deployment-health, assignment-explain, computer-dossier, drift, script-blast-radius, psa-reconcile, search, analytics, sync",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "computers update, tenants update, persons update, preferences update, tags create, target-assignments update",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive or endpoint-affecting",
+      "examples": "scripts delete, software delete, target-assignments delete, roles delete, run-immy-service, maintenance-sessions create",
+      "policy": "Require explicit human approval; never autonomous"
+    }
+  ]
+}

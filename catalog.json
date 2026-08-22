@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-20",
+  "generated_at": "2026-08-21",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -579,6 +579,26 @@
       "verification": "live-verified",
       "category": "Security",
       "tagline": "Triage Huntress incidents and coverage gaps across every client org from one queue."
+    },
+    {
+      "name": "immybot",
+      "system": "ImmyBot software deployment and desired-state automation: computers, deployments, maintenance sessions, and cross-tenant software inventory",
+      "status": "beta",
+      "skill_path": "skills/immybot",
+      "cli_binary": "immybot-pp-cli",
+      "mcp_binary": "immybot-pp-mcp",
+      "version": "4.31.1",
+      "printing_press_version": null,
+      "license": "Apache-2.0",
+      "vendor": "ImmyBot",
+      "vendor_trademark_owner": "ImmyBot, LLC.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/immybot/install.sh)",
+      "install_mcp_doc": "skills/immybot/mcp-install.md",
+      "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
+      "verification": "awaiting",
+      "category": "RMM",
+      "tagline": "Triage a night of failed maintenance by root cause, and rank one software title across every tenant with a real semver comparator."
     },
     {
       "name": "itglue",
