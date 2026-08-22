@@ -201,6 +201,17 @@
         {"file": "cli/internal/config/config.go", "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.", "min_count": 1},
         {"file": "cli/internal/config/config.go", "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"}
       ]
+    },
+    {
+      "id": "doctor-auth-hint-names-a-real-command",
+      "summary": "doctor's auth_hint points at `auth login` and the required environment variables instead of a nonexistent `auth setup` subcommand",
+      "why": "This CLI defines auth login, logout and status. There is no `auth setup`, yet doctor's auth_hint told operators to run it. The hint fires exactly when cfg.AuthHeader() is empty, which is the one moment someone reads doctor for guidance: fresh install, rotated secret, new machine, expired token. Worse, `auth` answers an unrecognised subcommand by printing its own help and exiting 0, so there is no 'unknown command' error and no non-zero exit to signal the advice was wrong. Reproduced live against an empty config: doctor reported auth 'not configured' with the old hint, running the suggested command exited 0 and printed help, and a second doctor still reported 'not configured'. These CLIs are agent-first with typed exit codes, so an agent doing setup reads exit 0 as success and moves on unauthenticated. This skill emits no auth_instructions field, so auth_hint is the only setup guidance doctor gives. The replacement names the real command and the variables auth login reads, including the optional scope override some instances require.",
+      "status": "active",
+      "spec_encode_followup": "Emit the auth hint from the set of subcommands the connector actually generates rather than a fixed string. Three other skills carry the same dead hint (appdirect, crowdstrike, halopsa), while blumira and datto-rmm do define `auth setup`, which is why the string was templated in the first place.",
+      "asserts": [
+        {"file": "cli/internal/cli/doctor.go", "not_contains": "ninjaone-cli auth setup"},
+        {"file": "cli/internal/cli/doctor.go", "contains": "ninjaone-cli auth login", "min_count": 1}
+      ]
     }
   ]
 }

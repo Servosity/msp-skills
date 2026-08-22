@@ -100,7 +100,12 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "Run 'halopsa-cli auth setup' for credential setup steps."
+					// This CLI ships auth login, logout and status. There is no
+					// `auth setup` subcommand, and `auth` answers an
+					// unrecognised subcommand by printing its own help and
+					// exiting 0, so following the old hint looked like it
+					// worked while leaving auth unconfigured.
+					report["auth_hint"] = "Set HALOPSA_TENANT, HALOPSA_DOMAIN, HALOPSA_CLIENT_ID and HALOPSA_CLIENT_SECRET, then run 'halopsa-cli auth login' to mint a token."
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"
