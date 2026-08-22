@@ -248,7 +248,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | `triage`, `campaign`, `timeline`, `exceptions find`, `exceptions audit`, `msp fleet`, `event query`, `scopes`, `search`, `mirror`, `sync`, `export`, every `list` / `get` | Allow |
-| Message content egress | `download`, `download-large-email`, `soar get-entity` | Only for a named message under an open investigation; never sweep |
+| Message content egress | `download`, `download-large-email`, `avanan-search get-saas-entity` (`soar get-entity` currently returns 404 on every tenant tested) | Only for a named message under an open investigation; never sweep |
 | Write (routine) | `exceptions create`, `exceptions update`, `sectool-exceptions create`, `sectools create-ctp-item`, `report` | Preview with `--dry-run`, then a reviewed write |
 | Mailbox-affecting | `remediate quarantine`, `remediate restore`, `action post-entity`, `action post-event` | Human-approved, always with an explicit `--scope` |
 | End-user contact | `soar post-notify` | Human-in-the-loop only |

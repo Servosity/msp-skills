@@ -408,7 +408,7 @@ Manage sectools
 
 Manage soar
 
-- **`avanan-cli soar get-entity`** - Retrieve the decoded email record for a SaaS entity, including headers and body.
+- **`avanan-cli soar get-entity`** - Retrieve the decoded email record for a SaaS entity, including headers and body. **Known limitation:** returns HTTP 404 for every entity on the tenants tested so far, including ones confirmed to exist moments earlier, so treat it as unavailable. `avanan-cli avanan-search get-saas-entity <entity_id> --scopes <scope>` returns the same record and works. The SOAR helpers were reconstructed from the vendor reference guide because the published spec omits them, so the path may simply be wrong, or the feature may be licensed separately.
 - **`avanan-cli soar post-notify`** - Send an exposure notification about a specific entity to a list of email addresses.
 
 ### task
