@@ -4,6 +4,28 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.12] - 2026-08-22
+
+### Fixed
+- `doctor`, the CLI's HTTP 400/401/403 error hints and the MCP server's tool-error
+  hints no longer tell operators to run `halopsa-cli auth setup`. This CLI's `auth`
+  parent defines `login`, `status`, `set-token` and `logout`; it has never defined
+  `setup`. Cobra does not reject an unknown subcommand of a non-root parent, and the
+  generated parent returns `cmd.Help()` with a nil error, so `halopsa-cli auth setup`
+  printed the auth help and exited 0 - no "unknown command" error and no non-zero
+  exit anywhere in the journey. An operator followed doctor's advice, saw a success
+  code and was no closer to configured credentials; because these are agent-first
+  CLIs with typed exit codes and an `--agent` mode, an agent performing setup read
+  exit 0 as success and moved on unauthenticated. The hints fire exactly when they
+  matter - fresh install, rotated secret, new machine, expired token - and this skill
+  emits no `auth_instructions` field, so they were the only setup guidance it gave.
+  `doctor` now names the variables `auth login` actually reads (`HALOPSA_TENANT`, `HALOPSA_CLIENT_ID` and `HALOPSA_CLIENT_SECRET`, plus
+  `HALOPSA_DOMAIN` when self-hosted), and the
+  CLI and MCP error paths point at `halopsa-cli auth login` to re-authenticate. Seven
+  occurrences across three files; the same defect affected appdirect, crowdstrike,
+  halopsa and ninjaone, the four connectors that scaffold `auth login` rather than
+  `auth setup`. Reported by @geekbrownbear (#277).
+
 ## [0.2.11] - 2026-08-20
 
 ### Fixed

@@ -28,11 +28,11 @@
     "released_hash": "sha256:03150a8b133891e79c555f8f134cc24992ccb10b1490dc6b34f0c0b2d614bc6e"
   },
   "appdirect": {
-    "state": "binary-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "appdirect-v0.1.0",
-    "current_hash": "sha256:ffa4c7e18b949ede1d3dc7c42a3f67608f1f0afdd2b9f3cb016133b80726aa66",
-    "released_hash": "sha256:cb47bbdb5bec3281845dfe9fe3ff67a539eddd1911005fe658763fb14049cdf1"
+    "latest_tag": "appdirect-v0.1.1",
+    "current_hash": "sha256:52465f2a776817947ae4cabbccd0db1b3d52884a43e8d04b0f0cfb9e689f63e1",
+    "released_hash": "sha256:52465f2a776817947ae4cabbccd0db1b3d52884a43e8d04b0f0cfb9e689f63e1"
   },
   "atera": {
     "state": "binary-pending",
@@ -133,11 +133,11 @@
     "released_hash": "sha256:26facbe536e9e1709718ba30bf88e5474acde6f1f1faa49a369de61974b885a9"
   },
   "crowdstrike": {
-    "state": "binary-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "crowdstrike-v0.1.0",
-    "current_hash": "sha256:5c1677db877d1a6d6979c65f3f5b5088bc16b563eb2bbe9fc5fa9e01f82d9ae9",
-    "released_hash": "sha256:0e629f2563bddfab44bf389a6354e85f760ec38a7bf75eeb38a5524d1d7b7981"
+    "latest_tag": "crowdstrike-v0.1.1",
+    "current_hash": "sha256:2ecaf3db4f31ffecc7b77c8fa0f41a37719e8c5fef4cd9ce9848e8c68b8785ba",
+    "released_hash": "sha256:2ecaf3db4f31ffecc7b77c8fa0f41a37719e8c5fef4cd9ce9848e8c68b8785ba"
   },
   "datto-bcdr": {
     "state": "up-to-date",
@@ -169,10 +169,10 @@
   },
   "halopsa": {
     "state": "up-to-date",
-    "version": "0.2.11",
-    "latest_tag": "halopsa-v0.2.11",
-    "current_hash": "sha256:eb3b8005334a1e8507915a5d38a2ad06291c5f9882e39f56972d1e36b5558258",
-    "released_hash": "sha256:eb3b8005334a1e8507915a5d38a2ad06291c5f9882e39f56972d1e36b5558258"
+    "version": "0.2.12",
+    "latest_tag": "halopsa-v0.2.12",
+    "current_hash": "sha256:1a991cf711c9bb32bb7facaa06aaf966228bc55cc27a0d6e0d1bb423227e5378",
+    "released_hash": "sha256:1a991cf711c9bb32bb7facaa06aaf966228bc55cc27a0d6e0d1bb423227e5378"
   },
   "hubspot": {
     "state": "up-to-date",
@@ -274,10 +274,10 @@
   },
   "ninjaone": {
     "state": "up-to-date",
-    "version": "0.1.8",
-    "latest_tag": "ninjaone-v0.1.8",
-    "current_hash": "sha256:772769846c72fd36f414c88856dea9150806d3b952bdb19a55dbd156c5f6edbc",
-    "released_hash": "sha256:772769846c72fd36f414c88856dea9150806d3b952bdb19a55dbd156c5f6edbc"
+    "version": "0.1.9",
+    "latest_tag": "ninjaone-v0.1.9",
+    "current_hash": "sha256:fd16057802d81035c8a73f635238f59e29dd8b0f5e11b5f5c81a8f2696602437",
+    "released_hash": "sha256:fd16057802d81035c8a73f635238f59e29dd8b0f5e11b5f5c81a8f2696602437"
   },
   "pagerduty": {
     "state": "binary-pending",
