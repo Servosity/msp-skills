@@ -1,4 +1,44 @@
 # Changelog
 
-This file is maintained by printing-press-library release automation. Do not hand-edit release sections in normal PRs.
+All notable changes to this skill are documented here. Format follows
+[Keep a Changelog](https://keepachangelog.com/); versions follow
+[semantic versioning](https://semver.org/).
 
+## [0.1.0] - 2026-08-22
+
+### Added
+- Initial msp-skills release of the ImmyBot connector: `immybot-cli` and the
+  `immybot-mcp` MCP server, covering the ImmyBot API (computers, tenants,
+  software, target assignments, maintenance sessions and actions, scripts,
+  schedules, provider and RMM links, persons, roles, and access).
+- Offline SQLite mirror with `sync` and full-text `search`, so cross-tenant
+  questions answer from local data instead of one API call per tenant.
+- Cross-tenant views the console does not offer: `session-triage` (groups a
+  maintenance window's failures by root cause), `version-spread` (one software
+  title ranked across every tenant with a real semver comparator),
+  `assignment-explain` (which deployment rule actually won on a given machine,
+  and which are shadowed), `fleet-diff` (what changed between two syncs, from
+  history the API does not retain), `deployment-health`, `onboarding-stalled`,
+  `computer-dossier`, `drift`, `psa-reconcile`, and `script-blast-radius`.
+
+### Fixed
+- `auth login` no longer persists an env-supplied client secret to disk:
+  `SaveTokens` keeps the ClientID/ClientSecret env-override markers, so the
+  guards added in #268 actually hold.
+- `sync` mirrors every computer. `GET /api/v1/computers` exposes no cursor,
+  page, skip or offset, so `pageSize` is a ceiling rather than a page size and
+  the profiler's spec default of 25 silently truncated the resource that the
+  offline commands join on most.
+- Three parameter-required lookup endpoints are out of the default sync walk
+  (they returned HTTP 400 on every run) and remain reachable via `--resources`.
+- Staleness reports `never_synced` separately instead of reading a zero
+  watermark as a 292-year-old mirror.
+- `doctor` reports the instance subdomain as its own check, and every auth
+  hint - in `doctor`, `auth status`, `auth login --help`, the runtime error
+  paths, and the MCP tool layer - names the four required `IMMYBOT_*`
+  variables and points at `auth login` rather than an `auth setup` subcommand
+  this CLI does not define.
+
+Connector contributed by [@geekbrownbear](https://github.com/geekbrownbear)
+(PR [#276](https://github.com/servosity/msp-skills/pull/276)), live-verified
+against a production ImmyBot tenant.
