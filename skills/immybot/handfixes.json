@@ -173,6 +173,39 @@
           "not_contains": "Set during initial auth setup."
         }
       ]
+    },
+    {
+      "id": "mcp-parent-group-annotation-suppresses-noop-tools",
+      "summary": "cobratree/classify.go honours the `pp:parent-group` annotation, so parent command groups do not each ship as a no-op MCP tool (44 tools instead of 121)",
+      "why": "Press 4.30.3 fixed the default-deny MCP gate but reintroduced ~77 no-op parent-group tools: every intermediate command group was emitted as its own callable tool that does nothing but print help. Measured on this connector: 44 tools with the annotation handling, 121 without. A 121-tool server buries the 44 real ones and burns the agent's tool budget. This handling exists in 0 of the 63 shipped connectors, so it is NOT something a reprint will regenerate - a reprint against a press without the equivalent fix silently reinstates all 77. Recorded here because the edit arrived inside the bulk vendoring commit, which check_handfixes.py --changed exempts as a reprint, so CI would not otherwise have caught its loss.",
+      "status": "active",
+      "spec_encode_followup": "In the press: suppress parent-group commands from the MCP tool surface at generation time rather than requiring a per-connector annotation handler. Track against the 4.30.3 no-op-tool regression.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/classify.go",
+          "contains": "ParentGroupAnnotation",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/classify.go",
+          "contains": "pp:parent-group",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "vacuum-into-uses-a-bound-parameter",
+      "summary": "platform/migration.go passes the backup destination to `VACUUM INTO` as a bound parameter instead of interpolating a hand-quoted path",
+      "why": "SQLite takes VACUUM INTO's destination as an expression, so the generated code built it by string-quoting the target path. A path containing a single quote (or any crafted sequence) breaks out of that quoting and is executed as SQL, on a path that can come from --db / IMMYBOT_HOME / the data dir. Binding the value removes the injection surface entirely. Present in 0 of 63 shipped connectors, so a reprint reverts it silently, and no test exercises this path - the assert below is the only thing standing between a reprint and the reintroduced defect.",
+      "status": "active",
+      "spec_encode_followup": "In the press: emit `VACUUM INTO ?` with a bound argument in the migration template. Worth a fleet sweep - every shipped connector still interpolates the path.",
+      "asserts": [
+        {
+          "file": "cli/internal/platform/migration.go",
+          "contains": "VACUUM INTO ?",
+          "min_count": 1
+        }
+      ]
     }
   ]
 }

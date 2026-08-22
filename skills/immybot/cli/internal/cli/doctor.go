@@ -143,10 +143,10 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					if !configured {
 						report["auth"] = "not configured"
 						// This CLI ships auth login, logout, set-token and status.
-					// There is no `auth setup` subcommand, so the previous
-					// hint sent operators to a command that does not exist at
-					// exactly the moment they were stuck.
-					report["auth_hint"] = "Set the four IMMYBOT_* variables, then run 'immybot-cli auth login' to mint a token."
+						// There is no `auth setup` subcommand, so the previous
+						// hint sent operators to a command that does not exist at
+						// exactly the moment they were stuck.
+						report["auth_hint"] = "Set the four IMMYBOT_* variables, then run 'immybot-cli auth login' to mint a token."
 						report["auth_docs_url"] = "https://www.immy.bot"
 						report["auth_instructions"] = "Register an app in Microsoft Entra ID, create a client secret, then in ImmyBot go to Show More > People > New and paste the Enterprise App object ID into \"AD External ID\". Set IMMYBOT_SUBDOMAIN, IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID and IMMYBOT_CLIENT_SECRET."
 					} else {

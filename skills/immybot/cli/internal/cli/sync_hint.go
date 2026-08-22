@@ -148,7 +148,6 @@ func syncHintRoundAge(age time.Duration) time.Duration {
 	return age.Round(time.Minute)
 }
 
-
 // syncHintHasStoredRows answers whether anything landed in the store for this
 // scope even though no watermark advanced. It separates "nothing has been
 // synced" from "a truncated run stored partial data", which need different
