@@ -132,3 +132,76 @@ func TestResolveEntityTypeFailsClosed(t *testing.T) {
 		t.Errorf("error %q does not tell the operator how to proceed", err)
 	}
 }
+
+// cacheAwareClient implements both getters so the test can tell which one a
+// poll loop reached for.
+type cacheAwareClient struct{ cached, fresh int }
+
+func (c *cacheAwareClient) Get(_ context.Context, _ string, _ map[string]string) (json.RawMessage, error) {
+	c.cached++
+	return json.RawMessage(`{"responseEnvelope":{"responseCode":200},"responseData":[]}`), nil
+}
+
+func (c *cacheAwareClient) GetNoCache(_ context.Context, _ string, _ map[string]string) (json.RawMessage, error) {
+	c.fresh++
+	return json.RawMessage(`{"responseEnvelope":{"responseCode":200},"responseData":[]}`), nil
+}
+
+// TestGetFreshBypassesTheResponseCache is the regression guard for a poll that
+// could never observe the thing it was polling for.
+//
+// The response cache is keyed on path plus params, so a watcher reading through
+// it sees the pre-action state on every iteration. Measured 2026-08-22: an
+// entity that flipped to quarantined three seconds after submission was still
+// reported unchanged after a two-minute poll, because every read after the
+// first was served from cache. The command then reported a successful action as
+// unfinished.
+func TestGetFreshBypassesTheResponseCache(t *testing.T) {
+	c := &cacheAwareClient{}
+	if _, err := getFresh(context.Background(), c, "/v1.0/task/1", nil); err != nil {
+		t.Fatalf("getFresh() error = %v", err)
+	}
+	if c.fresh != 1 {
+		t.Errorf("GetNoCache called %d times, want 1", c.fresh)
+	}
+	if c.cached != 0 {
+		t.Errorf("cached Get called %d times, want 0; a poll cannot read through the cache", c.cached)
+	}
+}
+
+// TestGetFreshFallsBackToPlainGet keeps the helper usable with any client that
+// has no cache to bypass.
+func TestGetFreshFallsBackToPlainGet(t *testing.T) {
+	c := &entityTypeClient{byID: map[string]string{}}
+	if _, err := getFresh(context.Background(), c, "/v1.0/search/entity/x", nil); err != nil {
+		t.Fatalf("getFresh() error = %v", err)
+	}
+	if len(c.paths) != 1 {
+		t.Errorf("plain Get called %d times, want 1", len(c.paths))
+	}
+}
+
+// TestEntityFlagsReflect pins what counts as the action having landed. This is
+// the only honest confirmation available when the API returns no task id: a 200
+// means accepted, not applied.
+func TestEntityFlagsReflect(t *testing.T) {
+	tests := []struct {
+		name   string
+		flags  entityFlags
+		action string
+		want   bool
+	}{
+		{"quarantine landed", entityFlags{Quarantined: true}, "quarantine", true},
+		{"quarantine not yet visible", entityFlags{Quarantined: false}, "quarantine", false},
+		{"restore landed, flag set", entityFlags{Restored: true}, "restore", true},
+		{"restore landed, simply no longer quarantined", entityFlags{Quarantined: false}, "restore", true},
+		{"restore not yet visible", entityFlags{Quarantined: true, Restored: false}, "restore", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.flags.reflects(tt.action); got != tt.want {
+				t.Errorf("reflects(%q) = %v, want %v", tt.action, got, tt.want)
+			}
+		})
+	}
+}

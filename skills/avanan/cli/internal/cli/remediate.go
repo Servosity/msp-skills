@@ -217,17 +217,42 @@ then 'task <task_id>'.
 			}
 
 			if report.TaskID == "" {
-				// Not a gap in the response: Google Mail applies these
-				// actions synchronously and returns taskId null, where
-				// Office 365 returns a real task. Verified on both platforms
-				// 2026-08-22. The action was accepted either way, so this
-				// reads as completed rather than as an outcome we failed to
-				// obtain.
-				report.Completed = true
-				for i := range report.Outcomes {
-					report.Outcomes[i].Status = "applied"
+				// Google Mail returns taskId null where Office 365 returns a
+				// real task. That is not a gap in the response - but it is
+				// also NOT a promise that the change has landed. Measured
+				// 2026-08-22: a 200 with a null task, checked immediately
+				// after, still showed isQuarantined false; the entity caught
+				// up shortly afterwards. Reporting "applied" off the back of
+				// the 200 is the same false confidence this command exists to
+				// prevent, so the only thing we can assert without looking is
+				// that the API accepted it.
+				//
+				// With --wait there IS something to watch: the entity itself,
+				// which is the ground truth the task only ever trails.
+				if wait {
+					pollCtx, pollCancel := context.WithTimeout(cmd.Context(), waitFor)
+					applied, checked := pollEntityApplied(pollCtx, c, targets, resolvedScope, action, waitFor)
+					pollCancel()
+					report.Completed = applied
+					for i := range report.Outcomes {
+						if applied {
+							report.Outcomes[i].Status = "applied"
+						} else {
+							report.Outcomes[i].Status = "submitted"
+						}
+					}
+					if applied {
+						report.Note = "the API returned no task ID; confirmed against the entity's own state"
+					} else if checked {
+						report.Note = fmt.Sprintf(
+							"the API accepted the action and returned no task ID, but the entity did not report %s within %s. "+
+								"These land asynchronously even without a task, so re-check the entity before resubmitting", action, waitFor)
+					} else {
+						report.Note = "the API accepted the action and returned no task ID, and the entity could not be read back to confirm it"
+					}
+				} else {
+					report.Note = "the API accepted the action and returned no task ID; pass --wait to confirm against the entity's own state"
 				}
-				report.Note = "the API applied this action synchronously and returned no task ID; confirm with the entity's own state if needed"
 			} else if wait {
 				// Poll on a context derived from the ORIGINAL command context,
 				// not the --timeout-bounded one. --timeout bounds a single
@@ -396,6 +421,30 @@ var terminalTaskStates = map[string]bool{
 
 // pollTask waits for a task to reach a terminal state, backing off between
 // checks so a slow remediation does not hammer a rate-limited API.
+
+// cacheBypassGetter is implemented by the real client. Poll loops must use it.
+type cacheBypassGetter interface {
+	GetNoCache(ctx context.Context, path string, params map[string]string) (json.RawMessage, error)
+}
+
+// getFresh reads a URL without consulting the response cache.
+//
+// Every loop in this file watches for a value to CHANGE, and the cache is keyed
+// on path plus params - so a cached read returns the pre-action state forever
+// and the watcher never terminates. Measured 2026-08-22: an entity that flipped
+// to quarantined three seconds after submission was still reported unchanged
+// after a full two-minute poll, because every read after the first was served
+// from cache. A poll that cannot observe a change is worse than no poll: it
+// reports a successful action as unfinished.
+func getFresh(ctx context.Context, c interface {
+	Get(ctx context.Context, path string, params map[string]string) (json.RawMessage, error)
+}, path string, params map[string]string) (json.RawMessage, error) {
+	if nc, ok := c.(cacheBypassGetter); ok {
+		return nc.GetNoCache(ctx, path, params)
+	}
+	return c.Get(ctx, path, params)
+}
+
 // pollTask walks a task to a terminal state.
 //
 // scope must be threaded through: the task endpoint takes it as a QUERY-STRING
@@ -422,7 +471,7 @@ func pollTask(ctx context.Context, c interface {
 		if ctx.Err() != nil {
 			return status, "polling canceled", false
 		}
-		raw, err := c.Get(ctx, "/v1.0/task/"+taskID, params)
+		raw, err := getFresh(ctx, c, "/v1.0/task/"+taskID, params)
 		if err != nil {
 			// Report the reason rather than letting the caller conclude the
 			// task simply never finished. A poll that cannot even be made is
@@ -696,4 +745,99 @@ func truncateIDs(ids []string, n int) []string {
 	}
 	out := append([]string{}, ids[:n]...)
 	return append(out, fmt.Sprintf("and %d more", len(ids)-n))
+}
+
+// pollEntityApplied watches the entity itself until it reflects the action.
+//
+// This is the only honest confirmation available when the API returns no task
+// id: the 200 means accepted, not landed. It is also the more trustworthy check
+// on the platforms that DO return a task, since an Office 365 task was observed
+// still reading inprogress after the mail had already moved - the entity leads,
+// the task trails.
+//
+// Returns whether every target reflects the action, and whether the entity
+// could be read at all (so "not yet applied" can be told apart from "could not
+// look").
+func pollEntityApplied(ctx context.Context, c interface {
+	Get(ctx context.Context, path string, params map[string]string) (json.RawMessage, error)
+}, targets []string, scope, action string, within time.Duration) (applied, checked bool) {
+	deadline := time.Now().Add(within)
+	backoff := 2 * time.Second
+
+	for time.Now().Before(deadline) {
+		if ctx.Err() != nil {
+			return false, checked
+		}
+		allDone := true
+		readAny := false
+		for _, id := range targets {
+			state, ok := entityActionState(ctx, c, id, scope)
+			if !ok {
+				allDone = false
+				continue
+			}
+			readAny = true
+			if !state.reflects(action) {
+				allDone = false
+			}
+		}
+		if readAny {
+			checked = true
+		}
+		if allDone && readAny {
+			return true, true
+		}
+
+		select {
+		case <-ctx.Done():
+			return false, checked
+		case <-time.After(backoff):
+		}
+		if backoff < 15*time.Second {
+			backoff *= 2
+		}
+	}
+	return false, checked
+}
+
+// entityFlags is the slice of an entity record that says whether an action has
+// taken effect.
+type entityFlags struct {
+	Quarantined bool `json:"isQuarantined"`
+	Restored    bool `json:"isRestored"`
+}
+
+func (f entityFlags) reflects(action string) bool {
+	if action == "restore" {
+		return f.Restored || !f.Quarantined
+	}
+	return f.Quarantined
+}
+
+func entityActionState(ctx context.Context, c interface {
+	Get(ctx context.Context, path string, params map[string]string) (json.RawMessage, error)
+}, id, scope string) (entityFlags, bool) {
+	params := map[string]string{}
+	if strings.TrimSpace(scope) != "" {
+		params["scopes"] = scope
+	}
+	raw, err := getFresh(ctx, c, "/v1.0/search/entity/"+id, params)
+	if err != nil {
+		return entityFlags{}, false
+	}
+	env, err := avananmirror.Decode(raw)
+	if err != nil {
+		return entityFlags{}, false
+	}
+	records, err := env.Records()
+	if err != nil || len(records) == 0 {
+		return entityFlags{}, false
+	}
+	var rec struct {
+		EntityPayload entityFlags `json:"entityPayload"`
+	}
+	if err := json.Unmarshal(records[0], &rec); err != nil {
+		return entityFlags{}, false
+	}
+	return rec.EntityPayload, true
 }
