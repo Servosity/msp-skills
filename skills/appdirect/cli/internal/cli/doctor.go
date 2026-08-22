@@ -173,7 +173,11 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				header := cfg.AuthHeader()
 				if header == "" {
 					report["auth"] = "not configured"
-					report["auth_hint"] = "Run 'appdirect-cli auth setup' for credential setup steps."
+					// issue #277: this CLI ships auth login/status/set-token/logout and no
+					// `auth setup`. Cobra does not error on an unknown subcommand of a
+					// non-root parent, so the old hint printed help and exited 0 -- an
+					// agent read success and moved on unauthenticated.
+					report["auth_hint"] = "Set APPDIRECT_CLIENT_ID and APPDIRECT_CLIENT_SECRET (plus APPDIRECT_OAUTH_SCOPE if your account needs a non-default scope), then run 'appdirect-cli auth login' to mint a token."
 				} else {
 					authConfigured = true
 					report["auth"] = "configured"
