@@ -48,11 +48,17 @@ func newAuthLoginCmd(flags *rootFlags) *cobra.Command {
 		Use:   "login",
 		Short: "Mint an OAuth2 bearer token via the client_credentials grant",
 		Long: strings.TrimSpace(`
-Mint an OAuth2 bearer token via POST https://login.microsoftonline.com/common/oauth2/v2.0/token with
-grant_type=client_credentials and cache it on disk. Subsequent commands
+Mint an OAuth2 bearer token via POST https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token
+with grant_type=client_credentials and cache it on disk. Subsequent commands
 auto-refresh the token before expiry.
 
-Credentials default to IMMYBOT_CLIENT_ID (Client ID) and IMMYBOT_CLIENT_SECRET (Client Secret) environment variables.
+All four environment variables are required: IMMYBOT_SUBDOMAIN (your instance,
+which derives the token scope https://<subdomain>.immy.bot/.default),
+IMMYBOT_TENANT_ID (the Entra directory the token is minted against),
+IMMYBOT_CLIENT_ID and IMMYBOT_CLIENT_SECRET. Omitting IMMYBOT_SUBDOMAIN does
+not fail loudly: the scope falls back to api://<client-id>/.default, which
+names your own app registration rather than ImmyBot, so login reports success
+and later calls are rejected. Run 'immybot-cli doctor' to confirm all four.
 `),
 		Example: strings.Trim(`
   # Use env vars
@@ -242,6 +248,15 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Mint a token:")
+				// All four are required. SUBDOMAIN and TENANT_ID were missing
+				// here: without TENANT_ID the mint fails outright, and without
+				// SUBDOMAIN it SUCCEEDS with the wrong scope - the token names
+				// the caller's own app registration instead of ImmyBot, and the
+				// CLI prints "Logged in." while every later call gets an opaque
+				// Entra rejection. Same undercount already fixed in doctor,
+				// agent-context and the MCP context tool.
+				fmt.Fprintln(w, "  export IMMYBOT_SUBDOMAIN=\"<subdomain>\"      # the \"acme\" in acme.immy.bot; derives the OAuth scope")
+				fmt.Fprintln(w, "  export IMMYBOT_TENANT_ID=\"<entra-tenant-id>\"")
 				fmt.Fprintln(w, "  export IMMYBOT_CLIENT_ID=\"<client-id>\"")
 				fmt.Fprintln(w, "  export IMMYBOT_CLIENT_SECRET=\"<client-secret>\"")
 				fmt.Fprintf(w, "  immybot-cli auth login\n")

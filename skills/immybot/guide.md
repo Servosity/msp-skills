@@ -1084,10 +1084,10 @@ Environment variables:
 
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
-| `IMMYBOT_SUBDOMAIN` | endpoint | Yes |  |
+| `IMMYBOT_SUBDOMAIN` | auth_flow_input | Yes | ImmyBot instance subdomain (the "acme" in acme.immy.bot). Derives the OAuth scope; omitting it makes login succeed with a scope naming your own app registration. |
 | `IMMYBOT_TENANT_ID` | auth_flow_input | Yes | Microsoft Entra directory (tenant) ID that issues the token. |
 | `IMMYBOT_CLIENT_ID` | auth_flow_input | Yes | Application (client) ID of the Entra app registration. |
-| `IMMYBOT_CLIENT_SECRET` | auth_flow_input | Yes | Set during initial auth setup. |
+| `IMMYBOT_CLIENT_SECRET` | auth_flow_input | Yes | Client secret paired with IMMYBOT_CLIENT_ID, from the Entra app registration. |
 
 ### agentcookie (optional)
 
