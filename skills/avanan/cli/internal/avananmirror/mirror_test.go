@@ -374,3 +374,60 @@ func TestDiscoverScopesSurfacesEnvelopeFailure(t *testing.T) {
 		t.Fatal("DiscoverScopes() returned no error for a 403 envelope; the caller would mirror unscoped and get a 400 per exception path")
 	}
 }
+
+// TestRecordIDResolvesNestedEntityIdentifier is the regression guard for a
+// live-only failure: the entity search returns records whose identifier is
+// nested under entityInfo, with nothing at the top level. A flat lookup found
+// no id, every record was skipped, and `mirror` reported success having stored
+// none of them - so every offline command that reads entities answered from an
+// empty table.
+//
+// The shape below is a trimmed copy of a real record from
+// smart-api-production-1-us on 2026-08-22.
+func TestRecordIDResolvesNestedEntityIdentifier(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{
+			name: "entity record nests its id under entityInfo",
+			raw: `{"entityInfo":{"customerId":"acme","entityId":"940f97434498cd5234966d3931547c07",
+			       "saas":"office365_emails"},"entityPayload":{"attachmentCount":0}}`,
+			want: "940f97434498cd5234966d3931547c07",
+		},
+		{
+			name: "a top-level id still wins",
+			raw:  `{"eventId":"evt-1","entityInfo":{"entityId":"nested-2"}}`,
+			want: "evt-1",
+		},
+		{
+			name: "entitySecurityResult ids are not mistaken for the record id",
+			raw:  `{"entitySecurityResult":{"ap":[{"entityId":"inner"}]}}`,
+			want: "",
+		},
+		{
+			name: "a nested path that stops at a non-object is not a match",
+			raw:  `{"entityInfo":"not-an-object"}`,
+			want: "",
+		},
+		{
+			name: "an empty nested id is no id",
+			raw:  `{"entityInfo":{"entityId":""}}`,
+			want: "",
+		},
+		{
+			name: "numeric ids still resolve",
+			raw:  `{"id":12345}`,
+			want: "12345",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := recordID([]byte(tt.raw)); got != tt.want {
+				t.Errorf("recordID() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

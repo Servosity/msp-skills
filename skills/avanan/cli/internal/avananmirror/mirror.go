@@ -152,7 +152,37 @@ type Result struct {
 // idFields are checked in order when deriving a stable primary key. Avanan
 // names the identifier differently per resource, and a record without any of
 // them cannot be upserted without generating duplicates on every run.
-var idFields = []string{"eventId", "entityId", "id", "exceptionId", "_id"}
+//
+// Dotted entries address a nested field. The entity search is the reason: its
+// records carry no top-level identifier at all, nesting it under entityInfo,
+// so a flat lookup skipped every single row. Verified live on 2026-08-22
+// against smart-api-production-1-us, where a mirror fetched 343 entities and
+// stored none of them while reporting success.
+var idFields = []string{
+	"eventId",
+	"entityId",
+	"entityInfo.entityId",
+	"id",
+	"exceptionId",
+	"_id",
+}
+
+// lookupPath resolves a dotted path against a decoded JSON object.
+func lookupPath(obj map[string]any, path string) (any, bool) {
+	parts := strings.Split(path, ".")
+	var cur any = obj
+	for _, part := range parts {
+		m, ok := cur.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		cur, ok = m[part]
+		if !ok {
+			return nil, false
+		}
+	}
+	return cur, true
+}
 
 func recordID(raw json.RawMessage) string {
 	var obj map[string]any
@@ -160,15 +190,17 @@ func recordID(raw json.RawMessage) string {
 		return ""
 	}
 	for _, f := range idFields {
-		if v, ok := obj[f]; ok {
-			switch s := v.(type) {
-			case string:
-				if s != "" {
-					return s
-				}
-			case float64:
-				return fmt.Sprintf("%.0f", s)
+		v, ok := lookupPath(obj, f)
+		if !ok {
+			continue
+		}
+		switch s := v.(type) {
+		case string:
+			if s != "" {
+				return s
 			}
+		case float64:
+			return fmt.Sprintf("%.0f", s)
 		}
 	}
 	return ""
