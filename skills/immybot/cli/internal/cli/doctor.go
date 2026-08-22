@@ -142,7 +142,11 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					configured, authSource := doctorAuthConfiguredState(cfg)
 					if !configured {
 						report["auth"] = "not configured"
-						report["auth_hint"] = "Run 'immybot-pp-cli auth setup' for credential setup steps."
+						// This CLI ships auth login, logout, set-token and status.
+					// There is no `auth setup` subcommand, so the previous
+					// hint sent operators to a command that does not exist at
+					// exactly the moment they were stuck.
+					report["auth_hint"] = "Set the four IMMYBOT_* variables, then run 'immybot-pp-cli auth login' to mint a token."
 						report["auth_docs_url"] = "https://www.immy.bot"
 						report["auth_instructions"] = "Register an app in Microsoft Entra ID, create a client secret, then in ImmyBot go to Show More > People > New and paste the Enterprise App object ID into \"AD External ID\". Set IMMYBOT_SUBDOMAIN, IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID and IMMYBOT_CLIENT_SECRET."
 					} else {
@@ -186,6 +190,25 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				report["env_vars"] = "INFO " + strings.Join(authEnvInfo, "; ")
 			default:
 				report["env_vars"] = fmt.Sprintf("OK %d/%d available", len(authEnvSet), 3)
+			}
+
+			// IMMYBOT_SUBDOMAIN is reported separately because it is not an
+			// auth credential: it names the instance, and env_vars above
+			// counts only the OAuth trio. Reporting "OK 3/3 available" while
+			// the same payload's auth_instructions ask for four variables read
+			// as an all-clear, and the one it omitted is the one that fails
+			// worst. Without a subdomain, applyDerivedOAuthScope cannot build
+			// https://<subdomain>.immy.bot/.default, the scope falls back to
+			// the generated api://{client_id}/.default default, which names
+			// the caller's own app registration rather than ImmyBot, and the
+			// operator gets an opaque Entra rejection or a 401 instead of
+			// being told which variable is missing.
+			if sub := strings.TrimSpace(os.Getenv("IMMYBOT_SUBDOMAIN")); sub != "" {
+				report["instance"] = "OK subdomain " + sub
+			} else if cfg != nil && cfg.TemplateVars["subdomain"] != "" && cfg.TemplateVars["subdomain"] != "your-instance" {
+				report["instance"] = "OK subdomain " + cfg.TemplateVars["subdomain"] + " (from config)"
+			} else {
+				report["instance"] = "ERROR no instance: set IMMYBOT_SUBDOMAIN to your instance name without .immy.bot"
 			}
 
 			// Check API connectivity and validate credentials.
@@ -320,6 +343,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				{"config", "Config"},
 				{"auth", "Auth"},
 				{"env_vars", "Env Vars"},
+				{"instance", "Instance"},
 				{"verify_mode", "Verify Mode"},
 				{"paths_warning", "Paths"},
 				{"credentials_location_warning", "Credentials Storage"},

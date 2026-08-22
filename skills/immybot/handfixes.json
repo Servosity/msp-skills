@@ -63,6 +63,43 @@
           "not_contains": "limit:          25,"
         }
       ]
+    },
+    {
+      "id": "parameter-required-lookups-out-of-default-sync",
+      "summary": "three parameter-required lookup endpoints are removed from defaultSyncResources, because sync cannot supply their required query parameter and they answer HTTP 400 on every run",
+      "why": "The profiler wired /api/v1/chocolatey/find-packages-by-id, /api/v1/maintenance-actions/maintenance-item and /api/v1/maintenance-actions/version into the default sync walk as if they were list endpoints. None of them is: each requires a query parameter (packageId, maintenanceItem, version respectively) that a bulk sync has no value for, so all three answered HTTP 400 'The <field> field is required.' on every run. This is the same class of defect as the ThreatLocker sync fixed in PR #222, where the profiler wired sync to GET dropdown helpers that were never bulk-list surfaces. The three names stay in knownSyncResourceNames and syncResourcePath so an explicit --resources selection still resolves and no other code path breaks; only the default walk drops them. Verified live: sync errored=3 before, errored=0 after, with resource count 68 -> 65 and no loss of records.",
+      "status": "active",
+      "spec_encode_followup": "Teach the profiler to keep endpoints with required query parameters out of the generated sync surface. An endpoint that cannot be called without a caller-supplied value is not a list endpoint.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "is deliberately absent. /api/v1/chocolatey/",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "are deliberately absent, for the same",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "doctor-reports-instance-and-a-real-auth-command",
+      "summary": "doctor reports the instance subdomain as its own check and stops pointing at a nonexistent `auth setup` subcommand",
+      "why": "Two separate inaccuracies in the same output. First, env_vars counts only the OAuth trio and prints 'OK 3/3 available', while the auth_instructions in the same payload tell the operator to set four variables. The one it omitted, IMMYBOT_SUBDOMAIN, is the one whose absence fails worst: without it applyDerivedOAuthScope cannot build https://<subdomain>.immy.bot/.default, the scope silently falls back to the generated api://{client_id}/.default, which names the caller's own app registration rather than ImmyBot, and the operator gets an opaque Entra rejection or a 401 rather than being told which variable is missing. A dedicated instance check now names it. Second, auth_hint told operators to run 'immybot-pp-cli auth setup', which does not exist; the real subcommands are login, logout, set-token and status, so the hint sent people to a dead command at the exact moment they were stuck. Note this bad hint is not ImmyBot-specific: five skills in this repo emit it while defining no such command (appdirect, crowdstrike, halopsa, immybot, ninjaone), and halopsa and ninjaone are shipped connectors.",
+      "status": "active",
+      "spec_encode_followup": "In the press: emit the auth hint from the set of subcommands the connector actually generates rather than a fixed string, and include every required template variable in the doctor env-var check rather than only the auth credentials. Also worth a repo-wide sweep for the four other skills already emitting the dead `auth setup` hint.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "report[\"instance\"]",
+          "min_count": 3
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "immybot-pp-cli auth setup"
+        }
+      ]
     }
   ]
 }

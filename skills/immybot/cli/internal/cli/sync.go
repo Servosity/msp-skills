@@ -2478,7 +2478,14 @@ func defaultSyncResources() []string {
 		"azure-errors",
 		"brandings",
 		"change-requests",
-		"chocolatey",
+		// "chocolatey" is deliberately absent. /api/v1/chocolatey/
+		// find-packages-by-id is a lookup that requires a packageId, not a
+		// list endpoint, so an unparameterised sync call answers HTTP 400
+		// "The packageId field is required." It stays in
+		// knownSyncResourceNames and syncResourcePath so an explicit
+		// --resources selection still resolves, but a default sync no longer
+		// spends a request to fail. Same reasoning as the two
+		// maintenance-actions lookups below.
 		"computers",
 		"computers-agent-status",
 		"computers-dx",
@@ -2493,8 +2500,12 @@ func defaultSyncResources() []string {
 		"licenses",
 		"licenses-dx",
 		"maintenance-actions",
-		"maintenance-actions-maintenance-item",
-		"maintenance-actions-version",
+		// "maintenance-actions-maintenance-item" and
+		// "maintenance-actions-version" are deliberately absent, for the same
+		// reason as "chocolatey" above: both are parameter-required lookups
+		// rather than list endpoints, and answer HTTP 400 "The maintenanceItem
+		// field is required." / "The version field is required." when sync
+		// calls them bare.
 		"maintenance-sessions",
 		"maintenance-tasks",
 		"maintenance-tasks-local",
