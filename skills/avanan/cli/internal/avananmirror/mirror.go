@@ -115,7 +115,23 @@ func (e *Envelope) Records() ([]json.RawMessage, error) {
 
 // Options controls an ingestion run.
 type Options struct {
-	// Since bounds the query window. Zero means "everything the API will give
+	// Since bounds the query window on the API's own indexing time, NOT on the
+	// message's received header.
+	//
+	// entityFilter.startDate/endDate filter on entityCreated - when Avanan
+	// ingested and scanned the message - and the two can differ by a lot.
+	// Measured on 2026-08-22: a message with received 19:08:22Z carried
+	// entityCreated 20:49:36Z, an hour and 41 minutes later, so every window
+	// built around its received time returned nothing while the message
+	// plainly existed. They usually track within seconds, which is exactly why
+	// this is worth stating: it reads as received-time filtering right up until
+	// a message is scanned late.
+	//
+	// Consequence for callers: a mirror window can miss mail that arrived
+	// inside it but was scanned after it, and can include mail that arrived
+	// before it. Widen the window rather than assuming message age.
+	//
+	// Zero means "everything the API will give
 	// us", which for a busy tenant is a lot — callers should always set it.
 	Since time.Time
 	// Scopes narrows the query to specific {farm}:{tenant} strings. Empty
@@ -322,6 +338,11 @@ func Entities(ctx context.Context, c Poster, db *store.Store, opts Options) (Res
 	return total, nil
 }
 
+// maxScrollPages bounds a single resource walk. At the API's 100-record page
+// size this is 100,000 records, far past any real tenant window, so reaching
+// it means the cursor is not advancing rather than that the tenant is large.
+const maxScrollPages = 1000
+
 // ingestQuery walks one query endpoint's scrollId pages into the store.
 func ingestQuery(ctx context.Context, c Poster, db *store.Store, path, resource string, requestData map[string]any, opts Options) (Result, error) {
 	res := Result{Resource: resource}
@@ -368,11 +389,33 @@ func ingestQuery(ctx context.Context, c Poster, db *store.Store, path, resource 
 			res.Stored++
 		}
 
+		// Avanan's scrollId is a STABLE server-side cursor handle, not a
+		// per-page token: every page of a walk returns the same value while
+		// the records advance underneath it. Treating an unchanged scrollId
+		// as "the server is looping" - the obvious reading, and what this
+		// did - stopped every walk after page two. Verified live on
+		// 2026-08-22: five consecutive pages returned scrollId 242d8f7d7800
+		// with a different first record each time, against an endpoint
+		// reporting 10,000 available, and `mirror` reported success having
+		// fetched 200.
+		//
+		// The real end-of-walk signals are an empty page, a short page, or a
+		// missing scrollId. A short page is the reliable one: the server
+		// honours pageSize, so fewer records than asked for means the cursor
+		// is exhausted.
 		next := env.ResponseEnvelope.ScrollID
-		if next == "" || len(records) == 0 || next == scrollID {
-			// An unchanged scrollId means the server is looping; stop rather
-			// than page forever against a rate-limited API.
+		if next == "" || len(records) == 0 || len(records) < opts.pageSize() {
 			break
+		}
+
+		// The stable-cursor design means there is no token change to detect a
+		// server that genuinely loops, so bound the walk explicitly. This is
+		// a runaway guard, not a page cap: --max-pages above handles the
+		// deliberate kind, and hitting this one is a bug worth surfacing.
+		if res.Pages >= maxScrollPages {
+			return res, fmt.Errorf(
+				"%s: stopped after %d pages (%d records) without the cursor exhausting; refusing to page further",
+				resource, res.Pages, res.Fetched)
 		}
 		scrollID = next
 	}

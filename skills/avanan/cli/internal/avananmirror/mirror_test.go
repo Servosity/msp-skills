@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -429,5 +430,102 @@ func TestRecordIDResolvesNestedEntityIdentifier(t *testing.T) {
 				t.Errorf("recordID() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+// pageOf builds a response page of n identifier-less records carrying a fixed
+// scrollId. Identifier-less keeps the store out of it: these tests are about
+// when the walk stops, not what it stores.
+func pageOf(n int, scrollID string) string {
+	recs := make([]string, n)
+	for i := range recs {
+		recs[i] = fmt.Sprintf(`{"noIdHere":%d}`, i)
+	}
+	return fmt.Sprintf(`{"responseEnvelope":{"responseCode":200,"scrollId":%q},"responseData":[%s]}`,
+		scrollID, strings.Join(recs, ","))
+}
+
+// TestScrollWalkContinuesThroughAStableScrollId is the regression guard for the
+// paging ceiling.
+//
+// Avanan's scrollId is a stable server-side cursor handle: every page of a walk
+// returns the SAME value while the records advance. Reading an unchanged
+// scrollId as "the server is looping" - the obvious interpretation, and what
+// this code did - stopped every walk after page two. Live on 2026-08-22 that
+// capped a 10,000-record resource at 200 records while reporting success.
+//
+// A short page is the real end-of-walk signal, since the server honours
+// pageSize.
+func TestScrollWalkContinuesThroughAStableScrollId(t *testing.T) {
+	const stable = "242d8f7d7800"
+	p := &fakePoster{responses: []string{
+		pageOf(MaxPageSize, stable),
+		pageOf(MaxPageSize, stable),
+		pageOf(MaxPageSize, stable),
+		pageOf(40, stable), // short page: cursor exhausted
+	}}
+
+	res, err := ingestQuery(context.Background(), p, nil, "/v1.0/event/query", ResourceEvents, map[string]any{}, Options{})
+	if err != nil {
+		t.Fatalf("ingestQuery() error = %v", err)
+	}
+	if res.Pages != 4 {
+		t.Errorf("Pages = %d, want 4; an unchanged scrollId must not end the walk", res.Pages)
+	}
+	if want := MaxPageSize*3 + 40; res.Fetched != want {
+		t.Errorf("Fetched = %d, want %d", res.Fetched, want)
+	}
+}
+
+// TestScrollWalkStopsOnAShortPage pins the termination signal itself, so a
+// future change cannot make the walk run past the end of the cursor.
+func TestScrollWalkStopsOnAShortPage(t *testing.T) {
+	p := &fakePoster{responses: []string{
+		pageOf(MaxPageSize, "cursor"),
+		pageOf(1, "cursor"),
+		pageOf(MaxPageSize, "cursor"), // must never be requested
+	}}
+
+	res, err := ingestQuery(context.Background(), p, nil, "/v1.0/event/query", ResourceEvents, map[string]any{}, Options{})
+	if err != nil {
+		t.Fatalf("ingestQuery() error = %v", err)
+	}
+	if res.Pages != 2 {
+		t.Errorf("Pages = %d, want 2; a short page means the cursor is exhausted", res.Pages)
+	}
+	if p.calls != 2 {
+		t.Errorf("made %d requests, want 2; the walk kept going past a short page", p.calls)
+	}
+}
+
+// TestScrollWalkStopsOnAnEmptyPage covers the other terminator.
+func TestScrollWalkStopsOnAnEmptyPage(t *testing.T) {
+	p := &fakePoster{responses: []string{
+		pageOf(MaxPageSize, "cursor"),
+		pageOf(0, "cursor"),
+	}}
+	res, err := ingestQuery(context.Background(), p, nil, "/v1.0/event/query", ResourceEvents, map[string]any{}, Options{})
+	if err != nil {
+		t.Fatalf("ingestQuery() error = %v", err)
+	}
+	if res.Pages != 2 || res.Fetched != MaxPageSize {
+		t.Errorf("Pages = %d, Fetched = %d; want 2 and %d", res.Pages, res.Fetched, MaxPageSize)
+	}
+}
+
+// TestMaxPagesStillCaps makes sure the deliberate cap survived the change to
+// the termination logic.
+func TestMaxPagesStillCaps(t *testing.T) {
+	p := &fakePoster{responses: []string{
+		pageOf(MaxPageSize, "cursor"),
+		pageOf(MaxPageSize, "cursor"),
+		pageOf(MaxPageSize, "cursor"),
+	}}
+	res, err := ingestQuery(context.Background(), p, nil, "/v1.0/event/query", ResourceEvents, map[string]any{}, Options{MaxPages: 2})
+	if err != nil {
+		t.Fatalf("ingestQuery() error = %v", err)
+	}
+	if res.Pages != 2 || !res.Capped {
+		t.Errorf("Pages = %d, Capped = %v; want 2 and true", res.Pages, res.Capped)
 	}
 }
