@@ -28,11 +28,11 @@
     "released_hash": "sha256:03150a8b133891e79c555f8f134cc24992ccb10b1490dc6b34f0c0b2d614bc6e"
   },
   "appdirect": {
-    "state": "binary-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
     "latest_tag": "appdirect-v0.1.1",
     "current_hash": "sha256:52465f2a776817947ae4cabbccd0db1b3d52884a43e8d04b0f0cfb9e689f63e1",
-    "released_hash": "sha256:cb47bbdb5bec3281845dfe9fe3ff67a539eddd1911005fe658763fb14049cdf1"
+    "released_hash": "sha256:52465f2a776817947ae4cabbccd0db1b3d52884a43e8d04b0f0cfb9e689f63e1"
   },
   "atera": {
     "state": "binary-pending",
@@ -133,11 +133,11 @@
     "released_hash": "sha256:26facbe536e9e1709718ba30bf88e5474acde6f1f1faa49a369de61974b885a9"
   },
   "crowdstrike": {
-    "state": "binary-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
     "latest_tag": "crowdstrike-v0.1.1",
     "current_hash": "sha256:2ecaf3db4f31ffecc7b77c8fa0f41a37719e8c5fef4cd9ce9848e8c68b8785ba",
-    "released_hash": "sha256:0e629f2563bddfab44bf389a6354e85f760ec38a7bf75eeb38a5524d1d7b7981"
+    "released_hash": "sha256:2ecaf3db4f31ffecc7b77c8fa0f41a37719e8c5fef4cd9ce9848e8c68b8785ba"
   },
   "datto-bcdr": {
     "state": "up-to-date",
