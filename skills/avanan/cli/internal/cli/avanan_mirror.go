@@ -249,6 +249,28 @@ Do NOT use this command to query the API directly; use 'event query' or
 				mirrorFailure = fmt.Errorf(
 					"mirror stored nothing: all %d requested resource(s) failed\n"+
 						"the local store was left untouched rather than stamped as freshly synced; see the warnings above", attempted)
+			default:
+				// A resource that returned records and stored none of them is
+				// not a thin day of data - it is the record shape and the
+				// identifier lookup disagreeing, and it empties one table while
+				// the run reports success. The entity search shipped in exactly
+				// that state: it nests its id under entityInfo, every row was
+				// dropped for want of an identifier, and `mirror` exited 0
+				// having stored none of 343 records.
+				//
+				// Fatal rather than a warning, and no sync stamp for any
+				// resource, on the same reasoning as throttling: a partial
+				// mirror stamped as a good one makes every offline command
+				// answer confidently from a table that was never filled.
+				for _, r := range report.Results {
+					if r.Fetched > 0 && r.Stored == 0 {
+						mirrorFailure = fmt.Errorf(
+							"mirror stored none of the %d %s record(s) it received (%d had no usable identifier)\n"+
+								"this is a record-shape mismatch, not an empty tenant: the store was left unstamped so the offline commands report it as unsynced rather than empty",
+							r.Fetched, r.Resource, r.Skipped)
+						break
+					}
+				}
 			}
 
 			// Record sync state per mirrored resource. Without this the
